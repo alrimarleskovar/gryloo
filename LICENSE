@@ -1,0 +1,19 @@
+# Gryloo licenses
+
+Gryloo is a multi-licensed repository. The exact classification of each path
+is governed by [the license map](docs/LICENSE_MAP.md).
+
+- Eligible original governance, specification, prompt, repository-administration,
+  and public-policy materials are licensed under
+  [Apache License 2.0](LICENSES/Apache-2.0.txt).
+- The reserved public reference implementation paths, if later approved and
+  populated, are designated for
+  [GNU Affero General Public License 3.0 only](LICENSES/AGPL-3.0-only.txt).
+
+No tracked AGPL-3.0-only implementation currently exists. `docs/assets/**` and
+unverified third-party materials are excluded from these Gryloo license grants.
+Third-party materials remain subject to their own rights.
+
+These licenses grant no Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
+Private or proprietary managed-plane components are prohibited from this public
+repository.

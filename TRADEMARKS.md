@@ -1,9 +1,10 @@
 # Trademarks
 
 Gryloo names, logos, visual identity, and associated goodwill are not licensed
-by any intended source-code license described in this repository. No trademark
-rights are granted by source availability, contribution, redistribution, or use.
+by the source and documentation licenses described in this repository. No
+trademark rights are granted by source availability, contribution,
+redistribution, or use.
 
-Formal IP ownership and final legal texts remain
-`BLOCKED_PENDING_IP_OWNERSHIP`. This document is a governance statement, not a
-final trademark license or legal opinion.
+The pre-incorporation licensing authorization in DEC-0008 does not transfer
+trademark rights. This document is a governance statement, not a trademark
+license or legal opinion.
