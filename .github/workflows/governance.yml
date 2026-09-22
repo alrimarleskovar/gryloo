@@ -31,11 +31,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import pathlib, re, sys
+          import hashlib, pathlib, re, subprocess, sys
 
           root = pathlib.Path('.')
           required = [
-              'README.md', 'TRADEMARKS.md',
+              'LICENSE', 'NOTICE', 'LICENSES/Apache-2.0.txt',
+              'LICENSES/AGPL-3.0-only.txt', 'README.md', 'TRADEMARKS.md',
+              'docs/builds/BUILD-000-LICENSING-AMENDMENT.md',
               'docs/specs/MASTER_SPEC_V3.2.md',
               'prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md',
               'docs/builds/BUILD-000-PLAN.md', 'docs/builds/BUILD-000-REPORT.md',
@@ -67,7 +69,7 @@ jobs:
               'requirement': markdown[root / 'docs/REQUIREMENTS.md'],
           }
           for kind, body in registries.items():
-              ids = re.findall(patterns[kind], body)
+              ids = re.findall(r'(?m)^\| (DEC-\d{4}|B000-[A-Z]+-\d{3}) \|', body)
               duplicates = sorted({item for item in ids if ids.count(item) > 1})
               if duplicates: errors.append(f'duplicate {kind} IDs: {duplicates}')
 
@@ -88,7 +90,7 @@ jobs:
               if re.search(r'(?<![\w.])svg(?![\w.])', body, re.I):
                   errors.append(f'standalone prohibited token in {path}')
 
-          forbidden = ['LICENSE', 'LICENSE-APACHE-2.0', 'NOTICE', 'package.json',
+          forbidden = ['LICENSE-APACHE-2.0', 'package.json',
                        'pnpm-workspace.yaml', 'turbo.json']
           for name in forbidden:
               if (root / name).exists(): errors.append(f'forbidden file: {name}')
@@ -102,6 +104,167 @@ jobs:
                   if '://' in target or target.startswith('#'): continue
                   dest = (path.parent / target.split('#', 1)[0]).resolve()
                   if not dest.exists(): errors.append(f'broken link in {path}: {target}')
+
+
+          # Licensing classification is exhaustive and mutually exclusive.
+          tracked = [p.decode() for p in subprocess.check_output(
+              ['git', 'ls-files', '-z']).split(b'\0') if p]
+          def classifications(path):
+              found = []
+              if path in {'.gitignore', '.github/workflows/governance.yml',
+                          'README.md', 'TRADEMARKS.md', 'NOTICE'} or any(
+                  re.fullmatch(pattern, path) for pattern in (
+                      r'docs/[^/]+\.md', r'docs/adr/[^/]+\.md',
+                      r'docs/builds/[^/]+\.md', r'docs/specs/[^/]+\.md',
+                      r'prompts/[^/]+\.md')):
+                  found.append('Apache-2.0')
+              if path == 'LICENSE': found.append('routing')
+              if path in {'LICENSES/Apache-2.0.txt', 'LICENSES/AGPL-3.0-only.txt'}:
+                  found.append('official text')
+              if path.startswith('docs/assets/'): found.append('excluded')
+              return found
+          for path in tracked:
+              if len(classifications(path)) != 1:
+                  errors.append(f'classification count for {path}: {classifications(path)}')
+          for path in ('docs/assets/1.jpeg', 'docs/assets/2.jpeg', 'docs/assets/3.jpeg'):
+              if path not in tracked or classifications(path) != ['excluded']:
+                  errors.append(f'asset exclusion missing: {path}')
+
+          # The current repository has no application, dependencies, or private plane.
+          prohibited_prefixes = (
+              'managed/', 'private/', 'proprietary/', 'services/managed/',
+              'services/partner-gateway/', 'services/enterprise-policy/',
+              'services/hosted-explorer/', 'apps/', 'packages/')
+          manifests = {
+              'package.json', 'package-lock.json', 'pnpm-workspace.yaml',
+              'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb',
+              'turbo.json', 'Cargo.toml', 'Cargo.lock', 'pyproject.toml',
+              'requirements.txt', 'go.mod', 'go.sum', 'composer.json',
+              'Gemfile', 'Gemfile.lock'}
+          for path in tracked:
+              basename = pathlib.PurePosixPath(path).name
+              if path.startswith(prohibited_prefixes):
+                  errors.append(f'implementation or private path: {path}')
+              if basename in manifests or 'sbom' in path.lower() or re.fullmatch(
+                      r'(?i)cla(?:\.[^.]+)?', basename):
+                  errors.append(f'manifest, SBOM, or CLA: {path}')
+              if re.search(r'(?i)(consent|signature|founder|ownership)', path):
+                  errors.append(f'private record path: {path}')
+
+          # Published legal texts must be exact official copies.
+          expected_hashes = {
+              'LICENSES/Apache-2.0.txt':
+                  ('cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30', 11358),
+              'LICENSES/AGPL-3.0-only.txt':
+                  ('0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0', 34523),
+              'docs/builds/BUILD-000-PLAN.md':
+                  ('fd6383800a858d3667a20c3e557c4fab5449e075f106aaa88efd973a0a4ec947', None),
+              'docs/builds/BUILD-000-REPORT.md':
+                  ('0c8652cfbf0cc9c3f267a15eccb4315fb83f770798ef7b4d35af6216c6a8f902', None),
+              'docs/specs/MASTER_SPEC_V3.2.md':
+                  ('71d9bb92bf4f2469825edc1b70e03b04f38924495ac9c2581c76bfbb9d6200a9', None),
+              'docs/assets/1.jpeg':
+                  ('5093feaaa89ff246611bd5a1967f78eab48d3e8be37472ffb605d6487fd0b51e', None),
+              'docs/assets/2.jpeg':
+                  ('946965b7c75db5179cb879efbd7874ec83b5cfbcade43a57b07bb0f9ca5f9805', None),
+              'docs/assets/3.jpeg':
+                  ('ed6b25cae27d31612bade65ff147bd6795a7b112db250e5c9a4a3865dad0ccf1', None),
+          }
+          for path, (digest, size) in expected_hashes.items():
+              data = (root / path).read_bytes()
+              if hashlib.sha256(data).hexdigest() != digest:
+                  errors.append(f'hash mismatch: {path}')
+              if size is not None and len(data) != size:
+                  errors.append(f'size mismatch: {path}')
+          for path in ('LICENSES/Apache-2.0.txt', 'LICENSES/AGPL-3.0-only.txt'):
+              if b'Gryloo' in (root / path).read_bytes():
+                  errors.append(f'Gryloo addition to official text: {path}')
+
+          decisions = markdown[root / 'docs/DECISIONS.md']
+          dec4 = ('| DEC-0004 | Record legal files as blocked pending formal '
+                  'team IP ownership. | SUPERSEDED_BY_DEC-0008 |')
+          if decisions.count(dec4) != 1:
+              errors.append('DEC-0004 original wording or status changed')
+          if len(re.findall(r'(?m)^\| DEC-0008 \|', decisions)) != 1:
+              errors.append('DEC-0008 must exist exactly once')
+          dec8 = next((line for line in decisions.splitlines()
+                       if line.startswith('| DEC-0008 |')), '')
+          for marker in ('2026-09-22', 'unanimous founder authorization',
+                         'pre-incorporation', 'Apache-2.0', 'AGPL-3.0-only',
+                         'eligible original Gryloo materials', 'Alrimar Sobrinho',
+                         'repository administrator and license publisher',
+                         'does not confer exclusive ownership', '| APPROVED |'):
+              if marker not in dec8:
+                  errors.append(f'DEC-0008 missing {marker}')
+
+          license_map = markdown[root / 'docs/LICENSE_MAP.md']
+          status = markdown[root / 'docs/STATUS.md']
+          amendment = markdown[root / 'docs/builds/BUILD-000-LICENSING-AMENDMENT.md']
+          for marker in ('RESOLVED_FOR_PREINCORPORATION_LICENSING',
+                         'DEFERRED_UNTIL_INCORPORATION', 'AUTHORIZED',
+                         'EXCLUDED_UNLESS_VERIFIED', 'DEFERRED'):
+              if any(marker not in body for body in (license_map, status, amendment)):
+                  errors.append(f'licensing state missing {marker}')
+          if 'NOT_APPROVED' not in status or 'NOT_APPROVED' not in markdown[root / 'docs/NEXT_BUILD.md']:
+              errors.append('BUILD-001 approval gate changed')
+          for marker in ('docs/assets/**', 'No tracked AGPL-3.0-only implementation',
+                         'apps/reference-dapp/**', 'packages/reference-compiler/**',
+                         'packages/reference-linter/**',
+                         'packages/reference-simulation/**',
+                         'packages/reference-executor/**',
+                         'packages/reference-reconciler/**',
+                         'packages/reference-evidence/**', 'packages/public-ui/**',
+                         'managed/**', 'private/**', 'proprietary/**',
+                         'services/managed/**', 'services/partner-gateway/**',
+                         'services/enterprise-policy/**',
+                         'services/hosted-explorer/**'):
+              if marker not in license_map:
+                  errors.append(f'license map boundary missing {marker}')
+          routing = (root / 'LICENSE').read_text()
+          notice = (root / 'NOTICE').read_text()
+          for marker in ('multi-licensed', 'docs/LICENSE_MAP.md',
+                         'LICENSES/Apache-2.0.txt', 'LICENSES/AGPL-3.0-only.txt',
+                         'docs/assets/**', 'TRADEMARKS.md'):
+              if marker not in routing:
+                  errors.append(f'LICENSE routing missing {marker}')
+          for marker in ('multi-licensed', 'docs/LICENSE_MAP.md',
+                         'Gryloo contributors', 'Third-party materials',
+                         'TRADEMARKS.md'):
+              if marker not in notice:
+                  errors.append(f'NOTICE missing {marker}')
+          if 'Alrimar' in notice:
+              errors.append('NOTICE must use neutral contributor wording')
+
+          historical = {root / 'docs/builds/BUILD-000-PLAN.md',
+                        root / 'docs/builds/BUILD-000-REPORT.md'}
+          for path, body in markdown.items():
+              if 'BLOCKED_PENDING_IP_OWNERSHIP' in body and path not in historical:
+                  if path != root / 'docs/builds/BUILD-000-LICENSING-AMENDMENT.md':
+                      errors.append(f'stale licensing blocker: {path}')
+                  elif (body.count('BLOCKED_PENDING_IP_OWNERSHIP') != 1 or
+                        'preserved historical statements, not the current repository status' not in body):
+                      errors.append('historical blocker explanation missing')
+          for name in ('LICENSE', 'NOTICE', 'README.md', 'TRADEMARKS.md',
+                       'docs/DECISIONS.md', 'docs/LICENSE_MAP.md',
+                       'docs/REQUIREMENTS.md', 'docs/STATUS.md',
+                       'docs/builds/BUILD-000-LICENSING-AMENDMENT.md'):
+              body = (root / name).read_text()
+              if re.search(r'(?im)^\s*(?:[-*]\s*)?(?:consent (?:record|metadata)|signature|ownership percentage|founder list)\s*[:|]', body):
+                  errors.append(f'private consent field: {name}')
+              if re.search(r'(?im)^#{1,6}\s*(?:founders?|consent|signatures?|ownership)\b', body):
+                  errors.append(f'private record section: {name}')
+              if re.search(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?%', body):
+                  errors.append(f'ownership percentage or other private percentage: {name}')
+              if re.search(r'(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', body):
+                  errors.append(f'private email: {name}')
+              if re.search(r'(?i)Alrimar Sobrinho.{0,100}(?:is (?:the )?(?:sole|exclusive) owner|owns all)', body):
+                  errors.append(f'exclusive ownership claim: {name}')
+          for name in ('docs/DECISIONS.md', 'docs/LICENSE_MAP.md',
+                       'docs/builds/BUILD-000-LICENSING-AMENDMENT.md'):
+              if 'Alrimar Sobrinho' not in (root / name).read_text():
+                  errors.append(f'authorized administrator missing: {name}')
+          if re.search(r'(?m)^\s*-\s*uses:', (root / '.github/workflows/governance.yml').read_text()):
+              errors.append('external GitHub Action prohibited')
 
           if errors:
               print('\n'.join(errors), file=sys.stderr)

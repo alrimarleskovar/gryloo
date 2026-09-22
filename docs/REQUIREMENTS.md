@@ -13,8 +13,8 @@ Prompt. Evidence for this build is governance evidence, not financial evidence.
 | B000-EVIDENCE-001 | Evidence and outcome terms are explicit. | Evidence model | Evidence levels | SATISFIED |
 | B000-AUTHORITY-001 | Authority modes and enforcement vocabulary are fixed. | Authorization | Authority matrix | SATISFIED |
 | B000-AUTHORITY-002 | Mode B analysis stays proposed. | Authorization | ADR-0001 | SATISFIED |
-| B000-LICENSE-001 | Intended boundaries and missing legal files are explicit. | Open-source strategy | License map | BLOCKED_PENDING_IP_OWNERSHIP |
-| B000-IP-001 | Formal team IP ownership must be recorded. | Legal gate | License map | BLOCKED_PENDING_IP_OWNERSHIP |
+| B000-LICENSE-001 | Approved licenses, path boundaries, and exclusions are explicit. | Open-source strategy | License map and governance CI | SATISFIED |
+| B000-IP-001 | Pre-incorporation licensing authority is recorded; future legal-entity transfer is deferred. | Legal gate | DEC-0008 and licensing amendment | RESOLVED_FOR_PREINCORPORATION_LICENSING |
 | B000-SECURITY-001 | Governance CI and basic secret checks exist. | Security | Workflow | SATISFIED |
 | B000-TRACEABILITY-001 | Requirements map to sources, checks, evidence, and status. | Acceptance | This registry | SATISFIED |
 | B000-SCOPE-001 | BUILD-000 is governance-only. | Phase 0 | Scope checks | SATISFIED |
