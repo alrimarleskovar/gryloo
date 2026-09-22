@@ -1,0 +1,110 @@
+name: Governance
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch reviewed revision with runner-provided Git
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git init .
+          git remote add origin "$SERVER/$REPOSITORY.git"
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "$REVISION"
+          git checkout --detach FETCH_HEAD
+
+      - name: Run governance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          root = pathlib.Path('.')
+          required = [
+              'README.md', 'TRADEMARKS.md',
+              'docs/specs/MASTER_SPEC_V3.2.md',
+              'prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md',
+              'docs/builds/BUILD-000-PLAN.md', 'docs/builds/BUILD-000-REPORT.md',
+              'docs/STATUS.md', 'docs/NEXT_BUILD.md', 'docs/DECISIONS.md',
+              'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md',
+              'docs/SECURITY_MODEL.md', 'docs/AUTHORITY_MATRIX.md',
+              'docs/EVIDENCE_LEVELS.md', 'docs/LICENSE_MAP.md',
+              'docs/adr/ADR-0001-mode-b-authority.md',
+          ]
+          errors = []
+          for name in required:
+              if not (root / name).is_file(): errors.append(f'missing: {name}')
+
+          plan = (root / 'docs/builds/BUILD-000-PLAN.md').read_text()
+          positions = [plan.find(f'## {n}.') for n in range(1, 14)]
+          if any(p < 0 for p in positions) or positions != sorted(positions):
+              errors.append('BUILD-000 plan headings missing or out of order')
+
+          markdown = {p: p.read_text() for p in root.rglob('*.md')}
+          joined = '\n'.join(markdown.values())
+          patterns = {
+              'build': r'(?<![A-Z0-9-])BUILD-\d{3}(?![A-Z0-9-])',
+              'adr': r'(?<![A-Z0-9-])ADR-\d{4}(?![A-Z0-9-])',
+              'decision': r'(?<![A-Z0-9-])DEC-\d{4}(?![A-Z0-9-])',
+              'requirement': r'(?<![A-Z0-9-])B000-[A-Z]+-\d{3}(?![A-Z0-9-])',
+          }
+          registries = {
+              'decision': markdown[root / 'docs/DECISIONS.md'],
+              'requirement': markdown[root / 'docs/REQUIREMENTS.md'],
+          }
+          for kind, body in registries.items():
+              ids = re.findall(patterns[kind], body)
+              duplicates = sorted({item for item in ids if ids.count(item) > 1})
+              if duplicates: errors.append(f'duplicate {kind} IDs: {duplicates}')
+
+          for line in markdown[root / 'docs/AUTHORITY_MATRIX.md'].splitlines():
+              if line.startswith('| ') and not line.startswith('|---') and 'Rule |' not in line:
+                  cells = [c.strip() for c in line.strip('|').split('|')]
+                  if len(cells) < 3 or not cells[2]: errors.append(f'authority location missing: {line}')
+
+          readme = markdown[root / 'README.md']
+          for prohibited in ('FlowDeFi', 'PROJECT_NAME', 'MANIFYN', 'DeFi Agent'):
+              if prohibited in readme: errors.append(f'deprecated name in README: {prohibited}')
+          if re.search(r'funds\s+protected', readme, re.I):
+              errors.append('unsupported safety claim in README')
+
+          for path, body in markdown.items():
+              if re.search(r'(?im)(api[_-]?key|secret|private[_-]?key)\s*[:=]\s*["\']?[A-Za-z0-9+/=_-]{16,}', body):
+                  errors.append(f'possible secret in {path}')
+              if re.search(r'(?<![\w.])svg(?![\w.])', body, re.I):
+                  errors.append(f'standalone prohibited token in {path}')
+
+          forbidden = ['LICENSE', 'LICENSE-APACHE-2.0', 'NOTICE', 'package.json',
+                       'pnpm-workspace.yaml', 'turbo.json']
+          for name in forbidden:
+              if (root / name).exists(): errors.append(f'forbidden file: {name}')
+          if list(root.rglob('*sbom*')): errors.append('unexpected SBOM path')
+          if (root / 'docs/MASTER_SPEC_V3.2.md').exists(): errors.append('old spec path remains')
+
+          # Validate repository-relative Markdown links.
+          link_re = re.compile(r'\[[^]]*\]\(([^)]+)\)')
+          for path, body in markdown.items():
+              for target in link_re.findall(body):
+                  if '://' in target or target.startswith('#'): continue
+                  dest = (path.parent / target.split('#', 1)[0]).resolve()
+                  if not dest.exists(): errors.append(f'broken link in {path}: {target}')
+
+          if errors:
+              print('\n'.join(errors), file=sys.stderr)
+              raise SystemExit(1)
+          print('Governance checks passed')
+          PY
