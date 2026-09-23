@@ -9,8 +9,8 @@
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "eslint packages scripts/export-schemas.mjs eslint.config.mjs",
-    "test": "vitest run",
+    "lint": "eslint packages apps/reference-dapp/src apps/reference-dapp/e2e apps/reference-dapp/next.config.ts apps/reference-dapp/playwright.config.ts scripts/export-schemas.mjs eslint.config.mjs",
+    "test": "vitest run packages apps/reference-dapp/src",
     "schemas:export": "node scripts/export-schemas.mjs",
     "schemas:check": "node scripts/export-schemas.mjs --check",
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm schemas:check && pnpm test"

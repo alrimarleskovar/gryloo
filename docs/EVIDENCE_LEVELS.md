@@ -29,3 +29,10 @@ or claimed as a retained artifact. Local validation does not prove a remote CI
 run. Synthetic fixtures containing financial environment or outcome enum values
 test contracts; they do not demonstrate those outcomes. No primitive has P1–P14
 certification from this build.
+
+BUILD-002 local acceptance is demonstrated by strict compiler, full
+dependency integrity/license inventory, frozen install, regression, browser,
+accessibility, network, visual, audit, ephemeral SBOM and governance gates
+recorded in the [BUILD-002 report](builds/BUILD-002-REPORT.md). These are local
+observations; remote CI and future binary release compliance require their own
+evidence.

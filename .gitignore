@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # BUILD-001 task cache
 .turbo/
+
+# BUILD-002 browser test output
+apps/reference-dapp/test-results/

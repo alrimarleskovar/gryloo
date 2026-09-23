@@ -1,8 +1,10 @@
 packages:
   - packages/*
+  - apps/reference-dapp
 minimumReleaseAge: 10080
 pmOnFail: error
 strictPeerDependencies: true
 autoInstallPeers: false
 patchedDependencies:
   '@streamparser/json@0.0.26': patches/@streamparser__json@0.0.26.patch
+  '@xyflow/system@0.0.82': patches/@xyflow__system@0.0.82.patch

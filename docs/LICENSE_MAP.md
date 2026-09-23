@@ -22,11 +22,12 @@ ownership of Gryloo intellectual property.
 
 | Classification | Exact tracked paths or path patterns | Treatment |
 |---|---|---|
-| Apache-2.0 | `.gitignore`, `.node-version`, `.npmrc`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `turbo.json`, `tsconfig.base.json`, `eslint.config.mjs`, `.github/workflows/governance.yml`, `.github/workflows/contracts.yml`, `scripts/bootstrap-ci.py`, `scripts/export-schemas.mjs`, `README.md`, `TRADEMARKS.md`, `NOTICE`, `docs/*.md`, `docs/adr/*.md`, `docs/builds/*.md`, `docs/specs/*.md`, `docs/contracts/*.md`, `prompts/*.md`, `packages/workflow-contracts/**` and `packages/action-registry/**` except each package LICENSE, `tests/compatibility/v1/**` | Eligible original governance, contracts, registry, fixtures, generated schemas, tooling, and policy material; [Apache License 2.0](../LICENSES/Apache-2.0.txt). Only exact paths in the approved BUILD-001 plan are authorized. |
-| THIRD_PARTY_PATCH | `patches/@streamparser__json@0.0.26.patch` | Modified `@streamparser/json@0.0.26` declarations under upstream MIT; patch SHA-256 `3232498480ccaaab0643460d8c365f143109561324575b05feff987eb45278e6`. No Gryloo Apache grant. |
-| Official third-party legal text | `third_party/licenses/streamparser-json-MIT.txt` | Byte-for-byte upstream MIT `LICENSE` from `https://registry.npmjs.org/@streamparser/json/-/json-0.0.26.tgz`, SHA-256 `b0022ea53a62be6b1f54f89f80d9271e395df2d12a63b4f8f0bf1a916a4e8094`. |
+| Apache-2.0 | `.gitignore`, `.node-version`, `.npmrc`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `turbo.json`, `tsconfig.base.json`, `eslint.config.mjs`, `.github/workflows/governance.yml`, `.github/workflows/contracts.yml`, `scripts/bootstrap-ci.py`, `scripts/export-schemas.mjs`, `README.md`, `TRADEMARKS.md`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `docs/*.md`, `docs/adr/*.md`, `docs/builds/*.md`, `docs/specs/*.md`, `docs/contracts/*.md`, `prompts/*.md`, `packages/workflow-contracts/**` and `packages/action-registry/**` except each package LICENSE, `tests/compatibility/v1/**` | Eligible original governance, contracts, registry, fixtures, generated schemas, tooling, and policy material; [Apache License 2.0](../LICENSES/Apache-2.0.txt). Only exact paths in the approved BUILD-001 and BUILD-002 plans and the later BUILD-002 legal-evidence amendment are authorized. |
+| THIRD_PARTY_PATCH | `patches/@streamparser__json@0.0.26.patch`, `patches/@xyflow__system@0.0.82.patch` | Modified `@streamparser/json@0.0.26` declarations under upstream MIT; patch SHA-256 `3232498480ccaaab0643460d8c365f143109561324575b05feff987eb45278e6`. No Gryloo Apache grant. The XYFlow two-declaration patch has SHA-256 `4420c4eab49ef56325c7cb81898894b1c9f08fe39621216e8cf77532ce98f6d5`. |
+| Official third-party legal text | `third_party/licenses/streamparser-json-MIT.txt`, `third_party/licenses/xyflow-system-MIT.txt` and the 19 exact preserved files listed in `THIRD_PARTY_NOTICES.md` | Byte-identical upstream legal and licensing materials, retaining their own licenses. The parser MIT copy has SHA-256 `b0022ea53a62be6b1f54f89f80d9271e395df2d12a63b4f8f0bf1a916a4e8094`; the XYFlow MIT copy has SHA-256 `023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff`. The exact BUILD-002 package/file/digest mappings are in the third-party notice register. |
+| AGPL-3.0-only application | `apps/reference-dapp/**` except `apps/reference-dapp/LICENSE` | Gryloo-authored private reference application, tests and baseline images under [AGPL-3.0-only](../LICENSES/AGPL-3.0-only.txt). No financial execution. |
 | License routing | `LICENSE` | Multi-license routing document; consult this map for grants. |
-| Official legal text | `LICENSES/Apache-2.0.txt`, `LICENSES/AGPL-3.0-only.txt`, `packages/workflow-contracts/LICENSE`, `packages/action-registry/LICENSE` | Unmodified official texts. Both package copies must match `LICENSES/Apache-2.0.txt` byte-for-byte, including its verified SHA-256 and byte length. |
+| Official legal text | `LICENSES/Apache-2.0.txt`, `LICENSES/AGPL-3.0-only.txt`, `packages/workflow-contracts/LICENSE`, `packages/action-registry/LICENSE`, `apps/reference-dapp/LICENSE` | Unmodified official texts. Both package copies match `LICENSES/Apache-2.0.txt`; the application copy matches `LICENSES/AGPL-3.0-only.txt` byte-for-byte. |
 | Excluded third-party references | `docs/assets/1.jpeg`, `docs/assets/2.jpeg`, `docs/assets/3.jpeg` | Visual reference material; no Gryloo license grant. |
 
 The exclusion applies prospectively to all `docs/assets/**`. Unverified
@@ -51,11 +52,9 @@ reviewed boundary and does not certify compliance for future distribution.
 
 ## Reserved future boundaries
 
-No tracked AGPL-3.0-only implementation currently exists. The following paths
-are reserved for a separately approved public reference implementation under
-AGPL-3.0-only; reservation does not authorize those implementations or create files:
-
-- `apps/reference-dapp/**`
+The BUILD-002 reference application is the approved AGPL-3.0-only
+implementation. The following other paths remain reserved and are not
+authorized by BUILD-002:
 - `packages/reference-compiler/**`
 - `packages/reference-linter/**`
 - `packages/reference-simulation/**`
@@ -76,3 +75,19 @@ public repository:
 - `services/hosted-explorer/**`
 
 No Gryloo trademark rights are granted; see [TRADEMARKS.md](../TRADEMARKS.md).
+
+
+## BUILD-002 dependency boundary
+
+The exact 16 reviewed packages and actual SPDX expressions are mapped in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and pinned with registry
+SRIs in `scripts/bootstrap-ci.py`. The ten libvips platform packages retain
+LGPL-3.0-or-later. The Sharp WASM and Windows packages retain all components
+of their compound expressions. `caniuse-lite` data remains CC-BY-4.0 and
+`tslib` remains 0BSD. Optional or inactive packages remain disclosed in the
+full dependency evidence and SBOM. These are unmodified registry packages;
+no source or binary is vendored as Gryloo-authored application code.
+
+Future distribution of a Sharp/libvips binary requires a separate release
+compliance gate for notices, corresponding-source availability and user
+replacement/relink rights. This review is not a universal legal certification.
