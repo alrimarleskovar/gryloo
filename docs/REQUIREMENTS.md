@@ -47,3 +47,52 @@ network isolation; honest unavailable Simulate and Execute shells; and exact
 license/SRI disclosure for all 245 locked packages, including inactive
 platforms. No wallet, transaction, signing or financial execution is
 authorized.
+
+## Retrospective BUILD-002 index
+
+These `B002-*` IDs were assigned on 2026-09-23 by the
+[BUILD-002 governance amendment](builds/BUILD-002-GOVERNANCE-AMENDMENT.md)
+as a retrospective governance index. They did not exist while BUILD-002 was
+planned or implemented, and they add no scope. Each row points to evidence
+already committed at merge commit `606174f0bd944e5a1c31baf8dad685d7558b7cc8`
+or to the CI runs recorded in the amendment. `SATISFIED` covers the mocked,
+non-financial shell only: the interface is labelled `MOCKED`, build evidence
+and financial outcome are `NOT_APPLICABLE`, authorization is `NONE` and
+enforcement is `NOT_ENFORCED`. No primitive has P1–P14 certification.
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B002-BRAND-001 | Display the Gryloo brand from one typed, frozen configuration value. | Master Prompt §0.1 and Build 002 | `apps/reference-dapp/src/config/product.ts` and `product.test.ts` | SATISFIED |
+| B002-LAYOUT-001 | Provide the white Build → Simulate → Execute shell with Simulate and Execute shown as unavailable. | Master Prompt §9.1–9.2 and Build 002 | `top-bar.tsx`, `app-shell.tsx`, `interface-honesty.spec.ts` and three visual baselines | SATISFIED |
+| B002-STATE-001 | Chat and canvas edit one immutable, revisioned Semantic Workflow IR through one reducer. | Master Spec §5.1 and §7.8 | `editor.ts`, `editor.test.ts`, `build-roundtrip.spec.ts` and `contracts.integration.test.ts` | SATISFIED |
+| B002-REVISION-001 | Reject stale `baseRevision` edits without overwriting the current IR. | Master Spec §7.8 | `editor.ts` and `editor.test.ts` | SATISFIED |
+| B002-LOCK-001 | Keep a locked amount parameter from being edited through chat. | Master Spec §5.3 and §9.2 | `editor.ts`, `commands.ts` and `editor.test.ts` | SATISFIED |
+| B002-CHAT-001 | Provide deterministic local mock chat that proposes only typed edits, with no model or network service. | Master Prompt §8.3–8.4 | `commands.ts`, `commands.test.ts` and `copilot-panel.tsx` | SATISFIED |
+| B002-CANVAS-001 | Edit the same IR on a React Flow canvas. | Master Prompt §6.1 and Build 002 | `workflow-canvas.tsx` and `build-roundtrip.spec.ts` | SATISFIED |
+| B002-ROUNDTRIP-001 | Prove the chat and canvas round trip automatically for mocked nodes. | Master Prompt Build 002 | `build-roundtrip.spec.ts` and `editor.test.ts` | SATISFIED |
+| B002-LABEL-001 | Show the `MOCKED`, `NONE`, `NOT_ENFORCED` and `NOT_APPLICABLE` states visibly. | Master Prompt §9.6 | `summary-bar.tsx`, `top-bar.tsx`, `interface-honesty.spec.ts` and `product.test.ts` | SATISFIED |
+| B002-ACCESSIBILITY-001 | Provide landmarks, labelled controls and keyboard access. | Master Prompt §9.7 | `interface-honesty.spec.ts` | SATISFIED |
+| B002-VISUAL-001 | Hold zero-pixel visual baselines for Build, Simulate and Execute. | Master Prompt §9.7 | `visual-shell.spec.ts` and its three snapshots | SATISFIED |
+| B002-NETWORK-001 | Allow only the loopback application origin in browser tests and prove the guard with one synthetic negative attempt. | BUILD-002 plan, network controls | `e2e/fixtures.ts`, `network-isolation.spec.ts` and the governance source URL scan | SATISFIED |
+| B002-TELEMETRY-001 | Disable Next telemetry and Playwright browser downloads for build, test and runtime processes. | BUILD-002 plan, network controls | application `package.json` scripts, `playwright.config.ts` and `contracts.yml` | SATISFIED |
+| B002-BROWSER-001 | Use only the approved headless-shell archive, verified against its locally observed, human-approved digest. | BUILD-002 plan, bootstrap | `scripts/bootstrap-playwright.py` and the BUILD-002 report | SATISFIED |
+| B002-DEPENDENCY-001 | Verify all 245 locked registry entries with exactly 16 reviewed license exceptions, audit, and validate an ephemeral SBOM. | BUILD-002 plan, license-evidence amendment | `scripts/bootstrap-ci.py`, `contracts.yml` and the BUILD-002 report | SATISFIED |
+| B002-LICENSE-001 | Classify the application as AGPL-3.0-only with an official text copy, and keep the patch and upstream notice classifications. | Master Prompt §7.3 | `apps/reference-dapp/LICENSE`, `docs/LICENSE_MAP.md` and `THIRD_PARTY_NOTICES.md` | SATISFIED |
+| B002-SCOPE-001 | Exclude wallet, backend, transaction, signing, financial execution, Mode B and BUILD-003 work. | BUILD-002 plan | BUILD-002 report and exact-scope governance | SATISFIED |
+| B002-DELIVERY-001 | Merge through PR #5 with branch, pull-request and post-merge CI passing. | Master Prompt §5.5 | merge commit `606174f0bd944e5a1c31baf8dad685d7558b7cc8` and the run IDs in the amendment | SATISFIED |
+
+## BUILD-002 governance amendment
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B002-GOVERNANCE-001 | Restore the persistent governance controls removed during BUILD-002 without weakening any BUILD-002 check. | DEC-0014; Master Prompt Build 000 and §8.6 | `.github/workflows/governance.yml` and the amendment report | SATISFIED_LOCALLY |
+| B002-LICENSE-002 | Record the tracked AGPL application truthfully in the root `LICENSE` without changing any grant. | DEC-0013 | `LICENSE` and the amendment report | SATISFIED_LOCALLY |
+| B002-RECORDS-001 | Make the status, next-build, decision and requirement records match the demonstrated state. | DEC-0012; Master Prompt §5.3 | `docs/STATUS.md`, `docs/NEXT_BUILD.md` and this registry | SATISFIED_LOCALLY |
+| B002-NAMING-001 | Name the contracts workflow for what it validates. | DEC-0012 | `.github/workflows/contracts.yml` | SATISFIED_LOCALLY |
+
+`SATISFIED_LOCALLY` means the amendment's local gates passed. Its remote CI
+result is shown by its pull request and is not claimed here.
+
+B000-SECURITY-001 keeps its historical row. Its basic secret checks were absent
+from governance CI from the BUILD-002 merge until B002-GOVERNANCE-001 restored
+them.

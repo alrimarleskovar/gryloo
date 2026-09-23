@@ -10,7 +10,13 @@ is governed by [the license map](docs/LICENSE_MAP.md).
   populated, are designated for
   [GNU Affero General Public License 3.0 only](LICENSES/AGPL-3.0-only.txt).
 
-No tracked AGPL-3.0-only implementation currently exists. `docs/assets/**` and
+The reference application at `apps/reference-dapp/**` is tracked AGPL-3.0-only
+application code, except its `LICENSE` copy of the official text. The
+`packages/workflow-contracts/**` and `packages/action-registry/**` packages
+remain Apache-2.0, except their `LICENSE` copies of the official text, and
+patches and copied upstream legal files retain their upstream licenses. This
+factual correction changes no license grant, path classification, official
+license text or legal boundary. `docs/assets/**` and
 unverified third-party materials are excluded from these Gryloo license grants.
 Third-party materials remain subject to their own rights.
 

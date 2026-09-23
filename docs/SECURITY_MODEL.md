@@ -65,3 +65,37 @@ dependency verifier checks all 245 registry entries, including optional
 platform packages, and pins 16 reviewed exceptions by exact identity, SPDX,
 SRI and graph route. Future distribution of Sharp/libvips binaries has a
 separate release-compliance gate.
+
+## Governance controls after the BUILD-002 amendment
+
+The BUILD-002 governance rewrite kept its exact-scope, protected-byte,
+licensing, patch and attribution checks. It omitted the BUILD-001
+secret-indicator, email, Markdown-link, identifier, brand, unsupported-claim,
+official-text digest, package-export and heading checks. From the BUILD-002
+merge until this amendment, CI did not run those controls. The
+[BUILD-002 governance amendment](builds/BUILD-002-GOVERNANCE-AMENDMENT.md)
+(DEC-0014) keeps every BUILD-002 check and restores the omitted ones for the
+current tree:
+
+- basic secret indicators in every text file, including upstream copies;
+- email addresses in Gryloo-authored text, except the two approved patch
+  file names;
+- relative links in Gryloo-authored Markdown outside fenced code blocks;
+- well-formed, unique and registered decision and requirement IDs, gap-free
+  decision numbers, and existing ADR files for every ADR reference;
+- deprecated names in Gryloo-authored files outside the Master Prompt and the
+  governance check itself, and unsupported claims in the README and application
+  source;
+- official license-text digests and sizes, exact license copies, and digests
+  for the specification, prompt, ADRs, historical build records, contract
+  profiles, legal notices, assets and visual baselines;
+- frozen v1 schema, compatibility-fixture and upstream-legal trees, package
+  identities and exports, schema identifiers and strict JSON parsing;
+- plan and report headings where the template applies;
+- output hygiene: no tracked generated output, local environment file, SBOM,
+  CLA file or unapproved manifest, and no whitespace errors in changes.
+
+These remain basic pattern and digest checks. They supplement review and
+cannot detect every secret, claim, license issue or runtime vulnerability.
+Upstream legal copies are exempt from the checks that concern Gryloo-authored
+text but remain pinned by digest and scanned for secret indicators.

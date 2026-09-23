@@ -50,3 +50,14 @@ BUILD-002 is separately authorized by the human owner. Its exact path scope
 and 16-package legal-evidence amendment are recorded in the
 [BUILD-002 plan](builds/BUILD-002-PLAN.md). BUILD-003, Mode B, package
 publication and financial execution remain unapproved.
+
+## BUILD-002 governance amendment boundary
+
+The human owner approved a governance-only amendment with an exact path scope
+(DEC-0012 and DEC-0017). The byte-identity statement above describes the BUILD-001
+boundary. The amendment's only change to root legal text is the factual
+`LICENSE` correction in DEC-0013. Official license texts, `NOTICE`,
+`TRADEMARKS.md` and every path classification are unchanged. Mode A planning
+and non-executing authoring may be separately approved while ADR-0001 remains
+PROPOSED (DEC-0015). The amendment approves no BUILD-003 build or sub-build,
+and candidate BUILD-003A remains `NOT_APPROVED` (DEC-0016).
