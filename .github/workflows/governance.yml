@@ -11,7 +11,7 @@ jobs:
   governance:
     runs-on: ubuntu-24.04
     steps:
-      - name: Fetch reviewed revision and BUILD-002 baseline
+      - name: Fetch reviewed revision, BUILD-002 baseline and BUILD-002 merge
         env:
           GH_TOKEN: ${{ github.token }}
           REVISION: ${{ github.sha }}
@@ -26,9 +26,10 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "$REVISION"
           git checkout --detach FETCH_HEAD
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin fb285da4ea4efaaae5b839974b669b3c8335ddd7
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 606174f0bd944e5a1c31baf8dad685d7558b7cc8
           unset auth GH_TOKEN
 
-      - name: Verify exact scope, protected bytes and licensing
+      - name: Verify BUILD-002 and amendment scope, protected bytes and licensing
         shell: bash
         run: |
           set -euo pipefail
@@ -36,24 +37,59 @@ jobs:
           import hashlib, pathlib, re, subprocess, sys
           root=pathlib.Path('.')
           baseline='fb285da4ea4efaaae5b839974b669b3c8335ddd7'
+          merge='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
+          # Approved BUILD-002 scope, unchanged; checked between its baseline and merge commits.
           create=set(['THIRD_PARTY_NOTICES.md', 'apps/reference-dapp/LICENSE', 'apps/reference-dapp/e2e/build-roundtrip.spec.ts', 'apps/reference-dapp/e2e/fixtures.ts', 'apps/reference-dapp/e2e/interface-honesty.spec.ts', 'apps/reference-dapp/e2e/network-isolation.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png', 'apps/reference-dapp/next-env.d.ts', 'apps/reference-dapp/next.config.ts', 'apps/reference-dapp/package.json', 'apps/reference-dapp/playwright.config.ts', 'apps/reference-dapp/src/app/globals.css', 'apps/reference-dapp/src/app/layout.tsx', 'apps/reference-dapp/src/app/page.tsx', 'apps/reference-dapp/src/components/action-library.tsx', 'apps/reference-dapp/src/components/app-shell.tsx', 'apps/reference-dapp/src/components/artifact-inspector.tsx', 'apps/reference-dapp/src/components/copilot-panel.tsx', 'apps/reference-dapp/src/components/status-badge.tsx', 'apps/reference-dapp/src/components/summary-bar.tsx', 'apps/reference-dapp/src/components/top-bar.tsx', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'apps/reference-dapp/src/config/product.test.ts', 'apps/reference-dapp/src/config/product.ts', 'apps/reference-dapp/src/domain/commands.test.ts', 'apps/reference-dapp/src/domain/commands.ts', 'apps/reference-dapp/src/domain/contracts.integration.test.ts', 'apps/reference-dapp/src/domain/editor.test.ts', 'apps/reference-dapp/src/domain/editor.ts', 'apps/reference-dapp/src/domain/initial-workflow.ts', 'apps/reference-dapp/src/domain/mock-actions.ts', 'apps/reference-dapp/src/state/workflow-store.tsx', 'apps/reference-dapp/tsconfig.json', 'docs/builds/BUILD-002-PLAN.md', 'docs/builds/BUILD-002-REPORT.md', 'patches/@xyflow__system@0.0.82.patch', 'scripts/bootstrap-playwright.py', 'third_party/licenses/caniuse-lite-1.0.30001810-LICENSE', 'third_party/licenses/img-sharp-libvips-darwin-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-darwin-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-arm-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-ppc64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-riscv64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-s390x-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linuxmusl-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linuxmusl-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-wasm32-0.35.4-LICENSE', 'third_party/licenses/img-sharp-wasm32-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-0.35.4-LICENSE', 'third_party/licenses/img-sharp-win32-arm64-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-ia32-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-x64-0.35.4-README.md', 'third_party/licenses/tslib-2.8.1-CopyrightNotice.txt', 'third_party/licenses/tslib-2.8.1-LICENSE.txt', 'third_party/licenses/xyflow-system-MIT.txt'])
           modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', '.gitignore', 'README.md', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/EVIDENCE_LEVELS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'eslint.config.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'scripts/bootstrap-ci.py', 'turbo.json'])
+          # Approved BUILD-002 governance amendment scope (DEC-0012 and DEC-0017), checked against the merge.
+          amendment_create={'docs/builds/BUILD-002-GOVERNANCE-AMENDMENT.md'}
+          amendment_modify={'LICENSE', '.github/workflows/governance.yml', '.github/workflows/contracts.yml', 'docs/STATUS.md', 'docs/NEXT_BUILD.md', 'docs/DECISIONS.md', 'docs/REQUIREMENTS.md', 'docs/SECURITY_MODEL.md', 'docs/SCOPE_GUARD.md', 'README.md', 'docs/LICENSE_MAP.md'}
           notice_hashes={'third_party/licenses/caniuse-lite-1.0.30001810-LICENSE': 'fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e', 'third_party/licenses/img-sharp-libvips-darwin-arm64-1.3.3-README.md': '47083f1ae7e990f74a56f576bcb8434051cb84ed1982fa57932720869e5147fe', 'third_party/licenses/img-sharp-libvips-darwin-x64-1.3.3-README.md': 'bbb84e1fa86b44508e893afe1a84a640cd452c0e671f001256959352bfacb7e5', 'third_party/licenses/img-sharp-libvips-linux-arm-1.3.3-README.md': '8562d3e04aa8abf13264a8a27152cc5e9da7269984961871008cab475e0f2e63', 'third_party/licenses/img-sharp-libvips-linux-arm64-1.3.3-README.md': 'b05efaa208519f349746a54ee195c433ab8e5c250847a257c984c7a9dc68df20', 'third_party/licenses/img-sharp-libvips-linux-ppc64-1.3.3-README.md': '6cf3175d5bf6b5335de0b062b1c000809c273a88e093e8c3a41d690b4a0f639e', 'third_party/licenses/img-sharp-libvips-linux-riscv64-1.3.3-README.md': '913086c8cc5ff42f3394bdc8b45fb574ce75c3fb8cb8f4e5817338f751935b92', 'third_party/licenses/img-sharp-libvips-linux-s390x-1.3.3-README.md': '978760ba002481940b97aeb87450c96cbb985d3607dbc30a4b3ad5cf0e1c484e', 'third_party/licenses/img-sharp-libvips-linux-x64-1.3.3-README.md': '4f87b4934d26d52ed65a42e96bfe88e75ac98dbd3bc302b50fe6c07d22e42630', 'third_party/licenses/img-sharp-libvips-linuxmusl-arm64-1.3.3-README.md': '1a42557691426812906e98442b6575bd3fd509a3a0ea53d28e9ce52c2ccbb243', 'third_party/licenses/img-sharp-libvips-linuxmusl-x64-1.3.3-README.md': '2948195d2a4f5bb3c9cdc22ac4184e38b63c8319c2753d454571cf7b31482b17', 'third_party/licenses/img-sharp-wasm32-0.35.4-LICENSE': '73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68', 'third_party/licenses/img-sharp-wasm32-0.35.4-README.md': '9d7a84ade91e8e50f5dfc303fb53e580e806f6f89bde804e84a01c1b8853fff5', 'third_party/licenses/img-sharp-win32-0.35.4-LICENSE': 'dc1f5d2d43c5531dfe0acaf4e950ea5dbe3e61e1850cf0e983bda7efc10d6693', 'third_party/licenses/img-sharp-win32-arm64-0.35.4-README.md': '274c9c3ce77170a73f9974cbb4e6ca617271219f48b34b8c1df213538ab2ffa0', 'third_party/licenses/img-sharp-win32-ia32-0.35.4-README.md': 'a0055c3ae7d1d8d409b0e9c21f008914adcf7adf8d85bf4186e416033d5192d1', 'third_party/licenses/img-sharp-win32-x64-0.35.4-README.md': '280e7d164420cfc1a1b192a582bf53e3dba97b86a5c3575f878b674ad1d41e13', 'third_party/licenses/tslib-2.8.1-CopyrightNotice.txt': 'da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b', 'third_party/licenses/tslib-2.8.1-LICENSE.txt': '210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751', 'third_party/licenses/xyflow-system-MIT.txt': '023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff'}
           errors=[]
           def paths(*args):
               return {v.decode() for v in subprocess.check_output(['git',*args,'-z']).split(b'\0') if v}
-          before=paths('ls-tree','-r','--name-only',baseline)
+          def tree(revision):
+              entries={}
+              for record in subprocess.check_output(['git','ls-tree','-r','-z',revision]).split(b'\0'):
+                  if record:
+                      meta,name=record.split(b'\t',1)
+                      mode,_,oid=meta.decode().split()
+                      entries[name.decode()]=(mode,oid)
+              return entries
+          before=tree(baseline)
+          merged=tree(merge)
+          if set(merged)-set(before)!=create:
+              errors.append('BUILD-002 created path mismatch: '+repr(sorted((set(merged)-set(before))^create)))
+          errors += ['BUILD-002 removed baseline file: '+v for v in sorted(set(before)-set(merged))]
+          errors += ['BUILD-002 changed protected baseline: '+v for v in sorted(set(before)&set(merged))
+                     if before[v]!=merged[v] and v not in modify]
           now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
-          changed=set(subprocess.check_output(['git','diff','--name-only',baseline,'--'],text=True).splitlines())
-          if now-before!=create:
-              errors.append('created path mismatch: '+repr(sorted((now-before)^create)))
-          errors += ['unauthorized modified path: '+v for v in sorted(changed-create-modify)]
-          for v in sorted(before):
+          if now-set(merged)!=amendment_create:
+              errors.append('amendment created path mismatch: '+repr(sorted((now-set(merged))^amendment_create)))
+          changed=set(subprocess.check_output(['git','diff','--name-only',merge,'--'],text=True).splitlines())
+          errors += ['unauthorized modified path: '+v for v in sorted(changed-amendment_create-amendment_modify)]
+          for v in sorted(merged):
               file=root/v
               if not file.is_file():
                   errors.append('baseline file missing: '+v)
-              elif v not in modify and file.read_bytes()!=subprocess.check_output(['git','show',baseline+':'+v]):
+              elif v not in amendment_modify and file.read_bytes()!=subprocess.check_output(['git','show',merge+':'+v]):
                   errors.append('protected baseline changed: '+v)
+          # DEC-0017: the license map may change only the Apache-2.0 row's path-authorization sentence.
+          old_map=subprocess.check_output(['git','show',merge+':docs/LICENSE_MAP.md'],text=True).splitlines()
+          new_map=(root/'docs/LICENSE_MAP.md').read_text().splitlines()
+          map_changes=[(a,b) for a,b in zip(old_map,new_map) if a!=b]
+          if len(old_map)!=len(new_map) or len(map_changes)>1:
+              errors.append('license map changed outside the Apache-2.0 authorization sentence')
+          sentence='Only exact paths'
+          for a,b in map_changes:
+              old_cells,new_cells=a.split('|'),b.split('|')
+              if (not a.startswith('| Apache-2.0 |') or len(old_cells)!=len(new_cells)
+                      or old_cells[:3]!=new_cells[:3] or old_cells[4:]!=new_cells[4:]
+                      or sentence not in new_cells[3]
+                      or old_cells[3].split(sentence)[0]!=new_cells[3].split(sentence)[0]):
+                  errors.append('license map classification, path or grant text changed')
+          if 'explicitly approved tracked governance or licensing amendment' not in '\n'.join(new_map):
+              errors.append('license map lacks the approved path-authorization rule')
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -104,5 +140,419 @@ jobs:
           if errors:
               print('\n'.join(errors),file=sys.stderr)
               raise SystemExit(1)
-          print('BUILD-002 exact scope, protected baseline and legal hashes passed')
+          print('BUILD-002 scope, amendment scope, protected baseline and legal hashes passed')
+          PYCODE
+
+      - name: Verify restored persistent governance controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          import hashlib, json, pathlib, re, subprocess, sys
+          root=pathlib.Path('.')
+          amendment_baseline='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
+          amendment='docs/builds/BUILD-002-GOVERNANCE-AMENDMENT.md'
+          errors=[]
+          def paths(*args):
+              return {v.decode() for v in subprocess.check_output(['git',*args,'-z']).split(b'\0') if v}
+          current=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
+          upstream={v for v in current if v.startswith('third_party/licenses/')}
+
+          required=['LICENSE','NOTICE','TRADEMARKS.md','README.md','THIRD_PARTY_NOTICES.md',
+                    'LICENSES/Apache-2.0.txt','LICENSES/AGPL-3.0-only.txt',
+                    'docs/specs/MASTER_SPEC_V3.2.md',
+                    'prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md',
+                    'docs/STATUS.md','docs/NEXT_BUILD.md','docs/DECISIONS.md','docs/REQUIREMENTS.md',
+                    'docs/SCOPE_GUARD.md','docs/SECURITY_MODEL.md','docs/AUTHORITY_MATRIX.md',
+                    'docs/EVIDENCE_LEVELS.md','docs/LICENSE_MAP.md',
+                    'docs/adr/ADR-0001-mode-b-authority.md','docs/adr/ADR-0002-canonical-contracts.md',
+                    'docs/contracts/CANONICALIZATION_V1.md','docs/contracts/COMPATIBILITY_V1.md',
+                    'docs/contracts/INVALIDATION_V1.md',
+                    'docs/builds/BUILD-000-PLAN.md','docs/builds/BUILD-000-REPORT.md',
+                    'docs/builds/BUILD-000-LICENSING-AMENDMENT.md',
+                    'docs/builds/BUILD-001-PLAN.md','docs/builds/BUILD-001-REPORT.md',
+                    'docs/builds/BUILD-002-PLAN.md','docs/builds/BUILD-002-REPORT.md',amendment]
+          missing=[v for v in required if v not in current or not (root/v).is_file()]
+          if missing:
+              print('\n'.join('missing required file: '+v for v in missing),file=sys.stderr)
+              raise SystemExit(1)
+
+          texts={}
+          for v in sorted(current):
+              path=root/v
+              if path.is_file() and not path.is_symlink():
+                  data=path.read_bytes()
+                  if b'\0' not in data:
+                      try:
+                          texts[v]=data.decode('utf-8')
+                      except UnicodeDecodeError:
+                          pass
+          authored={v:body for v,body in texts.items() if v not in upstream}
+          markdown={v:body for v,body in authored.items() if v.endswith('.md')}
+
+          # Protected specification, prompt, ADR, historical build, legal and asset bytes.
+          protected={
+              'docs/specs/MASTER_SPEC_V3.2.md':'71d9bb92bf4f2469825edc1b70e03b04f38924495ac9c2581c76bfbb9d6200a9',
+              'prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md':'1787274971f4a8e009e4e2cbed7576d5789d23defcec4f97d54e09836a4c6a3b',
+              'docs/adr/ADR-0001-mode-b-authority.md':'a7e516263a51d9e71120e7eef164afd2655950d0ed902349a7cddc4cccbb8396',
+              'docs/adr/ADR-0002-canonical-contracts.md':'0193d1588b622f559940879b9734ec5b8596da8e8ce26786f25590c2216162f5',
+              'docs/builds/BUILD-000-PLAN.md':'fd6383800a858d3667a20c3e557c4fab5449e075f106aaa88efd973a0a4ec947',
+              'docs/builds/BUILD-000-REPORT.md':'0c8652cfbf0cc9c3f267a15eccb4315fb83f770798ef7b4d35af6216c6a8f902',
+              'docs/builds/BUILD-000-LICENSING-AMENDMENT.md':'9479613af52384dd267a2f67861ed3fee5ed785845c67e48db099ba36be6f966',
+              'docs/builds/BUILD-001-PLAN.md':'08387021ca97732e8165eab51784517a58bf5c9e90085c8e1312c784b741de32',
+              'docs/builds/BUILD-001-REPORT.md':'2ec375e280a98110e34a63ff60a10c43073ca99a8372777fddba2d0d5e552fa4',
+              'docs/builds/BUILD-002-PLAN.md':'c7071779e8c26d330519869173030d1a7430eaa18d12740106c24b06bfe04978',
+              'docs/builds/BUILD-002-REPORT.md':'8b19756b4e246f4628d0e1f1287dbeb60d3f6fc10e48c2ce7fb40e9171715413',
+              'docs/contracts/CANONICALIZATION_V1.md':'0d0ec8cc728a1b401f572abc9194fe655fab7ccbe3562c6525d242217c6ef15c',
+              'docs/contracts/COMPATIBILITY_V1.md':'9bfac9a8cfafa6e08b79c5aba7fa2e3d62d2175fca5e16f85e30eb15738eca16',
+              'docs/contracts/INVALIDATION_V1.md':'c2e5375a46135142a997e9fe9952b140e0ced21ea7f5b2dc182f49469a51c1a1',
+              'NOTICE':'52f55dc73f1ae24958ba37d2c4394242b7889e7fcc14a955e08a1a232f7e03a9',
+              'TRADEMARKS.md':'0df83c9449b4351d89e1649dcfc266a697f15e8edc4ebbbaf053af0b0ae56e18',
+              'THIRD_PARTY_NOTICES.md':'0316c855bcfce8c5ff2d6bbf2a6b2de68ce7ff1b24d07f8a89de60090eae9e22',
+              'docs/assets/1.jpeg':'5093feaaa89ff246611bd5a1967f78eab48d3e8be37472ffb605d6487fd0b51e',
+              'docs/assets/2.jpeg':'946965b7c75db5179cb879efbd7874ec83b5cfbcade43a57b07bb0f9ca5f9805',
+              'docs/assets/3.jpeg':'ed6b25cae27d31612bade65ff147bd6795a7b112db250e5c9a4a3865dad0ccf1',
+              'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png':'fd4de5d84235195275014aae5098a5921f62aabb2839d6f1594b13a04cadbbe3',
+              'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png':'dd4431f3088baae3a089fb064fe555853b0a7d77fdb236b1ccf8b6a59817fa5b',
+              'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png':'0e584bbb8974f692ca729599f0e0f58e4b640b5c35f71e153a9571424ba71efb',
+          }
+          for v,digest in sorted(protected.items()):
+              if hashlib.sha256((root/v).read_bytes()).hexdigest()!=digest:
+                  errors.append('protected digest mismatch: '+v)
+          official={'LICENSES/Apache-2.0.txt':('cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30',11358),
+                    'LICENSES/AGPL-3.0-only.txt':('0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0',34523)}
+          for v,(digest,size) in official.items():
+              data=(root/v).read_bytes()
+              if hashlib.sha256(data).hexdigest()!=digest or len(data)!=size:
+                  errors.append('official license text digest or size mismatch: '+v)
+              if b'Gryloo' in data:
+                  errors.append('Gryloo addition to official license text: '+v)
+          for v,source in (('packages/workflow-contracts/LICENSE','LICENSES/Apache-2.0.txt'),
+                           ('packages/action-registry/LICENSE','LICENSES/Apache-2.0.txt'),
+                           ('apps/reference-dapp/LICENSE','LICENSES/AGPL-3.0-only.txt')):
+              if (root/v).read_bytes()!=(root/source).read_bytes():
+                  errors.append('LICENSE copy differs from official text: '+v)
+          frozen={'packages/workflow-contracts/schemas/v1/':(9,'d85cc34800114dd774a7b02da851a535fc4388c9950b4963033be19d37432eb6'),
+                  'packages/action-registry/schemas/v1/':(1,'84c7c7c4120540b3e8103885644cdf4f6464815574508f90cfcbdd3cbf79409f'),
+                  'tests/compatibility/v1/':(20,'50b9a90ce53cb45736333bbe4ff92e622ccbf3dc77506edfb6d46fc1c4c45492'),
+                  'third_party/licenses/':(21,'237a7f6102cf7b5891ba9c436285c38dc7dae37604dd41c213bcc13a24e56c63')}
+          for prefix,(count,digest) in frozen.items():
+              selected=sorted(v for v in current if v.startswith(prefix))
+              listing=''.join(hashlib.sha256((root/v).read_bytes()).hexdigest()+'  '+v+'\n' for v in selected)
+              if len(selected)!=count or hashlib.sha256(listing.encode()).hexdigest()!=digest:
+                  errors.append('frozen tree changed: '+prefix)
+
+          # Reviewed upstream declaration patches and their lockfile identities.
+          lock=authored['pnpm-lock.yaml']
+          workspace=authored['pnpm-workspace.yaml']
+          patches={
+              'patches/@streamparser__json@0.0.26.patch':('@streamparser/json@0.0.26',
+                  '3232498480ccaaab0643460d8c365f143109561324575b05feff987eb45278e6',
+                  'sha512-46597LNFI+MFdUnzX2QJWwmdTRdq0XVD+vVNJTtGVzIrnCuhG9pFo1OAzbNBqci8UJgk/X5KJZ6LcV+y7PTuDQ==',
+                  {'dist/cjs/utils/types/parsedElementInfo.d.ts','dist/mjs/utils/types/parsedElementInfo.d.ts'}),
+              'patches/@xyflow__system@0.0.82.patch':('@xyflow/system@0.0.82',
+                  '4420c4eab49ef56325c7cb81898894b1c9f08fe39621216e8cf77532ce98f6d5',
+                  'sha512-4DKnL3CGtCGLRSmgDqaajRVgeksMXq/Yw4wPfdMfm7JvdIiWHGzVYOfFUztiATwdBXZqUU6HhehwUdbV9G23PQ==',
+                  {'dist/esm/types/nodes.d.ts','dist/umd/types/nodes.d.ts'}),
+          }
+          if {v for v in current if v.startswith('patches/')}!=set(patches):
+              errors.append('patch set differs from the reviewed patches')
+          for v,(identity,digest,upstream_sri,files) in patches.items():
+              data=(root/v).read_bytes()
+              if hashlib.sha256(data).hexdigest()!=digest:
+                  errors.append('patch digest mismatch: '+v)
+              touched=re.findall(r'(?m)^diff --git a/(\S+) b/(\S+)$',data.decode())
+              if len(touched)!=len(files) or {a for a,_ in touched}!=files or any(a!=b for a,b in touched):
+                  errors.append('patch touches unexpected files: '+v)
+              if ("'"+identity+"': "+digest not in lock or identity+'(patch_hash='+digest+')' not in lock
+                      or upstream_sri not in lock or "'"+identity+"': "+v not in workspace):
+                  errors.append('patch lockfile or workspace identity mismatch: '+v)
+          parser=authored['patches/@streamparser__json@0.0.26.patch'].splitlines()
+          removed=[line for line in parser if line.startswith('-') and not line.startswith('---')]
+          added=[line for line in parser if line.startswith('+') and not line.startswith('+++')]
+          if (removed!=['-    parent?: JsonStruct;','-    key?: JsonKey;']*2
+                  or added!=['+    parent?: JsonStruct | undefined;','+    key?: JsonKey | undefined;']*2):
+              errors.append('parser patch changes beyond the approved base declarations')
+
+          # Plan and report template headings where the template applies.
+          templates={'docs/builds/BUILD-000-PLAN.md':13,'docs/builds/BUILD-001-PLAN.md':13,
+                     'docs/builds/BUILD-001-REPORT.md':14,amendment:14}
+          for v,count in templates.items():
+              found=[re.search(r'(?m)^## '+str(n)+r'\. ',markdown[v]) for n in range(1,count+1)]
+              if not all(found) or [m.start() for m in found]!=sorted(m.start() for m in found):
+                  errors.append('template headings missing or out of order: '+v)
+
+          # ADR status and identifier registries.
+          adr1=markdown['docs/adr/ADR-0001-mode-b-authority.md']
+          if '- Status: `PROPOSED`' not in adr1 or '- Decision: unresolved' not in adr1:
+              errors.append('ADR-0001 must remain PROPOSED and unresolved')
+          if '- Status: `ACCEPTED`' not in markdown['docs/adr/ADR-0002-canonical-contracts.md']:
+              errors.append('ADR-0002 acceptance record missing')
+          adr_files={}
+          for v in sorted(current):
+              if v.startswith('docs/adr/'):
+                  match=re.fullmatch(r'docs/adr/(ADR-\d{4})-[a-z0-9-]+\.md',v)
+                  if not match: errors.append('malformed ADR path: '+v)
+                  elif match.group(1) in adr_files: errors.append('duplicate ADR number: '+v)
+                  else: adr_files[match.group(1)]=v
+          joined='\n'.join(markdown.values())
+          references={'decision':r'(?<![A-Z0-9-])DEC-\d{4}(?![A-Z0-9-])',
+                      'requirement':r'(?<![A-Z0-9-])B\d{3}-[A-Z]+-\d{3}(?![A-Z0-9-])'}
+          registers={'decision':('docs/DECISIONS.md',r'DEC-\d{4}'),
+                     'requirement':('docs/REQUIREMENTS.md',r'B\d{3}-[A-Z]+-\d{3}')}
+          registered={}
+          for kind,(v,shape) in registers.items():
+              ids=[]
+              for line in markdown[v].splitlines():
+                  if line.startswith('|'):
+                      first=line.strip().strip('|').split('|')[0].strip()
+                      if first=='ID' or set(first)<=set('-: '): continue
+                      if not re.fullmatch(shape,first): errors.append(kind+' ID malformed in '+v+': '+first)
+                      ids.append(first)
+              duplicates=sorted({item for item in ids if ids.count(item)>1})
+              if duplicates: errors.append('duplicate '+kind+' IDs: '+repr(duplicates))
+              unregistered=sorted(set(re.findall(references[kind],joined))-set(ids))
+              if unregistered: errors.append('unregistered '+kind+' IDs: '+repr(unregistered))
+              registered[kind]=ids
+          if [int(item[4:]) for item in registered['decision']]!=list(range(1,len(registered['decision'])+1)):
+              errors.append('decision IDs must be sequential without gaps')
+          unknown_adrs=sorted(set(re.findall(r'(?<![A-Z0-9-])ADR-\d{4}(?![A-Z0-9-])',joined))-set(adr_files))
+          if unknown_adrs: errors.append('ADR references without an ADR file: '+repr(unknown_adrs))
+
+          # Authority, decision and next-build records.
+          authority=markdown['docs/AUTHORITY_MATRIX.md']
+          for line in authority.splitlines():
+              if line.startswith('| ') and not line.startswith('|---') and 'Rule |' not in line:
+                  cells=[cell.strip() for cell in line.strip('|').split('|')]
+                  if len(cells)<3 or not cells[2]: errors.append('authority location missing: '+line)
+          if not re.search(r'(?m)^\| BUILD-003[^|\n]*\|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
+              errors.append('BUILD-003 must remain NOT_APPROVED in the authority matrix')
+          decisions=markdown['docs/DECISIONS.md']
+          exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
+                 '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
+                 '| DEC-0007 | Treat BUILD-001 only as a candidate with status `NOT_APPROVED`. | APPROVED |')
+          for line in exact:
+              if decisions.count(line)!=1: errors.append('historical decision wording changed: '+line[:12])
+          markers={8:('2026-09-22','unanimous founder authorization','pre-incorporation','Apache-2.0',
+                      'AGPL-3.0-only','eligible original Gryloo materials','Alrimar Sobrinho',
+                      'repository administrator and license publisher','does not confer exclusive ownership'),
+                   9:('2026-09-22','superseding DEC-0007','BUILD-001 only'),
+                   12:('2026-09-23','governance-only BUILD-002 amendment','No application, package, dependency'),
+                   13:('2026-09-23','`LICENSE`','apps/reference-dapp/**','changes no license grant'),
+                   14:('2026-09-23','unintentionally removed during BUILD-002','retaining every BUILD-002'),
+                   15:('2026-09-23','ADR-0001 remains PROPOSED','does not approve Mode B','does not change ADR-0001'),
+                   16:('2026-09-23','deterministic linter','candidate BUILD-003A','`NOT_APPROVED`','does not approve it'),
+                   17:('2026-09-23','`docs/LICENSE_MAP.md`','DEC-0012','changes no license classification','does not approve BUILD-003A')}
+          for number,expected in markers.items():
+              rows=[line for line in decisions.splitlines() if line.startswith('| DEC-%04d |' % number)]
+              if len(rows)!=1 or not rows[0].endswith('| APPROVED |') or any(m not in rows[0] for m in expected):
+                  errors.append('decision record incomplete: DEC-%04d' % number)
+          next_build=markdown['docs/NEXT_BUILD.md']
+          if 'NONE_APPROVED' not in next_build or re.search(r'(?i)delivery pending|approved current build',next_build):
+              errors.append('NEXT_BUILD.md must state NONE_APPROVED and no pending or current build')
+          status=markdown['docs/STATUS.md']
+          for marker in ('BUILD-001','BUILD-002','COMPLETED','606174f0bd944e5a1c31baf8dad685d7558b7cc8','NONE_APPROVED'):
+              if marker not in status: errors.append('STATUS.md missing: '+marker)
+          if any(v.startswith('docs/builds/BUILD-003') for v in current):
+              errors.append('a BUILD-003 plan or report exists without approval')
+
+          # Licensing routing, map and private-record controls.
+          routing=authored['LICENSE']
+          for marker in ('multi-licensed','docs/LICENSE_MAP.md','LICENSES/Apache-2.0.txt','LICENSES/AGPL-3.0-only.txt',
+                         'docs/assets/**','TRADEMARKS.md','apps/reference-dapp/**',
+                         'packages/workflow-contracts/**','packages/action-registry/**'):
+              if marker not in routing: errors.append('LICENSE routing missing: '+marker)
+          if 'No tracked AGPL-3.0-only implementation currently exists' in routing:
+              errors.append('obsolete LICENSE statement restored')
+          notice_text=authored['NOTICE']
+          for marker in ('multi-licensed','docs/LICENSE_MAP.md','Gryloo contributors','Third-party materials','TRADEMARKS.md'):
+              if marker not in notice_text: errors.append('NOTICE missing: '+marker)
+          if 'Alrimar' in notice_text: errors.append('NOTICE must use neutral contributor wording')
+          license_map=markdown['docs/LICENSE_MAP.md']
+          for marker in ('docs/assets/**','packages/reference-compiler/**','packages/reference-linter/**',
+                         'packages/reference-simulation/**','packages/reference-executor/**',
+                         'packages/reference-reconciler/**','packages/reference-evidence/**','packages/public-ui/**',
+                         'managed/**','private/**','proprietary/**','services/managed/**',
+                         'services/partner-gateway/**','services/enterprise-policy/**','services/hosted-explorer/**'):
+              if marker not in license_map: errors.append('license map boundary missing: '+marker)
+          for marker in ('RESOLVED_FOR_PREINCORPORATION_LICENSING','DEFERRED_UNTIL_INCORPORATION','AUTHORIZED',
+                         'EXCLUDED_UNLESS_VERIFIED','DEFERRED'):
+              for v in ('docs/LICENSE_MAP.md','docs/STATUS.md','docs/builds/BUILD-000-LICENSING-AMENDMENT.md'):
+                  if marker not in markdown[v]: errors.append('licensing state '+marker+' missing: '+v)
+          historical={'docs/builds/BUILD-000-PLAN.md','docs/builds/BUILD-000-REPORT.md'}
+          for v,body in markdown.items():
+              if 'BLOCKED_PENDING_IP_OWNERSHIP' in body and v not in historical:
+                  if v!='docs/builds/BUILD-000-LICENSING-AMENDMENT.md':
+                      errors.append('stale licensing blocker: '+v)
+                  elif (body.count('BLOCKED_PENDING_IP_OWNERSHIP')!=1 or
+                        'preserved historical statements, not the current repository status' not in body):
+                      errors.append('historical blocker explanation missing')
+          for v in ('LICENSE','NOTICE','README.md','TRADEMARKS.md','docs/DECISIONS.md','docs/LICENSE_MAP.md',
+                    'docs/REQUIREMENTS.md','docs/STATUS.md','docs/builds/BUILD-000-LICENSING-AMENDMENT.md',amendment):
+              body=authored[v]
+              if re.search(r'(?im)^\s*(?:[-*]\s*)?(?:consent (?:record|metadata)|signature|ownership percentage|founder list)\s*[:|]',body):
+                  errors.append('private consent field: '+v)
+              if re.search(r'(?im)^#{1,6}\s*(?:founders?|consent|signatures?|ownership)\b',body):
+                  errors.append('private record section: '+v)
+              if re.search(r'(?<![A-Za-z0-9])\d+(?:\.\d+)?%',body):
+                  errors.append('ownership percentage or other private percentage: '+v)
+              if re.search(r'(?i)Alrimar Sobrinho.{0,100}(?:is (?:the )?(?:sole|exclusive) owner|owns all)',body):
+                  errors.append('exclusive ownership claim: '+v)
+          for v in ('docs/DECISIONS.md','docs/LICENSE_MAP.md','docs/builds/BUILD-000-LICENSING-AMENDMENT.md'):
+              if 'Alrimar Sobrinho' not in authored[v]: errors.append('authorized administrator missing: '+v)
+          for v in sorted(current):
+              if re.search(r'(?i)(consent|signature|founder|ownership)',v): errors.append('private record path: '+v)
+
+          # Secret indicators in every text file, and email addresses in Gryloo-authored text.
+          secret_patterns=(r'(?im)(api[_-]?key|secret|private[_-]?key)\s*[:=]\s*["\']?[A-Za-z0-9+/=_-]{16,}',
+                           r'-----BEGIN [A-Z ]*PRIVATE KEY-----',r'\bgh[pousr]_[A-Za-z0-9]{36,}\b',
+                           r'\bAKIA[0-9A-Z]{16}\b',r'\bxox[abprs]-[A-Za-z0-9-]{10,}\b',r'\bsk-[A-Za-z0-9_-]{20,}\b')
+          for v,body in texts.items():
+              for pattern in secret_patterns:
+                  if re.search(pattern,body): errors.append('possible secret in '+v)
+          # The two approved pnpm patch file names resemble email addresses.
+          for v,body in authored.items():
+              scanned=body.replace('@streamparser__json@0.0.26.patch','').replace('@xyflow__system@0.0.82.patch','')
+              if re.search(r'(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b',scanned):
+                  errors.append('email address in '+v)
+
+          # Brand, claims and the prohibited standalone token.
+          deprecated=('FlowDeFi','PROJECT_NAME','MANIFYN','DeFi Agent')
+          for v,body in authored.items():
+              if v in ('prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md','.github/workflows/governance.yml'):
+                  continue
+              for name in deprecated:
+                  if name in body: errors.append('deprecated name '+name+' in '+v)
+          claims=(r'funds\s+protected',r'guaranteed\s+returns?',r'risk[-\s]free',r'best\s+investment',r'best\s+route')
+          for v,body in authored.items():
+              if v=='README.md' or v.startswith('apps/reference-dapp/src/'):
+                  for claim in claims:
+                      if re.search(claim,body,re.I): errors.append('unsupported claim '+claim+' in '+v)
+          for v,body in markdown.items():
+              if re.search(r'(?<![\w.])svg(?![\w.])',body,re.I): errors.append('standalone prohibited token in '+v)
+
+          # Relative Markdown links outside fenced code blocks.
+          link_re=re.compile(r'\[[^]]*\]\(([^)]+)\)')
+          for v,body in markdown.items():
+              prose=[]
+              fenced=False
+              for line in body.splitlines():
+                  if line.lstrip().startswith('```'):
+                      fenced=not fenced
+                  elif not fenced:
+                      prose.append(line)
+              for target in link_re.findall('\n'.join(prose)):
+                  target=target.strip().strip('<>')
+                  if '://' in target or target.startswith(('#','mailto:')): continue
+                  if not ((root/v).parent/target.split('#',1)[0]).resolve().exists():
+                      errors.append('broken link in '+v+': '+target)
+
+          # Package identities, exports and schema consistency.
+          exports={'.':{'types':'./dist/index.d.ts','import':'./dist/index.js'},
+                   './schemas':{'types':'./dist/schemas.d.ts','import':'./dist/schemas.js'},
+                   './schemas/v1/*.schema.json':'./schemas/v1/*.schema.json',
+                   './package.json':'./package.json'}
+          def strict_json(body):
+              def pairs(items):
+                  keys=[key for key,_ in items]
+                  if len(keys)!=len(set(keys)): raise ValueError('duplicate JSON key')
+                  return dict(items)
+              return json.loads(body,object_pairs_hook=pairs)
+          for directory in ('workflow-contracts','action-registry'):
+              manifest=strict_json(authored['packages/'+directory+'/package.json'])
+              expected={'name':'@defi-workflow-engine/'+directory,'version':'0.1.0','private':True,'type':'module',
+                        'license':'Apache-2.0','exports':exports,'files':['dist','schemas/v1','LICENSE']}
+              for key,value in expected.items():
+                  if manifest.get(key)!=value: errors.append('package contract mismatch: '+directory+' '+key)
+          app=strict_json(authored['apps/reference-dapp/package.json'])
+          for key,value in {'name':'@defi-workflow-engine/reference-dapp','version':'0.1.0','private':True,
+                            'type':'module','license':'AGPL-3.0-only'}.items():
+              if app.get(key)!=value: errors.append('application manifest mismatch: '+key)
+          root_manifest=strict_json(authored['package.json'])
+          if (root_manifest.get('private') is not True or root_manifest.get('packageManager')!='pnpm@11.22.0'
+                  or root_manifest.get('license')!='Apache-2.0'
+                  or root_manifest.get('engines')!={'node':'24.21.0','pnpm':'11.22.0'}):
+              errors.append('workspace privacy, license, engines or packageManager mismatch')
+          if authored['.node-version'].strip()!='24.21.0': errors.append('Node version declaration mismatch')
+          if {v.split('/')[1] for v in current if v.startswith('packages/')}!={'workflow-contracts','action-registry'}:
+              errors.append('unapproved or reserved package directory populated')
+          if {v.split('/')[1] for v in current if v.startswith('apps/')}!={'reference-dapp'}:
+              errors.append('unapproved application directory populated')
+          manifest_names={'package.json','package-lock.json','npm-shrinkwrap.json','pnpm-workspace.yaml','pnpm-lock.yaml',
+                          'yarn.lock','bun.lock','bun.lockb','turbo.json','Cargo.toml','Cargo.lock','pyproject.toml',
+                          'requirements.txt','go.mod','go.sum','composer.json','Gemfile','Gemfile.lock'}
+          approved_manifests={'package.json','pnpm-workspace.yaml','pnpm-lock.yaml','turbo.json',
+                              'packages/workflow-contracts/package.json','packages/action-registry/package.json',
+                              'apps/reference-dapp/package.json'}
+          for v in sorted(current):
+              name=pathlib.PurePosixPath(v).name
+              if name in manifest_names and v not in approved_manifests: errors.append('unapproved manifest: '+v)
+              if re.fullmatch(r'(?i)cla(?:\.[^.]+)?',name): errors.append('CLA file: '+v)
+          schema_names={'workflow-contracts':{'artifact-set','authorization-policy','evidence-bundle','execution-journal',
+                                              'execution-plan','quote-state-artifact','semantic-workflow',
+                                              'simulation-bundle','strategy-manifest'},
+                        'action-registry':{'action-registry'}}
+          namespaces={'workflow-contracts':'contracts','action-registry':'action-registry'}
+          for directory,names in schema_names.items():
+              prefix='packages/'+directory+'/schemas/'
+              found={v for v in current if v.startswith(prefix)}
+              if found!={prefix+'v1/'+name+'.schema.json' for name in names}:
+                  errors.append('schema file set changed: '+directory)
+              for name in sorted(names):
+                  v=prefix+'v1/'+name+'.schema.json'
+                  if v not in authored: continue
+                  try:
+                      document=strict_json(authored[v])
+                  except ValueError as exc:
+                      errors.append('invalid schema JSON '+v+': '+str(exc))
+                      continue
+                  if (document.get('$schema')!='http://json-schema.org/draft-07/schema#'
+                          or document.get('$id')!='urn:defi-workflow-engine:'+namespaces[directory]+'/v1/'+name):
+                      errors.append('schema identifier mismatch: '+v)
+          for v in sorted(current):
+              if v.startswith('tests/compatibility/v1/') and v.endswith('.json'):
+                  try:
+                      strict_json(authored[v])
+                  except ValueError as exc:
+                      errors.append('invalid compatibility fixture JSON '+v+': '+str(exc))
+
+          # Workflow and output hygiene.
+          workflows={v for v in current if v.startswith('.github/')}
+          if workflows!={'.github/workflows/governance.yml','.github/workflows/contracts.yml'}:
+              errors.append('unexpected .github path set: '+repr(sorted(workflows)))
+          # Built from parts so this check does not match its own source.
+          expression='$'+'{{'
+          privileged='pull_request'+'_target'
+          for v in sorted(workflows):
+              body=authored[v]
+              if '\npermissions:\n  contents: read\n' not in body: errors.append('workflow lacks read-only permissions: '+v)
+              if re.search(r'(?m)^\s+[a-z-]+:\s*write\b',body): errors.append('workflow requests write permission: '+v)
+              if privileged in body or expression+' secrets.' in body:
+                  errors.append('workflow uses privileged trigger or repository secrets: '+v)
+          generated=re.compile(r'(?:^|/)(?:node_modules|dist|\.next|\.turbo|test-results|playwright-report|coverage|__pycache__)/'
+                               r'|\.tsbuildinfo$|\.log$|\.pyc$|(?:^|/)\.env(?:\.|$)|\.cdx\.json$|(?:^|/)\.DS_Store$')
+          for v in sorted(current):
+              if generated.search(v): errors.append('generated output or local artifact present: '+v)
+          ignored=set(authored['.gitignore'].splitlines())
+          for pattern in ('node_modules/','.next','dist','.turbo/','*.tsbuildinfo','.env','apps/reference-dapp/test-results/'):
+              if pattern not in ignored: errors.append('.gitignore no longer ignores: '+pattern)
+          for name in ('LICENSE-APACHE-2.0','docs/MASTER_SPEC_V3.2.md'):
+              if (root/name).exists(): errors.append('forbidden file: '+name)
+          check=subprocess.run(['git','diff','--check',amendment_baseline,'--'],capture_output=True,text=True)
+          if check.returncode!=0:
+              errors.append('whitespace errors since '+amendment_baseline+':\n'+check.stdout.strip())
+          since=set(subprocess.check_output(['git','diff','--name-only',amendment_baseline,'--'],text=True).splitlines())
+          since|=paths('ls-files','--others','--exclude-standard')
+          for v in sorted(since):
+              if v in authored and ('\r' in authored[v] or not authored[v].endswith('\n')):
+                  errors.append('changed text file needs LF endings and a final newline: '+v)
+
+          if errors:
+              print('\n'.join(errors),file=sys.stderr)
+              raise SystemExit(1)
+          print('Restored governance controls passed: %d text files scanned for secret indicators, '
+                '%d Gryloo-authored files scanned for email, brand and claim rules, %d Markdown files link-checked, '
+                '%d protected digests, %d decision IDs and %d requirement IDs'
+                % (len(texts),len(authored),len(markdown),len(protected),len(registered['decision']),
+                   len(registered['requirement'])))
           PYCODE

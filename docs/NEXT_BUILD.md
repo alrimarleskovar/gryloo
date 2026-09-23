@@ -1,16 +1,15 @@
 # Next build
 
-## Current build gate
+## Approved next build
 
-BUILD-001 implementation is APPROVED and has passed local acceptance under the
-reviewed declaration-only compatibility patch. See
-[its report](builds/BUILD-001-REPORT.md). BUILD-001 was committed before BUILD-002; no BUILD-002 remote CI result is claimed.
+`NONE_APPROVED`
 
-## Approved current build
+No next build is approved. BUILD-002 is completed and was merged through PR #5
+as `606174f0bd944e5a1c31baf8dad685d7558b7cc8`; see [status](STATUS.md).
 
-- ID: BUILD-002
-- Name: Gryloo visual shell and shared state
-- Status: APPROVED; local acceptance passed, delivery pending
-
-BUILD-002 has separate explicit human approval. BUILD-003, package publication,
-Mode B and financial execution remain unapproved.
+This file lists only an approved next build, as the Master Prompt requires.
+Owner decisions about candidate work are recorded in
+[the decision register](DECISIONS.md) and the
+[BUILD-002 governance amendment](builds/BUILD-002-GOVERNANCE-AMENDMENT.md).
+No BUILD-003 build or sub-build, package publication, Mode B selection,
+wallet, signing, submission or financial execution is approved.

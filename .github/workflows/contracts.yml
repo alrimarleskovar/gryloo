@@ -1,4 +1,4 @@
-name: Build 001 and 002 acceptance
+name: Repository contracts and reference app
 
 on:
   push:
@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   contracts:
+    name: Contracts, reference app, dependencies and SBOM
     runs-on: ubuntu-24.04
     env:
       TURBO_TELEMETRY_DISABLED: "1"
