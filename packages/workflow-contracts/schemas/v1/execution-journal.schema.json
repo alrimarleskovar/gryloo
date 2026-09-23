@@ -1,0 +1,402 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/execution-journal",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "entityId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "entryId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "eventType": {
+            "const": "STATE_TRANSITION",
+            "type": "string"
+          },
+          "executionAttemptId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fromState": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "DRAFT",
+                    "type": "string"
+                  },
+                  {
+                    "const": "REVIEWED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SIMULATED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "AUTHORIZED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "EXECUTING",
+                    "type": "string"
+                  },
+                  {
+                    "const": "RECONCILING",
+                    "type": "string"
+                  },
+                  {
+                    "const": "COMPLETED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PAUSED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "RECOVERY_REQUIRED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PARTIALLY_COMPLETED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "FAILED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "EXPIRED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "CANCELLED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PLANNED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "READY",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PREPARED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SUBMITTING",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SUBMISSION_RESULT_UNKNOWN",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PENDING",
+                    "type": "string"
+                  },
+                  {
+                    "const": "CONFIRMED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "REVERTED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "NOT_FOUND",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PARTIALLY_FILLED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SETTLED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "REFUND_PENDING",
+                    "type": "string"
+                  },
+                  {
+                    "const": "REFUNDED",
+                    "type": "string"
+                  },
+                  {
+                    "const": "RECONCILIATION_REQUIRED",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level": {
+            "anyOf": [
+              {
+                "const": "workflow",
+                "type": "string"
+              },
+              {
+                "const": "segment",
+                "type": "string"
+              },
+              {
+                "const": "step",
+                "type": "string"
+              },
+              {
+                "const": "attempt",
+                "type": "string"
+              }
+            ]
+          },
+          "previousEntryHash": {
+            "anyOf": [
+              {
+                "pattern": "^0x[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recordedAt": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "1.0.0",
+            "type": "string"
+          },
+          "segmentId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sequence": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "toState": {
+            "anyOf": [
+              {
+                "const": "DRAFT",
+                "type": "string"
+              },
+              {
+                "const": "REVIEWED",
+                "type": "string"
+              },
+              {
+                "const": "SIMULATED",
+                "type": "string"
+              },
+              {
+                "const": "AUTHORIZED",
+                "type": "string"
+              },
+              {
+                "const": "EXECUTING",
+                "type": "string"
+              },
+              {
+                "const": "RECONCILING",
+                "type": "string"
+              },
+              {
+                "const": "COMPLETED",
+                "type": "string"
+              },
+              {
+                "const": "PAUSED",
+                "type": "string"
+              },
+              {
+                "const": "RECOVERY_REQUIRED",
+                "type": "string"
+              },
+              {
+                "const": "PARTIALLY_COMPLETED",
+                "type": "string"
+              },
+              {
+                "const": "FAILED",
+                "type": "string"
+              },
+              {
+                "const": "EXPIRED",
+                "type": "string"
+              },
+              {
+                "const": "CANCELLED",
+                "type": "string"
+              },
+              {
+                "const": "PLANNED",
+                "type": "string"
+              },
+              {
+                "const": "READY",
+                "type": "string"
+              },
+              {
+                "const": "PREPARED",
+                "type": "string"
+              },
+              {
+                "const": "SUBMITTING",
+                "type": "string"
+              },
+              {
+                "const": "SUBMISSION_RESULT_UNKNOWN",
+                "type": "string"
+              },
+              {
+                "const": "PENDING",
+                "type": "string"
+              },
+              {
+                "const": "CONFIRMED",
+                "type": "string"
+              },
+              {
+                "const": "REVERTED",
+                "type": "string"
+              },
+              {
+                "const": "NOT_FOUND",
+                "type": "string"
+              },
+              {
+                "const": "PARTIALLY_FILLED",
+                "type": "string"
+              },
+              {
+                "const": "SETTLED",
+                "type": "string"
+              },
+              {
+                "const": "REFUND_PENDING",
+                "type": "string"
+              },
+              {
+                "const": "REFUNDED",
+                "type": "string"
+              },
+              {
+                "const": "RECONCILIATION_REQUIRED",
+                "type": "string"
+              }
+            ]
+          },
+          "workflowId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "entryId",
+          "sequence",
+          "previousEntryHash",
+          "recordedAt",
+          "eventType",
+          "level",
+          "entityId",
+          "workflowId",
+          "segmentId",
+          "stepId",
+          "executionAttemptId",
+          "fromState",
+          "toState"
+        ],
+        "type": "object"
+      },
+      "maxItems": 16384,
+      "type": "array"
+    },
+    "executionPlanHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "journalId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "manifestHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "workflowId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "journalId",
+    "workflowId",
+    "executionPlanHash",
+    "manifestHash",
+    "entries"
+  ],
+  "type": "object"
+}

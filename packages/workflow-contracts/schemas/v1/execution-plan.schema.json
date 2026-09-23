@@ -1,0 +1,286 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/execution-plan",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "checkpointIds": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "maxItems": 1024,
+      "type": "array"
+    },
+    "enforcement": {
+      "const": "NOT_ENFORCED",
+      "type": "string"
+    },
+    "executionPlanId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "manifestHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "segments": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "chainId": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "segmentId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adapter": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 128,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maxLength": 32,
+                          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version"
+                      ],
+                      "type": "object"
+                    },
+                    "chainId": {
+                      "maxLength": 128,
+                      "minLength": 3,
+                      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                      "type": "string"
+                    },
+                    "dependencies": {
+                      "items": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      },
+                      "maxItems": 1024,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "executionKind": {
+                      "const": "DIRECT_TRANSACTION",
+                      "type": "string"
+                    },
+                    "nodeId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "payloadHash": {
+                      "pattern": "^0x[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "requiredAuthorizationClass": {
+                      "anyOf": [
+                        {
+                          "const": "NONE",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_A",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_B",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_C",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "stepId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "stepId",
+                    "nodeId",
+                    "chainId",
+                    "adapter",
+                    "dependencies",
+                    "requiredAuthorizationClass",
+                    "executionKind",
+                    "payloadHash"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adapter": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 128,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maxLength": 32,
+                          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version"
+                      ],
+                      "type": "object"
+                    },
+                    "chainId": {
+                      "maxLength": 128,
+                      "minLength": 3,
+                      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                      "type": "string"
+                    },
+                    "dependencies": {
+                      "items": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      },
+                      "maxItems": 1024,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "executionKind": {
+                      "const": "SIGNED_INTENT",
+                      "type": "string"
+                    },
+                    "intentHash": {
+                      "pattern": "^0x[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "nodeId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    },
+                    "requiredAuthorizationClass": {
+                      "anyOf": [
+                        {
+                          "const": "NONE",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_A",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_B",
+                          "type": "string"
+                        },
+                        {
+                          "const": "MODE_C",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "stepId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "stepId",
+                    "nodeId",
+                    "chainId",
+                    "adapter",
+                    "dependencies",
+                    "requiredAuthorizationClass",
+                    "executionKind",
+                    "intentHash"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "segmentId",
+          "chainId",
+          "dependencies",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "maxItems": 1024,
+      "minItems": 1,
+      "type": "array"
+    },
+    "semanticWorkflowHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "executionPlanId",
+    "semanticWorkflowHash",
+    "manifestHash",
+    "segments",
+    "checkpointIds",
+    "enforcement"
+  ],
+  "type": "object"
+}

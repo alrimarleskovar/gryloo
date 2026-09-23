@@ -1,0 +1,32 @@
+diff --git a/dist/cjs/utils/types/parsedElementInfo.d.ts b/dist/cjs/utils/types/parsedElementInfo.d.ts
+index 5da53a282f4e098f5fec02aac3a8ecfca7679b10..4af5b389d6676cb6d4d169f1fa1b6f29ba2b96ec 100644
+--- a/dist/cjs/utils/types/parsedElementInfo.d.ts
++++ b/dist/cjs/utils/types/parsedElementInfo.d.ts
+@@ -21,9 +21,9 @@ export interface ParsedElementInfo {
+      * is a live reference to the parser's in-progress structure, so it keeps
+      * growing as more siblings are parsed.
+      */
+-    parent?: JsonStruct;
++    parent?: JsonStruct | undefined;
+     /** The key or index under which the value was found in its parent. */
+-    key?: JsonKey;
++    key?: JsonKey | undefined;
+     /** The chain of containers that the value is nested in, outermost first. */
+     stack: StackElement[];
+     /**
+diff --git a/dist/mjs/utils/types/parsedElementInfo.d.ts b/dist/mjs/utils/types/parsedElementInfo.d.ts
+index 5da53a282f4e098f5fec02aac3a8ecfca7679b10..4af5b389d6676cb6d4d169f1fa1b6f29ba2b96ec 100644
+--- a/dist/mjs/utils/types/parsedElementInfo.d.ts
++++ b/dist/mjs/utils/types/parsedElementInfo.d.ts
+@@ -21,9 +21,9 @@ export interface ParsedElementInfo {
+      * is a live reference to the parser's in-progress structure, so it keeps
+      * growing as more siblings are parsed.
+      */
+-    parent?: JsonStruct;
++    parent?: JsonStruct | undefined;
+     /** The key or index under which the value was found in its parent. */
+-    key?: JsonKey;
++    key?: JsonKey | undefined;
+     /** The chain of containers that the value is nested in, outermost first. */
+     stack: StackElement[];
+     /**

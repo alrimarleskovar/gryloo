@@ -1,0 +1,376 @@
+{
+  "$id": "urn:defi-workflow-engine:action-registry/v1/action-registry",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authorizationModes": {
+            "items": {
+              "anyOf": [
+                {
+                  "const": "A",
+                  "type": "string"
+                },
+                {
+                  "const": "B",
+                  "type": "string"
+                },
+                {
+                  "const": "C",
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 3,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "constraints": {
+            "additionalProperties": false,
+            "properties": {
+              "allowedChainRefs": {
+                "items": {
+                  "maxLength": 128,
+                  "pattern": "^[a-z][a-z0-9-]*:[a-zA-Z0-9._-]+$",
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "arbitraryTargetsAllowed": {
+                "const": false,
+                "type": "boolean"
+              },
+              "financialAmountEncoding": {
+                "const": "NATIVE_UNIT_DECIMAL_STRINGS",
+                "type": "string"
+              },
+              "maxInputAmountUnits": {
+                "maxLength": 78,
+                "pattern": "^(0|[1-9][0-9]*)$",
+                "type": "string"
+              },
+              "minInputAmountUnits": {
+                "maxLength": 78,
+                "pattern": "^(0|[1-9][0-9]*)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "arbitraryTargetsAllowed",
+              "financialAmountEncoding"
+            ],
+            "type": "object"
+          },
+          "executionKinds": {
+            "items": {
+              "anyOf": [
+                {
+                  "const": "DIRECT_TRANSACTION",
+                  "type": "string"
+                },
+                {
+                  "const": "SIGNED_INTENT",
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+            "type": "string"
+          },
+          "inputs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "ASSET_REF",
+                      "type": "string"
+                    },
+                    {
+                      "const": "AMOUNT_UNITS",
+                      "type": "string"
+                    },
+                    {
+                      "const": "BOOLEAN",
+                      "type": "string"
+                    },
+                    {
+                      "const": "ARTIFACT_REF",
+                      "type": "string"
+                    },
+                    {
+                      "const": "CONDITION",
+                      "type": "string"
+                    },
+                    {
+                      "const": "DURATION_MS",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "required"
+              ],
+              "type": "object"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "nodeClass": {
+            "anyOf": [
+              {
+                "const": "READ",
+                "type": "string"
+              },
+              {
+                "const": "ROUTE",
+                "type": "string"
+              },
+              {
+                "const": "ACTION",
+                "type": "string"
+              },
+              {
+                "const": "LOGIC",
+                "type": "string"
+              },
+              {
+                "const": "RISK",
+                "type": "string"
+              },
+              {
+                "const": "APPROVAL",
+                "type": "string"
+              },
+              {
+                "const": "RECOVERY",
+                "type": "string"
+              },
+              {
+                "const": "MONITOR",
+                "type": "string"
+              }
+            ]
+          },
+          "outputs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "ASSET_REF",
+                      "type": "string"
+                    },
+                    {
+                      "const": "AMOUNT_UNITS",
+                      "type": "string"
+                    },
+                    {
+                      "const": "BOOLEAN",
+                      "type": "string"
+                    },
+                    {
+                      "const": "ARTIFACT_REF",
+                      "type": "string"
+                    },
+                    {
+                      "const": "CONDITION",
+                      "type": "string"
+                    },
+                    {
+                      "const": "DURATION_MS",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "required"
+              ],
+              "type": "object"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "requiredCapability": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "version": {
+                "maxLength": 32,
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ],
+            "type": "object"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "nodeClass",
+          "inputs",
+          "outputs",
+          "constraints",
+          "requiredCapability",
+          "executionKinds",
+          "authorizationModes"
+        ],
+        "type": "object"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "type": "array"
+    },
+    "capabilities": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authorizationModes": {
+            "items": {
+              "anyOf": [
+                {
+                  "const": "A",
+                  "type": "string"
+                },
+                {
+                  "const": "B",
+                  "type": "string"
+                },
+                {
+                  "const": "C",
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 3,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "enforcement": {
+            "const": "NOT_ENFORCED",
+            "type": "string"
+          },
+          "executionKinds": {
+            "items": {
+              "anyOf": [
+                {
+                  "const": "DIRECT_TRANSACTION",
+                  "type": "string"
+                },
+                {
+                  "const": "SIGNED_INTENT",
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+            "type": "string"
+          },
+          "status": {
+            "const": "DECLARED_ONLY",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "enforcement",
+          "executionKinds",
+          "authorizationModes"
+        ],
+        "type": "object"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "type": "array"
+    },
+    "registryId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "type": "string"
+    },
+    "registryVersion": {
+      "maxLength": 32,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "registryId",
+    "registryVersion",
+    "capabilities",
+    "actions"
+  ],
+  "type": "object"
+}

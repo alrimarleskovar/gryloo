@@ -1,8 +1,10 @@
 # Repository status
 
-- Current build: `BUILD-000`
-- Build type: governance only
-- Product implementation: none
+- Current build: `BUILD-001`
+- Implementation authorization: `APPROVED`
+- Build result: `LOCAL_ACCEPTANCE_PASSED`
+- Build type: canonical artifact contracts; validated locally; delivery pending
+- Product implementation: canonical artifact contracts validated locally
 - Financial functionality: none
 - Authorization mode: `NONE`
 - Build evidence environment: `NOT_APPLICABLE`
@@ -12,10 +14,15 @@
 - License publication: `AUTHORIZED`
 - Third-party materials: `EXCLUDED_UNLESS_VERIFIED`
 - CLA adoption: `DEFERRED`
-- BUILD-001: `NOT_APPROVED`
-- Dependency scanning: `NOT_APPLICABLE` (no manifest)
-- SBOM generation: `NOT_APPLICABLE` (no manifest)
-- Next build authorization: none
+- Dependency registry/integrity/release-age review: passed for 170 lock entries
+- Dependency vulnerability audit: passed, zero advisories at verification time
+- Package build: passed with the human-approved declaration-only pnpm patch
+- Unit/contract/security-negative tests: 82 passed across 6 files
+- Local governance acceptance: passed
+- SBOM validation: passed; 140 components; no retained SBOM artifact
+- Commit, push and PR: pending delivery; no remote CI result claimed
+- BUILD-002: `NOT_APPROVED`
 
-Governance CI does not constitute typecheck, application lint, unit, integration,
-E2E, dependency, or financial coverage.
+The approved declaration correction and demonstrated local acceptance are recorded
+in [BUILD-001 report](builds/BUILD-001-REPORT.md). BUILD-000 records
+remain historical and preserved; ADR-0001 remains PROPOSED.

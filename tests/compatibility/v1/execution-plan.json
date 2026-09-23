@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "executionPlanId": "example",
+  "semanticWorkflowHash": "0xb0446d65c8341fecbbd5e8bf3f3c75c540064d13c296099361d3a3e57dd0c918",
+  "manifestHash": "0xb92da05493d144f0506585eb9d9afc024030d648cf592565305639107c3f24c1",
+  "segments": [
+    {
+      "segmentId": "segment-001",
+      "chainId": "eip155:1",
+      "dependencies": [],
+      "steps": [
+        {
+          "stepId": "step-001",
+          "nodeId": "node-001",
+          "chainId": "eip155:1",
+          "adapter": {
+            "id": "example",
+            "version": "1.0.0"
+          },
+          "dependencies": [],
+          "requiredAuthorizationClass": "NONE",
+          "executionKind": "DIRECT_TRANSACTION",
+          "payloadHash": "0xab49946867b3ef86b5e6cc76bce07521736336202230e9182bf1c5851d7184ca"
+        }
+      ]
+    }
+  ],
+  "checkpointIds": [],
+  "enforcement": "NOT_ENFORCED"
+}

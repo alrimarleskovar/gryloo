@@ -1,0 +1,75 @@
+export type JournalLevel = 'workflow' | 'segment' | 'step' | 'attempt';
+
+const workflow = {
+  DRAFT: ['REVIEWED', 'CANCELLED'],
+  REVIEWED: ['SIMULATED', 'DRAFT', 'CANCELLED'],
+  SIMULATED: ['AUTHORIZED', 'DRAFT', 'EXPIRED', 'CANCELLED'],
+  AUTHORIZED: ['EXECUTING', 'PAUSED', 'EXPIRED', 'CANCELLED'],
+  EXECUTING: ['RECONCILING', 'PAUSED', 'RECOVERY_REQUIRED', 'PARTIALLY_COMPLETED', 'FAILED'],
+  RECONCILING: ['COMPLETED', 'PARTIALLY_COMPLETED', 'RECOVERY_REQUIRED', 'FAILED'],
+  PAUSED: ['REVIEWED', 'RECOVERY_REQUIRED', 'CANCELLED', 'EXPIRED'],
+  RECOVERY_REQUIRED: ['RECONCILING', 'PAUSED', 'PARTIALLY_COMPLETED', 'FAILED'],
+  PARTIALLY_COMPLETED: ['RECOVERY_REQUIRED', 'RECONCILING'],
+  COMPLETED: [], FAILED: [], EXPIRED: [], CANCELLED: [],
+} as const;
+const segment = {
+  PLANNED: ['READY', 'CANCELLED'],
+  READY: ['EXECUTING', 'PAUSED', 'EXPIRED', 'CANCELLED'],
+  EXECUTING: ['RECONCILING', 'PAUSED', 'RECOVERY_REQUIRED', 'FAILED'],
+  RECONCILING: ['COMPLETED', 'PARTIALLY_COMPLETED', 'RECOVERY_REQUIRED', 'FAILED'],
+  PAUSED: ['READY', 'RECOVERY_REQUIRED', 'EXPIRED', 'CANCELLED'],
+  RECOVERY_REQUIRED: ['RECONCILING', 'PAUSED', 'FAILED'],
+  PARTIALLY_COMPLETED: ['RECOVERY_REQUIRED', 'RECONCILING'],
+  COMPLETED: [], FAILED: [], EXPIRED: [], CANCELLED: [],
+} as const;
+const step = {
+  PLANNED: ['READY', 'CANCELLED'],
+  READY: ['EXECUTING', 'PAUSED', 'EXPIRED', 'CANCELLED'],
+  EXECUTING: ['RECONCILING', 'PAUSED', 'RECOVERY_REQUIRED', 'FAILED'],
+  RECONCILING: ['COMPLETED', 'PARTIALLY_COMPLETED', 'RECOVERY_REQUIRED', 'FAILED'],
+  PAUSED: ['READY', 'RECOVERY_REQUIRED', 'EXPIRED', 'CANCELLED'],
+  RECOVERY_REQUIRED: ['RECONCILING', 'PAUSED', 'FAILED'],
+  PARTIALLY_COMPLETED: ['RECOVERY_REQUIRED', 'RECONCILING'],
+  COMPLETED: [], FAILED: [], EXPIRED: [], CANCELLED: [],
+} as const;
+const attempt = {
+  PREPARED: ['SUBMITTING', 'EXPIRED', 'CANCELLED'],
+  SUBMITTING: ['PENDING', 'SUBMISSION_RESULT_UNKNOWN', 'CONFIRMED', 'REVERTED'],
+  SUBMISSION_RESULT_UNKNOWN: ['PENDING', 'CONFIRMED', 'REVERTED', 'NOT_FOUND', 'RECONCILIATION_REQUIRED'],
+  PENDING: ['CONFIRMED', 'REVERTED', 'PARTIALLY_FILLED', 'SETTLED', 'EXPIRED', 'CANCELLED', 'RECONCILIATION_REQUIRED'],
+  CONFIRMED: ['RECONCILIATION_REQUIRED'],
+  REVERTED: ['RECONCILIATION_REQUIRED'],
+  NOT_FOUND: ['RECONCILIATION_REQUIRED'],
+  PARTIALLY_FILLED: ['SETTLED', 'CANCELLED', 'EXPIRED', 'REFUND_PENDING', 'RECONCILIATION_REQUIRED'],
+  SETTLED: ['RECONCILIATION_REQUIRED'],
+  EXPIRED: ['REFUND_PENDING', 'RECONCILIATION_REQUIRED'],
+  CANCELLED: ['REFUND_PENDING', 'RECONCILIATION_REQUIRED'],
+  REFUND_PENDING: ['REFUNDED', 'RECONCILIATION_REQUIRED'],
+  REFUNDED: ['RECONCILIATION_REQUIRED'],
+  RECONCILIATION_REQUIRED: [],
+} as const;
+
+const tables: Record<JournalLevel, Record<string, readonly string[]>> = {
+  workflow, segment, step, attempt,
+};
+for (const table of Object.values(tables)) {
+  for (const targets of Object.values(table)) Object.freeze(targets);
+  Object.freeze(table);
+}
+export const STATE_TRANSITIONS = Object.freeze(tables);
+export const INITIAL_STATES = Object.freeze({
+  workflow: 'DRAFT', segment: 'PLANNED', step: 'PLANNED', attempt: 'PREPARED',
+} as const);
+
+/** Validates a declaration; it neither persists nor performs an operation. */
+export function assertTransition(level: JournalLevel, from: string | null, to: string): void {
+  if (!Object.hasOwn(STATE_TRANSITIONS, level)) throw new Error('Unknown journal level');
+  if (from === null) {
+    if (INITIAL_STATES[level] !== to) throw new Error('Invalid initial state');
+    return;
+  }
+  if (!Object.hasOwn(STATE_TRANSITIONS[level], from) ||
+      !STATE_TRANSITIONS[level][from]?.includes(to)) {
+    throw new Error('Invalid state transition');
+  }
+}

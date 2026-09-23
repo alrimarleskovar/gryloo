@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "policyId": "example",
+  "semanticWorkflowHash": "0xb0446d65c8341fecbbd5e8bf3f3c75c540064d13c296099361d3a3e57dd0c918",
+  "artifactSetHash": "0x1ec7818fab59419098f8fb0d36bfff7afac3b4ca954445c78764edaa5bec0475",
+  "simulationHash": "0x5aacbd61194afaf5d21930d6082acb3cd94c8d0dcdf1495a6de07368143ccd32",
+  "requiredAuthorizationClass": "NONE",
+  "allowlists": {
+    "owners": [],
+    "accounts": [],
+    "recipients": [],
+    "chains": [],
+    "adapters": [],
+    "protocols": [],
+    "contracts": [],
+    "functions": []
+  },
+  "budgetReservation": {
+    "rule": "RESERVE_BEFORE_SUBMISSION",
+    "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+    "implementation": "NOT_IMPLEMENTED"
+  },
+  "spendLimits": [],
+  "maximumSlippageBps": 0,
+  "gasBudgets": [],
+  "feeBudgets": [],
+  "oracleRules": [],
+  "accountRiskRules": [],
+  "checkpointRules": [],
+  "providers": {
+    "kind": "FIXED",
+    "providerId": "example"
+  },
+  "nonce": "0",
+  "deadline": "2026-09-22T00:00:00.000Z",
+  "revocationEpoch": 0,
+  "recovery": {
+    "failurePolicy": "ABORT",
+    "residualAssetRecipient": {
+      "chainId": "eip155:1",
+      "address": "0x0000000000000000000000000000000000000001"
+    },
+    "maximumAttemptsPerStep": 1,
+    "requiresHumanReview": true
+  },
+  "enforcement": "NOT_ENFORCED"
+}

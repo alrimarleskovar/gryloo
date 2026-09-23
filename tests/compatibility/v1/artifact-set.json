@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactSetId": "artifact-set-001",
+  "semanticWorkflowHash": "0xb0446d65c8341fecbbd5e8bf3f3c75c540064d13c296099361d3a3e57dd0c918",
+  "artifacts": [
+    {
+      "artifactId": "example",
+      "nodeId": "node-001",
+      "artifactHash": "0x55f087ffbe171c00c33e8decc140b494741fefe740313c6c87b238dd14dfec0a"
+    }
+  ]
+}

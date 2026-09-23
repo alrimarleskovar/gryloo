@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0.0",
+  "simulationId": "example",
+  "semanticWorkflowRevision": 0,
+  "semanticWorkflowHash": "0xb0446d65c8341fecbbd5e8bf3f3c75c540064d13c296099361d3a3e57dd0c918",
+  "artifactSetHash": "0x1ec7818fab59419098f8fb0d36bfff7afac3b4ca954445c78764edaa5bec0475",
+  "adapters": [],
+  "contracts": [],
+  "outputs": [],
+  "propagatedOutputs": [],
+  "failurePaths": [],
+  "uncertainty": [],
+  "unsupportedAssumptions": [],
+  "freshness": {
+    "observedAt": "2026-09-22T00:00:00.000Z",
+    "expiresAt": "2026-09-22T00:00:00.000Z",
+    "maximumAgeSeconds": 0
+  }
+}

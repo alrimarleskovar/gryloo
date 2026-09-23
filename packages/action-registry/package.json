@@ -1,0 +1,24 @@
+{
+  "name": "@defi-workflow-engine/action-registry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": "24.21.0" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./schemas": { "types": "./dist/schemas.d.ts", "import": "./dist/schemas.js" },
+    "./schemas/v1/*.schema.json": "./schemas/v1/*.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "schemas/v1", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
+    "@sinclair/typebox": "0.34.52",
+    "ajv": "8.20.0"
+  }
+}
