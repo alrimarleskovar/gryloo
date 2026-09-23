@@ -1,0 +1,27 @@
+{
+  "name": "@defi-workflow-engine/reference-dapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "build": "NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 next build",
+    "dev": "NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 next dev --hostname 127.0.0.1",
+    "start": "NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 playwright test"
+  },
+  "dependencies": {
+    "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+    "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
+    "@xyflow/react": "12.11.6",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

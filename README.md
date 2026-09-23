@@ -12,8 +12,7 @@ input validation, deterministic hashes, revision and state checks, and a
 declarative Action Registry. The private ESM packages grant no financial
 authority and do not execute workflows. See [status](docs/STATUS.md), the
 [Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
-[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002,
-package publication, and Mode B selection remain unapproved. The
+[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is separately approved. Package publication, BUILD-003 and Mode B selection remain unapproved. The
 [Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
 records the approved pre-incorporation license publication.
 
@@ -50,3 +49,10 @@ CI bootstraps verified official Node.js `24.21.0` and pnpm `11.22.0` archives
 with runner Python, Git, and Bash and no third-party Actions. Dependencies use
 exact pins and a frozen lockfile; install scripts are disabled. SBOM validation
 emits a digest; no retained SBOM artifact is claimed.
+
+BUILD-002's approved private [reference application](apps/reference-dapp)
+provides the local mocked Gryloo visual shell and shared revisioned workflow
+state. Its source is AGPL-3.0-only. The exact third-party license and
+attribution inventory is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);
+the current validation record is the
+[BUILD-002 report](docs/builds/BUILD-002-REPORT.md).

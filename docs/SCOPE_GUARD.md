@@ -35,13 +35,18 @@ files must be byte-for-byte copies of `LICENSES/Apache-2.0.txt`.
 
 ## Deferred scope
 
-BUILD-002 and all later builds require separate approval. There is no approval
-for a DApp, chat, canvas, API, database, worker, wallet connection, protocol
+BUILD-002 has separate approval for its local mocked DApp, chat and canvas.
+There is no approval for an API, database, worker, wallet connection, protocol
 adapter, transaction construction, signing, submission, live quote, financial
 simulation, reconciliation implementation, managed-plane component, package
-publication, or Mode B selection. Descriptive contracts for these concepts
+publication, Mode B selection, or BUILD-003. Descriptive contracts for these concepts
 grant no authority to implement or execute them.
 
 Any difference from approved dependency versions, integrity digests, Node
 checksum, peers, licenses, parser behavior, CI downloads, or transitive review
 must stop implementation for a human decision before substitution.
+
+BUILD-002 is separately authorized by the human owner. Its exact path scope
+and 16-package legal-evidence amendment are recorded in the
+[BUILD-002 plan](builds/BUILD-002-PLAN.md). BUILD-003, Mode B, package
+publication and financial execution remain unapproved.

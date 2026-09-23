@@ -57,3 +57,11 @@ enforces the exact authorized path list, scans repository sources for basic
 secret indicators, and requires explicit approval before any subsequent build.
 These checks supplement review; they cannot detect all secrets or future
 runtime vulnerabilities.
+
+The BUILD-002 reference application is a local-only mocked shell. Browser
+tests abort and report every unexpected external request; a dedicated negative
+test proves the guard fails on an intercepted synthetic attempt. The locked
+dependency verifier checks all 245 registry entries, including optional
+platform packages, and pins 16 reviewed exceptions by exact identity, SPDX,
+SRI and graph route. Future distribution of Sharp/libvips binaries has a
+separate release-compliance gate.

@@ -40,3 +40,10 @@ Execution Journal, and Evidence Bundle. Canonical identifiers are
 `semanticWorkflowHash`, `artifactSetHash`, `simulationHash`, `policyHash`,
 `manifestHash`, `payloadHash` or `intentHash`, `executionAttemptId`, and
 `evidenceBundleHash`.
+
+BUILD-002 requires one shared revisioned Semantic Workflow IR across its
+mock chat, action library and canvas; local-only mocked interactions; strict
+network isolation; honest unavailable Simulate and Execute shells; and exact
+license/SRI disclosure for all 245 locked packages, including inactive
+platforms. No wallet, transaction, signing or financial execution is
+authorized.

@@ -1,4 +1,4 @@
-name: Build 001 contracts
+name: Build 001 and 002 acceptance
 
 on:
   push:
@@ -15,6 +15,8 @@ jobs:
       DO_NOT_TRACK: "1"
       COREPACK_ENABLE_AUTO_PIN: "0"
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     steps:
       - name: Fetch reviewed revision with runner-provided Git
         env:
@@ -73,47 +75,77 @@ jobs:
           pnpm schemas:check
           pnpm test
 
+      - name: Bootstrap exact approved headless shell and run guarded browser suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
+          python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
+          pnpm --filter @defi-workflow-engine/reference-dapp test:e2e
+
       - name: Dependency audit
         shell: bash
         run: |
           set -euo pipefail
           pnpm audit --audit-level low
 
-      - name: Validate ephemeral CycloneDX 1.6 SBOM
+      - name: Validate and remove ephemeral CycloneDX 1.6 SBOM
         shell: bash
         run: |
           set -euo pipefail
-          pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --out "$RUNNER_TEMP/build-001.cdx.json"
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib
-          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'build-001.cdx.json'
-          raw = path.read_bytes()
-          document = json.loads(raw)
-          if document.get('bomFormat') != 'CycloneDX' or document.get('specVersion') != '1.6':
-              raise SystemExit('Unexpected SBOM format or version')
-          components = document.get('components')
-          if not isinstance(components, list) or not components:
-              raise SystemExit('Missing SBOM components')
-          actual = set()
-          for component in components:
-              name, version = component.get('name'), component.get('version')
-              if not isinstance(name, str) or not isinstance(version, str):
-                  raise SystemExit('SBOM component identity is incomplete')
-              group = component.get('group')
-              actual.add(((group + '/' if group else '') + name, version))
-          expected = set()
-          for manifest_path in [pathlib.Path('package.json'), *pathlib.Path('packages').glob('*/package.json')]:
-              manifest = json.loads(manifest_path.read_text())
-              for section in ('dependencies', 'devDependencies'):
-                  for name, version in manifest.get(section, {}).items():
-                      if not version.startswith('workspace:'):
-                          expected.add((name, version))
-          if len(expected) != 12 or not expected <= actual:
-              raise SystemExit('SBOM is missing an approved exact direct dependency')
-          digest = hashlib.sha256(raw).hexdigest()
-          message = f'Ephemeral CycloneDX 1.6 SBOM: {len(components)} components, SHA-256 {digest}'
-          print(message)
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
-              summary.write(message + '\n')
-          path.unlink()
-          PY
+          pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --lockfile-only --out "$RUNNER_TEMP/build-002.cdx.json"
+          python3 - <<'PYCODE'
+          import hashlib, json, os, pathlib, sys
+          path=pathlib.Path(os.environ['RUNNER_TEMP'])/'build-002.cdx.json'
+          try:
+              document=json.loads(path.read_text())
+              if document.get('bomFormat')!='CycloneDX' or document.get('specVersion')!='1.6':
+                  raise SystemExit('Unexpected SBOM format or version')
+              evidence=json.loads((path.parent/'build-002-dependencies.json').read_text())
+              expected={(r['name'],r['version']):r['license'] for r in evidence}
+              if len(evidence)!=245 or len(expected)!=245:
+                  raise SystemExit('Dependency evidence count changed')
+              components=document.get('components')
+              if not isinstance(components,list):
+                  raise SystemExit('SBOM components missing')
+              seen=set()
+              for component in components:
+                  name=(component.get('group')+'/' if component.get('group') else '')+component.get('name','')
+                  identity=(name,component.get('version'))
+                  if identity not in expected or identity in seen:
+                      raise SystemExit('Unreviewed or duplicate SBOM component: '+repr(identity))
+                  seen.add(identity)
+                  expression=expected[identity]
+                  if ' AND ' in expression:
+                      component['licenses']=[{'expression':expression}]
+                  else:
+                      component['licenses']=[{'license':{'id':expression}}]
+              if seen!=set(expected):
+                  raise SystemExit('SBOM omits reviewed lock components')
+              reviewed={
+                  '@img/sharp-libvips-darwin-arm64','@img/sharp-libvips-darwin-x64',
+                  '@img/sharp-libvips-linux-arm','@img/sharp-libvips-linux-arm64',
+                  '@img/sharp-libvips-linux-ppc64','@img/sharp-libvips-linux-riscv64',
+                  '@img/sharp-libvips-linux-s390x','@img/sharp-libvips-linux-x64',
+                  '@img/sharp-libvips-linuxmusl-arm64','@img/sharp-libvips-linuxmusl-x64',
+                  '@img/sharp-wasm32','@img/sharp-win32-arm64',
+                  '@img/sharp-win32-ia32','@img/sharp-win32-x64',
+                  'caniuse-lite','tslib'}
+              if {name for name,version in seen if name in reviewed}!=reviewed:
+                  raise SystemExit('Reviewed exception package set changed in SBOM')
+              raw=(json.dumps(document,indent=2,sort_keys=True)+'\n').encode()
+              path.write_bytes(raw)
+              checked=json.loads(path.read_text())
+              for component in checked['components']:
+                  name=(component.get('group')+'/' if component.get('group') else '')+component['name']
+                  license_value=component['licenses'][0]
+                  actual=license_value.get('expression',license_value.get('license',{}).get('id'))
+                  if actual!=expected[(name,component['version'])]:
+                      raise SystemExit('SBOM license expression changed: '+name)
+              message='Ephemeral CycloneDX 1.6 SBOM: 245 exact registry components, 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
+              print(message)
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
+                  summary.write(message+'\n')
+          finally:
+              path.unlink(missing_ok=True)
+          PYCODE
