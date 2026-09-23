@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+minimumReleaseAge: 10080
+pmOnFail: error
+strictPeerDependencies: true
+autoInstallPeers: false
+patchedDependencies:
+  '@streamparser/json@0.0.26': patches/@streamparser__json@0.0.26.patch

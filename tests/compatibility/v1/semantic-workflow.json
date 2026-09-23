@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "workflowId": "workflow-001",
+  "revision": 0,
+  "nodes": [
+    {
+      "nodeId": "node-001",
+      "actionType": "swap",
+      "actionSchemaVersion": "1.0.0",
+      "chainId": "eip155:1",
+      "requiredCapabilities": [],
+      "adapterConstraints": {
+        "adapters": [],
+        "protocols": []
+      },
+      "inputs": [],
+      "expectedOutputs": [],
+      "dependencies": [],
+      "userConstraints": [],
+      "failurePolicy": "ABORT",
+      "requiredAuthorizationClass": "NONE",
+      "lockedParameters": [],
+      "editableBounds": []
+    }
+  ],
+  "resourceEdges": []
+}

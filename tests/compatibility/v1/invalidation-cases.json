@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0.0",
+  "cases": [
+    {
+      "change": "SEMANTIC_EDIT",
+      "invalidates": [
+        "quote-state-artifact",
+        "artifact-set",
+        "simulation-bundle",
+        "authorization-policy",
+        "strategy-manifest",
+        "execution-plan",
+        "authorization"
+      ]
+    },
+    {
+      "change": "QUOTE_REFRESH",
+      "invalidates": [
+        "artifact-set",
+        "simulation-bundle",
+        "authorization-policy",
+        "strategy-manifest",
+        "execution-plan",
+        "authorization"
+      ]
+    },
+    {
+      "change": "POLICY_EDIT",
+      "invalidates": [
+        "strategy-manifest",
+        "execution-plan",
+        "authorization"
+      ]
+    },
+    {
+      "change": "PRESENTATION_EDIT",
+      "invalidates": []
+    },
+    {
+      "change": "JOURNAL_APPEND",
+      "invalidates": []
+    },
+    {
+      "change": "EVIDENCE_APPEND",
+      "invalidates": []
+    }
+  ]
+}

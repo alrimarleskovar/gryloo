@@ -1,0 +1,1112 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/authorization-policy",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "accountRiskRules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "address"
+            ],
+            "type": "object"
+          },
+          "checkpointId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "maximumExposure": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "amount": {
+                  "maxLength": 78,
+                  "pattern": "^(0|[1-9][0-9]*)$",
+                  "type": "string"
+                },
+                "asset": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "address": {
+                          "maxLength": 160,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9._:-]+$",
+                          "type": "string"
+                        },
+                        "chainId": {
+                          "maxLength": 128,
+                          "minLength": 3,
+                          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                          "type": "string"
+                        },
+                        "decimals": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "chainId",
+                        "address",
+                        "decimals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "chainId": {
+                          "maxLength": 128,
+                          "minLength": 3,
+                          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                          "type": "string"
+                        },
+                        "decimals": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "nativeId": {
+                          "maxLength": 128,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "chainId",
+                        "nativeId",
+                        "decimals"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "asset",
+                "amount"
+              ],
+              "type": "object"
+            },
+            "maxItems": 128,
+            "type": "array"
+          },
+          "maximumLtvBps": {
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minimumHealthFactorDenominator": {
+            "maxLength": 78,
+            "pattern": "^[1-9][0-9]*$",
+            "type": "string"
+          },
+          "minimumHealthFactorNumerator": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "oracleId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "minimumHealthFactorNumerator",
+          "minimumHealthFactorDenominator",
+          "maximumLtvBps",
+          "maximumExposure",
+          "oracleId",
+          "checkpointId"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "allowlists": {
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "address"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "adapters": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "version": {
+                "maxLength": 32,
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "chains": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "contracts": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              },
+              "version": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "address",
+              "version"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "functions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              },
+              "contract": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "functionId": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "contract",
+              "functionId"
+            ],
+            "type": "object"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "owners": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "address"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "protocols": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "recipients": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              "chainId": {
+                "maxLength": 128,
+                "minLength": 3,
+                "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "chainId",
+              "address"
+            ],
+            "type": "object"
+          },
+          "maxItems": 128,
+          "type": "array"
+        }
+      },
+      "required": [
+        "owners",
+        "accounts",
+        "recipients",
+        "chains",
+        "adapters",
+        "protocols",
+        "contracts",
+        "functions"
+      ],
+      "type": "object"
+    },
+    "artifactSetHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "budgetReservation": {
+      "additionalProperties": false,
+      "properties": {
+        "concurrentConsumption": {
+          "const": "CUMULATIVE_ACROSS_BRANCHES",
+          "type": "string"
+        },
+        "implementation": {
+          "const": "NOT_IMPLEMENTED",
+          "type": "string"
+        },
+        "rule": {
+          "const": "RESERVE_BEFORE_SUBMISSION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "concurrentConsumption",
+        "implementation"
+      ],
+      "type": "object"
+    },
+    "checkpointRules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "beforeNodeId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "checkpointId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "maximumSlippageBps": {
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minimumOutputs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "amount": {
+                  "maxLength": 78,
+                  "pattern": "^(0|[1-9][0-9]*)$",
+                  "type": "string"
+                },
+                "asset": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "address": {
+                          "maxLength": 160,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9._:-]+$",
+                          "type": "string"
+                        },
+                        "chainId": {
+                          "maxLength": 128,
+                          "minLength": 3,
+                          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                          "type": "string"
+                        },
+                        "decimals": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "chainId",
+                        "address",
+                        "decimals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "chainId": {
+                          "maxLength": 128,
+                          "minLength": 3,
+                          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                          "type": "string"
+                        },
+                        "decimals": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "nativeId": {
+                          "maxLength": 128,
+                          "minLength": 1,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "chainId",
+                        "nativeId",
+                        "decimals"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "asset",
+                "amount"
+              ],
+              "type": "object"
+            },
+            "maxItems": 128,
+            "type": "array"
+          }
+        },
+        "required": [
+          "checkpointId",
+          "beforeNodeId",
+          "maximumSlippageBps",
+          "minimumOutputs"
+        ],
+        "type": "object"
+      },
+      "maxItems": 1024,
+      "type": "array"
+    },
+    "deadline": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "type": "string"
+    },
+    "enforcement": {
+      "const": "NOT_ENFORCED",
+      "type": "string"
+    },
+    "feeBudgets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "gasBudgets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "maximumSlippageBps": {
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "nonce": {
+      "maxLength": 78,
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "oracleRules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "baseAsset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAgeSeconds": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maximumDeviationBps": {
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "oracleId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "quoteAsset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "oracleId",
+          "baseAsset",
+          "quoteAsset",
+          "maximumAgeSeconds",
+          "maximumDeviationBps"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "policyId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "providers": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "FIXED",
+              "type": "string"
+            },
+            "providerId": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "providerId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "AUTHORIZED_SET",
+              "type": "string"
+            },
+            "providerIds": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "providerIds"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "failurePolicy": {
+          "anyOf": [
+            {
+              "const": "ABORT",
+              "type": "string"
+            },
+            {
+              "const": "RETRY",
+              "type": "string"
+            },
+            {
+              "const": "REQUOTE_WITHIN_LIMITS",
+              "type": "string"
+            },
+            {
+              "const": "PAUSE_FOR_APPROVAL",
+              "type": "string"
+            },
+            {
+              "const": "CANCEL_IF_AVAILABLE",
+              "type": "string"
+            },
+            {
+              "const": "REQUEST_REFUND",
+              "type": "string"
+            },
+            {
+              "const": "COMPENSATE",
+              "type": "string"
+            }
+          ]
+        },
+        "maximumAttemptsPerStep": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "requiresHumanReview": {
+          "const": true,
+          "type": "boolean"
+        },
+        "residualAssetRecipient": {
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "chainId": {
+              "maxLength": 128,
+              "minLength": 3,
+              "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "chainId",
+            "address"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "failurePolicy",
+        "residualAssetRecipient",
+        "maximumAttemptsPerStep",
+        "requiresHumanReview"
+      ],
+      "type": "object"
+    },
+    "requiredAuthorizationClass": {
+      "anyOf": [
+        {
+          "const": "NONE",
+          "type": "string"
+        },
+        {
+          "const": "MODE_A",
+          "type": "string"
+        },
+        {
+          "const": "MODE_B",
+          "type": "string"
+        },
+        {
+          "const": "MODE_C",
+          "type": "string"
+        }
+      ]
+    },
+    "revocationEpoch": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "semanticWorkflowHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "simulationHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "spendLimits": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maximumCumulativeAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maximumPerStepAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount",
+          "maximumPerStepAmount",
+          "maximumCumulativeAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "policyId",
+    "semanticWorkflowHash",
+    "artifactSetHash",
+    "simulationHash",
+    "requiredAuthorizationClass",
+    "allowlists",
+    "budgetReservation",
+    "spendLimits",
+    "maximumSlippageBps",
+    "gasBudgets",
+    "feeBudgets",
+    "oracleRules",
+    "accountRiskRules",
+    "checkpointRules",
+    "providers",
+    "nonce",
+    "deadline",
+    "revocationEpoch",
+    "recovery",
+    "enforcement"
+  ],
+  "type": "object"
+}

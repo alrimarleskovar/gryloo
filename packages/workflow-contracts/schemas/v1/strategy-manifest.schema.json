@@ -1,0 +1,529 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/strategy-manifest",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "artifactSetHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "authorizationMode": {
+      "anyOf": [
+        {
+          "const": "NONE",
+          "type": "string"
+        },
+        {
+          "const": "MODE_A",
+          "type": "string"
+        },
+        {
+          "const": "MODE_B",
+          "type": "string"
+        },
+        {
+          "const": "MODE_C",
+          "type": "string"
+        }
+      ]
+    },
+    "enforcement": {
+      "const": "NOT_ENFORCED",
+      "type": "string"
+    },
+    "executor": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "chainId": {
+              "maxLength": 128,
+              "minLength": 3,
+              "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "chainId",
+            "address"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expiresAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "type": "string"
+    },
+    "feeBudgets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "gasBudgets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "manifestId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "maximumSlippageBps": {
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "nonce": {
+      "maxLength": 78,
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "owner": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        "chainId": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chainId",
+        "address"
+      ],
+      "type": "object"
+    },
+    "policyHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "providers": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "FIXED",
+              "type": "string"
+            },
+            "providerId": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "providerId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "AUTHORIZED_SET",
+              "type": "string"
+            },
+            "providerIds": {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "maxItems": 128,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "providerIds"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "failurePolicy": {
+          "anyOf": [
+            {
+              "const": "ABORT",
+              "type": "string"
+            },
+            {
+              "const": "RETRY",
+              "type": "string"
+            },
+            {
+              "const": "REQUOTE_WITHIN_LIMITS",
+              "type": "string"
+            },
+            {
+              "const": "PAUSE_FOR_APPROVAL",
+              "type": "string"
+            },
+            {
+              "const": "CANCEL_IF_AVAILABLE",
+              "type": "string"
+            },
+            {
+              "const": "REQUEST_REFUND",
+              "type": "string"
+            },
+            {
+              "const": "COMPENSATE",
+              "type": "string"
+            }
+          ]
+        },
+        "maximumAttemptsPerStep": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "requiresHumanReview": {
+          "const": true,
+          "type": "boolean"
+        },
+        "residualAssetRecipient": {
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "chainId": {
+              "maxLength": 128,
+              "minLength": 3,
+              "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "chainId",
+            "address"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "failurePolicy",
+        "residualAssetRecipient",
+        "maximumAttemptsPerStep",
+        "requiresHumanReview"
+      ],
+      "type": "object"
+    },
+    "revocationEpoch": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "semanticWorkflowHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "semanticWorkflowRevision": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "simulationHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "spendLimits": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "maximumAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maximumCumulativeAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maximumPerStepAmount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "maximumAmount",
+          "maximumPerStepAmount",
+          "maximumCumulativeAmount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "manifestId",
+    "semanticWorkflowRevision",
+    "semanticWorkflowHash",
+    "artifactSetHash",
+    "simulationHash",
+    "policyHash",
+    "authorizationMode",
+    "owner",
+    "executor",
+    "expiresAt",
+    "nonce",
+    "revocationEpoch",
+    "spendLimits",
+    "maximumSlippageBps",
+    "gasBudgets",
+    "feeBudgets",
+    "providers",
+    "recovery",
+    "enforcement"
+  ],
+  "type": "object"
+}

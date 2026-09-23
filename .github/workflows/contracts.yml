@@ -1,0 +1,119 @@
+name: Build 001 contracts
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+      COREPACK_ENABLE_AUTO_PIN: "0"
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - name: Fetch reviewed revision with runner-provided Git
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git init .
+          git remote add origin "$SERVER/$REPOSITORY.git"
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "$REVISION"
+          git checkout --detach FETCH_HEAD
+          unset auth GH_TOKEN
+
+      - name: Verify and bootstrap exact official Node and pnpm archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/bootstrap-ci.py
+
+      - name: Print exact verified toolchain before installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git --version
+          python3 --version
+          node --version
+          node -p "process.platform+' '+process.arch"
+          pnpm --version
+          node -p "JSON.parse(require('fs').readFileSync('package.json')).packageManager"
+          test "$(node --version)" = "v24.21.0"
+          test "$(pnpm --version)" = "11.22.0"
+
+      - name: Frozen install without lifecycle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Verify every registry integrity, license and release age
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/bootstrap-ci.py --verify-dependencies
+
+      - name: Typecheck, lint, build, schema drift and contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm typecheck
+          pnpm lint
+          pnpm build
+          pnpm schemas:check
+          pnpm test
+
+      - name: Dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm audit --audit-level low
+
+      - name: Validate ephemeral CycloneDX 1.6 SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --out "$RUNNER_TEMP/build-001.cdx.json"
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'build-001.cdx.json'
+          raw = path.read_bytes()
+          document = json.loads(raw)
+          if document.get('bomFormat') != 'CycloneDX' or document.get('specVersion') != '1.6':
+              raise SystemExit('Unexpected SBOM format or version')
+          components = document.get('components')
+          if not isinstance(components, list) or not components:
+              raise SystemExit('Missing SBOM components')
+          actual = set()
+          for component in components:
+              name, version = component.get('name'), component.get('version')
+              if not isinstance(name, str) or not isinstance(version, str):
+                  raise SystemExit('SBOM component identity is incomplete')
+              group = component.get('group')
+              actual.add(((group + '/' if group else '') + name, version))
+          expected = set()
+          for manifest_path in [pathlib.Path('package.json'), *pathlib.Path('packages').glob('*/package.json')]:
+              manifest = json.loads(manifest_path.read_text())
+              for section in ('dependencies', 'devDependencies'):
+                  for name, version in manifest.get(section, {}).items():
+                      if not version.startswith('workspace:'):
+                          expected.add((name, version))
+          if len(expected) != 12 or not expected <= actual:
+              raise SystemExit('SBOM is missing an approved exact direct dependency')
+          digest = hashlib.sha256(raw).hexdigest()
+          message = f'Ephemeral CycloneDX 1.6 SBOM: {len(components)} components, SHA-256 {digest}'
+          print(message)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(message + '\n')
+          path.unlink()
+          PY

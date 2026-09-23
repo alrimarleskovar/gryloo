@@ -1,0 +1,1118 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/quote-state-artifact",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    },
+    "artifactId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "chainId": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+      "type": "string"
+    },
+    "chainPosition": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "BLOCK",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "height"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "SLOT",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "height"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "fees": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "asset",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "freshness": {
+      "additionalProperties": false,
+      "properties": {
+        "expiresAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        "maximumAgeSeconds": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observedAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observedAt",
+        "expiresAt",
+        "maximumAgeSeconds"
+      ],
+      "type": "object"
+    },
+    "gas": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "asset": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address",
+                  "decimals"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  },
+                  "decimals": {
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nativeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "nativeId",
+                  "decimals"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "asset",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "nodeId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "normalizedValues": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "QUANTITY",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "maxLength": 78,
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "type": "string"
+                  },
+                  "asset": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "address": {
+                            "maxLength": 160,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9._:-]+$",
+                            "type": "string"
+                          },
+                          "chainId": {
+                            "maxLength": 128,
+                            "minLength": 3,
+                            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                            "type": "string"
+                          },
+                          "decimals": {
+                            "maximum": 255,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "chainId",
+                          "address",
+                          "decimals"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "chainId": {
+                            "maxLength": 128,
+                            "minLength": 3,
+                            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                            "type": "string"
+                          },
+                          "decimals": {
+                            "maximum": 255,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "nativeId": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "chainId",
+                          "nativeId",
+                          "decimals"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "asset",
+                  "amount"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "ACCOUNT",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "maxLength": 160,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9._:-]+$",
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "maxLength": 128,
+                    "minLength": 3,
+                    "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chainId",
+                  "address"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "ASSET",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "address": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "type": "string"
+                      },
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "address",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "nativeId": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "nativeId",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "IDENTIFIER",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "INTEGER",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "BOOLEAN",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "OUTPUT_REFERENCE",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "properties": {
+                  "nodeId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  },
+                  "outputId": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nodeId",
+                  "outputId"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "outputBounds": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "adverse": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "maxLength": 78,
+                "pattern": "^(0|[1-9][0-9]*)$",
+                "type": "string"
+              },
+              "asset": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "address": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "type": "string"
+                      },
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "address",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "nativeId": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "nativeId",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "asset",
+              "amount"
+            ],
+            "type": "object"
+          },
+          "expected": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "maxLength": 78,
+                "pattern": "^(0|[1-9][0-9]*)$",
+                "type": "string"
+              },
+              "asset": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "address": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "type": "string"
+                      },
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "address",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "nativeId": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "nativeId",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "asset",
+              "amount"
+            ],
+            "type": "object"
+          },
+          "minimum": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "maxLength": 78,
+                "pattern": "^(0|[1-9][0-9]*)$",
+                "type": "string"
+              },
+              "asset": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "address": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "type": "string"
+                      },
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "address",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "chainId": {
+                        "maxLength": 128,
+                        "minLength": 3,
+                        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "nativeId": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "chainId",
+                      "nativeId",
+                      "decimals"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "asset",
+              "amount"
+            ],
+            "type": "object"
+          },
+          "outputId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outputId",
+          "expected",
+          "minimum",
+          "adverse"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "proposedContracts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "type": "string"
+          },
+          "chainId": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chainId",
+          "address",
+          "version"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "proposedRecipients": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "type": "string"
+          },
+          "chainId": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chainId",
+          "address"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "proposedSpenders": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "type": "string"
+          },
+          "chainId": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chainId",
+          "address"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "providerReference": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "NONE",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "ROUTE",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "ORDER",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "rawResponseHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "registryValidation": {
+      "additionalProperties": false,
+      "properties": {
+        "actionType": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        "enforcement": {
+          "const": "NOT_ENFORCED",
+          "type": "string"
+        },
+        "registryVersion": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "const": "CONTRACT_VALIDATED",
+              "type": "string"
+            },
+            {
+              "const": "REJECTED",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "registryVersion",
+        "actionType",
+        "result",
+        "enforcement"
+      ],
+      "type": "object"
+    },
+    "retrievedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "semanticWorkflowHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "sourceId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "uncertainty": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "semanticWorkflowHash",
+    "nodeId",
+    "sourceId",
+    "adapter",
+    "chainId",
+    "chainPosition",
+    "retrievedAt",
+    "freshness",
+    "rawResponseHash",
+    "normalizedValues",
+    "providerReference",
+    "proposedContracts",
+    "proposedSpenders",
+    "proposedRecipients",
+    "fees",
+    "gas",
+    "outputBounds",
+    "uncertainty",
+    "registryValidation"
+  ],
+  "type": "object"
+}

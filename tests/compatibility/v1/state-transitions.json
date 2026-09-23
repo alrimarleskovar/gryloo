@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0.0",
+  "cases": [
+    {
+      "level": "workflow",
+      "from": null,
+      "to": "DRAFT",
+      "valid": true
+    },
+    {
+      "level": "workflow",
+      "from": "AUTHORIZED",
+      "to": "EXECUTING",
+      "valid": true
+    },
+    {
+      "level": "workflow",
+      "from": "DRAFT",
+      "to": "EXECUTING",
+      "valid": false
+    },
+    {
+      "level": "segment",
+      "from": "READY",
+      "to": "EXECUTING",
+      "valid": true
+    },
+    {
+      "level": "step",
+      "from": "EXECUTING",
+      "to": "COMPLETED",
+      "valid": false
+    },
+    {
+      "level": "step",
+      "from": "RECONCILING",
+      "to": "COMPLETED",
+      "valid": true
+    },
+    {
+      "level": "attempt",
+      "from": "PREPARED",
+      "to": "SUBMITTING",
+      "valid": true
+    },
+    {
+      "level": "attempt",
+      "from": "SUBMISSION_RESULT_UNKNOWN",
+      "to": "SUBMITTING",
+      "valid": false
+    },
+    {
+      "level": "attempt",
+      "from": "SUBMISSION_RESULT_UNKNOWN",
+      "to": "RECONCILIATION_REQUIRED",
+      "valid": true
+    },
+    {
+      "level": "attempt",
+      "from": "REFUND_PENDING",
+      "to": "REFUNDED",
+      "valid": true
+    }
+  ]
+}

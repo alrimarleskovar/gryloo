@@ -7,10 +7,13 @@ authority.
 
 ## Current status
 
-The repository is in **BUILD-000**, a governance-only build. It contains no
-application implementation, dependency manifest, executable financial feature,
-or approved subsequent build. See [status](docs/STATUS.md) and the
-[Build 000 plan](docs/builds/BUILD-000-PLAN.md). The
+**BUILD-001** is approved for canonical artifact contracts, strict serialized
+input validation, deterministic hashes, revision and state checks, and a
+declarative Action Registry. The private ESM packages grant no financial
+authority and do not execute workflows. See [status](docs/STATUS.md), the
+[Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
+[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002,
+package publication, and Mode B selection remain unapproved. The
 [Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
 records the approved pre-incorporation license publication.
 
@@ -29,3 +32,21 @@ grant no Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
 
 The files in `docs/assets/` are visual direction only. They do not authorize
 copying third-party branding, interface text, or unsupported safety claims.
+
+## Contract packages
+
+- `@defi-workflow-engine/workflow-contracts@0.1.0`: artifact contracts, raw-byte
+  ingress, canonical hashes, invalidation, revision checks, and state transitions.
+- `@defi-workflow-engine/action-registry@0.1.0`: declarative action definitions
+  and capability contracts.
+
+Both packages are private and Apache-2.0. Exports are limited to the documented
+root API, `./schemas`, `./schemas/v1/*.schema.json`, and `./package.json`.
+See [compatibility](docs/contracts/COMPATIBILITY_V1.md),
+[canonicalization](docs/contracts/CANONICALIZATION_V1.md), and
+[invalidation](docs/contracts/INVALIDATION_V1.md).
+
+CI bootstraps verified official Node.js `24.21.0` and pnpm `11.22.0` archives
+with runner Python, Git, and Bash and no third-party Actions. Dependencies use
+exact pins and a frozen lockfile; install scripts are disabled. SBOM validation
+emits a digest; no retained SBOM artifact is claimed.

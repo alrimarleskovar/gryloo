@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "journalId": "journal-001",
+  "workflowId": "workflow-001",
+  "executionPlanHash": "0x46826ebb933569b34b2f5c95cbd851cc6675598ba3f17245517709915e3633b2",
+  "manifestHash": "0xb92da05493d144f0506585eb9d9afc024030d648cf592565305639107c3f24c1",
+  "entries": [
+    {
+      "schemaVersion": "1.0.0",
+      "entryId": "entry-0",
+      "sequence": 0,
+      "previousEntryHash": null,
+      "recordedAt": "2026-09-22T00:00:00.000Z",
+      "eventType": "STATE_TRANSITION",
+      "level": "workflow",
+      "entityId": "workflow-001",
+      "workflowId": "workflow-001",
+      "segmentId": null,
+      "stepId": null,
+      "executionAttemptId": null,
+      "fromState": null,
+      "toState": "DRAFT"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "entryId": "entry-1",
+      "sequence": 1,
+      "previousEntryHash": "0xdd6c3bfe0c98e37adbabeee6413bea084446e45bb5d84ebb01ff87849d8e6243",
+      "recordedAt": "2026-09-22T00:00:00.000Z",
+      "eventType": "STATE_TRANSITION",
+      "level": "segment",
+      "entityId": "segment-001",
+      "workflowId": "workflow-001",
+      "segmentId": "segment-001",
+      "stepId": null,
+      "executionAttemptId": null,
+      "fromState": null,
+      "toState": "PLANNED"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "entryId": "entry-2",
+      "sequence": 2,
+      "previousEntryHash": "0xe4aa0086c40acfbd77bb654d179739645e09670e8ed1fdc3eaa5ddae78d0e815",
+      "recordedAt": "2026-09-22T00:00:00.000Z",
+      "eventType": "STATE_TRANSITION",
+      "level": "step",
+      "entityId": "step-001",
+      "workflowId": "workflow-001",
+      "segmentId": "segment-001",
+      "stepId": "step-001",
+      "executionAttemptId": null,
+      "fromState": null,
+      "toState": "PLANNED"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "entryId": "entry-3",
+      "sequence": 3,
+      "previousEntryHash": "0x5b787c010702198cadb5863366c1f3530acbe4d1c7e0fa673eb12b71735bdd17",
+      "recordedAt": "2026-09-22T00:00:00.000Z",
+      "eventType": "STATE_TRANSITION",
+      "level": "attempt",
+      "entityId": "attempt-001",
+      "workflowId": "workflow-001",
+      "segmentId": "segment-001",
+      "stepId": "step-001",
+      "executionAttemptId": "attempt-001",
+      "fromState": null,
+      "toState": "PREPARED"
+    }
+  ]
+}

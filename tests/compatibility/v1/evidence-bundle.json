@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "evidenceBundleId": "example",
+  "version": 1,
+  "supersedes": null,
+  "semanticWorkflowHash": "0xb0446d65c8341fecbbd5e8bf3f3c75c540064d13c296099361d3a3e57dd0c918",
+  "artifactSetHash": "0x1ec7818fab59419098f8fb0d36bfff7afac3b4ca954445c78764edaa5bec0475",
+  "simulationHash": "0x5aacbd61194afaf5d21930d6082acb3cd94c8d0dcdf1495a6de07368143ccd32",
+  "policyHash": "0x7b1c64c1c1b568eb04a8868338dd65872140a033142e7cbe3ff5db3dd15d3589",
+  "manifestHash": "0xb92da05493d144f0506585eb9d9afc024030d648cf592565305639107c3f24c1",
+  "executionPlanHash": "0x46826ebb933569b34b2f5c95cbd851cc6675598ba3f17245517709915e3633b2",
+  "journalHeadHash": "0x80f70fc82ca0586558a502aa277505078c52d958b4dc627f8fc12f9fc884b2a7",
+  "observedAt": "2026-09-22T00:00:00.000Z",
+  "environment": "MOCKED",
+  "outcome": "CONFIRMED_NOT_RECONCILED",
+  "receipts": [],
+  "differences": [],
+  "reconciliation": {
+    "balances": [],
+    "allowances": [],
+    "debt": [],
+    "positions": [],
+    "fees": [],
+    "residualAssets": [],
+    "ownership": [],
+    "limitations": []
+  },
+  "evidence": []
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryId": "compatibility.registry",
+  "registryVersion": "1.0.0",
+  "capabilities": [
+    {
+      "id": "asset.swap.execution",
+      "version": "1.0.0",
+      "status": "DECLARED_ONLY",
+      "enforcement": "NOT_ENFORCED",
+      "executionKinds": ["DIRECT_TRANSACTION", "SIGNED_INTENT"],
+      "authorizationModes": ["A"]
+    }
+  ],
+  "actions": [
+    {
+      "id": "asset.swap",
+      "version": "1.0.0",
+      "nodeClass": "ACTION",
+      "inputs": [
+        {"name": "input.asset", "type": "ASSET_REF", "required": true},
+        {"name": "input.amount", "type": "AMOUNT_UNITS", "required": true},
+        {"name": "output.asset", "type": "ASSET_REF", "required": true}
+      ],
+      "outputs": [
+        {"name": "output.amount", "type": "AMOUNT_UNITS", "required": true},
+        {"name": "execution.evidence", "type": "ARTIFACT_REF", "required": true}
+      ],
+      "constraints": {
+        "arbitraryTargetsAllowed": false,
+        "financialAmountEncoding": "NATIVE_UNIT_DECIMAL_STRINGS",
+        "minInputAmountUnits": "1",
+        "maxInputAmountUnits": "1000000",
+        "allowedChainRefs": ["test:1"]
+      },
+      "requiredCapability": {
+        "id": "asset.swap.execution",
+        "version": "1.0.0"
+      },
+      "executionKinds": ["DIRECT_TRANSACTION", "SIGNED_INTENT"],
+      "authorizationModes": ["A"]
+    }
+  ]
+}

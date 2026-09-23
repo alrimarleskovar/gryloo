@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "cases": [
+    {
+      "currentRevision": 0,
+      "baseRevision": 0,
+      "materialChange": true,
+      "expectedRevision": 1
+    },
+    {
+      "currentRevision": 1,
+      "baseRevision": 0,
+      "materialChange": true,
+      "error": "BASE_REVISION_CONFLICT"
+    },
+    {
+      "currentRevision": 1,
+      "baseRevision": 1,
+      "materialChange": false,
+      "expectedRevision": 1
+    }
+  ]
+}
