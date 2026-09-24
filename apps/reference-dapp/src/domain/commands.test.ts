@@ -14,5 +14,12 @@ describe('deterministic mock command grammar', () => {
     }
     expect(commandIsValid({ type: 'LOCK', nodeId: 'node-001', locked: true, source: 'CHAT', baseRevision: 0 })).toBe(false);
     expect(commandIsValid({ type: 'ADD', kind: 'read', source: 'CHAT', baseRevision: 0, extra: true } as never)).toBe(false);
+    const hidden = { type: 'ADD', kind: 'read', source: 'CHAT', baseRevision: 0 };
+    Object.defineProperty(hidden, 'runtime', { value: 'EXECUTE', enumerable: false });
+    expect(commandIsValid(hidden)).toBe(false);
+    const symbolic = { type: 'ADD', kind: 'read', source: 'CHAT', baseRevision: 0, [Symbol('authority')]: true };
+    expect(commandIsValid(symbolic)).toBe(false);
+    const hostile = new Proxy({ type: 'ADD' }, { getPrototypeOf() { throw new Error('hostile'); } });
+    expect(commandIsValid(hostile)).toBe(false);
   });
 });

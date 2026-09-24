@@ -10,8 +10,9 @@ is governed by [the license map](docs/LICENSE_MAP.md).
   populated, are designated for
   [GNU Affero General Public License 3.0 only](LICENSES/AGPL-3.0-only.txt).
 
-The reference application at `apps/reference-dapp/**` is tracked AGPL-3.0-only
-application code, except its `LICENSE` copy of the official text. The
+The reference application at `apps/reference-dapp/**` and reference linter at
+`packages/reference-linter/**` are tracked AGPL-3.0-only implementation code,
+except their `LICENSE` copies of the official text. The
 `packages/workflow-contracts/**` and `packages/action-registry/**` packages
 remain Apache-2.0, except their `LICENSE` copies of the official text, and
 patches and copied upstream legal files retain their upstream licenses. This

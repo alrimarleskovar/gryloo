@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
 import { parseArtifactBytes, hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
-import { parseActionRegistryBytes } from '@defi-workflow-engine/action-registry';
+import { parseActionRegistryBytes, baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
+import { createReviewContext, lintWorkflow } from '@defi-workflow-engine/reference-linter';
 import { editorReducer, initialEditor } from './editor';
 import { mockActions } from './mock-actions';
-import { parseMockCommand } from './commands';
+import { parseLocalCommand, parseMockCommand } from './commands';
 
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value));
 
@@ -18,6 +19,36 @@ describe('BUILD-001 contract integration', () => {
     expect(hashArtifactBytes('semantic-workflow', bytes(initial.workflow)))
       .not.toBe(hashArtifactBytes('semantic-workflow', bytes(changed.workflow)));
     expect(initial.workflow.revision).toBe(0);
+  });
+
+  it('round-trips authored swaps through frozen raw ingress and hashes only semantic edits', () => {
+    const context = createReviewContext({ registryId: referenceRegistry.registryId,
+      capabilityId: referenceRegistry.capabilities[0]?.id,
+      actionId: referenceRegistry.actions[0]?.id, assets: baseAssetRegistry });
+    const start = initialEditor();
+    const added = editorReducer(start,
+      parseLocalCommand('swap 2 USDC to WETH on Base slippage 50 bps', start.workflow, context), context);
+    expect(added.error).toBeNull();
+    expect(parseArtifactBytes(bytes(added.workflow), 'semantic-workflow')).toEqual(added.workflow);
+    const initialHash = hashArtifactBytes('semantic-workflow', bytes(start.workflow));
+    const addedHash = hashArtifactBytes('semantic-workflow', bytes(added.workflow));
+    expect(addedHash).not.toBe(initialHash);
+    const review = lintWorkflow(added.workflow, context);
+    expect(review.revision).toBe(added.workflow.revision);
+    expect(review.executable).toBe(false);
+    expect(hashArtifactBytes('semantic-workflow', bytes(added.workflow))).toBe(addedHash);
+    const changed = editorReducer(added, { type: 'SET_SWAP_AMOUNT', nodeId: 'node-002',
+      amount: '3', source: 'CHAT', baseRevision: 1 }, context);
+    expect(changed.error).toBeNull();
+    expect(parseArtifactBytes(bytes(changed.workflow), 'semantic-workflow')).toEqual(changed.workflow);
+    expect(hashArtifactBytes('semantic-workflow', bytes(changed.workflow))).not.toBe(addedHash);
+    const noOp = editorReducer(changed, { type: 'SET_SWAP_AMOUNT', nodeId: 'node-002',
+      amount: '3', source: 'CHAT', baseRevision: 2 }, context);
+    expect(noOp.workflow).toBe(changed.workflow);
+    const stale = editorReducer(changed, { type: 'SET_SWAP_AMOUNT', nodeId: 'node-002',
+      amount: '4', source: 'CHAT', baseRevision: 1 }, context);
+    expect(stale.workflow).toBe(changed.workflow);
+    expect(hashArtifactBytes('semantic-workflow', bytes(stale.workflow))).toBe(hashArtifactBytes('semantic-workflow', bytes(changed.workflow)));
   });
 
   it('accepts local action declarations with no execution kind or authorization mode', () => {

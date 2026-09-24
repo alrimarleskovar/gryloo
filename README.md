@@ -12,7 +12,7 @@ input validation, deterministic hashes, revision and state checks, and a
 declarative Action Registry. The private ESM packages grant no financial
 authority and do not execute workflows. See [status](docs/STATUS.md), the
 [Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
-[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is separately approved. Package publication, BUILD-003 and Mode B selection remain unapproved. The
+[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint are approved under DEC-0018; BUILD-003B/003C, package publication, Mode B and financial execution remain unapproved. The
 [Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
 records the approved pre-incorporation license publication.
 
@@ -56,3 +56,14 @@ state. Its source is AGPL-3.0-only. The exact third-party license and
 attribution inventory is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);
 the current validation record is the
 [BUILD-002 report](docs/builds/BUILD-002-REPORT.md).
+
+## BUILD-003A
+
+The private `@defi-workflow-engine/reference-linter@0.1.0` package adds
+deterministic, non-enforcing review of isolated Base USDC↔WETH exact-input
+intent. The existing [reference application](apps/reference-dapp) supports the
+same intent through local chat and canvas controls. It provides no quote,
+protocol connection, wallet or execution. Both the app and linter are
+AGPL-3.0-only. See the [approved plan](docs/builds/BUILD-003A-PLAN.md) and
+[implementation report](docs/builds/BUILD-003A-REPORT.md) for exact scope and
+separate local and remote evidence.

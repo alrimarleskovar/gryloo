@@ -20,6 +20,8 @@
 | DEC-0016 | On 2026-09-23, the human owner placed the deterministic linter in the scope of candidate BUILD-003A, Uniswap swap authoring and deterministic lint, rather than in a separate build. BUILD-003A remains `NOT_APPROVED` until this amendment is merged and a revised BUILD-003A plan is explicitly approved; this amendment does not approve it. | APPROVED |
 | DEC-0017 | On 2026-09-23, the human owner approved one final scope correction to the BUILD-002 governance amendment, adding `docs/LICENSE_MAP.md` to the DEC-0012 modify scope so the license map recognizes that an explicitly approved tracked build plan or governance or licensing amendment may authorize paths. The correction changes no license classification, license grant or official license text, reclassifies no Gryloo-authored or third-party material, and does not approve BUILD-003A. | APPROVED |
 
+| DEC-0018 | On 2026-09-24, the human owner explicitly approved the complete BUILD-003A plan at `docs/builds/BUILD-003A-PLAN.md`, including its exact Section 11 file scope, acceptance criteria, visual changes, workspace changes, governance transition, and O-1–O-14 choices as incorporated in that plan. Implementation, the named local commit, SSH push and a PR into `main` are authorized. This does not approve merging, BUILD-003B/003C, Mode B, live protocol access, wallet, signing, submission or financial execution; ADR-0001 remains PROPOSED. | APPROVED |
+
 Accepted decisions may be changed only through an explicit superseding record.
 The date in DEC-0008 is the public repository decision date, not a statement of
 when private consent occurred.

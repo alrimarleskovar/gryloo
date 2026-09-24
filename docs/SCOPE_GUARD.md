@@ -36,7 +36,7 @@ files must be byte-for-byte copies of `LICENSES/Apache-2.0.txt`.
 ## Deferred scope
 
 BUILD-002 has separate approval for its local mocked DApp, chat and canvas.
-There is no approval for an API, database, worker, wallet connection, protocol
+At the BUILD-002 decision there was no approval for an API, database, worker, wallet connection, protocol
 adapter, transaction construction, signing, submission, live quote, financial
 simulation, reconciliation implementation, managed-plane component, package
 publication, Mode B selection, or BUILD-003. Descriptive contracts for these concepts
@@ -49,7 +49,7 @@ must stop implementation for a human decision before substitution.
 BUILD-002 is separately authorized by the human owner. Its exact path scope
 and 16-package legal-evidence amendment are recorded in the
 [BUILD-002 plan](builds/BUILD-002-PLAN.md). BUILD-003, Mode B, package
-publication and financial execution remain unapproved.
+publication and financial execution remained unapproved at that decision.
 
 ## BUILD-002 governance amendment boundary
 
@@ -60,4 +60,17 @@ boundary. The amendment's only change to root legal text is the factual
 `TRADEMARKS.md` and every path classification are unchanged. Mode A planning
 and non-executing authoring may be separately approved while ADR-0001 remains
 PROPOSED (DEC-0015). The amendment approves no BUILD-003 build or sub-build,
-and candidate BUILD-003A remains `NOT_APPROVED` (DEC-0016).
+and candidate BUILD-003A was `NOT_APPROVED` at that time (DEC-0016), before DEC-0018.
+
+## Approved BUILD-003A boundary
+
+DEC-0018 approves only the exact create and modify paths in the
+[BUILD-003A plan](builds/BUILD-003A-PLAN.md). The authoring profile supports
+isolated exact-input USDC↔WETH intent on Base and deterministic, non-enforcing
+review. Asset caps and slippage thresholds are prototype constraints. Swap
+nodes cannot connect to other nodes. The mock workflow remains a mock.
+
+No live quote, protocol adapter, RPC, wallet, authorization, calldata,
+signing, submission, financial simulation, execution, BUILD-003B/003C or Mode B
+is approved. ADR-0001 remains `PROPOSED`. Existing dependency resolutions and
+protected contracts, fixtures, legal texts and historical records remain fixed.

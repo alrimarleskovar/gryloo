@@ -2,11 +2,11 @@
 export const product = Object.freeze({
   name: 'Gryloo',
   strategyName: 'Untitled workflow',
-  build: 'BUILD-002',
+  build: 'BUILD-003A',
   environment: 'MOCKED',
   authorization: 'NONE',
   enforcement: 'NOT_ENFORCED',
   outcome: 'NOT_APPLICABLE',
-  chain: 'mock:local',
+  chain: 'Base authoring · mock examples',
   wallet: 'Unavailable',
 } as const);

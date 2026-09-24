@@ -75,6 +75,9 @@ jobs:
           pnpm build
           pnpm schemas:check
           pnpm test
+          test -f packages/reference-linter/dist/index.js
+          test -f packages/reference-linter/dist/index.d.ts
+          pnpm --filter @defi-workflow-engine/reference-linter exec node --input-type=module -e "const m = await import('@defi-workflow-engine/reference-linter'); for (const key of ['lintWorkflow','validateAuthoringWorkflow','createReviewContext']) if (typeof m[key] !== 'function') throw new Error('Missing linter export: '+key)"
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         shell: bash
@@ -94,10 +97,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --lockfile-only --out "$RUNNER_TEMP/build-002.cdx.json"
+          pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --lockfile-only --out "$RUNNER_TEMP/build-003a.cdx.json"
           python3 - <<'PYCODE'
           import hashlib, json, os, pathlib, sys
-          path=pathlib.Path(os.environ['RUNNER_TEMP'])/'build-002.cdx.json'
+          path=pathlib.Path(os.environ['RUNNER_TEMP'])/'build-003a.cdx.json'
           try:
               document=json.loads(path.read_text())
               if document.get('bomFormat')!='CycloneDX' or document.get('specVersion')!='1.6':
@@ -123,6 +126,45 @@ jobs:
                       component['licenses']=[{'license':{'id':expression}}]
               if seen!=set(expected):
                   raise SystemExit('SBOM omits reviewed lock components')
+              root_component=document.get('metadata',{}).get('component',{})
+              if (root_component.get('name')!='defi-workflow-engine' or
+                      root_component.get('version')!='0.1.0' or
+                      root_component.get('licenses')!=[{'license':{'id':'Apache-2.0'}}]):
+                  raise SystemExit('SBOM root identity or license differs')
+              workspace={
+                  'package.json':('defi-workflow-engine','Apache-2.0'),
+                  'packages/workflow-contracts/package.json':('@defi-workflow-engine/workflow-contracts','Apache-2.0'),
+                  'packages/action-registry/package.json':('@defi-workflow-engine/action-registry','Apache-2.0'),
+                  'packages/reference-linter/package.json':('@defi-workflow-engine/reference-linter','AGPL-3.0-only'),
+                  'apps/reference-dapp/package.json':('@defi-workflow-engine/reference-dapp','AGPL-3.0-only'),
+              }
+              for manifest_path,(name,license_id) in workspace.items():
+                  manifest=json.loads(pathlib.Path(manifest_path).read_text())
+                  if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,'0.1.0',True,license_id):
+                      raise SystemExit('Workspace manifest inventory differs: '+manifest_path)
+              lock=pathlib.Path('pnpm-lock.yaml').read_text()
+              importer_section=lock.split('\nimporters:\n',1)[1].split('\npackages:\n',1)[0]
+              import re
+              importer_paths=set(re.findall(r'(?m)^  (\S[^\n]*):$',importer_section))
+              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','apps/reference-dapp'}:
+                  raise SystemExit('Workspace lock importer inventory differs')
+              component_refs={component['bom-ref'] for component in components}
+              if len(component_refs)!=245 or root_component.get('bom-ref') in component_refs:
+                  raise SystemExit('SBOM component references differ')
+              dependencies=document.get('dependencies')
+              if not isinstance(dependencies,list):
+                  raise SystemExit('SBOM dependency graph missing')
+              graph_refs=[entry.get('ref') for entry in dependencies]
+              all_refs=component_refs|{root_component['bom-ref']}
+              if len(graph_refs)!=len(set(graph_refs)) or set(graph_refs)!=all_refs:
+                  raise SystemExit('SBOM dependency reference inventory differs')
+              for entry in dependencies:
+                  targets=entry.get('dependsOn',[])
+                  if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets)-all_refs:
+                      raise SystemExit('Invalid SBOM dependency references')
+              # pnpm 11.22.0 omits workspace components; the exact five local
+              # manifests and lock importers above are checked independently.
+
               reviewed={
                   '@img/sharp-libvips-darwin-arm64','@img/sharp-libvips-darwin-x64',
                   '@img/sharp-libvips-linux-arm','@img/sharp-libvips-linux-arm64',
@@ -143,7 +185,7 @@ jobs:
                   actual=license_value.get('expression',license_value.get('license',{}).get('id'))
                   if actual!=expected[(name,component['version'])]:
                       raise SystemExit('SBOM license expression changed: '+name)
-              message='Ephemeral CycloneDX 1.6 SBOM: 245 exact registry components, 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
+              message='Ephemeral CycloneDX 1.6 SBOM: 245 exact registry components, zero workspace components (five exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
               print(message)
               with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                   summary.write(message+'\n')

@@ -42,6 +42,9 @@ importers:
       '@defi-workflow-engine/action-registry':
         specifier: workspace:0.1.0
         version: link:../../packages/action-registry
+      '@defi-workflow-engine/reference-linter':
+        specifier: workspace:0.1.0
+        version: link:../../packages/reference-linter
       '@defi-workflow-engine/workflow-contracts':
         specifier: workspace:0.1.0
         version: link:../../packages/workflow-contracts
@@ -76,6 +79,18 @@ importers:
       '@sinclair/typebox':
         specifier: 0.34.52
         version: 0.34.52
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+
+  packages/reference-linter:
+    dependencies:
+      '@defi-workflow-engine/action-registry':
+        specifier: workspace:0.1.0
+        version: link:../action-registry
+      '@defi-workflow-engine/workflow-contracts':
+        specifier: workspace:0.1.0
+        version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
         version: 8.20.0
