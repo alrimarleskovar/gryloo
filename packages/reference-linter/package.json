@@ -17,6 +17,7 @@
   "dependencies": {
     "@defi-workflow-engine/action-registry": "workspace:0.1.0",
     "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
-    "ajv": "8.20.0"
+    "ajv": "8.20.0",
+    "canonicalize": "5.0.0"
   }
 }

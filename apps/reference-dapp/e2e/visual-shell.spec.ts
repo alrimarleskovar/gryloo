@@ -8,10 +8,10 @@ test('Build shell visual baseline', async ({ page }) => {
   await expect(page).toHaveScreenshot('build.png', { fullPage: true });
 });
 
-test('Simulate unavailable visual baseline', async ({ page }) => {
+test('Simulate mocked-chain empty visual baseline', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Simulate is not implemented' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mocked artifact chain' }).getByText('ARTIFACTS: EMPTY', { exact: true })).toBeVisible();
   await expect(page).toHaveScreenshot('simulate.png', { fullPage: true });
 });
 

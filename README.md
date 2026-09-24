@@ -12,7 +12,7 @@ input validation, deterministic hashes, revision and state checks, and a
 declarative Action Registry. The private ESM packages grant no financial
 authority and do not execute workflows. See [status](docs/STATUS.md), the
 [Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
-[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint are approved under DEC-0018; BUILD-003B/003C, package publication, Mode B and financial execution remain unapproved. The
+[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint (DEC-0018) were merged through PR #7. BUILD-003B, a mocked artifact chain, is approved under DEC-0019; BUILD-003C, package publication, Mode B and financial execution remain unapproved. The
 [Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
 records the approved pre-incorporation license publication.
 
@@ -67,3 +67,14 @@ protocol connection, wallet or execution. Both the app and linter are
 AGPL-3.0-only. See the [approved plan](docs/builds/BUILD-003A-PLAN.md) and
 [implementation report](docs/builds/BUILD-003A-REPORT.md) for exact scope and
 separate local and remote evidence.
+
+## BUILD-003B
+
+The Simulate tab of the [reference application](apps/reference-dapp) now
+builds a `MOCKED` Quote/State Artifact, Artifact Set and Simulation Bundle for
+each authored Base swap, from a fixed synthetic rate of 1 WETH = 1,000 USDC.
+The chain is hash-linked to one workflow revision, expires after 60 seconds and
+is invalidated by any semantic edit. It is not a live quote or a financial
+simulation, and Execute remains unavailable. See the
+[approved plan](docs/builds/BUILD-003B-PLAN.md) and
+[implementation report](docs/builds/BUILD-003B-REPORT.md).

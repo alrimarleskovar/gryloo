@@ -74,3 +74,18 @@ No live quote, protocol adapter, RPC, wallet, authorization, calldata,
 signing, submission, financial simulation, execution, BUILD-003B/003C or Mode B
 is approved. ADR-0001 remains `PROPOSED`. Existing dependency resolutions and
 protected contracts, fixtures, legal texts and historical records remain fixed.
+
+## Approved BUILD-003B boundary
+
+DEC-0019 approves only the exact 25 created and 34 modified paths in the
+[BUILD-003B plan](builds/BUILD-003B-PLAN.md). The build adds a `MOCKED`
+Quote/State Artifact, Artifact Set and Simulation Bundle chain, generated
+locally from a fixed synthetic rate of 1 WETH = 1,000 USDC with a 60-second
+validity period. The chain stops after the Simulation Bundle. It is not a live
+quote or a financial simulation, and it cannot authorize execution.
+
+No live quote, RPC, wallet, router, spender or recipient identity, calldata,
+authorization artifact, signing, submission, financial simulation, execution,
+BUILD-003C or Mode B is approved. ADR-0001 remains `PROPOSED`. Frozen contracts,
+schemas, fixtures, dependency resolutions and historical records, including the
+BUILD-003A plan and report, remain fixed.

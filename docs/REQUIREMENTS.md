@@ -99,8 +99,9 @@ them.
 
 ## BUILD-003A approved implementation index
 
-DEC-0018 approved the exact BUILD-003A plan. `SATISFIED_LOCALLY` records passed local acceptance only; remote CI is
-reported separately in the build report.
+DEC-0018 approved the exact BUILD-003A plan. `SATISFIED_LOCALLY` records passed local acceptance only. The preserved
+build report states that remote CI had not been performed when it was written; B003A-DELIVERY-001 below records the
+later pull-request and post-merge CI results.
 
 | ID | Requirement | Source area | Check or evidence | Status |
 |---|---|---|---|---|
@@ -115,3 +116,26 @@ reported separately in the build report.
 | B003A-COMPATIBILITY-001 | Frozen wire and hash behavior with additive exports. | ADR-0002 | Compatibility regression and schema check | SATISFIED_LOCALLY |
 | B003A-SUPPLY-001 | Existing resolutions, approved browser and ephemeral SBOM. | Master Prompt §8 | Dependency verifier, browser and SBOM log | SATISFIED_LOCALLY |
 | B003A-GOVERNANCE-001 | Preserve historical and enforce current exact scope. | Master Prompt §5 | Local and remote governance jobs | SATISFIED_LOCALLY |
+
+## BUILD-003B approved implementation index
+
+DEC-0019 approved the exact BUILD-003B plan. `SATISFIED_LOCALLY` records passed
+local acceptance only; remote CI is reported separately in the
+[BUILD-003B report](builds/BUILD-003B-REPORT.md). Every artifact in this build
+is `MOCKED`: the rows below are internal-logic evidence, not quotes, financial
+simulation, authorization, execution or reconciliation evidence.
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B003B-QUOTE-001 | One `MOCKED` Quote/State Artifact per swap node, with synthetic provenance, freshness and hashed mock markers. | Master Spec §7.5; Master Prompt P6, P10 | Chain review tests, frozen-ingress integration test and E2E JSON verification | SATISFIED_LOCALLY |
+| B003B-SIMULATION-001 | `MOCKED` Simulation Bundle bound to one IR revision and one Artifact Set, with exact round-down outputs and a failure path. | Master Spec §7.6, §10; Master Prompt P7, P10 | Arithmetic vectors, floor-property oracle and E2E | SATISFIED_LOCALLY |
+| B003B-LINK-001 | Every cross-artifact hash and revision link is recomputed; tampered or mislinked chains fail closed. | Master Spec §7.1, §7.9; Gate 2 | Chain review tamper table and E2E frozen-hash comparison | SATISFIED_LOCALLY |
+| B003B-HASH-001 | The browser digest equals frozen DWE-HASH v1 for every supported type, rejects what the frozen implementation rejects, and self-checks before use. | ADR-0002; Master Spec §7.9 | Differential digest tests on the pinned toolchain and E2E self-check failure | SATISFIED_LOCALLY |
+| B003B-INVALIDATION-001 | Semantic edits, refresh, expiry and stale completions follow the frozen matrix; expiry is checked on access and tab resume. | Master Spec §7.8; invalidation contract | State and guard tests and E2E clock tests | SATISFIED_LOCALLY |
+| B003B-BOUNDARY-001 | Mocked artifacts cannot create or unlock authorization or execution. | Master Spec §8.5, §16.1; Master Prompt §8.3 | Source scans, literal non-executable results, `DRAFT` state and E2E | SATISFIED_LOCALLY |
+| B003B-HONESTY-001 | Every generated number shows `MOCKED` and the synthetic rate; unmodeled values are disclosed, never estimated. | Master Spec §7.7; Master Prompt §9.4, §9.6 | E2E label and wording checks | SATISFIED_LOCALLY |
+| B003B-VISUAL-001 | Reviewed visual changes followed by zero-pixel regression. | Master Prompt §9.7 | Before/diff images, report counts and eight zero-pixel snapshots | SATISFIED_LOCALLY |
+| B003B-COMPATIBILITY-001 | Frozen schemas, fixtures, hash profile and contract packages unchanged; linter exports additive. | ADR-0002; compatibility contract | Protected-byte governance and schema check | SATISFIED_LOCALLY |
+| B003B-SUPPLY-001 | No new registry resolution; one new direct edge to the approved `canonicalize@5.0.0` pin. | Master Prompt §8 | Dependency verifier, lockfile section digest and SBOM accounting | SATISFIED_LOCALLY |
+| B003B-GOVERNANCE-001 | BUILD-003A scope pinned historically and the exact BUILD-003B scope enforced. | Master Prompt §5 | Governance jobs and isolated negative checks | SATISFIED_LOCALLY |
+| B003A-DELIVERY-001 | Retrospective: BUILD-003A merged through PR #7 with pull-request and post-merge CI passing. | Master Prompt §5.5 | Merge commit `36dd05e2bcea2d9a19c7b571d2126aea0390e5dd` and the run IDs recorded in [status](STATUS.md) | SATISFIED |
