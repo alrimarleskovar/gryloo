@@ -36,3 +36,11 @@ accessibility, network, visual, audit, ephemeral SBOM and governance gates
 recorded in the [BUILD-002 report](builds/BUILD-002-REPORT.md). These are local
 observations; remote CI and future binary release compliance require their own
 evidence.
+
+BUILD-003A adds non-executing authoring and deterministic lint. Its interface
+remains `MOCKED`; authorization is `NONE` and enforcement is `NOT_ENFORCED`.
+Asset metadata is `NOT_ONCHAIN_VERIFIED`. Build financial evidence environment
+and outcome are `NOT_APPLICABLE`. Browser surface tests and local static source
+checks do not constitute quotes, simulation, protocol verification, transaction
+execution or reconciliation. Local checks and remote CI are reported separately
+in the [BUILD-003A report](builds/BUILD-003A-REPORT.md).

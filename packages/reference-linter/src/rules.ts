@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import type { ReviewContext } from './context.js';
+import { validateAuthoringWorkflow } from './validation.js';
+
+export interface ReviewFinding {
+  readonly code: string;
+  readonly severity: 'WARNING' | 'BLOCK';
+  readonly nodeId: string;
+  readonly field: string;
+  readonly message: string;
+}
+export interface ReviewResult {
+  readonly revision: number;
+  readonly findings: readonly ReviewFinding[];
+  readonly executable: false;
+  readonly enforcement: 'NOT_ENFORCED';
+}
+
+export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResult {
+  const workflow = validateAuthoringWorkflow(input, context);
+  const findings: ReviewFinding[] = [];
+  for (const node of workflow.nodes) {
+    if (node.actionType !== 'asset.swap.exact-input') continue;
+    const slippage = node.userConstraints.filter(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS');
+    if (slippage.length !== 1) findings.push({ code: 'SLIPPAGE_REQUIRED_ONCE', severity: 'BLOCK', nodeId: node.nodeId, field: 'userConstraints', message: 'Set one explicit slippage limit.' });
+    else if (slippage[0]?.kind === 'MAXIMUM_SLIPPAGE_BPS') {
+      const bps = slippage[0].maximumBps;
+      if (bps === 0 || bps > 100 && bps <= 300) findings.push({ code: bps === 0 ? 'ZERO_SLIPPAGE' : 'ELEVATED_SLIPPAGE', severity: 'WARNING', nodeId: node.nodeId, field: 'slippage', message: 'Review the prototype slippage limit.' });
+      if (bps > 300) findings.push({ code: 'SLIPPAGE_ABOVE_REVIEW_LIMIT', severity: 'BLOCK', nodeId: node.nodeId, field: 'slippage', message: 'Above the BUILD-003A review limit.' });
+    }
+    findings.push({ code: 'UNQUOTED_EXECUTION_UNAVAILABLE', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Output is an unquoted placeholder. Execution is unavailable.' });
+  }
+  findings.sort((a, b) => a.nodeId.localeCompare(b.nodeId) || a.field.localeCompare(b.field) || a.code.localeCompare(b.code));
+  return Object.freeze({ revision: workflow.revision, findings: Object.freeze(findings.map(f => Object.freeze(f))), executable: false, enforcement: 'NOT_ENFORCED' });
+}

@@ -96,3 +96,22 @@ result is shown by its pull request and is not claimed here.
 B000-SECURITY-001 keeps its historical row. Its basic secret checks were absent
 from governance CI from the BUILD-002 merge until B002-GOVERNANCE-001 restored
 them.
+
+## BUILD-003A approved implementation index
+
+DEC-0018 approved the exact BUILD-003A plan. `SATISFIED_LOCALLY` records passed local acceptance only; remote CI is
+reported separately in the build report.
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B003A-REGISTRY-001 | Exact action and capability declarations with immutable Base asset context. | Master Spec §7.4 | Registry tests and provenance review | SATISFIED_LOCALLY |
+| B003A-AUTHORING-001 | Author both isolated Base swap directions through chat and canvas. | Master Spec §5.1, §6.1 | Browser surface tests | SATISFIED_LOCALLY |
+| B003A-REVISION-001 | Apply explicit proposals with locks, conflicts and invalidation. | Master Spec §7.8 | Reducer and browser tests | SATISFIED_LOCALLY |
+| B003A-VALIDATION-001 | Reject malformed and forged authoring inputs at runtime. | Master Spec §7.4, §9 | Linter validation tests | SATISFIED_LOCALLY |
+| B003A-LINT-001 | Deterministic non-enforcing prototype review rules. | Master Prompt P5; Master Spec §8.5 | Linter tests and findings UI | SATISFIED_LOCALLY |
+| B003A-EQUIVALENCE-001 | Real surface and mixed-edit semantic equivalence. | Master Prompt P2–P4 | Guarded browser hashes | SATISFIED_LOCALLY |
+| B003A-HONESTY-001 | Non-executing UI and evidence labels. | Master Spec §7.7 | Interface tests and report | SATISFIED_LOCALLY |
+| B003A-VISUAL-001 | Reviewed visual changes followed by zero-pixel regression. | Master Prompt §9.7 | Before/after/diff images and visual tests | SATISFIED_LOCALLY |
+| B003A-COMPATIBILITY-001 | Frozen wire and hash behavior with additive exports. | ADR-0002 | Compatibility regression and schema check | SATISFIED_LOCALLY |
+| B003A-SUPPLY-001 | Existing resolutions, approved browser and ephemeral SBOM. | Master Prompt §8 | Dependency verifier, browser and SBOM log | SATISFIED_LOCALLY |
+| B003A-GOVERNANCE-001 | Preserve historical and enforce current exact scope. | Master Prompt §5 | Local and remote governance jobs | SATISFIED_LOCALLY |

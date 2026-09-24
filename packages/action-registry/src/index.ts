@@ -8,6 +8,8 @@ import type {
 import { actionRegistrySchema, type ActionRegistry } from "./schemas.js";
 
 export { actionRegistrySchema } from "./schemas.js";
+export { referenceRegistry } from "./reference-registry.js";
+export { baseAssetRegistry } from "./base-assets.js";
 export { capabilityDeclares } from "./capabilities.js";
 export type { ActionRegistry } from "./schemas.js";
 export type { ActionDefinition } from "./actions.js";

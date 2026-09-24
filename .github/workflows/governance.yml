@@ -11,7 +11,7 @@ jobs:
   governance:
     runs-on: ubuntu-24.04
     steps:
-      - name: Fetch reviewed revision, BUILD-002 baseline and BUILD-002 merge
+      - name: Fetch reviewed revision and historical scope baselines
         env:
           GH_TOKEN: ${{ github.token }}
           REVISION: ${{ github.sha }}
@@ -27,9 +27,10 @@ jobs:
           git checkout --detach FETCH_HEAD
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin fb285da4ea4efaaae5b839974b669b3c8335ddd7
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 606174f0bd944e5a1c31baf8dad685d7558b7cc8
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 14a94584b0a3119c1f6275a05b9e752dafe0a042
           unset auth GH_TOKEN
 
-      - name: Verify BUILD-002 and amendment scope, protected bytes and licensing
+      - name: Verify historical BUILD-002 and amendment scope plus current BUILD-003A scope
         shell: bash
         run: |
           set -euo pipefail
@@ -38,6 +39,7 @@ jobs:
           root=pathlib.Path('.')
           baseline='fb285da4ea4efaaae5b839974b669b3c8335ddd7'
           merge='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
+          approval_baseline='14a94584b0a3119c1f6275a05b9e752dafe0a042'
           # Approved BUILD-002 scope, unchanged; checked between its baseline and merge commits.
           create=set(['THIRD_PARTY_NOTICES.md', 'apps/reference-dapp/LICENSE', 'apps/reference-dapp/e2e/build-roundtrip.spec.ts', 'apps/reference-dapp/e2e/fixtures.ts', 'apps/reference-dapp/e2e/interface-honesty.spec.ts', 'apps/reference-dapp/e2e/network-isolation.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png', 'apps/reference-dapp/next-env.d.ts', 'apps/reference-dapp/next.config.ts', 'apps/reference-dapp/package.json', 'apps/reference-dapp/playwright.config.ts', 'apps/reference-dapp/src/app/globals.css', 'apps/reference-dapp/src/app/layout.tsx', 'apps/reference-dapp/src/app/page.tsx', 'apps/reference-dapp/src/components/action-library.tsx', 'apps/reference-dapp/src/components/app-shell.tsx', 'apps/reference-dapp/src/components/artifact-inspector.tsx', 'apps/reference-dapp/src/components/copilot-panel.tsx', 'apps/reference-dapp/src/components/status-badge.tsx', 'apps/reference-dapp/src/components/summary-bar.tsx', 'apps/reference-dapp/src/components/top-bar.tsx', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'apps/reference-dapp/src/config/product.test.ts', 'apps/reference-dapp/src/config/product.ts', 'apps/reference-dapp/src/domain/commands.test.ts', 'apps/reference-dapp/src/domain/commands.ts', 'apps/reference-dapp/src/domain/contracts.integration.test.ts', 'apps/reference-dapp/src/domain/editor.test.ts', 'apps/reference-dapp/src/domain/editor.ts', 'apps/reference-dapp/src/domain/initial-workflow.ts', 'apps/reference-dapp/src/domain/mock-actions.ts', 'apps/reference-dapp/src/state/workflow-store.tsx', 'apps/reference-dapp/tsconfig.json', 'docs/builds/BUILD-002-PLAN.md', 'docs/builds/BUILD-002-REPORT.md', 'patches/@xyflow__system@0.0.82.patch', 'scripts/bootstrap-playwright.py', 'third_party/licenses/caniuse-lite-1.0.30001810-LICENSE', 'third_party/licenses/img-sharp-libvips-darwin-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-darwin-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-arm-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-ppc64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-riscv64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-s390x-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linux-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linuxmusl-arm64-1.3.3-README.md', 'third_party/licenses/img-sharp-libvips-linuxmusl-x64-1.3.3-README.md', 'third_party/licenses/img-sharp-wasm32-0.35.4-LICENSE', 'third_party/licenses/img-sharp-wasm32-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-0.35.4-LICENSE', 'third_party/licenses/img-sharp-win32-arm64-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-ia32-0.35.4-README.md', 'third_party/licenses/img-sharp-win32-x64-0.35.4-README.md', 'third_party/licenses/tslib-2.8.1-CopyrightNotice.txt', 'third_party/licenses/tslib-2.8.1-LICENSE.txt', 'third_party/licenses/xyflow-system-MIT.txt'])
           modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', '.gitignore', 'README.md', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/EVIDENCE_LEVELS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'eslint.config.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'scripts/bootstrap-ci.py', 'turbo.json'])
@@ -63,23 +65,19 @@ jobs:
           errors += ['BUILD-002 removed baseline file: '+v for v in sorted(set(before)-set(merged))]
           errors += ['BUILD-002 changed protected baseline: '+v for v in sorted(set(before)&set(merged))
                      if before[v]!=merged[v] and v not in modify]
-          now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
-          if now-set(merged)!=amendment_create:
-              errors.append('amendment created path mismatch: '+repr(sorted((now-set(merged))^amendment_create)))
-          changed=set(subprocess.check_output(['git','diff','--name-only',merge,'--'],text=True).splitlines())
-          errors += ['unauthorized modified path: '+v for v in sorted(changed-amendment_create-amendment_modify)]
-          for v in sorted(merged):
-              file=root/v
-              if not file.is_file():
-                  errors.append('baseline file missing: '+v)
-              elif v not in amendment_modify and file.read_bytes()!=subprocess.check_output(['git','show',merge+':'+v]):
-                  errors.append('protected baseline changed: '+v)
-          # DEC-0017: the license map may change only the Apache-2.0 row's path-authorization sentence.
+          # DEC-0017 correction and amendment are checked against historical blobs,
+          # never against evolving BUILD-003A files.
+          approved=tree(approval_baseline)
+          if set(approved)-set(merged)!=amendment_create:
+              errors.append('historical amendment created path mismatch')
+          errors += ['historical amendment removed file: '+v for v in sorted(set(merged)-set(approved))]
+          historical_changed={v for v in set(merged)&set(approved) if merged[v]!=approved[v]}
+          errors += ['historical amendment changed protected file: '+v for v in sorted(historical_changed-amendment_modify)]
           old_map=subprocess.check_output(['git','show',merge+':docs/LICENSE_MAP.md'],text=True).splitlines()
-          new_map=(root/'docs/LICENSE_MAP.md').read_text().splitlines()
-          map_changes=[(a,b) for a,b in zip(old_map,new_map) if a!=b]
-          if len(old_map)!=len(new_map) or len(map_changes)>1:
-              errors.append('license map changed outside the Apache-2.0 authorization sentence')
+          amendment_map=subprocess.check_output(['git','show',approval_baseline+':docs/LICENSE_MAP.md'],text=True).splitlines()
+          map_changes=[(a,b) for a,b in zip(old_map,amendment_map) if a!=b]
+          if len(old_map)!=len(amendment_map) or len(map_changes)!=1:
+              errors.append('historical license map correction count changed')
           sentence='Only exact paths'
           for a,b in map_changes:
               old_cells,new_cells=a.split('|'),b.split('|')
@@ -87,9 +85,27 @@ jobs:
                       or old_cells[:3]!=new_cells[:3] or old_cells[4:]!=new_cells[4:]
                       or sentence not in new_cells[3]
                       or old_cells[3].split(sentence)[0]!=new_cells[3].split(sentence)[0]):
-                  errors.append('license map classification, path or grant text changed')
-          if 'explicitly approved tracked governance or licensing amendment' not in '\n'.join(new_map):
-              errors.append('license map lacks the approved path-authorization rule')
+                  errors.append('historical license map correction changed classification')
+          if 'explicitly approved tracked governance or licensing amendment' not in '\n'.join(amendment_map):
+              errors.append('historical license map path authorization missing')
+          approved_create=set(['apps/reference-dapp/e2e/swap-authoring.spec.ts', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/build-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/build-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/execute-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/execute-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/simulate-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003a/simulate-diff.png', 'apps/reference-dapp/src/components/review-panel.tsx', 'apps/reference-dapp/src/domain/proposal.test.ts', 'apps/reference-dapp/src/domain/proposal.ts', 'apps/reference-dapp/src/domain/swap-authoring.test.ts', 'apps/reference-dapp/src/domain/swap-authoring.ts', 'docs/builds/BUILD-003A-PLAN.md', 'docs/builds/BUILD-003A-REPORT.md', 'packages/action-registry/src/base-assets.ts', 'packages/action-registry/src/reference-registry.ts', 'packages/action-registry/test/reference-registry.test.ts', 'packages/reference-linter/LICENSE', 'packages/reference-linter/package.json', 'packages/reference-linter/src/context.ts', 'packages/reference-linter/src/index.ts', 'packages/reference-linter/src/rules.ts', 'packages/reference-linter/src/validation.ts', 'packages/reference-linter/test/linter.test.ts', 'packages/reference-linter/test/validation.test.ts', 'packages/reference-linter/tsconfig.json'])
+          approved_modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', 'LICENSE', 'README.md', 'apps/reference-dapp/e2e/interface-honesty.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png', 'apps/reference-dapp/package.json', 'apps/reference-dapp/src/app/globals.css', 'apps/reference-dapp/src/app/layout.tsx', 'apps/reference-dapp/src/app/page.tsx', 'apps/reference-dapp/src/components/action-library.tsx', 'apps/reference-dapp/src/components/app-shell.tsx', 'apps/reference-dapp/src/components/artifact-inspector.tsx', 'apps/reference-dapp/src/components/copilot-panel.tsx', 'apps/reference-dapp/src/components/summary-bar.tsx', 'apps/reference-dapp/src/components/top-bar.tsx', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'apps/reference-dapp/src/config/product.test.ts', 'apps/reference-dapp/src/config/product.ts', 'apps/reference-dapp/src/domain/commands.test.ts', 'apps/reference-dapp/src/domain/commands.ts', 'apps/reference-dapp/src/domain/contracts.integration.test.ts', 'apps/reference-dapp/src/domain/editor.test.ts', 'apps/reference-dapp/src/domain/editor.ts', 'apps/reference-dapp/src/state/workflow-store.tsx', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/EVIDENCE_LEVELS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'packages/action-registry/src/index.ts', 'pnpm-lock.yaml', 'scripts/bootstrap-ci.py'])
+          now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
+          if now-set(approved)!=approved_create:
+              errors.append('BUILD-003A created path mismatch: '+repr(sorted((now-set(approved))^approved_create)))
+          errors += ['BUILD-003A removed baseline file: '+v for v in sorted(set(approved)-now)]
+          for v in sorted(now):
+              file=root/v
+              if not file.is_file() or file.is_symlink():
+                  errors.append('missing, non-file or symlink: '+v)
+              elif v in approved:
+                  if file.stat().st_mode & 0o111 != (0o111 if approved[v][0]=='100755' else 0):
+                      errors.append('unexpected executable mode: '+v)
+                  baseline_bytes=subprocess.check_output(['git','show',approval_baseline+':'+v])
+                  if file.read_bytes()!=baseline_bytes and v not in approved_modify:
+                      errors.append('BUILD-003A protected baseline changed: '+v)
+              elif file.stat().st_mode & 0o111:
+                  errors.append('new file has unexpected executable mode: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -130,17 +146,18 @@ jobs:
               if v in ('LICENSES/Apache-2.0.txt','LICENSES/AGPL-3.0-only.txt',
                        'packages/workflow-contracts/LICENSE',
                        'packages/action-registry/LICENSE',
-                       'apps/reference-dapp/LICENSE'): classes.append('official text')
+                       'apps/reference-dapp/LICENSE',
+                       'packages/reference-linter/LICENSE'): classes.append('official text')
               if v.startswith('third_party/licenses/'): classes.append('upstream legal text')
               if v.startswith('patches/'): classes.append('upstream patch')
-              if v.startswith('apps/reference-dapp/') and v!='apps/reference-dapp/LICENSE':
+              if (v.startswith('apps/reference-dapp/') and v!='apps/reference-dapp/LICENSE') or (v.startswith('packages/reference-linter/') and v!='packages/reference-linter/LICENSE'):
                   classes.append('AGPL-3.0-only')
               if not classes: classes.append('Apache-2.0')
               if len(classes)!=1: errors.append('ambiguous classification: '+v)
           if errors:
               print('\n'.join(errors),file=sys.stderr)
               raise SystemExit(1)
-          print('BUILD-002 scope, amendment scope, protected baseline and legal hashes passed')
+          print('Historical BUILD-002/amendment and current BUILD-003A exact scope, modes, protected bytes and legal hashes passed')
           PYCODE
 
       - name: Verify restored persistent governance controls
@@ -171,7 +188,8 @@ jobs:
                     'docs/builds/BUILD-000-PLAN.md','docs/builds/BUILD-000-REPORT.md',
                     'docs/builds/BUILD-000-LICENSING-AMENDMENT.md',
                     'docs/builds/BUILD-001-PLAN.md','docs/builds/BUILD-001-REPORT.md',
-                    'docs/builds/BUILD-002-PLAN.md','docs/builds/BUILD-002-REPORT.md',amendment]
+                    'docs/builds/BUILD-002-PLAN.md','docs/builds/BUILD-002-REPORT.md',amendment,
+                    'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md']
           missing=[v for v in required if v not in current or not (root/v).is_file()]
           if missing:
               print('\n'.join('missing required file: '+v for v in missing),file=sys.stderr)
@@ -217,8 +235,14 @@ jobs:
               'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png':'0e584bbb8974f692ca729599f0e0f58e4b640b5c35f71e153a9571424ba71efb',
           }
           for v,digest in sorted(protected.items()):
+              data=(subprocess.check_output(['git','show','14a94584b0a3119c1f6275a05b9e752dafe0a042:'+v])
+                    if v.startswith('apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/') else (root/v).read_bytes())
+              if hashlib.sha256(data).hexdigest()!=digest:
+                  errors.append('protected historical digest mismatch: '+v)
+          approved_images={'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png': '28135facd0c1647e4a51fc65851d56afb468caf1b28d54ccf578eee8df26d466', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png': '8007847673d2e2eb3f9a43a2518db469023c61b2c21921a735ca99d2f35a7164', 'apps/reference-dapp/e2e/visual-evidence/build-003a/build-before.png': 'fd4de5d84235195275014aae5098a5921f62aabb2839d6f1594b13a04cadbbe3', 'apps/reference-dapp/e2e/visual-evidence/build-003a/build-diff.png': 'd00a8f71341dfbf317b46c3dcb63adb9022c82e99c5c895aca5c9f9b67b2cc67', 'apps/reference-dapp/e2e/visual-evidence/build-003a/execute-before.png': 'dd4431f3088baae3a089fb064fe555853b0a7d77fdb236b1ccf8b6a59817fa5b', 'apps/reference-dapp/e2e/visual-evidence/build-003a/execute-diff.png': '6d17b728f01cc7b3ec8919ddfc3a0d95eb05cd0377b7697b98ec86409de46a83', 'apps/reference-dapp/e2e/visual-evidence/build-003a/simulate-before.png': '0e584bbb8974f692ca729599f0e0f58e4b640b5c35f71e153a9571424ba71efb', 'apps/reference-dapp/e2e/visual-evidence/build-003a/simulate-diff.png': '403a85b1918c7a9f1e30cb5acf8b56603b27b78234d28d14ea202d0aa091c7f9', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png': '96c85d8e90d5d7d4316814a71ce39db2364d598d63060f17ce8e8c9dab7a05d5', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png': '210de9abc83fb0863073a0326f4ff8a8fcd7733795bf195c190b1f3830322e2c', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png': '71e8e6a6a22e48f99be3a1b21ef970bc6a7af340d7eb4c3c1511c7cb32ba6dd1'}
+          for v,digest in approved_images.items():
               if hashlib.sha256((root/v).read_bytes()).hexdigest()!=digest:
-                  errors.append('protected digest mismatch: '+v)
+                  errors.append('BUILD-003A approved visual digest mismatch: '+v)
           official={'LICENSES/Apache-2.0.txt':('cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30',11358),
                     'LICENSES/AGPL-3.0-only.txt':('0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0',34523)}
           for v,(digest,size) in official.items():
@@ -229,7 +253,8 @@ jobs:
                   errors.append('Gryloo addition to official license text: '+v)
           for v,source in (('packages/workflow-contracts/LICENSE','LICENSES/Apache-2.0.txt'),
                            ('packages/action-registry/LICENSE','LICENSES/Apache-2.0.txt'),
-                           ('apps/reference-dapp/LICENSE','LICENSES/AGPL-3.0-only.txt')):
+                           ('apps/reference-dapp/LICENSE','LICENSES/AGPL-3.0-only.txt'),
+                           ('packages/reference-linter/LICENSE','LICENSES/AGPL-3.0-only.txt')):
               if (root/v).read_bytes()!=(root/source).read_bytes():
                   errors.append('LICENSE copy differs from official text: '+v)
           frozen={'packages/workflow-contracts/schemas/v1/':(9,'d85cc34800114dd774a7b02da851a535fc4388c9950b4963033be19d37432eb6'),
@@ -276,7 +301,8 @@ jobs:
 
           # Plan and report template headings where the template applies.
           templates={'docs/builds/BUILD-000-PLAN.md':13,'docs/builds/BUILD-001-PLAN.md':13,
-                     'docs/builds/BUILD-001-REPORT.md':14,amendment:14}
+                     'docs/builds/BUILD-001-REPORT.md':14,amendment:14,
+                     'docs/builds/BUILD-003A-PLAN.md':13,'docs/builds/BUILD-003A-REPORT.md':14}
           for v,count in templates.items():
               found=[re.search(r'(?m)^## '+str(n)+r'\. ',markdown[v]) for n in range(1,count+1)]
               if not all(found) or [m.start() for m in found]!=sorted(m.start() for m in found):
@@ -297,9 +323,9 @@ jobs:
                   else: adr_files[match.group(1)]=v
           joined='\n'.join(markdown.values())
           references={'decision':r'(?<![A-Z0-9-])DEC-\d{4}(?![A-Z0-9-])',
-                      'requirement':r'(?<![A-Z0-9-])B\d{3}-[A-Z]+-\d{3}(?![A-Z0-9-])'}
+                      'requirement':r'(?<![A-Z0-9-])B\d{3}[A-Z]?-[A-Z]+-\d{3}(?![A-Z0-9-])'}
           registers={'decision':('docs/DECISIONS.md',r'DEC-\d{4}'),
-                     'requirement':('docs/REQUIREMENTS.md',r'B\d{3}-[A-Z]+-\d{3}')}
+                     'requirement':('docs/REQUIREMENTS.md',r'B\d{3}[A-Z]?-[A-Z]+-\d{3}')}
           registered={}
           for kind,(v,shape) in registers.items():
               ids=[]
@@ -314,7 +340,8 @@ jobs:
               unregistered=sorted(set(re.findall(references[kind],joined))-set(ids))
               if unregistered: errors.append('unregistered '+kind+' IDs: '+repr(unregistered))
               registered[kind]=ids
-          if [int(item[4:]) for item in registered['decision']]!=list(range(1,len(registered['decision'])+1)):
+          if (not all(re.fullmatch(r'DEC-\d{4}',item) for item in registered['decision']) or
+                  [int(item[4:]) for item in registered['decision']]!=list(range(1,len(registered['decision'])+1))):
               errors.append('decision IDs must be sequential without gaps')
           unknown_adrs=sorted(set(re.findall(r'(?<![A-Z0-9-])ADR-\d{4}(?![A-Z0-9-])',joined))-set(adr_files))
           if unknown_adrs: errors.append('ADR references without an ADR file: '+repr(unknown_adrs))
@@ -325,8 +352,10 @@ jobs:
               if line.startswith('| ') and not line.startswith('|---') and 'Rule |' not in line:
                   cells=[cell.strip() for cell in line.strip('|').split('|')]
                   if len(cells)<3 or not cells[2]: errors.append('authority location missing: '+line)
-          if not re.search(r'(?m)^\| BUILD-003[^|\n]*\|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
-              errors.append('BUILD-003 must remain NOT_APPROVED in the authority matrix')
+          if not re.search(r'(?m)^\| BUILD-003A \|[^|\n]+\|[^|\n]+\| APPROVED \|$',authority):
+              errors.append('BUILD-003A approval missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-003B/003C or financial execution \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
+              errors.append('later BUILD-003 scope must remain NOT_APPROVED')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -348,19 +377,20 @@ jobs:
               if len(rows)!=1 or not rows[0].endswith('| APPROVED |') or any(m not in rows[0] for m in expected):
                   errors.append('decision record incomplete: DEC-%04d' % number)
           next_build=markdown['docs/NEXT_BUILD.md']
-          if 'NONE_APPROVED' not in next_build or re.search(r'(?i)delivery pending|approved current build',next_build):
-              errors.append('NEXT_BUILD.md must state NONE_APPROVED and no pending or current build')
+          if 'NONE_APPROVED' not in next_build or 'BUILD-003A' not in next_build:
+              errors.append('NEXT_BUILD.md must retain the BUILD-003A authority and NONE_APPROVED next build')
           status=markdown['docs/STATUS.md']
-          for marker in ('BUILD-001','BUILD-002','COMPLETED','606174f0bd944e5a1c31baf8dad685d7558b7cc8','NONE_APPROVED'):
+          for marker in ('BUILD-001','BUILD-002','BUILD-003A','COMPLETED','606174f0bd944e5a1c31baf8dad685d7558b7cc8','NONE_APPROVED'):
               if marker not in status: errors.append('STATUS.md missing: '+marker)
-          if any(v.startswith('docs/builds/BUILD-003') for v in current):
-              errors.append('a BUILD-003 plan or report exists without approval')
+          if {v for v in current if v.startswith('docs/builds/BUILD-003')}!={'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md'}:
+              errors.append('unexpected BUILD-003 build document set')
 
           # Licensing routing, map and private-record controls.
           routing=authored['LICENSE']
           for marker in ('multi-licensed','docs/LICENSE_MAP.md','LICENSES/Apache-2.0.txt','LICENSES/AGPL-3.0-only.txt',
                          'docs/assets/**','TRADEMARKS.md','apps/reference-dapp/**',
-                         'packages/workflow-contracts/**','packages/action-registry/**'):
+                         'packages/workflow-contracts/**','packages/action-registry/**',
+                         'packages/reference-linter/**'):
               if marker not in routing: errors.append('LICENSE routing missing: '+marker)
           if 'No tracked AGPL-3.0-only implementation currently exists' in routing:
               errors.append('obsolete LICENSE statement restored')
@@ -464,6 +494,15 @@ jobs:
                         'license':'Apache-2.0','exports':exports,'files':['dist','schemas/v1','LICENSE']}
               for key,value in expected.items():
                   if manifest.get(key)!=value: errors.append('package contract mismatch: '+directory+' '+key)
+          linter=strict_json(authored['packages/reference-linter/package.json'])
+          linter_exports={'.':{'types':'./dist/index.d.ts','import':'./dist/index.js'},'./package.json':'./package.json'}
+          for key,value in {'name':'@defi-workflow-engine/reference-linter','version':'0.1.0',
+                            'private':True,'type':'module','license':'AGPL-3.0-only',
+                            'exports':linter_exports,'files':['dist','LICENSE'],
+                            'dependencies':{'@defi-workflow-engine/action-registry':'workspace:0.1.0',
+                                            '@defi-workflow-engine/workflow-contracts':'workspace:0.1.0',
+                                            'ajv':'8.20.0'}}.items():
+              if linter.get(key)!=value: errors.append('reference-linter package contract mismatch: '+key)
           app=strict_json(authored['apps/reference-dapp/package.json'])
           for key,value in {'name':'@defi-workflow-engine/reference-dapp','version':'0.1.0','private':True,
                             'type':'module','license':'AGPL-3.0-only'}.items():
@@ -474,7 +513,7 @@ jobs:
                   or root_manifest.get('engines')!={'node':'24.21.0','pnpm':'11.22.0'}):
               errors.append('workspace privacy, license, engines or packageManager mismatch')
           if authored['.node-version'].strip()!='24.21.0': errors.append('Node version declaration mismatch')
-          if {v.split('/')[1] for v in current if v.startswith('packages/')}!={'workflow-contracts','action-registry'}:
+          if {v.split('/')[1] for v in current if v.startswith('packages/')}!={'workflow-contracts','action-registry','reference-linter'}:
               errors.append('unapproved or reserved package directory populated')
           if {v.split('/')[1] for v in current if v.startswith('apps/')}!={'reference-dapp'}:
               errors.append('unapproved application directory populated')
@@ -483,6 +522,7 @@ jobs:
                           'requirements.txt','go.mod','go.sum','composer.json','Gemfile','Gemfile.lock'}
           approved_manifests={'package.json','pnpm-workspace.yaml','pnpm-lock.yaml','turbo.json',
                               'packages/workflow-contracts/package.json','packages/action-registry/package.json',
+                              'packages/reference-linter/package.json',
                               'apps/reference-dapp/package.json'}
           for v in sorted(current):
               name=pathlib.PurePosixPath(v).name

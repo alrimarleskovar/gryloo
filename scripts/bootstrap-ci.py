@@ -273,6 +273,9 @@ def verify_dependencies():
     lock = Path("pnpm-lock.yaml").read_text()
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
+    resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "7435de8d05c530d4660ed466a2992d63ae71788a1c39e327ebb4fe611d6ac9bf":
+        errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
 
@@ -307,6 +310,7 @@ def verify_dependencies():
     app = json.loads(Path("apps/reference-dapp/package.json").read_text())
     expected_app_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+        "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
         "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
@@ -315,6 +319,37 @@ def verify_dependencies():
                         ("@playwright/test", "@types/react", "@types/react-dom")}
     if app.get("dependencies") != expected_app_dependencies or app.get("devDependencies") != expected_app_dev:
         errors.append("BUILD-002 direct manifest versions or workspace links differ")
+    linter = json.loads(Path("packages/reference-linter/package.json").read_text())
+    expected_linter_dependencies = {
+        "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
+        "ajv": "8.20.0",
+    }
+    if (linter.get("name") != "@defi-workflow-engine/reference-linter" or
+            linter.get("version") != "0.1.0" or linter.get("private") is not True or
+            linter.get("license") != "AGPL-3.0-only" or
+            linter.get("dependencies") != expected_linter_dependencies):
+        errors.append("BUILD-003A linter manifest identity or exact dependencies differ")
+    importer_section = lock.split("\nimporters:\n", 1)[1].split("\npackages:\n", 1)[0]
+    linter_importer = importer_section.split("  packages/reference-linter:\n", 1)[1].split("\n  packages/workflow-contracts:", 1)[0]
+    expected_linter_importer = """    dependencies:
+      '@defi-workflow-engine/action-registry':
+        specifier: workspace:0.1.0
+        version: link:../action-registry
+      '@defi-workflow-engine/workflow-contracts':
+        specifier: workspace:0.1.0
+        version: link:../workflow-contracts
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+"""
+    if linter_importer.strip() != expected_linter_importer.strip():
+        errors.append("BUILD-003A linter lock importer differs")
+    app_importer = importer_section.split("  apps/reference-dapp:\n", 1)[1].split("\n  packages/action-registry:", 1)[0]
+    if app_importer.count("'@defi-workflow-engine/reference-linter':") != 1 or not re.search(
+            r"(?m)^      '@defi-workflow-engine/reference-linter':\n        specifier: workspace:0\.1\.0\n        version: link:\.\./\.\./packages/reference-linter$",
+            app_importer):
+        errors.append("BUILD-003A app lock workspace link differs")
     for identity in BUILD002_DIRECT_VERSIONS:
         package_id = identity + "@" + BUILD002_DIRECT_VERSIONS[identity]
         if package_id not in locked:

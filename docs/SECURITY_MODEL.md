@@ -99,3 +99,17 @@ These remain basic pattern and digest checks. They supplement review and
 cannot detect every secret, claim, license issue or runtime vulnerability.
 Upstream legal copies are exempt from the checks that concern Gryloo-authored
 text but remain pinned by digest and scanned for secret indicators.
+
+## BUILD-003A non-executing authoring boundary
+
+Untrusted chat text, form values, commands and candidate workflow objects are
+validated before mutation. The Base registry context is created outside the
+editable path and recursively frozen. Exact decimal conversion uses bounded
+strings and integers; review findings are deterministic and revision-linked.
+Every swap remains unquoted and execution-unavailable, even if a caller forges
+review results. The browser request guard still permits only loopback traffic.
+
+The linter is application review, not independent financial enforcement. A
+compromised client can misrepresent this UI; no execution authority or financial
+safety guarantee exists. The exact BUILD-003A scope gate supplements the
+historical BUILD-002 and amendment checks without changing protected files.

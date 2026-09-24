@@ -6,12 +6,12 @@ test('shows honest authorization and unavailable stage states', async ({ page })
   for (const status of ['MOCKED', 'NONE', 'NOT_ENFORCED', 'NOT_APPLICABLE']) {
     await expect(page.getByText(status, { exact: true }).last()).toBeVisible();
   }
-  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 002' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 003A' })).toBeDisabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Simulate unavailable' })).toContainText('Simulate is not implemented');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('There is no quote, financial simulation, wallet, transaction, execution or outcome here.');
-  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 002' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 003A' })).toBeDisabled();
 });
 
 test('provides semantic landmarks, labelled controls and keyboard access', async ({ page }) => {
