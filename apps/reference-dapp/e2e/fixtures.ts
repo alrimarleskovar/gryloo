@@ -11,7 +11,7 @@ function guardedTest(negativeSelfTest: boolean) {
   return base.extend<{ context: BrowserContext; page: Page; networkGuard: Guard }>({
     context: async ({ browser }, use) => {
       const context = await browser.newContext({
-        serviceWorkers: 'block', viewport: { width: 1440, height: 900 },
+        serviceWorkers: 'block', bypassCSP: negativeSelfTest, viewport: { width: 1440, height: 900 },
         colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US',
       });
       const unexpected: string[] = [];

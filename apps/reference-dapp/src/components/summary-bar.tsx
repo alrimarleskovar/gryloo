@@ -15,7 +15,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   return <footer className="summary-bar"><div><span className="eyebrow">WORKFLOW STATE</span><strong>Revision {state.workflow.revision}</strong><span>{state.workflow.nodes.filter(node => node.actionType === SWAP_ACTION).length} Base swap · {state.workflow.nodes.filter(node => node.actionType !== SWAP_ACTION).length} mock nodes</span></div>
     <div className="summary-status"><StatusBadge label={product.environment} tone="info"/><StatusBadge label={product.authorization}/><StatusBadge label={product.enforcement} tone="warning"/><StatusBadge label={product.outcome}/><StatusBadge label={`MOCKED ARTIFACTS: ${shown}`}/></div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Open mocked simulation</button>
-      : tab === 'Simulate' ? <button type="button" disabled aria-label="Manifest review unavailable in Build 003B">Manifest review unavailable</button>
-      : <button type="button" disabled aria-label="Execution unavailable in Build 003B">Execution unavailable</button>}
+      : tab === 'Simulate' ? <button type="button" disabled aria-label="Manifest review unavailable">Manifest review unavailable</button>
+      : <button type="button" disabled aria-label="Execution unavailable">Execution unavailable</button>}
   </footer>;
 }

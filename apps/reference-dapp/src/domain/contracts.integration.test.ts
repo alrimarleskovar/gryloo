@@ -113,9 +113,12 @@ describe('BUILD-003B mocked chain against the frozen contracts', () => {
     const manifest = JSON.parse(readFileSync(new URL('../../../../packages/reference-linter/package.json', import.meta.url), 'utf8'));
     expect(manifest).toMatchObject({ name: '@defi-workflow-engine/reference-linter', version: '0.1.0', private: true, license: 'AGPL-3.0-only' });
     expect(Object.keys(manifest.exports)).toEqual(['.', './package.json']);
-    for (const name of ['lintWorkflow', 'validateAuthoringWorkflow', 'createReviewContext', 'digestArtifact', 'digestRawResponse', 'digestSelfCheck', 'reviewMockedArtifactChain', 'mockedSwapOutputs', 'mockedFixtureBytes']) {
+    for (const name of ['lintWorkflow', 'validateAuthoringWorkflow', 'createReviewContext', 'digestArtifact', 'digestRawResponse', 'digestSelfCheck', 'reviewMockedArtifactChain', 'mockedSwapOutputs', 'mockedFixtureBytes',
+      'collectBaseTranscript', 'deriveBaseObservation', 'reviewBaseObservation']) {
       expect(typeof (linter as Record<string, unknown>)[name]).toBe('function');
     }
     expect(Object.isFrozen(linter.MOCKED_CHAIN_PROFILE)).toBe(true);
+    expect(Object.isFrozen(linter.BASE_OBSERVATION_PROFILE)).toBe(true);
+    expect(linter.BASE_OBSERVATION_PROFILE.methods).toEqual(['eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call']);
   });
 });

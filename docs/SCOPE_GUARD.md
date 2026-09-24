@@ -70,9 +70,7 @@ isolated exact-input USDC↔WETH intent on Base and deterministic, non-enforcing
 review. Asset caps and slippage thresholds are prototype constraints. Swap
 nodes cannot connect to other nodes. The mock workflow remains a mock.
 
-No live quote, protocol adapter, RPC, wallet, authorization, calldata,
-signing, submission, financial simulation, execution, BUILD-003B/003C or Mode B
-is approved. ADR-0001 remains `PROPOSED`. Existing dependency resolutions and
+At BUILD-003A completion, no live quote, protocol adapter, RPC, wallet, authorization, calldata, signing, submission, financial simulation, execution, BUILD-003B/003C or Mode B was approved. ADR-0001 remains `PROPOSED`. Existing dependency resolutions and
 protected contracts, fixtures, legal texts and historical records remain fixed.
 
 ## Approved BUILD-003B boundary
@@ -84,8 +82,10 @@ locally from a fixed synthetic rate of 1 WETH = 1,000 USDC with a 60-second
 validity period. The chain stops after the Simulation Bundle. It is not a live
 quote or a financial simulation, and it cannot authorize execution.
 
-No live quote, RPC, wallet, router, spender or recipient identity, calldata,
-authorization artifact, signing, submission, financial simulation, execution,
-BUILD-003C or Mode B is approved. ADR-0001 remains `PROPOSED`. Frozen contracts,
+At BUILD-003B completion, no live quote, RPC, wallet, router, spender or recipient identity, calldata, authorization artifact, signing, submission, financial simulation, execution, BUILD-003C or Mode B was approved. ADR-0001 remains `PROPOSED`. Frozen contracts,
 schemas, fixtures, dependency resolutions and historical records, including the
 BUILD-003A plan and report, remain fixed.
+
+## Approved BUILD-003C read-only boundary
+
+DEC-0020 approves the exact [BUILD-003C plan](builds/BUILD-003C-PLAN.md): a Base/Uniswap v3 quote observation in a separate state and UI region. Every `eth_call` and `eth_getCode` uses `{ "blockHash": H, "requireCanonical": true }` and fails closed if unsupported. The public session remains stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. DEC-0021 approved Alchemy Free with a server-only Bearer credential and separate 3-attempt/63-request cap; its first `eth_chainId` request received HTTP 403, preserving the original session at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only, Amendment 3/DEC-0022 authorized one carried-counter continuation. The owner-run attempt 2 verified both pinned methods and recorded WETH → USDC; attempt 3 recorded USDC → WETH. Final Alchemy use is 3/3 attempts and 43/63 requests, with no further request approved. The reviewed code pins, replay fixture and local acceptance are recorded in the [report](builds/BUILD-003C-REPORT.md). Observations cannot enter the BUILD-003B mocked chain, workflow IR or an authorization path. Wallet, signing, submission, financial execution and Mode B remain unapproved; ADR-0001 remains `PROPOSED`.

@@ -5,6 +5,10 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
+  // The browser may connect only to its own origin; read-only Base reads run on the local server.
+  async headers() {
+    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self'" }] }];
+  },
 };
 
 export default config;

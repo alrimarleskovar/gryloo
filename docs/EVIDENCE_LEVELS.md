@@ -53,3 +53,5 @@ Build financial outcome remains `NOT_APPLICABLE`; no Evidence Bundle is
 produced. Mocked provenance and hashes identify synthetic data and are not
 authenticity proof. Local checks and remote CI are reported separately in the
 [BUILD-003B report](builds/BUILD-003B-REPORT.md).
+
+BUILD-003C introduces a separate `LIVE_READ_ONLY` or `RECORDED_REPLAY` observation mode. An observation is `NOT_EVIDENCE`, is not an authorization input, and has no financial outcome. The public Base RPC recording stopped after two HTTP 429 responses at request 12 (2/4 attempts, 24/84 requests). The original Alchemy attempt received HTTP 403 before a pinned method and remains preserved at 1/3 attempts and 1/63 requests. Under the approved DEC-0022 continuation, the owner recorded two real, canonical hash-pinned transcripts in attempts 2 and 3; final Alchemy usage is 3/3 attempts and 43/63 requests. The four code pins agree across directions and the historical replay passed local acceptance. This does not elevate the observation to financial evidence or independently enforced authorization. No further live recording is authorized. See the [BUILD-003C report](builds/BUILD-003C-REPORT.md).
