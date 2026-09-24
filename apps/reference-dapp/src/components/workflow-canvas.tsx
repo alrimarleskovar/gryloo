@@ -95,6 +95,6 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
     </div>
-    <div className="canvas-foot"><span>{mocks} mock · {swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Swap connections unavailable in BUILD-003A · Select a node to edit</span></div>
+    <div className="canvas-foot"><span>{mocks} mock · {swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Swap connections unavailable · Select a node to edit</span></div>
   </section>;
 }

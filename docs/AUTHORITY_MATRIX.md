@@ -20,7 +20,9 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-002 reference shell, exact dependency exceptions and legal notice copies | Human owner | [Approved BUILD-002 plan](builds/BUILD-002-PLAN.md), [report](builds/BUILD-002-REPORT.md), [third-party notices](../THIRD_PARTY_NOTICES.md) | APPROVED |
 | BUILD-003A | Human owner | DEC-0018 and [approved plan](builds/BUILD-003A-PLAN.md), exact Section 11 scope | APPROVED |
 | BUILD-003B | Human owner | DEC-0019 and [approved plan](builds/BUILD-003B-PLAN.md), exact Section 11 scope | APPROVED |
-| BUILD-003C or financial execution | Human owner | No approval record | NOT_APPROVED |
+| BUILD-003C | Human owner | DEC-0020, DEC-0021, DEC-0022 and [approved plan](builds/BUILD-003C-PLAN.md); read-only local development observation only | APPROVED |
+| BUILD-003C Alchemy continuation after HTTP 403 | Human owner | Approved Amendment 3 and DEC-0022; offline journal validation precedes the owner-run command | APPROVED |
+| Later BUILD-003 stages, wallet, signing or financial execution | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 No Mode B mechanism is selected, certified, deployed, or implemented.
 
@@ -34,3 +36,5 @@ canonical workflow state at `DRAFT`, and create no Authorization Policy,
 Strategy Manifest, Execution Plan, payload or intent hash. Their hashes and
 `MOCKED` provenance identify data; they are not authenticity proof or an
 enforcement location.
+
+BUILD-003C observations are not authorization inputs. The public RPC recording is stopped at 2/4 attempts and 24/84 requests after two HTTP 429 responses. The original Alchemy HTTP 403 session remains preserved at 1/3 attempts and 1/63 requests. The owner-run DEC-0022 continuation verified canonical hash-pinned `eth_getCode` and `eth_call`, recorded both directions and ended at 3/3 attempts and 43/63 requests. No additional RPC attempt or request is approved. The local replay and code pins passed acceptance; see the [report](builds/BUILD-003C-REPORT.md). No payment method, paid plan or charge is authorized. The owner's latest delivery instruction allows the agent to push and open the BUILD-003C PR after local acceptance; merge remains with the owner.

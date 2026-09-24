@@ -228,14 +228,14 @@ test('mocked numbers stay labelled and execution stays unavailable after generat
   expect(body).not.toMatch(/\$/);
   expect(body).not.toMatch(/\bUSD\s*\d|\d[\d,.]*\s*USD\b/);
   expect(body.replace(/not a live quote/gi, '')).not.toMatch(/\blive\b/i);
-  await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation.')).toBeVisible();
+  await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();
   for (const name of await page.locator('main button:enabled, footer button:enabled').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent ?? ''))) {
     expect(name).not.toMatch(/sign|approv|authori[sz]|submit|execut|wallet|connect/i);
   }
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable in Build 003B' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
   await tab(page, 'Execute');
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution.');
-  await expect(page.getByRole('button', { name: 'Execution unavailable in Build 003B' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Execution unavailable' })).toBeDisabled();
   await expect(page.getByText('MOCKED ARTIFACTS: CURRENT', { exact: true })).toBeVisible();
 });
 

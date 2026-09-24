@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, useMemo, type Dispatch, type ReactNode } from 'react';
-import { createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
+import { BaseObservationError, createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
 import { editorReducer, initialEditor, type EditorState } from '../domain/editor';
 import { describeProposal } from '../domain/proposal';
 import { chainReducer, checkChainAccess, initialChainState, type ChainState } from '../domain/artifact-chain';
 import { generateMockedChain, generationEligibility, type Eligibility } from '../domain/mock-artifacts';
 import type { Command } from '../domain/commands';
+import { readBaseQuote } from '../app/observation-action';
+import { browserFailureMessage, initialObservationState, observationReducer, receiveObservation, type ObservationState } from '../domain/base-observation';
 
 type Pending = { command: Command; diff: readonly string[]; review: ReviewResult | null };
 type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
@@ -91,8 +93,76 @@ export function WorkflowProvider({ children, initialContext }: { children: React
   }, [accessCheck, generateArtifacts]);
   return <Context.Provider value={{ state, dispatch, context, pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
     chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck }}>
-    {children}
+    <BaseObservationProvider>{children}</BaseObservationProvider>
   </Context.Provider>;
+}
+
+type Observations = { observations: ObservationState; readQuote(nodeId: string): void; accessCheck(): void };
+const ObservationContext = createContext<Observations | null>(null);
+
+/**
+ * Read-only Base observations live in their own context. They are never part
+ * of the workflow state, never feed an edit and never reach authorization.
+ */
+function BaseObservationProvider({ children }: { children: ReactNode }) {
+  const { state, context } = useWorkflow();
+  const [observations, dispatchObservation] = useReducer(observationReducer, undefined, initialObservationState);
+  const workflowRef = useRef(state.workflow);
+  const observationsRef = useRef(observations);
+  const tokenRef = useRef(0);
+  workflowRef.current = state.workflow;
+  observationsRef.current = observations;
+  useEffect(() => { dispatchObservation({ type: 'REVISION_ACCEPTED', workflow: state.workflow }); }, [state.workflow]);
+  const accessCheck = useCallback(() => {
+    dispatchObservation({ type: 'ACCESS_CHECK', workflow: workflowRef.current, wallNowMs: Date.now(), monotonicNowMs: performance.now() });
+  }, []);
+  useEffect(() => {
+    document.addEventListener('visibilitychange', accessCheck);
+    window.addEventListener('focus', accessCheck);
+    window.addEventListener('pageshow', accessCheck);
+    return () => {
+      document.removeEventListener('visibilitychange', accessCheck);
+      window.removeEventListener('focus', accessCheck);
+      window.removeEventListener('pageshow', accessCheck);
+    };
+  }, [accessCheck]);
+  // The timer only triggers a re-check at the earliest expiry; it is never the check itself.
+  useEffect(() => {
+    const expiries = Object.values(observations).flatMap(entry => entry.status === 'CURRENT' ? [entry.record.expiresAtMs] : []);
+    if (expiries.length === 0) return;
+    const timer = setTimeout(accessCheck, Math.max(0, Math.min(...expiries) - Date.now()) + 1);
+    return () => clearTimeout(timer);
+  }, [observations, accessCheck]);
+  const readQuote = useCallback((nodeId: string) => {
+    if (observationsRef.current[nodeId]?.status === 'READING') return;
+    const workflow = workflowRef.current;
+    tokenRef.current += 1;
+    const token = tokenRef.current;
+    dispatchObservation({ type: 'READ_STARTED', nodeId, token, workflow });
+    readBaseQuote({ workflow, nodeId }).then(async (result) => {
+      if (!result.ok) {
+        dispatchObservation({ type: 'READ_FAILED', nodeId, token, code: result.code, message: result.message });
+        return;
+      }
+      try {
+        const record = await receiveObservation(result, { nodeId, sourceWorkflow: workflow, currentWorkflow: workflowRef.current,
+          wallNowMs: Date.now(), monotonicNowMs: performance.now() }, context);
+        dispatchObservation({ type: 'READ_SUCCEEDED', nodeId, token, record, currentWorkflow: workflowRef.current });
+        accessCheck();
+      } catch (cause) {
+        const code = cause instanceof BaseObservationError ? cause.code : 'INTERNAL_ERROR';
+        dispatchObservation({ type: 'READ_FAILED', nodeId, token, code, message: browserFailureMessage(code) });
+      }
+    }, () => {
+      dispatchObservation({ type: 'READ_FAILED', nodeId, token, code: 'INTERNAL_ERROR', message: browserFailureMessage('INTERNAL_ERROR') });
+    });
+  }, [context, accessCheck]);
+  return <ObservationContext.Provider value={{ observations, readQuote, accessCheck }}>{children}</ObservationContext.Provider>;
+}
+export function useBaseObservations() {
+  const value = useContext(ObservationContext);
+  if (!value) throw new Error('BaseObservationProvider is required');
+  return value;
 }
 export function useWorkflow() {
   const value = useContext(Context);

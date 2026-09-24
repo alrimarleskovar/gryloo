@@ -65,3 +65,29 @@
 .flow-card.simulated .mocked-value{font-size:11px}
 @media(max-width:1180px){.simulate-grid{grid-template-columns:1fr}}
 @media(max-width:700px){.simulate-canvas{height:430px}.simulate-controls{width:100%}}
+/* BUILD-003C read-only Base observation, in its own blue-grey tone; it is not amber, not mocked blue and never green. */
+.observation-panel{margin-top:14px;padding:18px;display:grid;gap:12px;border-color:#c7d0dd}
+.observation-badge{display:inline-flex;align-items:center;background:#eef1f6;border:1px solid #c7d0dd;color:#334155;border-radius:5px;padding:4px 7px;font-size:10px;font-weight:800;letter-spacing:.07em}
+.observation-disclosure,.observation-note{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.observation-swap{border:1px solid #c7d0dd;border-radius:8px;padding:12px;display:grid;gap:10px;min-width:0}
+.observation-swap-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.observation-swap-head h3{font-size:13px;margin:0;overflow-wrap:anywhere}
+.observation-status{border:1px solid #c7d0dd;border-radius:5px;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#334155;background:#f5f7fa;white-space:nowrap}
+.observation-expired,.observation-invalidated{background:var(--amber-soft);border-color:#f2dfb3;color:var(--amber)}
+.observation-failed{background:#fff1f2;border-color:#edc4c9;color:var(--red)}
+.observation-alert{margin:0;padding:10px 12px;border:1px solid #edc4c9;border-radius:8px;background:#fff1f2;color:var(--red);font-size:12px;display:grid;gap:3px}
+.observation-retired{padding:10px 12px;border:1px solid #f2dfb3;border-radius:8px;background:var(--amber-soft);color:var(--amber);display:grid;gap:5px;font-size:12px}
+.observation-retired p{margin:0;line-height:1.5}.observation-retired code{font-size:10px;overflow-wrap:anywhere}
+.observation-mode{margin:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.tier-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.tier-table th,.tier-table td{text-align:left;vertical-align:top;padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.tier-table th{color:var(--muted);font-weight:700}.tier-table code{font-size:10px}
+.observed-value{display:inline-flex;flex-direction:column;gap:2px;max-width:100%}
+.observed-value small{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+.observed-tag{align-self:start;background:#eef1f6;color:#334155;border:1px solid #c7d0dd;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;letter-spacing:.05em}
+.observation-checks{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.observation-checks li{padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:11px;overflow-wrap:anywhere}
+.observation-provenance{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 12px;font-size:11px}
+.observation-provenance div{min-width:0}.observation-provenance dt{color:var(--muted);font-weight:700}.observation-provenance dd{margin:0;overflow-wrap:anywhere}
+.observation-provenance code{font-size:10px}
+@media(max-width:700px){.observation-panel{padding:14px}.tier-table{font-size:10px}}

@@ -12,6 +12,11 @@ if (!existsSync(executablePath)) throw new Error('Verified headless-shell execut
 if (process.env.NEXT_TELEMETRY_DISABLED !== '1' || process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD !== '1') {
   throw new Error('BUILD-002 telemetry and browser-download controls are required');
 }
+// BUILD-003C: E2E serves only committed recordings. Live Base reads are never made from tests.
+const observation = process.env.GRYLOO_BASE_OBSERVATION;
+if (observation !== undefined && observation !== 'replay') {
+  throw new Error('E2E runs only with the recorded Base replay; live Base reads are forbidden in tests');
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,6 +44,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: false,
     timeout: 60_000,
-    env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' },
+    env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay' },
   },
 });

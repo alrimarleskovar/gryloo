@@ -46,7 +46,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   return <div className="chain-retired" role="status">
     <strong>{expired ? 'EXPIRED · the 60-second mock validity window ended' : `INVALIDATED · semantic edit (revision ${record.review.revision} → ${workflow.revision})`}</strong>
     <p>Numbers and JSON of this chain are hidden. Generate new mocked artifacts for revision {workflow.revision}.</p>
-    <p>Dependents retired under the frozen v1 matrix: {dependents.join(', ')}.{expired ? ' The expired mocked quote is retired as well.' : ''} Policy, manifest, plan and authorization dependents were never created in BUILD-003B.</p>
+    <p>Dependents retired under the frozen v1 matrix: {dependents.join(', ')}.{expired ? ' The expired mocked quote is retired as well.' : ''} Policy, manifest, plan and authorization dependents were never created.</p>
     <ul className="retired-ids" aria-label="Retired artifact identities">
       <li>Semantic Workflow IR · revision {record.review.revision} <code>{record.review.semanticWorkflowHash}</code></li>
       {record.chain.quotes.map(quote => <li key={quote.nodeId}>Retired mocked quote · {quote.nodeId} <code>{record.review.quoteHashes[quote.nodeId]}</code></li>)}
@@ -135,7 +135,7 @@ export function SimulatePanel() {
           <p>A generation creates one mocked quote per Base swap, an Artifact Set and a mocked simulation, all bound to revision {workflow.revision} and valid for 60 seconds.</p>
         </div>}
         <p className="not-modeled"><strong>Not modeled:</strong> balances, allowances, gas, fees, price impact, liquidity, MEV and duration. USD values: not modeled.</p>
-        <p className="simulate-next">Next step: Manifest review is unavailable. BUILD-003B stops before authorization; mocked artifacts cannot authorize execution. The workflow stays DRAFT.</p>
+        <p className="simulate-next">Next step: Manifest review is unavailable. This build stops before authorization; mocked artifacts cannot authorize execution. The workflow stays DRAFT.</p>
       </div>
     </div>
   </section>;

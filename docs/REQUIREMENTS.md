@@ -139,3 +139,21 @@ simulation, authorization, execution or reconciliation evidence.
 | B003B-SUPPLY-001 | No new registry resolution; one new direct edge to the approved `canonicalize@5.0.0` pin. | Master Prompt §8 | Dependency verifier, lockfile section digest and SBOM accounting | SATISFIED_LOCALLY |
 | B003B-GOVERNANCE-001 | BUILD-003A scope pinned historically and the exact BUILD-003B scope enforced. | Master Prompt §5 | Governance jobs and isolated negative checks | SATISFIED_LOCALLY |
 | B003A-DELIVERY-001 | Retrospective: BUILD-003A merged through PR #7 with pull-request and post-merge CI passing. | Master Prompt §5.5 | Merge commit `36dd05e2bcea2d9a19c7b571d2126aea0390e5dd` and the run IDs recorded in [status](STATUS.md) | SATISFIED |
+
+| B003B-DELIVERY-001 | Retrospective: BUILD-003B merged through PR #8 with pull-request and post-merge CI passing. | Master Prompt §5.5 | Merge `0faec71207628dfe27fb23c81680d2c27827f5ea`; runs in the BUILD-003C plan and [status](STATUS.md) | SATISFIED |
+
+## BUILD-003C approved implementation index
+
+DEC-0020 approved the read-only scope; DEC-0021 approved Alchemy Free, a separate persistent 3-attempt/63-request cap and the synthetic CSP guard fixture change. The public session remains stopped at 2/4 attempts and 24/84 requests after two HTTP 429 responses. The original Alchemy attempt received HTTP 403 and remains byte-identical at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only, Amendment 3/DEC-0022 authorized one carried-counter continuation. The owner-run attempts 2 and 3 verified both canonical hash-pinned methods and recorded both directions in 42 additional requests; final Alchemy usage is 3/3 attempts and 43/63 requests. Real replay, pins, positive E2E, ten visual baselines and local governance acceptance passed. Each BUILD-003C row below is `SATISFIED_LOCALLY`; remote PR CI remains pending and no later build is approved.
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B003C-OBSERVATION-001 | Read-only pinned Base quotes with transcript and validated Quote/State Artifact. | Master Spec §7.5 | Two verified real transcripts, derivation and positive replay E2E | SATISFIED_LOCALLY |
+| B003C-VERIFICATION-001 | Verify chain, block, code, asset metadata and deployments; fail closed. | Master Prompt §2.5 | Four matching code pins, real replay and scripted failure tests | SATISFIED_LOCALLY |
+| B003C-NETWORK-001 | Fixed server-only local development RPC with limits; replay-only CI and E2E. | Master Spec §17 | Transport tests, CSP, clean browser guard and governance scan | SATISFIED_LOCALLY |
+| B003C-FAILURE-001 | Explicit failures without partial values. | Master Prompt Build 003 | Linter, server and browser tests | SATISFIED_LOCALLY |
+| B003C-PROVENANCE-001 | Bind mode, host, block, times and hashes into visible observation. | Master Prompt P6 and §2.6 | Both replay directions with visible block, host, times and hashes | SATISFIED_LOCALLY |
+| B003C-BOUNDARY-001 | Separate observations from `MOCKED` data and authority. | Master Spec §7.2 | Domain, cross-rejection, positive guarded E2E and governance | SATISFIED_LOCALLY |
+| B003C-VISUAL-001 | Review visual changes and pass zero-pixel regression. | Master Prompt §9.7 | Eight reviewed diffs and ten zero-pixel snapshots | SATISFIED_LOCALLY |
+| B003C-COMPATIBILITY-001 | Keep contracts, schemas, fixtures, registry and dependencies unchanged. | ADR-0002 | Protected-byte and exact-scope governance passed | SATISFIED_LOCALLY |
+| B003C-GOVERNANCE-001 | Pin BUILD-003B historically and enforce exact BUILD-003C scope and consumer boundary. | Master Prompt §5 | Historical and current exact-scope governance passed | SATISFIED_LOCALLY |

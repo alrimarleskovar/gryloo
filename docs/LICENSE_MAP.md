@@ -105,3 +105,7 @@ linter to the already approved and locked `canonicalize@5.0.0` (Apache-2.0).
 The package is unmodified, not vendored and not relicensed. No new registry
 package, license exception, path classification or official text change is
 introduced, and bundle distribution remains unapproved.
+
+## BUILD-003C classification
+
+The BUILD-003C `apps/reference-dapp/**` and `packages/reference-linter/**` additions remain AGPL-3.0-only. BUILD-003C governance and report files follow the existing Apache-2.0 documentation classification. DEC-0021 adds only the existing AGPL-classified `apps/reference-dapp/e2e/fixtures.ts` to the permitted modify scope for the synthetic CSP guard self-test. No dependency, official license text or grant changes.
