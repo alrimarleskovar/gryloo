@@ -6,12 +6,15 @@ test('shows honest authorization and unavailable stage states', async ({ page })
   for (const status of ['MOCKED', 'NONE', 'NOT_ENFORCED', 'NOT_APPLICABLE']) {
     await expect(page.getByText(status, { exact: true }).last()).toBeVisible();
   }
-  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 003A' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Open mocked simulation' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Simulate unavailable' })).toContainText('Simulate is not implemented');
+  await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('Add a Base swap in Build before generating mocked artifacts.');
+  await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('USD values: not modeled.');
+  await expect(page.getByRole('button', { name: 'Manifest review unavailable in Build 003B' })).toBeDisabled();
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('There is no quote, financial simulation, wallet, transaction, execution or outcome here.');
-  await expect(page.getByRole('button', { name: 'Simulation unavailable in Build 003A' })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution. There is no live quote, wallet, signature, transaction, execution or outcome here.');
+  await expect(page.getByRole('button', { name: 'Execution unavailable in Build 003B' })).toBeDisabled();
 });
 
 test('provides semantic landmarks, labelled controls and keyboard access', async ({ page }) => {

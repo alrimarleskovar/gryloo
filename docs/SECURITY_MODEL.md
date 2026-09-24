@@ -113,3 +113,25 @@ The linter is application review, not independent financial enforcement. A
 compromised client can misrepresent this UI; no execution authority or financial
 safety guarantee exists. The exact BUILD-003A scope gate supplements the
 historical BUILD-002 and amendment checks without changing protected files.
+
+## BUILD-003B mocked artifact boundary
+
+The browser digest mirrors the frozen DWE-HASH v1 profile for four artifact
+kinds and the raw-response domain only; it has no payload, intent or authority
+domain. It runs a known-vector self-check before every generation and review;
+a failure prevents generation and shows an explicit error. Differential tests
+on the pinned toolchain require equal digests and that every input the frozen
+implementation rejects is rejected too.
+
+The chain review recomputes every cross-artifact hash and revision link and
+rejects tampered, mislinked, authority-bearing or fee- and gas-bearing mocked
+artifacts. One synchronous access guard binds content to the exact IR revision
+and object and checks expiry by wall clock, backwards clock and monotonic time
+on every access and when the tab resumes. Non-current chains hide their numbers
+and JSON.
+
+These are application review controls in a client that a compromised browser
+could misrepresent. Mocked provenance and hashes are not proof of authenticity
+and are not independent financial enforcement. New governance scans reject
+authority types, wallet and RPC tokens, network primitives, raw HTML injection
+and browser storage in the application and linter sources.

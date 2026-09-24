@@ -324,6 +324,7 @@ def verify_dependencies():
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
         "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
         "ajv": "8.20.0",
+        "canonicalize": "5.0.0",
     }
     if (linter.get("name") != "@defi-workflow-engine/reference-linter" or
             linter.get("version") != "0.1.0" or linter.get("private") is not True or
@@ -342,6 +343,9 @@ def verify_dependencies():
       ajv:
         specifier: 8.20.0
         version: 8.20.0
+      canonicalize:
+        specifier: 5.0.0
+        version: 5.0.0
 """
     if linter_importer.strip() != expected_linter_importer.strip():
         errors.append("BUILD-003A linter lock importer differs")

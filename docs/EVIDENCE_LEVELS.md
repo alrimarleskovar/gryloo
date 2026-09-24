@@ -44,3 +44,12 @@ and outcome are `NOT_APPLICABLE`. Browser surface tests and local static source
 checks do not constitute quotes, simulation, protocol verification, transaction
 execution or reconciliation. Local checks and remote CI are reported separately
 in the [BUILD-003A report](builds/BUILD-003A-REPORT.md).
+
+BUILD-003B adds a `MOCKED` Quote/State Artifact, Artifact Set and Simulation
+Bundle chain built from a fixed synthetic rate. This is internal-logic evidence
+only: the chain is not a live quote, not a financial simulation and not
+execution evidence. P6 and P7 appear in mocked form and are not certified.
+Build financial outcome remains `NOT_APPLICABLE`; no Evidence Bundle is
+produced. Mocked provenance and hashes identify synthetic data and are not
+authenticity proof. Local checks and remote CI are reported separately in the
+[BUILD-003B report](builds/BUILD-003B-REPORT.md).

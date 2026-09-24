@@ -77,7 +77,7 @@ jobs:
           pnpm test
           test -f packages/reference-linter/dist/index.js
           test -f packages/reference-linter/dist/index.d.ts
-          pnpm --filter @defi-workflow-engine/reference-linter exec node --input-type=module -e "const m = await import('@defi-workflow-engine/reference-linter'); for (const key of ['lintWorkflow','validateAuthoringWorkflow','createReviewContext']) if (typeof m[key] !== 'function') throw new Error('Missing linter export: '+key)"
+          pnpm --filter @defi-workflow-engine/reference-linter exec node --input-type=module -e "const m = await import('@defi-workflow-engine/reference-linter'); for (const key of ['lintWorkflow','validateAuthoringWorkflow','createReviewContext','digestArtifact','digestRawResponse','digestSelfCheck','reviewMockedArtifactChain','mockedSwapOutputs','mockedFixtureBytes']) if (typeof m[key] !== 'function') throw new Error('Missing linter export: '+key); if (!Object.isFrozen(m.MOCKED_CHAIN_PROFILE)) throw new Error('Mocked chain profile must be frozen'); await m.digestSelfCheck()"
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         shell: bash

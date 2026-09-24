@@ -20,3 +20,48 @@
 @media(max-width:700px){.inspector-form input{max-width:none}.proposal div{flex-wrap:wrap}.review-panel{padding:14px}}
 
 @media(max-width:700px){.copilot:has(.proposal){height:530px}}
+/* BUILD-003B mocked artifact chain additions, using the existing shell tokens; nothing on the chain is green. */
+.simulate-panel{padding:18px;display:grid;gap:14px}
+.simulate-head{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}
+.simulate-head h2{margin-bottom:6px}
+.simulate-head .muted{font-size:12px;margin:0;max-width:760px}
+.simulate-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.simulate-controls button{min-height:40px;border:0;border-radius:6px;background:var(--blue);color:white;padding:0 14px;font-weight:700}
+.chain-status{border:1px solid var(--line);border-radius:5px;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+.chain-current,.chain-generating{background:var(--blue-soft);border-color:#c9ddff;color:#174d9f}
+.chain-invalidated,.chain-expired{background:var(--amber-soft);border-color:#f2dfb3;color:var(--amber)}
+.chain-rejected{background:#fff1f2;border-color:#edc4c9;color:var(--red)}
+.simulate-note{margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:12px;color:var(--muted)}
+.simulate-alert{margin:0;padding:12px 14px;border:1px solid #edc4c9;border-radius:8px;background:#fff1f2;color:var(--red);font-weight:700}
+.chain-retired{padding:12px 14px;border:1px solid #f2dfb3;border-radius:8px;background:var(--amber-soft);color:var(--amber);display:grid;gap:6px;font-size:12px}
+.chain-retired p{margin:0;line-height:1.5}
+.retired-ids{margin:0;padding-left:17px;display:grid;gap:3px;overflow-wrap:anywhere}
+.simulate-grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,520px);gap:14px;align-items:start}
+.simulate-canvas{height:520px}
+.simulate-results{display:grid;gap:12px;min-width:0}
+.chain-strip{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.chain-strip li{border:1px solid var(--line);border-radius:7px;padding:8px 10px;display:grid;gap:4px;font-size:11px}
+.chain-strip span{display:flex;align-items:center;gap:6px;font-weight:700}
+.chain-strip code,.retired-ids code{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.simulate-swap{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.simulate-swap h3{font-size:13px;margin:0 0 8px}
+.simulate-swap table,.enforcement-table{width:100%;border-collapse:collapse;font-size:11px}
+.simulate-swap th,.simulate-swap td,.enforcement-table th,.enforcement-table td{text-align:left;vertical-align:top;padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.simulate-swap th{width:34%;color:var(--muted);font-weight:700}
+.mocked-value{display:inline-flex;flex-direction:column;gap:2px;max-width:100%}
+.failure-cell{display:grid;gap:4px;justify-items:start}
+.mocked-value small{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+.mocked-tag{align-self:start;background:var(--blue-soft);color:#174d9f;border:1px solid #c9ddff;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;letter-spacing:.05em}
+.chain-findings{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.chain-findings li{padding:8px 10px;border:1px solid var(--line);border-radius:7px;display:grid;gap:3px;font-size:11px}
+.simulate-validity,.not-modeled,.simulate-next{margin:0;font-size:11px;line-height:1.5;color:var(--muted)}
+.not-modeled strong{color:var(--ink)}
+.artifact-json{display:grid;gap:6px}
+.artifact-json button{min-height:34px;border-radius:6px;padding:0 10px;font-weight:700;font-size:11px;text-align:left}
+.artifact-json pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;background:var(--soft);padding:10px;font-size:10px;margin:6px 0 0}
+.simulate-empty{border:1px dashed var(--line);border-radius:8px;padding:16px;color:var(--muted);font-size:12px}
+.simulate-empty p{margin:6px 0 0;line-height:1.5}
+.flow-card.simulated{width:236px}
+.flow-card.simulated .mocked-value{font-size:11px}
+@media(max-width:1180px){.simulate-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.simulate-canvas{height:430px}.simulate-controls{width:100%}}
