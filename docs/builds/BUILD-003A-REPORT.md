@@ -95,8 +95,12 @@ negative tests.
 
 ### Remote CI
 
-Not yet run. A local pass is not a claim about GitHub Actions. Push, PR and
-remote job results will be recorded here after delivery.
+Not performed. The local implementation commit exists, but `git push -u origin
+codex/build-003a-swap-authoring-lint` failed over the configured SSH remote with
+`Permission denied (publickey)` and `ssh_askpass: exec(/usr/bin/ssh-askpass): No
+such file or directory`. No remote branch or PR was created by this attempt, so
+there is no remote GitHub Actions result to inspect. A local pass is not a claim
+about remote CI.
 
 ### Checks not performed or limited
 
@@ -112,8 +116,8 @@ signature.
 Local authoring, immutable registry, input validation, deterministic review,
 semantic equivalence, non-executing interface, visual regression, package
 participation, dependency, governance negative and full regression gates passed.
-Remote CI remains to be inspected after the push. No P6–P14 or complete Build 003 certification is
-claimed.
+Remote CI could not be inspected because SSH authentication blocked the push.
+No P6–P14 or complete Build 003 certification is claimed.
 
 ## 7. Security
 
@@ -204,5 +208,10 @@ require a separate plan and decision. No work on them was begun here.
 ## 14. Delivery and human decision
 
 DEC-0018 authorized the named implementation commit, SSH push and PR into
-`main`; it did not authorize merging. Local commit, branch push, PR URL and
-remote CI results are pending final acceptance and will be recorded here.
+`main`; it did not authorize merging. The local implementation commit is
+`07de8f4` (`Implement Build 003A swap authoring and deterministic lint`). The
+configured `origin` uses GitHub SSH transport. The SSH push failed with `Permission denied (publickey)`; transport and authentication
+settings were left unchanged. The local branch and commit are retained. After
+SSH access is restored, the manual command is
+`git push -u origin codex/build-003a-swap-authoring-lint`. The PR into `main`
+and remote CI remain unperformed. No merge was attempted.
