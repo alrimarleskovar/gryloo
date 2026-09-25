@@ -232,6 +232,32 @@ BUILD002_DIRECT_VERSIONS = {
     "@types/react-dom": "19.3.0",
 }
 
+# BUILD-003D exact direct pins (MIT, no license exception). @noble/curves
+# depends only on @noble/hashes at the same exact version.
+BUILD003D_DIRECT_VERSIONS = {
+    "@noble/hashes": "2.4.0",
+    "@noble/curves": "2.4.0",
+}
+
+# BUILD-003D private AGPL reference packages and their exact dependencies.
+BUILD003D_REFERENCE_PACKAGES = {
+    "packages/reference-compiler/package.json": ("@defi-workflow-engine/reference-compiler", {
+        "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@noble/hashes": "2.4.0",
+    }),
+    "packages/reference-executor/package.json": ("@defi-workflow-engine/reference-executor", {
+        "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+    }),
+    "packages/reference-reconciler/package.json": ("@defi-workflow-engine/reference-reconciler", {
+        "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@noble/curves": "2.4.0",
+        "@noble/hashes": "2.4.0",
+    }),
+}
+
 # The pre-existing BUILD-001 MPL tooling exception is exact-name scoped too.
 BUILD001_LIGHTNINGCSS_NAMES = {
     "lightningcss",
@@ -274,7 +300,7 @@ def verify_dependencies():
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
     resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
-    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "7435de8d05c530d4660ed466a2992d63ae71788a1c39e327ebb4fe611d6ac9bf":
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "9e0aaf059085b4d0ac9c367c049eb4ff7d460bf83fd0c09c8530153e6661f749":
         errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
@@ -300,8 +326,8 @@ def verify_dependencies():
             errors.append(f"Non-registry or missing integrity: {identity}")
         else:
             locked[identity] = integrity[0]
-    if len(package_blocks) != 245 or len(locked) != 245 or len(snapshot_blocks) != 245:
-        errors.append(f"BUILD-002 lock count drift: packages={len(package_blocks)}, "
+    if len(package_blocks) != 247 or len(locked) != 247 or len(snapshot_blocks) != 247:
+        errors.append(f"BUILD-003D lock count drift: packages={len(package_blocks)}, "
                       f"registry={len(locked)}, snapshots={len(snapshot_blocks)}")
     for identity, (_, digest) in pins.items():
         if locked.get(identity) != digest:
@@ -311,7 +337,7 @@ def verify_dependencies():
     expected_app_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
         "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
     }
@@ -322,7 +348,7 @@ def verify_dependencies():
     linter = json.loads(Path("packages/reference-linter/package.json").read_text())
     expected_linter_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.1.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
         "ajv": "8.20.0",
         "canonicalize": "5.0.0",
     }
@@ -332,13 +358,18 @@ def verify_dependencies():
             linter.get("dependencies") != expected_linter_dependencies):
         errors.append("BUILD-003A linter manifest identity or exact dependencies differ")
     importer_section = lock.split("\nimporters:\n", 1)[1].split("\npackages:\n", 1)[0]
-    linter_importer = importer_section.split("  packages/reference-linter:\n", 1)[1].split("\n  packages/workflow-contracts:", 1)[0]
+
+    def importer_block(path):
+        match = re.search(rf"(?ms)^  {re.escape(path)}:\n(.*?)(?=^  \S|\Z)", importer_section)
+        return match.group(1) if match else ""
+
+    linter_importer = importer_block("packages/reference-linter")
     expected_linter_importer = """    dependencies:
       '@defi-workflow-engine/action-registry':
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.1.0
+        specifier: workspace:0.2.0
         version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
@@ -358,14 +389,29 @@ def verify_dependencies():
         package_id = identity + "@" + BUILD002_DIRECT_VERSIONS[identity]
         if package_id not in locked:
             errors.append(f"BUILD-002 direct lock identity missing: {package_id}")
+    for identity, version in BUILD003D_DIRECT_VERSIONS.items():
+        if identity + "@" + version not in locked:
+            errors.append(f"BUILD-003D direct lock identity missing: {identity}@{version}")
+    for manifest_path, (name, expected) in BUILD003D_REFERENCE_PACKAGES.items():
+        manifest = json.loads(Path(manifest_path).read_text())
+        if (manifest.get("name") != name or manifest.get("version") != "0.1.0" or
+                manifest.get("private") is not True or manifest.get("license") != "AGPL-3.0-only" or
+                manifest.get("dependencies") != expected or "devDependencies" in manifest):
+            errors.append(f"BUILD-003D reference package manifest differs: {manifest_path}")
+        block = importer_block(manifest_path.rsplit("/", 1)[0])
+        for dependency, version in expected.items():
+            target = ("link:../" + dependency.split("/", 1)[1]) if version.startswith("workspace:") else version
+            if f"      '{dependency}':\n        specifier: {version}\n        version: {target}\n" not in block:
+                errors.append(f"BUILD-003D lock importer differs: {manifest_path} {dependency}")
     for manifest_path in [Path("package.json"), *Path("packages").glob("*/package.json"),
                           Path("apps/reference-dapp/package.json")]:
         manifest = json.loads(manifest_path.read_text())
         for kind in ("dependencies", "devDependencies"):
             for name, version in manifest.get(kind, {}).items():
-                if version == "workspace:0.1.0" and name.startswith("@defi-workflow-engine/"):
+                if version in ("workspace:0.1.0", "workspace:0.2.0") and name.startswith("@defi-workflow-engine/"):
                     continue
-                if name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version:
+                if (name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version
+                        and BUILD003D_DIRECT_VERSIONS.get(name) != version):
                     errors.append(f"Unapproved direct pin: {name}@{version}")
 
     def dependencies(body, group):
@@ -499,8 +545,8 @@ def verify_dependencies():
     if rejected_identities != expected_rejected:
         errors.append(f"Full rejected set drift: missing={sorted(expected_rejected - rejected_identities)}, "
                       f"new={sorted(rejected_identities - expected_rejected)}")
-    if len(records) != 245:
-        errors.append(f"Incomplete registry review: {len(records)} of 245")
+    if len(records) != 247:
+        errors.append(f"Incomplete registry review: {len(records)} of 247")
     if errors:
         for error in errors:
             print(error, flush=True)

@@ -25,9 +25,9 @@ ownership of Gryloo intellectual property.
 | Apache-2.0 | `.gitignore`, `.node-version`, `.npmrc`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `turbo.json`, `tsconfig.base.json`, `eslint.config.mjs`, `.github/workflows/governance.yml`, `.github/workflows/contracts.yml`, `scripts/bootstrap-ci.py`, `scripts/export-schemas.mjs`, `README.md`, `TRADEMARKS.md`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `docs/*.md`, `docs/adr/*.md`, `docs/builds/*.md`, `docs/specs/*.md`, `docs/contracts/*.md`, `prompts/*.md`, `packages/workflow-contracts/**` and `packages/action-registry/**` except each package LICENSE, `tests/compatibility/v1/**` | Eligible original governance, contracts, registry, fixtures, generated schemas, tooling, and policy material; [Apache License 2.0](../LICENSES/Apache-2.0.txt). Only exact paths in an explicitly approved tracked build plan or an explicitly approved tracked governance or licensing amendment are authorized: currently the BUILD-001 and BUILD-002 plans, the later BUILD-002 legal-evidence amendment and the BUILD-002 governance amendment, the approved BUILD-003A plan and the approved BUILD-003B plan. |
 | THIRD_PARTY_PATCH | `patches/@streamparser__json@0.0.26.patch`, `patches/@xyflow__system@0.0.82.patch` | Modified `@streamparser/json@0.0.26` declarations under upstream MIT; patch SHA-256 `3232498480ccaaab0643460d8c365f143109561324575b05feff987eb45278e6`. No Gryloo Apache grant. The XYFlow two-declaration patch has SHA-256 `4420c4eab49ef56325c7cb81898894b1c9f08fe39621216e8cf77532ce98f6d5`. |
 | Official third-party legal text | `third_party/licenses/streamparser-json-MIT.txt`, `third_party/licenses/xyflow-system-MIT.txt` and the 19 exact preserved files listed in `THIRD_PARTY_NOTICES.md` | Byte-identical upstream legal and licensing materials, retaining their own licenses. The parser MIT copy has SHA-256 `b0022ea53a62be6b1f54f89f80d9271e395df2d12a63b4f8f0bf1a916a4e8094`; the XYFlow MIT copy has SHA-256 `023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff`. The exact BUILD-002 package/file/digest mappings are in the third-party notice register. |
-| AGPL-3.0-only implementation | `apps/reference-dapp/**` except `apps/reference-dapp/LICENSE`, and `packages/reference-linter/**` except `packages/reference-linter/LICENSE` | Gryloo-authored private reference application, tests, baseline images and deterministic linter under [AGPL-3.0-only](../LICENSES/AGPL-3.0-only.txt). No financial execution. |
+| AGPL-3.0-only implementation | `apps/reference-dapp/**` except `apps/reference-dapp/LICENSE`, `packages/reference-linter/**` except `packages/reference-linter/LICENSE`, and the BUILD-003D packages `packages/reference-compiler/**`, `packages/reference-executor/**` and `packages/reference-reconciler/**`, each except its `LICENSE` | Gryloo-authored private reference application, tests, baseline images and deterministic linter under [AGPL-3.0-only](../LICENSES/AGPL-3.0-only.txt). No financial execution. |
 | License routing | `LICENSE` | Multi-license routing document; consult this map for grants. |
-| Official legal text | `LICENSES/Apache-2.0.txt`, `LICENSES/AGPL-3.0-only.txt`, `packages/workflow-contracts/LICENSE`, `packages/action-registry/LICENSE`, `apps/reference-dapp/LICENSE`, `packages/reference-linter/LICENSE` | Unmodified official texts. The contracts and registry copies match `LICENSES/Apache-2.0.txt`; the application and linter copies match `LICENSES/AGPL-3.0-only.txt` byte-for-byte. |
+| Official legal text | `LICENSES/Apache-2.0.txt`, `LICENSES/AGPL-3.0-only.txt`, `packages/workflow-contracts/LICENSE`, `packages/action-registry/LICENSE`, `apps/reference-dapp/LICENSE`, `packages/reference-linter/LICENSE`, `packages/reference-compiler/LICENSE`, `packages/reference-executor/LICENSE`, `packages/reference-reconciler/LICENSE` | Unmodified official texts. The contracts and registry copies match `LICENSES/Apache-2.0.txt`; the application, linter, compiler, executor and reconciler copies match `LICENSES/AGPL-3.0-only.txt` byte-for-byte. |
 | Excluded third-party references | `docs/assets/1.jpeg`, `docs/assets/2.jpeg`, `docs/assets/3.jpeg` | Visual reference material; no Gryloo license grant. |
 
 The exclusion applies prospectively to all `docs/assets/**`. Unverified
@@ -53,12 +53,10 @@ reviewed boundary and does not certify compliance for future distribution.
 ## Reserved future boundaries
 
 The BUILD-002 reference application is the approved AGPL-3.0-only
-implementation. The following other paths remain reserved and are not
-authorized by BUILD-002:
-- `packages/reference-compiler/**`
+implementation. BUILD-003D (DEC-0023, DEC-0025) populates `packages/reference-compiler/**`,
+`packages/reference-executor/**` and `packages/reference-reconciler/**` as AGPL-3.0-only
+implementation. The following other paths remain reserved:
 - `packages/reference-simulation/**`
-- `packages/reference-executor/**`
-- `packages/reference-reconciler/**`
 - `packages/reference-evidence/**`
 - `packages/public-ui/**`
 
@@ -109,3 +107,15 @@ introduced, and bundle distribution remains unapproved.
 ## BUILD-003C classification
 
 The BUILD-003C `apps/reference-dapp/**` and `packages/reference-linter/**` additions remain AGPL-3.0-only. BUILD-003C governance and report files follow the existing Apache-2.0 documentation classification. DEC-0021 adds only the existing AGPL-classified `apps/reference-dapp/e2e/fixtures.ts` to the permitted modify scope for the synthetic CSP guard self-test. No dependency, official license text or grant changes.
+
+## BUILD-003D classification
+
+**AGPL-3.0-only.** The three private BUILD-003D packages, `packages/reference-compiler/**`, `packages/reference-executor/**` and `packages/reference-reconciler/**`, are AGPL-3.0-only implementation. Each carries a byte-identical copy of `LICENSES/AGPL-3.0-only.txt`. The `apps/reference-dapp/**` additions, including the e2e fork harness, remain AGPL-3.0-only.
+
+**Apache-2.0.** The `workflow-contracts` 0.2.0 additions, the new compatibility fixtures, both new scripts, the ADRs, the contract documents and the records follow the existing Apache-2.0 classification.
+
+**New dependencies.** `@noble/hashes` and `@noble/curves` 2.4.0 are MIT-licensed registry dependencies, with no new license exception.
+
+**Anvil.** Foundry Anvil v1.8.3 (MIT or Apache-2.0) is a downloaded, digest-verified test tool. It is never vendored or redistributed.
+
+**Unchanged.** No official license text or third-party notice changes.

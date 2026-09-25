@@ -30,9 +30,10 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 14a94584b0a3119c1f6275a05b9e752dafe0a042
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 36dd05e2bcea2d9a19c7b571d2126aea0390e5dd
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 0faec71207628dfe27fb23c81680d2c27827f5ea
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 8a5fbaed26e005e5719528c399f7ca1adb334eb6
           unset auth GH_TOKEN
 
-      - name: Verify historical BUILD-002 through BUILD-003B and current BUILD-003C scope
+      - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
         shell: bash
         run: |
           set -euo pipefail
@@ -119,33 +120,49 @@ jobs:
                      if merged003a[v]!=merged003b[v] and v not in b003b_modify]
           errors += ['historical BUILD-003B unexpected mode: '+v for v in sorted(set(merged003b)-set(merged003a))
                      if merged003b[v][0]!='100644']
-          # BUILD-003C exact Section 11 scope, including untracked worktree paths.
+          # BUILD-003C exact Section 11 scope, historical at the owner's PR #9 merge.
           b003c_create=set(['apps/reference-dapp/e2e/base-observation.spec.ts', 'apps/reference-dapp/e2e/base-observation.spec.ts-snapshots/observation-expired-chromium-linux.png', 'apps/reference-dapp/e2e/base-observation.spec.ts-snapshots/observation-recorded-chromium-linux.png', 'apps/reference-dapp/e2e/observations/base-recorded-observations.json', 'apps/reference-dapp/e2e/visual-evidence/build-003c/build-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/build-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/execute-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/execute-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/proposal-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/proposal-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/review-blocked-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/review-blocked-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-current-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-current-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-expired-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-expired-diff.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-invalidated-before.png', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-invalidated-diff.png', 'apps/reference-dapp/src/app/observation-action.ts', 'apps/reference-dapp/src/components/observation-panel.tsx', 'apps/reference-dapp/src/domain/base-observation.test.ts', 'apps/reference-dapp/src/domain/base-observation.ts', 'apps/reference-dapp/src/server/base-rpc.test.ts', 'apps/reference-dapp/src/server/base-rpc.ts', 'docs/builds/BUILD-003C-PLAN.md', 'docs/builds/BUILD-003C-REPORT.md', 'packages/reference-linter/src/base-observation.ts', 'packages/reference-linter/test/base-observation.test.ts'])
           b003c_modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', 'README.md', 'apps/reference-dapp/e2e/fixtures.ts', 'apps/reference-dapp/e2e/interface-honesty.spec.ts', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-current-chromium-linux.png', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-expired-chromium-linux.png', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-invalidated-chromium-linux.png', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png', 'apps/reference-dapp/next.config.ts', 'apps/reference-dapp/playwright.config.ts', 'apps/reference-dapp/src/app/globals.css', 'apps/reference-dapp/src/app/layout.tsx', 'apps/reference-dapp/src/components/app-shell.tsx', 'apps/reference-dapp/src/components/simulate-panel.tsx', 'apps/reference-dapp/src/components/summary-bar.tsx', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'apps/reference-dapp/src/config/product.test.ts', 'apps/reference-dapp/src/config/product.ts', 'apps/reference-dapp/src/domain/contracts.integration.test.ts', 'apps/reference-dapp/src/state/workflow-store.tsx', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/EVIDENCE_LEVELS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'packages/reference-linter/src/index.ts'])
           if len(b003c_create)!=30 or len(b003c_modify)!=36:
               errors.append('BUILD-003C approved path counts changed')
-          now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
-          if now-set(merged003b)!=b003c_create:
-              errors.append('BUILD-003C created path mismatch: '+repr(sorted((now-set(merged003b))^b003c_create)))
-          errors += ['BUILD-003C removed baseline file: '+v for v in sorted(set(merged003b)-now)]
-          for v in sorted(now):
-              file=root/v
-              if not file.is_file() or file.is_symlink():
-                  errors.append('missing, non-file or symlink: '+v)
-              elif v in merged003b:
-                  if file.stat().st_mode & 0o111 != (0o111 if merged003b[v][0]=='100755' else 0):
-                      errors.append('unexpected executable mode: '+v)
-                  baseline_bytes=subprocess.check_output(['git','show',build003b_merge+':'+v])
-                  if file.read_bytes()!=baseline_bytes and v not in b003c_modify:
-                      errors.append('BUILD-003C protected baseline changed: '+v)
-              elif file.stat().st_mode & 0o111:
-                  errors.append('new file has unexpected executable mode: '+v)
+          build003c_merge='8a5fbaed26e005e5719528c399f7ca1adb334eb6'
+          merged003c=tree(build003c_merge)
+          if set(merged003c)-set(merged003b)!=b003c_create:
+              errors.append('historical BUILD-003C created path mismatch')
+          errors += ['historical BUILD-003C removed file: '+v for v in sorted(set(merged003b)-set(merged003c))]
+          errors += ['historical BUILD-003C changed protected file: '+v for v in sorted(set(merged003b)&set(merged003c))
+                     if merged003b[v]!=merged003c[v] and v not in b003c_modify]
+          errors += ['historical BUILD-003C unexpected mode: '+v for v in sorted(set(merged003c)-set(merged003b))
+                     if merged003c[v][0]!='100644']
           fixture='apps/reference-dapp/e2e/fixtures.ts'
           fixture_original=subprocess.check_output(['git','show',build003b_merge+':'+fixture]).decode()
           fixture_expected=fixture_original.replace("serviceWorkers: 'block', viewport: { width: 1440, height: 900 },",
               "serviceWorkers: 'block', bypassCSP: negativeSelfTest, viewport: { width: 1440, height: 900 },")
-          if fixture_expected==fixture_original or (root/fixture).read_text()!=fixture_expected:
-              errors.append('BUILD-003C fixture change exceeds synthetic CSP guard self-test')
+          if fixture_expected==fixture_original or subprocess.check_output(['git','show',build003c_merge+':'+fixture]).decode()!=fixture_expected:
+              errors.append('historical BUILD-003C fixture change exceeds synthetic CSP guard self-test')
+          # BUILD-003D closure scope (Option B, DEC-0025): exactly the delivered 66 created and 26
+          # modified paths relative to the BUILD-003C merge, including untracked worktree paths.
+          # The recording, fork application integration and manual-wallet paths moved to BUILD-003F.
+          b003d_create=set(['apps/reference-dapp/e2e/fork/fork-setup.mjs', 'apps/reference-dapp/e2e/fork/harness.mjs', 'apps/reference-dapp/e2e/fork/replay-upstream.mjs', 'apps/reference-dapp/src/domain/mode-a.test.ts', 'apps/reference-dapp/src/domain/mode-a.ts', 'docs/adr/ADR-0003-mode-a-exact-payload-binding.md', 'docs/adr/ADR-0004-controlled-base-fork-environment.md', 'docs/builds/BUILD-003D-PLAN.md', 'docs/builds/BUILD-003D-REPORT.md', 'docs/contracts/ENFORCEMENT_MATRIX_V1.md', 'docs/contracts/MODE_A_EVM_PAYLOAD_V1.md', 'packages/reference-compiler/LICENSE', 'packages/reference-compiler/package.json', 'packages/reference-compiler/src/abi.ts', 'packages/reference-compiler/src/enforcement.ts', 'packages/reference-compiler/src/execution-plan.ts', 'packages/reference-compiler/src/fork-quote.ts', 'packages/reference-compiler/src/index.ts', 'packages/reference-compiler/src/manifest.ts', 'packages/reference-compiler/src/payload-digest.ts', 'packages/reference-compiler/src/payload.ts', 'packages/reference-compiler/src/policy.ts', 'packages/reference-compiler/src/profile.ts', 'packages/reference-compiler/src/review.ts', 'packages/reference-compiler/src/revocation.ts', 'packages/reference-compiler/src/rlp.ts', 'packages/reference-compiler/src/simulation.ts', 'packages/reference-compiler/test/abi.test.ts', 'packages/reference-compiler/test/anvil-compatibility.fork.test.ts', 'packages/reference-compiler/test/compile.fork.test.ts', 'packages/reference-compiler/test/compile.test.ts', 'packages/reference-compiler/test/fork-quote.test.ts', 'packages/reference-compiler/test/payload.test.ts', 'packages/reference-compiler/test/review.test.ts', 'packages/reference-compiler/test/rlp.test.ts', 'packages/reference-compiler/test/simulation.test.ts', 'packages/reference-compiler/tsconfig.json', 'packages/reference-executor/LICENSE', 'packages/reference-executor/package.json', 'packages/reference-executor/src/attempts.ts', 'packages/reference-executor/src/file-store.ts', 'packages/reference-executor/src/index.ts', 'packages/reference-executor/src/journal.ts', 'packages/reference-executor/src/recovery.ts', 'packages/reference-executor/test/attempts.test.ts', 'packages/reference-executor/test/file-store.test.ts', 'packages/reference-executor/test/journal.test.ts', 'packages/reference-executor/test/recovery.test.ts', 'packages/reference-executor/tsconfig.json', 'packages/reference-reconciler/LICENSE', 'packages/reference-reconciler/package.json', 'packages/reference-reconciler/src/evidence.ts', 'packages/reference-reconciler/src/index.ts', 'packages/reference-reconciler/src/raw-transaction.ts', 'packages/reference-reconciler/src/reconcile.ts', 'packages/reference-reconciler/test/evidence.test.ts', 'packages/reference-reconciler/test/raw-transaction.test.ts', 'packages/reference-reconciler/test/reconcile.test.ts', 'packages/reference-reconciler/tsconfig.json', 'packages/workflow-contracts/schemas/v1/enforcement-matrix.schema.json', 'packages/workflow-contracts/src/enforcement-matrix.ts', 'packages/workflow-contracts/test/enforcement-matrix.test.ts', 'scripts/bootstrap-anvil.py', 'scripts/summarize-screenshot-diffs.py', 'tests/compatibility/v1/enforcement-matrix.json', 'tests/compatibility/v1/mode-a-payload-vectors.json'])
+          b003d_modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', 'README.md', 'apps/reference-dapp/e2e/base-observation.spec.ts', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts', 'apps/reference-dapp/package.json', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'package.json', 'packages/action-registry/package.json', 'packages/reference-linter/package.json', 'packages/workflow-contracts/package.json', 'packages/workflow-contracts/src/canonical.ts', 'packages/workflow-contracts/src/index.ts', 'packages/workflow-contracts/src/schemas.ts', 'packages/workflow-contracts/test/canonical.test.ts', 'packages/workflow-contracts/test/contracts.test.ts', 'pnpm-lock.yaml', 'scripts/bootstrap-ci.py'])
+          if len(b003d_create)!=66 or len(b003d_modify)!=26:
+              errors.append('BUILD-003D closure path counts changed')
+          now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
+          if now-set(merged003c)!=b003d_create:
+              errors.append('BUILD-003D created path mismatch: '+repr(sorted((now-set(merged003c))^b003d_create)))
+          errors += ['BUILD-003D removed baseline file: '+v for v in sorted(set(merged003c)-now)]
+          for v in sorted(now):
+              file=root/v
+              if not file.is_file() or file.is_symlink():
+                  errors.append('missing, non-file or symlink: '+v)
+              elif v in merged003c:
+                  if file.stat().st_mode & 0o111 != (0o111 if merged003c[v][0]=='100755' else 0):
+                      errors.append('unexpected executable mode: '+v)
+                  baseline_bytes=subprocess.check_output(['git','show',build003c_merge+':'+v])
+                  if file.read_bytes()!=baseline_bytes and v not in b003d_modify:
+                      errors.append('BUILD-003D protected baseline changed: '+v)
+              elif file.stat().st_mode & 0o111:
+                  errors.append('new file has unexpected executable mode: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -252,6 +269,49 @@ jobs:
                                   ('apps/reference-dapp/src/domain/base-observation.ts','apps/reference-dapp/src/domain/mock-artifacts.ts')):
               if pathlib.Path(mocked).stem in (root/observed).read_text() or pathlib.Path(observed).stem in (root/mocked).read_text():
                   errors.append('mocked and observation modules import each other: '+observed+' '+mocked)
+          # BUILD-003D Mode A package boundaries (plan section 3.17), exhaustive over the delivered sources.
+          mode_a_bases=('packages/reference-compiler/src','packages/reference-executor/src','packages/reference-reconciler/src')
+          mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts']
+          if len(mode_a_sources)!=23: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
+          d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
+                     'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
+          mode_a_selectors=selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc'}
+          for file in mode_a_sources:
+              name=file.as_posix(); body=file.read_text()
+              if re.search(r'https?://|wss?://',body): errors.append('remote URL in Mode A package: '+name)
+              for pattern in (r'window\.ethereum|\beth_send|\beth_sign|\bpersonal_sign|signTypedData|\b(?:wagmi|viem|ethers|web3)\b',
+                              r'\bfetch\s*\(|XMLHttpRequest|\bWebSocket\b|\bEventSource\b|sendBeacon',
+                              r'\b(?:localStorage|sessionStorage|indexedDB)\b',r'\b(?:anvil|evm|hardhat)_[A-Za-z]'):
+                  if re.search(pattern,body): errors.append('forbidden wallet, network, storage or cheat token in '+name+': '+pattern)
+              if re.search(network_modules,body): errors.append('forbidden Node network module: '+name)
+              node_imports=set(re.findall(r'''['"](node:[a-z_/]+)['"]''',body))
+              if node_imports and (name!='packages/reference-executor/src/file-store.ts' or not node_imports<={'node:fs/promises','node:path'}):
+                  errors.append('Node module outside the executor file store: '+name)
+              methods=set(re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body))
+              allowed_methods=(d5_policy if name=='packages/reference-compiler/src/profile.ts'
+                               else {'eth_simulateV1'} if name=='packages/reference-compiler/src/simulation.ts' else set())
+              if not methods<=allowed_methods:
+                  errors.append('non-allowlisted RPC method in Mode A package: '+name+' '+repr(sorted(methods-allowed_methods)))
+              for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
+                  if selector not in mode_a_selectors: errors.append('unapproved selector in Mode A package: '+name+' '+selector)
+              if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:reference-linter|apps/|mocked-chain|base-observation|artifact-chain|mock-artifacts)''',body):
+                  errors.append('Mode A package imports mocked, observation or application code: '+name)
+              if name.startswith('packages/reference-reconciler/') and 'reference-executor' in body:
+                  errors.append('reconciler imports the executor: '+name)
+              if name.startswith('packages/reference-compiler/') and re.search(r'reference-(?:executor|reconciler)',body):
+                  errors.append('compiler imports the executor or reconciler: '+name)
+          for file in sources:
+              if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',file.read_text()):
+                  errors.append('application or linter imports a Mode A package before BUILD-003F integration: '+file.as_posix())
+          # DEC-0026: no phrase or reconstruction value is committed.
+          harness_text=(root/'apps/reference-dapp/e2e/fork/harness.mjs').read_text()
+          profile_text=(root/'packages/reference-compiler/src/profile.ts').read_text()
+          if ('FORK_TEST_ONLY_ACCOUNT_PHRASE' in harness_text or
+                  'FORK_ACCOUNT_PHRASE_SHA256' in profile_text or
+                  'GRYLOO_FORK_ACCOUNT_PHRASE_FILE' not in harness_text or
+                  'FORK_ACCOUNT_SECRET_UNAVAILABLE' not in harness_text or
+                  'requirePinnedForkAddresses(await deriveForkPublicAddresses(phrase))' not in harness_text):
+              errors.append('DEC-0026 owner-secret boundary missing or committed phrase detected')
           # Exact path scope makes this exhaustive over the reviewed tree.
           for v in sorted(now):
               classes=[]
@@ -261,17 +321,20 @@ jobs:
                        'packages/workflow-contracts/LICENSE',
                        'packages/action-registry/LICENSE',
                        'apps/reference-dapp/LICENSE',
-                       'packages/reference-linter/LICENSE'): classes.append('official text')
+                       'packages/reference-linter/LICENSE','packages/reference-compiler/LICENSE',
+                       'packages/reference-executor/LICENSE','packages/reference-reconciler/LICENSE'): classes.append('official text')
               if v.startswith('third_party/licenses/'): classes.append('upstream legal text')
               if v.startswith('patches/'): classes.append('upstream patch')
-              if (v.startswith('apps/reference-dapp/') and v!='apps/reference-dapp/LICENSE') or (v.startswith('packages/reference-linter/') and v!='packages/reference-linter/LICENSE'):
+              if ((v.startswith('apps/reference-dapp/') and v!='apps/reference-dapp/LICENSE')
+                      or any(v.startswith(p+'/') and v!=p+'/LICENSE' for p in ('packages/reference-linter','packages/reference-compiler',
+                                                                               'packages/reference-executor','packages/reference-reconciler'))):
                   classes.append('AGPL-3.0-only')
               if not classes: classes.append('Apache-2.0')
               if len(classes)!=1: errors.append('ambiguous classification: '+v)
           if errors:
               print('\n'.join(errors),file=sys.stderr)
               raise SystemExit(1)
-          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B and current BUILD-003C exact scope, modes, protected bytes, source scans and legal hashes passed')
+          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B/BUILD-003C and current BUILD-003D closure exact scope, modes, protected bytes, source scans and legal hashes passed')
           PYCODE
 
       - name: Verify restored persistent governance controls
@@ -305,7 +368,10 @@ jobs:
                     'docs/builds/BUILD-002-PLAN.md','docs/builds/BUILD-002-REPORT.md',amendment,
                     'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md',
                     'docs/builds/BUILD-003B-PLAN.md','docs/builds/BUILD-003B-REPORT.md',
-                    'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md']
+                    'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md',
+                    'docs/builds/BUILD-003D-PLAN.md','docs/builds/BUILD-003D-REPORT.md',
+                    'docs/adr/ADR-0003-mode-a-exact-payload-binding.md','docs/adr/ADR-0004-controlled-base-fork-environment.md',
+                    'docs/contracts/ENFORCEMENT_MATRIX_V1.md','docs/contracts/MODE_A_EVM_PAYLOAD_V1.md']
           missing=[v for v in required if v not in current or not (root/v).is_file()]
           if missing:
               print('\n'.join('missing required file: '+v for v in missing),file=sys.stderr)
@@ -341,6 +407,8 @@ jobs:
               'docs/builds/BUILD-003A-REPORT.md':'b03f5e13eb7d7e77ab4baee86f17274875eb80637c70949b57fa03b009047a08',
               'docs/builds/BUILD-003B-PLAN.md':'e24eed8142b673b6df470fec54e9343aefed5ad12b31c96fb34a680a8f9dedef',
               'docs/builds/BUILD-003B-REPORT.md':'065635418aa6afdb9d604a699978019807e5162c4e3cfebede4072fe7c602c8e',
+              'docs/builds/BUILD-003C-PLAN.md':'fa543e75169f85121063cc4f64ec6b6f54e4187a539ae5add416779420d13109',
+              'docs/builds/BUILD-003C-REPORT.md':'4cef5a0cb63e97d5bbebb9022980ff98b237eded820855c5c0ddab0c004a5ab9',
               'docs/contracts/CANONICALIZATION_V1.md':'0d0ec8cc728a1b401f572abc9194fe655fab7ccbe3562c6525d242217c6ef15c',
               'docs/contracts/COMPATIBILITY_V1.md':'9bfac9a8cfafa6e08b79c5aba7fa2e3d62d2175fca5e16f85e30eb15738eca16',
               'docs/contracts/INVALIDATION_V1.md':'c2e5375a46135142a997e9fe9952b140e0ced21ea7f5b2dc182f49469a51c1a1',
@@ -369,8 +437,9 @@ jobs:
               if hashlib.sha256(subprocess.check_output(['git','show','0faec71207628dfe27fb23c81680d2c27827f5ea:'+v])).hexdigest()!=digest:
                   errors.append('BUILD-003B approved visual digest mismatch: '+v)
           b003c_images={'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-current-chromium-linux.png': 'c02b9c88052b3a41ec404e875d8d2f24a56b52fa45db0604c21ce8b19e147a33', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-expired-chromium-linux.png': '497bcea7ee54569d26d34cf501dcfd81e09404caff948148b6943a0cc378b285', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts-snapshots/simulate-invalidated-chromium-linux.png': 'c7d79e2e1acbd57b701b8f36a506257a6f26b18f8917123b2196e901f0c1190c', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png': '03fc19e5a06b16cab247e441ef6b14ad5ce78bb3c8451b0f7a4bed77ef5f8e6d', 'apps/reference-dapp/e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png': 'd86820659048d1eb63e3caa44df5fbab3dcf20ba5c19e7b8fec3cc213f5c50f8', 'apps/reference-dapp/e2e/visual-evidence/build-003c/build-before.png': 'c21899cdb7f355bd5d7391906ebe3961d1e3c34ae575dd2f034424532e377268', 'apps/reference-dapp/e2e/visual-evidence/build-003c/build-diff.png': 'c0415b1ddc22f5c34785f33e3c1f6cb7eddd905960e5ec9e94027f5d323d01e4', 'apps/reference-dapp/e2e/visual-evidence/build-003c/execute-before.png': '73d2e48cc04228c5ed48aa2154607958515a86272f9425f9e23c8d39af8bc395', 'apps/reference-dapp/e2e/visual-evidence/build-003c/execute-diff.png': '3f90d57ad7e2ffce80ee91ce02c635efb3317b5ea534b4c261a1b0151b24bab9', 'apps/reference-dapp/e2e/visual-evidence/build-003c/proposal-before.png': '4ba686dbcb28391da053ca0701fa922ac594046d42202752507718fed83ac97e', 'apps/reference-dapp/e2e/visual-evidence/build-003c/proposal-diff.png': 'c0415b1ddc22f5c34785f33e3c1f6cb7eddd905960e5ec9e94027f5d323d01e4', 'apps/reference-dapp/e2e/visual-evidence/build-003c/review-blocked-before.png': '029f95d9577900a8f5988df6c522ad54a2517a2ad93d55134adc47261be6170d', 'apps/reference-dapp/e2e/visual-evidence/build-003c/review-blocked-diff.png': '79d1306a03c43f1f3af2d36db1b4b8380f689f105631e16fe9b1a3838b13d31d', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-before.png': '575822399c07b491d36b056c19addf4020e46e7bbef4e873bec340cd897988ea', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-current-before.png': '352547e98c9f1504ed64e6f25e41fe2efa35009f774f105bd2ca5d49f018eaa3', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-current-diff.png': '9b61942291d251ab4da5e21cf24d43e8e9f916c00ad271a241d1c6b41759c28e', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-diff.png': 'cea807f2c45a9d80e406b6b7f932ff3d37bcd4cbcdc722ac684738a2d240ad5b', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-expired-before.png': 'e4b907e663f7e9383390fb6ab38f3832666c6c54a947cecf49c59f46b8344707', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-expired-diff.png': '942d6f8598d96ccb9b5a13fdcdec8974e08ccc5180c29649b260955bd4a59d9d', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-invalidated-before.png': 'df82b185fc2b0ad087ed4924ae2aa329a2db2a0aa79673dbd829c5c0f14f2467', 'apps/reference-dapp/e2e/visual-evidence/build-003c/simulate-invalidated-diff.png': '7f84130f3f831f89c1e10e820637676d3de6da12144614b971c48020ff74411a', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/build-chromium-linux.png': 'dd39b3e7c0c81435d37e9a0210131fd2c74306e27625be855bbfde5e47f0f7cf', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/execute-chromium-linux.png': '162287df9b73b3e3de681f3c95b1a19fcef7f4acebd179863280816db876e73b', 'apps/reference-dapp/e2e/visual-shell.spec.ts-snapshots/simulate-chromium-linux.png': '607c7627604ac89badc0cd79091ce008a9f514bde81717bd7041fcdc956fb098'}
+          # BUILD-003C images and recorded evidence are historical: verified from the PR #9 merge blobs.
           for v,digest in b003c_images.items():
-              if hashlib.sha256((root/v).read_bytes()).hexdigest()!=digest:
+              if hashlib.sha256(subprocess.check_output(['git','show','8a5fbaed26e005e5719528c399f7ca1adb334eb6:'+v])).hexdigest()!=digest:
                   errors.append('BUILD-003C reviewed visual digest mismatch: '+v)
           # The approved real replay and both observation baselines are fixed
           # to the hashes reviewed in the BUILD-003C report.
@@ -381,7 +450,7 @@ jobs:
           }
           report=(root/'docs/builds/BUILD-003C-REPORT.md').read_text()
           for v,digest in b003c_recorded.items():
-              if hashlib.sha256((root/v).read_bytes()).hexdigest()!=digest or digest not in report:
+              if hashlib.sha256(subprocess.check_output(['git','show','8a5fbaed26e005e5719528c399f7ca1adb334eb6:'+v])).hexdigest()!=digest or digest not in report:
                   errors.append('BUILD-003C recorded evidence digest mismatch: '+v)
           official={'LICENSES/Apache-2.0.txt':('cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30',11358),
                     'LICENSES/AGPL-3.0-only.txt':('0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0',34523)}
@@ -394,12 +463,15 @@ jobs:
           for v,source in (('packages/workflow-contracts/LICENSE','LICENSES/Apache-2.0.txt'),
                            ('packages/action-registry/LICENSE','LICENSES/Apache-2.0.txt'),
                            ('apps/reference-dapp/LICENSE','LICENSES/AGPL-3.0-only.txt'),
-                           ('packages/reference-linter/LICENSE','LICENSES/AGPL-3.0-only.txt')):
+                           ('packages/reference-linter/LICENSE','LICENSES/AGPL-3.0-only.txt'),
+                           ('packages/reference-compiler/LICENSE','LICENSES/AGPL-3.0-only.txt'),
+                           ('packages/reference-executor/LICENSE','LICENSES/AGPL-3.0-only.txt'),
+                           ('packages/reference-reconciler/LICENSE','LICENSES/AGPL-3.0-only.txt')):
               if (root/v).read_bytes()!=(root/source).read_bytes():
                   errors.append('LICENSE copy differs from official text: '+v)
-          frozen={'packages/workflow-contracts/schemas/v1/':(9,'d85cc34800114dd774a7b02da851a535fc4388c9950b4963033be19d37432eb6'),
+          frozen={'packages/workflow-contracts/schemas/v1/':(10,'9999547291c5a6728ceb7f020279e4b1c697d40eb2021a401786fea23450f8c4'),
                   'packages/action-registry/schemas/v1/':(1,'84c7c7c4120540b3e8103885644cdf4f6464815574508f90cfcbdd3cbf79409f'),
-                  'tests/compatibility/v1/':(20,'50b9a90ce53cb45736333bbe4ff92e622ccbf3dc77506edfb6d46fc1c4c45492'),
+                  'tests/compatibility/v1/':(22,'59b8714f4c85596f85fd2fe95b185f113c6b1f97e2f9cd85b624362f9c72ef2c'),
                   'third_party/licenses/':(21,'237a7f6102cf7b5891ba9c436285c38dc7dae37604dd41c213bcc13a24e56c63')}
           for prefix,(count,digest) in frozen.items():
               selected=sorted(v for v in current if v.startswith(prefix))
@@ -444,7 +516,8 @@ jobs:
                      'docs/builds/BUILD-001-REPORT.md':14,amendment:14,
                      'docs/builds/BUILD-003A-PLAN.md':13,'docs/builds/BUILD-003A-REPORT.md':14,
                      'docs/builds/BUILD-003B-PLAN.md':13,'docs/builds/BUILD-003B-REPORT.md':14,
-                     'docs/builds/BUILD-003C-PLAN.md':13,'docs/builds/BUILD-003C-REPORT.md':14}
+                     'docs/builds/BUILD-003C-PLAN.md':13,'docs/builds/BUILD-003C-REPORT.md':14,
+                     'docs/builds/BUILD-003D-PLAN.md':13,'docs/builds/BUILD-003D-REPORT.md':14}
           for v,count in templates.items():
               found=[re.search(r'(?m)^## '+str(n)+r'\. ',markdown[v]) for n in range(1,count+1)]
               if not all(found) or [m.start() for m in found]!=sorted(m.start() for m in found):
@@ -456,6 +529,11 @@ jobs:
               errors.append('ADR-0001 must remain PROPOSED and unresolved')
           if '- Status: `ACCEPTED`' not in markdown['docs/adr/ADR-0002-canonical-contracts.md']:
               errors.append('ADR-0002 acceptance record missing')
+          if not markdown['docs/adr/ADR-0003-mode-a-exact-payload-binding.md'].split('\n',3)[2].startswith('Status: ACCEPTED for BUILD-003D under DEC-0023 and DEC-0024'):
+              errors.append('ADR-0003 acceptance record missing')
+          # ADR-0004 stays PROPOSED: its acceptance moved to BUILD-003F with the unrecorded fork evidence (DEC-0025).
+          if not markdown['docs/adr/ADR-0004-controlled-base-fork-environment.md'].split('\n',3)[2].startswith('Status: PROPOSED'):
+              errors.append('ADR-0004 must remain PROPOSED until BUILD-003F')
           adr_files={}
           for v in sorted(current):
               if v.startswith('docs/adr/'):
@@ -500,8 +578,12 @@ jobs:
               errors.append('BUILD-003B approval missing from authority matrix')
           if not re.search(r'(?m)^\| BUILD-003C \|[^|\n]+\|[^|\n]+\| APPROVED \|$',authority):
               errors.append('BUILD-003C read-only approval missing')
-          if not re.search(r'(?m)^\| Later BUILD-003 stages, wallet, signing or financial execution \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
-              errors.append('later financial stages must remain NOT_APPROVED')
+          if not re.search(r'(?m)^\| BUILD-003D Mode A fork implementation \|[^|\n]+\|[^|\n]+\| APPROVED \|$',authority):
+              errors.append('BUILD-003D approval missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
+              errors.append('BUILD-003F must remain NOT_APPROVED until its own plan is approved')
+          if not re.search(r'(?m)^\| Mainnet execution, public testnet execution, Mode B or later builds \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
+              errors.append('mainnet, testnet, Mode B and later builds must remain NOT_APPROVED')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -522,23 +604,36 @@ jobs:
                    19:('2026-09-24','BUILD-003B','PR #7','D-1','D-3','R-1','R-8','25 created','34 modified',
                        'does not approve merging','BUILD-003C','ADR-0001 remains PROPOSED'),
                    20:('2026-09-24','BUILD-003C','PR #8','D-1','D-6','four attempts and 84 requests','blockHash','requireCanonical','24 requests','not authorization inputs','provider change','ADR-0001 remains PROPOSED'),
-                   21:('2026-09-24','Amendment 2','Alchemy Free','Bearer','3 attempts and 63 requests','fixtures.ts','no Alchemy RPC request','privately','no paid plan','push and merge')}
+                   21:('2026-09-24','Amendment 2','Alchemy Free','Bearer','3 attempts and 63 requests','fixtures.ts','no Alchemy RPC request','privately','no paid plan','push and merge'),
+                   23:('2026-09-24','BUILD-003D','Amendment 3','Amendment 4','Amendment 5','Amendment 6','EIP-7702','600 requests','no Amendment 7'),
+                   24:('2026-09-24','ADR-0003','0.2.0','ADR-0001 remains PROPOSED'),
+                   25:('2026-09-24','Option B','BUILD-003F','3/3 attempts','68/1,800','1,768','66 created','26 modified','ADR-0004 remains PROPOSED','BUILD-004'),
+                   26:('BUILD-003D','HISTORICAL_PASS_PRE_SECRET_REMOVAL','DEFERRED_TO_BUILD_003F_OWNER_SECRET_REVALIDATION','grants no recording','wallet','provider')}
           for number,expected in markers.items():
               rows=[line for line in decisions.splitlines() if line.startswith('| DEC-%04d |' % number)]
               if len(rows)!=1 or not rows[0].endswith('| APPROVED |') or any(m not in rows[0] for m in expected):
                   errors.append('decision record incomplete: DEC-%04d' % number)
           next_build=markdown['docs/NEXT_BUILD.md']
-          if 'NONE_APPROVED' not in next_build or 'BUILD-003C' not in next_build:
-              errors.append('NEXT_BUILD.md must retain the BUILD-003C authority and NONE_APPROVED next build')
+          if 'NONE_APPROVED' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
+              errors.append('NEXT_BUILD.md must record the BUILD-003D closure, the unapproved BUILD-003F and NONE_APPROVED')
           status=markdown['docs/STATUS.md']
           for marker in ('BUILD-001','BUILD-002','BUILD-003A','BUILD-003B','COMPLETED','606174f0bd944e5a1c31baf8dad685d7558b7cc8',
                          '36dd05e2bcea2d9a19c7b571d2126aea0390e5dd','NONE_APPROVED'):
               if marker not in status: errors.append('STATUS.md missing: '+marker)
-          for marker in ('BUILD-003C','0faec71207628dfe27fb23c81680d2c27827f5ea'):
+          for marker in ('BUILD-003C','0faec71207628dfe27fb23c81680d2c27827f5ea','BUILD-003D','8a5fbaed26e005e5719528c399f7ca1adb334eb6','BUILD-003F'):
               if marker not in status: errors.append('STATUS.md missing: '+marker)
+          # Conditional certification (BUILD-003D plan section 1.5): no completion or certification claim.
+          report003d=markdown['docs/builds/BUILD-003D-REPORT.md']
+          for v,body in (('docs/STATUS.md',status),('docs/builds/BUILD-003D-REPORT.md',report003d)):
+              for marker in ('BUILD-003 certification: PENDING_OWNER_DECISION','BUILD-003: IN_PROGRESS','G7 manual wallet acceptance: NOT_RUN'):
+                  if marker not in body: errors.append('certification marker missing from '+v+': '+marker)
+              if re.search(r'G7 manual wallet acceptance: (?:PASS|LIMITED)',body): errors.append('G7 result claimed without evidence: '+v)
+          for v in ('docs/STATUS.md','docs/NEXT_BUILD.md','README.md','docs/EVIDENCE_LEVELS.md','docs/AUTHORITY_MATRIX.md','docs/builds/BUILD-003D-REPORT.md'):
+              if re.search(r'\bBUILD-003\b(?![A-Z])\s+(?:is\s+)?(?:complete|certified)',markdown[v],re.I): errors.append('BUILD-003 completion or certification claim: '+v)
           if {v for v in current if v.startswith('docs/builds/BUILD-003')}!={'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md',
                                                                           'docs/builds/BUILD-003B-PLAN.md','docs/builds/BUILD-003B-REPORT.md',
-                                                                          'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md'}:
+                                                                          'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md',
+                                                                          'docs/builds/BUILD-003D-PLAN.md','docs/builds/BUILD-003D-REPORT.md'}:
               errors.append('unexpected BUILD-003 build document set')
 
           # Licensing routing, map and private-record controls.
@@ -644,9 +739,9 @@ jobs:
                   if len(keys)!=len(set(keys)): raise ValueError('duplicate JSON key')
                   return dict(items)
               return json.loads(body,object_pairs_hook=pairs)
-          for directory in ('workflow-contracts','action-registry'):
+          for directory,version in (('workflow-contracts','0.2.0'),('action-registry','0.1.0')):
               manifest=strict_json(authored['packages/'+directory+'/package.json'])
-              expected={'name':'@defi-workflow-engine/'+directory,'version':'0.1.0','private':True,'type':'module',
+              expected={'name':'@defi-workflow-engine/'+directory,'version':version,'private':True,'type':'module',
                         'license':'Apache-2.0','exports':exports,'files':['dist','schemas/v1','LICENSE']}
               for key,value in expected.items():
                   if manifest.get(key)!=value: errors.append('package contract mismatch: '+directory+' '+key)
@@ -656,9 +751,18 @@ jobs:
                             'private':True,'type':'module','license':'AGPL-3.0-only',
                             'exports':linter_exports,'files':['dist','LICENSE'],
                             'dependencies':{'@defi-workflow-engine/action-registry':'workspace:0.1.0',
-                                            '@defi-workflow-engine/workflow-contracts':'workspace:0.1.0',
+                                            '@defi-workflow-engine/workflow-contracts':'workspace:0.2.0',
                                             'ajv':'8.20.0','canonicalize':'5.0.0'}}.items():
               if linter.get(key)!=value: errors.append('reference-linter package contract mismatch: '+key)
+          mode_a_dependencies={'reference-compiler':{'@defi-workflow-engine/action-registry':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.0','@noble/hashes':'2.4.0'},
+                               'reference-executor':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.0'},
+                               'reference-reconciler':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.0',
+                                                       '@noble/curves':'2.4.0','@noble/hashes':'2.4.0'}}
+          for directory,dependencies in mode_a_dependencies.items():
+              manifest=strict_json(authored['packages/'+directory+'/package.json'])
+              for key,value in {'name':'@defi-workflow-engine/'+directory,'version':'0.1.0','private':True,'type':'module',
+                                'license':'AGPL-3.0-only','exports':linter_exports,'files':['dist','LICENSE'],'dependencies':dependencies}.items():
+                  if manifest.get(key)!=value: errors.append(directory+' package contract mismatch: '+key)
           app=strict_json(authored['apps/reference-dapp/package.json'])
           for key,value in {'name':'@defi-workflow-engine/reference-dapp','version':'0.1.0','private':True,
                             'type':'module','license':'AGPL-3.0-only'}.items():
@@ -669,7 +773,8 @@ jobs:
                   or root_manifest.get('engines')!={'node':'24.21.0','pnpm':'11.22.0'}):
               errors.append('workspace privacy, license, engines or packageManager mismatch')
           if authored['.node-version'].strip()!='24.21.0': errors.append('Node version declaration mismatch')
-          if {v.split('/')[1] for v in current if v.startswith('packages/')}!={'workflow-contracts','action-registry','reference-linter'}:
+          if {v.split('/')[1] for v in current if v.startswith('packages/')}!={'workflow-contracts','action-registry','reference-linter',
+                                                                            'reference-compiler','reference-executor','reference-reconciler'}:
               errors.append('unapproved or reserved package directory populated')
           if {v.split('/')[1] for v in current if v.startswith('apps/')}!={'reference-dapp'}:
               errors.append('unapproved application directory populated')
@@ -678,7 +783,8 @@ jobs:
                           'requirements.txt','go.mod','go.sum','composer.json','Gemfile','Gemfile.lock'}
           approved_manifests={'package.json','pnpm-workspace.yaml','pnpm-lock.yaml','turbo.json',
                               'packages/workflow-contracts/package.json','packages/action-registry/package.json',
-                              'packages/reference-linter/package.json',
+                              'packages/reference-linter/package.json','packages/reference-compiler/package.json',
+                              'packages/reference-executor/package.json','packages/reference-reconciler/package.json',
                               'apps/reference-dapp/package.json'}
           for v in sorted(current):
               name=pathlib.PurePosixPath(v).name
@@ -686,7 +792,7 @@ jobs:
               if re.fullmatch(r'(?i)cla(?:\.[^.]+)?',name): errors.append('CLA file: '+v)
           schema_names={'workflow-contracts':{'artifact-set','authorization-policy','evidence-bundle','execution-journal',
                                               'execution-plan','quote-state-artifact','semantic-workflow',
-                                              'simulation-bundle','strategy-manifest'},
+                                              'simulation-bundle','strategy-manifest','enforcement-matrix'},
                         'action-registry':{'action-registry'}}
           namespaces={'workflow-contracts':'contracts','action-registry':'action-registry'}
           for directory,names in schema_names.items():

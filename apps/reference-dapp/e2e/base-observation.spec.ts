@@ -91,12 +91,14 @@ for (const [from, to, amount, at] of [
     await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
     await expect(page.getByText('Revision 1', { exact: true })).toBeVisible();
     if (from === 'WETH') {
+      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-recorded.png', { fullPage: true });
       await page.clock.setSystemTime(new Date('2026-09-24T14:52:05.000Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await expect(region).toContainText('OBSERVATION: EXPIRED');
       await expect(region.locator('[data-observed-value]')).toHaveCount(0);
       await expect(region.locator('[data-observation-json]')).toHaveCount(0);
+      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-expired.png', { fullPage: true });
     }
     networkGuard.assertClean();

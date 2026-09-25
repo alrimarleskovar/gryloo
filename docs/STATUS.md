@@ -1,6 +1,53 @@
 # Repository status
 
-- Last merged build: `BUILD-003B`, merged through PR #8 as `0faec71207628dfe27fb23c81680d2c27827f5ea` at 2026-09-24T02:46:29Z. Pull-request checks passed (Governance 35948277062; contracts and reference app 35948277082), as did post-merge push checks (Governance 35948667349; contracts and reference app 35948667352). The preserved BUILD-003B report was written before delivery.
+## BUILD-003D closure state (2026-09-24)
+
+BUILD-003D was approved under DEC-0023, with Amendments 1–6. It is closed under Option B (DEC-0025) and delivers only the implementation and acceptance evidence that passed offline: 66 created and 26 modified paths.
+
+- **G0:** a deterministic Simulate viewport and screenshot-diff forensics. Local stress passed; CI without a rerun remains pending until the pull request exists.
+- **G1:** historical pre-secret-removal Anvil v1.8.3 C1–C10 pass; final-byte pinned-account startup awaits BUILD-003F owner-secret revalidation under DEC-0026.
+- **G2:** the additive enforcement-matrix contract and exact-payload profile (ADR-0003, `workflow-contracts` 0.2.0).
+- **G3:** the pure compiler, executor and reconciler packages, tested with scripted transports.
+- **G4:** the fork harness, closed replay upstream and fork setup, with the G5 incident repairs and the Amendment 6 project-specific test accounts.
+
+Local results on the final tree:
+
+| Check | Result |
+|---|---|
+| Unit | 313/313 on final bytes |
+| Contracts | 79/79 |
+| G1 | HISTORICAL_PASS_PRE_SECRET_REMOVAL; final-byte pinned-account startup deferred to BUILD-003F |
+| Fork suites | 12 passed, 21 owner-secret cases deferred on final bytes |
+| Guarded browser suite | 28/28 at zero pixels |
+| Typecheck | 11/11 |
+| Build | 7/7 |
+| Lint | pass |
+| Schema exports | 11 |
+| Updated persistent governance programs | pass |
+
+**Recording.** The owner ran three Alchemy attempts, and all three stopped:
+
+- attempt 1: `UNAPPROVED_UPSTREAM`, after 2 requests;
+- attempt 2: `DEV_ACCOUNTS_NOT_CLEAN`, after 32 requests;
+- attempt 3: `SETUP_TRANSACTION_FAILED`, after 34 requests. The setup read its receipt before Anvil had mined the transaction.
+
+D-5 authority is exhausted at 3/3 attempts, 68/1,800 requests and 1,768/46,800 reserved listed CU. The owner-reported dashboard showed 1,008 CU after attempt 2. No transcript exists, and no further BUILD-003D recording is permitted.
+
+**Moved to BUILD-003F.** BUILD-003F is not approved; it needs its own plan and recording budget. It receives:
+
+- the successful Base recording and transcript;
+- the fork application integration (formerly G6);
+- the manual-wallet acceptance (formerly G7);
+- the dependent certification rows.
+
+BUILD-003E stays reserved for public-testnet evidence. BUILD-004 planning is blocked until BUILD-003 certification, which requires BUILD-003F.
+
+BUILD-003 certification: PENDING_OWNER_DECISION. G7 manual wallet acceptance: NOT_RUN. BUILD-003: IN_PROGRESS.
+
+The agent made no live RPC request, used no credential and operated no wallet. The BUILD-003D commit and pull request are owner-authorized but pending final verification; merge stays with the owner. No `FORK_REPRODUCED`, `RECONCILED` or other execution evidence exists. See the [BUILD-003D report](builds/BUILD-003D-REPORT.md).
+
+- Last merged build: `BUILD-003C`, merged through PR #9 as `8a5fbaed26e005e5719528c399f7ca1adb334eb6` at 2026-09-24T15:31:30Z. Branch and PR checks passed. Post-merge Governance passed on attempt 1; contracts/app passed on attempt 2 after one `simulate-expired` screenshot failure. Exact run and job IDs are in the BUILD-003D plan §2.3. Historical BUILD-003C plan and report remain byte-identical.
+- Earlier merged build: `BUILD-003B`, merged through PR #8 as `0faec71207628dfe27fb23c81680d2c27827f5ea` at 2026-09-24T02:46:29Z. Pull-request checks passed (Governance 35948277062; contracts and reference app 35948277082), as did post-merge push checks (Governance 35948667349; contracts and reference app 35948667352). The preserved BUILD-003B report was written before delivery.
 - Earlier merged build: `BUILD-003A`, merged through PR #7 as
   `36dd05e2bcea2d9a19c7b571d2126aea0390e5dd` on 2026-09-24. Pull-request
   checks passed (Governance runs 35939197467 and 35939261995; contracts and
@@ -13,8 +60,8 @@
 - BUILD-003B: implementation approved on 2026-09-24 under DEC-0019 and the
   [exact plan](builds/BUILD-003B-PLAN.md); local acceptance and remote CI are
   recorded separately in [its report](builds/BUILD-003B-REPORT.md)
-- BUILD-003C: local acceptance passed for a separate read-only Base/Uniswap v3 observation. The public RPC session remains stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. The original Alchemy HTTP 403 attempt-1 evidence remains byte-identical at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only and approved Amendment 3/DEC-0022, the owner-run continuation completed both hash-pinned recordings in attempts 2 and 3, ending at 3/3 Alchemy attempts and 43/63 requests. Both transcripts, four reviewed code pins, replay fixture and two observation snapshots passed local checks; no further RPC request is authorized. BUILD-003C delivery awaits PR and remote CI; the owner retains merge. See the [report](builds/BUILD-003C-REPORT.md).
-- Next approved build after BUILD-003C: `NONE_APPROVED`
+- BUILD-003C: local acceptance passed for a separate read-only Base/Uniswap v3 observation. The public RPC session remains stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. The original Alchemy HTTP 403 attempt-1 evidence remains byte-identical at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only and approved Amendment 3/DEC-0022, the owner-run continuation completed both hash-pinned recordings in attempts 2 and 3, ending at 3/3 Alchemy attempts and 43/63 requests. Both transcripts, four reviewed code pins, replay fixture and two observation snapshots passed local checks; no further RPC request is authorized. BUILD-003C was delivered through PR #9 and merged; the post-merge contracts/app check passed on rerun. See the [report](builds/BUILD-003C-REPORT.md).
+- Current approved implementation: `BUILD-003D` through its gated plan; after it, `NONE_APPROVED`
 - Product implementation: frozen contract packages, mocked visual shell,
   non-executing Base USDC↔WETH authoring with deterministic review, and a
   `MOCKED` Quote/State Artifact, Artifact Set and Simulation Bundle chain built
@@ -31,20 +78,19 @@
 - Third-party materials: `EXCLUDED_UNLESS_VERIFIED`
 - CLA adoption: `DEFERRED`
 - Dependency inventory: 245 pinned registry identities and 16 reviewed license
-  exceptions; BUILD-003B adds one direct linter edge to the already locked
-  `canonicalize@5.0.0` without changing resolutions
+  exceptions; BUILD-003D adds the approved two Noble identities for 247 locked registry identities without changing the earlier resolutions
 
 ## State by category
 
 | Category | Current state |
 |---|---|
-| Planned | BUILD-003C local acceptance passed; PR and remote CI pending; no later build is approved |
+| Planned | BUILD-003F (recorded Base fork acceptance, fork application integration and manual-wallet acceptance) must be planned and approved separately; no later build is approved |
 | Mocked | Local command assistant, example nodes, stage shell and the synthetic quote and simulation fixture |
-| Implemented locally | BUILD-001 contracts, BUILD-002 shell, BUILD-003A authoring and deterministic lint, BUILD-003B mocked artifact chain, BUILD-003C read-only observation and offline replay |
+| Implemented locally | BUILD-001 contracts, BUILD-002 shell, BUILD-003A authoring and deterministic lint, BUILD-003B mocked artifact chain, BUILD-003C read-only observation and offline replay, BUILD-003D pure compiler/executor/reconciler with scripted transports |
 | `MOCKED` | Interface interactions and the Quote/State, Artifact Set and Simulation Bundle chain; internal logic only, no financial evidence |
 | `FORK_REPRODUCED`, `TESTNET_EXECUTED`, `MAINNET_EXECUTED` | None |
 | `CONFIRMED_NOT_RECONCILED`, `RECONCILED`, `INCONCLUSIVE`, `DIVERGENT` | None |
-| Blocked or not approved | BUILD-003C remote CI pending; no further RPC request authorized; Mode B (ADR-0001 remains PROPOSED), package publication and financial execution not approved |
+| Blocked or not approved | BUILD-003D recording authority exhausted (3/3 attempts, no transcript); BUILD-003F not yet approved; BUILD-004 planning blocked until BUILD-003 certification; Mode B (ADR-0001 remains PROPOSED), package publication and mainnet execution not approved |
 
 Historical BUILD-000, BUILD-001, BUILD-002 and BUILD-003A records and the
 BUILD-002 governance amendment remain unchanged. BUILD-003B local and remote

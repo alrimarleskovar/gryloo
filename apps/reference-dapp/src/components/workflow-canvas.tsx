@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useMemo } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, type NodeProps } from '@xyflow/react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ReactFlow, Background, Controls, Handle, Position, useReactFlow, useStore, useStoreApi, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import { formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import type { Workflow } from '../domain/initial-workflow';
+import { canvasViewportFor, canvasViewportSignature, SIMULATION_VIEWPORT, type CanvasViewportInputs } from '../domain/mode-a';
 
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
 type CardData = { title: string; amount: string; locked: boolean; selected: boolean; swap: boolean;
@@ -35,6 +36,38 @@ function WorkflowCard({ data }: NodeProps) {
 }
 const nodeTypes = { workflow: WorkflowCard };
 
+type ViewportState = 'pending' | 'fitted';
+function viewportInputs(state: ReactFlowState): CanvasViewportInputs {
+  const nodes = [...state.nodeLookup.values()].filter(node => !node.hidden && !node.parentId).map(node => ({
+    id: node.id, x: node.internals.positionAbsolute.x, y: node.internals.positionAbsolute.y,
+    width: node.measured.width, height: node.measured.height,
+  }));
+  return { paneWidth: state.width, paneHeight: state.height, nodes };
+}
+
+/**
+ * Applies the fitted viewport whenever the pane size, node set or any measured
+ * node size changes, so the final viewport depends only on the final layout
+ * (BUILD-003D §3.16). No timer or animation frame is used.
+ */
+function SimulationViewport({ onState }: { onState: (state: ViewportState) => void }) {
+  const store = useStoreApi();
+  const { setViewport } = useReactFlow();
+  const ready = useStore((state: ReactFlowState) => state.panZoom !== null);
+  const signature = useStore((state: ReactFlowState) => canvasViewportSignature(viewportInputs(state)));
+  const applied = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const viewport = ready ? canvasViewportFor(viewportInputs(store.getState())) : null;
+    if (!viewport) { applied.current = null; onState('pending'); return; }
+    if (applied.current !== signature) {
+      void setViewport(viewport, { duration: 0 });
+      applied.current = signature;
+    }
+    onState('fitted');
+  }, [ready, signature, store, setViewport, onState]);
+  return null;
+}
+
 /** Read-only projection of the same IR with current mocked outputs only. */
 function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, SimulationOverlay> }) {
   const { state, context } = useWorkflow();
@@ -54,11 +87,13 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId, label: 'sample units', animated: false,
   })), [workflow]);
   const swaps = workflow.nodes.filter(n => n.actionType === SWAP_ACTION).length;
+  const [viewportState, setViewportState] = useState<ViewportState>('pending');
   return <section className="canvas simulate-canvas panel" aria-label="Mocked outputs graph">
     <div className="canvas-head"><div><p className="eyebrow">MOCKED OUTPUTS · READ-ONLY</p><h2>Graph</h2></div><span className="revision">REV {workflow.revision.toString().padStart(2, '0')}</span></div>
-    <div className="flow-surface" role="region" aria-label="Mocked outputs on the workflow graph">
-      <ReactFlow key={`${workflow.nodes.length}-${overlay.size}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.35} maxZoom={1.2}
+    <div className="flow-surface" role="region" aria-label="Mocked outputs on the workflow graph" data-viewport={viewportState}>
+      <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
+        <SimulationViewport onState={setViewportState} />
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
     </div>

@@ -75,9 +75,20 @@ jobs:
           pnpm build
           pnpm schemas:check
           pnpm test
+          python3 scripts/summarize-screenshot-diffs.py --self-test
           test -f packages/reference-linter/dist/index.js
           test -f packages/reference-linter/dist/index.d.ts
           pnpm --filter @defi-workflow-engine/reference-linter exec node --input-type=module -e "const m = await import('@defi-workflow-engine/reference-linter'); for (const key of ['lintWorkflow','validateAuthoringWorkflow','createReviewContext','digestArtifact','digestRawResponse','digestSelfCheck','reviewMockedArtifactChain','mockedSwapOutputs','mockedFixtureBytes','collectBaseTranscript','deriveBaseObservation','reviewBaseObservation']) if (typeof m[key] !== 'function') throw new Error('Missing linter export: '+key); if (!Object.isFrozen(m.MOCKED_CHAIN_PROFILE)) throw new Error('Mocked chain profile must be frozen'); if (!Object.isFrozen(m.BASE_OBSERVATION_PROFILE)) throw new Error('Base observation profile must be frozen'); await m.digestSelfCheck()"
+
+      - name: Bootstrap exact approved anvil and run the offline compatibility gate and fork suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
+          python3 scripts/bootstrap-anvil.py "$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3"
+          # DEC-0026: pure G1 checks run; owner-secret pinned-account startup remains deferred to BUILD-003F.
+          pnpm test:anvil
+          pnpm test:fork
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         shell: bash
@@ -86,6 +97,13 @@ jobs:
           export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           pnpm --filter @defi-workflow-engine/reference-dapp test:e2e
+
+      - name: Summarize screenshot differences after a browser failure
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/summarize-screenshot-diffs.py apps/reference-dapp/test-results
 
       - name: Dependency audit
         shell: bash
@@ -107,7 +125,7 @@ jobs:
                   raise SystemExit('Unexpected SBOM format or version')
               evidence=json.loads((path.parent/'build-002-dependencies.json').read_text())
               expected={(r['name'],r['version']):r['license'] for r in evidence}
-              if len(evidence)!=245 or len(expected)!=245:
+              if len(evidence)!=247 or len(expected)!=247:
                   raise SystemExit('Dependency evidence count changed')
               components=document.get('components')
               if not isinstance(components,list):
@@ -136,20 +154,24 @@ jobs:
                   'packages/workflow-contracts/package.json':('@defi-workflow-engine/workflow-contracts','Apache-2.0'),
                   'packages/action-registry/package.json':('@defi-workflow-engine/action-registry','Apache-2.0'),
                   'packages/reference-linter/package.json':('@defi-workflow-engine/reference-linter','AGPL-3.0-only'),
+                  'packages/reference-compiler/package.json':('@defi-workflow-engine/reference-compiler','AGPL-3.0-only'),
+                  'packages/reference-executor/package.json':('@defi-workflow-engine/reference-executor','AGPL-3.0-only'),
+                  'packages/reference-reconciler/package.json':('@defi-workflow-engine/reference-reconciler','AGPL-3.0-only'),
                   'apps/reference-dapp/package.json':('@defi-workflow-engine/reference-dapp','AGPL-3.0-only'),
               }
               for manifest_path,(name,license_id) in workspace.items():
                   manifest=json.loads(pathlib.Path(manifest_path).read_text())
-                  if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,'0.1.0',True,license_id):
+                  expected_version='0.2.0' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
+                  if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,expected_version,True,license_id):
                       raise SystemExit('Workspace manifest inventory differs: '+manifest_path)
               lock=pathlib.Path('pnpm-lock.yaml').read_text()
               importer_section=lock.split('\nimporters:\n',1)[1].split('\npackages:\n',1)[0]
               import re
               importer_paths=set(re.findall(r'(?m)^  (\S[^\n]*):$',importer_section))
-              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','apps/reference-dapp'}:
+              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','packages/reference-compiler','packages/reference-executor','packages/reference-reconciler','apps/reference-dapp'}:
                   raise SystemExit('Workspace lock importer inventory differs')
               component_refs={component['bom-ref'] for component in components}
-              if len(component_refs)!=245 or root_component.get('bom-ref') in component_refs:
+              if len(component_refs)!=247 or root_component.get('bom-ref') in component_refs:
                   raise SystemExit('SBOM component references differ')
               dependencies=document.get('dependencies')
               if not isinstance(dependencies,list):
@@ -162,7 +184,7 @@ jobs:
                   targets=entry.get('dependsOn',[])
                   if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets)-all_refs:
                       raise SystemExit('Invalid SBOM dependency references')
-              # pnpm 11.22.0 omits workspace components; the exact five local
+              # pnpm 11.22.0 omits workspace components; the exact eight local
               # manifests and lock importers above are checked independently.
 
               reviewed={
@@ -185,7 +207,7 @@ jobs:
                   actual=license_value.get('expression',license_value.get('license',{}).get('id'))
                   if actual!=expected[(name,component['version'])]:
                       raise SystemExit('SBOM license expression changed: '+name)
-              message='Ephemeral CycloneDX 1.6 SBOM: 245 exact registry components, zero workspace components (five exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
+              message='Ephemeral CycloneDX 1.6 SBOM: 247 exact registry components, zero workspace components (eight exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
               print(message)
               with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                   summary.write(message+'\n')

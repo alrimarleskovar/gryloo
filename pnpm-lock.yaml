@@ -46,7 +46,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../../packages/reference-linter
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.1.0
+        specifier: workspace:0.2.0
         version: link:../../packages/workflow-contracts
       '@xyflow/react':
         specifier: 12.11.6
@@ -74,7 +74,7 @@ importers:
   packages/action-registry:
     dependencies:
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.1.0
+        specifier: workspace:0.2.0
         version: link:../workflow-contracts
       '@sinclair/typebox':
         specifier: 0.34.52
@@ -83,13 +83,34 @@ importers:
         specifier: 8.20.0
         version: 8.20.0
 
+  packages/reference-compiler:
+    dependencies:
+      '@defi-workflow-engine/action-registry':
+        specifier: workspace:0.1.0
+        version: link:../action-registry
+      '@defi-workflow-engine/workflow-contracts':
+        specifier: workspace:0.2.0
+        version: link:../workflow-contracts
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+
+  packages/reference-executor:
+    dependencies:
+      '@defi-workflow-engine/reference-compiler':
+        specifier: workspace:0.1.0
+        version: link:../reference-compiler
+      '@defi-workflow-engine/workflow-contracts':
+        specifier: workspace:0.2.0
+        version: link:../workflow-contracts
+
   packages/reference-linter:
     dependencies:
       '@defi-workflow-engine/action-registry':
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.1.0
+        specifier: workspace:0.2.0
         version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
@@ -97,6 +118,21 @@ importers:
       canonicalize:
         specifier: 5.0.0
         version: 5.0.0
+
+  packages/reference-reconciler:
+    dependencies:
+      '@defi-workflow-engine/reference-compiler':
+        specifier: workspace:0.1.0
+        version: link:../reference-compiler
+      '@defi-workflow-engine/workflow-contracts':
+        specifier: workspace:0.2.0
+        version: link:../workflow-contracts
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
 
   packages/workflow-contracts:
     dependencies:
@@ -418,6 +454,14 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@noble/curves@2.4.0':
+    resolution: {integrity: sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
 
   '@oxc-project/types@0.149.0':
     resolution: {integrity: sha512-Efcc+iF0j3Bf67YjEqIqWXbX5XddXoK/Mw4K1/JuXwRCZ8N16VR7iT23nlCc9XrveFVh/E5Rqs2StT0V8v9LdA==}
@@ -1595,6 +1639,12 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.3.5':
     optional: true
+
+  '@noble/curves@2.4.0':
+    dependencies:
+      '@noble/hashes': 2.4.0
+
+  '@noble/hashes@2.4.0': {}
 
   '@oxc-project/types@0.149.0': {}
 

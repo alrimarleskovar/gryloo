@@ -141,3 +141,49 @@ and browser storage in the application and linter sources.
 The local server alone can send allowlisted JSON-RPC reads to Base when explicitly enabled in development. The browser stays same-origin under a `connect-src 'self'` CSP and the unchanged E2E network guard. The server permits only chain/head/final-block checks, hash-pinned `eth_getCode` and hash-pinned `eth_call` to fixed Base USDC, WETH, factory and QuoterV2 targets with six selectors. Every state read has `{ "blockHash": H, "requireCanonical": true }`; an unsupported form stops the read with no block-number fallback. Size, timeout, rate, attempt, request and breaker limits fail closed. Replay mode makes no network request.
 
 The provider sees the local server IP, request timing, token pair, exact input amount and queried contracts; it sees no user wallet address or browser cookie. The public endpoint is rate-limited and unsuitable for production use. Two HTTP 429 responses stopped its recording at 2/4 attempts and 24/84 requests. DEC-0021 approved Alchemy Free as the sole read provider with a server-only Bearer credential on the fixed `/v2` URL and a separate 3-attempt/63-request cap. The original Alchemy `eth_chainId` request returned HTTP 403, preserving its stopped attempt-1 files at 1/3 attempts and 1/63 requests. The owner reported that the app then had no active network, enabled Base Mainnet only, and approved the DEC-0022 carried-counter continuation. Owner-run attempts 2 and 3 returned 42 HTTP 200 responses, verified both EIP-1898 pinned methods and produced the two required transcripts. Final Alchemy use is 3/3 attempts and 43/63 requests. No further live request is authorized. The credential-free fixture, transcripts and logs contain no key, serialized authorization header or Bearer marker; the key value was never inspected. No paid plan or charge is authorized. The [BUILD-003C report](builds/BUILD-003C-REPORT.md) records the separate immutable stop evidence, final hashes and local acceptance. Observations remain `NOT_EVIDENCE`, never authorization inputs and never a financial execution result.
+
+## BUILD-003D G5 recording incident (provisional; the full BUILD-003D section follows at G8)
+
+The single owner-run G5 recording attempt, on 2026-09-24, sent two Base Mainnet reads with the owner's Bearer credential and then stopped fail-closed. Both reads were `eth_getBlockByNumber` calls answered with HTTP 200.
+
+**Credential containment.**
+
+- The credential stayed in the owner's proxy process.
+- Scans of every preserved journal, log and script found no key, Bearer marker, authorization text or keyed provider path.
+- The agent never read the credential and made no live request.
+
+**Weakness exposed by the stop.** The stop was fail-closed but opaque. The proxy closed its own listener, and the wrapper discarded the proxy's output, so the rejected request was recorded nowhere.
+
+**Repair.**
+
+- The repository repair adds pre-spawn port and upstream checks, event-driven readiness, and cleanup of child processes on interruption.
+- Error tails now quote stderr only, because Anvil's stdout banner lists dev-account keys.
+- Anvil now receives a minimal environment, with no inherited proxy, Foundry payment or credential variables.
+- The pinned Anvil v1.8.3 contains a payment-capable MPP transport for HTTP 402 challenges. It stays unreachable while Anvil talks only to the loopback proxy, and the proxy never relays HTTP 402.
+
+**Proposed proxy corrections (Amendment 5).**
+
+- a durable, credential-free stop detail;
+- a listener kept open after a stop;
+- no provider send after a stop or after a client disconnect;
+- pacing measured at the send.
+
+**Amendment 5 approval.** The owner approved Amendment 5 on 2026-09-24. The attempt-2 proxy adds a monotonic pacing clock, because the WSL2 wall clock stepped by seconds. It also binds its loopback port before activating the journal.
+
+**Amendment 6 accounts.** Anvil's public default accounts were found to carry EIP-7702 delegations on Base, so Amendment 6 replaces them with pinned, public, test-only Gryloo accounts:
+
+- The phrase lives only in the e2e harness, verified against its pinned digest. It is never in browser, app or package source, and never in logs, errors or evidence.
+- The accounts are used only inside the local chain-31337 fork and are never funded on a public network.
+- The empty-code rule is unchanged: a delegated account is refused, never cleared.
+
+Recording remains owner-run: the agent prepared and validated the entrypoints offline, with a synthetic credential only. Observations and recordings are not authorization inputs.
+
+**Attempt 3 and closure.** Attempt 3 selected clean Amendment 6 accounts. It then stopped because the fixture read a transaction receipt before Anvil's asynchronous automine had executed the transaction.
+
+- **What was sent.** 34 provider requests were reserved. Every request was a hash-pinned state read or an approved block read.
+- **What stayed local.** No transaction was submitted outside the local fork, and no credential, key or test phrase appears in any evidence.
+- **Closure.** BUILD-003D closes under Option B (DEC-0025). Its delivered code has no wallet bridge, no server fork transport and no broadcast path. The updated governance forbids Mode A imports into the application or linter until BUILD-003F.
+
+## BUILD-003D acceptance boundary (DEC-0026)
+
+The local Base fork, Anvil, synthetic accounts and replay tools are acceptance infrastructure only. They are not Gryloo production runtime, deployment architecture or an end-user flow. Gryloo remains a global online non-custodial multichain product. Production signing occurs in user wallets; production browser, server, API, SDK, MCP and multitenant storage must never request or hold a mnemonic or private key. The delivered fork harness contains no phrase or reconstruction input. Future owner-secret revalidation requires an untracked mode-0600 file and a separately approved BUILD-003F procedure; BUILD-003D has no remaining recording authority.
