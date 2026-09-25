@@ -161,7 +161,8 @@ jobs:
               }
               for manifest_path,(name,license_id) in workspace.items():
                   manifest=json.loads(pathlib.Path(manifest_path).read_text())
-                  if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,'0.1.0',True,license_id):
+                  expected_version='0.2.0' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
+                  if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,expected_version,True,license_id):
                       raise SystemExit('Workspace manifest inventory differs: '+manifest_path)
               lock=pathlib.Path('pnpm-lock.yaml').read_text()
               importer_section=lock.split('\nimporters:\n',1)[1].split('\npackages:\n',1)[0]
