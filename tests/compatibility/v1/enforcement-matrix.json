@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "1.0.0",
+  "enforcementMatrixId": "synthetic-mode-a-matrix-001",
+  "semanticWorkflowHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+  "artifactSetHash": "0x2222222222222222222222222222222222222222222222222222222222222222",
+  "simulationHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+  "policyHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+  "manifestHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+  "executionPlanHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+  "authorizationMode": "MODE_A",
+  "environment": {
+    "evidenceEnvironment": "FORK_REPRODUCED",
+    "executionChainId": "eip155:31337",
+    "sourceChainId": "eip155:8453",
+    "sourceBlock": {
+      "height": 51800000,
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "stateSourceHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+    "simulationRawHash": "0x8888888888888888888888888888888888888888888888888888888888888888"
+  },
+  "payloads": [
+    {
+      "stepId": "step-approve",
+      "payloadHash": "0x2239123d3e34ba3a2c4174bd98b8e6ccc3bb9381cb514a696a8a25c56babfabc",
+      "payloadProfile": "EVM_EIP1559_UNSIGNED_V1",
+      "chainId": 31337,
+      "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": "0",
+      "to": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "value": "0",
+      "functionId": "0x095ea7b3",
+      "gasLimit": "60000",
+      "maxFeePerGas": "3000000",
+      "maxPriorityFeePerGas": "1000000",
+      "arguments": {
+        "kind": "APPROVE",
+        "spender": "0x2626664c2603336e57b271c5c0b26f421741e481",
+        "amount": "1000000"
+      }
+    },
+    {
+      "stepId": "step-swap",
+      "payloadHash": "0x3e29ebc3940e481e32aac3041a177989ede5f407497794b8d0ae62fdeedabc76",
+      "payloadProfile": "EVM_EIP1559_UNSIGNED_V1",
+      "chainId": 31337,
+      "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": "1",
+      "to": "0x2626664c2603336e57b271c5c0b26f421741e481",
+      "value": "0",
+      "functionId": "0x5ae401dc",
+      "gasLimit": "250000",
+      "maxFeePerGas": "3000000",
+      "maxPriorityFeePerGas": "1000000",
+      "arguments": {
+        "kind": "EXACT_INPUT_SINGLE",
+        "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "tokenOut": "0x4200000000000000000000000000000000000006",
+        "fee": 500,
+        "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "amountIn": "1000000",
+        "amountOutMinimum": "100000000000000",
+        "sqrtPriceLimitX96": "0",
+        "deadline": "1790000180"
+      }
+    }
+  ],
+  "limits": [
+    {
+      "limitId": "chain-and-call",
+      "description": "Exact fork chain, target, calldata, nonce, value, gas and fee caps",
+      "value": "31337",
+      "locations": [
+        "EXACT_SIGNED_PAYLOAD"
+      ],
+      "payloadBindings": [
+        {
+          "stepId": "step-approve",
+          "field": "chainId"
+        },
+        {
+          "stepId": "step-swap",
+          "field": "chainId"
+        }
+      ]
+    },
+    {
+      "limitId": "finite-approval",
+      "description": "Token approval is exactly the input amount",
+      "value": "1000000",
+      "locations": [
+        "EXACT_SIGNED_PAYLOAD"
+      ],
+      "payloadBindings": [
+        {
+          "stepId": "step-approve",
+          "field": "arguments.amount"
+        }
+      ]
+    },
+    {
+      "limitId": "minimum-output",
+      "description": "Router checks minimum output on the fork",
+      "value": "100000000000000",
+      "locations": [
+        "EXACT_SIGNED_PAYLOAD"
+      ],
+      "payloadBindings": [
+        {
+          "stepId": "step-swap",
+          "field": "arguments.amountOutMinimum"
+        }
+      ]
+    },
+    {
+      "limitId": "deadline",
+      "description": "Router checks the signed multicall deadline",
+      "value": "1790000180",
+      "locations": [
+        "EXACT_SIGNED_PAYLOAD"
+      ],
+      "payloadBindings": [
+        {
+          "stepId": "step-swap",
+          "field": "arguments.deadline"
+        }
+      ]
+    },
+    {
+      "limitId": "quote-and-order",
+      "description": "Quote freshness, simulation, allowance and step order",
+      "value": "review-required",
+      "locations": [
+        "APPLICATION_GATEWAY"
+      ],
+      "payloadBindings": []
+    },
+    {
+      "limitId": "residual-allowance",
+      "description": "Residual allowance after a failed swap is monitored",
+      "value": "reconcile",
+      "locations": [
+        "MONITOR_ONLY"
+      ],
+      "payloadBindings": []
+    },
+    {
+      "limitId": "cumulative-reservation",
+      "description": "No independent cumulative budget reservation exists in Mode A",
+      "value": "not-enforced",
+      "locations": [
+        "NOT_ENFORCED"
+      ],
+      "payloadBindings": []
+    }
+  ],
+  "limitations": [
+    "SYNTHETIC_VECTOR_ONLY",
+    "FORK_REPRODUCED_NOT_MAINNET",
+    "NOT_CURRENT_MARKET"
+  ]
+}

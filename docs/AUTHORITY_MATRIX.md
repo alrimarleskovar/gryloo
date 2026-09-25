@@ -22,7 +22,9 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-003B | Human owner | DEC-0019 and [approved plan](builds/BUILD-003B-PLAN.md), exact Section 11 scope | APPROVED |
 | BUILD-003C | Human owner | DEC-0020, DEC-0021, DEC-0022 and [approved plan](builds/BUILD-003C-PLAN.md); read-only local development observation only | APPROVED |
 | BUILD-003C Alchemy continuation after HTTP 403 | Human owner | Approved Amendment 3 and DEC-0022; offline journal validation precedes the owner-run command | APPROVED |
-| Later BUILD-003 stages, wallet, signing or financial execution | Human owner | Separate explicit approval required | NOT_APPROVED |
+| BUILD-003D Mode A fork implementation | Human owner | DEC-0023 and [approved plan](builds/BUILD-003D-PLAN.md), including Amendments 1–6; closed under Option B (DEC-0025) with 66 created and 26 modified offline-accepted paths | APPROVED |
+| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance | Human owner | Separate plan, recording budget and explicit approval required (DEC-0025) | NOT_APPROVED |
+| Mainnet execution, public testnet execution, Mode B or later builds | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 No Mode B mechanism is selected, certified, deployed, or implemented.
 
@@ -38,3 +40,18 @@ Strategy Manifest, Execution Plan, payload or intent hash. Their hashes and
 enforcement location.
 
 BUILD-003C observations are not authorization inputs. The public RPC recording is stopped at 2/4 attempts and 24/84 requests after two HTTP 429 responses. The original Alchemy HTTP 403 session remains preserved at 1/3 attempts and 1/63 requests. The owner-run DEC-0022 continuation verified canonical hash-pinned `eth_getCode` and `eth_call`, recorded both directions and ended at 3/3 attempts and 43/63 requests. No additional RPC attempt or request is approved. The local replay and code pins passed acceptance; see the [report](builds/BUILD-003C-REPORT.md). No payment method, paid plan or charge is authorized. The owner's latest delivery instruction allows the agent to push and open the BUILD-003C PR after local acceptance; merge remains with the owner.
+
+DEC-0023's D-5 Amendment 3 permits only local proxy replies for the exact observed Anvil v1.8.3 extra requests. The provider method allowlist, caps, exact Anvil command and simulation method remain unchanged. A local null lookup cannot itself establish `NOT_FOUND` or authorize retry. G1 must pass offline before subsequent gates; no live request or owner-only recording occurred for the amendment. BUILD-003 remains `IN_PROGRESS`; certification requires G7 `PASS` and the separate owner decision.
+
+G3 pure-package and scripted-transport checks passed locally on 2026-09-24. G4 passed offline with owner-reported billing facts and a zero-live-request preflight. The owner subsequently authorized only limited G5 preparation, and the single-use, owner-only entrypoint passed synthetic and saved-replay validation.
+
+**Owner-run attempt.** The owner ran that entrypoint once. It stopped at attempt 1 with 2/1,800 provider requests and 52 reserved CU (`UNAPPROVED_UPSTREAM`). The entrypoint is consumed.
+
+**Authority now.**
+
+- **Amendment 5:** approved on 2026-09-24 for attempt 2. Attempt 2 stopped with `DEV_ACCOUNTS_NOT_CLEAN`.
+- **Amendment 6:** approved for a final attempt 3 with project-specific local test accounts. Attempt 3 stopped with `SETUP_TRANSACTION_FAILED`.
+- **Recording authority:** exhausted at 3/3 attempts, 68/1,800 requests and 1,768/46,800 reserved CU. No Amendment 7 or further BUILD-003D recording is permitted.
+- **Closure:** the owner selected Option B (DEC-0025). BUILD-003D closes with its offline-accepted scope, and the recording, G6, G7 and the dependent certification rows move to BUILD-003F, which is `NOT_APPROVED`.
+- **Delivery:** the owner authorized the final BUILD-003D commit, a push and a pull request, and retains merge. The agent has no authority to make a live request, use a credential or operate a wallet.
+- **Certification:** BUILD-003 certification remains pending the owner decision, and BUILD-004 planning is blocked until BUILD-003F.

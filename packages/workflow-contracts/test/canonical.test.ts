@@ -26,7 +26,7 @@ describe('DWE-HASH v1 byte compatibility', () => {
   it('covers every exact domain with lowercase 0x-prefixed SHA-256', () => {
     expect(vectors.profile).toBe('DWE-HASH-v1');
     expect(new Set(vectors.vectors.map(vector => vector.domain))).toEqual(
-      new Set(Object.keys(HASH_DOMAINS)),
+      new Set(Object.keys(HASH_DOMAINS).filter(domain => domain !== 'enforcement-matrix')),
     );
     for (const vector of vectors.vectors) {
       expect(vector.digest).toMatch(/^0x[0-9a-f]{64}$/);

@@ -15,6 +15,7 @@ export type { StrategyManifest } from './strategy-manifest.js';
 export type { ExecutionPlan } from './execution-plan.js';
 export type { ExecutionJournal, JournalEntry } from './execution-journal.js';
 export type { EvidenceBundle } from './evidence-bundle.js';
+export type { EnforcementMatrix } from './enforcement-matrix.js';
 export { nextRevision, RevisionConflictError } from './revision.js';
 export { invalidationFor, INVALIDATION } from './invalidation.js';
 export type { ChangeKind } from './invalidation.js';

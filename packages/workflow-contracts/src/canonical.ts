@@ -11,6 +11,7 @@ export const HASH_DOMAINS = Object.freeze({
   'authorization-policy': 'defi-workflow-engine/authorization-policy',
   'strategy-manifest': 'defi-workflow-engine/strategy-manifest',
   'execution-plan': 'defi-workflow-engine/execution-plan',
+  'enforcement-matrix': 'defi-workflow-engine/enforcement-matrix',
   'execution-journal-entry': 'defi-workflow-engine/execution-journal-entry',
   'evidence-bundle': 'defi-workflow-engine/evidence-bundle',
   'raw-response': 'defi-workflow-engine/raw-response',
@@ -29,6 +30,7 @@ export const HASH_FIELDS = Object.freeze({
   'authorization-policy': ['schemaVersion', 'policyId', 'semanticWorkflowHash', 'artifactSetHash', 'simulationHash', 'requiredAuthorizationClass', 'allowlists', 'budgetReservation', 'spendLimits', 'maximumSlippageBps', 'gasBudgets', 'feeBudgets', 'oracleRules', 'accountRiskRules', 'checkpointRules', 'providers', 'nonce', 'deadline', 'revocationEpoch', 'recovery', 'enforcement'],
   'strategy-manifest': ['schemaVersion', 'manifestId', 'semanticWorkflowRevision', 'semanticWorkflowHash', 'artifactSetHash', 'simulationHash', 'policyHash', 'authorizationMode', 'owner', 'executor', 'expiresAt', 'nonce', 'revocationEpoch', 'spendLimits', 'maximumSlippageBps', 'gasBudgets', 'feeBudgets', 'providers', 'recovery', 'enforcement'],
   'execution-plan': ['schemaVersion', 'executionPlanId', 'semanticWorkflowHash', 'manifestHash', 'segments', 'checkpointIds', 'enforcement'],
+  'enforcement-matrix': ['schemaVersion', 'enforcementMatrixId', 'semanticWorkflowHash', 'artifactSetHash', 'simulationHash', 'policyHash', 'manifestHash', 'executionPlanHash', 'authorizationMode', 'environment', 'payloads', 'limits', 'limitations'],
   'evidence-bundle': ['schemaVersion', 'evidenceBundleId', 'version', 'supersedes', 'semanticWorkflowHash', 'artifactSetHash', 'simulationHash', 'policyHash', 'manifestHash', 'executionPlanHash', 'journalHeadHash', 'observedAt', 'environment', 'outcome', 'receipts', 'differences', 'reconciliation', 'evidence'],
 } satisfies Record<StructuredHashKind, readonly string[]>);
 for (const fields of Object.values(HASH_FIELDS)) Object.freeze(fields);
@@ -145,6 +147,16 @@ export function projectArtifact<K extends StructuredHashKind>(kind: K, input: un
       segment.dependencies.sort(compareAscii);
       for (const step of segment.steps) step.dependencies.sort(compareAscii);
     }
+  }
+  if (kind === 'enforcement-matrix') {
+    const matrix = value as ArtifactByKind['enforcement-matrix'];
+    matrix.payloads.sort((a, b) => compareAscii(a.stepId, b.stepId));
+    matrix.limits.sort((a, b) => compareAscii(a.limitId, b.limitId));
+    for (const limit of matrix.limits) {
+      limit.locations.sort(compareAscii);
+      limit.payloadBindings.sort((a, b) => compareJson([a.stepId, a.field], [b.stepId, b.field]));
+    }
+    matrix.limitations.sort(compareAscii);
   }
   // Field coverage is explicit. Unknown/self-hash/signature/runtime properties
   // have already failed closed-object validation and are never silently omitted.

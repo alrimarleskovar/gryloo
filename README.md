@@ -12,7 +12,7 @@ input validation, deterministic hashes, revision and state checks, and a
 declarative Action Registry. The private ESM packages grant no financial
 authority and do not execute workflows. See [status](docs/STATUS.md), the
 [Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
-[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint (DEC-0018) were merged through PR #7. BUILD-003B, a mocked artifact chain, merged through PR #8 as `0faec71207628dfe27fb23c81680d2c27827f5ea` on 2026-09-24. Its pull-request checks passed (Governance 35948277062; contracts and reference app 35948277082), as did post-merge checks (Governance 35948667349; contracts and reference app 35948667352). BUILD-003C read-only observation passed local acceptance under DEC-0020, DEC-0021 and DEC-0022; PR and remote CI are pending. Package publication, Mode B and financial execution remain unapproved. The
+[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint (DEC-0018) were merged through PR #7. BUILD-003B, a mocked artifact chain, merged through PR #8 as `0faec71207628dfe27fb23c81680d2c27827f5ea` on 2026-09-24. Its pull-request checks passed (Governance 35948277062; contracts and reference app 35948277082), as did post-merge checks (Governance 35948667349; contracts and reference app 35948667352). BUILD-003C read-only observation merged through PR #9 as `8a5fbaed26e005e5719528c399f7ca1adb334eb6`. BUILD-003D is closed under Option B (DEC-0025); its unrecorded fork acceptance moves to the unapproved BUILD-003F, and BUILD-003 is not yet certified. Package publication, Mode B and financial execution remain unapproved. The
 [Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
 records the approved pre-incorporation license publication.
 
@@ -79,6 +79,20 @@ simulation, and Execute remains unavailable. See the
 [approved plan](docs/builds/BUILD-003B-PLAN.md) and
 [implementation report](docs/builds/BUILD-003B-REPORT.md).
 
-## BUILD-003C (local acceptance passed; PR and CI pending)
+## BUILD-003C (merged through PR #9)
 
 The approved [plan](docs/builds/BUILD-003C-PLAN.md) adds a separate read-only Base/Uniswap v3 quote observation with every state read pinned by block hash and canonicality. It never feeds the mocked artifact chain or authorization. The public recording stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. The original Alchemy Free attempt received HTTP 403 at its first request and remains preserved at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only and approved DEC-0022, the bounded owner-run continuation verified both hash-pinned methods and completed both directions in attempts 2 and 3, ending at 3/3 cumulative Alchemy attempts and 43/63 requests. The [BUILD-003C report](docs/builds/BUILD-003C-REPORT.md) records the two real transcript hashes, four reviewed code pins, replay fixture, ten visual baselines and passing local checks. The provider remains fixed to Base mainnet with a server-only Bearer credential; no paid plan, charge or further RPC request is authorized. Wallet, signing, execution and a subsequent build remain unavailable. The owner retains merge.
+
+## BUILD-003D (closed under Option B)
+
+The approved [plan](docs/builds/BUILD-003D-PLAN.md) aimed for a Mode A vertical slice on a recorded, controlled Base fork.
+
+**What BUILD-003D delivers**, all accepted offline with scripted transports and synthetic loopback upstreams (see the [report](docs/builds/BUILD-003D-REPORT.md)):
+
+- a deterministic Simulate viewport and screenshot-diff forensics;
+- an offline Anvil compatibility gate;
+- the additive enforcement-matrix contract and exact-payload profile;
+- pure compiler, executor and reconciler packages;
+- the fork harness and replay infrastructure.
+
+**What it does not deliver.** All three owner-run recording attempts stopped, so no recorded Base state, fork execution, wallet signing, reconciliation evidence or certification exists. The recording, fork application integration and manual-wallet acceptance move to BUILD-003F, which is not approved. BUILD-004 planning waits for BUILD-003 certification. The application still offers no wallet, signing, submission or execution.

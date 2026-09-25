@@ -1,0 +1,401 @@
+{
+  "$id": "urn:defi-workflow-engine:contracts/v1/enforcement-matrix",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "artifactSetHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "authorizationMode": {
+      "const": "MODE_A",
+      "type": "string"
+    },
+    "enforcementMatrixId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "environment": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceEnvironment": {
+          "const": "FORK_REPRODUCED",
+          "type": "string"
+        },
+        "executionChainId": {
+          "const": "eip155:31337",
+          "type": "string"
+        },
+        "simulationRawHash": {
+          "pattern": "^0x[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "sourceBlock": {
+          "additionalProperties": false,
+          "properties": {
+            "hash": {
+              "pattern": "^0x[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "height": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "height",
+            "hash"
+          ],
+          "type": "object"
+        },
+        "sourceChainId": {
+          "const": "eip155:8453",
+          "type": "string"
+        },
+        "stateSourceHash": {
+          "pattern": "^0x[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidenceEnvironment",
+        "executionChainId",
+        "sourceChainId",
+        "sourceBlock",
+        "stateSourceHash",
+        "simulationRawHash"
+      ],
+      "type": "object"
+    },
+    "executionPlanHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "limits": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "limitId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "locations": {
+            "items": {
+              "anyOf": [
+                {
+                  "const": "EXACT_SIGNED_PAYLOAD",
+                  "type": "string"
+                },
+                {
+                  "const": "APPLICATION_GATEWAY",
+                  "type": "string"
+                },
+                {
+                  "const": "INTENT_PROTOCOL",
+                  "type": "string"
+                },
+                {
+                  "const": "SMART_ACCOUNT_MODULE_OR_GUARD",
+                  "type": "string"
+                },
+                {
+                  "const": "PROTOCOL_VERIFIER",
+                  "type": "string"
+                },
+                {
+                  "const": "MONITOR_ONLY",
+                  "type": "string"
+                },
+                {
+                  "const": "NOT_ENFORCED",
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "payloadBindings": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                  "type": "string"
+                },
+                "stepId": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "stepId",
+                "field"
+              ],
+              "type": "object"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "value": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "limitId",
+          "description",
+          "value",
+          "locations",
+          "payloadBindings"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "manifestHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "payloads": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "maxLength": 78,
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "APPROVE",
+                    "type": "string"
+                  },
+                  "spender": {
+                    "pattern": "^0x[0-9a-f]{40}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "spender",
+                  "amount"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "amountIn": {
+                    "maxLength": 78,
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "type": "string"
+                  },
+                  "amountOutMinimum": {
+                    "maxLength": 78,
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "type": "string"
+                  },
+                  "deadline": {
+                    "maxLength": 78,
+                    "pattern": "^(0|[1-9][0-9]*)$",
+                    "type": "string"
+                  },
+                  "fee": {
+                    "anyOf": [
+                      {
+                        "const": 100,
+                        "type": "number"
+                      },
+                      {
+                        "const": 500,
+                        "type": "number"
+                      },
+                      {
+                        "const": 3000,
+                        "type": "number"
+                      },
+                      {
+                        "const": 10000,
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "const": "EXACT_INPUT_SINGLE",
+                    "type": "string"
+                  },
+                  "recipient": {
+                    "pattern": "^0x[0-9a-f]{40}$",
+                    "type": "string"
+                  },
+                  "sqrtPriceLimitX96": {
+                    "const": "0",
+                    "type": "string"
+                  },
+                  "tokenIn": {
+                    "pattern": "^0x[0-9a-f]{40}$",
+                    "type": "string"
+                  },
+                  "tokenOut": {
+                    "pattern": "^0x[0-9a-f]{40}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "tokenIn",
+                  "tokenOut",
+                  "fee",
+                  "recipient",
+                  "amountIn",
+                  "amountOutMinimum",
+                  "sqrtPriceLimitX96",
+                  "deadline"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "chainId": {
+            "const": 31337,
+            "type": "number"
+          },
+          "from": {
+            "pattern": "^0x[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "functionId": {
+            "pattern": "^0x[0-9a-f]{8}$",
+            "type": "string"
+          },
+          "gasLimit": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maxFeePerGas": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "maxPriorityFeePerGas": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 78,
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "payloadHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "payloadProfile": {
+            "const": "EVM_EIP1559_UNSIGNED_V1",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "to": {
+            "pattern": "^0x[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "value": {
+            "const": "0",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stepId",
+          "payloadHash",
+          "payloadProfile",
+          "chainId",
+          "from",
+          "nonce",
+          "to",
+          "value",
+          "functionId",
+          "gasLimit",
+          "maxFeePerGas",
+          "maxPriorityFeePerGas",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "type": "array"
+    },
+    "policyHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "semanticWorkflowHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "simulationHash": {
+      "pattern": "^0x[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "enforcementMatrixId",
+    "semanticWorkflowHash",
+    "artifactSetHash",
+    "simulationHash",
+    "policyHash",
+    "manifestHash",
+    "executionPlanHash",
+    "authorizationMode",
+    "environment",
+    "payloads",
+    "limits",
+    "limitations"
+  ],
+  "type": "object"
+}

@@ -18,6 +18,7 @@ import {
   ExecutionJournalSchema, type ExecutionJournal,
 } from './execution-journal.js';
 import { EvidenceBundleSchema } from './evidence-bundle.js';
+import { EnforcementMatrixSchema, type EnforcementMatrix } from './enforcement-matrix.js';
 
 export {
   SemanticWorkflowSchema,
@@ -29,6 +30,7 @@ export {
   ExecutionPlanSchema,
   ExecutionJournalSchema,
   EvidenceBundleSchema,
+  EnforcementMatrixSchema,
 };
 
 export const artifactSchemas = deepFreeze({
@@ -41,6 +43,7 @@ export const artifactSchemas = deepFreeze({
   'execution-plan': ExecutionPlanSchema,
   'execution-journal': ExecutionJournalSchema,
   'evidence-bundle': EvidenceBundleSchema,
+  'enforcement-matrix': EnforcementMatrixSchema,
 });
 export type ArtifactKind = keyof typeof artifactSchemas;
 export type ArtifactByKind = {
@@ -228,10 +231,14 @@ function checkJournal(value: ExecutionJournal): void {
   }
 }
 
-function checkSharedInvariants(value: unknown): void {
+function checkSharedInvariants(value: unknown, kind: ArtifactKind): void {
   const assetDecimals = new Map<string, number>();
   const walk = (current: unknown, key = ''): void => {
     if (typeof current === 'string') {
+      if (kind === 'enforcement-matrix' && key === 'deadline') {
+        if (BigInt(current) > MAX_NATIVE_UNITS) fail('deadline exceeds uint256 bound');
+        return;
+      }
       if (/^(?:amount|minimumAmount|maximumAmount|maximumPerStepAmount|maximumCumulativeAmount|nonce|minimumHealthFactorNumerator|minimumHealthFactorDenominator)$/.test(key)) {
         if (BigInt(current) > MAX_NATIVE_UNITS) fail(`${key} exceeds uint256 bound`);
       }
@@ -290,7 +297,7 @@ export function validateArtifact<K extends ArtifactKind>(
   if (!validator(value)) {
     fail(ajv.errorsText(validator.errors, { separator: '; ' }));
   }
-  checkSharedInvariants(value);
+  checkSharedInvariants(value, kind);
   if (kind === 'semantic-workflow') checkWorkflow(value as SemanticWorkflow);
   if (kind === 'execution-plan') checkPlan(value as ExecutionPlan);
   if (kind === 'execution-journal') checkJournal(value as ExecutionJournal);
@@ -298,6 +305,22 @@ export function validateArtifact<K extends ArtifactKind>(
     const set = value as ArtifactByKind['artifact-set'];
     unique(set.artifacts.map(artifact => artifact.artifactId), 'artifact ID');
     unique(set.artifacts.map(artifact => artifact.artifactHash), 'artifact hash');
+  }
+  if (kind === 'enforcement-matrix') {
+    const matrix = value as EnforcementMatrix;
+    unique(matrix.payloads.map(payload => payload.stepId), 'matrix step ID');
+    unique(matrix.payloads.map(payload => payload.payloadHash), 'matrix payload hash');
+    unique(matrix.limits.map(limit => limit.limitId), 'matrix limit ID');
+    const steps = new Set(matrix.payloads.map(payload => payload.stepId));
+    for (const payload of matrix.payloads) {
+      if ((payload.arguments.kind === 'APPROVE') !== (payload.functionId === '0x095ea7b3')) fail('matrix approve selector mismatch');
+      if ((payload.arguments.kind === 'EXACT_INPUT_SINGLE') !== (payload.functionId === '0x5ae401dc')) fail('matrix swap selector mismatch');
+      if (BigInt(payload.maxPriorityFeePerGas) > BigInt(payload.maxFeePerGas)) fail('matrix priority fee exceeds max fee');
+    }
+    for (const limit of matrix.limits) {
+      unique(limit.payloadBindings.map(binding => JSON.stringify([binding.stepId, binding.field])), 'matrix payload binding');
+      for (const binding of limit.payloadBindings) if (!steps.has(binding.stepId)) fail('matrix binding references unknown step');
+    }
   }
   if (kind === 'evidence-bundle') {
     const evidence = value as ArtifactByKind['evidence-bundle'];

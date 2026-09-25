@@ -89,3 +89,30 @@ BUILD-003A plan and report, remain fixed.
 ## Approved BUILD-003C read-only boundary
 
 DEC-0020 approves the exact [BUILD-003C plan](builds/BUILD-003C-PLAN.md): a Base/Uniswap v3 quote observation in a separate state and UI region. Every `eth_call` and `eth_getCode` uses `{ "blockHash": H, "requireCanonical": true }` and fails closed if unsupported. The public session remains stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. DEC-0021 approved Alchemy Free with a server-only Bearer credential and separate 3-attempt/63-request cap; its first `eth_chainId` request received HTTP 403, preserving the original session at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only, Amendment 3/DEC-0022 authorized one carried-counter continuation. The owner-run attempt 2 verified both pinned methods and recorded WETH → USDC; attempt 3 recorded USDC → WETH. Final Alchemy use is 3/3 attempts and 43/63 requests, with no further request approved. The reviewed code pins, replay fixture and local acceptance are recorded in the [report](builds/BUILD-003C-REPORT.md). Observations cannot enter the BUILD-003B mocked chain, workflow IR or an authorization path. Wallet, signing, submission, financial execution and Mode B remain unapproved; ADR-0001 remains `PROPOSED`.
+
+## Approved BUILD-003D fork boundary
+
+DEC-0023 approves the [BUILD-003D plan](builds/BUILD-003D-PLAN.md), Amendments 1–4 and its exact Section 11 path scope. D-5 Amendment 3 handles only the five observed extra Anvil v1.8.3 method names locally: method-not-found for `eth_gasPrice []` and `eth_getAccountInfo [address, H]`; local null for missing `eth_getBlockByHash [hash, true]`, `eth_getTransactionByHash [txHash]` and `eth_getTransactionReceipt [txHash]`. Source H is served only from verified pinned block data or fails closed. These methods never reach Alchemy. Every approved provider-bound state read is rewritten from exact H to `{ "blockHash": H, "requireCanonical": true }`; any other form, hash, method or batch stops. The original provider allowlist, recording caps, exact Anvil command, simulation method and stop rules remain in force. A local null alone cannot establish `NOT_FOUND` or permit retry. At the original approval stage, offline G1 preceded later gates and recording had not yet occurred. The later three stopped owner runs and DEC-0026 evidence boundary are recorded below. BUILD-003 certification requires G7 `PASS` and a later owner decision. Mainnet execution, public testnet execution, Mode B and BUILD-004 remain outside this authority.
+
+At the current boundary, G3 pure packages passed locally and G4 passed offline with owner-reported Free billing confirmation and a key-unset scripted preflight. The owner's later limited G5 authorization permitted one owner-only single-use entrypoint.
+
+The owner ran it once. It stopped after 2/1,800 provider requests (52 reserved CU, `UNAPPROVED_UPSTREAM`), because Anvil sent `eth_gasPrice` with `params` omitted. The consumed journal stays preserved and is never reset or reused.
+
+The offline repair stays within the amended exact lists. It changes no provider method, cap, Anvil argument or simulation method. Under the shared normalization, an omitted `params` is read as `[]` for `eth_gasPrice` only, which remains a local reply. The owner approved that form (A5-1) together with the rest of Amendment 5. Attempt 2 then stopped at the §3.2.3 clean-account rule: all ten default dev accounts carry EIP-7702 code on Base. Amendment 6 then replaced Anvil's public default accounts with pinned project-specific test accounts, confined to the e2e harness and the local fork, with the empty-code rule unchanged. One final attempt 3 (at most 600 requests) is prepared offline.
+
+The full scenario driver still lacks recorded-fork proof. G5, G6–G8 and final persistent governance are pending. No agent live request, wallet operation or recording is authorized.
+
+**Option B closure (DEC-0025).** Attempt 3 stopped with `SETUP_TRANSACTION_FAILED`, and BUILD-003D recording authority is exhausted at 3/3 attempts and 68/1,800 requests.
+
+The owner selected Option B. BUILD-003D closes with exactly 66 created and 26 modified offline-accepted paths, enforced by the updated persistent governance. The remaining 47 planned created and 25 planned modified paths are not delivered.
+
+Moved to BUILD-003F, which is `NOT_APPROVED` and needs its own plan and budget:
+
+- the Base recording and transcript;
+- the fork application integration (G6);
+- the manual-wallet acceptance (G7);
+- the dependent certification rows.
+
+No Amendment 7 or further BUILD-003D recording is permitted. BUILD-004 planning is blocked until BUILD-003 certification. Mainnet execution, public testnet execution and Mode B remain outside every authority.
+
+**DEC-0026 delivery-security boundary.** The earlier G1 result is historical pre-secret-removal evidence. The delivered acceptance-only harness holds no phrase or reconstruction input; final-byte pinned-account startup requires BUILD-003F owner-secret revalidation. No recording authority remains in BUILD-003D. Production Gryloo is global, online, non-custodial and multichain; its user-wallet signing flow never takes fork test secrets.
