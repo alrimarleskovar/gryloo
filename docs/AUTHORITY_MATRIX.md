@@ -8,7 +8,7 @@ UI checks, and monitoring do not become independent enforcement.
 | Approve governance scope | Human owner | Repository review and Git history | ENFORCED |
 | Apply AI financial proposal | User or delegated authority | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Mode A exact payload on the local fork | User signature through an injected EIP-1193 wallet | Browser byte review, same-origin app gateway and signed EIP-1559 payload on chain 31337 only; no general intent binding | FORK_ONLY |
-| Mode B maximum policy limits | Safe 1.4.1 plus Zodiac Roles 2.1.0 | Local chain-31337 Roles target/function/parameter/one-time allowance, Uniswap deadline and minimum output; final owner acceptance pending | LOCAL_FORK_TESTED |
+| Mode B maximum policy limits | Safe 1.4.1 plus Zodiac Roles 2.1.0 | Local chain-31337 Roles target/function/parameter/one-time allowance, Uniswap deadline and minimum output; owner acceptance passed | CERTIFIED_LOCAL_FORK_31337 (DEC-0033) |
 | Mode C managed execution | Explicit future policy | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Pause, revoke, cancel, or refund execution | Future authority boundary | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Implement BUILD-001 contracts | Human owner | Explicit 2026-09-22 approval, approved plan, and exact-scope governance checks | APPROVED |
@@ -27,7 +27,7 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-004 finite Mode B local fork implementation | Human owner | DEC-0031 and [approved BUILD-004 plan](builds/BUILD-004-PLAN.md); merge remains owner decision | APPROVED |
 | Mainnet execution, public testnet execution, Mode C or BUILD-005 implementation | Human owner | Separate explicit approval required | NOT_APPROVED |
 
-The Safe/Roles Mode B mechanism is selected and implemented on the controlled local fork under DEC-0031. Final BUILD-004 acceptance and certification are pending; no public deployment exists.
+The Safe/Roles Mode B mechanism is selected and implemented on the controlled local fork under DEC-0031. DEC-0033 certifies BUILD-004 `FORK_REPRODUCED` on local chain 31337 and accepts ADR-0001 for that profile only; no public deployment exists.
 
 ADR-0002 covers contract and toolchain decisions only. General product authorization remains `NONE`; the BUILD-003F Mode A exact-payload signature is limited to the local fork. A valid policy, payload hash, journal entry or evidence bundle alone is data, not a signature or permission.
 

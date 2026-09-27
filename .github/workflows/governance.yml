@@ -248,8 +248,8 @@ jobs:
           lic=(root/'docs/LICENSE_MAP.md').read_text()
           for marker in ('apps/reference-dapp/**','AGPL-3.0-only','THIRD_PARTY_NOTICES.md','LGPL-3.0-or-later','CC-BY-4.0','0BSD','replacement/relink'):
               if marker not in lic: errors.append('license map missing: '+marker)
-          if 'IMPLEMENTED_LOCAL_FORK; ACCEPTANCE_PENDING' not in (root/'docs/adr/ADR-0001-mode-b-authority.md').read_text():
-              errors.append('ADR-0001 BUILD-004 status missing')
+          if 'ACCEPTED_FOR_LOCAL_FORK_31337` under DEC-0033' not in (root/'docs/adr/ADR-0001-mode-b-authority.md').read_text():
+              errors.append('ADR-0001 DEC-0033 local-fork acceptance missing')
           for v in ('docs/STATUS.md','docs/NEXT_BUILD.md','docs/builds/BUILD-002-PLAN.md','docs/builds/BUILD-002-REPORT.md'):
               if 'BUILD-002' not in (root/v).read_text(): errors.append('missing BUILD-002 authority: '+v)
           sources=[file for base in ('apps/reference-dapp/src','packages/reference-linter/src')
@@ -657,8 +657,10 @@ jobs:
 
           # ADR status and identifier registries.
           adr1=markdown['docs/adr/ADR-0001-mode-b-authority.md']
-          if '- Status: `IMPLEMENTED_LOCAL_FORK; ACCEPTANCE_PENDING`' not in adr1 or 'D-1 approved' not in adr1:
+          if '- Status: `ACCEPTED_FOR_LOCAL_FORK_31337` under DEC-0033' not in adr1 or 'D-1 approved' not in adr1:
               errors.append('ADR-0001 BUILD-004 decision status missing')
+          for marker in ('BUILD-004: COMPLETE','BUILD-004 certification: CERTIFIED: FORK_REPRODUCED','DEC-0033','e71de3946c7aac6095023ca1ee6f1e1a58a98112'):
+              if marker not in markdown['docs/STATUS.md']: errors.append('current BUILD-004 certification marker missing: '+marker)
           if '- Status: `ACCEPTED`' not in markdown['docs/adr/ADR-0002-canonical-contracts.md']:
               errors.append('ADR-0002 acceptance record missing')
           if not markdown['docs/adr/ADR-0003-mode-a-exact-payload-binding.md'].split('\n',3)[2].startswith('Status: ACCEPTED for BUILD-003D under DEC-0023 and DEC-0024'):

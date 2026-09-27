@@ -1,6 +1,10 @@
 # Next build
 
-## Current BUILD-004 path (2026-09-27)
+## Next milestone: BUILD-005 planning (2026-09-27)
+
+BUILD-004 is `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 under DEC-0033. PR #13 passed 4/4 checks on `effc6bad8dc828ee9e598d43fbcd6413e2b19dbe`, merged into `main` as `e71de3946c7aac6095023ca1ee6f1e1a58a98112` at 2026-09-27T16:29:44Z, and post-merge Governance run `36333448106` and Contracts/app run `36333448100` passed. The immediate next product milestone is **BUILD-005 planning — CoW signed-intent adapter**, reusing the same semantic swap action with its distinct EIP-712 order, posting ambiguity, tracking, expiry, cancellation and settlement evidence ([BUILD-004 plan §11](builds/BUILD-004-PLAN.md)). No BUILD-005 plan or implementation is approved: BUILD-005 needs its own plan and explicit owner approval. BUILD-003E remains reserved for public-testnet evidence, and the rest of the Master Spec roadmap is unchanged.
+
+## BUILD-004 path (historical, 2026-09-27)
 
 DEC-0031 approved [BUILD-004](builds/BUILD-004-PLAN.md) and the finite Safe/Roles D-1 profile; DEC-0032 recorded Amendment A-1. Implementation, local automated acceptance and the owner-operated injected-wallet session pass on the clean closed-replay fork. Still outstanding: remote CI on the final PR #13 head, the owner's merge decision and post-merge checks. BUILD-004 is not yet certified. After successful BUILD-004 completion, proceed directly to BUILD-005 planning. BUILD-005 implementation has no separate approval. The older `NONE_APPROVED` and BUILD-003F pending statements below are historical as of their dated sections. The evidence ceiling remains `FORK_REPRODUCED` on local chain 31337.
 

@@ -1,6 +1,12 @@
 # Repository status
 
-## Current BUILD-004 implementation state (2026-09-27)
+## Current BUILD-004 certification state (2026-09-27)
+
+**Current markers:** BUILD-004: COMPLETE. BUILD-004 certification: CERTIFIED: FORK_REPRODUCED. Owner-operated injected-wallet acceptance: PASS.
+
+Under DEC-0033 the owner certified BUILD-004 and accepted ADR-0001 for the demonstrated finite Safe 1.4.1 plus Zodiac Roles 2.1.0 profile, strictly on local chain 31337. PR #13 passed 4/4 checks on `effc6bad8dc828ee9e598d43fbcd6413e2b19dbe`, merged into `main` as `e71de3946c7aac6095023ca1ee6f1e1a58a98112` at 2026-09-27T16:29:44Z, and post-merge Governance run `36333448106` and Contracts/app run `36333448100` passed. The evidence is recorded in the [BUILD-004 report](builds/BUILD-004-REPORT.md); its pre-merge status line is historical. `TESTNET_EXECUTED` and `MAINNET_EXECUTED` remain absent, and no public-chain, production-key, live-provider or composed Mode B authority exists. The next milestone is BUILD-005 planning; see [NEXT_BUILD.md](NEXT_BUILD.md).
+
+## BUILD-004 pre-merge acceptance state (historical, 2026-09-27)
 
 DEC-0031 approved the [BUILD-004 plan](builds/BUILD-004-PLAN.md) and D-1; DEC-0032 recorded Amendment A-1. The Safe 1.4.1 plus Zodiac Roles 2.1.0 finite swap path is implemented on local chain 31337. The local fork uses the certified BUILD-003F transcript strictly closed, plus explicitly declared local-only accounts and three owner-selected `LOCAL_SETUP_NOT_BASE_OBSERVED` Safe token slots.
 
