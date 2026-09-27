@@ -1,6 +1,6 @@
 # BUILD-006 report — isolated Uniswap v3 liquidity on a Base fork
 
-**Status:** IMPLEMENTATION COMPLETE LOCALLY; owner-operated Base recording PENDING; not certified. **Authority:** DEC-0036 and the [approved BUILD-006 plan](BUILD-006-PLAN.md). **Baseline:** synchronized main and origin/main `4a402dd6be956fee0e3df001b8ad0f356f625937`. **Branch:** `codex/build-006-uniswap-liquidity`.
+**Status:** LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. `FORK_REPRODUCED` is demonstrated on local chain 31337; BUILD-006 is not certified. Remote PR CI, the owner's merge decision, post-merge checks and certification remain separate gates. **Authority:** DEC-0036 and the [approved BUILD-006 plan](BUILD-006-PLAN.md). **Baseline:** synchronized main and origin/main `4a402dd6be956fee0e3df001b8ad0f356f625937`. **Branch:** `codex/build-006-uniswap-liquidity`.
 
 ## Delivered implementation
 
@@ -55,24 +55,104 @@ Result: `COMPLETE`, then `REPLAY_BYTE_IDENTICAL`, with 122 synthetic proxy reque
 
 The Uniswap npm inputs are integrity-verified temporary files outside Git; see the [license map](../LICENSE_MAP.md). No provider request was made. This does not establish Base behaviour.
 
+## Owner-operated read-only Base recording
+
+The owner ran the single approved attempt on 2026-09-28. It was preceded by the final-bytes dry run and the preflight at commit `c670889e6fcfad990df072cd5f84e15252ea1e67`, with manifest digest `1e1e5b80eab226e43d51edfc5ff52c1609ba2cf1c3b5d6c8a1422e637095279c` over 77 pinned files, the pinned Node and Anvil, and the BUILD-006 account pins. The owner's wrapper pre-checks passed, and the recording completed within every cap. The attempt is spent; no further recording is authorized.
+
+| Item | Value |
+|---|---|
+| Status | `COMPLETE`; proxy journal `COMPLETE`, no stop reason |
+| Source block | Base 51,880,679, hash `0x0d14cd088d8bbdbfaea625f16ef852666d8545774621c67bbf00d6f48db532cc` |
+| Provider requests / reserved CU | 207 / 5,382 of 1,500 / 39,000 |
+| Credential | Wiped and removed by the recorder (`credentialFileRemoved: true`); it never entered the transcript, logs or this repository |
+| Transcript | `apps/reference-dapp/e2e/fork/liquidity-transcript.json`, SHA-256 `c9a02102422df5a333d67bdf869a4f1b75ae2ec314d1e834872d92c86ea95805` |
+| Scenario results | SHA-256 `dbfda0fa3e177aeac2800f2313b7e1cdfc36e2ad8050485d6d99d276006e8da0`, lifecycle `COMPLETE`, 12 steps |
+
+The transcript pins the factory-derived Base USDC/WETH 0.05% pool `0xd0b53d9277642d899df5c87a3966a349a798f224` and five code hashes:
+
+| Contract | Code SHA-256 |
+|---|---|
+| Pool | `0x0d14cff6e9be9c1cf4ff7a4856a44e5d17b8a92db7e1f41f2fb5e73ad8b5419a` |
+| Position Manager | `0x54aa74382a5aade77e59efffb53208ca5c3d3a679daa2853881381e04b25c48d` |
+| Factory | `0x8545609892cc8d7d608dd4420ee110ab98448730570824fb029228e33846d28c` |
+| USDC | `0x98d785fcb1bf847f287adc2310759fd94cc13e754b974bc72131382e8266f607` |
+| WETH | `0x667c900c2c6da80d452501a9c6332e046384a0c438c3334ce6f71c86dd7b8735` |
+
+Base reads are `NOT_EVIDENCE` for transaction outcomes. Every transaction ran only on the local fork, and local funding is `LOCAL_SETUP_NOT_BASE_OBSERVED`.
+
+## Closed replay and independent reconciliation
+
+All of the following ran inside loopback-only network namespaces, with no credential, provider or external route.
+
+1. **Static transcript validation, the CI gate.** Format, ordered requests, per-entry digests, counts and budget, and the identity hash bound to the BUILD-006 public pins all pass. The transcript contains no credential or authorization text.
+2. **Closed replay (`replay-verify`).** Result `REPLAY_BYTE_IDENTICAL`; the scenario digest equals the recorded `dbfda0fa…e8da0`. The executor fork test's separate replay run also passed. All three BUILD-006 fork test files pass: 3/3, none skipped.
+3. **Independent verifier.** The owner-local script is outside Git, SHA-256 `66fa48f93364184cd4fc5957b68b58d59b873127eaae523f7c2080d62efc07e0`. It replays the transcript closed again and keeps that fork alive. It then checks each of the 12 steps from raw JSON-RPC and its own decoding, without the liquidity service or reconciler code:
+   - keccak of the raw transaction equals its hash, and the signer recovered from the EIP-1559 signature is the owner;
+   - chain 31337, zero value and an empty access list;
+   - consecutive nonces 0–11, with the expected target and selector;
+   - a successful receipt within the gas limit;
+   - Uniswap `IncreaseLiquidity` and `Collect` amounts equal the owner's WETH/USDC balance deltas read at the receipt block and the block before;
+   - exact finite allowances with their Approval logs;
+   - NFT #6104987 minted to the owner and later burned, after which `ownerOf` reverts;
+   - each step's transaction hash, payload, Manifest, Evidence Bundle and amounts equal the recording.
+
+   Result: `PASS`, with no failures. The first run reported one false failure: the verifier compared the recorded pool pins with key-order-sensitive JSON while the recorded document is canonicalized. The comparison was fixed and the whole verification rerun from scratch.
+
+| Operation | Outcome | WETH delta (wei) | USDC delta (units) | Observed ETH fee (wei) |
+|---|---|---|---|---|
+| Approve WETH | `RECONCILED` / `EXACT_APPROVAL` | 0 | 0 | 279,265,880,575 |
+| Approve USDC | `RECONCILED` / `EXACT_APPROVAL` | 0 | 0 | 335,701,880,575 |
+| Mint (ticks −197,510 to −197,310) | `RECONCILED` / `EXACT_MINT` | −71,611,536,694,464,784 | −200,000,000 | 2,498,738,056,219 |
+| Reset WETH allowance | `RECONCILED` / `EXACT_APPROVAL` | 0 | 0 | 147,433,880,575 |
+| Approve WETH | `RECONCILED` / `EXACT_APPROVAL` | 0 | 0 | 279,265,880,575 |
+| Approve USDC | `RECONCILED` / `EXACT_APPROVAL` | 0 | 0 | 335,701,880,575 |
+| Increase | `RECONCILED` / `EXACT_INCREASE` | −71,611,536,694,464,784 | −200,000,000 | 1,112,713,880,575 |
+| Partial decrease (50%) | `RECONCILED` / `EXACT_DECREASE` | 0 | 0 | 883,273,880,575 |
+| Collect | `RECONCILED` / `EXACT_COLLECT` | +71,611,536,694,464,783 | +199,999,999 | 808,710,737,756 |
+| Full decrease | `RECONCILED` / `EXACT_DECREASE` | 0 | 0 | 854,473,880,575 |
+| Final collect | `RECONCILED` / `EXACT_COLLECT` | +71,611,536,694,464,783 | +199,999,999 | 601,170,737,756 |
+| Burn NFT | `RECONCILED` / `EXACT_BURN` | 0 | 0 | 426,421,880,575 |
+
+Honest residues:
+
+- **Rounding.** The net lifecycle effect is −2 wei WETH and −2 USDC units, the Uniswap rounding the pool retains.
+- **Allowance.** A finite residual WETH allowance of 28,388,463,305,535,216 wei stays with the Position Manager; the USDC allowance is 0. The UI shows it, and a separately reviewed `RESET_WETH` can remove it.
+- **Fees.** No swap ran, so no trading fee accrued. The collected amounts are withdrawn principal and are not presented as earned fees. The receipts carry no L1 fee field, so each fee comes from the L1Block state and the signed bytes; the observed ETH balance decrease equals it exactly.
+
+## Real-transcript browser acceptance
+
+Both liquidity specs ran on the Base transcript, with the environment `FORK_REPRODUCED`, no synthetic pins, the recorded owner and pool, and transcript `c9a02102…`. They passed 2/2 in each of two consecutive loopback-only runs:
+
+- the full lifecycle, with one exact wallet signature per operation and no non-loopback request;
+- lost wallet response → frozen submission → restart → exact-nonce scan → `RECONCILED`.
+
+The wallet was the automated injected test adapter, signing through the fork's unlocked disposable account. No manual MetaMask session was run, and none is claimed.
+
+## Evidence ceiling
+
+Transcript validation, the closed byte-identical replay and independent lifecycle reconciliation all passed. BUILD-006 has therefore demonstrated **`FORK_REPRODUCED` on local chain 31337** for the one isolated Uniswap v3 Base USDC/WETH Mode A liquidity lifecycle.
+
+This is not a certification. Certification needs remote CI on the PR head, the owner's merge decision, post-merge checks and a separate owner decision. It carries no public-chain, testnet, mainnet, real-funds, production-wallet, Mode B liquidity or BUILD-007 composition claim.
+
 ## Gates
 
 | Gate | Result |
 |---|---|
 | `pnpm check` typecheck, lint, build and schema drift | Pass, with repository-confined module resolution in a loopback-only namespace. |
-| Unit and compatibility suite | 388 passed, 1 skipped: the existing BUILD-004 Mode B service smoke, which needs an owner profile. This was a full serial run on the pre-commit tree. Earlier `pnpm check` runs on this host had 7–10 fsync-latency timeouts at 5 s, all in fsync-heavy tests. Most were in untouched BUILD-004/005 file-store, Mode B and CoW tests; the others were the two liquidity-service journal tests. One full run and every isolated rerun passed. This is recorded as host I/O jitter, not as a pass of those runs. |
+| Unit and compatibility suite | On the final evidence bytes, including the transcript, a full serial run gives 388 passed and 1 skipped: the existing BUILD-004 Mode B service smoke, which needs an owner profile. On this host, parallel `pnpm check` runs repeatedly hit 5 s fsync-latency timeouts in fsync-heavy journal tests. The last run had 6, in the unchanged BUILD-005 CoW tests and the two liquidity-service tests. Isolated and serial reruns pass. This is recorded as host I/O jitter, not as a pass of those parallel runs; remote CI is the authoritative parallel run. |
 | Governance (both workflow steps, extracted from the current workflow file) | Pass. |
 | CI-equivalent browser suite, MOCKED synthetic fork | 29 passed and 4 skipped, then 13/13, then 9/9. The protected zero-pixel visual baselines pass unchanged. |
 | Liquidity browser specs on the dry-run transcript (MOCKED) | 2/2: full lifecycle, and lost response → freeze → restart → exact-nonce scan → reconcile. |
 | Offline dry run and closed replay | Pass (`MOCKED`), above. |
-| Recorder preflight | Pending, after the final commit. |
-| Owner-operated read-only Base recording and credential-free transcript | Pending. No BUILD-006 transcript exists. |
-| Byte-identical chain-31337 replay of the Base transcript and independent reconciliation | Pending. Maximum target remains `FORK_REPRODUCED`. |
-| Owner-local browser acceptance on the Base transcript | Pending. |
-| Dependency audit and registry metadata checks | Not run locally; they need the network. |
+| Offline dry run on the final pre-recording commit `c670889` | Pass (`MOCKED`): 12 steps, `REPLAY_BYTE_IDENTICAL`, 122 synthetic requests. |
+| Recorder preflight | Pass; manifest `1e1e5b80…279c`. |
+| Owner-operated read-only Base recording and credential-free transcript | Pass: `COMPLETE`, 207 requests and 5,382 CU, credential removed. |
+| Byte-identical chain-31337 replay of the Base transcript and independent reconciliation | Pass: `REPLAY_BYTE_IDENTICAL`, fork tests 3/3, independent verifier `PASS`. |
+| Owner-local browser acceptance on the Base transcript | Pass, 2/2 in each of two runs (automated test wallet). |
+| Dependency audit and registry metadata checks | Not run locally; they need the network. The contracts/app CI workflow runs registry integrity, license and release-age checks, the low-threshold audit and the CycloneDX SBOM. |
 | Remote push/PR checks, owner merge and post-merge checks | Not run. The owner retains merge and certification. |
 
-Offline mocked checks establish at most `MOCKED` engineering evidence. BUILD-006 has no `FORK_REPRODUCED` result until the new transcript, byte-identical replay and independent lifecycle reconciliation all pass. The BUILD-003/004 certified fork results and the BUILD-005 certified mocked result are unchanged.
+Offline mocked checks establish at most `MOCKED` engineering evidence. The `FORK_REPRODUCED` result rests on the recorded transcript, byte-identical replay and independent reconciliation above. The BUILD-003/004 certified fork results and the BUILD-005 certified mocked result are unchanged.
 
 ## Risks and recovery
 

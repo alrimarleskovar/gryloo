@@ -1,8 +1,18 @@
 # Repository status
 
-## Current BUILD-006 implementation state (2026-09-27)
+## Current BUILD-006 local acceptance state (2026-09-28)
 
-**Current marker:** BUILD-006 APPROVED / IN_PROGRESS under DEC-0036 and the [approved plan](builds/BUILD-006-PLAN.md), from synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. Its target is one isolated Uniswap v3 Base USDC/WETH Mode A local-fork liquidity lifecycle with a maximum `FORK_REPRODUCED` ceiling. The separately bounded owner-operated read-only Base recording may run only after its preflight, private credential, Free-plan and fail-closed gates. Offline unit and mocked service evidence exists; the new Base transcript, closed fork replay, owner-local browser acceptance, PR and certification remain pending. BUILD-003/004 and BUILD-005 retain their separate certified ceilings. No public-chain transaction, mainnet, real funds, production wallet, BUILD-007 composition, Mode B liquidity authority or PR merge is authorized.
+**Current markers:** BUILD-006: LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. BUILD-006 local evidence: `FORK_REPRODUCED` demonstrated on local chain 31337. BUILD-006 certification: NOT CERTIFIED.
+
+DEC-0036 and the [approved plan](builds/BUILD-006-PLAN.md) authorize the work, from synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The owner ran the single approved read-only Base recording on 2026-09-28. It completed at source block 51,880,679 with 207 requests and 5,382 reserved CU, and the credential was removed.
+
+Validation of the credential-free transcript `c9a02102…95805`, the closed `REPLAY_BYTE_IDENTICAL` replay and an independent raw-RPC verifier all passed. Together they reconcile one isolated Uniswap v3 Base USDC/WETH Mode A lifecycle of 12 separately signed operations, ending in the burn of NFT #6104987. The real-transcript browser specs pass. The [BUILD-006 report](builds/BUILD-006-REPORT.md) separates each gate.
+
+Still outstanding: remote CI on the unmerged PR head, the owner's merge decision, post-merge checks and any certification decision. BUILD-003/004 and BUILD-005 keep their separate certified ceilings. No public-chain transaction, mainnet, real funds, production wallet, BUILD-007 composition, Mode B liquidity authority or PR merge is authorized.
+
+## BUILD-006 implementation state (historical, 2026-09-27)
+
+BUILD-006 was APPROVED / IN_PROGRESS under DEC-0036 before the recording; the state above supersedes this.
 
 ## Current BUILD-005 certification state (2026-09-27)
 

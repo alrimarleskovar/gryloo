@@ -4,7 +4,7 @@
 
 DEC-0036 approves the [BUILD-006 plan](builds/BUILD-006-PLAN.md) from clean synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The one isolated Uniswap v3 Base USDC/WETH Mode A liquidity lifecycle is limited to a controlled chain-31337 fork, with a conditional one-attempt owner-operated read-only Base recording and a maximum `FORK_REPRODUCED` evidence target. Implementation, local gates, report, commit, push and one unmerged PR are authorized. The owner retains merge. No public-chain transaction, mainnet execution, real funds, production wallet, BUILD-007 composition or Mode B liquidity authority is approved. The BUILD-003/004 fork and BUILD-005 mocked certifications and global non-custodial multichain roadmap, including Solana priority, remain unchanged.
 
-BUILD-006 implementation is underway. The closed Base recording, complete local replay, final gates and one unmerged PR are pending; see [BUILD-006 report](builds/BUILD-006-REPORT.md). BUILD-007 is not authorized.
+BUILD-006 local acceptance is complete as of 2026-09-28. The owner-operated Base recording, closed byte-identical replay and independent reconciliation demonstrate `FORK_REPRODUCED` on local chain 31337; BUILD-006 is not certified. One unmerged PR, remote CI, the owner's merge decision and post-merge checks remain; see the [BUILD-006 report](builds/BUILD-006-REPORT.md). BUILD-007 is not authorized.
 
 ## Historical next milestone: BUILD-006 planning only (2026-09-27)
 
