@@ -86,15 +86,25 @@ jobs:
           set -euo pipefail
           export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
           python3 scripts/bootstrap-anvil.py "$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3"
-          # DEC-0026: pure G1 checks run; owner-secret pinned-account startup remains deferred to BUILD-003F.
+          # DEC-0026/DEC-0027: pure G1 checks run; owner-secret pinned-account cases are owner-only local F2 gates.
           pnpm test:anvil
-          pnpm test:fork
+          pnpm test:fork --testTimeout=30000
+          # BUILD-003F F1: five fresh-process synthetic rehearsals (MOCKED engineering evidence, loopback only).
+          node apps/reference-dapp/e2e/fork/offline-rehearsal.mjs > "$RUNNER_TEMP/build-003f-f1.json"
+          node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if (r.status!=='PASS'||r.passes.length!==5) process.exit(1); console.log('F1 five-pass', r.status, r.passes.map(p=>p.providerEquivalentRequests).join(','))" "$RUNNER_TEMP/build-003f-f1.json"
+          # BUILD-003F F4 static check: the committed transcript's structure, digests and identity, never its secret inputs.
+          if [ -f apps/reference-dapp/e2e/fork/base-fork-transcript.json ]; then
+            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyTranscriptDocument } from './apps/reference-dapp/e2e/fork/replay-upstream.mjs'; import { transcriptIdentity } from './apps/reference-dapp/e2e/fork/harness.mjs'; const t = JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/base-fork-transcript.json', 'utf8')); const counts = verifyTranscriptDocument(t, { accounts: t.identity.accounts }); if (transcriptIdentity({ sourceBlockNumber: t.sourceBlockNumber, sourceBlockHash: t.sourceBlockHash, accounts: t.identity.accounts }).identityHash !== t.identityHash) process.exit(1); console.log('Transcript verified', JSON.stringify(counts));"
+          fi
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         shell: bash
         run: |
           set -euo pipefail
           export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
+          # BUILD-003F: the browser suite drives the MOCKED synthetic local fork on loopback chain 31337.
+          export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
+          export GRYLOO_MODE_A_RUNTIME="$RUNNER_TEMP/gryloo-mode-a-e2e"
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           pnpm --filter @defi-workflow-engine/reference-dapp test:e2e
 

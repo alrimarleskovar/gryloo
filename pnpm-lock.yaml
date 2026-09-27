@@ -42,9 +42,18 @@ importers:
       '@defi-workflow-engine/action-registry':
         specifier: workspace:0.1.0
         version: link:../../packages/action-registry
+      '@defi-workflow-engine/reference-compiler':
+        specifier: workspace:0.1.0
+        version: link:../../packages/reference-compiler
+      '@defi-workflow-engine/reference-executor':
+        specifier: workspace:0.1.0
+        version: link:../../packages/reference-executor
       '@defi-workflow-engine/reference-linter':
         specifier: workspace:0.1.0
         version: link:../../packages/reference-linter
+      '@defi-workflow-engine/reference-reconciler':
+        specifier: workspace:0.1.0
+        version: link:../../packages/reference-reconciler
       '@defi-workflow-engine/workflow-contracts':
         specifier: workspace:0.2.0
         version: link:../../packages/workflow-contracts

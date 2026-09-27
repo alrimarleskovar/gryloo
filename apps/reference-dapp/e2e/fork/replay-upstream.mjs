@@ -5,7 +5,8 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { forkUpstreamCall } from '../../../../packages/reference-compiler/dist/profile.js';
+import { createHash } from 'node:crypto';
+import { forkUpstreamCall, routeForkUpstreamRequest, verifiedSourceBlockReply } from '../../../../packages/reference-compiler/dist/profile.js';
 
 /** Printed once, only after the loopback bind succeeded; the harness waits for it before starting Anvil. */
 export const REPLAY_READY_LINE = 'REPLAY_UPSTREAM_READY 127.0.0.1:8546';
@@ -37,8 +38,55 @@ export function replayTable(transcript) {
   }
   return table;
 }
+/**
+ * F4 structural verification of a committed BUILD-003F transcript before any replay: exact format,
+ * canonical ordered requests, per-entry response digests, hash-pinned provider rewrites, identity
+ * bound to the reviewed public accounts, and no credential, authorization or phrase-shaped text.
+ */
+export function verifyTranscriptDocument(transcript, { accounts }) {
+  const fail = code => { throw new Error(code); };
+  const sha = value => createHash('sha256').update(value).digest('hex');
+  const text = JSON.stringify(transcript);
+  if (/authorization|bearer|api[_-]?key|private[_-]?key|mnemonic/i.test(text)
+    || /(?<![a-z])[a-z]{3,8}(?: [a-z]{3,8}){11}(?![a-z])/.test(text)) fail('TRANSCRIPT_SECRET_PATTERN');
+  if (transcript?.format !== 'gryloo.base-fork-state-transcript.v1' || transcript.sourceChainId !== 8453
+    || !Number.isSafeInteger(transcript.sourceBlockNumber) || !/^0x[0-9a-f]{64}$/.test(transcript.sourceBlockHash)
+    || !/^0x[0-9a-f]{64}$/.test(transcript.identityHash) || !/^[0-9a-f]{64}$/.test(transcript.scenarioResultsSha256)
+    || transcript.identity?.sourceBlockHash !== transcript.sourceBlockHash || transcript.identity?.sourceBlockNumber !== transcript.sourceBlockNumber
+    || JSON.stringify(transcript.identity?.accounts) !== JSON.stringify(accounts)) fail('TRANSCRIPT_IDENTITY_INVALID');
+  const start = transcript.sessionStart;
+  const block = JSON.parse(start?.providerResponse ?? 'null')?.result;
+  if (sha(start?.providerResponse ?? '') !== start?.responseSha256 || block?.hash !== transcript.sourceBlockHash
+    || Number.parseInt(block?.number, 16) !== transcript.sourceBlockNumber) fail('TRANSCRIPT_SESSION_START_INVALID');
+  let previous = 0, provider = 1, local = 0;
+  for (const entry of transcript.exchanges ?? fail('TRANSCRIPT_INVALID')) {
+    const response = entry.providerResponse ?? entry.localResponse;
+    if (!Number.isSafeInteger(entry.sequence) || entry.sequence !== previous + 1 || typeof response !== 'string'
+      || (entry.providerResponse !== undefined && entry.localResponse !== undefined) || sha(response) !== entry.responseSha256) fail('TRANSCRIPT_ENTRY_INVALID');
+    previous = entry.sequence;
+    const request = JSON.parse(entry.anvilRequest);
+    if (canonical(request) !== entry.anvilRequest) fail('TRANSCRIPT_NON_CANONICAL');
+    if (entry.providerResponse !== undefined) {
+      provider++;
+      const route = routeForkUpstreamRequest({ method: request.method, params: request.params }, transcript.sourceBlockNumber, transcript.sourceBlockHash);
+      if (route.kind !== 'forward' || canonical({ method: route.method, params: route.params }) !== entry.providerRequest) fail('TRANSCRIPT_REWRITE_INVALID');
+    } else {
+      local++;
+      const route = routeForkUpstreamRequest({ method: request.method, params: request.params }, transcript.sourceBlockNumber, transcript.sourceBlockHash);
+      if (route.kind !== entry.classification) fail('TRANSCRIPT_LOCAL_CLASSIFICATION_INVALID');
+    }
+  }
+  if (transcript.counts?.providerRequests !== provider || transcript.counts?.localReplies !== local
+    || provider > 1500 || transcript.counts.reservedCu !== provider * 26) fail('TRANSCRIPT_COUNT_INVALID');
+  replayTable(transcript);
+  return { providerRequests: provider, localReplies: local };
+}
 export function createReplayServer(transcript) {
   const table = replayTable(transcript);
+  const sourceBlock = transcript.sessionStart ? JSON.parse(transcript.sessionStart.providerResponse).result : null;
+  const policy = Number.isSafeInteger(transcript.sourceBlockNumber) && sourceBlock
+    ? { sourceBlockNumber: transcript.sourceBlockNumber, sourceBlockHash: transcript.sourceBlockHash,
+      sourceBlock: verifiedSourceBlockReply(sourceBlock, transcript.sourceBlockNumber, transcript.sourceBlockHash) } : null;
   return createServer((request, response) => {
     if (request.method !== 'POST' || request.url !== '/' || request.headers.host !== '127.0.0.1:8546') { response.writeHead(400); response.end(); return; }
     const chunks = []; let size = 0;
@@ -52,6 +100,19 @@ export function createReplayServer(transcript) {
         // Same wire normalization as the recording proxy, so a recorded key always matches its replay.
         const call = forkUpstreamCall(input);
         if (call === null) throw new Error('INVALID_RPC');
+        // BUILD-003F transcripts: requests the recording proxy answers by policy are answered by the same
+        // policy, never from provider data, so an unknown local hash lookup stays null whatever its timing.
+        if (policy) {
+          const route = routeForkUpstreamRequest(input, policy.sourceBlockNumber, policy.sourceBlockHash);
+          if (route.kind === 'stop') throw new Error('FORK_STATE_UNRECORDED');
+          if (route.kind !== 'forward') {
+            const body = route.kind === 'local-error' ? { error: { code: route.code, message: route.message } }
+              : { result: route.kind === 'local-null' ? null : policy.sourceBlock };
+            response.writeHead(200, { 'content-type': 'application/json' });
+            response.end(JSON.stringify({ jsonrpc: '2.0', id, ...body }));
+            return;
+          }
+        }
         const key = canonical({ method: call.method, params: call.params });
         const recorded = table.get(key);
         if (recorded === undefined) throw new Error('FORK_STATE_UNRECORDED');

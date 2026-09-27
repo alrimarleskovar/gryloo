@@ -122,3 +122,43 @@ describe('BUILD-003B mocked chain against the frozen contracts', () => {
     expect(linter.BASE_OBSERVATION_PROFILE.methods).toEqual(['eth_chainId', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call']);
   });
 });
+
+describe('BUILD-003F Mode A fork artifacts against the frozen contracts', () => {
+  it('compiles a UI-authored swap into frozen v1 policy, Manifest, plan and matrix artifacts bound to exact payloads', async () => {
+    const compiler = await import('@defi-workflow-engine/reference-compiler');
+    const { modeASwapFromWorkflow, walletRequestFor } = await import('../server/mode-a-service');
+    const context = createReviewContext({ registryId: referenceRegistry.registryId, capabilityId: referenceRegistry.capabilities[0]?.id,
+      actionId: referenceRegistry.actions[0]?.id, assets: baseAssetRegistry });
+    const start = initialEditor();
+    const authored = editorReducer(start, parseLocalCommand('swap 1 WETH to USDC on Base slippage 100 bps', start.workflow, context), context);
+    expect(authored.error).toBeNull();
+    const swap = modeASwapFromWorkflow(authored.workflow as never);
+    expect(swap).toMatchObject({ direction: 'WETH_TO_USDC', amountIn: 10n ** 18n, slippageBps: 100, excludedMockNodes: ['node-001'] });
+    const owner = '0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b';
+    const semanticWorkflowHash = hashArtifactBytes('semantic-workflow', bytes(authored.workflow));
+    const quotedOut = 2_486_306_666n, minimumOut = quotedOut * 9_900n / 10_000n;
+    const pair = compiler.buildModeAPair({ owner, tokenIn: compiler.FORK_CONTRACTS.weth, tokenOut: compiler.FORK_CONTRACTS.usdc, amountIn: swap.amountIn,
+      amountOutMinimum: minimumOut, fee: 3000, deadline: 1_790_000_266n, nonce: 0n, approveGasLimit: 57_294n, swapGasLimit: 69_364n, maxFeePerGas: 1_796_246_614n });
+    const compileContext = { nodeId: swap.nodeId, revision: authored.workflow.revision, forkBlock: 28, semanticWorkflowHash,
+      artifactSetHash: `0x${'aa'.repeat(32)}`, simulationHash: `0x${'bb'.repeat(32)}`, owner, tokenIn: compiler.FORK_CONTRACTS.weth,
+      tokenOut: compiler.FORK_CONTRACTS.usdc, tokenInDecimals: 18, tokenOutDecimals: 6, amountIn: swap.amountIn, quotedOut, minimumOut,
+      slippageBps: swap.slippageBps, fee: 3000 as const, nonce: 0n, deadline: 1_790_000_266n, approveGasLimit: 57_294n, swapGasLimit: 69_364n,
+      maxFeePerGas: 1_796_246_614n };
+    const { policy, policyHash } = compiler.compilePolicy(compileContext);
+    const { manifest, manifestHash } = compiler.compileManifest(compileContext, policy, policyHash);
+    const { plan, executionPlanHash } = compiler.compileExecutionPlan(compileContext, manifestHash, pair.approveBytes, pair.swapBytes);
+    const { matrix, enforcementMatrixHash } = compiler.compileEnforcementMatrix(compileContext,
+      { sourceBlock: { height: 36_000_000, hash: `0x${'cc'.repeat(32)}` }, stateSourceHash: `0x${'dd'.repeat(32)}`, simulationRawHash: `0x${'ee'.repeat(32)}` },
+      { policyHash, manifestHash, executionPlanHash }, pair.approveBytes, pair.swapBytes);
+    for (const [kind, value, hash] of [['authorization-policy', policy, policyHash], ['strategy-manifest', manifest, manifestHash],
+      ['execution-plan', plan, executionPlanHash], ['enforcement-matrix', matrix, enforcementMatrixHash]] as const) {
+      expect(parseArtifactBytes(bytes(value), kind)).toEqual(value);
+      expect(hashArtifactBytes(kind, bytes(value))).toBe(hash);
+    }
+    expect(matrix.environment.evidenceEnvironment).toBe('FORK_REPRODUCED');
+    expect(matrix.payloads.map(item => item.payloadHash)).toEqual([pair.approveBytes, pair.swapBytes].map(item => compiler.payloadIdentity(item).payloadHash));
+    expect(walletRequestFor(pair.swapBytes, owner)).toMatchObject({ from: owner, to: compiler.SWAP_ROUTER_02, chainId: '0x7a69', type: '0x2', value: '0x0' });
+    expect(manifest.authorizationMode).toBe('MODE_A');
+    expect(manifest.enforcement).toBe('NOT_ENFORCED');
+  });
+});

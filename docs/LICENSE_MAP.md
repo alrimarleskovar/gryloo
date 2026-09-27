@@ -119,3 +119,7 @@ The BUILD-003C `apps/reference-dapp/**` and `packages/reference-linter/**` addit
 **Anvil.** Foundry Anvil v1.8.3 (MIT or Apache-2.0) is a downloaded, digest-verified test tool. It is never vendored or redistributed.
 
 **Unchanged.** No official license text or third-party notice changes.
+
+## BUILD-003F classification
+
+The new and modified `apps/reference-dapp/**` Mode A fork service, browser, acceptance harness, tests, snapshots and credential-free transcript remain AGPL-3.0-only implementation under the existing path rule. BUILD-003F plan, report, ADR and living governance records remain Apache-2.0 documentation under the existing rule. The private owner phrase, public-pin manifest, billing report, credential file, journal and wallet profile live outside Git and receive no repository license classification. The only new package relationships use already locked workspace packages; there are still 247 registry identities and 16 reviewed license exceptions. No official license text, third-party notice or license grant changes.

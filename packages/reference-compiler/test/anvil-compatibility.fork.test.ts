@@ -17,8 +17,8 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
-import { deriveForkPublicAddresses, readOwnerForkPhrase, requirePinnedForkAddresses } from '../../../apps/reference-dapp/e2e/fork/harness.mjs';
-import { ANVIL_DEFAULT_ACCOUNTS, ANVIL_PIN, FORK_ACCOUNT_DERIVATION_PATH, FORK_CHAIN_ID_HEX, FORK_DEV_ACCOUNTS, FORK_UPSTREAM_PARAMS_OMITTED, FORK_UPSTREAM_POLICY, SOURCE_CHAIN_ID, forkAnvilArgs, forkUpstreamCall, routeForkUpstreamRequest, verifiedSourceBlockReply } from '../src/profile.js';
+import { deriveForkPublicAddresses, readOwnerForkPhrase, requirePinnedForkAddresses, forkDevAccounts } from '../../../apps/reference-dapp/e2e/fork/harness.mjs';
+import { ANVIL_DEFAULT_ACCOUNTS, ANVIL_PIN, FORK_ACCOUNT_DERIVATION_PATH, FORK_CHAIN_ID_HEX, FORK_UPSTREAM_PARAMS_OMITTED, FORK_UPSTREAM_POLICY, SOURCE_CHAIN_ID, forkAnvilArgs, forkUpstreamCall, routeForkUpstreamRequest, verifiedSourceBlockReply } from '../src/profile.js';
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Outcome = 'forwarded' | 'local-error' | 'local-null' | 'local-source-block' | 'stop';
@@ -199,6 +199,8 @@ describe('G1 negative self-tests of the gate checks', () => {
   });
 });
 
+const FORK_DEV_ACCOUNTS = forkDevAccounts();
+
 describe.skipIf(!process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE)('G1 pinned-account anvil compatibility (C1–C10)', () => {
   beforeAll(async () => {
     const binary = process.env.GRYLOO_ANVIL_BIN;
@@ -289,9 +291,9 @@ describe.skipIf(!process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE)('G1 pinned-account
     if (await result('eth_chainId') !== FORK_CHAIN_ID_HEX) failures.push('eth_chainId is not 0x7a69');
     for (const entry of anvilEntries) if ('method' in entry && /^anvil_/.test(entry.method)) failures.push(`upstream received ${entry.method}`);
     const accounts = ((await result('eth_accounts')) as string[]).map(a => a.toLowerCase());
-    if (JSON.stringify(accounts) !== JSON.stringify(FORK_DEV_ACCOUNTS)) failures.push('dev accounts differ from the Amendment 6 pins');
+    if (JSON.stringify(accounts) !== JSON.stringify(FORK_DEV_ACCOUNTS)) failures.push('dev accounts differ from the reviewed F2 public pins');
     if (accounts.some(a => (ANVIL_DEFAULT_ACCOUNTS as readonly string[]).includes(a))) failures.push('an Anvil default account is present');
-    record('C2', failures, 'eth_chainId 0x7a69; no anvil_* request upstream; exactly the ten pinned Amendment 6 accounts');
+    record('C2', failures, 'eth_chainId 0x7a69; no anvil_* request upstream; exactly the ten reviewed F2 public accounts');
     expect(failures).toEqual([]);
   });
 

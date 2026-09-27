@@ -4,12 +4,12 @@ import { spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { createECDH, createHash, createHmac, pbkdf2Sync } from 'node:crypto';
-import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { ANVIL_PIN, forkAnvilArgs, FORK_ACCOUNT_DERIVATION_PATH, FORK_DEV_ACCOUNTS, FORK_CHAIN_ID_HEX, SOURCE_CHAIN_ID } from '../../../../packages/reference-compiler/dist/profile.js';
+import { ANVIL_PIN, forkAnvilArgs, FORK_ACCOUNT_DERIVATION_PATH, FORK_DEV_ACCOUNTS, ANVIL_DEFAULT_ACCOUNTS, FORK_CHAIN_ID_HEX, SOURCE_CHAIN_ID } from '../../../../packages/reference-compiler/dist/profile.js';
 import { REPLAY_READY_LINE } from './replay-upstream.mjs';
 
 /** Owner-supplied, untracked local secret; never a production input or a fallback. */
@@ -17,7 +17,7 @@ const compilerRequire = createRequire(new URL('../../../../packages/reference-co
 const keccakModule = compilerRequire.resolve('@noble/hashes/sha3.js');
 export function readOwnerForkPhrase() {
   const path = process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE;
-  const repository = fileURLToPath(new URL('../../../../', import.meta.url));
+  const repository = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
   if (!path || !path.startsWith('/') || path === repository || path.startsWith(repository + '/')) {
     throw new Error('FORK_ACCOUNT_SECRET_UNAVAILABLE');
   }
@@ -26,10 +26,13 @@ export function readOwnerForkPhrase() {
   try {
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     const metadata = fstatSync(fd);
-    if (!metadata.isFile() || (metadata.mode & 0o077) !== 0 || metadata.uid !== process.getuid() || metadata.size > 512) {
+    const actualPath = realpathSync(`/proc/self/fd/${fd}`);
+    if (!metadata.isFile() || (metadata.mode & 0o777) !== 0o600 || metadata.uid !== process.getuid()
+      || metadata.size < 1 || metadata.size > 512 || actualPath === repository || actualPath.startsWith(repository + '/')) {
       throw new Error('FORK_ACCOUNT_SECRET_UNAVAILABLE');
     }
-    phrase = readFileSync(fd, 'utf8').trim();
+    const bytes = readFileSync(fd);
+    try { phrase = bytes.toString('utf8').trim(); } finally { bytes.fill(0); }
   } catch {
     throw new Error('FORK_ACCOUNT_SECRET_UNAVAILABLE');
   } finally {
@@ -37,6 +40,40 @@ export function readOwnerForkPhrase() {
   }
   if (!/^[a-z]+( [a-z]+){11}$/.test(phrase)) throw new Error('FORK_ACCOUNT_SECRET_INVALID');
   return phrase;
+}
+
+/** F2 public pins are private only for review integrity; they contain no key material. */
+export function forkDevAccounts() {
+  const path = process.env.GRYLOO_F2_PUBLIC_PIN_FILE;
+  if (!path) return FORK_DEV_ACCOUNTS;
+  const repository = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
+  if (!path.startsWith('/') || path === repository || path.startsWith(repository + '/')) throw new Error('F2_PUBLIC_PINS_UNAVAILABLE');
+  let fd;
+  let document;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const metadata = fstatSync(fd);
+    const actualPath = realpathSync(`/proc/self/fd/${fd}`);
+    if (!metadata.isFile() || (metadata.mode & 0o777) !== 0o600 || metadata.uid !== process.getuid()
+      || metadata.size < 1 || metadata.size > 4096 || actualPath === repository || actualPath.startsWith(repository + '/')) {
+      throw new Error('F2_PUBLIC_PINS_UNAVAILABLE');
+    }
+    document = JSON.parse(readFileSync(fd, 'utf8'));
+  } catch {
+    throw new Error('F2_PUBLIC_PINS_UNAVAILABLE');
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+  const addresses = document?.addresses;
+  if (document?.format !== 'gryloo.build-003f.f2-public-pins.v1'
+    || document?.derivationPath !== FORK_ACCOUNT_DERIVATION_PATH
+    || !Array.isArray(addresses) || addresses.length !== 10
+    || addresses.some(address => typeof address !== 'string' || !/^0x[0-9a-f]{40}$/.test(address))
+    || new Set(addresses).size !== 10
+    || addresses.some(address => ANVIL_DEFAULT_ACCOUNTS.includes(address))) {
+    throw new Error('F2_PUBLIC_PINS_INVALID');
+  }
+  return Object.freeze([...addresses]);
 }
 
 /** BIP-39/BIP-32 derivation stays inside the acceptance harness and returns public addresses only. */
@@ -64,16 +101,23 @@ export async function deriveForkPublicAddresses(phrase) {
     child(part.endsWith("'") ? Number(part.slice(0, -1)) + 0x80000000 : Number(part));
   }
   const baseKey = key, baseChain = chain;
-  return Array.from({ length: FORK_DEV_ACCOUNTS.length }, (_, index) => {
+  return Array.from({ length: 10 }, (_, index) => {
     key = baseKey; chain = baseChain; child(index);
     return '0x' + Buffer.from(keccak_256(pubkey(key).subarray(1)).subarray(12)).toString('hex');
   });
 }
 export function requirePinnedForkAddresses(addresses) {
-  if (!Array.isArray(addresses) || addresses.length !== FORK_DEV_ACCOUNTS.length
-      || addresses.some((address, index) => address !== FORK_DEV_ACCOUNTS[index])) {
+  const expected = forkDevAccounts();
+  if (!Array.isArray(addresses) || addresses.length !== expected.length
+      || addresses.some((address, index) => address !== expected[index])) {
     throw new Error('FORK_ACCOUNT_DERIVATION_MISMATCH');
   }
+}
+/** Mockable public-address boundary; actual startup always uses the owner file and real derivation. */
+export async function verifyOwnerForkAccountSource({ load = readOwnerForkPhrase, derive = deriveForkPublicAddresses } = {}) {
+  const phrase = load();
+  requirePinnedForkAddresses(await derive(phrase));
+  return phrase;
 }
 export const ANVIL_PORT = 8545;
 export const UPSTREAM_PORT = 8546;
@@ -183,8 +227,7 @@ export function validateAnvilBinary(path) {
 }
 export async function exactAnvilArgs(blockNumber, recording = false) {
   if (!Number.isSafeInteger(blockNumber) || blockNumber <= 0) throw new Error('SOURCE_BLOCK_INVALID');
-  const phrase = readOwnerForkPhrase();
-  requirePinnedForkAddresses(await deriveForkPublicAddresses(phrase));
+  const phrase = await verifyOwnerForkAccountSource();
   return [...forkAnvilArgs({ port: ANVIL_PORT, forkUrl: UPSTREAM_URL, forkBlockNumber: blockNumber,
     timeoutMs: recording ? 600000 : 20000 }), '--mnemonic', phrase, '--derivation-path', FORK_ACCOUNT_DERIVATION_PATH];
 }
@@ -231,7 +274,10 @@ export async function startFork({ binary, blockNumber, blockHash, recording = fa
     catch (error) {
       const status = error.message === 'EXITED' ? await record.exited : null;
       const upstream = await probePort(UPSTREAM_PORT);
-      throw new Error(`ANVIL_${error.message}:upstream=${upstream}${status ? `:code=${status.code}:signal=${status.signal}` : ''}:[diagnostics suppressed]`, { cause: error });
+      const stderr = record.stderrTail();
+      const diagnostic = /failed to create genesis/i.test(stderr) && /connection refused/i.test(stderr)
+        ? 'genesis_connection_refused' : '[diagnostics suppressed]';
+      throw new Error(`ANVIL_${error.message}:upstream=${upstream}${status ? `:code=${status.code}:signal=${status.signal}` : ''}:${diagnostic}`, { cause: error });
     }
     rpcTimeoutMs = RPC_TIMEOUT_MS[mode];
     if (await rpc('eth_chainId') !== FORK_CHAIN_ID_HEX) throw new Error('FORK_CHAIN_MISMATCH');
@@ -255,250 +301,215 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   throw new Error('HARNESS_DIRECT_RUN_DISABLED_USE_OWNER_WRAPPER');
 }
 
-/** The recording driver issues the same fixed-order fork reads as §3.4. */
-export async function collectForkFacts({ owner, tokenIn, tokenOut, amountIn, selectedFee = null }) {
-  const { createHash } = await import('node:crypto');
-  const { collectScriptedForkQuote, FORK_CONTRACTS } = await import('../../../../packages/reference-compiler/dist/fork-quote.js');
-  const { SWAP_ROUTER_02 } = await import('../../../../packages/reference-compiler/dist/abi.js');
-  const word = value => BigInt(value).toString(16).padStart(64, '0');
-  const addressWord = value => value.slice(2).padStart(64, '0');
-  const call = (to, data, at) => rpc('eth_call', [{ to, data }, at]);
-  const number = value => BigInt(value);
-  const decodeAddress = value => `0x${value.slice(-40)}`;
-  const decodeSymbol = value => {
-    const bytes = Buffer.from(value.slice(2), 'hex');
-    if (bytes.length < 64) throw new Error('TOKEN_METADATA_INVALID');
-    const start = Number(BigInt(`0x${bytes.subarray(0, 32).toString('hex')}`));
-    if (start + 32 > bytes.length) throw new Error('TOKEN_METADATA_INVALID');
-    const size = Number(BigInt(`0x${bytes.subarray(start, start + 32).toString('hex')}`));
-    if (size < 1 || size > 32 || start + 32 + size > bytes.length) throw new Error('TOKEN_METADATA_INVALID');
-    return bytes.subarray(start + 32, start + 32 + size).toString('utf8');
-  };
-  const transport = async query => {
-    if (query.kind === 'CHAIN') return Number(BigInt(await rpc('eth_chainId')));
-    if (query.kind === 'METADATA') {
-      const data = await rpc('anvil_metadata');
-      return { sourceChainId: Number(data.forkedNetwork.chainId), sourceBlockHash: data.forkedNetwork.forkBlockHash };
-    }
-    if (query.kind === 'LATEST') {
-      const block = await rpc('eth_getBlockByNumber', ['latest', false]);
-      return { number: Number(BigInt(block.number)), hash: block.hash, timestamp: number(block.timestamp) };
-    }
-    if (query.kind === 'TAIL') {
-      const block = await rpc('eth_getBlockByNumber', [`0x${query.blockNumber.toString(16)}`, false]);
-      return { hash: block.hash, timestamp: number(block.timestamp) };
-    }
-    const at = { blockHash: query.blockHash, requireCanonical: true };
-    if (query.kind === 'CODE') {
-      const code = await rpc('eth_getCode', [query.address, at]);
-      return `0x${createHash('sha256').update(Buffer.from(code.slice(2), 'hex')).digest('hex')}`;
-    }
-    if (query.kind === 'TOKEN_METADATA') return {
-      decimals: Number(BigInt(await call(query.address, '0x313ce567', at))),
-      symbol: decodeSymbol(await call(query.address, '0x95d89b41', at)),
-    };
-    if (query.kind === 'DEPLOYMENT') return {
-      factory: decodeAddress(await call(query.address, '0xc45a0155', at)),
-      weth9: decodeAddress(await call(query.address, '0x4aa4a4fc', at)),
-    };
-    if (query.kind === 'POOL') {
-      const result = await call(FORK_CONTRACTS.factory, `0x1698ee82${addressWord(query.tokenIn)}${addressWord(query.tokenOut)}${word(query.fee)}`, at);
-      const pool = decodeAddress(result);
-      return pool === `0x${'00'.repeat(20)}` ? null : pool;
-    }
-    if (query.kind === 'QUOTE') {
-      let result;
-      try {
-        result = await call(FORK_CONTRACTS.quoter,
-          `0xc6a5026a${addressWord(query.tokenIn)}${addressWord(query.tokenOut)}${word(query.amountIn)}${word(query.fee)}${word(0)}`, at);
-      } catch (error) {
-        if (/execution reverted|revert data/i.test(String(error)) && !String(error).includes('FORK_STATE_UNRECORDED')) return null;
-        throw error;
-      }
-      if (!/^0x[0-9a-f]{256,}$/.test(result)) throw new Error('QUOTE_INVALID');
-      return { amountOut: BigInt(`0x${result.slice(2, 66)}`), sqrtPriceX96After: BigInt(`0x${result.slice(66, 130)}`) };
-    }
-    if (query.kind === 'ACCOUNT') return {
-      inputBalance: BigInt(await call(query.tokenIn, `0x70a08231${addressWord(query.owner)}`, at)),
-      ethBalance: BigInt(await rpc('eth_getBalance', [query.owner, at])),
-      allowance: BigInt(await call(query.tokenIn, `0xdd62ed3e${addressWord(query.owner)}${addressWord(SWAP_ROUTER_02)}`, at)),
-      nonce: BigInt(await rpc('eth_getTransactionCount', [query.owner, at])),
-      code: await rpc('eth_getCode', [query.owner, at]),
-    };
-    throw new Error('FORK_QUERY_INVALID');
-  };
-  const routerCode = await rpc('eth_getCode', [FORK_CONTRACTS.router, 'latest']);
-  const reviewedRouterCodeHash = `0x${createHash('sha256').update(Buffer.from(routerCode.slice(2), 'hex')).digest('hex')}`;
-  return collectScriptedForkQuote(transport, { owner, tokenIn, tokenOut, amountIn, selectedFee, reviewedRouterCodeHash });
+/**
+ * Transcript identity: the source state every artifact binds to. It is fixed before the first
+ * provider request, so a recording and its replay produce byte-identical artifacts; the committed
+ * transcript's own SHA-256 is verified separately.
+ */
+export function transcriptIdentity({ sourceBlockNumber, sourceBlockHash, accounts }) {
+  if (!Number.isSafeInteger(sourceBlockNumber) || !/^0x[0-9a-f]{64}$/.test(sourceBlockHash)
+    || !Array.isArray(accounts) || accounts.length !== 10) throw new Error('TRANSCRIPT_IDENTITY_INVALID');
+  const identity = { format: 'gryloo.base-fork-state-transcript.v1', sourceChainId: SOURCE_CHAIN_ID, sourceBlockNumber, sourceBlockHash,
+    anvilBinarySha256: ANVIL_PIN.binarySha256, forkChainId: 31337, derivationPath: FORK_ACCOUNT_DERIVATION_PATH, accounts: [...accounts] };
+  return { identity, identityHash: `0x${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}` };
 }
 
-/** One deterministic owner-run recording scenario; never invoked during G4 preflight. */
-async function runSwapScenario({ owner, setupAccount, tokenIn, tokenOut, amountIn, disposition }) {
-  const { buildModeAPair, decodeUnsignedPayload, fromHex, toHex } = await import('../../../../packages/reference-compiler/dist/payload.js');
-  const { validateForkQuote, FORK_CONTRACTS } = await import('../../../../packages/reference-compiler/dist/fork-quote.js');
-  const { verifySignedPayload } = await import('../../../../packages/reference-reconciler/dist/raw-transaction.js');
-  const { encodeApprove, SWAP_ROUTER_02 } = await import('../../../../packages/reference-compiler/dist/abi.js');
-  const bigHex = value => `0x${BigInt(value).toString(16)}`;
-  const firstFacts = await collectForkFacts({ owner, tokenIn, tokenOut, amountIn });
-  const best = firstFacts.tiers.filter(row => row.status === 'QUOTED')
-    .sort((a, b) => a.amountOut === b.amountOut ? a.fee - b.fee : a.amountOut > b.amountOut ? -1 : 1)[0];
-  if (!best) throw new Error('NO_FULL_INPUT_QUOTE');
-  const facts = { ...firstFacts, selectedFee: best.fee };
-  const quote = validateForkQuote(facts, facts.block.timestamp, amountIn, disposition === 'REVERT_AND_REVOKE' ? 0 : 100);
-  const context = { owner, tokenIn, tokenOut, amountIn, amountOutMinimum: quote.minimumOut,
-    fee: quote.fee, deadline: facts.block.timestamp + 180n, nonce: facts.ownerNonce };
-  const head = await rpc('eth_getBlockByNumber', ['latest', false]);
-  const maxFeePerGas = 2n * BigInt(head.baseFeePerGas) + 1_000_000n;
-  const makePair = (approveGasLimit, swapGasLimit) => buildModeAPair({ ...context, approveGasLimit, swapGasLimit, maxFeePerGas });
-  let pair = makePair(200000n, 600000n);
-  const simulate = async value => {
-    const calls = [value.approveBytes, value.swapBytes].map(bytes => {
-      const decoded = decodeUnsignedPayload(bytes);
-      return { from: owner, to: decoded.to, nonce: bigHex(decoded.nonce), gas: bigHex(decoded.gasLimit),
-        maxFeePerGas: bigHex(decoded.maxFeePerGas), maxPriorityFeePerGas: bigHex(decoded.maxPriorityFeePerGas),
-        value: '0x0', data: toHex(decoded.data) };
-    });
-    const result = await rpc('eth_simulateV1', [{ blockStateCalls: [{ calls }], validation: true,
-      traceTransfers: false, returnFullTransactions: false }, { blockHash: facts.block.hash, requireCanonical: true }]);
-    if (!Array.isArray(result) || result[0]?.calls?.length !== 2) throw new Error('SIMULATION_SHAPE_INVALID');
-    return result[0].calls;
-  };
-  const first = await simulate(pair);
-  if (first.some(call => call.status !== '0x1' || BigInt(call.gasUsed) <= 0n)) throw new Error('SIMULATION_REVERTED');
-  pair = makePair((BigInt(first[0].gasUsed) * 5n + 3n) / 4n, (BigInt(first[1].gasUsed) * 5n + 3n) / 4n);
-  const rebuilt = await simulate(pair);
-  if (rebuilt.some((call, i) => call.status !== '0x1' || call.gasUsed !== first[i].gasUsed)) throw new Error('SIMULATION_UNSTABLE');
-  const sign = async bytes => {
-    const decoded = decodeUnsignedPayload(bytes);
-    const raw = await rpc('eth_signTransaction', [{ from: owner, to: decoded.to, nonce: bigHex(decoded.nonce),
-      gas: bigHex(decoded.gasLimit), maxFeePerGas: bigHex(decoded.maxFeePerGas),
-      maxPriorityFeePerGas: bigHex(decoded.maxPriorityFeePerGas), value: '0x0', data: toHex(decoded.data),
-      chainId: FORK_CHAIN_ID_HEX, type: '0x2' }]);
-    const { keccak_256 } = await import('../../../../packages/reference-compiler/node_modules/@noble/hashes/sha3.js');
-    const hash = toHex(keccak_256(fromHex(raw)));
-    verifySignedPayload(fromHex(raw), hash, owner, bytes);
-    return { raw, hash };
-  };
-  const submit = async signed => {
-    const hash = await rpc('eth_sendRawTransaction', [signed.raw]);
-    if (hash !== signed.hash) throw new Error('TX_HASH_MISMATCH');
-    const stored = await rpc('eth_getRawTransactionByHash', [hash]);
-    if (stored !== signed.raw) throw new Error('RAW_TRANSACTION_MISMATCH');
-    return { hash, receipt: await rpc('eth_getTransactionReceipt', [hash]) };
-  };
-  if (disposition.startsWith('MUTATE_')) {
-    const { encodeUnsignedPayload } = await import('../../../../packages/reference-compiler/dist/payload.js');
-    const { decodeSwap, encodeSwap } = await import('../../../../packages/reference-compiler/dist/abi.js');
-    const reviewed = decodeUnsignedPayload(pair.swapBytes);
-    let changed;
-    if (disposition === 'MUTATE_GAS') changed = encodeUnsignedPayload({ ...reviewed, gasLimit: reviewed.gasLimit + 1n });
-    else {
-      const decoded = decodeSwap(reviewed.data);
-      const replacement = disposition === 'MUTATE_RECIPIENT'
-        ? { ...decoded, recipient: setupAccount }
-        : disposition === 'MUTATE_DATA'
-          ? { ...decoded, amountOutMinimum: decoded.amountOutMinimum + 1n }
-          : null;
-      if (!replacement) throw new Error('ADVERSARIAL_CASE_INVALID');
-      changed = encodeUnsignedPayload({ ...reviewed, data: encodeSwap(replacement) });
+/**
+ * Test-only EIP-1193 stand-in: Anvil signs for its unlocked local account. Faults are injected here,
+ * after the app has built the exact request, never inside the application.
+ */
+export function anvilTestWallet(call, owner) {
+  return async (request, fault = null) => {
+    if (request?.from !== owner || request.chainId !== FORK_CHAIN_ID_HEX || request.type !== '0x2') throw new Error('TEST_WALLET_REQUEST_INVALID');
+    if (fault?.reject) throw Object.assign(new Error('TEST_WALLET_USER_REJECTED'), { code: 4001 });
+    let fields = { ...request };
+    if (fault?.mutate === 'gas') fields = { ...fields, gas: `0x${(BigInt(fields.gas) + 1n).toString(16)}` };
+    if (fault?.mutate === 'recipient') {
+      const { decodeSwap, encodeSwap } = await import('../../../../packages/reference-compiler/dist/abi.js');
+      const { fromHex, toHex } = await import('../../../../packages/reference-compiler/dist/payload.js');
+      fields = { ...fields, data: toHex(encodeSwap({ ...decodeSwap(fromHex(fields.data)), recipient: fault.recipient })) };
     }
-    const adversarial = await sign(changed);
-    let divergent = false;
-    try { verifySignedPayload(fromHex(adversarial.raw), adversarial.hash, owner, pair.swapBytes); }
-    catch (error) { divergent = String(error).includes('PAYLOAD_FIDELITY_FAILED'); }
-    if (!divergent) throw new Error('ADVERSARIAL_PAYLOAD_ACCEPTED');
-    return { disposition, outcome: 'DIVERGENT', reviewedSwapPayload: toHex(pair.swapBytes),
-      signedTransactionHash: adversarial.hash, broadcast: false };
-  }
-  const approval = await sign(pair.approveBytes);
-  const approvalResult = await submit(approval);
-  if (approvalResult.receipt?.status !== '0x1') throw new Error('APPROVAL_NOT_CONFIRMED');
-  let swap = await sign(pair.swapBytes);
-  if (disposition === 'THROW_BEFORE_BROADCAST') {
-    const before = await rpc('eth_getTransactionCount', [owner, 'latest']);
-    if (BigInt(before) !== context.nonce + 1n || await rpc('eth_getTransactionByHash', [swap.hash]) !== null) throw new Error('BEFORE_BROADCAST_RECOVERY_INVALID');
-    const retried = await sign(pair.swapBytes);
-    if (retried.raw !== swap.raw) throw new Error('RETRY_PAYLOAD_CHANGED');
-    swap = retried;
-  }
-  if (disposition === 'REVERT_AND_REVOKE') {
-    // A same-pool setup-account swap moves price after the owner's quote.
-    const setup = setupAccount;
-    const { encodeSwap } = await import('../../../../packages/reference-compiler/dist/abi.js');
-    const w = 10n ** 18n;
-    const headNow = await rpc('eth_getBlockByNumber', ['latest', false]);
-    const feeCap = bigHex(2n * BigInt(headNow.baseFeePerGas) + 1_000_000n);
-    const localSend = async (to, data, value = 0n) => rpc('eth_sendTransaction', [{ from: setup, to, data,
-      value: bigHex(value), gas: '0xf4240', maxFeePerGas: feeCap, maxPriorityFeePerGas: '0xf4240' }]);
-    await localSend(FORK_CONTRACTS.weth, '0xd0e30db0', w);
-    await localSend(FORK_CONTRACTS.weth, toHex(encodeApprove(SWAP_ROUTER_02, w)));
-    await localSend(SWAP_ROUTER_02, toHex(encodeSwap({ tokenIn, tokenOut, fee: quote.fee, recipient: setup,
-      amountIn: w, amountOutMinimum: 1n, sqrtPriceLimitX96: 0n,
-      deadline: BigInt(headNow.timestamp) + 180n })));
-  }
-  let result;
-  if (disposition === 'PENDING') {
-    await rpc('anvil_setAutomine', [false]);
-    try {
-      const pendingHash = await rpc('eth_sendRawTransaction', [swap.raw]);
-      if (pendingHash !== swap.hash) throw new Error('PENDING_HASH_MISMATCH');
-      const pool = await rpc('txpool_content');
-      if (!pool?.pending) throw new Error('PENDING_NOT_VISIBLE');
-      await rpc('evm_mine');
-      result = { hash: pendingHash, receipt: await rpc('eth_getTransactionReceipt', [pendingHash]) };
-    } finally { await rpc('anvil_setAutomine', [true]); }
-  } else {
-    result = await submit(swap);
-  }
-  if (!result.receipt || result.receipt.transactionHash !== swap.hash) throw new Error('SWAP_RECEIPT_MISSING');
-  if (disposition === 'REVERT_AND_REVOKE') {
-    if (result.receipt.status !== '0x0') throw new Error('ADVERSARIAL_SWAP_DID_NOT_REVERT');
-    const allowanceData = `0xdd62ed3e${owner.slice(2).padStart(64, '0')}${SWAP_ROUTER_02.slice(2).padStart(64, '0')}`;
-    const residual = BigInt(await rpc('eth_call', [{ to: tokenIn, data: allowanceData }, 'latest']));
-    if (residual !== amountIn) throw new Error('RESIDUAL_ALLOWANCE_MISMATCH');
-    const nonce = BigInt(await rpc('eth_getTransactionCount', [owner, 'latest']));
-    const headAfter = await rpc('eth_getBlockByNumber', ['latest', false]);
-    const zero = await sign((await import('../../../../packages/reference-compiler/dist/payload.js')).encodeUnsignedPayload({
-      chainId: 31337, nonce, maxPriorityFeePerGas: 1000000n,
-      maxFeePerGas: BigInt(headAfter.baseFeePerGas) * 2n + 1000000n,
-      gasLimit: 100000n, to: tokenIn, value: 0n, data: encodeApprove(SWAP_ROUTER_02, 0n), accessList: [],
-    }));
-    const revoked = await submit(zero);
-    if (revoked.receipt?.status !== '0x1') throw new Error('REVOCATION_FAILED');
-    return { disposition, approvalHash: approval.hash, swapHash: swap.hash, revocationHash: zero.hash,
-      swapStatus: result.receipt.status, residualBeforeRevocation: residual.toString() };
-  }
-  if (result.receipt.status !== '0x1') throw new Error('SWAP_NOT_CONFIRMED');
-  if (disposition === 'BROADCAST_THEN_HANG') {
-    const observed = await rpc('eth_getTransactionByHash', [swap.hash]);
-    if (observed?.hash !== swap.hash || BigInt(await rpc('eth_getTransactionCount', [owner, 'latest'])) !== context.nonce + 2n) throw new Error('UNKNOWN_RESULT_RECOVERY_INVALID');
-  }
-  return { disposition, fee: quote.fee, quotedOut: quote.amountOut.toString(),
-    approvalHash: approval.hash, swapHash: swap.hash, swapStatus: result.receipt.status,
-    approveGasUsed: rebuilt[0].gasUsed, swapGasUsed: rebuilt[1].gasUsed };
+    const raw = await call('eth_signTransaction', [fields]);
+    const hash = await call('eth_sendRawTransaction', [raw]);
+    if (fault?.dropResponse) throw new Error('TEST_WALLET_RESPONSE_LOST');
+    return hash;
+  };
 }
 
-export async function runRecordingScenarios(sourceBlockNumber, { recording = false } = {}) {
-  const { prepareForkFixture } = await import('./fork-setup.mjs');
+/** Reviewed acceptance amounts; the browser acceptance authors the same three workflows. */
+export const MODE_A_SCENARIO_AMOUNTS = Object.freeze({ WETH_TO_USDC: '1', USDC_TO_WETH: '2500' });
+
+/**
+ * The single BUILD-003F Mode A scenario set. The recording, the offline replay and the dry run all
+ * execute exactly this sequence through the application's own service module.
+ */
+/** The exact accepted outcome of every scenario; anything else is an unmet BUILD-003F acceptance criterion. */
+export function modeAScenarioAcceptance(results) {
+  const unmet = [];
+  const final = key => results[key]?.evidence?.at(-1);
+  for (const key of ['WETH_TO_USDC', 'USDC_TO_WETH', 'UNKNOWN_RESULT_RESTART', 'PENDING_THEN_MINED']) {
+    if (results[key]?.failure || final(key)?.outcome !== 'RECONCILED' || final(key)?.code !== 'EXACT') unmet.push(`${key}_NOT_RECONCILED`);
+  }
+  const revert = results.REVERT_RESIDUAL_REVOCATION;
+  if (revert?.failure || revert?.evidence?.[0]?.code !== 'TRANSACTION_REVERTED' || !final('REVERT_RESIDUAL_REVOCATION')?.revocationConfirmed) unmet.push('REVERT_REVOCATION_NOT_CONFIRMED');
+  for (const key of ['WALLET_MUTATED_GAS', 'WALLET_MUTATED_RECIPIENT']) {
+    if (results[key]?.failure || results[key]?.observations?.at(-1)?.outcome !== 'DIVERGENT' || results[key]?.evidence?.length) unmet.push(`${key}_NOT_DIVERGENT`);
+  }
+  return unmet;
+}
+
+/**
+ * `tolerant` (recording and replay only): a failing scenario is recorded as a sanitized failure code and the
+ * next scenario starts from the baseline snapshot, so the single recording still yields a complete transcript.
+ */
+export async function runModeAScenarios({ call, profile, journalRoot, setupAccount, tolerant = false }) {
+  const { createModeAService } = await import('../../src/server/mode-a-service.ts');
+  const { createSwapNode } = await import('../../src/domain/swap-authoring.ts');
+  const { baseAssetRegistry, referenceRegistry } = await import('../../../../packages/action-registry/dist/index.js');
   const { FORK_CONTRACTS } = await import('../../../../packages/reference-compiler/dist/fork-quote.js');
-  const setup = await prepareForkFixture(sourceBlockNumber, { requirePinnedIndices: !recording });
-  let snapshot = await rpc('evm_snapshot');
-  const scenarios = [
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'CONFIRMED' },
-    { tokenIn: FORK_CONTRACTS.usdc, tokenOut: FORK_CONTRACTS.weth, amountIn: 2500n * 10n ** 6n, disposition: 'CONFIRMED' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'BROADCAST_THEN_HANG' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'THROW_BEFORE_BROADCAST' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'PENDING' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'REVERT_AND_REVOKE' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'MUTATE_RECIPIENT' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'MUTATE_DATA' },
-    { tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc, amountIn: 10n ** 18n, disposition: 'MUTATE_GAS' },
-  ];
-  const results = [];
-  for (const scenario of scenarios) {
-    if (await rpc('evm_revert', [snapshot]) !== true) throw new Error('SNAPSHOT_REVERT_FAILED');
-    snapshot = await rpc('evm_snapshot');
-    results.push(await runSwapScenario({ owner: setup.owner, setupAccount: setup.setup, ...scenario }));
+  const { encodeApprove, encodeSwap, SWAP_ROUTER_02 } = await import('../../../../packages/reference-compiler/dist/abi.js');
+  const { sendSetupTransaction } = await import('./fork-setup.mjs');
+  const context = { registryId: referenceRegistry.registryId, capabilityId: referenceRegistry.capabilities[0].id,
+    actionId: referenceRegistry.actions[0].id, assets: baseAssetRegistry };
+  const workflow = (direction, amount, slippage) => ({ schemaVersion: '1.0.0', workflowId: 'workflow-local', revision: 1,
+    resourceEdges: [], nodes: [createSwapNode('node-001', direction, amount, slippage, context)] });
+  const clock = async () => {
+    const block = await call('eth_getBlockByNumber', ['latest', false]);
+    return new Date(Number(BigInt(block.timestamp)) * 1000).toISOString();
+  };
+  const owner = profile.owner;
+  const send = anvilTestWallet(call, owner);
+  const service = name => createModeAService({ call, profile, journalDir: `${journalRoot}/${name}`, clock });
+  const expectError = async (promise, code) => {
+    const error = await promise.then(() => null, failure => failure);
+    if (!String(error?.message ?? '').startsWith(code)) throw new Error(`SCENARIO_EXPECTED_${code}:${error?.message ?? 'none'}`);
+  };
+  async function request(api, executionId, stepId, fault = null, key = `${stepId}-key-1`) {
+    const { attempt, payload } = await api.beginStep(executionId, stepId, key);
+    let report;
+    try { report = { kind: 'HASH', transactionHash: await send(payload.request, fault) }; }
+    catch (error) { report = error?.code === 4001 ? { kind: 'REJECTED' } : { kind: 'UNKNOWN' }; }
+    return api.recordSubmission(executionId, attempt.executionAttemptId, report);
   }
-  return { setup, results };
+  async function settle(api, executionId, stepId) {
+    for (let i = 0; i < 200; i++) {
+      const observed = await api.observeStep(executionId, stepId);
+      if (observed.attempt.state !== 'PENDING') return observed;
+      await sleep(25);
+    }
+    throw new Error('SCENARIO_STEP_NOT_SETTLED');
+  }
+  const summary = async (api, executionId) => {
+    const status = await api.status(executionId);
+    return { executionId, hashes: status.prepared.hashes, codeHashes: status.prepared.codeHashes, payloadHashes: status.prepared.payloads.map(view => view.payloadHash),
+      quotedOut: status.prepared.quotedOut, minimumOut: status.prepared.minimumOut, fee: status.prepared.fee,
+      attempts: status.attempts.map(item => ({ id: item.executionAttemptId, state: item.state, transactionHash: item.transactionHash })),
+      observations: status.observations.map(item => ({ stepId: item.stepId, outcome: item.outcome, code: item.code, transactionHash: item.transactionHash })),
+      evidence: status.evidence.map(item => ({ version: item.version, outcome: item.outcome, code: item.code, evidenceBundleHash: item.evidenceBundleHash,
+        environment: item.bundle.environment, residualAllowance: item.residualAllowance, revocationConfirmed: item.revocationConfirmed })) };
+  };
+  async function exactSwap(name, direction, slippage, { swapFault = null, beforeSwap = null } = {}) {
+    const api = service(name);
+    const prepared = await api.prepare({ workflow: workflow(direction, MODE_A_SCENARIO_AMOUNTS[direction], slippage) });
+    await request(api, prepared.executionId, 'step-approve');
+    const approval = await settle(api, prepared.executionId, 'step-approve');
+    if (approval.attempt.state !== 'CONFIRMED') throw new Error('SCENARIO_APPROVAL_NOT_CONFIRMED');
+    if (beforeSwap) await beforeSwap(prepared);
+    await request(api, prepared.executionId, 'step-swap', swapFault);
+    return { api, prepared };
+  }
+  const results = {};
+  const scenario = async (key, body) => {
+    try { await body(); }
+    catch (error) {
+      if (!tolerant) throw error;
+      results[key] = { failure: String(error?.message ?? 'SCENARIO_FAILED').replace(/[^A-Za-z0-9_:.,-]/g, '').slice(0, 160) };
+      await call('anvil_setAutomine', [true]).catch(() => undefined);
+    }
+  };
+  let snapshot = await call('evm_snapshot');
+  const fresh = async () => {
+    if (await call('evm_revert', [snapshot]) !== true) throw new Error('SNAPSHOT_REVERT_FAILED');
+    snapshot = await call('evm_snapshot');
+  };
+  for (const direction of ['WETH_TO_USDC', 'USDC_TO_WETH']) await scenario(direction, async () => {
+    await fresh();
+    const { api, prepared } = await exactSwap(`s-${direction}`, direction, '100');
+    if ((await settle(api, prepared.executionId, 'step-swap')).attempt.state !== 'CONFIRMED') throw new Error('SCENARIO_SWAP_NOT_CONFIRMED');
+    const evidence = await api.reconcile(prepared.executionId);
+    if (evidence.outcome !== 'RECONCILED' || evidence.code !== 'EXACT') throw new Error(`SCENARIO_NOT_RECONCILED:${evidence.code}`);
+    results[direction] = await summary(api, prepared.executionId);
+  });
+  // Unknown submission result: the wallet broadcast, then its response is lost; a restarted service recovers.
+  await scenario('UNKNOWN_RESULT_RESTART', async () => {
+    await fresh();
+    const { prepared } = await exactSwap('s-unknown', 'WETH_TO_USDC', '100', { swapFault: { dropResponse: true } });
+    const restarted = service('s-unknown');
+    const unknown = (await restarted.status(prepared.executionId)).attempts.at(-1);
+    if (unknown?.state !== 'SUBMISSION_RESULT_UNKNOWN') throw new Error('SCENARIO_UNKNOWN_NOT_RECORDED');
+    await expectError(restarted.beginStep(prepared.executionId, 'step-swap', 'step-swap-key-2'), 'ATTEMPT_IN_PROGRESS');
+    const recovered = await restarted.observeStep(prepared.executionId, 'step-swap');
+    if (recovered.attempt.state !== 'CONFIRMED' || !recovered.observation?.code.startsWith('RECOVERED_')) throw new Error('SCENARIO_UNKNOWN_NOT_RECOVERED');
+    await expectError(restarted.beginStep(prepared.executionId, 'step-swap', 'step-swap-key-3'), 'RETRY_NOT_AUTHORIZED');
+    const evidence = await restarted.reconcile(prepared.executionId);
+    if (evidence.outcome !== 'RECONCILED') throw new Error(`SCENARIO_UNKNOWN_NOT_RECONCILED:${evidence.code}`);
+    results.UNKNOWN_RESULT_RESTART = await summary(restarted, prepared.executionId);
+  });
+  // Delayed mining: both requests stay PENDING (txpool) until a block is mined.
+  await scenario('PENDING_THEN_MINED', async () => {
+    await fresh();
+    const api = service('s-pending');
+    const prepared = await api.prepare({ workflow: workflow('WETH_TO_USDC', MODE_A_SCENARIO_AMOUNTS.WETH_TO_USDC, '100') });
+    await call('anvil_setAutomine', [false]);
+    try {
+      for (const stepId of ['step-approve', 'step-swap']) {
+        await request(api, prepared.executionId, stepId);
+        const pending = await api.observeStep(prepared.executionId, stepId);
+        const pool = await call('txpool_content');
+        if (pending.attempt.state !== 'PENDING' || pending.observation !== null || !pool?.pending) throw new Error('SCENARIO_PENDING_NOT_VISIBLE');
+        await call('evm_mine');
+        if ((await settle(api, prepared.executionId, stepId)).attempt.state !== 'CONFIRMED') throw new Error('SCENARIO_PENDING_NOT_CONFIRMED');
+      }
+    } finally { await call('anvil_setAutomine', [true]); }
+    const evidence = await api.reconcile(prepared.executionId);
+    if (evidence.outcome !== 'RECONCILED') throw new Error(`SCENARIO_PENDING_NOT_RECONCILED:${evidence.code}`);
+    results.PENDING_THEN_MINED = await summary(api, prepared.executionId);
+  });
+  // Price moves after the zero-slippage quote: the swap reverts, the finite allowance remains, and a
+  // separate reviewed revocation clears it.
+  await scenario('REVERT_RESIDUAL_REVOCATION', async () => {
+    await fresh();
+    const { api, prepared } = await exactSwap('s-revert', 'WETH_TO_USDC', '0', { beforeSwap: async quoted => {
+      const unit = 10n ** 18n;
+      const head = await call('eth_getBlockByNumber', ['latest', false]);
+      const hex = bytes => `0x${Buffer.from(bytes).toString('hex')}`;
+      await sendSetupTransaction(setupAccount, FORK_CONTRACTS.weth, '0xd0e30db0', unit, { call });
+      await sendSetupTransaction(setupAccount, FORK_CONTRACTS.weth, hex(encodeApprove(SWAP_ROUTER_02, unit)), 0n, { call });
+      await sendSetupTransaction(setupAccount, SWAP_ROUTER_02, hex(encodeSwap({ tokenIn: FORK_CONTRACTS.weth, tokenOut: FORK_CONTRACTS.usdc,
+        fee: quoted.fee, recipient: setupAccount, amountIn: unit, amountOutMinimum: 1n, sqrtPriceLimitX96: 0n,
+        deadline: BigInt(head.timestamp) + 180n })), 0n, { call });
+    } });
+    if ((await settle(api, prepared.executionId, 'step-swap')).attempt.state !== 'REVERTED') throw new Error('SCENARIO_SWAP_DID_NOT_REVERT');
+    const evidence = await api.reconcile(prepared.executionId);
+    if (evidence.outcome !== 'DIVERGENT' || evidence.code !== 'TRANSACTION_REVERTED' || evidence.residualAllowance !== prepared.amountIn) {
+      throw new Error(`SCENARIO_REVERT_EVIDENCE_INVALID:${evidence.code}`);
+    }
+    await api.prepareRevocation(prepared.executionId);
+    await request(api, prepared.executionId, 'step-revoke');
+    if ((await settle(api, prepared.executionId, 'step-revoke')).attempt.state !== 'CONFIRMED') throw new Error('SCENARIO_REVOCATION_NOT_CONFIRMED');
+    const revoked = await api.confirmRevocation(prepared.executionId);
+    if (!revoked.revocationConfirmed || revoked.residualAllowance !== '0' || revoked.version !== 2) throw new Error('SCENARIO_REVOCATION_EVIDENCE_INVALID');
+    results.REVERT_RESIDUAL_REVOCATION = await summary(api, prepared.executionId);
+  });
+  // A wallet that changes any signed field produces DIVERGENT, never RECONCILED.
+  for (const [label, fault] of [['WALLET_MUTATED_GAS', { mutate: 'gas' }], ['WALLET_MUTATED_RECIPIENT', { mutate: 'recipient', recipient: setupAccount }]]) await scenario(label, async () => {
+    await fresh();
+    const { api, prepared } = await exactSwap(`s-${label.toLowerCase()}`, 'WETH_TO_USDC', '100', { swapFault: fault });
+    const observed = await settle(api, prepared.executionId, 'step-swap');
+    if (observed.attempt.state !== 'RECONCILIATION_REQUIRED' || observed.observation?.outcome !== 'DIVERGENT') throw new Error(`SCENARIO_${label}_NOT_DIVERGENT`);
+    await expectError(api.reconcile(prepared.executionId), 'RECONCILIATION_NOT_READY');
+    results[label] = await summary(api, prepared.executionId);
+  });
+  await fresh();
+  return results;
 }
