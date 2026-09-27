@@ -1,7 +1,14 @@
 # Repository status
 
-## BUILD-003D closure state (2026-09-24)
+## Current BUILD-003F state (2026-09-27)
 
+BUILD-003D was merged through PR #10 at `ca22dd5796614691a8de3a4271c3af5a7c889fd9`. DEC-0028 approved BUILD-003F within 52 created and 46 modified paths, with 272 protected paths. The current owner checkpoint has completed one real Alchemy Free Base Mainnet recording (286 provider requests, 7,436 reserved CU, finalized source block 51,797,365), byte-identical closed replay of transcript `ebf4daaf10f891a735db682e8db2ee383b5165cece414e606a2011e681ed7d75`, 18/18 real-replay browser cases and a manually operated MetaMask/Brave G7 verification. G7 independently found both signed payloads exact, both receipts successful and Evidence Bundle `0xd651a51063af8f86aee30d7f85844bb4747147bc27eb371807e38c3ac5f795b6` `RECONCILED:EXACT` on local chain 31337. The separate earlier F2 owner-secret suite passed 51/51 and G1 C1–C10. See the [BUILD-003F report](builds/BUILD-003F-REPORT.md) for the distinct environments and limits.
+
+**Current markers:** BUILD-003 certification: PENDING_OWNER_DECISION. G7 manual wallet acceptance: PASS. BUILD-003: IN_PROGRESS. BUILD-003F local acceptance has passed; final local gates, delivery PR/CI, owner-authorized conditional merge, post-merge CI, ADR-0004 acceptance and the sequential certification decision remain pending. `FORK_REPRODUCED` describes the local fork evidence, not a public-chain transaction, product deployment or BUILD-003 certification. `TESTNET_EXECUTED` and `MAINNET_EXECUTED` remain absent. The owner provider credential was removed after F3; no package, wallet or public-chain authority is added. The approved next build remains `NONE_APPROVED`; BUILD-004 planning is blocked until certification.
+
+## Historical BUILD-003D closure state (2026-09-24)
+
+The following paragraphs preserve the state at BUILD-003D closure. Their pending/not-run statements are historical and are superseded by the current BUILD-003F section above.
 BUILD-003D was approved under DEC-0023, with Amendments 1–6. It is closed under Option B (DEC-0025) and delivers only the implementation and acceptance evidence that passed offline: 66 created and 26 modified paths.
 
 - **G0:** a deterministic Simulate viewport and screenshot-diff forensics. Local stress passed; CI without a rerun remains pending until the pull request exists.
@@ -80,7 +87,7 @@ The agent made no live RPC request, used no credential and operated no wallet. T
 - Dependency inventory: 245 pinned registry identities and 16 reviewed license
   exceptions; BUILD-003D adds the approved two Noble identities for 247 locked registry identities without changing the earlier resolutions
 
-## State by category
+## Historical state by category at BUILD-003D closure
 
 | Category | Current state |
 |---|---|

@@ -336,7 +336,11 @@ def verify_dependencies():
     app = json.loads(Path("apps/reference-dapp/package.json").read_text())
     expected_app_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+        # BUILD-003F: the app links the three already locked reference packages; no registry identity changes.
+        "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
+        "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
         "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
+        "@defi-workflow-engine/reference-reconciler": "workspace:0.1.0",
         "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
@@ -385,6 +389,11 @@ def verify_dependencies():
             r"(?m)^      '@defi-workflow-engine/reference-linter':\n        specifier: workspace:0\.1\.0\n        version: link:\.\./\.\./packages/reference-linter$",
             app_importer):
         errors.append("BUILD-003A app lock workspace link differs")
+    for package in ("reference-compiler", "reference-executor", "reference-reconciler"):
+        if app_importer.count(f"'@defi-workflow-engine/{package}':") != 1 or not re.search(
+                rf"(?m)^      '@defi-workflow-engine/{package}':\n        specifier: workspace:0\.1\.0\n        version: link:\.\./\.\./packages/{package}$",
+                app_importer):
+            errors.append(f"BUILD-003F app lock workspace link differs: {package}")
     for identity in BUILD002_DIRECT_VERSIONS:
         package_id = identity + "@" + BUILD002_DIRECT_VERSIONS[identity]
         if package_id not in locked:

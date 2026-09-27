@@ -91,3 +91,33 @@
 .observation-provenance div{min-width:0}.observation-provenance dt{color:var(--muted);font-weight:700}.observation-provenance dd{margin:0;overflow-wrap:anywhere}
 .observation-provenance code{font-size:10px}
 @media(max-width:700px){.observation-panel{padding:14px}.tier-table{font-size:10px}}
+/* BUILD-003F local-fork Mode A additions, using the existing shell tokens; fork states are never green. */
+.fork-panel,.manifest-review,.execution-panel{margin-top:14px;padding:18px;display:grid;gap:12px;border-color:#e6cf9c}
+.manifest-review,.execution-panel{margin-top:0}.execution-panel{margin-top:14px}
+.fork-results{display:grid;gap:12px;min-width:0}
+.fork-current,.fork-recovered{background:var(--blue-soft);border-color:#c9ddff;color:#174d9f}
+.fork-invalidated,.fork-blocked{background:var(--amber-soft);border-color:#f2dfb3;color:var(--amber)}
+.fork-verified{margin:0;padding:9px 11px;border:1px solid #c9ddff;border-radius:8px;background:var(--blue-soft);color:#174d9f;font-size:12px;font-weight:700}
+.fork-verified[data-browser-verification="BLOCKED"]{background:#fff1f2;border-color:#edc4c9;color:var(--red)}
+.payload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.payload-card,.step-card,.outcome-card{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px;min-width:0}
+.payload-card h3,.step-card h3,.outcome-card h3{font-size:13px;margin:0}
+.payload-hash{margin:0;font-size:11px;color:var(--muted);overflow-wrap:anywhere}.payload-hash code{font-size:10px}
+.payload-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.payload-table th,.payload-table td{text-align:left;vertical-align:top;padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.payload-table th{width:34%;color:var(--muted);font-weight:700}.payload-table code,.step-facts code{font-size:10px}
+.fork-limitations{margin:0;padding-left:17px;display:grid;gap:4px;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.fork-limitations code{font-size:10px}
+.step-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.step-status{border:1px solid var(--line);border-radius:5px;padding:5px 8px;font-size:10px;font-weight:800;letter-spacing:.07em;color:var(--muted);background:var(--soft)}
+.step-pending,.step-submitting,.step-confirmed_not_reconciled{background:var(--blue-soft);border-color:#c9ddff;color:#174d9f}
+.step-submission_result_unknown,.step-reverted,.step-divergent,.step-not_found,.step-inconclusive{background:var(--amber-soft);border-color:#f2dfb3;color:var(--amber)}
+.step-facts{margin:0;display:grid;gap:5px;font-size:11px}.step-facts div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px}
+.step-facts dt{color:var(--muted);font-weight:700}.step-facts dd{margin:0;overflow-wrap:anywhere}
+.outcome-card{border-color:#c9ddff;background:#fbfdff}.outcome-divergent,.outcome-inconclusive{border-color:#f2dfb3;background:#fffcf4}
+.wallet-chip{border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:11px;font-weight:700;background:var(--soft);overflow-wrap:anywhere}
+.fork-panel .simulate-controls button,.manifest-review .simulate-controls button,.execution-panel .simulate-controls button{min-height:40px;border:0;border-radius:6px;background:var(--blue);color:white;padding:0 14px;font-weight:700}
+.summary-bar button.primary{background:var(--blue);border-color:var(--blue);color:white}
+@media(max-width:1180px){.payload-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.fork-panel,.manifest-review,.execution-panel{padding:14px}.step-facts div{grid-template-columns:minmax(0,1fr)}}
+.fork-badge{display:inline-flex}

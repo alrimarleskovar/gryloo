@@ -1,5 +1,15 @@
 # Next build
 
+## Current state after BUILD-003F local acceptance (2026-09-27)
+
+DEC-0028 approved the complete BUILD-003F implementation and the bounded, single-use owner recording. F2, real F3 recording, byte-identical F4 replay, F5 local-fork application tests and the owner-operated G7 wallet verification have passed locally; see the [BUILD-003F report](builds/BUILD-003F-REPORT.md). Delivery, remote and post-merge CI, ADR-0004 acceptance and BUILD-003 certification remain pending. The local `FORK_REPRODUCED` result grants no public-chain, production or later-build authority.
+
+The approved next build is `NONE_APPROVED`. BUILD-004 planning remains blocked until BUILD-003 is actually certified. BUILD-003E remains reserved for public-testnet evidence; no testnet, mainnet, Mode B or package-publication approval is implied.
+
+## Historical state at BUILD-003D closure (2026-09-24)
+
+The following approval and planning statements record the earlier DEC-0025 closure. DEC-0028 subsequently approved BUILD-003F; the current state above supersedes those historical pending statements.
+
 BUILD-003D is closed under Option B (DEC-0025). It delivers only the offline-accepted scope: the viewport and forensics fix, historical pre-secret-removal Anvil compatibility evidence, the enforcement-matrix contract, the pure compiler, executor and reconciler packages, and the fork harness and replay infrastructure.
 
 All three owner-run Base recording attempts stopped, and D-5 recording authority is exhausted at 3/3 attempts and 68/1,800 requests. No further BUILD-003D recording is permitted.

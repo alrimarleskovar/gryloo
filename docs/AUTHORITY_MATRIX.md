@@ -7,7 +7,7 @@ UI checks, and monitoring do not become independent enforcement.
 |---|---|---|---|
 | Approve governance scope | Human owner | Repository review and Git history | ENFORCED |
 | Apply AI financial proposal | User or delegated authority | NOT_ENFORCED | NOT_IMPLEMENTED |
-| Mode A exact payload or intent binding | User signature | NOT_ENFORCED | NOT_IMPLEMENTED |
+| Mode A exact payload on the local fork | User signature through an injected EIP-1193 wallet | Browser byte review, same-origin app gateway and signed EIP-1559 payload on chain 31337 only; no general intent binding | FORK_ONLY |
 | Mode B maximum policy limits | Independently enforced mechanism | NOT_ENFORCED | PROPOSED_ONLY |
 | Mode C managed execution | Explicit future policy | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Pause, revoke, cancel, or refund execution | Future authority boundary | NOT_ENFORCED | NOT_IMPLEMENTED |
@@ -23,14 +23,12 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-003C | Human owner | DEC-0020, DEC-0021, DEC-0022 and [approved plan](builds/BUILD-003C-PLAN.md); read-only local development observation only | APPROVED |
 | BUILD-003C Alchemy continuation after HTTP 403 | Human owner | Approved Amendment 3 and DEC-0022; offline journal validation precedes the owner-run command | APPROVED |
 | BUILD-003D Mode A fork implementation | Human owner | DEC-0023 and [approved plan](builds/BUILD-003D-PLAN.md), including Amendments 1–6; closed under Option B (DEC-0025) with 66 created and 26 modified offline-accepted paths | APPROVED |
-| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance | Human owner | Separate plan, recording budget and explicit approval required (DEC-0025) | NOT_APPROVED |
+| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance | Human owner | DEC-0028, approved BUILD-003F plan, one bounded owner recording and manually operated local wallet G7 | APPROVED |
 | Mainnet execution, public testnet execution, Mode B or later builds | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 No Mode B mechanism is selected, certified, deployed, or implemented.
 
-ADR-0002 covers contract and toolchain decisions only. Authorization mode remains
-`NONE`. A valid policy, payload hash, journal entry, or evidence bundle is data;
-it is not a signature, permission, or independently enforced control.
+ADR-0002 covers contract and toolchain decisions only. General product authorization remains `NONE`; the BUILD-003F Mode A exact-payload signature is limited to the local fork. A valid policy, payload hash, journal entry or evidence bundle alone is data, not a signature or permission.
 
 BUILD-003B mocked Quote/State Artifacts, Artifact Sets and Simulation Bundles
 are synthetic data. They carry literal non-executable review results, keep the
@@ -55,3 +53,7 @@ G3 pure-package and scripted-transport checks passed locally on 2026-09-24. G4 p
 - **Closure:** the owner selected Option B (DEC-0025). BUILD-003D closes with its offline-accepted scope, and the recording, G6, G7 and the dependent certification rows move to BUILD-003F, which is `NOT_APPROVED`.
 - **Delivery:** the owner authorized the final BUILD-003D commit, a push and a pull request, and retains merge. The agent has no authority to make a live request, use a credential or operate a wallet.
 - **Certification:** BUILD-003 certification remains pending the owner decision, and BUILD-004 planning is blocked until BUILD-003F.
+
+## Current BUILD-003F authority and acceptance boundary
+
+DEC-0028 approved 52 created and 46 modified paths, one real Alchemy Free Base Mainnet recording capped at 1,500 requests and 39,000 reserved CU, and one owner-operated G7 on the replayed chain 31337. The single F3 attempt completed at 286 requests and 7,436 reserved CU; the credential was removed. F4 reproduced the same transcript byte-identically. The owner used MetaMask 13.48.0 in Brave 1.95.104 to authorize only the local approval and swap. Independent G7 verification found both signed payloads exact, both receipts successful and Evidence Bundle `RECONCILED:EXACT`. Gryloo never held the owner wallet key or signed/broadcast a transaction. These are local acceptance facts, not a grant for public-chain use, Mode B, production deployment or BUILD-004. BUILD-003 certification awaits delivery, post-merge CI, ADR-0004 acceptance and the sequential owner decision.

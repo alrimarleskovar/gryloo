@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # BUILD-002 browser test output
 apps/reference-dapp/test-results/
+
+# BUILD-003F local-fork Mode A runtime, owner journals and secret files (never tracked)
+.mode-a/
+apps/reference-dapp/.mode-a/
+disposable-phrase
+alchemy-key*

@@ -106,7 +106,7 @@ The full scenario driver still lacks recorded-fork proof. G5, G6–G8 and final 
 
 The owner selected Option B. BUILD-003D closes with exactly 66 created and 26 modified offline-accepted paths, enforced by the updated persistent governance. The remaining 47 planned created and 25 planned modified paths are not delivered.
 
-Moved to BUILD-003F, which is `NOT_APPROVED` and needs its own plan and budget:
+At the DEC-0025 closure these items moved to BUILD-003F, then `NOT_APPROVED`; DEC-0028 later approved its separate plan and budget:
 
 - the Base recording and transcript;
 - the fork application integration (G6);
@@ -116,3 +116,9 @@ Moved to BUILD-003F, which is `NOT_APPROVED` and needs its own plan and budget:
 No Amendment 7 or further BUILD-003D recording is permitted. BUILD-004 planning is blocked until BUILD-003 certification. Mainnet execution, public testnet execution and Mode B remain outside every authority.
 
 **DEC-0026 delivery-security boundary.** The earlier G1 result is historical pre-secret-removal evidence. The delivered acceptance-only harness holds no phrase or reconstruction input; final-byte pinned-account startup requires BUILD-003F owner-secret revalidation. No recording authority remains in BUILD-003D. Production Gryloo is global, online, non-custodial and multichain; its user-wallet signing flow never takes fork test secrets.
+
+## Approved BUILD-003F local-fork boundary
+
+DEC-0028 approved the [BUILD-003F plan](builds/BUILD-003F-PLAN.md), 52 created and 46 modified paths and 272 protected paths. F2 used disposable test-only account material under owner control. One F3 Alchemy Free Base Mainnet read session acquired finalized, hash-pinned state under a 1,500-request/39,000-reserved-CU cap; it completed at 286/7,436, removed its credential, and produced a credential-free transcript. F4 closed replay reproduced the seven scenarios byte-identically. The separate local fork application is opt-in, same-origin and loopback chain 31337 only; `MOCKED` artifacts cannot authorize it. The manually operated injected wallet G7 signed an approval and swap only on that fork; the independent result is `RECONCILED:EXACT`.
+
+The Base provider was read for state, not used to submit a transaction. No public-chain account, funds or authority is associated with the disposable local accounts. No autonomous wallet, server-held private key, public-chain transaction, production deployment, Mode B or BUILD-004 planning is authorized. BUILD-003 certification remains pending delivery, post-merge CI, ADR-0004 acceptance and a separate owner decision.

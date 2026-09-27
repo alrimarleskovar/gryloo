@@ -31,6 +31,7 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 36dd05e2bcea2d9a19c7b571d2126aea0390e5dd
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 0faec71207628dfe27fb23c81680d2c27827f5ea
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 8a5fbaed26e005e5719528c399f7ca1adb334eb6
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ca22dd5796614691a8de3a4271c3af5a7c889fd9
           unset auth GH_TOKEN
 
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
@@ -147,20 +148,64 @@ jobs:
           b003d_modify=set(['.github/workflows/contracts.yml', '.github/workflows/governance.yml', 'README.md', 'apps/reference-dapp/e2e/base-observation.spec.ts', 'apps/reference-dapp/e2e/mock-artifact-chain.spec.ts', 'apps/reference-dapp/package.json', 'apps/reference-dapp/src/components/workflow-canvas.tsx', 'docs/AUTHORITY_MATRIX.md', 'docs/DECISIONS.md', 'docs/LICENSE_MAP.md', 'docs/NEXT_BUILD.md', 'docs/REQUIREMENTS.md', 'docs/SCOPE_GUARD.md', 'docs/SECURITY_MODEL.md', 'docs/STATUS.md', 'package.json', 'packages/action-registry/package.json', 'packages/reference-linter/package.json', 'packages/workflow-contracts/package.json', 'packages/workflow-contracts/src/canonical.ts', 'packages/workflow-contracts/src/index.ts', 'packages/workflow-contracts/src/schemas.ts', 'packages/workflow-contracts/test/canonical.test.ts', 'packages/workflow-contracts/test/contracts.test.ts', 'pnpm-lock.yaml', 'scripts/bootstrap-ci.py'])
           if len(b003d_create)!=66 or len(b003d_modify)!=26:
               errors.append('BUILD-003D closure path counts changed')
+          # Freeze BUILD-003D at its delivered merge; BUILD-003F may only change its approved subset.
+          b003d_delivered='ca22dd5796614691a8de3a4271c3af5a7c889fd9'
+          delivered=tree(b003d_delivered)
+          if set(delivered)-set(merged003c)!=b003d_create:
+              errors.append('historical BUILD-003D created path mismatch')
+          errors += ['historical BUILD-003D removed baseline file: '+v for v in sorted(set(merged003c)-set(delivered))]
+          errors += ['historical BUILD-003D changed protected baseline: '+v for v in sorted(set(merged003c)&set(delivered))
+                     if merged003c[v]!=delivered[v] and v not in b003d_modify]
+          plan_bytes=(root/'docs/builds/BUILD-003F-PLAN.md').read_bytes()
+          if hashlib.sha256(plan_bytes).hexdigest()!='03edc9c321c198e68e00b2643fd528f177812a4407868048935ceb109be7a80a':
+              errors.append('BUILD-003F approved plan bytes changed')
+          plan=plan_bytes.decode()
+          create_section=plan.split('### Create\n',1)[1].split('### Modify\n',1)[0]
+          modify_section=plan.split('### Modify\n',1)[1].split('### Delete\n',1)[0]
+          f_create=set(re.findall(r'^\| `([^`]+)` \|',create_section,re.M))
+          visual=create_section.split('Visual review evidence, each exact path:',1)[1]
+          f_create.update('apps/reference-dapp/e2e/visual-evidence/build-003f/'+v
+                          for v in re.findall(r'`([^`]+\.png)`',visual))
+          f_modify=set(re.findall(r'^\| `([^`]+)` \|',modify_section,re.M))
+          f_modify.update(re.findall(r'`(apps/reference-dapp/e2e/[^`]+\.png)`',modify_section))
+          if len(f_create)!=52 or len(f_modify)!=45 or len(delivered)!=318 or len(set(delivered)-f_modify)!=273:
+              errors.append('BUILD-003F approved scope count changed')
+          # DEC-0028 scope amendment A-1: the review panel may no longer say wallet and execution are unavailable.
+          f_amend_modify={'apps/reference-dapp/src/components/review-panel.tsx'}
+          if f_amend_modify & f_modify or not f_amend_modify <= set(delivered):
+              errors.append('BUILD-003F scope amendment inconsistent')
+          f_modify |= f_amend_modify
+          if 'DEC-0028' not in (root/'docs/DECISIONS.md').read_text() or 'review-panel.tsx' not in (root/'docs/builds/BUILD-003F-REPORT.md').read_text():
+              errors.append('BUILD-003F scope amendment not recorded')
+          # DEC-0029 amendment A-2: stabilize the existing visual-shell test without changing a baseline.
+          f_visual_amend={'apps/reference-dapp/e2e/visual-shell.spec.ts'}
+          if f_visual_amend & f_modify or not f_visual_amend <= set(delivered):
+              errors.append('BUILD-003F visual scope amendment inconsistent')
+          f_modify |= f_visual_amend
+          if len(f_modify)!=47 or len(set(delivered)-f_modify)!=271:
+              errors.append('BUILD-003F amended scope count changed')
+          if 'DEC-0029' not in (root/'docs/DECISIONS.md').read_text() or 'visual-shell.spec.ts' not in (root/'docs/builds/BUILD-003F-REPORT.md').read_text():
+              errors.append('BUILD-003F visual scope amendment not recorded')
+          contracts_workflow=(root/'.github/workflows/contracts.yml').read_text()
+          if (("if: $"+"{{ failure() && steps.browser.outcome == 'failure' }}") not in contracts_workflow or
+                  "id: browser" not in contracts_workflow or
+                  any(v not in contracts_workflow for v in
+                      ('test-results/**/*-actual.png','test-results/**/*-expected.png','test-results/**/*-diff.png',
+                       'if-no-files-found: ignore','retention-days: 7'))):
+              errors.append('BUILD-003F screenshot upload must remain failure-only and image-only')
           now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
-          if now-set(merged003c)!=b003d_create:
-              errors.append('BUILD-003D created path mismatch: '+repr(sorted((now-set(merged003c))^b003d_create)))
-          errors += ['BUILD-003D removed baseline file: '+v for v in sorted(set(merged003c)-now)]
+          errors += ['BUILD-003F unapproved created path: '+v for v in sorted((now-set(delivered))-f_create)]
+          errors += ['BUILD-003F removed baseline file: '+v for v in sorted(set(delivered)-now)]
           for v in sorted(now):
               file=root/v
               if not file.is_file() or file.is_symlink():
                   errors.append('missing, non-file or symlink: '+v)
-              elif v in merged003c:
-                  if file.stat().st_mode & 0o111 != (0o111 if merged003c[v][0]=='100755' else 0):
+              elif v in delivered:
+                  if file.stat().st_mode & 0o111 != (0o111 if delivered[v][0]=='100755' else 0):
                       errors.append('unexpected executable mode: '+v)
-                  baseline_bytes=subprocess.check_output(['git','show',build003c_merge+':'+v])
-                  if file.read_bytes()!=baseline_bytes and v not in b003d_modify:
-                      errors.append('BUILD-003D protected baseline changed: '+v)
+                  baseline_bytes=subprocess.check_output(['git','show',b003d_delivered+':'+v])
+                  if file.read_bytes()!=baseline_bytes and v not in f_modify:
+                      errors.append('BUILD-003F protected baseline changed: '+v)
               elif file.stat().st_mode & 0o111:
                   errors.append('new file has unexpected executable mode: '+v)
           for v in sorted(now):
@@ -168,8 +213,11 @@ jobs:
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
                   errors.append('private plane path: '+v)
               if 'sbom' in v.lower(): errors.append('retained SBOM: '+v)
-              if v.startswith('.github/workflows/') and re.search(r'(?m)^\s*(?:-\s*)?uses\s*:',(root/v).read_text()):
-                  errors.append('external GitHub Action: '+v)
+              if v.startswith('.github/workflows/'):
+                  actions=re.findall(r'(?m)^\s*(?:-\s*)?uses\s*:\s*(\S+)\s*$',(root/v).read_text())
+                  allowed=['actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'] if v=='.github/workflows/contracts.yml' else []
+                  if actions!=allowed:
+                      errors.append('unapproved GitHub Action: '+v)
           if (root/'apps/reference-dapp/LICENSE').read_bytes()!=(root/'LICENSES/AGPL-3.0-only.txt').read_bytes():
               errors.append('application AGPL text mismatch')
           patch=root/'patches/@xyflow__system@0.0.82.patch'
@@ -194,6 +242,22 @@ jobs:
               if 'BUILD-002' not in (root/v).read_text(): errors.append('missing BUILD-002 authority: '+v)
           sources=[file for base in ('apps/reference-dapp/src','packages/reference-linter/src')
                    for file in sorted((root/base).rglob('*')) if file.suffix in ('.ts','.tsx','.css')]
+          # BUILD-003F local-fork Mode A application boundary: exact files, exact allowances.
+          f_server={'apps/reference-dapp/src/server/mode-a-service.ts','apps/reference-dapp/src/server/fork-rpc.ts'}
+          f_action='apps/reference-dapp/src/app/mode-a-action.ts'
+          f_wallet='apps/reference-dapp/src/wallet/eip1193.ts'
+          f_client={'apps/reference-dapp/src/state/mode-a-store.tsx',f_wallet,'apps/reference-dapp/src/components/fork-simulation-panel.tsx',
+                    'apps/reference-dapp/src/components/manifest-review.tsx','apps/reference-dapp/src/components/execution-panel.tsx',
+                    'apps/reference-dapp/src/components/summary-bar.tsx','apps/reference-dapp/src/components/top-bar.tsx',
+                    'apps/reference-dapp/src/components/app-shell.tsx','apps/reference-dapp/src/app/page.tsx'}
+          f_tests={'apps/reference-dapp/src/server/mode-a-service.test.ts','apps/reference-dapp/src/server/fork-rpc.test.ts',
+                   'apps/reference-dapp/src/wallet/eip1193.test.ts','apps/reference-dapp/src/domain/contracts.integration.test.ts'}
+          fork_read_methods={'eth_chainId','eth_getBlockByNumber','eth_getBlockByHash','eth_call','eth_getCode','eth_getBalance',
+                             'eth_getTransactionCount','eth_getStorageAt','eth_simulateV1','eth_getTransactionReceipt','eth_getRawTransactionByHash'}
+          f_refused_urls=('https://127.0.0.1:8545','http://127.0.0.2:8545','http://localhost:8545','https://base-mainnet.g.alchemy.com/v2',
+                          'http://user@127.0.0.1:8545','http://127.0.0.1:8545/','http://127.0.0.1:0','http://127.0.0.1:70000')
+          def type_only(body):
+              return re.sub(r'''(?m)^import type [^;]*;$''','',body)
           for file in sources:
               body=file.read_text()
               if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts':
@@ -206,6 +270,9 @@ jobs:
                   if 'attempts: 3, requests: 63' not in body:
                       errors.append('BUILD-003C Alchemy live limits changed')
                   body=body.replace('https://base-mainnet.g.alchemy.com/v2','').replace('fetch(','')
+              if file.as_posix() in f_tests:
+                  for url in f_refused_urls: body=body.replace(url,'')
+                  body=re.sub(r'http://127\.0\.0\.1:[0-9]{2,5}','',body)
               if re.search(r'https?://|wss?://|@import\s+url',body):
                   errors.append('remote application URL: '+str(file))
           # BUILD-003B: mocked artifacts must not reach authority, wallet, RPC or network code.
@@ -218,6 +285,15 @@ jobs:
               body=file.read_text()
               for pattern in forbidden:
                   scanned=body.replace('fetch(', '', 1) if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts' and pattern.startswith('\\bfetch') else body
+                  name=file.as_posix()
+                  if pattern.startswith('\\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
+                      scanned=scanned.replace('globalThis.fetch(url, init)','',1)
+                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name=='apps/reference-dapp/src/server/mode-a-service.ts':
+                      continue
+                  if pattern.startswith('window') and name in {f_wallet,'apps/reference-dapp/src/wallet/eip1193.test.ts'}:
+                      scanned=re.sub(r'\beth_sendTransaction\b','',scanned)
+                  if pattern.startswith('window') and name=='apps/reference-dapp/src/server/fork-rpc.test.ts':
+                      scanned=re.sub(r"'eth_(?:sendTransaction|sendRawTransaction|sign|signTransaction|signTypedData_v4)'|'personal_sign'",'',scanned)
                   if re.search(pattern,scanned): errors.append('forbidden authority, wallet or network token in '+str(file)+': '+pattern)
           # BUILD-003C network, pinning, server and consumer boundaries.
           non_test=[file for file in sources if not file.name.endswith('.test.ts') and not file.name.endswith('.test.tsx')]
@@ -243,15 +319,17 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name!='apps/reference-dapp/src/app/observation-action.ts':
-                  if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,body):
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action} and name not in f_tests:
+                  if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body) if name in f_client else body):
                       errors.append('client imports server module: '+name)
               if file in non_test:
+                  allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
+                           else fork_read_methods if name in f_server|{f_action} else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else set())
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
-                      if method not in rpc_methods or name not in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}:
+                      if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
                   for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
-                      if selector not in selectors:
+                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc'} if name in f_server|{f_wallet} else selectors):
                           errors.append('seventh selector or other short hex in source: '+name+' '+selector)
           action=(root/'apps/reference-dapp/src/app/observation-action.ts').read_text()
           if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action):
@@ -301,8 +379,34 @@ jobs:
               if name.startswith('packages/reference-compiler/') and re.search(r'reference-(?:executor|reconciler)',body):
                   errors.append('compiler imports the executor or reconciler: '+name)
           for file in sources:
-              if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',file.read_text()):
-                  errors.append('application or linter imports a Mode A package before BUILD-003F integration: '+file.as_posix())
+              name=file.as_posix()
+              body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts'}|f_tests else type_only(file.read_text())
+              if name in {'apps/reference-dapp/src/server/mode-a-service.ts'}|f_tests: continue
+              if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
+                  errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
+          # BUILD-003F negative boundary checks.
+          for file in sources:
+              if re.search(r'''(?:from|import)\s*\(?['"][^'"]*e2e/''',file.read_text()):
+                  errors.append('application imports test harness code: '+file.as_posix())
+          fork_rpc=(root/'apps/reference-dapp/src/server/fork-rpc.ts').read_text()
+          declared=set(re.findall(r"'(eth_[A-Za-z0-9]+|anvil_metadata|txpool_content)'",fork_rpc.split('FORK_RPC_METHODS',1)[1].split(']',1)[0]))
+          if declared!=fork_read_methods|{'anvil_metadata','txpool_content'} or fork_rpc.count('globalThis.fetch(')!=1 or r'127\.0\.0\.1' not in fork_rpc:
+              errors.append('BUILD-003F fork RPC allowlist or loopback boundary changed')
+          action_text=(root/f_action).read_text()
+          if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action_text) or "process.env.GRYLOO_MODE_A !== 'fork'" not in action_text:
+              errors.append('BUILD-003F Mode A action must be server-only and explicitly opted in')
+          service_text=(root/'apps/reference-dapp/src/server/mode-a-service.ts').read_text()
+          if (r'^http:\/\/127\.0\.0\.1:' not in service_text or 'MODE_A_DEFAULT_ACCOUNT_REFUSED' not in service_text
+                  or re.search(r'eth_(?:send|sign)|personal_sign',service_text)):
+              errors.append('BUILD-003F service boundary changed')
+          proxy_text=(root/'apps/reference-dapp/e2e/fork/recording-proxy.mjs').read_text()
+          if ("providerHost: 'base-mainnet.g.alchemy.com'" not in proxy_text or 'maxRequests: 1500' not in proxy_text
+                  or 'maxReservedCu: 39000' not in proxy_text or 'spacingMs: 400' not in proxy_text):
+              errors.append('BUILD-003F recording policy changed')
+          ci_text='\n'.join((root/v).read_text() for v in ('.github/workflows/contracts.yml','.github/workflows/governance.yml'))
+          owner_only=('GRYLOO_'+'MODE_A_E2E'+r'(?::\s*|=)replay','GRYLOO_'+'ALCHEMY_KEY_FILE'+r'\s*[:=]','GRYLOO_'+'FORK_ACCOUNT_PHRASE_FILE'+r'\s*[:=]')
+          if any(re.search(pattern,ci_text) for pattern in owner_only):
+              errors.append('CI may not enable owner-only replay, a provider credential or an account phrase')
           # DEC-0026: no phrase or reconstruction value is committed.
           harness_text=(root/'apps/reference-dapp/e2e/fork/harness.mjs').read_text()
           profile_text=(root/'packages/reference-compiler/src/profile.ts').read_text()
@@ -310,7 +414,8 @@ jobs:
                   'FORK_ACCOUNT_PHRASE_SHA256' in profile_text or
                   'GRYLOO_FORK_ACCOUNT_PHRASE_FILE' not in harness_text or
                   'FORK_ACCOUNT_SECRET_UNAVAILABLE' not in harness_text or
-                  'requirePinnedForkAddresses(await deriveForkPublicAddresses(phrase))' not in harness_text):
+                  'requirePinnedForkAddresses(await derive(phrase))' not in harness_text or
+                  'const phrase = await verifyOwnerForkAccountSource()' not in harness_text):
               errors.append('DEC-0026 owner-secret boundary missing or committed phrase detected')
           # Exact path scope makes this exhaustive over the reviewed tree.
           for v in sorted(now):
@@ -334,7 +439,7 @@ jobs:
           if errors:
               print('\n'.join(errors),file=sys.stderr)
               raise SystemExit(1)
-          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B/BUILD-003C and current BUILD-003D closure exact scope, modes, protected bytes, source scans and legal hashes passed')
+          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B/BUILD-003C and historical BUILD-003D closure and BUILD-003F approved subset scope, modes, protected bytes, source scans and legal hashes passed')
           PYCODE
 
       - name: Verify restored persistent governance controls
@@ -580,8 +685,8 @@ jobs:
               errors.append('BUILD-003C read-only approval missing')
           if not re.search(r'(?m)^\| BUILD-003D Mode A fork implementation \|[^|\n]+\|[^|\n]+\| APPROVED \|$',authority):
               errors.append('BUILD-003D approval missing from authority matrix')
-          if not re.search(r'(?m)^\| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
-              errors.append('BUILD-003F must remain NOT_APPROVED until its own plan is approved')
+          if not re.search(r'(?m)^\| BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance \|[^|\n]+\|[^|\n]+\| APPROVED \|$',authority):
+              errors.append('DEC-0028 BUILD-003F approval missing from authority matrix')
           if not re.search(r'(?m)^\| Mainnet execution, public testnet execution, Mode B or later builds \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
               errors.append('mainnet, testnet, Mode B and later builds must remain NOT_APPROVED')
           decisions=markdown['docs/DECISIONS.md']
@@ -622,18 +727,28 @@ jobs:
               if marker not in status: errors.append('STATUS.md missing: '+marker)
           for marker in ('BUILD-003C','0faec71207628dfe27fb23c81680d2c27827f5ea','BUILD-003D','8a5fbaed26e005e5719528c399f7ca1adb334eb6','BUILD-003F'):
               if marker not in status: errors.append('STATUS.md missing: '+marker)
-          # Conditional certification (BUILD-003D plan section 1.5): no completion or certification claim.
+          # BUILD-003D's closure record remains historical; current BUILD-003F G7 needs exact evidence.
           report003d=markdown['docs/builds/BUILD-003D-REPORT.md']
-          for v,body in (('docs/STATUS.md',status),('docs/builds/BUILD-003D-REPORT.md',report003d)):
-              for marker in ('BUILD-003 certification: PENDING_OWNER_DECISION','BUILD-003: IN_PROGRESS','G7 manual wallet acceptance: NOT_RUN'):
-                  if marker not in body: errors.append('certification marker missing from '+v+': '+marker)
-              if re.search(r'G7 manual wallet acceptance: (?:PASS|LIMITED)',body): errors.append('G7 result claimed without evidence: '+v)
+          for marker in ('BUILD-003 certification: PENDING_OWNER_DECISION','BUILD-003: IN_PROGRESS','G7 manual wallet acceptance: NOT_RUN'):
+              if marker not in report003d: errors.append('historical BUILD-003D marker missing: '+marker)
+          if re.search(r'G7 manual wallet acceptance: (?:PASS|LIMITED)',report003d):
+              errors.append('historical BUILD-003D G7 result changed')
+          for marker in ('BUILD-003 certification: PENDING_OWNER_DECISION','BUILD-003: IN_PROGRESS','G7 manual wallet acceptance: PASS'):
+              if marker not in status: errors.append('current BUILD-003F marker missing: '+marker)
+          report003f=markdown['docs/builds/BUILD-003F-REPORT.md']
+          for marker in ('DEC-0028','REPLAY_BYTE_IDENTICAL','18/18','MetaMask 13.48.0',
+                         'd11dd0c7b77872e462b62f78eab642d4e299f93ccdc0544620a555be085adf72',
+                         '0xd651a51063af8f86aee30d7f85844bb4747147bc27eb371807e38c3ac5f795b6'):
+              if marker not in report003f: errors.append('BUILD-003F G7 evidence missing: '+marker)
           for v in ('docs/STATUS.md','docs/NEXT_BUILD.md','README.md','docs/EVIDENCE_LEVELS.md','docs/AUTHORITY_MATRIX.md','docs/builds/BUILD-003D-REPORT.md'):
               if re.search(r'\bBUILD-003\b(?![A-Z])\s+(?:is\s+)?(?:complete|certified)',markdown[v],re.I): errors.append('BUILD-003 completion or certification claim: '+v)
-          if {v for v in current if v.startswith('docs/builds/BUILD-003')}!={'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md',
-                                                                          'docs/builds/BUILD-003B-PLAN.md','docs/builds/BUILD-003B-REPORT.md',
-                                                                          'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md',
-                                                                          'docs/builds/BUILD-003D-PLAN.md','docs/builds/BUILD-003D-REPORT.md'}:
+          historical_build_docs={'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md',
+                                 'docs/builds/BUILD-003B-PLAN.md','docs/builds/BUILD-003B-REPORT.md',
+                                 'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md',
+                                 'docs/builds/BUILD-003D-PLAN.md','docs/builds/BUILD-003D-REPORT.md'}
+          current_build_docs={v for v in current if v.startswith('docs/builds/BUILD-003')}
+          if not historical_build_docs.issubset(current_build_docs) or current_build_docs-historical_build_docs-{
+                  'docs/builds/BUILD-003F-PLAN.md','docs/builds/BUILD-003F-REPORT.md'}:
               errors.append('unexpected BUILD-003 build document set')
 
           # Licensing routing, map and private-record controls.

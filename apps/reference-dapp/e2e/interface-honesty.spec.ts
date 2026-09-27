@@ -34,3 +34,20 @@ test('provides semantic landmarks, labelled controls and keyboard access', async
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
 });
+
+test('labels the local fork honestly and enables no execution without a reviewed fork Manifest', async ({ page }) => {
+  await page.goto('/');
+  const banner = page.getByRole('banner');
+  await expect(banner.getByText(/^LOCAL FORK · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
+  await expect(banner).toContainText('local fork 31337');
+  await expect(banner).toContainText('Wallet: injected · not connected');
+  await page.getByRole('button', { name: 'Simulate', exact: true }).click();
+  const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });
+  await expect(fork).toContainText('Local-fork Mode A needs exactly one USDC/WETH swap in the workflow.');
+  await expect(fork.getByRole('button', { name: 'Simulate on local fork for revision 0' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Local-fork Mode A is enabled on this server');
+  await expect(page.getByRole('region', { name: 'Mode A execution' })).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(/MAINNET_EXECUTED|TESTNET_EXECUTED|mainnet executed|(?<!not )production certified/i);
+});

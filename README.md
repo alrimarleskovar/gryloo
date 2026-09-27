@@ -96,3 +96,9 @@ The approved [plan](docs/builds/BUILD-003D-PLAN.md) aimed for a Mode A vertical 
 - the fork harness and replay infrastructure.
 
 **What it does not deliver.** All three owner-run recording attempts stopped, so no recorded Base state, fork execution, wallet signing, reconciliation evidence or certification exists. The recording, fork application integration and manual-wallet acceptance move to BUILD-003F, which is not approved. BUILD-004 planning waits for BUILD-003 certification. The application still offers no wallet, signing, submission or execution.
+
+## BUILD-003F (local fork acceptance; delivery pending)
+
+DEC-0028 approved the [BUILD-003F plan](docs/builds/BUILD-003F-PLAN.md). One owner-run Alchemy Free recording acquired finalized Base state under a fixed request/CU cap, and a credential-free transcript replay reproduced all seven scenarios byte-identically. The reference app's opt-in Mode A path on local chain 31337 lets a human review two exact payloads before an injected wallet signs them. The owner operated MetaMask on the replayed fork; independent verification found both signed payloads exact, both receipts successful and a `RECONCILED:EXACT` Evidence Bundle. See the [report](docs/builds/BUILD-003F-REPORT.md) for the actual transcript, source block, wallet/version, test counts and limitations.
+
+This is **local-fork evidence**, not a Base mainnet or public-testnet transaction and not a production wallet or hosted execution service. Gryloo never holds the wallet key. BUILD-003 certification remains pending final local gates, delivery, remote and post-merge CI, ADR-0004 acceptance and a separate owner decision. No later build or public-chain execution is approved.

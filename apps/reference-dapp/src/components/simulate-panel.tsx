@@ -135,7 +135,7 @@ export function SimulatePanel() {
           <p>A generation creates one mocked quote per Base swap, an Artifact Set and a mocked simulation, all bound to revision {workflow.revision} and valid for 60 seconds.</p>
         </div>}
         <p className="not-modeled"><strong>Not modeled:</strong> balances, allowances, gas, fees, price impact, liquidity, MEV and duration. USD values: not modeled.</p>
-        <p className="simulate-next">Next step: Manifest review is unavailable. This build stops before authorization; mocked artifacts cannot authorize execution. The workflow stays DRAFT.</p>
+        <p className="simulate-next">Next step: Manifest review is unavailable for mocked artifacts; they cannot authorize execution and the workflow stays DRAFT. Local-fork Mode A uses its own separate artifacts, never these.</p>
       </div>
     </div>
   </section>;

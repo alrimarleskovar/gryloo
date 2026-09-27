@@ -8,7 +8,7 @@
  * integration joins this file at G6.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, chmodSync, symlinkSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createTcpServer, type Server as TcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -16,18 +16,20 @@ import { performance } from 'node:perf_hooks';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ANVIL_DEFAULT_ACCOUNTS, FORK_CHAIN_ID_HEX, FORK_DEV_ACCOUNTS, routeForkUpstreamRequest, verifiedSourceBlockReply } from '../src/profile.js';
+import { ANVIL_DEFAULT_ACCOUNTS, FORK_CHAIN_ID_HEX, routeForkUpstreamRequest, verifiedSourceBlockReply } from '../src/profile.js';
 import {
-  RPC_TIMEOUT_MS, forkRpcTimeoutMs, probePort, rpc, startFork, startReplayUpstream, stopFork, stopReplayUpstream, withFork, requirePinnedForkAddresses,
+  RPC_TIMEOUT_MS, forkRpcTimeoutMs, probePort, rpc, startFork, startReplayUpstream, stopFork, stopReplayUpstream, withFork, requirePinnedForkAddresses, verifyOwnerForkAccountSource, readOwnerForkPhrase, forkDevAccounts, transcriptIdentity,
 } from '../../../apps/reference-dapp/e2e/fork/harness.mjs';
-import { canonical } from '../../../apps/reference-dapp/e2e/fork/replay-upstream.mjs';
-import { selectForkAccounts } from '../../../apps/reference-dapp/e2e/fork/fork-setup.mjs';
+import { canonical, verifyTranscriptDocument } from '../../../apps/reference-dapp/e2e/fork/replay-upstream.mjs';
+import { RecordingSession, RECORDING_POLICY, buildTranscript, readRotatedCredential, validateBilling } from '../../../apps/reference-dapp/e2e/fork/recording-proxy.mjs';
+import { selectForkAccounts, sendSetupTransaction } from '../../../apps/reference-dapp/e2e/fork/fork-setup.mjs';
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type WireCall = { id?: Json; method?: string; params?: Json[] };
 type Mode = { readonly kind: 'serve'; readonly pacingMs?: number } | { readonly kind: 'close-on'; readonly method: string } | { readonly kind: 'hang' };
 type Stats = { requests: number; open: number; maxOpen: number; stops: string[]; paramsOmitted: string[]; forwardStarts: number[] };
 
+const FORK_DEV_ACCOUNTS = forkDevAccounts();
 const HARNESS = fileURLToPath(new URL('../../../apps/reference-dapp/e2e/fork/harness.mjs', import.meta.url));
 const REPLAY = fileURLToPath(new URL('../../../apps/reference-dapp/e2e/fork/replay-upstream.mjs', import.meta.url));
 const N = 51_800_000;
@@ -132,6 +134,11 @@ function anvilBinary(): string {
   }
   return binary;
 }
+function signalDriverEnvironment(ownerFilePath: string, pinFilePath = process.env.GRYLOO_F2_PUBLIC_PIN_FILE) {
+  return { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', GRYLOO_ANVIL_BIN: anvilBinary(),
+    GRYLOO_FORK_ACCOUNT_PHRASE_FILE: ownerFilePath,
+    ...(pinFilePath ? { GRYLOO_F2_PUBLIC_PIN_FILE: pinFilePath } : {}) };
+}
 const fork = (extra: Record<string, unknown> = {}) => ({ binary: anvilBinary(), blockNumber: N, blockHash: H, ...extra });
 async function started<T extends ChildProcess>(child: Promise<T>): Promise<T> { const value = await child; children.push(value); return value; }
 
@@ -188,6 +195,121 @@ describe('owner-secret boundary (offline, no secret supplied)', () => {
   });
 });
 
+describe('credential-free secret and inclusion boundaries', () => {
+  it('passes only a non-secret file path to deferred signal children', () => {
+    const filePath = '/tmp/gryloo-f2-placeholder-owner-file';
+    const env = signalDriverEnvironment(filePath);
+    expect(env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE).toBe(filePath);
+    expect(Object.keys(env).sort()).toEqual(['GRYLOO_ANVIL_BIN', 'GRYLOO_FORK_ACCOUNT_PHRASE_FILE', ...(process.env.GRYLOO_F2_PUBLIC_PIN_FILE ? ['GRYLOO_F2_PUBLIC_PIN_FILE'] : []), 'HOME', 'PATH'].sort());
+    expect(signalDriverEnvironment(filePath, '/tmp/gryloo-f2-placeholder-public-pins').GRYLOO_F2_PUBLIC_PIN_FILE).toBe('/tmp/gryloo-f2-placeholder-public-pins');
+  });
+  it('rejects missing or mismatched public derivation without leakage', async () => {
+    const opaque = Object.freeze({ tag: 'owner-input-never-a-secret' });
+    let deriveCalls = 0;
+    await expect(verifyOwnerForkAccountSource({ load: () => { throw new Error('FORK_ACCOUNT_SECRET_UNAVAILABLE'); },
+      derive: async () => { deriveCalls++; return [...FORK_DEV_ACCOUNTS]; } })).rejects.toThrow(/^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+    expect(deriveCalls).toBe(0);
+    const mismatch = await verifyOwnerForkAccountSource({ load: () => opaque,
+      derive: async (value: unknown) => { expect(value).toBe(opaque); return [...FORK_DEV_ACCOUNTS].reverse(); } })
+      .then(() => null, (error: Error) => error);
+    expect(mismatch?.message).toBe('FORK_ACCOUNT_DERIVATION_MISMATCH');
+    expect(mismatch?.message).not.toContain(opaque.tag);
+    expect(await verifyOwnerForkAccountSource({ load: () => opaque,
+      derive: async () => [...FORK_DEV_ACCOUNTS] })).toBe(opaque);
+  });
+
+  it('rejects unsafe owner-file permissions, symlinks and malformed input without outputting its bytes', () => {
+    const previous = process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE;
+    const directory = mkdtempSync(join(tmpdir(), 'gryloo-f1-secret-boundary-'));
+    const path = join(directory, 'owner-input');
+    const alias = join(directory, 'alias');
+    const marker = 'not-a-phrase';
+    writeFileSync(path, marker, { mode: 0o600 });
+    symlinkSync(path, alias);
+    try {
+      process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE = alias;
+      expect(() => readOwnerForkPhrase()).toThrow(/^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+      process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE = path;
+      chmodSync(path, 0o644);
+      expect(() => readOwnerForkPhrase()).toThrow(/^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+      chmodSync(path, 0o600);
+      const error = (() => { try { readOwnerForkPhrase(); return null; } catch (failure) { return failure as Error; } })();
+      expect(error?.message).toBe('FORK_ACCOUNT_SECRET_INVALID');
+      expect(error?.message).not.toContain(marker);
+    } finally {
+      if (previous === undefined) delete process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE;
+      else process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE = previous;
+    }
+  });
+
+  it('polls through delayed receipt visibility and verifies block, nonce and order', async () => {
+    const from = FORK_DEV_ACCOUNTS[0], to = FORK_DEV_ACCOUNTS[1];
+    const hash = `0x${'12'.repeat(32)}`, blockHash = `0x${'34'.repeat(32)}`;
+    let polls = 0, submitted = false;
+    const call = async (method: string, params: unknown[] = []): Promise<unknown> => {
+      if (method === 'eth_getTransactionCount') return params[1] === 'pending' ? '0x0' : '0x1';
+      if (method === 'eth_getBlockByNumber') return params[0] === 'latest' ? { baseFeePerGas: '0x1' }
+        : { hash: blockHash, number: '0x2', transactions: [{ hash }] };
+      if (method === 'eth_sendTransaction') return hash;
+      if (method === 'eth_getTransactionReceipt') {
+        polls++;
+        return polls < 3 ? null : { transactionHash: hash, status: '0x1', blockHash,
+          blockNumber: '0x2', transactionIndex: '0x0' };
+      }
+      if (method === 'eth_getTransactionByHash') return { hash, from, to, nonce: '0x0', blockHash, blockNumber: '0x2' };
+      throw new Error('UNEXPECTED_TEST_CALL');
+    };
+    const result = await sendSetupTransaction(from, to, '0x', 0n,
+      { call, pollIntervalMs: 1, receiptDeadlineMs: 1_000, onSubmitted: () => { submitted = true; } });
+    expect(submitted).toBe(true);
+    expect(polls).toBe(3);
+    expect(result).toEqual({ hash, nonce: '0x0', blockNumber: '0x2', blockHash });
+  });
+
+  it('rejects a wrong receipt, nonce, index and failed status before advancing setup', async () => {
+    const from = FORK_DEV_ACCOUNTS[0], to = FORK_DEV_ACCOUNTS[1];
+    const hash = `0x${'ab'.repeat(32)}`, blockHash = `0x${'cd'.repeat(32)}`;
+    for (const fault of ['receipt-hash', 'status', 'nonce', 'index'] as const) {
+      const call = async (method: string, params: unknown[] = []): Promise<unknown> => {
+        if (method === 'eth_getTransactionCount') return params[1] === 'pending' ? '0x0' : '0x1';
+        if (method === 'eth_getBlockByNumber') return params[0] === 'latest' ? { baseFeePerGas: '0x1' }
+          : { hash: blockHash, number: '0x2', transactions: [{ hash }] };
+        if (method === 'eth_sendTransaction') return hash;
+        if (method === 'eth_getTransactionReceipt') return { transactionHash: fault === 'receipt-hash' ? `0x${'ef'.repeat(32)}` : hash,
+          status: fault === 'status' ? '0x0' : '0x1', blockHash, blockNumber: '0x2',
+          transactionIndex: fault === 'index' ? '0x1' : '0x0' };
+        if (method === 'eth_getTransactionByHash') return { hash, from, to,
+          nonce: fault === 'nonce' ? '0x1' : '0x0', blockHash, blockNumber: '0x2' };
+        throw new Error('UNEXPECTED_TEST_CALL');
+      };
+      await expect(sendSetupTransaction(from, to, '0x', 0n, { call })).rejects.toThrow(
+        fault === 'receipt-hash' || fault === 'status' ? /^SETUP_TRANSACTION_FAILED$/ : /^SETUP_INCLUSION_MISMATCH$/);
+    }
+  });
+
+  it('rejects a mismatched mined block and an inclusion timeout', async () => {
+    const from = FORK_DEV_ACCOUNTS[0], to = FORK_DEV_ACCOUNTS[1];
+    const hash = `0x${'56'.repeat(32)}`, blockHash = `0x${'78'.repeat(32)}`;
+    const prefix = async (method: string, params: unknown[] = []): Promise<unknown> => {
+      if (method === 'eth_getTransactionCount') return params[1] === 'pending' ? '0x0' : '0x1';
+      if (method === 'eth_getBlockByNumber') return params[0] === 'latest' ? { baseFeePerGas: '0x1' }
+        : { hash: `0x${'90'.repeat(32)}`, number: '0x2', transactions: [{ hash }] };
+      if (method === 'eth_sendTransaction') return hash;
+      if (method === 'eth_getTransactionReceipt') return { transactionHash: hash, status: '0x1', blockHash,
+        blockNumber: '0x2', transactionIndex: '0x0' };
+      if (method === 'eth_getTransactionByHash') return { hash, from, to, nonce: '0x0', blockHash, blockNumber: '0x2' };
+      throw new Error('UNEXPECTED_TEST_CALL');
+    };
+    await expect(sendSetupTransaction(from, to, '0x', 0n, { call: prefix })).rejects.toThrow(/^SETUP_INCLUSION_MISMATCH$/);
+    const neverIncluded = async (method: string, params: unknown[] = []) =>
+      method === 'eth_getTransactionCount' ? (params[1] === 'pending' ? '0x0' : '0x1')
+        : method === 'eth_getBlockByNumber' ? { baseFeePerGas: '0x1' }
+          : method === 'eth_sendTransaction' ? hash : null;
+    await expect(sendSetupTransaction(from, to, '0x', 0n,
+      { call: neverIncluded, pollIntervalMs: 1, receiptDeadlineMs: 3 })).rejects.toThrow(/^SETUP_RECEIPT_TIMEOUT$/);
+  });
+});
+
 describe('fork harness readiness and lifecycle (offline)', () => {
   it.skipIf(!process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE)('starts Anvil only once its upstream listens, and is ready on Anvil\'s own readiness line', async () => {
     const stats = await startUpstream({ kind: 'serve' });
@@ -201,16 +323,19 @@ describe('fork harness readiness and lifecycle (offline)', () => {
     expect(await probePort(8545)).toBe('free');
   }, 30_000);
 
+  // Without the owner secret the secret boundary fails first; with it, the port guards themselves must refuse.
+  const secretSupplied = Boolean(process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE);
   it('refuses to start Anvil before its upstream is listening', async () => {
     expect(await probePort(8546)).toBe('free');
-    await expect(startFork(fork())).rejects.toThrow(/^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+    await expect(startFork(fork())).rejects.toThrow(secretSupplied ? /^UPSTREAM_NOT_READY$/ : /^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+    expect(await probePort(8545)).toBe('free');
   });
 
   it('refuses an occupied Anvil port without starting Anvil or touching the other listener', async () => {
     const stats = await startUpstream({ kind: 'serve' });
     blocker = createTcpServer((socket) => socket.destroy());
     await listen(blocker, 8545);
-    await expect(startFork(fork())).rejects.toThrow(/^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
+    await expect(startFork(fork())).rejects.toThrow(secretSupplied ? /^FORK_PORT_OCCUPIED:8545$/ : /^FORK_ACCOUNT_SECRET_UNAVAILABLE$/);
     expect(stats.requests).toBe(0);
     expect(await probePort(8545)).toBe('listening');
   });
@@ -218,7 +343,7 @@ describe('fork harness readiness and lifecycle (offline)', () => {
   it.skipIf(!process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE)('reports Anvil\'s exit with the closed upstream (the G5 shape) and quotes stderr only', async () => {
     await startUpstream({ kind: 'close-on', method: 'eth_gasPrice' });
     const error = await startFork(fork()).then(() => null, (reason: unknown) => reason as Error);
-    expect(error?.message).toMatch(/^ANVIL_EXITED:upstream=free:code=1:signal=null:[\s\S]*failed to create genesis[\s\S]*Connection refused/);
+    expect(error?.message).toMatch(/^ANVIL_EXITED:upstream=free:code=1:signal=null:genesis_connection_refused$/);
     expect(error?.message).not.toMatch(/Private Keys|Mnemonic|Listening on/);
   }, 30_000);
 
@@ -258,7 +383,7 @@ describe('fork harness readiness and lifecycle (offline)', () => {
         '});',
       ].join('\n'));
       const child = spawn(process.execPath, [driver], { stdio: ['ignore', 'pipe', 'pipe'],
-        env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', GRYLOO_ANVIL_BIN: anvilBinary() } });
+        env: signalDriverEnvironment(process.env.GRYLOO_FORK_ACCOUNT_PHRASE_FILE!) });
       children.push(child);
       const exited = new Promise<number | null>((resolve) => child.once('exit', (exitCode) => resolve(exitCode)));
       await new Promise<void>((resolve, reject) => {
@@ -351,11 +476,160 @@ describe('Amendment 6 account derivation and clean-account selection (offline)',
     await stopFork(child);
   }, 30_000);
 
+  it('rejects wrong chain or account code before setup', async () => {
+    let sends = 0;
+    const wrongChain = async (method: string) => { if (method === 'eth_sendTransaction') sends++; return '0x2105'; };
+    await expect(selectForkAccounts(wrongChain)).rejects.toThrow(/^MAINNET_CHAIN_REFUSED$/);
+    const coded = async (method: string) => method === 'eth_chainId' ? FORK_CHAIN_ID_HEX
+      : method === 'eth_accounts' ? [...FORK_DEV_ACCOUNTS]
+        : method === 'eth_getCode' ? '0xef0100' : (sends++, null);
+    await expect(selectForkAccounts(coded)).rejects.toThrow(/^DEV_ACCOUNTS_NOT_CLEAN$/);
+    expect(sends).toBe(0);
+  });
+
   it('stops on any account set other than the exact pinned derivation', async () => {
     const stub = (accounts: string[]) => async (method: string) => (method === 'eth_chainId' ? FORK_CHAIN_ID_HEX : method === 'eth_accounts' ? accounts : '0x');
     await expect(selectForkAccounts(stub([...ANVIL_DEFAULT_ACCOUNTS]))).rejects.toThrow(/^DEV_ACCOUNTS_DERIVATION_MISMATCH$/);
     await expect(selectForkAccounts(stub([...FORK_DEV_ACCOUNTS].reverse()))).rejects.toThrow(/^DEV_ACCOUNTS_DERIVATION_MISMATCH$/);
     await expect(selectForkAccounts(stub(FORK_DEV_ACCOUNTS.slice(0, 9)))).rejects.toThrow(/^DEV_ACCOUNTS_DERIVATION_MISMATCH$/);
     await expect(selectForkAccounts(stub([...FORK_DEV_ACCOUNTS]))).resolves.toMatchObject({ ownerIndex: 0, setupIndex: 1 });
+  });
+});
+
+describe('BUILD-003F recording proxy preflight (zero provider requests, scripted replies)', () => {
+  const MARKER = 'syntheticcredentialmarker0123456789';
+  const OWNER = '0x0000000000000000000000000000000000000abc';
+  const billing = { format: 'gryloo.build-003f-provider-billing.v1', provider: 'Alchemy', plan: 'Free', network: 'Base Mainnet',
+    paymentMethod: false, paidAddOn: false, overage: false, autoUpgrade: false, credentialRotated: true, previousCredentialDeleted: true,
+    rotatedOn: '2026-09-25', reportedOn: '2026-09-25', remainingMonthlyCu: 39_000 };
+  const finalized = { number: N_HEX, hash: H, timestamp: hex(1_790_000_000) };
+  type Reply = { status?: number; body?: string; error?: Error };
+  function session(script: (request: { method: string; params: Json[]; id: number }) => Reply, options: { clockStep?: number } = {}) {
+    const directory = mkdtempSync(join(tmpdir(), 'gryloo-proxy-preflight-'));
+    const sent: { method: string; params: Json[] }[] = [];
+    const sleeps: number[] = [];
+    let now = 0;
+    const provider = async (body: string) => {
+      const request = JSON.parse(body) as { method: string; params: Json[]; id: number };
+      sent.push({ method: request.method, params: request.params });
+      const reply = script(request);
+      if (reply.error) throw reply.error;
+      return { status: reply.status ?? 200, body: reply.body ?? JSON.stringify({ jsonrpc: '2.0', id: request.id, result: null }) };
+    };
+    const value = new RecordingSession({ journalPath: join(directory, 'journal.json'), logPath: join(directory, 'requests.jsonl'),
+      stopFile: join(directory, 'STOP'), provider, credential: MARKER, billing,
+      clock: () => { now += options.clockStep ?? 0; return now; }, sleep: async (ms: number) => { sleeps.push(ms); now += ms; } });
+    value.activate();
+    return { value, sent, sleeps, directory, advance: (ms: number) => { now += ms; } };
+  }
+  const answer = (result: Json) => (request: { id: number }) => ({ body: JSON.stringify({ jsonrpc: '2.0', id: request.id, result }) });
+  const standard = (request: { method: string; params: Json[]; id: number }): Reply => {
+    if (request.method === 'eth_getBlockByNumber') return answer(finalized)(request);
+    if (request.method === 'eth_chainId') return answer('0x2105')(request);
+    return answer('0x0')(request);
+  };
+  const rpcRequest = (id: number, method: string, params?: Json[]) => ({ jsonrpc: '2.0', id, method, ...(params === undefined ? {} : { params }) });
+
+  it('requires the finalized read first, rewrites state reads to the canonical hash pin, paces sends and logs no credential', async () => {
+    const early = session(standard);
+    await expect(early.value.handle(rpcRequest(1, 'eth_chainId', []))).rejects.toThrow(/^FINALIZED_FIRST_REQUIRED$/);
+    expect(early.sent).toHaveLength(0);
+    const { value, sent, sleeps, directory } = session(standard);
+    await value.handle(rpcRequest(1, 'eth_getBlockByNumber', ['finalized', false]));
+    await value.handle(rpcRequest(2, 'eth_chainId', []));
+    await value.handle(rpcRequest(3, 'eth_getBalance', [OWNER, H]));
+    await value.handle(rpcRequest(4, 'eth_gasPrice'));
+    await value.handle(rpcRequest(5, 'eth_getBlockByNumber', [N_HEX, false]));
+    expect(sent).toEqual([{ method: 'eth_getBlockByNumber', params: ['finalized', false] }, { method: 'eth_chainId', params: [] },
+      { method: 'eth_getBalance', params: [OWNER, { blockHash: H, requireCanonical: true }] }, { method: 'eth_getBlockByNumber', params: [N_HEX, false] }]);
+    expect(sleeps.every(ms => ms === RECORDING_POLICY.spacingMs)).toBe(true);
+    expect(sleeps).toHaveLength(3);
+    const journal = JSON.parse(readFileSync(join(directory, 'journal.json'), 'utf8'));
+    expect(journal).toMatchObject({ status: 'ACTIVE', requests: 4, reservedCu: 104, localReplies: 1, source: { blockNumber: N, blockHash: H } });
+    const log = readFileSync(join(directory, 'requests.jsonl'), 'utf8');
+    expect(log).not.toContain(MARKER);
+    expect(log).not.toMatch(/authorization|bearer/i);
+  });
+
+  it('permanently stops on the first provider, policy, canonicality, budget, time or owner stop condition', async () => {
+    const cases: [string, (request: { method: string; params: Json[]; id: number }) => Reply, (s: ReturnType<typeof session>) => Promise<unknown>][] = [
+      ['PROVIDER_HTTP_429', request => request.method === 'eth_chainId' ? { status: 429, body: '' } : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['PROVIDER_RPC_ERROR', request => request.method === 'eth_chainId' ? { body: JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32000, message: 'x' } }) } : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['PROVIDER_INVALID_JSON', request => request.method === 'eth_chainId' ? { body: '{' } : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['PROVIDER_RESPONSE_TOO_LARGE', request => request.method === 'eth_chainId' ? { body: ' '.repeat(RECORDING_POLICY.maxResponseBytes + 1) } : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['PROVIDER_TIMEOUT', request => request.method === 'eth_chainId' ? { error: new Error('PROVIDER_TIMEOUT') } : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['SOURCE_CHAIN_MISMATCH', request => request.method === 'eth_chainId' ? answer('0x1')(request) : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['SOURCE_BLOCK_CHANGED', request => request.params[0] === N_HEX ? answer({ ...finalized, hash: `0x${'ef'.repeat(32)}` })(request) : standard(request), s => s.value.handle(rpcRequest(2, 'eth_getBlockByNumber', [N_HEX, false]))],
+      ['SENSITIVE_RESPONSE_REJECTED', request => request.method === 'eth_chainId' ? answer(`0x2105${MARKER}`)(request) : standard(request), s => s.value.handle(rpcRequest(2, 'eth_chainId', []))],
+      ['UNAPPROVED_UPSTREAM', standard, s => s.value.handle(rpcRequest(2, 'eth_call', [{ to: OWNER }, H]))],
+      ['UNAPPROVED_UPSTREAM', standard, s => s.value.handle(rpcRequest(2, 'eth_getBalance', [OWNER, 'latest']))],
+      ['INVALID_OR_BATCH_REQUEST', standard, s => s.value.handle([rpcRequest(2, 'eth_chainId', [])])],
+      ['OWNER_STOP_FILE', standard, async s => { writeFileSync(join(s.directory, 'STOP'), ''); return s.value.handle(rpcRequest(2, 'eth_chainId', [])); }],
+      ['SESSION_TIMEOUT', standard, async s => { s.advance(RECORDING_POLICY.sessionTimeoutMs + 1); return s.value.handle(rpcRequest(2, 'eth_chainId', [])); }],
+      ['REQUEST_CAP_REACHED', standard, async s => { s.value.state.requests = RECORDING_POLICY.maxRequests; return s.value.handle(rpcRequest(2, 'eth_chainId', [])); }],
+      ['CU_CAP_REACHED', standard, async s => { s.value.state.reservedCu = RECORDING_POLICY.maxReservedCu; return s.value.handle(rpcRequest(2, 'eth_chainId', [])); }],
+    ];
+    for (const [code, script, trigger] of cases) {
+      const current = session(script);
+      await current.value.handle(rpcRequest(1, 'eth_getBlockByNumber', ['finalized', false]));
+      await expect(trigger(current), code).rejects.toThrow(new RegExp(`^${code}$`));
+      const sentAtStop = current.sent.length;
+      const journal = JSON.parse(readFileSync(join(current.directory, 'journal.json'), 'utf8'));
+      expect(journal.status, code).toBe('STOPPED');
+      expect(journal.stopReason, code).toBe(code);
+      expect(JSON.stringify(journal)).not.toContain(MARKER);
+      await expect(current.value.handle(rpcRequest(9, 'eth_chainId', [])), code).rejects.toThrow(/^SESSION_STOPPED$/);
+      expect(current.sent.length, code).toBe(sentAtStop);
+    }
+    expect(RECORDING_POLICY).toMatchObject({ maxRequests: 1500, cuPerRequest: 26, maxReservedCu: 39000, spacingMs: 400,
+      requestTimeoutMs: 30_000, sessionTimeoutMs: 1_800_000, maxResponseBytes: 1_048_576 });
+  });
+
+  it('completes only with the bound scenario proof and builds a verifiable credential-free transcript', async () => {
+    const { value, directory } = session(request => {
+      if (request.method === 'eth_getBlockByNumber') return answer(finalized)(request);
+      if (request.method === 'eth_chainId') return answer('0x2105')(request);
+      if (request.method === 'eth_getCode') return answer('0x')(request);
+      return answer('0x0')(request);
+    });
+    await value.handle(rpcRequest(1, 'eth_getBlockByNumber', ['finalized', false]));
+    await value.handle(rpcRequest(2, 'eth_chainId', []));
+    await value.handle(rpcRequest(3, 'eth_gasPrice'));
+    for (const [index, account] of FORK_DEV_ACCOUNTS.entries()) await value.handle(rpcRequest(10 + index, 'eth_getCode', [account, H]));
+    expect(() => value.complete({ format: 'gryloo.build-003f-scenario-results.v1', sourceBlockHash: `0x${'00'.repeat(32)}`, sourceBlockNumber: N })).toThrow(/^COMPLETION_REFUSED$/);
+    value.complete({ format: 'gryloo.build-003f-scenario-results.v1', sourceBlockHash: H, sourceBlockNumber: N });
+    const journal = JSON.parse(readFileSync(join(directory, 'journal.json'), 'utf8'));
+    const { identity, identityHash } = transcriptIdentity({ sourceBlockNumber: N, sourceBlockHash: H, accounts: [...FORK_DEV_ACCOUNTS] });
+    const transcript = buildTranscript({ logPath: join(directory, 'requests.jsonl'), journal, identity, identityHash,
+      scenarioResultsSha256: 'ab'.repeat(32), codeFingerprints: {} });
+    expect(verifyTranscriptDocument(transcript, { accounts: [...FORK_DEV_ACCOUNTS] })).toEqual({ providerRequests: 12, localReplies: 1 });
+    expect(JSON.stringify(transcript)).not.toContain(MARKER);
+    const tampered = structuredClone(transcript);
+    tampered.exchanges[0].providerResponse = tampered.exchanges[0].providerResponse.replace('0x2105', '0x2106');
+    expect(() => verifyTranscriptDocument(tampered, { accounts: [...FORK_DEV_ACCOUNTS] })).toThrow(/^TRANSCRIPT_ENTRY_INVALID$/);
+    expect(() => verifyTranscriptDocument({ ...transcript, note: 'an authorization header was logged' }, { accounts: [...FORK_DEV_ACCOUNTS] })).toThrow(/^TRANSCRIPT_SECRET_PATTERN$/);
+    expect(() => verifyTranscriptDocument(transcript, { accounts: [...FORK_DEV_ACCOUNTS].reverse() })).toThrow(/^TRANSCRIPT_IDENTITY_INVALID$/);
+  });
+
+  it('accepts only a newly written owner-only credential file and a complete non-secret billing report', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'gryloo-credential-boundary-'));
+    const path = join(directory, 'rotated');
+    writeFileSync(path, `${MARKER}\n`, { mode: 0o600 });
+    const repository = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
+    const probe = (file: string, notBeforeMs: number) => { try { return readRotatedCredential(file, { notBeforeMs, repository }); } catch (error) { return (error as Error).message; } };
+    expect(probe(path, 0)).toBe(MARKER);
+    expect(probe(path, Date.now() + 60_000)).toBe('CREDENTIAL_NOT_ROTATED');
+    chmodSync(path, 0o644);
+    expect(probe(path, 0)).toBe('CREDENTIAL_FILE_INVALID');
+    chmodSync(path, 0o600);
+    symlinkSync(path, join(directory, 'alias'));
+    expect(probe(join(directory, 'alias'), 0)).toBe('CREDENTIAL_FILE_INVALID');
+    expect(probe(join(repository, 'package.json'), 0)).toBe('CREDENTIAL_FILE_INVALID');
+    expect(probe('relative-path', 0)).toBe('CREDENTIAL_FILE_INVALID');
+    expect(() => validateBilling(billing)).not.toThrow();
+    for (const bad of [{ ...billing, plan: 'Growth' }, { ...billing, paymentMethod: true }, { ...billing, credentialRotated: false },
+      { ...billing, previousCredentialDeleted: false }, { ...billing, remainingMonthlyCu: 38_999 }, { ...billing, rotatedOn: 'today' }]) {
+      expect(() => validateBilling(bad)).toThrow(/^BILLING_CONFIRMATION_INCOMPLETE$/);
+    }
   });
 });
