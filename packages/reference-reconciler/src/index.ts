@@ -11,3 +11,5 @@ export type { ModeBChainEvidence, ModeBReconciliation, ModeBOutcome, ModeBSigned
 
 export { verifyCowSignature, verifyCowDigestSignature, reconcileCowSettlement } from './cow.js';
 export type { CowTrade, CowSettlementObservation, CowReconciliation } from './cow.js';
+
+export * from "./liquidity.js";

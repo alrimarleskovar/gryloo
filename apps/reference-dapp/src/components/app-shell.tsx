@@ -42,7 +42,7 @@ function AppShellContent() {
   return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/>
     <main className="main">
       <div className="page-heading"><div><p className="eyebrow">WORKSPACE / {tab.toUpperCase()}</p><h1>{tab === 'Build' ? product.strategyName : tab}</h1><p>{forkExecution ? (info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : headings[tab]}</p></div><span className="heading-revision">SEMANTIC REVISION {state.workflow.revision}</span></div>
-      {tab === 'Build' ? <><div className="build-grid"><ActionLibrary/><WorkflowCanvas selectedId={selectedId} select={select}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId}/><ReviewPanel/></>
+      {tab === 'Build' ? <><div className="build-grid"><ActionLibrary selectedId={selectedId}/><WorkflowCanvas selectedId={selectedId} select={select}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId}/><ReviewPanel/></>
         : tab === 'Simulate' ? <><SimulatePanel/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CowPanel view="simulate"/></>
         : forkExecution ? <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CowPanel view="execute"/></>
         : <section className="unavailable panel" aria-label="Execute unavailable"><p className="eyebrow">EXECUTE / UNAVAILABLE</p><h2>Execute is not implemented for mocked or observed artifacts</h2><p>Mocked quote and simulation artifacts cannot authorize execution. Read-only Base observations cannot authorize execution either. There is no wallet, signature, transaction, execution or outcome here.</p>

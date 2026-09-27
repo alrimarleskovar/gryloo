@@ -4,6 +4,7 @@ import { commandIsValid, type Command } from './commands';
 import { freeze, initialWorkflow, type Workflow } from './initial-workflow';
 import { createMockNode } from './mock-actions';
 import { createSwapNode, parseHumanAmount, parseSlippage, swapDetails, SWAP_ACTION } from './swap-authoring';
+import { createLiquidityNode, LIQUIDITY_ACTION } from './liquidity-authoring';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -17,20 +18,25 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
   let nodes = [...current.nodes];
   let resourceEdges = [...current.resourceEdges];
-  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_COW_SWAP') {
+  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
     if (nodes.length >= 1024) return reject('NODE_LIMIT');
     const id = `node-${String(current.revision + 2).padStart(3, '0')}`;
     if (nodes.some(node => node.nodeId === id)) return reject('DUPLICATE_NODE');
     if (command.type === 'ADD') nodes.push(createMockNode(id, command.kind));
     else {
       if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
-      try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
+      if (command.type === 'ADD_LIQUIDITY') {
+        if (nodes.some(n => n.actionType === LIQUIDITY_ACTION)) return reject('ONE_LIQUIDITY_POSITION_ONLY');
+        try { nodes.push(createLiquidityNode(id, command.input, context)); }
+        catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_LIQUIDITY_INPUT'); }
+      } else try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
       catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_SWAP_INPUT'); }
     }
   } else if (command.type === 'CONNECT') {
     if (command.from === command.to || !nodes.some(n => n.nodeId === command.from)
         || !nodes.some(n => n.nodeId === command.to)) return reject('INVALID_CONNECTION');
     if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && n.actionType === SWAP_ACTION)) return reject('SWAP_EDGE_UNSUPPORTED');
+    if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && n.actionType === LIQUIDITY_ACTION)) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
     const target = nodes.find(n => n.nodeId === command.to)!;
     if (target.dependencies.includes(command.from)) return { workflow: current, error: null };
     if (target.dependencies.length) return reject('INPUT_ALREADY_CONNECTED');
@@ -51,6 +57,13 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
       if (node.lockedParameters.length) return reject('LOCKED_PARAMETER: unlock before removing this node.');
       nodes = nodes.filter(n => n.nodeId !== node.nodeId).map(n => ({ ...n, dependencies: n.dependencies.filter(id => id !== node.nodeId) }));
       resourceEdges = resourceEdges.filter(edge => edge.fromNodeId !== node.nodeId && edge.toNodeId !== node.nodeId);
+    } else if (node.actionType === LIQUIDITY_ACTION) {
+      if (command.type !== 'SET_LIQUIDITY' || !context) return reject('INVALID_LIQUIDITY_COMMAND');
+      try {
+        const replacement = createLiquidityNode(node.nodeId, command.input, context);
+        if (JSON.stringify(replacement) === JSON.stringify(node)) return { workflow: current, error: null };
+        nodes = nodes.map(n => n.nodeId === node.nodeId ? replacement : n);
+      } catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_LIQUIDITY_INPUT'); }
     } else if (node.actionType === SWAP_ACTION) {
       if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
       const details = swapDetails(node, context);
@@ -100,7 +113,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     }
   }
   const candidate = { ...current, revision: current.revision + 1, nodes, resourceEdges };
-  if (nodes.some(n => n.actionType === SWAP_ACTION)) {
+  if (nodes.some(n => [SWAP_ACTION, LIQUIDITY_ACTION].includes(n.actionType))) {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
     try { validateAuthoringWorkflow(candidate, context); }
     catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_WORKFLOW'); }

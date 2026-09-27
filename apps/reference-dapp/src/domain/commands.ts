@@ -3,6 +3,8 @@ import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { actionKinds, type ActionKind } from './mock-actions';
 import type { Workflow } from './initial-workflow';
 import { SWAP_ACTION, directionLabel, parseHumanAmount, parseSlippage, swapDetails, type Direction } from './swap-authoring';
+import { type LiquidityInput } from './liquidity-authoring';
+import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
@@ -15,9 +17,11 @@ export type Command = Base & (
   | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'SET_SWAP_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'SET_SLIPPAGE'; readonly nodeId: string; readonly slippage: string }
+  | { readonly type: 'ADD_LIQUIDITY'; readonly input: LiquidityInput }
+  | { readonly type: 'SET_LIQUIDITY'; readonly nodeId: string; readonly input: LiquidityInput }
 );
 
-export const HELP = 'Try “swap 2 USDC to WETH on Base slippage 50 bps”, “set node-002 amount 3”, “set node-002 slippage 100 bps”, “add read”, or “explain”. No model or network service is connected.';
+export const HELP = 'Try “swap 2 USDC to WETH on Base slippage 50 bps”, “add liquidity 0.1 WETH and 200 USDC ticks -100 to 100 recipient 0x…”, “set node-002 amount 3”, or “add read”. No model or network service is connected.';
 export function parseMockCommand(text: string, baseRevision: number): Command {
   const input = text.trim();
   const add = /^add (read|transform|condition)$/.exec(input);
@@ -29,6 +33,14 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const liquidity = /^(add liquidity|set (node-\d+) liquidity) ([0-9]+(?:\.[0-9]+)?) WETH and ([0-9]+(?:\.[0-9]+)?) USDC minimum ([0-9]+(?:\.[0-9]+)?) WETH and ([0-9]+(?:\.[0-9]+)?) USDC ticks (-?[0-9]+) to (-?[0-9]+) recipient (0x[0-9a-fA-F]{40})$/i.exec(input);
+  if (liquidity) {
+    parseHumanAmount(liquidity[3], 'WETH', context); parseHumanAmount(liquidity[4], 'USDC', context);
+    parseTick(`tick:${liquidity[7]}`); parseTick(`tick:${liquidity[8]}`);
+    const details: LiquidityInput = { weth: liquidity[3]!, usdc: liquidity[4]!, minimumWeth: liquidity[5]!, minimumUsdc: liquidity[6]!, tickLower: liquidity[7]!, tickUpper: liquidity[8]!, recipient: liquidity[9]!.toLowerCase() };
+    return liquidity[2] ? { type: 'SET_LIQUIDITY', nodeId: liquidity[2], input: details, source: 'CHAT', baseRevision: workflow.revision }
+      : { type: 'ADD_LIQUIDITY', input: details, source: 'CHAT', baseRevision: workflow.revision };
+  }
   const swap = /^swap ([0-9]+(?:\.[0-9]+)?) (USDC|WETH) to (USDC|WETH) on Base slippage ([0-9]+) bps$/i.exec(input);
   if (swap) {
     const from = swap[2]!.toUpperCase(), to = swap[3]!.toUpperCase();
@@ -65,7 +77,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD: ['kind'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'],
+    ADD: ['kind'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -78,6 +90,14 @@ export function commandIsValid(input: unknown): input is Command {
     case 'LOCK': return id(command.nodeId) && typeof command.locked === 'boolean' && command.source === 'CANVAS';
     case 'CONNECT': return id(command.from) && id(command.to);
     case 'REMOVE': return id(command.nodeId);
+    case 'ADD_LIQUIDITY':
+    case 'SET_LIQUIDITY': {
+      if (command.type === 'SET_LIQUIDITY' && !id(command.nodeId)) return false;
+      const value = command.input;
+      return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype
+        && Reflect.ownKeys(value).sort().join() === ['weth', 'usdc', 'minimumWeth', 'minimumUsdc', 'tickLower', 'tickUpper', 'recipient'].sort().join()
+        && Object.values(value).every(item => typeof item === 'string' && item.length <= 80);
+    }
     case 'ADD_SWAP':
     case 'ADD_COW_SWAP': return ['USDC_TO_WETH', 'WETH_TO_USDC'].includes(command.direction as string)
       && typeof command.amount === 'string' && command.amount.length <= 80
@@ -94,6 +114,8 @@ export function amountOf(node: Workflow['nodes'][number]): string {
 }
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
+    const position = context && liquidityDetails(node, context);
+    if (position) return `${node.nodeId}: Uniswap v3 Base WETH/USDC position, ${position.amountWeth} WETH units and ${position.amountUsdc} USDC units maximum, minimums ${position.minimumWeth} WETH and ${position.minimumUsdc} USDC units, ticks ${position.tickLower} to ${position.tickUpper}, recipient ${position.recipient}.`;
     const details = context && swapDetails(node, context);
     if (details) return `${node.nodeId}: ${directionLabel(details.from === 'USDC' ? 'USDC_TO_WETH' : 'WETH_TO_USDC')}, ${details.amount} ${details.from}, ${details.slippage} bps, unquoted on Base.`;
     return `${node.nodeId}: ${node.actionType}, ${amountOf(node)} sample units on ${node.chainId}`
