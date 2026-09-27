@@ -6,7 +6,7 @@ import {
   hashRawBytes, hashJournalEntries, projectArtifact, HASH_DOMAINS,
   type HashKind, type StructuredHashKind,
 } from '../src/canonical.js';
-import { hashArtifactBytes } from '../src/index.js';
+import { hashArtifactBytes, hashModeBPermission } from '../src/index.js';
 import { artifactSchemas } from '../src/schemas.js';
 
 type Vector = {
@@ -26,7 +26,7 @@ describe('DWE-HASH v1 byte compatibility', () => {
   it('covers every exact domain with lowercase 0x-prefixed SHA-256', () => {
     expect(vectors.profile).toBe('DWE-HASH-v1');
     expect(new Set(vectors.vectors.map(vector => vector.domain))).toEqual(
-      new Set(Object.keys(HASH_DOMAINS).filter(domain => domain !== 'enforcement-matrix')),
+      new Set(Object.keys(HASH_DOMAINS).filter(domain => domain !== 'enforcement-matrix' && domain !== 'mode-b-permission')),
     );
     for (const vector of vectors.vectors) {
       expect(vector.digest).toMatch(/^0x[0-9a-f]{64}$/);
@@ -47,6 +47,25 @@ describe('DWE-HASH v1 byte compatibility', () => {
         expect(hashArtifactValue(kind, vector.value)).toBe(vector.digest);
       }
     }
+  });
+
+
+  it('keeps the additive Mode B v2 domain separate from frozen v1 vectors', () => {
+    const vector = read('mode-b-permission-vectors.json') as { profile: string; permission: Record<string, unknown>; digest: string };
+    expect(vector.profile).toBe('DWE-HASH-v2-mode-b');
+    expect(hashModeBPermission(vector.permission)).toBe(vector.digest);
+    const changed = { ...vector.permission, amountIn: (BigInt(vector.permission.amountIn as string) + 1n).toString(),
+      cumulativeBudget: (BigInt(vector.permission.cumulativeBudget as string) + 1n).toString() };
+    expect(hashModeBPermission(changed)).not.toBe(vector.digest);
+    const script = [
+      'import json,hashlib,sys',
+      'v=json.load(open(sys.argv[1],encoding="utf-8"))',
+      'p=json.dumps(v["permission"],sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()',
+      'd=b"defi-workflow-engine/mode-b-permission/v2"',
+      'frame=b"DWE-HASH"+bytes([0,2])+len(d).to_bytes(2,"big")+d+len(p).to_bytes(8,"big")+p',
+      'assert "0x"+hashlib.sha256(frame).hexdigest()==v["digest"]',
+    ].join('\n');
+    expect(() => execFileSync('python3', ['-c', script, new URL('../../../tests/compatibility/v1/mode-b-permission-vectors.json', import.meta.url).pathname])).not.toThrow();
   });
 
   it('classifies every structured schema field in the canonical projection', () => {
