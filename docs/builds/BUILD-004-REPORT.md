@@ -28,7 +28,7 @@ A local pause never revokes.
 
 ## 2. How to test locally
 
-All runs are offline inside `unshare -rn --pid --fork --mount-proc` with loopback only. They use pinned Node 24.21.0, pnpm 11.22.0 and Anvil 1.8.3.
+All runs are offline inside `unshare -rn --pid --fork --mount-proc` with loopback only. Hide any `node_modules` above the repository, for example by bind-mounting an empty directory over it, so resolution matches CI's frozen install. They use pinned Node 24.21.0, pnpm 11.22.0 and Anvil 1.8.3.
 
 1. Supply the digest-pinned external inputs listed in plan §14:
    - `GRYLOO_MODE_B_SAFE_PACKAGE` (extracted `@safe-global/safe-contracts` 1.4.1);
@@ -46,9 +46,9 @@ Without a profile, all Mode B browser and fork tests **skip**. That is what CI r
 
 | Gate | Result |
 |---|---|
-| Real Mode B browser specs, profile set, clean fork, strict zero-pixel, no snapshot update | **4/4 passed in four consecutive runs** (v3–v6), each on a freshly built fork with new random keys |
+| Real Mode B browser specs, profile set, clean fork, strict zero-pixel, no snapshot update | **4/4 passed in two consecutive runs** (v8, v9), each on a freshly built fork with new random keys and with module resolution confined to the repository (see §5) |
 | Mode B fork tests: executor direct bypass, compiler read-back, reconciler | 4/4 passed serialized on one clean fork, together with the Mode B service fork smoke |
-| `pnpm check` (typecheck, lint, build, schema check, unit tests) | Passed; 344 unit tests passed, 1 skipped (the profile-gated Mode B service smoke) |
+| `pnpm check` (typecheck, lint, build, schema check, unit tests), Turbo cache bypassed | Passed; 344 unit tests passed, 1 skipped (the profile-gated Mode B service smoke) |
 | Full browser suite, Mode B off (CI-equivalent) | 42 passed; the 4 Mode B specs skipped as designed |
 | CI fork step offline | `test:anvil` 4 passed / 10 skipped (owner-secret); `test:fork` 30 passed / 24 skipped (owner-secret and profile-gated); F1 five-pass rehearsal PASS; transcript static check passed |
 | Governance workflow, both steps, run locally | Passed |
@@ -109,6 +109,7 @@ An earlier session's checkpoint claimed local passes that did not hold on indepe
 - **Substituted config.** The visual-shell failure it reported came from a substitute `/tmp` Playwright configuration with missing Mode A server settings. Under the real configuration the committed baselines match at zero pixels and are unchanged.
 - **Dependency edges.** It stated that only the six workspace edges and the lockfile changed. In fact `reference-executor` also gained direct `@noble/curves` and `@noble/hashes` 2.4.0 edges; Amendment A-1 now records them.
 - **Mode A heading.** It changed the shared Mode A Execute heading, which broke protected Mode A browser baselines (8 failures in the full suite). The original Mode A heading is restored; Mode B has its own heading.
+- **Undeclared imports (found by remote CI on PR #13).** `mode-b-fork.spec.ts` imported `@noble/curves` and `@noble/hashes`, which `reference-dapp` does not declare. Remote CI's frozen install correctly failed the app typecheck. Locally, TypeScript and Node resolved them from an unrelated `node_modules` in the owner's home directory, outside the repository, at noble 1.9.7 rather than the pinned 2.4.0. The earlier local browser runs v3–v6 therefore signed test owner transactions with an unpinned library; they are superseded. The spec now signs through the declared `reference-executor` signer, whose expected-signer check proves that the key derives the profile owner. Every local check was then repeated with that directory hidden: `pnpm check`, the Mode B specs, the Mode B fork tests and the full browser suite.
 - **Spec defects.** The real `mode-b-fork.spec.ts` could not restart the worker under the real config, because Vite's root was wrong. It also allowed a 100-pixel tolerance, against the plan's zero-pixel rule. Both are fixed. Per-run values (hashes, expiry, the disposable owner address and salt-dependent gas) are masked, and the owner address is rendered in fixed-width `code`.
 
 ## 6. Visual evidence

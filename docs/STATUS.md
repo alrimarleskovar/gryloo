@@ -5,7 +5,7 @@
 DEC-0031 approved the [BUILD-004 plan](builds/BUILD-004-PLAN.md) and D-1; DEC-0032 recorded Amendment A-1. The Safe 1.4.1 plus Zodiac Roles 2.1.0 finite swap path is implemented on local chain 31337. The local fork uses the certified BUILD-003F transcript strictly closed, plus explicitly declared local-only accounts and three owner-selected `LOCAL_SETUP_NOT_BASE_OBSERVED` Safe token slots.
 
 Passed locally on this tree:
-- the real Mode B browser specs, 4/4 in four consecutive strict runs;
+- the real Mode B browser specs, 4/4 in two consecutive strict runs with repository-confined module resolution;
 - the three Mode B fork tests: direct bypass, compiler read-back and reconciliation;
 - `pnpm check`;
 - the full browser suite with Mode B off, 42 passed and the 4 Mode B specs skipped;

@@ -2,9 +2,8 @@
 /** Browser journey on a local fork. The disposable owner key stays in this Node test process. */
 import { readFileSync, readdirSync, rmSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { secp256k1 } from '@noble/curves/secp256k1.js';
-import { keccak_256 } from '@noble/hashes/sha3.js';
-import { encodeUnsignedPayload, fromHex, rlpDecode, rlpEncode, rlpInteger, rlpList, toHex } from '@defi-workflow-engine/reference-compiler';
+import { fromHex } from '@defi-workflow-engine/reference-compiler';
+import { signModeBLocalTransaction } from '@defi-workflow-engine/reference-executor';
 import { test, expect } from './fixtures';
 import { authorSwap } from './mode-a-fixtures';
 
@@ -31,8 +30,11 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
   test.setTimeout(180_000);
   const profile = JSON.parse(readFileSync(profilePath!, 'utf8')) as { owner: string; journalDir: string };
   const ownerKey = fromHex((JSON.parse(readFileSync(keyPath!, 'utf8')) as { owner: string }).owner);
-  const owner = toHex(keccak_256(secp256k1.getPublicKey(ownerKey, false).subarray(1)).subarray(12));
-  expect(owner).toBe(profile.owner);
+  const owner = profile.owner.toLowerCase();
+  // The pinned local signer refuses a key that does not derive the profile owner address.
+  const sign = (tx: { to: string; data: string; nonce: bigint; gasLimit: bigint; maxFeePerGas: bigint }) =>
+    signModeBLocalTransaction({ expectedExecutor: owner, ...tx }, ownerKey).raw;
+  expect(() => sign({ to: owner, data: '0x00000000', nonce: 0n, gasLimit: 21_000n, maxFeePerGas: 1_000_000n })).not.toThrow();
   const snapshot = await rpc('evm_snapshot');
   try {
     for (const entry of readdirSync(profile.journalDir)) rmSync(join(profile.journalDir, entry), { recursive: true, force: true });
@@ -51,12 +53,8 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
       expect(tx.chainId).toBe('0x7a69');
       expect(BigInt(tx.value)).toBe(0n);
       const head = await rpc('eth_getBlockByNumber', ['latest', false]) as { baseFeePerGas: string };
-      const unsigned = encodeUnsignedPayload({ chainId: 31337, nonce: BigInt(tx.nonce), maxPriorityFeePerGas: 1_000_000n,
-        maxFeePerGas: BigInt(head.baseFeePerGas) * 2n + 1_000_000n, gasLimit: BigInt(tx.gas),
-        to: tx.to, value: 0n, data: fromHex(tx.data), accessList: [] });
-      const sig = secp256k1.sign(keccak_256(unsigned), ownerKey, { prehash: false, format: 'recovered' });
-      const raw = toHex(Uint8Array.of(2, ...rlpEncode([...rlpList(rlpDecode(unsigned.subarray(1))),
-        rlpInteger(BigInt(sig.recovery!)), rlpInteger(sig.r), rlpInteger(sig.s)])));
+      const raw = sign({ to: tx.to, data: tx.data, nonce: BigInt(tx.nonce), gasLimit: BigInt(tx.gas),
+        maxFeePerGas: BigInt(head.baseFeePerGas) * 2n + 1_000_000n });
       return await rpc('eth_sendRawTransaction', [raw]);
       } catch (error) { walletFailure = String(error); throw error; }
     });
