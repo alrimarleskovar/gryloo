@@ -1,10 +1,10 @@
 # Next build
 
-## Current state after BUILD-003F local acceptance (2026-09-27)
+## Current state after BUILD-003 certification (2026-09-27)
 
-DEC-0028 approved the complete BUILD-003F implementation and the bounded, single-use owner recording. F2, real F3 recording, byte-identical F4 replay, F5 local-fork application tests and the owner-operated G7 wallet verification have passed locally; see the [BUILD-003F report](builds/BUILD-003F-REPORT.md). Delivery, remote and post-merge CI, ADR-0004 acceptance and BUILD-003 certification remain pending. The local `FORK_REPRODUCED` result grants no public-chain, production or later-build authority.
+DEC-0028 approved the complete BUILD-003F implementation and the bounded, single-use owner recording. F2, real F3 recording, byte-identical F4 replay, F5 local-fork application tests and the owner-operated G7 wallet verification have passed locally; see the [BUILD-003F report](builds/BUILD-003F-REPORT.md). PR #11 passed 4/4 checks on `45dc852c88810be41ec2a703c163f4e41bcfa2eb`, merged as `4bf7d4f6e96c5ef433b0c930dad067d4001f2956`, and post-merge Governance `36286360276` and Contracts/app `36286360265` passed. DEC-0030 accepts ADR-0004 and certifies BUILD-003 `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 only. This grants no public-chain, production, live-provider, wallet-custody or financial-execution authority.
 
-The approved next build is `NONE_APPROVED`. BUILD-004 planning remains blocked until BUILD-003 is actually certified. BUILD-003E remains reserved for public-testnet evidence; no testnet, mainnet, Mode B or package-publication approval is implied.
+The approved next build is `NONE_APPROVED`. BUILD-004 planning may now be proposed separately; no BUILD-004 plan or implementation is approved. BUILD-003E remains reserved for public-testnet evidence; no testnet, mainnet, Mode B or package-publication approval is implied.
 
 ## Historical state at BUILD-003D closure (2026-09-24)
 
