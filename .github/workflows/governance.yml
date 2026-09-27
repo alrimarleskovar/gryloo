@@ -187,7 +187,7 @@ jobs:
           if 'DEC-0029' not in (root/'docs/DECISIONS.md').read_text() or 'visual-shell.spec.ts' not in (root/'docs/builds/BUILD-003F-REPORT.md').read_text():
               errors.append('BUILD-003F visual scope amendment not recorded')
           contracts_workflow=(root/'.github/workflows/contracts.yml').read_text()
-          if ("if: ${{ failure() && steps.browser.outcome == 'failure' }}" not in contracts_workflow or
+          if (("if: $"+"{{ failure() && steps.browser.outcome == 'failure' }}") not in contracts_workflow or
                   "id: browser" not in contracts_workflow or
                   any(v not in contracts_workflow for v in
                       ('test-results/**/*-actual.png','test-results/**/*-expected.png','test-results/**/*-diff.png',
