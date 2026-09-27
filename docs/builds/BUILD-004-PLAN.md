@@ -178,4 +178,3 @@ The owner confirmed DEC-0031 and directed the completion of BUILD-004 after a pr
    - the real browser specs run under the unchanged Playwright configuration with `GRYLOO_MODE_B=fork`, `GRYLOO_MODE_B_PROFILE` and `GRYLOO_MODE_B_EXECUTOR_KEY_FILE` set;
    - the Mode B fork tests run with `GRYLOO_MODE_B_SMOKE_PROFILE` and `--no-file-parallelism`, because they share one fork.
 5. **Visual baselines.** With Mode B off, the three `visual-shell` baselines still match at zero pixels, so they are not modified. The Mode B screens are recorded as before/diff evidence under `e2e/visual-evidence/build-004/`.
-
