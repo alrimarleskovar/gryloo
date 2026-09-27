@@ -2,7 +2,7 @@
 
 ## Current BUILD-004 path (2026-09-27)
 
-DEC-0031 approved [BUILD-004](builds/BUILD-004-PLAN.md) and the finite Safe/Roles D-1 profile; DEC-0032 recorded Amendment A-1. Implementation and local automated acceptance pass on the clean closed-replay fork. Still outstanding: the owner's injected-wallet session, push, the pull request, remote CI, the merge decision and post-merge checks. BUILD-004 is not yet certified. After successful BUILD-004 completion, proceed directly to BUILD-005 planning. BUILD-005 implementation has no separate approval. The older `NONE_APPROVED` and BUILD-003F pending statements below are historical as of their dated sections. The evidence ceiling remains `FORK_REPRODUCED` on local chain 31337.
+DEC-0031 approved [BUILD-004](builds/BUILD-004-PLAN.md) and the finite Safe/Roles D-1 profile; DEC-0032 recorded Amendment A-1. Implementation, local automated acceptance and the owner-operated injected-wallet session pass on the clean closed-replay fork. Still outstanding: remote CI on the final PR #13 head, the owner's merge decision and post-merge checks. BUILD-004 is not yet certified. After successful BUILD-004 completion, proceed directly to BUILD-005 planning. BUILD-005 implementation has no separate approval. The older `NONE_APPROVED` and BUILD-003F pending statements below are historical as of their dated sections. The evidence ceiling remains `FORK_REPRODUCED` on local chain 31337.
 
 
 ## Current state after BUILD-003 certification (2026-09-27)

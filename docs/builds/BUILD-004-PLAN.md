@@ -176,5 +176,7 @@ The owner confirmed DEC-0031 and directed the completion of BUILD-004 after a pr
    - lineage front on `127.0.0.1:18545`, Anvil on `18547`, certified replay handler on `18546`;
    - the harness writes the profile and a mode-0600 key file under `GRYLOO_MODE_B_RUNTIME`;
    - the real browser specs run under the unchanged Playwright configuration with `GRYLOO_MODE_B=fork`, `GRYLOO_MODE_B_PROFILE` and `GRYLOO_MODE_B_EXECUTOR_KEY_FILE` set;
-   - the Mode B fork tests run with `GRYLOO_MODE_B_SMOKE_PROFILE` and `--no-file-parallelism`, because they share one fork.
+   - the Mode B fork tests run with `GRYLOO_MODE_B_SMOKE_PROFILE` and `--no-file-parallelism`, because they share one fork;
+   - for the owner-operated session, `GRYLOO_MODE_B_OWNER_ADDRESS` names the owner's injected-wallet account, so the harness generates only the executor key;
+   - `mode-b-harness.mjs verify` then re-reads every owner and executor transaction from the fork, without any key.
 5. **Visual baselines.** With Mode B off, the three `visual-shell` baselines still match at zero pixels, so they are not modified. The Mode B screens are recorded as before/diff evidence under `e2e/visual-evidence/build-004/`.

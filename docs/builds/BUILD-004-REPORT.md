@@ -1,12 +1,12 @@
 # BUILD-004 — Finite Mode B authority: report
 
-**Status: IN PROGRESS / ACCEPTANCE_PENDING.** Implementation and automated local acceptance pass on the final working tree. The following have **not** happened:
+**Status: LOCAL ACCEPTANCE COMPLETE — READY FOR THE OWNER'S MERGE DECISION.** Implementation, automated local acceptance and the owner-operated injected-wallet session (§8) have passed. Not yet done:
 
-- the owner-operated injected-wallet session;
-- push, pull request and remote CI;
-- the merge decision and post-merge checks.
+- remote CI on the final pushed head of PR #13;
+- the owner's merge decision;
+- post-merge checks.
 
-BUILD-004 is therefore not complete and not certified. The maximum evidence is `FORK_REPRODUCED` on local chain 31337. There is no public-chain, production, provider or real-funds result.
+Until those pass and are recorded, BUILD-004 is not complete and not certified; ADR-0001 stays `ACCEPTANCE_PENDING`. The maximum evidence is `FORK_REPRODUCED` on local chain 31337. There is no public-chain, production, provider or real-funds result.
 
 - **Authority:** DEC-0031 (plan and D-1) and DEC-0032 (Amendment A-1, [plan §14](BUILD-004-PLAN.md)).
 - **Baseline:** `05910364feac7f9fe0856a5c2c197eeeb12db902`.
@@ -46,14 +46,14 @@ Without a profile, all Mode B browser and fork tests **skip**. That is what CI r
 
 | Gate | Result |
 |---|---|
-| Real Mode B browser specs, profile set, clean fork, strict zero-pixel, no snapshot update | **4/4 passed in two consecutive runs** (v8, v9), each on a freshly built fork with new random keys and with module resolution confined to the repository (see §5) |
-| Mode B fork tests: executor direct bypass, compiler read-back, reconciler | 4/4 passed serialized on one clean fork, together with the Mode B service fork smoke |
-| `pnpm check` (typecheck, lint, build, schema check, unit tests), Turbo cache bypassed | Passed; 344 unit tests passed, 1 skipped (the profile-gated Mode B service smoke) |
+| Real Mode B browser specs, profile set, clean fork, strict zero-pixel, no snapshot update | **4/4 passed in two consecutive runs** (v12, v13) on the final code. Each run used a freshly built fork with new random keys, the wallet answered nonces as numbers as MetaMask does, and module resolution was confined to the repository (see §5) |
+| Mode B fork tests: executor direct bypass, compiler read-back, reconciler | 4/4 passed serialized on one clean fork, together with the Mode B service fork smoke. The reconciler test installs with MetaMask-style wallet-chosen fees through the service's confirmation path |
+| `pnpm check` (typecheck, lint, build, schema check, unit tests), Turbo cache bypassed | Passed; 346 unit tests passed, 1 skipped (the profile-gated Mode B service smoke) |
 | Full browser suite, Mode B off (CI-equivalent) | 42 passed; the 4 Mode B specs skipped as designed |
 | CI fork step offline | `test:anvil` 4 passed / 10 skipped (owner-secret); `test:fork` 30 passed / 24 skipped (owner-secret and profile-gated); F1 five-pass rehearsal PASS; transcript static check passed |
 | Governance workflow, both steps, run locally | Passed |
 | SBOM, CI step run offline | 247 exact registry components, 16 reviewed exceptions |
-| Dependency verification | Local manifest and edge checks raised no violation. Registry metadata, release-age checks and `pnpm audit` need the network and were **not run**; they are left to remote CI |
+| Dependency verification | Local manifest and edge checks raised no violation. Registry metadata, release-age checks and `pnpm audit` passed remotely on PR #13 head `e013361` (all four checks green), before the two owner-session fixes |
 
 **Direct-call boundary (executor fork test).** Each rejection must be an onchain revert of a mined transaction. RPC refusals do not count. The following reverted:
 
@@ -110,6 +110,8 @@ An earlier session's checkpoint claimed local passes that did not hold on indepe
 - **Dependency edges.** It stated that only the six workspace edges and the lockfile changed. In fact `reference-executor` also gained direct `@noble/curves` and `@noble/hashes` 2.4.0 edges; Amendment A-1 now records them.
 - **Mode A heading.** It changed the shared Mode A Execute heading, which broke protected Mode A browser baselines (8 failures in the full suite). The original Mode A heading is restored; Mode B has its own heading.
 - **Undeclared imports (found by remote CI on PR #13).** `mode-b-fork.spec.ts` imported `@noble/curves` and `@noble/hashes`, which `reference-dapp` does not declare. Remote CI's frozen install correctly failed the app typecheck. Locally, TypeScript and Node resolved them from an unrelated `node_modules` in the owner's home directory, outside the repository, at noble 1.9.7 rather than the pinned 2.4.0. The earlier local browser runs v3–v6 therefore signed test owner transactions with an unpinned library; they are superseded. The spec now signs through the declared `reference-executor` signer, whose expected-signer check proves that the key derives the profile owner. Every local check was then repeated with that directory hidden: `pnpm check`, the Mode B specs, the Mode B fork tests and the full browser suite.
+- **Wallet nonce shape (found in the owner session).** The Mode B owner step accepted the wallet's pending nonce only as a lowercase hex string. MetaMask answered from its own nonce tracker, possibly as a number, so the first attempt stopped with `WALLET_NONCE_INVALID` before any send. The chain showed owner nonce 0 and an empty txpool. The step now accepts a non-negative safe integer or a hex count, and the fork spec's wallet answers with a number.
+- **Mode A fee profile applied to Mode B (found in the owner session).** MetaMask chose its own EIP-1559 fees (priority 1.005 gwei). The Mode B confirmation path decoded the mined transaction with the Mode A exact-payload decoder, which requires a fixed priority fee. So a valid, mined step-1 transaction was never journaled, and a retry reverted without changing state. `decodeModeBSignedTransaction` in the Mode B reconciler module keeps these checks: chain, hash, canonical encoding, signature, zero value and empty access list. It binds signer, target and calldata but not wallet fees. The Mode A decoder is unchanged. The automated tests had signed only at the Mode A fee; the reconciler fork test and new unit cases now cover wallet-chosen fees.
 - **Spec defects.** The real `mode-b-fork.spec.ts` could not restart the worker under the real config, because Vite's root was wrong. It also allowed a 100-pixel tolerance, against the plan's zero-pixel rule. Both are fixed. Per-run values (hashes, expiry, the disposable owner address and salt-dependent gas) are masked, and the owner address is rendered in fixed-width `code`.
 
 ## 6. Visual evidence
@@ -130,12 +132,11 @@ Known cosmetic issues, left unchanged because their files are outside the approv
 
 ## 7. Remaining for completion and BUILD-005
 
-1. **Owner-operated wallet session.** One local session with a real injected wallet on chain 31337: install, worker execution, reconciliation and revocation. This has not been performed.
-2. **Delivery.** Commit review, push and one pull request. The agent shell cannot push over SSH, so the owner pushes.
-3. **Remote CI.** It must pass, including `pnpm audit` and registry verification.
-4. **Merge.** The owner decides; then post-merge CI runs.
+1. **Remote CI** on the final pushed head of PR #13 must pass.
+2. **Merge:** the owner decides.
+3. **Post-merge checks** must pass. A records-only commit then marks BUILD-004 `COMPLETE / CERTIFIED: FORK_REPRODUCED`, and `NEXT_BUILD.md` points to BUILD-005 (the CoW signed-intent adapter) planning.
 
-Only after all four may BUILD-004 be marked complete, and `NEXT_BUILD.md` then points to BUILD-005 (the CoW signed-intent adapter) planning. Limits that remain beyond this build:
+These limits remain beyond this build and do not block it:
 
 - the gas cap is enforced only at the worker gateway;
 - production executor key management;
@@ -143,4 +144,43 @@ Only after all four may BUILD-004 be marked complete, and `NEXT_BUILD.md` then p
 - a formal audit;
 - public-chain deployment.
 
-**Is BUILD-004 complete? No.**
+## 8. Owner-operated injected-wallet acceptance (2026-09-27)
+
+The owner operated MetaMask in Brave on local chain 31337. The account was `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`, the disposable BUILD-003F G7 account. The certified transcript records its Base state as balance 0, nonce 0 and no code. The harness only added 100 test ETH for gas. The harness held no owner key; the wallet signed every owner transaction. Wallet and browser versions were not reported for this session.
+
+- **Attempt 1.** Stopped with `WALLET_NONCE_INVALID` before any send; nothing was mined. Fixed in `02c8fe7` (§5).
+- **Attempt 2.** Step 1 was mined but not journaled because of the fee-profile defect; the owner's retry reverted. Only the Roles module was enabled, and no role, scope or allowance existed. The fork was discarded and the defect fixed in `311fb10` (§5).
+- **Attempt 3 (acceptance run, fresh fork).**
+  1. The owner signed six exact installation transactions (nonces 0–5), then closed the tab.
+  2. A supervisor started a separate worker process after installation: process A submitted the executor call and exited at `PENDING`, and a fresh process B resumed it to `CONFIRMED` and `RECONCILED`, with no browser involvement.
+  3. The owner reopened the app, saw the recovered `RECONCILED` state, and signed four exact revocations (nonces 6–9). The app showed `REVOCATION_CONFIRMED`.
+  4. The independent key-free verifier (`mode-b-harness.mjs verify`) re-read every transaction from the fork and returned **PASS** with no findings. Result SHA-256: `4123fa38dd281bb094a7d436cf02320b0aadd8f0425a1ce561ec7ea3347529c6`.
+
+| Step | Transaction | Signer / nonce | Exact |
+|---|---|---|---|
+| Enable Roles module in Safe | `0x2645b579a0bacc80754e25b6b6b087b29e2c9c847fa3db9f785ae9db20b5c7ca` | owner / 0 | yes |
+| Scope Router02 target | `0x610d604d85d71f1817da30d0b6ef3fc21c9ac6d5003ffe2a647d3d090bb74595` | owner / 1 | yes |
+| Install exact scoped function | `0x1b76cce3fb84e15014e4e842b4971bb2de60cd29bdb33e7e251c1c1a975d00a4` | owner / 2 | yes |
+| Set one-time allowance | `0xd9df5d87054126c85698866a3fea077eacbea48c15ff4ace2ae6c4fd24e17bda` | owner / 3 | yes |
+| Assign executor role | `0x11d4b2fdee75f3693732148f36b9ad3c764e04ca5de5a536c8a023d0bb8d0dab` | owner / 4 | yes |
+| Approve finite Router02 allowance | `0x93343a9a387da685c0a7434c2fdba89e0309c51904b46796c127c5d3acd83e76` | owner / 5 | yes |
+| Executor swap | `0xeaa087b51b9806f8caa29cd1859ad11571289da6a22279743987b2bd3e71f85d` | executor / 0 | yes |
+| Remove executor role | `0x70af67ae0b1bb572e2b36e5c0b8e73ec8c910f9cac74bf9b80bd3d7591a80bae` | owner / 6 | yes |
+| Disable executor module in Roles | `0x3540a57a13f93d3923f8d4f84a3eb12c8eb7f759aa9aa37737f940574f8071f0` | owner / 7 | yes |
+| Disable Roles module in Safe | `0x5e294dc5f1d61cb6ed33342334db70c1445636a6a9a9ea535514b6916dddef34` | owner / 8 | yes |
+| Clear residual Router02 allowance | `0x5569347e5110a4333732bcfae42f7eb4b0fca9febf011c75ce7878bad90f3616` | owner / 9 | yes |
+
+Step 1 has the same hash as attempt 2's step 1. On each fresh fork the state, nonce, fees and calldata were identical, and the wallet's signature is deterministic.
+
+**Execution.**
+
+- Execution: `exec-f9b29b51c026eb40895ff412`.
+- Permission hash: `0x3ca5a2a528537f45f8c0efac341285dda8882385028b548fa717ab3c782e39de`.
+- Swap: 1 WETH in on fee tier 500. The Safe's WETH went from 2 to 1 (LOCAL_SETUP funding), and its USDC from 0 to **2,686.073513**, exactly the quoted output and above the 2,659.212777 minimum.
+- Reconciliation: `RECONCILED`, with remaining budget 0 and residual allowance 0.
+
+Chain readback after revocation: Roles module disabled in the Safe, executor removed from Roles, and Router02 allowance 0.
+
+**Owner-operated injected-wallet acceptance: PASS** (local chain 31337, `FORK_REPRODUCED`).
+
+**Is BUILD-004 complete? Not yet.** It is ready for the owner's merge decision once remote CI on the final head passes. Completion follows the post-merge checks.
