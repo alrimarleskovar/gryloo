@@ -1,6 +1,6 @@
 # BUILD-005 report — CoW signed-intent local profile
 
-**Status:** implementation and local acceptance complete; remote PR CI pending. **Base:** synchronized main, origin/main and GitHub main at 9c5484db1a78602cb6603744b03fb1b4096266da. **Branch:** codex/build-005-cow-signed-intent. **Authority:** DEC-0034 and the approved [BUILD-005 plan](BUILD-005-PLAN.md).
+**Status:** implementation and local acceptance complete; implementation CI passed on commit 61c4bad8a69e7c24c5949184f41e9727c58a9317. The owner retains merge authority. **Base:** synchronized main, origin/main and GitHub main at 9c5484db1a78602cb6603744b03fb1b4096266da. **Branch:** codex/build-005-cow-signed-intent. **Authority:** DEC-0034 and the approved [BUILD-005 plan](BUILD-005-PLAN.md).
 
 The user-facing CoW lifecycle is implemented for the same semantic exact-input swap IR. It is off by default and runs only against the deterministic loopback orderbook with a disposable injected local wallet. Quote, posting, tracking, cancellation and settlement observations are MOCKED; no public CoW provider, public chain, credential, production wallet or financial transaction is used. BUILD-003/004 local-fork evidence is unchanged.
 
@@ -28,10 +28,17 @@ The existing exact-input swap IR has an explicit, preauthorization CoW choice. L
 
 The default-worker unit timeouts are a local test-runner limitation, not a passing result. The two-worker run covers the same tests without changing source, assertions or timeout thresholds. Remote CI runs the unchanged default command and is reported separately. The owner-only cases were skipped, not passed. The browser and fork results above are scripted or local-fork engineering checks; BUILD-005 financial evidence remains MOCKED.
 
-## Remote CI
+## Remote CI on the implementation commit
 
-Pending the unmerged PR. A local pass is not a remote CI pass. CI run IDs and terminal check results will be reviewed before handoff to the owner.
+All four required checks completed successfully on 61c4bad8a69e7c24c5949184f41e9727c58a9317:
+
+| Event | Governance | Contracts, reference app, dependencies and SBOM |
+| --- | --- | --- |
+| Push | PASS, run [36343566660](https://github.com/alrimarleskovar/gryloo/actions/runs/36343566660) | PASS, run [36343566715](https://github.com/alrimarleskovar/gryloo/actions/runs/36343566715) |
+| PR | PASS, run [36343589132](https://github.com/alrimarleskovar/gryloo/actions/runs/36343589132) | PASS, run [36343589142](https://github.com/alrimarleskovar/gryloo/actions/runs/36343589142) |
+
+The CI contracts/app job passed the default-worker unit command, offline compatibility and fork gates, guarded browser suites, dependency audit and ephemeral SBOM validation. GitHub reported PR #15 as CLEAN and MERGEABLE at this implementation commit. A report-only follow-up commit will rerun CI; its terminal results belong to the PR check history and owner handoff.
 
 ## Delivery
 
-Implementation commit, push and one unmerged PR pending. The owner retains merge authority. No public-chain or production certification is claimed.
+Implementation commit 61c4bad8a69e7c24c5949184f41e9727c58a9317 was pushed to codex/build-005-cow-signed-intent and opened as [unmerged PR #15](https://github.com/alrimarleskovar/gryloo/pull/15). The owner retains merge authority. No public-chain or production certification is claimed.
