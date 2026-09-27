@@ -5,7 +5,7 @@ import { mkdir, open, readFile, readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { hashArtifactBytes, hashRawBytes, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { compileModeB, modeBCodeHash, FORK_CONTRACTS, BASE_CODE_PINS, type ModeBCompiled, type ModeBProfile } from '@defi-workflow-engine/reference-compiler';
-import { decodeSignedTransaction, reconcileModeB, type ModeBReconciliation } from '@defi-workflow-engine/reference-reconciler';
+import { decodeModeBSignedTransaction, reconcileModeB, type ModeBReconciliation } from '@defi-workflow-engine/reference-reconciler';
 import { createModeBWorker, signModeBLocalTransaction, type ModeBWorkerEvent } from '@defi-workflow-engine/reference-executor';
 import { modeASwapFromWorkflow, type ForkCall } from './mode-a-service';
 
@@ -167,9 +167,9 @@ export function createModeBService(profile: ModeBServerProfile, call: ForkCall) 
     const receipt = await call('eth_getTransactionReceipt', [txHash]) as { status?: string } | null;
     const raw = await call('eth_getRawTransactionByHash', [txHash]);
     if (receipt?.status !== '0x1' || typeof raw !== 'string') throw new Error('MODE_B_TX_UNCONFIRMED');
-    const parsed = decodeSignedTransaction(bytes(raw), txHash);
-    if (lower(parsed.signer) !== lower(profile.owner) || lower(parsed.unsigned.to) !== lower(list[index].to) ||
-      lower('0x' + Buffer.from(parsed.unsigned.data).toString('hex')) !== lower(list[index].data)) throw new Error('MODE_B_INSTALLATION_MISMATCH');
+    const parsed = decodeModeBSignedTransaction(bytes(raw), txHash);
+    if (lower(parsed.signer) !== lower(profile.owner) || lower(parsed.to) !== lower(list[index].to) ||
+      lower(parsed.data) !== lower(list[index].data)) throw new Error('MODE_B_INSTALLATION_MISMATCH');
     const next = { ...value, [phase]: [...already, { index, hash: txHash }] } as ModeBPrepared;
     await save(next); return next;
   }
@@ -252,7 +252,7 @@ export function createModeBService(profile: ModeBServerProfile, call: ForkCall) 
     const receipt = await call('eth_getTransactionReceipt', [txHash]) as { status?: string; blockHash?: string } | null;
     const raw = await call('eth_getRawTransactionByHash', [txHash]);
     if (!receipt || typeof raw !== 'string') throw new Error('MODE_B_TRANSACTION_UNCONFIRMED');
-    const signed = decodeSignedTransaction(bytes(raw), txHash);
+    const signed = decodeModeBSignedTransaction(bytes(raw), txHash);
     const statusNow = await status(id);
     const inputBalance = word(await direct(prepared.tokenIn, '0x70a08231' + addressWord(profile.safe)));
     const outputBalance = word(await direct(prepared.tokenOut, '0x70a08231' + addressWord(profile.safe)));
@@ -261,7 +261,7 @@ export function createModeBService(profile: ModeBServerProfile, call: ForkCall) 
     const observedRolesCode = modeBCodeHash(required(await call('eth_getCode', [profile.roles, 'latest']), 'MODE_B_CODE_INVALID'));
     const outcome = reconcileModeB({ chainId: 31337, safe: profile.safe, roles: profile.roles, rolesOwner, executor: profile.executor,
       transactionSigner: signed.signer,
-      target: FORK_CONTRACTS.router, transactionTo: signed.unsigned.to, transactionInput: '0x' + Buffer.from(signed.unsigned.data).toString('hex'),
+      target: FORK_CONTRACTS.router, transactionTo: signed.to, transactionInput: signed.data,
       expectedInput: prepared.compiled.executorCall.data, safeCodeHash: observedSafeCode, expectedSafeCodeHash: profile.safeCodeHash,
       rolesCodeHash: observedRolesCode, expectedRolesCodeHash: profile.rolesCodeHash, owner: profile.owner, expectedOwner: profile.owner,
       threshold: 1, moduleEnabled: statusNow.moduleEnabled, roleAssigned: statusNow.executorEnabled,

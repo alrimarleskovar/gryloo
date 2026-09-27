@@ -3,17 +3,17 @@
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { baseAssetRegistry, referenceRegistry } from '../../../packages/action-registry/src/index.js';
 import { createReviewContext } from '../../../packages/reference-linter/src/index.js';
-import { fromHex, modeBCodeHash, toHex } from '../../../packages/reference-compiler/src/index.js';
+import { fromHex, modeBCodeHash, rlpEncode, rlpInteger, toHex } from '../../../packages/reference-compiler/src/index.js';
 import { signModeBLocalTransaction } from '../../../packages/reference-executor/src/mode-b.js';
 import { createSwapNode } from '../../../apps/reference-dapp/src/domain/swap-authoring.js';
 import { createForkRpc } from '../../../apps/reference-dapp/src/server/fork-rpc.js';
 import { createModeBService, type ModeBServerProfile } from '../../../apps/reference-dapp/src/server/mode-b-service.js';
 import { describe, expect, it } from 'vitest';
-import { decodeSignedTransaction } from '../src/raw-transaction.js';
-import { reconcileModeB, type ModeBChainEvidence } from '../src/mode-b.js';
+import { decodeModeBSignedTransaction, reconcileModeB, type ModeBChainEvidence } from '../src/mode-b.js';
 
 const profilePath = process.env.GRYLOO_MODE_B_SMOKE_PROFILE;
 const keyPath = process.env.GRYLOO_MODE_B_EXECUTOR_KEY_FILE;
@@ -24,6 +24,15 @@ const workflow = () => ({ schemaVersion: '1.0.0' as const, workflowId: 'workflow
 const selector = (signature: string) => toHex(keccak_256(new TextEncoder().encode(signature)).subarray(0, 4));
 const pad = (address: string) => address.slice(2).toLowerCase().padStart(64, '0');
 const ROUTER = '0x2626664c2603336e57b271c5c0b26f421741e481';
+/** A MetaMask-like EIP-1559 signature with wallet-chosen fees, outside the Mode A fixed-fee profile. */
+function walletSign(key: Uint8Array, tx: { nonce: bigint; to: string; data: string; maxFeePerGas: bigint }): { raw: string; hash: string } {
+  const fields = [rlpInteger(31337n), rlpInteger(tx.nonce), rlpInteger(1_005_000_000n), rlpInteger(tx.maxFeePerGas + 1_005_000_000n),
+    rlpInteger(3_000_000n), fromHex(tx.to), rlpInteger(0n), fromHex(tx.data), []];
+  const unsigned = Uint8Array.of(2, ...rlpEncode(fields));
+  const sig = secp256k1.Signature.fromBytes(secp256k1.sign(keccak_256(unsigned), key, { prehash: false, format: 'recovered' }), 'recovered');
+  const raw = Uint8Array.of(2, ...rlpEncode([...fields, rlpInteger(BigInt(sig.recovery!)), rlpInteger(sig.r), rlpInteger(sig.s)]));
+  return { raw: toHex(raw), hash: toHex(keccak_256(raw)) };
+}
 
 describe('Mode B reconciliation from direct fork reads', () => {
   it.skipIf(!enabled)('reconciles the real execution and refuses divergent, reverted and unknown evidence', async () => {
@@ -61,8 +70,10 @@ describe('Mode B reconciliation from direct fork reads', () => {
         return signModeBLocalTransaction({ expectedExecutor: from, to, data, nonce, gasLimit: 3_000_000n,
           maxFeePerGas: block.baseFeePerGas * 2n + 1_000_000n }, key);
       };
+      // Owner installation transactions carry wallet-chosen fees, as MetaMask signs them.
       for (const [index, tx] of prepared.compiled.installation.entries()) {
-        const signed = await send(profile.owner, ownerKey, tx.to, tx.data);
+        const nonce = BigInt(await call('eth_getTransactionCount', [profile.owner, 'pending']) as string);
+        const signed = walletSign(ownerKey, { nonce, to: tx.to, data: tx.data, maxFeePerGas: (await service.chain()).baseFeePerGas * 2n });
         await mined(await mutate('eth_sendRawTransaction', [signed.raw]) as string);
         await service.confirm(prepared.executionId, 'installation', index, signed.hash);
       }
@@ -74,15 +85,15 @@ describe('Mode B reconciliation from direct fork reads', () => {
 
       // Every observation below is an independent read of the fork, including signer recovery from the mined raw bytes.
       const raw = await call('eth_getRawTransactionByHash', [executed.hash]) as string;
-      const decoded = decodeSignedTransaction(fromHex(raw), executed.hash);
+      const decoded = decodeModeBSignedTransaction(fromHex(raw), executed.hash);
       expect(decoded.signer.toLowerCase()).toBe(profile.executor);
       const receipt = await mined(executed.hash);
       const allowance = await call('eth_call', [{ to: profile.roles, data: selector('allowances(bytes32)') + prepared.compiled.allowanceKey.slice(2) }, 'latest']) as string;
       const observed: ModeBChainEvidence = {
         chainId: Number(BigInt(await call('eth_chainId') as string)), safe: profile.safe, roles: profile.roles,
         rolesOwner: '0x' + (await call('eth_call', [{ to: profile.roles, data: selector('owner()') }, 'latest']) as string).slice(-40),
-        executor: profile.executor, transactionSigner: decoded.signer, target: ROUTER, transactionTo: decoded.unsigned.to,
-        transactionInput: toHex(decoded.unsigned.data), expectedInput: prepared.compiled.executorCall.data,
+        executor: profile.executor, transactionSigner: decoded.signer, target: ROUTER, transactionTo: decoded.to,
+        transactionInput: decoded.data, expectedInput: prepared.compiled.executorCall.data,
         safeCodeHash: modeBCodeHash(await call('eth_getCode', [profile.safe, 'latest']) as string), expectedSafeCodeHash: profile.safeCodeHash,
         rolesCodeHash: modeBCodeHash(await call('eth_getCode', [profile.roles, 'latest']) as string), expectedRolesCodeHash: profile.rolesCodeHash,
         owner: '0x' + (await call('eth_call', [{ to: profile.safe, data: selector('getOwners()') }, 'latest']) as string).slice(-40),

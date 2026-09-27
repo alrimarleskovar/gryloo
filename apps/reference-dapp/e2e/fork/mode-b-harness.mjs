@@ -374,7 +374,7 @@ async function worker() {
  *   node mode-b-harness.mjs verify --wallet "<name version>" --browser "<name version>"
  */
 async function verify() {
-  const { decodeSignedTransaction } = await import('../../../../packages/reference-reconciler/dist/index.js');
+  const { decodeModeBSignedTransaction } = await import('../../../../packages/reference-reconciler/dist/index.js');
   const label = name => {
     const at = process.argv.indexOf(name);
     const value = at > 0 ? process.argv[at + 1] : undefined;
@@ -402,12 +402,12 @@ async function verify() {
   const inspect = async (role, hash, signer, expected) => {
     const receipt = await rpc('eth_getTransactionReceipt', [hash]);
     const raw = await rpc('eth_getRawTransactionByHash', [hash]);
-    const decoded = decodeSignedTransaction(unhex(raw), hash);
-    const data = hex(decoded.unsigned.data);
-    const exact = receipt?.status === '0x1' && decoded.signer.toLowerCase() === signer && Number(decoded.unsigned.chainId) === 31337
-      && decoded.unsigned.to.toLowerCase() === expected.to.toLowerCase() && data === expected.data.toLowerCase();
+    const decoded = decodeModeBSignedTransaction(unhex(raw), hash);
+    const exact = receipt?.status === '0x1' && decoded.signer.toLowerCase() === signer
+      && decoded.to.toLowerCase() === expected.to.toLowerCase() && decoded.data.toLowerCase() === expected.data.toLowerCase();
     check(exact, `${role} ${hash} is not the exact reviewed transaction by ${signer}`);
-    transactions.push({ role, label: expected.label ?? 'executor call', hash, signer: decoded.signer.toLowerCase(), exact });
+    transactions.push({ role, label: expected.label ?? 'executor call', hash, signer: decoded.signer.toLowerCase(), nonce: decoded.nonce.toString(),
+      maxPriorityFeePerGas: decoded.maxPriorityFeePerGas.toString(), exact });
   };
   check(prepared.installation.length === prepared.compiled.installation.length - prepared.installationStart, 'installation incomplete');
   for (const step of prepared.installation) await inspect('installation', step.hash, profile.owner, prepared.compiled.installation[step.index]);
