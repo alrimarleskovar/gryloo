@@ -149,15 +149,20 @@ export const test = guarded.extend<{ fork: ForkControl; testWallet: TestWallet }
 });
 export { expect };
 
+/** Wait for the approved fixed viewport, loaded fonts and final graph layout before a visual baseline. */
+export async function readyForVisualCapture(page: Page): Promise<void> {
+  expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
+  await expect(page.locator('.fork-badge')).toContainText(/^LOCAL FORK · (MOCKED|FORK_REPRODUCED)$/);
+  await page.evaluate(() => document.fonts.ready);
+  const graph = page.getByRole('region', { name: 'Mocked outputs on the workflow graph' });
+  if (await graph.isVisible()) await expect(graph).toHaveAttribute('data-viewport', 'fitted');
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+}
+
 /** Visual baselines are the deterministic MOCKED synthetic environment; replay values legitimately differ. */
 export async function visual(page: Page, name: string): Promise<void> {
   if (MODE_A_E2E !== 'synthetic') return;
-  const graph = page.getByRole('region', { name: 'Mocked outputs on the workflow graph' });
-  if (await graph.count()) {
-    await page.evaluate(() => document.fonts.ready);
-    await expect(graph).toHaveAttribute('data-viewport', 'fitted');
-    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  }
+  await readyForVisualCapture(page);
   await expect(page).toHaveScreenshot(name, { fullPage: true });
 }
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();

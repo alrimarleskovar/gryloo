@@ -177,6 +177,22 @@ jobs:
           f_modify |= f_amend_modify
           if 'DEC-0028' not in (root/'docs/DECISIONS.md').read_text() or 'review-panel.tsx' not in (root/'docs/builds/BUILD-003F-REPORT.md').read_text():
               errors.append('BUILD-003F scope amendment not recorded')
+          # DEC-0029 amendment A-2: stabilize the existing visual-shell test without changing a baseline.
+          f_visual_amend={'apps/reference-dapp/e2e/visual-shell.spec.ts'}
+          if f_visual_amend & f_modify or not f_visual_amend <= set(delivered):
+              errors.append('BUILD-003F visual scope amendment inconsistent')
+          f_modify |= f_visual_amend
+          if len(f_modify)!=47 or len(set(delivered)-f_modify)!=271:
+              errors.append('BUILD-003F amended scope count changed')
+          if 'DEC-0029' not in (root/'docs/DECISIONS.md').read_text() or 'visual-shell.spec.ts' not in (root/'docs/builds/BUILD-003F-REPORT.md').read_text():
+              errors.append('BUILD-003F visual scope amendment not recorded')
+          contracts_workflow=(root/'.github/workflows/contracts.yml').read_text()
+          if ("if: ${{ failure() && steps.browser.outcome == 'failure' }}" not in contracts_workflow or
+                  "id: browser" not in contracts_workflow or
+                  any(v not in contracts_workflow for v in
+                      ('test-results/**/*-actual.png','test-results/**/*-expected.png','test-results/**/*-diff.png',
+                       'if-no-files-found: ignore','retention-days: 7'))):
+              errors.append('BUILD-003F screenshot upload must remain failure-only and image-only')
           now=paths('ls-files') | paths('ls-files','--others','--exclude-standard')
           errors += ['BUILD-003F unapproved created path: '+v for v in sorted((now-set(delivered))-f_create)]
           errors += ['BUILD-003F removed baseline file: '+v for v in sorted(set(delivered)-now)]
@@ -197,8 +213,11 @@ jobs:
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
                   errors.append('private plane path: '+v)
               if 'sbom' in v.lower(): errors.append('retained SBOM: '+v)
-              if v.startswith('.github/workflows/') and re.search(r'(?m)^\s*(?:-\s*)?uses\s*:',(root/v).read_text()):
-                  errors.append('external GitHub Action: '+v)
+              if v.startswith('.github/workflows/'):
+                  actions=re.findall(r'(?m)^\s*(?:-\s*)?uses\s*:\s*(\S+)\s*$',(root/v).read_text())
+                  allowed=['actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'] if v=='.github/workflows/contracts.yml' else []
+                  if actions!=allowed:
+                      errors.append('unapproved GitHub Action: '+v)
           if (root/'apps/reference-dapp/LICENSE').read_bytes()!=(root/'LICENSES/AGPL-3.0-only.txt').read_bytes():
               errors.append('application AGPL text mismatch')
           patch=root/'patches/@xyflow__system@0.0.82.patch'

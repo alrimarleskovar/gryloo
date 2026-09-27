@@ -98,6 +98,7 @@ jobs:
           fi
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
+        id: browser
         shell: bash
         run: |
           set -euo pipefail
@@ -114,6 +115,18 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/summarize-screenshot-diffs.py apps/reference-dapp/test-results
+
+      - name: Upload browser screenshot mismatch images
+        if: ${{ failure() && steps.browser.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: build-003f-visual-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/reference-dapp/test-results/**/*-actual.png
+            apps/reference-dapp/test-results/**/*-expected.png
+            apps/reference-dapp/test-results/**/*-diff.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Dependency audit
         shell: bash
