@@ -27,7 +27,7 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-004 finite Mode B local fork implementation | Human owner | DEC-0031 and [approved BUILD-004 plan](builds/BUILD-004-PLAN.md); merge remains owner decision | APPROVED |
 | BUILD-005 CoW local signed-intent implementation | Human owner | DEC-0034 and [approved BUILD-005 plan](builds/BUILD-005-PLAN.md); deterministic loopback and disposable local wallet only | APPROVED_MOCKED_LOCAL |
 | BUILD-005 CoW local profile certification | Human owner | DEC-0035, [BUILD-005 report](builds/BUILD-005-REPORT.md), PR #15 merge and passing post-merge checks | CERTIFIED_MOCKED_LOCAL (DEC-0035) |
-| BUILD-006 planning | Human owner | DEC-0035 allows planning only; separate plan and approval required for implementation | PLANNING_ONLY |
+| BUILD-006 isolated Mode A local-fork liquidity implementation | Human owner | DEC-0036 and the approved BUILD-006 plan; owner-operated read-only recording only after its bounded preflight | APPROVED_LOCAL_FORK_ONLY |
 | Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.

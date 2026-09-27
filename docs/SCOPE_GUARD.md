@@ -134,3 +134,7 @@ The owner approved one [BUILD-005 plan](builds/BUILD-005-PLAN.md) from synchroni
 ## BUILD-005 certified boundary and BUILD-006 planning (DEC-0035)
 
 After the owner merged PR #15 and both post-merge checks passed, DEC-0035 certifies BUILD-005 COMPLETE at MOCKED only. The deterministic loopback orderbook, disposable injected local wallet and scripted settlement confer no public CoW, public-chain, production-wallet or real-funds authority. BUILD-006 planning is the only next milestone; implementation requires a separate approved plan and owner decision. BUILD-003/004 evidence limits, the global non-custodial multichain roadmap and Solana priority remain unchanged.
+
+## BUILD-006 approved boundary (DEC-0036)
+
+The owner approved the exact create and modify paths in the [BUILD-006 plan](builds/BUILD-006-PLAN.md) from main `4a402dd6be956fee0e3df001b8ad0f356f625937`; every other baseline path remains byte- and mode-protected. The isolated Uniswap v3 Base USDC/WETH liquidity lifecycle uses Mode A exact user-wallet payloads only on local chain 31337. A new owner-operated read-only Base recording is conditional on the plan's offline preflight and fixed one-attempt caps. No previous transcript or provider budget may be repurposed. The target ceiling is `FORK_REPRODUCED`; no public-chain write, real funds, production wallet, Mode B liquidity, BUILD-007 composition or merge is approved. The global non-custodial multichain roadmap and Solana priority remain unchanged.

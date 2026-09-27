@@ -1,5 +1,9 @@
 # Repository status
 
+## Current BUILD-006 implementation state (2026-09-27)
+
+**Current marker:** BUILD-006 APPROVED / IN_PROGRESS under DEC-0036 and the [approved plan](builds/BUILD-006-PLAN.md), from synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. Its target is one isolated Uniswap v3 Base USDC/WETH Mode A local-fork liquidity lifecycle with a maximum `FORK_REPRODUCED` ceiling. The separately bounded owner-operated read-only Base recording may run only after its preflight, private credential, Free-plan and fail-closed gates. No BUILD-006 execution evidence, PR or certification exists yet. BUILD-003/004 and BUILD-005 retain their separate certified ceilings. No public-chain transaction, mainnet, real funds, production wallet, BUILD-007 composition, Mode B liquidity authority or PR merge is authorized.
+
 ## Current BUILD-005 certification state (2026-09-27)
 
 **Current markers:** BUILD-005: COMPLETE. BUILD-005 certification: CERTIFIED: MOCKED.

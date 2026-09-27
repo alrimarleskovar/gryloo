@@ -213,3 +213,18 @@ DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed.
 | B005-LIFECYCLE-001 | Persist before post, never duplicate an uncertain order, recover after restart, track, cancel with a separate signature and show expiry/failure. | Master Spec execution/recovery; Master Prompt BUILD-005 | Executor, service and browser tests | IMPLEMENTED_LOCAL |
 | B005-EVIDENCE-001 | Reconcile receipt, trade, balances, allowance and fee with explicit MOCKED provenance and no public-chain claim. | Master Spec evidence model; Master Prompt BUILD-005 | Reconciler, service and browser tests | IMPLEMENTED_LOCAL |
 | B005-ROADMAP-001 | Preserve global non-custodial multichain scope and Solana priority. | Master Spec roadmap | Plan, scope and report review | PRESERVED |
+
+## BUILD-006 approved local liquidity acceptance mapping
+
+DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BUILD-006 plan](builds/BUILD-006-PLAN.md). Every row is pending implementation and independent local evidence; approval alone is not certification.
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B006-IR-001 | Author liquidity through chat and canvas in one revisioned semantic IR, separated from mutable state. | Master Spec §7; Master Prompt BUILD-006 | Round-trip and invalidation tests | PLANNED |
+| B006-POOL-001 | Verify Base USDC/WETH v3 pool, tier, current state, ticks, tokens, Position Manager and deployed code. | Master Spec §15; Master Prompt BUILD-006 | Closed fork readback and adversarial identity tests | PLANNED |
+| B006-MATH-001 | Calculate native-unit token composition from range and current price, never fixed 50/50. | Master Spec §10; Master Prompt BUILD-006 | Independent integer-math vectors and boundary tests | PLANNED |
+| B006-AUTH-001 | Review and sign each exact finite approval or lifecycle payload through a user wallet on chain 31337 only. | Master Spec §16; ADR-0003 | Wallet mutation and exact-byte tests | PLANNED |
+| B006-LIFECYCLE-001 | Mint, inspect, increase, partially decrease, collect, fully remove and conditionally burn one position. | Master Prompt BUILD-006 | Local-fork and browser journey | PLANNED |
+| B006-RECOVERY-001 | Persist before submit and reconcile ambiguity, restart and duplicate attempts before continuation. | Master Spec §12 | Fault-injection and restart tests | PLANNED |
+| B006-EVIDENCE-001 | Independently reconcile position owner, token ID, ticks, liquidity, token flows, fees, allowances and residues. | Master Spec §7.7; Master Prompt BUILD-006 | Reconciler and Evidence Bundle tests | PLANNED |
+| B006-ROADMAP-001 | Preserve the global non-custodial multichain roadmap, Solana priority and separate BUILD-007 composition gate. | Master Spec §21; DEC-0036 | Scope and governance review | PLANNED |

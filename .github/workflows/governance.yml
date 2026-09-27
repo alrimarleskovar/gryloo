@@ -34,6 +34,7 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ca22dd5796614691a8de3a4271c3af5a7c889fd9
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 05910364feac7f9fe0856a5c2c197eeeb12db902
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 9c5484db1a78602cb6603744b03fb1b4096266da
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 4a402dd6be956fee0e3df001b8ad0f356f625937
           unset auth GH_TOKEN
 
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
@@ -229,20 +230,42 @@ jobs:
                   create005&set(delivered004) or not modify005<=set(delivered004) or
                   len(set(delivered004)-modify005)!=374 or 'DEC-0034' not in plan005):
               errors.append('BUILD-005 approved scope list or authority inconsistent')
-          errors += ['BUILD-005 unapproved created path: '+v for v in sorted((now-set(delivered004))-create005)]
-          errors += ['BUILD-005 removed baseline file: '+v for v in sorted(set(delivered004)-now)]
+          # Preserve BUILD-005 exact delivery at the certified BUILD-006 baseline.
+          base006='4a402dd6be956fee0e3df001b8ad0f356f625937'
+          delivered005=tree(base006)
+          if len(delivered005)!=421:
+              errors.append('BUILD-006 baseline inventory changed')
+          errors += ['historical BUILD-005 unapproved created path: '+v for v in sorted((set(delivered005)-set(delivered004))-create005)]
+          errors += ['historical BUILD-005 removed baseline file: '+v for v in sorted(set(delivered004)-set(delivered005))]
+          for v in sorted(set(delivered004)&set(delivered005)):
+              if delivered005[v][0]!=delivered004[v][0]: errors.append('historical BUILD-005 mode changed: '+v)
+              if v not in modify005 and delivered005[v][1]!=delivered004[v][1]:
+                  errors.append('historical BUILD-005 protected baseline changed: '+v)
+          # DEC-0036: apply the approved exact BUILD-006 path set against certified main.
+          plan006=(root/'docs/builds/BUILD-006-PLAN.md').read_text()
+          scope006=plan006.split('## 11. Exact expected files',1)[1].split('## 12. Risks and rollback',1)[0]
+          def plan_list(part):
+              return set(part.split('```text',1)[1].split('```',1)[0].strip().splitlines())
+          create006=plan_list(scope006.split('**Create:**',1)[1].split('**Modify:**',1)[0])
+          modify006=plan_list(scope006.split('**Modify:**',1)[1].split('**Delete:**',1)[0])
+          if (len(create006)!=31 or len(modify006)!=31 or create006&modify006 or
+                  create006&set(delivered005) or not modify006<=set(delivered005) or
+                  len(set(delivered005)-modify006)!=390 or 'DEC-0036' not in plan006):
+              errors.append('BUILD-006 approved scope list or authority inconsistent')
+          errors += ['BUILD-006 unapproved created path: '+v for v in sorted((now-set(delivered005))-create006)]
+          errors += ['BUILD-006 removed baseline file: '+v for v in sorted(set(delivered005)-now)]
           for v in sorted(now):
               file=root/v
               if not file.is_file() or file.is_symlink():
                   errors.append('missing, non-file or symlink: '+v)
                   continue
               actual_mode='100755' if file.stat().st_mode & 0o111 else '100644'
-              if v in delivered004:
-                  if actual_mode!=delivered004[v][0]: errors.append('BUILD-005 mode changed: '+v)
-                  if v not in modify005 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered004[v][1]:
-                      errors.append('BUILD-005 protected baseline changed: '+v)
+              if v in delivered005:
+                  if actual_mode!=delivered005[v][0]: errors.append('BUILD-006 mode changed: '+v)
+                  if v not in modify006 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered005[v][1]:
+                      errors.append('BUILD-006 protected baseline changed: '+v)
               elif actual_mode!='100644':
-                  errors.append('BUILD-005 new executable file: '+v)
+                  errors.append('BUILD-006 new executable file: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -769,8 +792,8 @@ jobs:
               errors.append('mainnet, testnet and Mode C must remain NOT_APPROVED')
           if not re.search(r'(?m)^\| BUILD-005 CoW local profile certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_MOCKED_LOCAL \(DEC-0035\) \|$',authority):
               errors.append('DEC-0035 MOCKED certification missing from authority matrix')
-          if not re.search(r'(?m)^\| BUILD-006 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
-              errors.append('BUILD-006 must remain planning only in authority matrix')
+          if not re.search(r'(?m)^\| BUILD-006 isolated Mode A local-fork liquidity implementation \|[^|\n]+\|[^|\n]+\| APPROVED_LOCAL_FORK_ONLY \|$',authority):
+              errors.append('DEC-0036 local-fork BUILD-006 authority missing')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -806,12 +829,16 @@ jobs:
                       '36344564513','36344564511','BUILD-006 planning only',
                       '37a0782ece81f83c362b50f68adfc1accb37ccff'))):
               errors.append('DEC-0035 closure authority incomplete')
+          decision36=[line for line in decisions.splitlines() if line.startswith('| DEC-0036 |')]
+          if (len(decision36)!=1 or not decision36[0].endswith('| APPROVED |') or
+                  any(v not in decision36[0] for v in ('BUILD-006 plan','4a402dd6be956fee0e3df001b8ad0f356f625937','FORK_REPRODUCED','1,500','39,000','unmerged PR'))):
+              errors.append('DEC-0036 BUILD-006 authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
-          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-006 planning only') or
-                  'no BUILD-006 plan, implementation' not in next_build):
-              errors.append('BUILD-006 planning-only transition missing')
+          if (not next_build.startswith('# Next build\n\n## Current milestone: BUILD-006 approved implementation') or
+                  'DEC-0036' not in next_build or 'one unmerged PR' not in next_build):
+              errors.append('BUILD-006 approval transition missing')
           status=markdown['docs/STATUS.md']
           for marker in ('BUILD-005: COMPLETE','BUILD-005 certification: CERTIFIED: MOCKED',
                          'DEC-0035','37a0782ece81f83c362b50f68adfc1accb37ccff',
