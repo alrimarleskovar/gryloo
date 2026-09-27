@@ -243,16 +243,18 @@ BUILD003D_DIRECT_VERSIONS = {
 BUILD003D_REFERENCE_PACKAGES = {
     "packages/reference-compiler/package.json": ("@defi-workflow-engine/reference-compiler", {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
         "@noble/hashes": "2.4.0",
     }),
     "packages/reference-executor/package.json": ("@defi-workflow-engine/reference-executor", {
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@noble/curves": "2.4.0",
+        "@noble/hashes": "2.4.0",
     }),
     "packages/reference-reconciler/package.json": ("@defi-workflow-engine/reference-reconciler", {
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
     }),
@@ -341,7 +343,7 @@ def verify_dependencies():
         "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
         "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
         "@defi-workflow-engine/reference-reconciler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
     }
@@ -352,7 +354,7 @@ def verify_dependencies():
     linter = json.loads(Path("packages/reference-linter/package.json").read_text())
     expected_linter_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.0",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
         "ajv": "8.20.0",
         "canonicalize": "5.0.0",
     }
@@ -373,7 +375,7 @@ def verify_dependencies():
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.0
+        specifier: workspace:0.2.1
         version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
@@ -417,7 +419,7 @@ def verify_dependencies():
         manifest = json.loads(manifest_path.read_text())
         for kind in ("dependencies", "devDependencies"):
             for name, version in manifest.get(kind, {}).items():
-                if version in ("workspace:0.1.0", "workspace:0.2.0") and name.startswith("@defi-workflow-engine/"):
+                if version in ("workspace:0.1.0", "workspace:0.2.1") and name.startswith("@defi-workflow-engine/"):
                     continue
                 if (name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version
                         and BUILD003D_DIRECT_VERSIONS.get(name) != version):

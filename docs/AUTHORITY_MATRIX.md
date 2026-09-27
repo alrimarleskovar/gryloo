@@ -8,7 +8,7 @@ UI checks, and monitoring do not become independent enforcement.
 | Approve governance scope | Human owner | Repository review and Git history | ENFORCED |
 | Apply AI financial proposal | User or delegated authority | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Mode A exact payload on the local fork | User signature through an injected EIP-1193 wallet | Browser byte review, same-origin app gateway and signed EIP-1559 payload on chain 31337 only; no general intent binding | FORK_ONLY |
-| Mode B maximum policy limits | Independently enforced mechanism | NOT_ENFORCED | PROPOSED_ONLY |
+| Mode B maximum policy limits | Safe 1.4.1 plus Zodiac Roles 2.1.0 | Local chain-31337 Roles target/function/parameter/one-time allowance, Uniswap deadline and minimum output; final owner acceptance pending | LOCAL_FORK_TESTED |
 | Mode C managed execution | Explicit future policy | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Pause, revoke, cancel, or refund execution | Future authority boundary | NOT_ENFORCED | NOT_IMPLEMENTED |
 | Implement BUILD-001 contracts | Human owner | Explicit 2026-09-22 approval, approved plan, and exact-scope governance checks | APPROVED |
@@ -24,9 +24,10 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-003C Alchemy continuation after HTTP 403 | Human owner | Approved Amendment 3 and DEC-0022; offline journal validation precedes the owner-run command | APPROVED |
 | BUILD-003D Mode A fork implementation | Human owner | DEC-0023 and [approved plan](builds/BUILD-003D-PLAN.md), including Amendments 1–6; closed under Option B (DEC-0025) with 66 created and 26 modified offline-accepted paths | APPROVED |
 | BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance | Human owner | DEC-0028, approved BUILD-003F plan, one bounded owner recording and manually operated local wallet G7 | APPROVED |
-| Mainnet execution, public testnet execution, Mode B or later builds | Human owner | Separate explicit approval required | NOT_APPROVED |
+| BUILD-004 finite Mode B local fork implementation | Human owner | DEC-0031 and [approved BUILD-004 plan](builds/BUILD-004-PLAN.md); merge remains owner decision | APPROVED |
+| Mainnet execution, public testnet execution, Mode C or BUILD-005 implementation | Human owner | Separate explicit approval required | NOT_APPROVED |
 
-No Mode B mechanism is selected, certified, deployed, or implemented.
+The Safe/Roles Mode B mechanism is selected and implemented on the controlled local fork under DEC-0031. Final BUILD-004 acceptance and certification are pending; no public deployment exists.
 
 ADR-0002 covers contract and toolchain decisions only. General product authorization remains `NONE`; the BUILD-003F Mode A exact-payload signature is limited to the local fork. A valid policy, payload hash, journal entry or evidence bundle alone is data, not a signature or permission.
 

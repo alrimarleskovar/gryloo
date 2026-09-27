@@ -2,7 +2,7 @@ import { parseArtifactBytes } from './raw-json.js';
 import { hashArtifactValue, hashJournalEntries, type StructuredHashKind } from './canonical.js';
 
 export { parseJsonBytes, parseArtifactBytes, RawJsonError, RAW_JSON_LIMITS } from './raw-json.js';
-export { HASH_DOMAINS, hashRawBytes } from './canonical.js';
+export { HASH_DOMAINS, hashRawBytes, hashModeBPermission } from './canonical.js';
 export type { RawHashKind, StructuredHashKind } from './canonical.js';
 export type { ArtifactKind, ArtifactByKind } from './schemas.js';
 export type { Asset } from './common.js';

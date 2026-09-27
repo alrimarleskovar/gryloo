@@ -1,5 +1,27 @@
 # Repository status
 
+## Current BUILD-004 implementation state (2026-09-27)
+
+DEC-0031 approved the [BUILD-004 plan](builds/BUILD-004-PLAN.md) and D-1; DEC-0032 recorded Amendment A-1. The Safe 1.4.1 plus Zodiac Roles 2.1.0 finite swap path is implemented on local chain 31337. The local fork uses the certified BUILD-003F transcript strictly closed, plus explicitly declared local-only accounts and three owner-selected `LOCAL_SETUP_NOT_BASE_OBSERVED` Safe token slots.
+
+Passed locally on this tree:
+
+- the real Mode B browser specs, 4/4 in two consecutive strict runs with repository-confined module resolution;
+- the Mode B fork tests: direct bypass, compiler read-back and reconciliation;
+- `pnpm check` (346 tests);
+- the full browser suite with Mode B off: 42 passed, and the 4 Mode B specs skipped;
+- both governance steps.
+
+**Owner-operated injected-wallet acceptance: PASS.** MetaMask in Brave on chain 31337 covered six installation signatures, a browser-independent worker with a fresh-process restart, `RECONCILED`, and four revocation signatures ending in `REVOCATION_CONFIRMED`. The independent verifier returned PASS.
+
+The status is **LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION**. Still outstanding:
+
+- remote CI on the final PR #13 head;
+- the owner's merge decision;
+- post-merge checks.
+
+The [BUILD-004 report](builds/BUILD-004-REPORT.md) separates these gates. Evidence cannot exceed `FORK_REPRODUCED`; no public-chain or production authority exists.
+
 ## Current BUILD-003 certification state (2026-09-27)
 
 BUILD-003D was merged through PR #10 at `ca22dd5796614691a8de3a4271c3af5a7c889fd9`. DEC-0028 approved BUILD-003F, then DEC-0029 amended its ceiling to 52 created and 47 modified paths, with 271 protected BUILD-003D baseline paths. The delivered inventory was 52 created and 46 modified. The current owner checkpoint has completed one real Alchemy Free Base Mainnet recording (286 provider requests, 7,436 reserved CU, finalized source block 51,797,365), byte-identical closed replay of transcript `ebf4daaf10f891a735db682e8db2ee383b5165cece414e606a2011e681ed7d75`, 18/18 real-replay browser cases and a manually operated MetaMask/Brave G7 verification. G7 independently found both signed payloads exact, both receipts successful and Evidence Bundle `0xd651a51063af8f86aee30d7f85844bb4747147bc27eb371807e38c3ac5f795b6` `RECONCILED:EXACT` on local chain 31337. The separate earlier F2 owner-secret suite passed 51/51 and G1 C1–C10. See the [BUILD-003F report](builds/BUILD-003F-REPORT.md) for the distinct environments and limits.

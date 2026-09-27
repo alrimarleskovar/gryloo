@@ -4,6 +4,7 @@ import { product } from '../config/product';
 import { chainStatus, checkChainAccess } from '../domain/artifact-chain';
 import { SWAP_ACTION } from '../domain/swap-authoring';
 import { useModeA } from '../state/mode-a-store';
+import { useModeB } from '../state/mode-b-store';
 import { useWorkflow } from '../state/workflow-store';
 import { StatusBadge } from './status-badge';
 import type { Tab } from './top-bar';
@@ -11,6 +12,10 @@ import type { Tab } from './top-bar';
 export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void }) {
   const { state, chain } = useWorkflow();
   const { info, prepared, retired, verifyError, verified, execution } = useModeA();
+  const modeB = useModeB();
+  const modeBRecord = modeB.status?.prepared;
+  const modeBState = modeBRecord?.revocation.length === modeBRecord?.compiled.revocation.length && modeBRecord?.revocation.length ? 'REVOCATION_CONFIRMED'
+    : modeBRecord?.reconciliation?.outcome ?? (modeBRecord ? 'REVIEW' : 'NOT PREPARED');
   const status = chainStatus(chain);
   // The chip is an access too: it shows CURRENT only while the guard passes now.
   const access = checkChainAccess(chain, state.workflow, Date.now(), performance.now());
@@ -21,11 +26,14 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const forkState = !prepared ? 'NOT PREPARED' : evidence ? (evidence.revocationConfirmed ? 'REVOCATION_CONFIRMED' : evidence.outcome) : retired ? 'INVALIDATED' : 'REVIEW';
   return <footer className="summary-bar"><div><span className="eyebrow">WORKFLOW STATE</span><strong>Revision {state.workflow.revision}</strong><span>{state.workflow.nodes.filter(node => node.actionType === SWAP_ACTION).length} Base swap · {state.workflow.nodes.filter(node => node.actionType !== SWAP_ACTION).length} mock nodes</span></div>
     <div className="summary-status"><StatusBadge label={product.environment} tone="info"/><StatusBadge label={product.authorization}/><StatusBadge label={product.enforcement} tone="warning"/><StatusBadge label={product.outcome}/><StatusBadge label={`MOCKED ARTIFACTS: ${shown}`}/>
-      {info?.available && <StatusBadge label={`MODE A · ${info.environment}: ${forkState}`} tone="warning"/>}</div>
+      {info?.available && <StatusBadge label={`MODE A · ${info.environment}: ${forkState}`} tone="warning"/>}
+      {modeB.info?.available && <StatusBadge label={`MODE B · LOCAL FORK: ${modeBState}`} tone="warning"/>}</div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Open mocked simulation</button>
+      : tab === 'Simulate' && modeB.info?.available && modeBRecord ? <button type="button" className="primary" onClick={() => setTab('Execute')}>Review finite Mode B permission</button>
       : tab === 'Simulate' ? (reviewable
         ? <button type="button" className="primary" onClick={() => setTab('Execute')}>Review Mode A Manifest</button>
         : <button type="button" disabled aria-label="Manifest review unavailable">Manifest review unavailable</button>)
+      : modeB.info?.available ? <button type="button" onClick={() => setTab('Simulate')}>Back to finite simulation</button>
       : prepared && info?.available ? <button type="button" onClick={() => setTab('Simulate')}>Back to local-fork simulation</button>
         : <button type="button" disabled aria-label="Execution unavailable">Execution unavailable</button>}
   </footer>;

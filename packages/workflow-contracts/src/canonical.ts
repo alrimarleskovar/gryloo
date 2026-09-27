@@ -17,6 +17,7 @@ export const HASH_DOMAINS = Object.freeze({
   'raw-response': 'defi-workflow-engine/raw-response',
   payload: 'defi-workflow-engine/payload',
   intent: 'defi-workflow-engine/intent',
+  'mode-b-permission': 'defi-workflow-engine/mode-b-permission/v2',
 } as const);
 export type HashKind = keyof typeof HASH_DOMAINS;
 export type StructuredHashKind = Exclude<ArtifactKind, 'execution-journal'>;
@@ -86,7 +87,7 @@ export function hashPreimage(kind: HashKind, data: Uint8Array): Uint8Array {
   const bytes = new Uint8Array(12 + domain.length + 8 + data.length);
   bytes.set(new TextEncoder().encode('DWE-HASH'), 0);
   bytes[8] = 0;
-  bytes[9] = 1;
+  bytes[9] = kind === 'mode-b-permission' ? 2 : 1;
   const view = new DataView(bytes.buffer);
   view.setUint16(10, domain.length, false);
   bytes.set(domain, 12);
@@ -193,4 +194,19 @@ export function hashJournalEntries(input: unknown): readonly string[] {
     result.push(hashData('execution-journal-entry', new TextEncoder().encode(canonicalJson(projectJournalEntry(journal, index)))));
   }
   return Object.freeze(result);
+}
+
+/** The v2 binding is separate from every frozen v1 artifact domain. */
+export function hashModeBPermission(value: unknown): string {
+  assertJson(value);
+  if (!value || Array.isArray(value) || typeof value !== 'object') throw new Error('MODE_B_PERMISSION_INVALID');
+  const fields = ['format','chainId','safe','roles','owner','rolesOwner','threshold','executor','roleKey','router','selector','callData','tokenIn','tokenOut','recipient','amountIn','amountOutMinimum','cumulativeBudget','allowanceKey','deadline','safeCodeHash','rolesCodeHash','semanticWorkflowHash','quoteHash','simulationHash','sourceBlockHash','revocationMethod'] as const;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).sort().join() !== [...fields].sort().join() || record.format !== 'gryloo.mode-b-permission.v1' || record.chainId !== 31337 || record.threshold !== 1 || record.rolesOwner !== record.safe) throw new Error('MODE_B_PERMISSION_INVALID');
+  for (const field of ['safe','roles','owner','rolesOwner','executor','router','tokenIn','tokenOut','recipient'] as const) if (typeof record[field] !== 'string' || !/^0x[0-9a-f]{40}$/.test(record[field])) throw new Error('MODE_B_PERMISSION_INVALID');
+  for (const field of ['roleKey','allowanceKey','safeCodeHash','rolesCodeHash','semanticWorkflowHash','quoteHash','simulationHash','sourceBlockHash'] as const) if (typeof record[field] !== 'string' || !/^0x[0-9a-f]{64}$/.test(record[field])) throw new Error('MODE_B_PERMISSION_INVALID');
+  if (record.selector !== '0x5ae401dc' || typeof record.callData !== 'string' || !/^0x(?:[0-9a-f]{2})+$/.test(record.callData)) throw new Error('MODE_B_PERMISSION_INVALID');
+  for (const field of ['amountIn','amountOutMinimum','cumulativeBudget','deadline'] as const) if (typeof record[field] !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(record[field])) throw new Error('MODE_B_PERMISSION_INVALID');
+  if (BigInt(record.amountIn as string) <= 0n || BigInt(record.cumulativeBudget as string) !== BigInt(record.amountIn as string) || record.revocationMethod !== 'ROLES_REMOVE_AND_SAFE_DISABLE') throw new Error('MODE_B_PERMISSION_INVALID');
+  return hashData('mode-b-permission', new TextEncoder().encode(canonicalJson(record)));
 }
