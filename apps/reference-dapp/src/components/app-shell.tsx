@@ -7,6 +7,8 @@ import { useCow } from '../state/cow-store';
 import { ModeBProvider, useModeB } from '../state/mode-b-store';
 import { useModeA } from '../state/mode-a-store';
 import { useWorkflow } from '../state/workflow-store';
+import { useLiquidity } from '../state/liquidity-store';
+import { LiquidityPanel } from './liquidity-panel';
 import { ActionLibrary } from './action-library';
 import { ArtifactInspector } from './artifact-inspector';
 import { CopilotPanel } from './copilot-panel';
@@ -36,15 +38,16 @@ function AppShellContent() {
   const { prepared, info } = useModeA();
   const modeB = useModeB();
   const cow = useCow();
+  const liquidity = useLiquidity();
   const [tab, setTab] = useState<Tab>('Build');
   const [selectedId, select] = useState<string | null>(null);
-  const forkExecution = tab === 'Execute' && Boolean((info?.available && prepared) || modeB.info?.available || cow.execution);
+  const forkExecution = tab === 'Execute' && Boolean((info?.available && prepared) || modeB.info?.available || cow.execution || (liquidity.info?.available && liquidity.prepared));
   return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/>
     <main className="main">
-      <div className="page-heading"><div><p className="eyebrow">WORKSPACE / {tab.toUpperCase()}</p><h1>{tab === 'Build' ? product.strategyName : tab}</h1><p>{forkExecution ? (info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : headings[tab]}</p></div><span className="heading-revision">SEMANTIC REVISION {state.workflow.revision}</span></div>
+      <div className="page-heading"><div><p className="eyebrow">WORKSPACE / {tab.toUpperCase()}</p><h1>{tab === 'Build' ? product.strategyName : tab}</h1><p>{forkExecution ? (liquidity.info?.available && liquidity.prepared ? 'Local-fork Mode A Uniswap v3 position: review one exact payload, request the wallet transaction, then reconcile.' : info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : tab === 'Build' && liquidity.info?.available ? 'Author locally. Review every swap or liquidity edit in one shared semantic workflow.' : headings[tab]}</p></div><span className="heading-revision">SEMANTIC REVISION {state.workflow.revision}</span></div>
       {tab === 'Build' ? <><div className="build-grid"><ActionLibrary selectedId={selectedId}/><WorkflowCanvas selectedId={selectedId} select={select}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId}/><ReviewPanel/></>
-        : tab === 'Simulate' ? <><SimulatePanel/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CowPanel view="simulate"/></>
-        : forkExecution ? <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CowPanel view="execute"/></>
+        : tab === 'Simulate' ? <><SimulatePanel/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></>
+        : forkExecution ? <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : <section className="unavailable panel" aria-label="Execute unavailable"><p className="eyebrow">EXECUTE / UNAVAILABLE</p><h2>Execute is not implemented for mocked or observed artifacts</h2><p>Mocked quote and simulation artifacts cannot authorize execution. Read-only Base observations cannot authorize execution either. There is no wallet, signature, transaction, execution or outcome here.</p>
           {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
           <button type="button" onClick={() => setTab('Build')}>Return to Build</button></section>}

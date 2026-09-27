@@ -1,0 +1,20 @@
+{
+  "format": "gryloo.uniswap-v3-liquidity-math-v1",
+  "method": "Independent Python Decimal precision 250: ceil(sqrt((10001/10000)^tick) * 2^96), then integer liquidity and amount formulas with floor for liquidity and ceiling for token deposits.",
+  "unitPrice": "79228162514264337593543950336",
+  "tickRatios": [
+    { "tick": -20, "sqrtPriceX96": "79148977909814923576066331265" },
+    { "tick": -10, "sqrtPriceX96": "79188560314459151373725315960" },
+    { "tick": 0, "sqrtPriceX96": "79228162514264337593543950336" },
+    { "tick": 10, "sqrtPriceX96": "79267784519130042428790663799" },
+    { "tick": 20, "sqrtPriceX96": "79307426338960776842885539845" }
+  ],
+  "inputs": { "amount0Max": "1000000000000000000", "amount1Max": "1000000" },
+  "compositions": [
+    { "name": "below", "tickLower": 10, "tickUpper": 20, "state": "BELOW_RANGE", "liquidity": "2001600540098009960516", "amount0": "1000000000000000000", "amount1": "0" },
+    { "name": "inside", "tickLower": -10, "tickUpper": 10, "state": "IN_RANGE", "liquidity": "2000600039", "amount0": "1000000", "amount1": "1000000" },
+    { "name": "above", "tickLower": -20, "tickUpper": -10, "state": "ABOVE_RANGE", "liquidity": "2001600540", "amount0": "0", "amount1": "1000000" },
+    { "name": "at-lower", "tickLower": 0, "tickUpper": 10, "state": "BELOW_RANGE", "liquidity": "2000600039997999960015", "amount0": "1000000000000000000", "amount1": "0" },
+    { "name": "at-upper", "tickLower": -10, "tickUpper": 0, "state": "ABOVE_RANGE", "liquidity": "2000600039", "amount0": "0", "amount1": "1000000" }
+  ]
+}

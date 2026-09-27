@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   LIQUIDITY_FACTORY, LIQUIDITY_USDC, LIQUIDITY_WETH, POSITION_MANAGER, Q96,
   buildLiquidityPayload, encodeLiquidityCall, rangeComposition, sqrtRatioAtTick,
@@ -17,7 +19,22 @@ const state: PoolState = {
 };
 const tx = { nonce: 7n, gasLimit: 250_000n, maxFeePerGas: 20_000_000n };
 
+const vectors = JSON.parse(readFileSync(resolve('tests/compatibility/v1/uniswap-v3-liquidity-vectors.json'), 'utf8')) as {
+  tickRatios: { tick: number; sqrtPriceX96: string }[];
+  inputs: { amount0Max: string; amount1Max: string };
+  compositions: { name: string; tickLower: number; tickUpper: number; state: string; liquidity: string; amount0: string; amount1: string }[];
+};
 describe('independent v3 liquidity range math', () => {
+  it('matches independent high-precision tick and composition vectors at all range boundaries', () => {
+    for (const vector of vectors.tickRatios) expect(sqrtRatioAtTick(vector.tick).toString()).toBe(vector.sqrtPriceX96);
+    for (const vector of vectors.compositions) {
+      const result = rangeComposition(state, vector.tickLower, vector.tickUpper,
+        BigInt(vectors.inputs.amount0Max), BigInt(vectors.inputs.amount1Max), 2_000);
+      expect([result.state, result.liquidity.toString(), result.amount0.toString(), result.amount1.toString()])
+        .toEqual([vector.state, vector.liquidity, vector.amount0, vector.amount1]);
+    }
+  });
+
   it('derives monotonic sqrt ratios and the exact minimum boundary', () => {
     expect(sqrtRatioAtTick(-887272)).toBe(4295128739n);
     expect(sqrtRatioAtTick(-10)).toBeLessThan(Q96);

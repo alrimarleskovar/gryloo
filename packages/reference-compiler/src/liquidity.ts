@@ -153,7 +153,7 @@ function join(parts: readonly Uint8Array[]): Uint8Array {
 export function encodeLiquidityCall(call: LiquidityCall): { readonly to: string; readonly data: Uint8Array } {
   if (call.kind === 'APPROVE') {
     if (![LIQUIDITY_USDC, LIQUIDITY_WETH].includes(call.token)) fail('LIQUIDITY_TOKEN_INVALID');
-    positive(call.amount);
+    integer(call.amount);
     return { to: call.token, data: encodeApprove(POSITION_MANAGER, call.amount) };
   }
   let sig: string, args: Uint8Array[];

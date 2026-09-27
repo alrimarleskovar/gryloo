@@ -138,3 +138,7 @@ After the owner merged PR #15 and both post-merge checks passed, DEC-0035 certif
 ## BUILD-006 approved boundary (DEC-0036)
 
 The owner approved the exact create and modify paths in the [BUILD-006 plan](builds/BUILD-006-PLAN.md) from main `4a402dd6be956fee0e3df001b8ad0f356f625937`; every other baseline path remains byte- and mode-protected. The isolated Uniswap v3 Base USDC/WETH liquidity lifecycle uses Mode A exact user-wallet payloads only on local chain 31337. A new owner-operated read-only Base recording is conditional on the plan's offline preflight and fixed one-attempt caps. No previous transcript or provider budget may be repurposed. The target ceiling is `FORK_REPRODUCED`; no public-chain write, real funds, production wallet, Mode B liquidity, BUILD-007 composition or merge is approved. The global non-custodial multichain roadmap and Solana priority remain unchanged.
+
+## BUILD-006 implementation checkpoint
+
+The additive liquidity path is disabled without an explicit local-fork profile. Its shared IR action cannot compose with a swap or CoW node in BUILD-006. Offline math, wallet-byte and mocked service tests establish engineering behavior only. The distinct new Base transcript, byte-identical owner-local replay and independent lifecycle results are required before any `FORK_REPRODUCED` statement; absent evidence remains pending. The BUILD-003/004/005 protected records and evidence ceilings remain separate.

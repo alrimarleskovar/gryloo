@@ -312,13 +312,19 @@ jobs:
           cow_store='apps/reference-dapp/src/state/cow-store.tsx'
           cow_wallet='apps/reference-dapp/src/wallet/cow-eip712.ts'
           cow_panel='apps/reference-dapp/src/components/cow-panel.tsx'
+          l_server='apps/reference-dapp/src/server/liquidity-service.ts'
+          l_action='apps/reference-dapp/src/app/liquidity-action.ts'
+          l_store='apps/reference-dapp/src/state/liquidity-store.tsx'
+          l_wallet='apps/reference-dapp/src/wallet/liquidity-eip1193.ts'
+          l_panel='apps/reference-dapp/src/components/liquidity-panel.tsx'
           f_client={'apps/reference-dapp/src/state/mode-a-store.tsx',f_wallet,'apps/reference-dapp/src/components/fork-simulation-panel.tsx',
                     'apps/reference-dapp/src/components/manifest-review.tsx','apps/reference-dapp/src/components/execution-panel.tsx',
                     'apps/reference-dapp/src/components/summary-bar.tsx','apps/reference-dapp/src/components/top-bar.tsx',
-                    'apps/reference-dapp/src/components/app-shell.tsx','apps/reference-dapp/src/app/page.tsx',b_store,cow_store}
+                    'apps/reference-dapp/src/components/app-shell.tsx','apps/reference-dapp/src/app/page.tsx',b_store,cow_store,l_store,l_wallet,l_panel}
           f_tests={'apps/reference-dapp/src/server/mode-a-service.test.ts','apps/reference-dapp/src/server/fork-rpc.test.ts',
                    'apps/reference-dapp/src/wallet/eip1193.test.ts','apps/reference-dapp/src/domain/contracts.integration.test.ts',
-                   'apps/reference-dapp/src/server/cow-service.test.ts'}
+                   'apps/reference-dapp/src/server/cow-service.test.ts',
+                   'apps/reference-dapp/src/server/liquidity-service.test.ts','apps/reference-dapp/src/wallet/liquidity-eip1193.test.ts'}
           fork_read_methods={'eth_chainId','eth_getBlockByNumber','eth_getBlockByHash','eth_call','eth_getCode','eth_getBalance',
                              'eth_getTransactionCount','eth_getStorageAt','eth_simulateV1','eth_getTransactionReceipt','eth_getRawTransactionByHash'}
           f_refused_urls=('https://127.0.0.1:8545','http://127.0.0.2:8545','http://localhost:8545','https://base-mainnet.g.alchemy.com/v2',
@@ -337,6 +343,8 @@ jobs:
                   if 'attempts: 3, requests: 63' not in body:
                       errors.append('BUILD-003C Alchemy live limits changed')
                   body=body.replace('https://base-mainnet.g.alchemy.com/v2','').replace('fetch(','')
+              if file.as_posix() in {l_server}|f_tests:
+                  body=body.replace('http://127.0.0.1:', '')
               if file.as_posix() in f_tests:
                   for url in f_refused_urls: body=body.replace(url,'')
                   body=re.sub(r'http://127\.0\.0\.1:[0-9]{2,5}','',body)
@@ -355,10 +363,12 @@ jobs:
                   name=file.as_posix()
                   if pattern.startswith('\\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
                       scanned=scanned.replace('globalThis.fetch(url, init)','',1)
-                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel}:
+                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel,l_server,l_store,l_panel}:
                       continue
                   if pattern.startswith('window') and name in {f_wallet,'apps/reference-dapp/src/wallet/eip1193.test.ts',cow_wallet,'apps/reference-dapp/src/wallet/cow-eip712.test.ts',cow_store}:
                       scanned=re.sub(r'\beth_sendTransaction\b|\beth_signTypedData_v4\b|signTypedData','',scanned)
+                  if pattern.startswith('window') and name=='apps/reference-dapp/src/server/liquidity-service.test.ts':
+                      scanned=scanned.replace('eth_sendTransaction','')
                   if pattern.startswith('window') and name==b_server:
                       scanned=scanned.replace('eth_sendRawTransaction','')
                   if pattern.startswith('\\bfetch') and name==b_server:
@@ -392,17 +402,17 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action} and name not in f_tests:
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action} and name not in f_tests:
                   if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body) if name in f_client else body):
                       errors.append('client imports server module: '+name)
               if file in non_test:
                   allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
-                           else fork_read_methods|{'eth_sendRawTransaction'} if name==b_server else fork_read_methods if name in f_server|{f_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction'} if name==b_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
+                           else fork_read_methods|{'eth_sendRawTransaction'} if name==b_server else fork_read_methods if name in f_server|{f_action,l_server,l_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction'} if name==b_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
                   for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
-                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server} else selectors):
+                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors):
                           errors.append('seventh selector or other short hex in source: '+name+' '+selector)
           action=(root/'apps/reference-dapp/src/app/observation-action.ts').read_text()
           if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action):
@@ -423,7 +433,7 @@ jobs:
           # BUILD-003D Mode A package boundaries (plan section 3.17), exhaustive over the delivered sources.
           mode_a_bases=('packages/reference-compiler/src','packages/reference-executor/src','packages/reference-reconciler/src')
           mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts'}]
-          if len(mode_a_sources)!=23: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
+          if len(mode_a_sources)!=26: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
           mode_a_selectors=selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc'}
@@ -453,10 +463,18 @@ jobs:
                   errors.append('compiler imports the executor or reconciler: '+name)
           for file in sources:
               name=file.as_posix()
-              body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts'}|f_tests else type_only(file.read_text())
-              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service}|f_tests: continue
+              body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts',l_server,l_wallet}|f_tests else type_only(file.read_text())
+              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet}|f_tests: continue
               if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
                   errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
+          # BUILD-006 adds one explicit local-fork liquidity server and a browser-only exact-payload verifier.
+          liquidity_action=(root/l_action).read_text()
+          if not liquidity_action.startswith("// SPDX-License-Identifier: AGPL-3.0-only\n'use server';") or "GRYLOO_LIQUIDITY !== 'fork'" not in liquidity_action:
+              errors.append('BUILD-006 server opt-in boundary missing')
+          if re.search(r'\beth_(?:send|sign)[A-Za-z0-9]*\b', (root/l_server).read_text()):
+              errors.append('BUILD-006 server signs or broadcasts')
+          if "0x7a69" not in (root/l_server).read_text() or "127.0.0.1" not in (root/l_server).read_text():
+              errors.append('BUILD-006 chain or loopback boundary missing')
           # BUILD-004 keeps the new signer and service in their exact local-only modules.
           b_service=(root/b_server).read_text()
           if "GRYLOO_MODE_B" not in (root/b_action).read_text() or '127' not in b_service or 'MODE_B_CODE_PIN_MISMATCH' not in b_service:
@@ -672,7 +690,7 @@ jobs:
                   'tests/compatibility/v1/':(22,'59b8714f4c85596f85fd2fe95b185f113c6b1f97e2f9cd85b624362f9c72ef2c'),
                   'third_party/licenses/':(21,'237a7f6102cf7b5891ba9c436285c38dc7dae37604dd41c213bcc13a24e56c63')}
           for prefix,(count,digest) in frozen.items():
-              selected=sorted(v for v in current if v.startswith(prefix) and v not in {'tests/compatibility/v1/mode-b-permission-vectors.json','tests/compatibility/v1/cow-signed-intent-vectors.json'})
+              selected=sorted(v for v in current if v.startswith(prefix) and v not in {'tests/compatibility/v1/mode-b-permission-vectors.json','tests/compatibility/v1/cow-signed-intent-vectors.json','tests/compatibility/v1/uniswap-v3-liquidity-vectors.json'})
               listing=''.join(hashlib.sha256((root/v).read_bytes()).hexdigest()+'  '+v+'\n' for v in selected)
               if len(selected)!=count or hashlib.sha256(listing.encode()).hexdigest()!=digest:
                   errors.append('frozen tree changed: '+prefix)

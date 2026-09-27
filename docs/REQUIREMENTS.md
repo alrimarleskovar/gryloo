@@ -204,7 +204,7 @@ The approved [BUILD-004 plan](builds/BUILD-004-PLAN.md) maps its finite Mode B a
 
 ## BUILD-005 CoW signed-intent acceptance mapping
 
-DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed. The rows below are accepted for the deterministic MOCKED local profile only; IMPLEMENTED_LOCAL does not imply public CoW, public-chain or production certification. BUILD-006 implementation remains unapproved.
+DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed. The rows below are accepted for the deterministic MOCKED local profile only; IMPLEMENTED_LOCAL does not imply public CoW, public-chain or production certification. That BUILD-005 closure statement is historical; DEC-0036 subsequently approved the bounded BUILD-006 implementation.
 
 | ID | Requirement | Source area | Check or evidence | Status |
 |---|---|---|---|---|
@@ -216,15 +216,15 @@ DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed.
 
 ## BUILD-006 approved local liquidity acceptance mapping
 
-DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BUILD-006 plan](builds/BUILD-006-PLAN.md). Every row is pending implementation and independent local evidence; approval alone is not certification.
+DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BUILD-006 plan](builds/BUILD-006-PLAN.md). The implementation is in progress. Offline coverage does not satisfy the pending closed-fork and browser acceptance gates; approval alone is not certification.
 
 | ID | Requirement | Source area | Check or evidence | Status |
 |---|---|---|---|---|
-| B006-IR-001 | Author liquidity through chat and canvas in one revisioned semantic IR, separated from mutable state. | Master Spec §7; Master Prompt BUILD-006 | Round-trip and invalidation tests | PLANNED |
+| B006-IR-001 | Author liquidity through chat and canvas in one revisioned semantic IR, separated from mutable state. | Master Spec §7; Master Prompt BUILD-006 | Round-trip and invalidation tests | IMPLEMENTED_PENDING_FORK |
 | B006-POOL-001 | Verify Base USDC/WETH v3 pool, tier, current state, ticks, tokens, Position Manager and deployed code. | Master Spec §15; Master Prompt BUILD-006 | Closed fork readback and adversarial identity tests | PLANNED |
-| B006-MATH-001 | Calculate native-unit token composition from range and current price, never fixed 50/50. | Master Spec §10; Master Prompt BUILD-006 | Independent integer-math vectors and boundary tests | PLANNED |
-| B006-AUTH-001 | Review and sign each exact finite approval or lifecycle payload through a user wallet on chain 31337 only. | Master Spec §16; ADR-0003 | Wallet mutation and exact-byte tests | PLANNED |
+| B006-MATH-001 | Calculate native-unit token composition from range and current price, never fixed 50/50. | Master Spec §10; Master Prompt BUILD-006 | Independent integer-math vectors and boundary tests | IMPLEMENTED_PENDING_FORK |
+| B006-AUTH-001 | Review and sign each exact finite approval or lifecycle payload through a user wallet on chain 31337 only. | Master Spec §16; ADR-0003 | Wallet mutation and exact-byte tests | IMPLEMENTED_PENDING_FORK |
 | B006-LIFECYCLE-001 | Mint, inspect, increase, partially decrease, collect, fully remove and conditionally burn one position. | Master Prompt BUILD-006 | Local-fork and browser journey | PLANNED |
-| B006-RECOVERY-001 | Persist before submit and reconcile ambiguity, restart and duplicate attempts before continuation. | Master Spec §12 | Fault-injection and restart tests | PLANNED |
+| B006-RECOVERY-001 | Persist before submit and reconcile ambiguity, restart and duplicate attempts before continuation. | Master Spec §12 | Fault-injection and restart tests | IMPLEMENTED_PENDING_FORK |
 | B006-EVIDENCE-001 | Independently reconcile position owner, token ID, ticks, liquidity, token flows, fees, allowances and residues. | Master Spec §7.7; Master Prompt BUILD-006 | Reconciler and Evidence Bundle tests | PLANNED |
-| B006-ROADMAP-001 | Preserve the global non-custodial multichain roadmap, Solana priority and separate BUILD-007 composition gate. | Master Spec §21; DEC-0036 | Scope and governance review | PLANNED |
+| B006-ROADMAP-001 | Preserve the global non-custodial multichain roadmap, Solana priority and separate BUILD-007 composition gate. | Master Spec §21; DEC-0036 | Scope and governance review | IMPLEMENTED_PENDING_FORK |

@@ -161,3 +161,19 @@
 @media(max-width:800px){.cow-grid{grid-template-columns:1fr}.cow-panel{padding:14px}}
 .swap-create .cow-authoring-choice{display:flex;align-items:center;gap:8px;line-height:1.4;color:var(--ink)}
 .swap-create .cow-authoring-choice input{width:17px;height:17px;min-width:17px;padding:0;margin:0}
+
+/* BUILD-006: the isolated liquidity review follows the existing panel system. */
+.liquidity-panel { display: grid; gap: 1rem; margin-top: 1.25rem; min-width: 0; }
+.liquidity-panel h2, .liquidity-panel h3, .liquidity-panel p { margin: 0; }
+.liquidity-controls, .liquidity-review, .liquidity-payload, .liquidity-readback { display: grid; gap: .7rem; min-width: 0; }
+.liquidity-controls { max-width: 42rem; }
+.liquidity-controls label { font-weight: 600; }
+.liquidity-controls input, .liquidity-controls select { width: 100%; max-width: 100%; }
+.liquidity-buttons { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; }
+.liquidity-buttons button { min-height: 2.75rem; }
+.liquidity-payload, .liquidity-readback { border: 1px solid var(--line); border-radius: .75rem; padding: 1rem; }
+.liquidity-payload p, .liquidity-readback p { overflow-wrap: anywhere; }
+.liquidity-payload details { min-width: 0; }
+.liquidity-payload code { display: block; max-height: 10rem; overflow: auto; overflow-wrap: anywhere; padding: .75rem; font-size: .75rem; }
+.liquidity-panel [role='alert'] { overflow-wrap: anywhere; }
+@media (max-width: 720px) { .liquidity-buttons { display: grid; grid-template-columns: 1fr; } .liquidity-buttons button { width: 100%; } }

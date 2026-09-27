@@ -96,6 +96,10 @@ jobs:
           if [ -f apps/reference-dapp/e2e/fork/base-fork-transcript.json ]; then
             node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyTranscriptDocument } from './apps/reference-dapp/e2e/fork/replay-upstream.mjs'; import { transcriptIdentity } from './apps/reference-dapp/e2e/fork/harness.mjs'; const t = JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/base-fork-transcript.json', 'utf8')); const counts = verifyTranscriptDocument(t, { accounts: t.identity.accounts }); if (transcriptIdentity({ sourceBlockNumber: t.sourceBlockNumber, sourceBlockHash: t.sourceBlockHash, accounts: t.identity.accounts }).identityHash !== t.identityHash) process.exit(1); console.log('Transcript verified', JSON.stringify(counts));"
           fi
+          # BUILD-006: a distinct complete transcript is mandatory for the fork evidence gate.
+          # Static validation runs in CI without owner material, provider credentials or external RPC.
+          test -f apps/reference-dapp/e2e/fork/liquidity-transcript.json
+          node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyLiquidityTranscript } from './apps/reference-dapp/e2e/fork/liquidity-replay-upstream.mjs'; const t=JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/liquidity-transcript.json','utf8')); const r=verifyLiquidityTranscript(t,t.identity.accounts); if (t.sourceChainId!==8453 || r.providerRequests<1) process.exit(1); console.log('BUILD-006 closed transcript verified',r.providerRequests,r.localReplies);"
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         id: browser

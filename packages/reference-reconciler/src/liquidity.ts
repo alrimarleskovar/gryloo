@@ -7,6 +7,7 @@ import { verifySignedPayload } from './raw-transaction.js';
 import { type Receipt } from './reconcile.js';
 const topic = (signature: string) => `0x${Array.from(keccak_256(new TextEncoder().encode(signature)), b => b.toString(16).padStart(2, '0')).join('')}`;
 const NFT_TRANSFER = topic('Transfer(address,address,uint256)');
+const APPROVAL = topic('Approval(address,address,uint256)');
 const ZERO = '0x0000000000000000000000000000000000000000';
 const addressTopic = (value: string) => `0x${value.slice(2).padStart(64, '0')}`;
 export type PositionRead = { readonly tokenId: bigint; readonly owner: string; readonly token0: string; readonly token1: string;
@@ -36,7 +37,7 @@ export function reconcileLiquidity(input: LiquidityReconcileInput): LiquidityRec
   try { verifySignedPayload(input.signedRaw, input.transactionHash, input.owner, input.reviewedBytes); }
   catch (error) { return result('DIVERGENT', error instanceof Error ? error.message : 'SIGNED_PAYLOAD_MISMATCH'); }
   const receipt = input.receipt;
-  if (receipt.transactionHash !== input.transactionHash || !/^0x[0-9a-f]{64}$/.test(receipt.blockHash)) return result('DIVERGENT', 'RECEIPT_MISMATCH');
+  if (receipt.transactionHash !== input.transactionHash || !/^0x[0-9a-f]{64}$/.test(receipt.blockHash) || receipt.blockHash !== input.after.blockHash) return result('DIVERGENT', 'RECEIPT_MISMATCH');
   if (receipt.status !== 1) return result('DIVERGENT', 'TRANSACTION_REVERTED');
   if (input.before.owner !== input.owner || input.after.owner !== input.owner || input.before.nonce !== input.nonce || input.after.nonce !== input.nonce + 1n)
     return result('DIVERGENT', 'OWNER_NONCE_MISMATCH');
@@ -56,8 +57,13 @@ export function reconcileLiquidity(input: LiquidityReconcileInput): LiquidityRec
   switch (input.call.kind) {
     case 'APPROVE': {
       const amount = input.call.amount;
+      const token = input.call.token;
       if (input.call.token === LIQUIDITY_WETH ? input.after.wethAllowance !== amount : input.after.usdcAllowance !== amount)
         return result('DIVERGENT', 'ALLOWANCE_MISMATCH', totalFee);
+      if (!receipt.logs.some(log => log.address === token && log.topics.length === 3 &&
+        log.topics[0] === APPROVAL && log.topics[1] === addressTopic(input.owner) &&
+        log.topics[2] === addressTopic(POSITION_MANAGER) && log.data === `0x${amount.toString(16).padStart(64, '0')}`))
+        return result('DIVERGENT', 'APPROVAL_LOG_MISMATCH', totalFee);
       if (d0 !== 0n || d1 !== 0n) return result('DIVERGENT', 'APPROVAL_MOVED_ASSETS', totalFee);
       return result('RECONCILED', 'EXACT_APPROVAL', totalFee);
     }

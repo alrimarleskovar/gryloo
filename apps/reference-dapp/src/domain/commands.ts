@@ -21,7 +21,7 @@ export type Command = Base & (
   | { readonly type: 'SET_LIQUIDITY'; readonly nodeId: string; readonly input: LiquidityInput }
 );
 
-export const HELP = 'Try “swap 2 USDC to WETH on Base slippage 50 bps”, “add liquidity 0.1 WETH and 200 USDC ticks -100 to 100 recipient 0x…”, “set node-002 amount 3”, or “add read”. No model or network service is connected.';
+export const HELP = 'Try “swap 2 USDC to WETH on Base slippage 50 bps”, “set node-002 amount 3”, “set node-002 slippage 100 bps”, “add read”, or “explain”. No model or network service is connected.';
 export function parseMockCommand(text: string, baseRevision: number): Command {
   const input = text.trim();
   const add = /^add (read|transform|condition)$/.exec(input);

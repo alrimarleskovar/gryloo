@@ -5,11 +5,13 @@ import { mockActions, actionKinds } from '../domain/mock-actions';
 import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { useCow } from '../state/cow-store';
+import { useLiquidity } from '../state/liquidity-store';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
+  const liquidityEnabled = useLiquidity().info?.available === true;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
@@ -55,7 +57,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <button type="submit">Review swap proposal</button>
       <small>Caps: 1,000,000 USDC or 1,000 WETH. Prototype limits; no quote or execution.</small>
     </form>
-    <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
+    {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
       <strong>Uniswap v3 position · Base</strong>
       <p className="muted">One isolated WETH/USDC position, fee tier 500. Wallet operations are reviewed separately on the local fork.</p>
       <label htmlFor="liquidity-weth">Maximum WETH</label>
@@ -75,7 +77,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {liquidityError && <p role="alert">{liquidityError}</p>}
       <button type="submit">{selectedLiquidity ? 'Review position edit' : 'Review position proposal'}</button>
       <small>Pool identity, current tick and price are checked before simulation. Editing here invalidates prior liquidity artifacts.</small>
-    </form>
+    </form>}
     <div className="action-list">{mockActions.map((action, index) =>
       <button key={action.id} type="button" className="action-card" onClick={() => dispatch({ type: 'ADD', kind: actionKinds[index]!, source: 'CANVAS', baseRevision: state.workflow.revision })}>
         <span className="action-glyph" aria-hidden="true">{index === 0 ? 'R' : index === 1 ? 'T' : 'C'}</span>

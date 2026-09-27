@@ -4,7 +4,9 @@
 
 DEC-0036 approves the [BUILD-006 plan](builds/BUILD-006-PLAN.md) from clean synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The one isolated Uniswap v3 Base USDC/WETH Mode A liquidity lifecycle is limited to a controlled chain-31337 fork, with a conditional one-attempt owner-operated read-only Base recording and a maximum `FORK_REPRODUCED` evidence target. Implementation, local gates, report, commit, push and one unmerged PR are authorized. The owner retains merge. No public-chain transaction, mainnet execution, real funds, production wallet, BUILD-007 composition or Mode B liquidity authority is approved. The BUILD-003/004 fork and BUILD-005 mocked certifications and global non-custodial multichain roadmap, including Solana priority, remain unchanged.
 
-## Next milestone: BUILD-006 planning only (2026-09-27)
+BUILD-006 implementation is underway. The closed Base recording, complete local replay, final gates and one unmerged PR are pending; see [BUILD-006 report](builds/BUILD-006-REPORT.md). BUILD-007 is not authorized.
+
+## Historical next milestone: BUILD-006 planning only (2026-09-27)
 
 DEC-0035 closes BUILD-005 as COMPLETE / CERTIFIED: MOCKED after [PR #15](https://github.com/alrimarleskovar/gryloo/pull/15) merged into main as 37a0782ece81f83c362b50f68adfc1accb37ccff and post-merge Governance run 36344564513 and contracts/app run 36344564511 passed. BUILD-006 may be planned, but no BUILD-006 plan, implementation, public provider, public chain, production wallet or real-funds operation is approved. A later plan and separate explicit owner approval are required before implementation. BUILD-003E public-testnet evidence and the global non-custodial multichain roadmap, including Solana priority, remain unchanged.
 
