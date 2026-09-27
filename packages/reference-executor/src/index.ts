@@ -7,3 +7,5 @@ export { classifyUnknownResult, decideRetry } from './recovery.js';
 export { writeExtendingFile, readValidatedFile } from './file-store.js';
 export { createAttemptCoordinator } from './attempts.js';
 export type { Attempt, AttemptPreparation, AttemptStore } from './attempts.js';
+export { createModeBWorker, signModeBLocalTransaction } from './mode-b.js';
+export type { ModeBWorkerJob, ModeBDriver, ModeBWorkerEvent } from './mode-b.js';

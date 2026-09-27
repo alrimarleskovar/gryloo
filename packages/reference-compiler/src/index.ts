@@ -23,3 +23,7 @@ export { collectScriptedForkQuote, FORK_CONTRACTS } from './fork-quote.js';
 export type { ForkQuoteQuery, ForkQuoteTransport } from './fork-quote.js';
 export { runScriptedExactSimulation } from './simulation.js';
 export type { SimulationTransport } from './simulation.js';
+
+export { compileModeB, encodeSafeOwnerCall } from './mode-b.js';
+export type { ModeBProfile, ModeBCompiled } from './mode-b.js';
+export { modeBCodeHash } from './mode-b.js';
