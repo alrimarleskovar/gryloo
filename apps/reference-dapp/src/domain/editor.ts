@@ -17,14 +17,14 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
   let nodes = [...current.nodes];
   let resourceEdges = [...current.resourceEdges];
-  if (command.type === 'ADD' || command.type === 'ADD_SWAP') {
+  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_COW_SWAP') {
     if (nodes.length >= 1024) return reject('NODE_LIMIT');
     const id = `node-${String(current.revision + 2).padStart(3, '0')}`;
     if (nodes.some(node => node.nodeId === id)) return reject('DUPLICATE_NODE');
     if (command.type === 'ADD') nodes.push(createMockNode(id, command.kind));
     else {
       if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
-      try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, context)); }
+      try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
       catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_SWAP_INPUT'); }
     }
   } else if (command.type === 'CONNECT') {

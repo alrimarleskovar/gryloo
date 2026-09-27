@@ -7,14 +7,7 @@ authority.
 
 ## Current status
 
-**BUILD-001** is approved for canonical artifact contracts, strict serialized
-input validation, deterministic hashes, revision and state checks, and a
-declarative Action Registry. The private ESM packages grant no financial
-authority and do not execute workflows. See [status](docs/STATUS.md), the
-[Build 001 plan](docs/builds/BUILD-001-PLAN.md), and its
-[report](docs/builds/BUILD-001-REPORT.md) for demonstrated results. BUILD-002 is complete. BUILD-003A non-executing Base swap authoring and deterministic lint (DEC-0018) were merged through PR #7. BUILD-003B, a mocked artifact chain, merged through PR #8 as `0faec71207628dfe27fb23c81680d2c27827f5ea` on 2026-09-24. Its pull-request checks passed (Governance 35948277062; contracts and reference app 35948277082), as did post-merge checks (Governance 35948667349; contracts and reference app 35948667352). BUILD-003C read-only observation merged through PR #9 as `8a5fbaed26e005e5719528c399f7ca1adb334eb6`. BUILD-003D is closed under Option B (DEC-0025); its unrecorded fork acceptance moves to the unapproved BUILD-003F, and BUILD-003 is not yet certified. Package publication, Mode B and financial execution remain unapproved. The
-[Build 000 licensing amendment](docs/builds/BUILD-000-LICENSING-AMENDMENT.md)
-records the approved pre-incorporation license publication.
+BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is approved under DEC-0034 and implements a CoW signed-intent swap journey in the reference app using a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. See the [current status](docs/STATUS.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Gryloo remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
 
 ## Licensing
 

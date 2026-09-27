@@ -4,12 +4,15 @@ import { useState, type FormEvent } from 'react';
 import { mockActions, actionKinds } from '../domain/mock-actions';
 import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { useCow } from '../state/cow-store';
 
 export function ActionLibrary() {
   const { state, dispatch, context, propose } = useWorkflow();
+  const cowEnabled = useCow().info?.enabled === true;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
+  const [allowCow, setAllowCow] = useState(false);
   const [error, setError] = useState('');
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,7 +20,7 @@ export function ActionLibrary() {
       parseHumanAmount(amount, inputSymbol(direction), context);
       parseSlippage(slippage);
       setError('');
-      propose({ type: 'ADD_SWAP', direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
+      propose({ type: cowEnabled && allowCow ? 'ADD_COW_SWAP' : 'ADD_SWAP', direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
   return <aside className="library panel" aria-label="Action library">
@@ -33,6 +36,7 @@ export function ActionLibrary() {
       <input id="swap-amount" type="text" inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80} value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
       <label htmlFor="swap-slippage">Slippage in bps (required)</label>
       <input id="swap-slippage" type="text" inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} value={slippage} onChange={event => setSlippage(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
+      {cowEnabled && <label className="cow-authoring-choice"><input type="checkbox" checked={allowCow} onChange={event => setAllowCow(event.target.checked)}/> Enable CoW signed intent for this swap</label>}
       {error && <p id="swap-create-error" role="alert">{error}. Check the amount, asset cap and slippage.</p>}
       <button type="submit">Review swap proposal</button>
       <small>Caps: 1,000,000 USDC or 1,000 WETH. Prototype limits; no quote or execution.</small>

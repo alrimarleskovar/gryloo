@@ -126,3 +126,7 @@ The Base provider was read for state, not used to submit a transaction. No publi
 ## BUILD-004 scope guard
 
 DEC-0031 and Amendment A-1 (DEC-0032) approve exactly the 31 created and 45 modified paths in [BUILD-004 plan §8](builds/BUILD-004-PLAN.md), no deletions, and byte/mode identity for every other path at baseline `05910364feac7f9fe0856a5c2c197eeeb12db902`. The BUILD-003F closed replay, source-of-truth specifications, frozen v1 corpus, legal text and earlier build records remain protected. The local fork, browser screenshots and tests cannot promote BUILD-004 above `FORK_REPRODUCED` chain 31337.
+
+## BUILD-005 approved boundary (DEC-0034)
+
+The owner approved one [BUILD-005 plan](builds/BUILD-005-PLAN.md) from synchronized main `9c5484d`. It authorizes a CoW `SIGNED_INTENT` user journey for the existing semantic swap IR, with exact path scope and protected baseline enforced by governance. Acceptance is deterministic loopback with a disposable local wallet and `MOCKED` settlement only. No public provider, public chain, production wallet, credential, spending, financial transaction or PR merge is in scope. The Master Spec, Master Prompt, accepted ADRs, frozen schemas and historical BUILD-003/004 evidence remain protected. The global multichain roadmap and Solana priority remain intact.

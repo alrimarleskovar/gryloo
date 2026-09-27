@@ -25,7 +25,10 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-003D Mode A fork implementation | Human owner | DEC-0023 and [approved plan](builds/BUILD-003D-PLAN.md), including Amendments 1–6; closed under Option B (DEC-0025) with 66 created and 26 modified offline-accepted paths | APPROVED |
 | BUILD-003F recorded Base fork acceptance, fork application integration and manual-wallet acceptance | Human owner | DEC-0028, approved BUILD-003F plan, one bounded owner recording and manually operated local wallet G7 | APPROVED |
 | BUILD-004 finite Mode B local fork implementation | Human owner | DEC-0031 and [approved BUILD-004 plan](builds/BUILD-004-PLAN.md); merge remains owner decision | APPROVED |
-| Mainnet execution, public testnet execution, Mode C or BUILD-005 implementation | Human owner | Separate explicit approval required | NOT_APPROVED |
+| BUILD-005 CoW local signed-intent implementation | Human owner | DEC-0034 and [approved BUILD-005 plan](builds/BUILD-005-PLAN.md); deterministic loopback and disposable local wallet only | APPROVED_MOCKED_LOCAL |
+| Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
+
+The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.
 
 The Safe/Roles Mode B mechanism is selected and implemented on the controlled local fork under DEC-0031. DEC-0033 certifies BUILD-004 `FORK_REPRODUCED` on local chain 31337 and accepts ADR-0001 for that profile only; no public deployment exists.
 

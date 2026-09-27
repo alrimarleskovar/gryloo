@@ -1,0 +1,21 @@
+{
+  "profile": "MOCKED deterministic EIP-712 compatibility vector; no public order",
+  "owner": "0x1234567890123456789012345678901234567890",
+  "order": {
+    "sellToken": "0x4200000000000000000000000000000000000006",
+    "buyToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "receiver": "0x1234567890123456789012345678901234567890",
+    "sellAmount": "1000000000000000000",
+    "buyAmount": "990000000",
+    "validTo": 1790467800,
+    "appData": "0x5555555555555555555555555555555555555555555555555555555555555555",
+    "feeAmount": "0",
+    "kind": "sell",
+    "partiallyFillable": false,
+    "sellTokenBalance": "erc20",
+    "buyTokenBalance": "erc20"
+  },
+  "digest": "0xb1adaa0abe832185de8b308ad0669013b784af979d918bd0c9eb06a28a586e1b",
+  "uid": "0xb1adaa0abe832185de8b308ad0669013b784af979d918bd0c9eb06a28a586e1b12345678901234567890123456789012345678906ab85ed8",
+  "cancellationDigest": "0xa251e898c969256b40fe8ea7ff389e7a582338709cb740e56e01580fa84a7c6c"
+}

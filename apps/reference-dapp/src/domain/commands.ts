@@ -12,6 +12,7 @@ export type Command = Base & (
   | { readonly type: 'CONNECT'; readonly from: string; readonly to: string }
   | { readonly type: 'REMOVE'; readonly nodeId: string }
   | { readonly type: 'ADD_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
+  | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'SET_SWAP_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'SET_SLIPPAGE'; readonly nodeId: string; readonly slippage: string }
 );
@@ -65,7 +66,7 @@ export function commandIsValid(input: unknown): input is Command {
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
     ADD: ['kind'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'],
-    CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'],
+    CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
   if (typeof command.type !== 'string' || !fields[command.type]
@@ -77,7 +78,8 @@ export function commandIsValid(input: unknown): input is Command {
     case 'LOCK': return id(command.nodeId) && typeof command.locked === 'boolean' && command.source === 'CANVAS';
     case 'CONNECT': return id(command.from) && id(command.to);
     case 'REMOVE': return id(command.nodeId);
-    case 'ADD_SWAP': return ['USDC_TO_WETH', 'WETH_TO_USDC'].includes(command.direction as string)
+    case 'ADD_SWAP':
+    case 'ADD_COW_SWAP': return ['USDC_TO_WETH', 'WETH_TO_USDC'].includes(command.direction as string)
       && typeof command.amount === 'string' && command.amount.length <= 80
       && typeof command.slippage === 'string' && command.slippage.length <= 5;
     case 'SET_SWAP_AMOUNT': return id(command.nodeId) && typeof command.amount === 'string' && command.amount.length <= 80;

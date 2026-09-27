@@ -136,3 +136,28 @@
 .mode-b-revoke p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
 @media(max-width:950px){.mode-b-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.mode-b-panel{padding:14px}.mode-b-facts{grid-template-columns:1fr}.mode-b-steps li{flex-direction:column}.mode-b-panel .enforcement-table{font-size:10px}}
+
+/* BUILD-005 CoW local intent: consistent with the existing technical review surfaces. */
+.cow-panel{margin-top:14px;padding:20px;display:grid;gap:16px}
+.cow-panel .simulate-head{padding:0;border:0}
+.cow-panel code{overflow-wrap:anywhere;font-size:11px}
+.cow-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cow-controls p{width:100%;margin:0;color:var(--muted)}
+.cow-controls button{min-height:40px;border:0;border-radius:6px;background:var(--blue);color:#fff;padding:0 14px;font-weight:700}
+.cow-controls label{font-weight:700;font-size:12px}
+.cow-controls select{height:40px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);padding:0 10px}
+.cow-controls select:focus-visible,.cow-controls button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.cow-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cow-panel .step-card{min-width:0}
+.cow-panel .step-facts dd{overflow-wrap:anywhere}
+.cow-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cow-hashes{border:1px solid var(--line);border-radius:8px;padding:12px}
+.cow-hashes summary{cursor:pointer;font-weight:700}
+.cow-timeline{border-top:1px solid var(--line);padding-top:14px}
+.cow-timeline ol{display:grid;gap:5px;margin:0;padding-left:22px}
+.cow-timeline li{display:flex;gap:16px;justify-content:space-between}
+.cow-timeline time{font-variant-numeric:tabular-nums;color:var(--muted)}
+.cow-panel .numeric{font-variant-numeric:tabular-nums;font-family:ui-monospace,monospace}
+@media(max-width:800px){.cow-grid{grid-template-columns:1fr}.cow-panel{padding:14px}}
+.swap-create .cow-authoring-choice{display:flex;align-items:center;gap:8px;line-height:1.4;color:var(--ink)}
+.swap-create .cow-authoring-choice input{width:17px;height:17px;min-width:17px;padding:0;margin:0}
