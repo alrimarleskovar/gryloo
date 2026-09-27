@@ -151,7 +151,14 @@ export { expect };
 
 /** Visual baselines are the deterministic MOCKED synthetic environment; replay values legitimately differ. */
 export async function visual(page: Page, name: string): Promise<void> {
-  if (MODE_A_E2E === 'synthetic') await expect(page).toHaveScreenshot(name, { fullPage: true });
+  if (MODE_A_E2E !== 'synthetic') return;
+  const graph = page.getByRole('region', { name: 'Mocked outputs on the workflow graph' });
+  if (await graph.count()) {
+    await page.evaluate(() => document.fonts.ready);
+    await expect(graph).toHaveAttribute('data-viewport', 'fitted');
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+  await expect(page).toHaveScreenshot(name, { fullPage: true });
 }
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 export async function authorSwap(page: Page, direction: 'WETH_TO_USDC' | 'USDC_TO_WETH', amount: string, slippage: string): Promise<void> {
