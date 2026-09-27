@@ -12,10 +12,10 @@
 import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { TextEncoder } from 'node:util';
@@ -180,9 +180,13 @@ async function serve() {
     if (metadata?.forkedNetwork?.forkBlockHash !== transcript.sourceBlockHash) throw new Error('MODE_B_FORK_METADATA_INVALID');
 
     // Local-only accounts: disposable owner and executor keys, an impersonated deployer, and its CREATE targets.
-    const ownerKey = secp256k1.utils.randomSecretKey();
+    // Owner acceptance: GRYLOO_MODE_B_OWNER_ADDRESS names a disposable account held only in the owner's injected wallet,
+    // so no owner key exists here. Otherwise a disposable test key is generated for the automated specs.
+    const walletOwner = process.env.GRYLOO_MODE_B_OWNER_ADDRESS;
+    if (walletOwner !== undefined && !/^0x[0-9a-fA-F]{40}$/.test(walletOwner)) throw new Error('MODE_B_OWNER_ADDRESS_INVALID');
+    const ownerKey = walletOwner ? null : secp256k1.utils.randomSecretKey();
     const executorKey = secp256k1.utils.randomSecretKey();
-    const owner = addressOf(ownerKey);
+    const owner = walletOwner ? walletOwner.toLowerCase() : addressOf(ownerKey);
     const executor = addressOf(executorKey);
     const deployer = MODE_B_LOCAL_DEPLOYER;
     const targets = { safeSingleton: createAddress(deployer, 0), safe: createAddress(deployer, 1), singletonFactory: createAddress(deployer, 2),
@@ -290,9 +294,10 @@ async function serve() {
     const journalDir = join(runtime, 'journal');
     rmSync(journalDir, { recursive: true, force: true });
     mkdirSync(journalDir, { recursive: true, mode: 0o700 });
-    writeFileSync(keyPath, JSON.stringify({ owner: hex(ownerKey), executor: hex(executorKey) }), { mode: 0o600, flag: 'w' });
+    writeFileSync(keyPath, JSON.stringify(ownerKey ? { owner: hex(ownerKey), executor: hex(executorKey) } : { executor: hex(executorKey) }),
+      { mode: 0o600, flag: 'w' });
     chmodSync(keyPath, 0o600);
-    ownerKey.fill(0); executorKey.fill(0);
+    ownerKey?.fill(0); executorKey.fill(0);
     const profile = {
       format: 'gryloo.mode-b-fork-profile.v1', environment: 'FORK_REPRODUCED', rpcUrl: `http://127.0.0.1:${MODE_B_PORTS.fork}`,
       sourceChainId: 8453, sourceBlockNumber: transcript.sourceBlockNumber, sourceBlockHash: transcript.sourceBlockHash, chainId: 31337,
@@ -303,6 +308,7 @@ async function serve() {
         localOnlyAccounts: Object.keys(localAccounts), deployer, contracts: targets, lineageDeclarations: lineageLog,
         rolesRelinked: { integrity: targets.integrity, packer: targets.packer, singletonFactory: targets.singletonFactory },
         safeSingletonCodeHash: await codeHash(targets.safeSingleton),
+        ownerSigner: ownerKey ? 'DISPOSABLE_TEST_KEY' : 'OWNER_INJECTED_WALLET',
         localSetup: localSetup.map(write => ({ ...write, value: write.value.toString(), label: 'LOCAL_SETUP_NOT_BASE_OBSERVED' })),
         wethBackingAdded: MODE_B_SAFE_WETH_FUNDING.toString(),
       },
@@ -362,7 +368,74 @@ async function worker() {
   } finally { await vite.close(); }
 }
 
+/**
+ * Owner-session verifier. It reads no key. It re-reads every recorded owner and executor transaction from the fork and
+ * requires the exact signer, target and calldata, one executor send, RECONCILED and confirmed revocation.
+ *   node mode-b-harness.mjs verify --wallet "<name version>" --browser "<name version>"
+ */
+async function verify() {
+  const { decodeSignedTransaction } = await import('../../../../packages/reference-reconciler/dist/index.js');
+  const label = name => {
+    const at = process.argv.indexOf(name);
+    const value = at > 0 ? process.argv[at + 1] : undefined;
+    return typeof value === 'string' && /^[A-Za-z0-9 ._()/+-]{2,80}$/.test(value) ? value : null;
+  };
+  const profilePath = process.env.GRYLOO_MODE_B_PROFILE;
+  if (!profilePath || !isAbsolute(profilePath)) throw new Error('MODE_B_VERIFY_CONFIGURATION_INVALID');
+  const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+  let id = 0;
+  const rpc = async (method, params = []) => {
+    const response = await globalThis.fetch(profile.rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }), signal: globalThis.AbortSignal.timeout(20_000) });
+    const body = await response.json();
+    if (body.error || !('result' in body)) throw new Error(`MODE_B_VERIFY_RPC_${method}`);
+    return body.result;
+  };
+  const executions = readdirSync(profile.journalDir).filter(name => /^exec-[0-9a-f]{24}$/.test(name));
+  const findings = [];
+  const check = (ok, text) => { if (!ok) findings.push(text); };
+  check(executions.length === 1, `expected exactly one execution, found ${executions.length}`);
+  const executionId = executions[0];
+  const prepared = JSON.parse(readFileSync(join(profile.journalDir, executionId, 'prepared.json'), 'utf8'));
+  const events = readFileSync(join(profile.journalDir, executionId, 'worker.jsonl'), 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
+  const transactions = [];
+  const inspect = async (role, hash, signer, expected) => {
+    const receipt = await rpc('eth_getTransactionReceipt', [hash]);
+    const raw = await rpc('eth_getRawTransactionByHash', [hash]);
+    const decoded = decodeSignedTransaction(unhex(raw), hash);
+    const data = hex(decoded.unsigned.data);
+    const exact = receipt?.status === '0x1' && decoded.signer.toLowerCase() === signer && Number(decoded.unsigned.chainId) === 31337
+      && decoded.unsigned.to.toLowerCase() === expected.to.toLowerCase() && data === expected.data.toLowerCase();
+    check(exact, `${role} ${hash} is not the exact reviewed transaction by ${signer}`);
+    transactions.push({ role, label: expected.label ?? 'executor call', hash, signer: decoded.signer.toLowerCase(), exact });
+  };
+  check(prepared.installation.length === prepared.compiled.installation.length - prepared.installationStart, 'installation incomplete');
+  for (const step of prepared.installation) await inspect('installation', step.hash, profile.owner, prepared.compiled.installation[step.index]);
+  const sent = [...new Set(events.map(event => event.transactionHash).filter(Boolean))];
+  check(sent.length === 1, `expected one executor transaction, found ${sent.length}`);
+  check(events[0]?.state === 'RESERVED' && events.at(-1)?.state === 'CONFIRMED', 'worker journal is not RESERVED to CONFIRMED');
+  if (sent[0]) await inspect('execution', sent[0], profile.executor, prepared.compiled.executorCall);
+  check(prepared.reconciliation?.outcome === 'RECONCILED', `reconciliation is ${prepared.reconciliation?.outcome ?? 'missing'}`);
+  check(prepared.revocation.length === prepared.compiled.revocation.length, 'revocation incomplete');
+  for (const step of prepared.revocation) await inspect('revocation', step.hash, profile.owner, prepared.compiled.revocation[step.index]);
+  const call = async (to, data) => BigInt(await rpc('eth_call', [{ to, data }, 'latest']));
+  const moduleEnabled = await call(profile.safe, '0x2d9ad53d' + addressWord(profile.roles));
+  const executorEnabled = await call(profile.roles, '0x2d9ad53d' + addressWord(profile.executor));
+  const residual = await call(prepared.tokenIn, '0xdd62ed3e' + addressWord(profile.safe) + addressWord(SWAP_ROUTER_02));
+  check(moduleEnabled === 0n && executorEnabled === 0n && residual === 0n, 'revocation not confirmed by chain readback');
+  const result = { format: 'gryloo.mode-b-owner-session.v1', status: findings.length ? 'LIMITED' : 'PASS', environment: 'FORK_REPRODUCED',
+    chainId: 31337, wallet: label('--wallet'), browser: label('--browser'), executionId, owner: profile.owner, executor: profile.executor,
+    safe: profile.safe, roles: profile.roles, permissionHash: prepared.compiled.permissionHash, amountIn: prepared.amountIn,
+    minimumOut: prepared.minimumOut, reconciliation: prepared.reconciliation, workerStates: events.map(event => event.state),
+    transactions, chainReadback: { moduleEnabled: moduleEnabled === 1n, executorEnabled: executorEnabled === 1n, residualAllowance: residual.toString() },
+    ownerSigner: profile.provenance?.ownerSigner ?? null, findings };
+  writeFileSync(join(dirname(profilePath), 'owner-session-result.json'), JSON.stringify(result, null, 2) + '\n', { mode: 0o600 });
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  if (findings.length) process.exitCode = 1;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === 'serve') await serve();
+  else if (process.argv[2] === 'verify') await verify();
   else await worker();
 }

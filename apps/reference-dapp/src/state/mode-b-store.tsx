@@ -91,8 +91,12 @@ export function ModeBProvider({ children }: { children: ReactNode }) {
     const accounts = await provider.request({ method: 'eth_accounts' });
     if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== wallet.account.toLowerCase())
       throw new Error('WALLET_WRONG_ACCOUNT');
-    const nonce = await provider.request({ method: 'eth_getTransactionCount', params: [wallet.account, 'pending'] });
-    if (typeof nonce !== 'string' || !/^0x[0-9a-f]+$/.test(nonce)) throw new Error('WALLET_NONCE_INVALID');
+    // MetaMask answers a pending nonce from its own tracker, possibly as a number; accept only a canonical count.
+    const reported = await provider.request({ method: 'eth_getTransactionCount', params: [wallet.account, 'pending'] });
+    const count = typeof reported === 'number' && Number.isSafeInteger(reported) && reported >= 0 ? BigInt(reported)
+      : typeof reported === 'string' && /^0x[0-9a-fA-F]{1,16}$/.test(reported) ? BigInt(reported) : null;
+    if (count === null) throw new Error('WALLET_NONCE_INVALID');
+    const nonce = '0x' + count.toString(16);
     let hash: unknown;
     try { hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.account, to: item.to,
       data: item.data, value: '0x0', chainId: '0x7a69', nonce, gas: '0x2dc6c0' }] }); }

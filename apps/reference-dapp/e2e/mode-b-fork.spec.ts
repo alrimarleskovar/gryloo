@@ -44,7 +44,8 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
     await page.context().exposeFunction('__grylooModeBWallet', async (method: string, params: unknown[]) => {
       if (method === 'eth_chainId') return '0x7a69';
       if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [owner];
-      if (method === 'eth_getTransactionCount') return rpc(method, params);
+      // MetaMask's pending-nonce tracker answers with a number, not a hex string.
+      if (method === 'eth_getTransactionCount') return Number(BigInt(await rpc(method, params) as string));
       if (method !== 'eth_sendTransaction') throw new Error(`MODE_B_TEST_WALLET_${method}`);
       try {
       const tx = params[0] as { from: string; to: string; data: string; value: string; chainId: string; nonce: string; gas: string };
