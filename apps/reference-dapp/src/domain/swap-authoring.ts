@@ -39,7 +39,7 @@ export function parseSlippage(text: unknown): number {
   return value;
 }
 
-export function createSwapNode(nodeId: string, direction: Direction, humanAmount: string, slippageText: string, context: ReviewContext): SemanticWorkflow['nodes'][number] {
+export function createSwapNode(nodeId: string, direction: Direction, humanAmount: string, slippageText: string, context: ReviewContext, provider: 'uniswap' | 'cow' = 'uniswap'): SemanticWorkflow['nodes'][number] {
   if (!directions.includes(direction)) throw new Error('INVALID_DIRECTION');
   const trusted = createReviewContext(context);
   const from = inputSymbol(direction), to = outputSymbol(direction);
@@ -49,7 +49,7 @@ export function createSwapNode(nodeId: string, direction: Direction, humanAmount
   return {
     nodeId, actionType: SWAP_ACTION, actionSchemaVersion: '1.0.0', chainId: 'eip155:8453',
     requiredCapabilities: ['swap.direct-transaction'],
-    adapterConstraints: { adapters: [], protocols: ['uniswap'] },
+    adapterConstraints: { adapters: [], protocols: provider === 'cow' ? ['uniswap', 'cow-protocol'] : ['uniswap'] },
     inputs: [
       { name: 'amount-in', kind: 'QUANTITY', value: { asset: { ...input }, amount } },
       { name: 'asset-out', kind: 'ASSET', value: { ...output } },

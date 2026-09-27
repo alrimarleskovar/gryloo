@@ -82,8 +82,9 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     if (node.actionSchemaVersion !== '1.0.0' || node.chainId !== 'eip155:8453'
         || node.requiredCapabilities.length !== 1 || node.requiredCapabilities[0] !== trusted.capabilityId
         || node.requiredAuthorizationClass !== 'MODE_A' || node.failurePolicy !== 'ABORT'
-        || node.adapterConstraints.adapters.length !== 0 || node.adapterConstraints.protocols.length !== 1
-        || node.adapterConstraints.protocols[0] !== 'uniswap' || node.dependencies.length !== 0) fail('INVALID_SWAP_DECLARATION');
+        || node.adapterConstraints.adapters.length !== 0 || !(node.adapterConstraints.protocols.length === 1 && node.adapterConstraints.protocols[0] === 'uniswap') &&
+        !(node.adapterConstraints.protocols.length === 2 && node.adapterConstraints.protocols[0] === 'uniswap' &&
+          node.adapterConstraints.protocols[1] === 'cow-protocol') || node.dependencies.length !== 0) fail('INVALID_SWAP_DECLARATION');
     if (node.inputs.length !== 2 || !hasKeys(Object.fromEntries(node.inputs.map(p => [p.name, p])), ['amount-in', 'asset-out'])) fail('INVALID_SWAP_PORTS');
     const amount = node.inputs.find(p => p.name === 'amount-in');
     const assetOut = node.inputs.find(p => p.name === 'asset-out');

@@ -201,3 +201,13 @@ B003D-CERTIFICATION-001 is resolved for the controlled local-fork evidence by DE
 ## BUILD-004 finite authority verification
 
 The approved [BUILD-004 plan](builds/BUILD-004-PLAN.md) maps its finite Mode B acceptance checks to the existing requirement register without redefining historical IDs. Automated local-fork tests exercise exact target/function/parameters, one-time cumulative budget under same-block contention, protocol expiry, browser-independent recovery, reconciliation and four-step revocation. The owner-operated injected-wallet acceptance passed, as recorded in the [BUILD-004 report](builds/BUILD-004-REPORT.md). PR #13 merged, and both post-merge checks passed; DEC-0033 certifies the result at `FORK_REPRODUCED` on local chain 31337.
+
+## BUILD-005 CoW signed-intent acceptance mapping
+
+| ID | Requirement | Source area | Check or evidence | Status |
+|---|---|---|---|---|
+| B005-IR-001 | Reuse the semantic exact-input swap IR and require CoW preauthorization without silently rerouting legacy nodes. | Master Spec workflow and adapter model; Master Prompt BUILD-005 | Compiler, registry, linter and browser tests | IMPLEMENTED_LOCAL |
+| B005-REVIEW-001 | Discover capability and review quote, simulation, Manifest, exact EIP-712 order, limits, spender and expiry before signing. | Master Spec §§7–8, 11–13; Master Prompt BUILD-005 | Compiler and browser acceptance | IMPLEMENTED_LOCAL |
+| B005-LIFECYCLE-001 | Persist before post, never duplicate an uncertain order, recover after restart, track, cancel with a separate signature and show expiry/failure. | Master Spec execution/recovery; Master Prompt BUILD-005 | Executor, service and browser tests | IMPLEMENTED_LOCAL |
+| B005-EVIDENCE-001 | Reconcile receipt, trade, balances, allowance and fee with explicit MOCKED provenance and no public-chain claim. | Master Spec evidence model; Master Prompt BUILD-005 | Reconciler, service and browser tests | IMPLEMENTED_LOCAL |
+| B005-ROADMAP-001 | Preserve global non-custodial multichain scope and Solana priority. | Master Spec roadmap | Plan, scope and report review | PRESERVED |

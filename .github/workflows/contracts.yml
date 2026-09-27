@@ -107,7 +107,13 @@ jobs:
           export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
           export GRYLOO_MODE_A_RUNTIME="$RUNNER_TEMP/gryloo-mode-a-e2e"
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
-          pnpm --filter @defi-workflow-engine/reference-dapp test:e2e
+          # Visual/default-state specs run before local-fork execution writes a recovery journal.
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mode-a-adversarial.spec.ts mode-a-fork.spec.ts mode-a-recovery.spec.ts
+          # BUILD-005: a separate MOCKED CoW profile, never a public CoW or chain endpoint.
+          export GRYLOO_COW=loopback
+          export GRYLOO_COW_RUNTIME="$RUNNER_TEMP/gryloo-cow-e2e"
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test cow-intent.spec.ts cow-recovery.spec.ts
 
       - name: Summarize screenshot differences after a browser failure
         if: failure()
@@ -120,7 +126,7 @@ jobs:
         if: ${{ failure() && steps.browser.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: build-004-visual-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          name: build-005-visual-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             apps/reference-dapp/test-results/**/*-actual.png
             apps/reference-dapp/test-results/**/*-expected.png

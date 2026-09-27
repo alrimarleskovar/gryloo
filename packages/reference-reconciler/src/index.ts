@@ -8,3 +8,6 @@ export { reconcileWithScriptedTransport } from './reconcile.js';
 export type { ReconcileScriptQuery, ReconcileScriptTransport, ReconcileStaticInput } from './reconcile.js';
 export { decodeModeBSignedTransaction, reconcileModeB } from './mode-b.js';
 export type { ModeBChainEvidence, ModeBReconciliation, ModeBOutcome, ModeBSignedTransaction } from './mode-b.js';
+
+export { verifyCowSignature, verifyCowDigestSignature, reconcileCowSettlement } from './cow.js';
+export type { CowTrade, CowSettlementObservation, CowReconciliation } from './cow.js';

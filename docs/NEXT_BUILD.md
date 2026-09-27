@@ -1,6 +1,10 @@
 # Next build
 
-## Next milestone: BUILD-005 planning (2026-09-27)
+## Active milestone: BUILD-005 CoW signed intent (2026-09-27)
+
+DEC-0034 approves the [single BUILD-005 plan](builds/BUILD-005-PLAN.md). Implementation and local acceptance are underway on `codex/build-005-cow-signed-intent` from synchronized `main` at `9c5484d`. The user-facing outcome is capability discovery through exact EIP-712 review, local-wallet signing, duplicate-safe posting/recovery, tracking, supported cancellation, and scripted settlement evidence for the same semantic swap IR. This build uses only a deterministic loopback orderbook and disposable local wallet, so its resulting financial evidence is `MOCKED`. Its final PR will remain unmerged for owner review. No later build is approved. BUILD-003E public-testnet evidence and the broader global multichain roadmap, including Solana priority, retain their source-of-truth positions.
+
+## Historical next milestone: BUILD-005 planning (2026-09-27)
 
 BUILD-004 is `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 under DEC-0033. PR #13 passed 4/4 checks on `effc6bad8dc828ee9e598d43fbcd6413e2b19dbe`, merged into `main` as `e71de3946c7aac6095023ca1ee6f1e1a58a98112` at 2026-09-27T16:29:44Z, and post-merge Governance run `36333448106` and Contracts/app run `36333448100` passed. The immediate next product milestone is **BUILD-005 planning — CoW signed-intent adapter**, reusing the same semantic swap action with its distinct EIP-712 order, posting ambiguity, tracking, expiry, cancellation and settlement evidence ([BUILD-004 plan §11](builds/BUILD-004-PLAN.md)). No BUILD-005 plan or implementation is approved: BUILD-005 needs its own plan and explicit owner approval. BUILD-003E remains reserved for public-testnet evidence, and the rest of the Master Spec roadmap is unchanged.
 

@@ -1,5 +1,9 @@
 # Repository status
 
+## BUILD-005 implementation on one branch (2026-09-27)
+
+DEC-0034 approves the [BUILD-005 plan](builds/BUILD-005-PLAN.md) from synchronized `main` at `9c5484d`. The CoW signed-intent user journey is implemented in the reference DApp and local acceptance is in progress. It uses the same semantic swap IR and a separate EIP-712 order lifecycle. The only BUILD-005 orderbook, wallet and settlement acceptance is deterministic loopback with a disposable local signer; all resulting evidence is `MOCKED`. No public CoW endpoint, public chain, production wallet, credential or financial transaction is used or authorized. BUILD-003 and BUILD-004 remain certified only at their recorded `FORK_REPRODUCED` local-fork boundaries. Gryloo remains global, non-custodial and multichain, with Solana's stated roadmap priority intact. The owner retains PR merge.
+
 ## Current BUILD-004 certification state (2026-09-27)
 
 **Current markers:** BUILD-004: COMPLETE. BUILD-004 certification: CERTIFIED: FORK_REPRODUCED. Owner-operated injected-wallet acceptance: PASS.

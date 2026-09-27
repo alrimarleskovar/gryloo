@@ -17,7 +17,7 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `Slippage: ${oldSwap?.slippage ?? 'none'} → ${newSwap.slippage ?? 'missing'} bps`,
     `Assets: ${JSON.stringify(context.assets[newSwap.from].asset)} → ${JSON.stringify(context.assets[newSwap.to].asset)}`,
     `Amount lock: ${Boolean(oldNode?.lockedParameters.length)} → ${Boolean(newNode?.lockedParameters.length)}`,
-    'Minimum output: 0 unquoted; execution unavailable',
+    command.type === 'ADD_COW_SWAP' ? 'Minimum output: 0 unquoted; local CoW signed-intent review follows in Simulate' : 'Minimum output: 0 unquoted; execution unavailable',
   ]);
   return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`, `Edit: ${command.type}`]);
 }

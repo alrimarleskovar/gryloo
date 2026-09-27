@@ -34,6 +34,15 @@ describe('closed runtime validation', () => {
     expect(() => parseHumanAmount('1000.000000000000000001', 'WETH', context)).toThrow();
     for (const value of ['', '-1', '1.5', '10001', '01', 'NaN']) expect(() => parseSlippage(value)).toThrow();
   });
+  it('permits the approved CoW option while preserving legacy Uniswap-only swaps', () => {
+    const next = structuredClone(valid());
+    expect(next.nodes[1]!.adapterConstraints.protocols).toEqual(['uniswap']);
+    next.nodes[1]!.adapterConstraints.protocols = ['uniswap', 'cow-protocol'];
+    expect(validateAuthoringWorkflow(next, context)).toBe(next);
+    next.nodes[1]!.adapterConstraints.protocols = ['uniswap'];
+    expect(validateAuthoringWorkflow(next, context)).toBe(next);
+    reject(w => { w.nodes[1]!.adapterConstraints.protocols = ['cow-protocol']; });
+  });
   it('accepts narrower valid bounds but enforces their intersection with the trusted cap', () => {
     const narrowed = structuredClone(valid());
     narrowed.nodes[1]!.editableBounds[0]!.minimumAmount = '1000000';

@@ -6,6 +6,7 @@ import {
   checkActionCompatibility,
   getActionDefinition,
   parseActionRegistryBytes,
+  referenceRegistry,
   validateActionRegistry,
   type ActionCompatibilityRequest,
   type ActionRegistry,
@@ -32,6 +33,12 @@ const request: ActionCompatibilityRequest = {
 };
 
 describe("declarative Action Registry", () => {
+  it("declares the same semantic swap action for direct and signed-intent planning", () => {
+    expect(validateActionRegistry(referenceRegistry)).toBe(true);
+    expect(referenceRegistry.registryVersion).toBe('1.1.0');
+    expect(referenceRegistry.actions[0]?.executionKinds).toEqual(['DIRECT_TRANSACTION', 'SIGNED_INTENT']);
+    expect(referenceRegistry.capabilities[0]?.status).toBe('DECLARED_ONLY');
+  });
   it("parses the fixture through guarded bytes and freezes the registry/schema", () => {
     const registry = parseActionRegistryBytes(fixtureBytes);
     expect(validateActionRegistry(registry)).toBe(true);

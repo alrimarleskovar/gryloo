@@ -27,3 +27,6 @@ export type { SimulationTransport } from './simulation.js';
 export { compileModeB, encodeSafeOwnerCall } from './mode-b.js';
 export type { ModeBProfile, ModeBCompiled } from './mode-b.js';
 export { modeBCodeHash } from './mode-b.js';
+
+export { COW_ADAPTER, COW_CHAIN, COW_SETTLEMENT, COW_RELAYER, compileCow, verifyCowForPosting, cowOrderDigest, cowOrderUid, cowCancellationDigest, cowOrderTypedData, cowCancellationTypedData } from './cow.js';
+export type { CowQuote, CowOrder, CowCompiled, CowTypedData } from './cow.js';
