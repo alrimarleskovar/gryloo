@@ -636,9 +636,9 @@ jobs:
               errors.append('ADR-0002 acceptance record missing')
           if not markdown['docs/adr/ADR-0003-mode-a-exact-payload-binding.md'].split('\n',3)[2].startswith('Status: ACCEPTED for BUILD-003D under DEC-0023 and DEC-0024'):
               errors.append('ADR-0003 acceptance record missing')
-          # ADR-0004 stays PROPOSED: its acceptance moved to BUILD-003F with the unrecorded fork evidence (DEC-0025).
-          if not markdown['docs/adr/ADR-0004-controlled-base-fork-environment.md'].split('\n',3)[2].startswith('Status: PROPOSED'):
-              errors.append('ADR-0004 must remain PROPOSED until BUILD-003F')
+          # DEC-0030 accepts ADR-0004 after BUILD-003F delivery and post-merge CI.
+          if not markdown['docs/adr/ADR-0004-controlled-base-fork-environment.md'].split('\n',3)[2].startswith('Status: ACCEPTED under DEC-0030'):
+              errors.append('ADR-0004 acceptance record missing')
           adr_files={}
           for v in sorted(current):
               if v.startswith('docs/adr/'):
@@ -733,15 +733,16 @@ jobs:
               if marker not in report003d: errors.append('historical BUILD-003D marker missing: '+marker)
           if re.search(r'G7 manual wallet acceptance: (?:PASS|LIMITED)',report003d):
               errors.append('historical BUILD-003D G7 result changed')
-          for marker in ('BUILD-003 certification: PENDING_OWNER_DECISION','BUILD-003: IN_PROGRESS','G7 manual wallet acceptance: PASS'):
-              if marker not in status: errors.append('current BUILD-003F marker missing: '+marker)
+          for marker in ('BUILD-003 certification: CERTIFIED: FORK_REPRODUCED','BUILD-003: COMPLETE','G7 manual wallet acceptance: PASS','DEC-0030'):
+              if marker not in status: errors.append('current BUILD-003 certification marker missing: '+marker)
           report003f=markdown['docs/builds/BUILD-003F-REPORT.md']
           for marker in ('DEC-0028','REPLAY_BYTE_IDENTICAL','18/18','MetaMask 13.48.0',
                          'd11dd0c7b77872e462b62f78eab642d4e299f93ccdc0544620a555be085adf72',
                          '0xd651a51063af8f86aee30d7f85844bb4747147bc27eb371807e38c3ac5f795b6'):
               if marker not in report003f: errors.append('BUILD-003F G7 evidence missing: '+marker)
-          for v in ('docs/STATUS.md','docs/NEXT_BUILD.md','README.md','docs/EVIDENCE_LEVELS.md','docs/AUTHORITY_MATRIX.md','docs/builds/BUILD-003D-REPORT.md'):
-              if re.search(r'\bBUILD-003\b(?![A-Z])\s+(?:is\s+)?(?:complete|certified)',markdown[v],re.I): errors.append('BUILD-003 completion or certification claim: '+v)
+          for v in ('docs/STATUS.md','docs/NEXT_BUILD.md','README.md','docs/EVIDENCE_LEVELS.md','docs/AUTHORITY_MATRIX.md','docs/builds/BUILD-003F-REPORT.md'):
+              if 'DEC-0030' not in markdown[v] or 'FORK_REPRODUCED' not in markdown[v]:
+                  errors.append('BUILD-003 certification record missing: '+v)
           historical_build_docs={'docs/builds/BUILD-003A-PLAN.md','docs/builds/BUILD-003A-REPORT.md',
                                  'docs/builds/BUILD-003B-PLAN.md','docs/builds/BUILD-003B-REPORT.md',
                                  'docs/builds/BUILD-003C-PLAN.md','docs/builds/BUILD-003C-REPORT.md',

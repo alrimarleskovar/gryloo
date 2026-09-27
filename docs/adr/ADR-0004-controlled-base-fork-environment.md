@@ -1,6 +1,6 @@
 # ADR-0004 — Controlled Base fork environment
 
-Status: PROPOSED for acceptance after BUILD-003F delivery and post-merge CI. DEC-0025 moved the unrecorded BUILD-003D fork to BUILD-003F; DEC-0028 approved one new bounded owner recording and the local wallet acceptance. The real F3–G7 evidence now exists, but this ADR is not accepted until the separate owner certification decision and all delivery gates pass.
+Status: ACCEPTED under DEC-0030 after BUILD-003F evidence, PR #11 passing 4/4 checks on `45dc852c88810be41ec2a703c163f4e41bcfa2eb`, merge `4bf7d4f6e96c5ef433b0c930dad067d4001f2956` and successful post-merge Governance `36286360276` and Contracts/app `36286360265`.
 
 ## Context
 
@@ -26,4 +26,4 @@ For G7, owner-operated MetaMask 13.48.0 in Brave 1.95.104 signed local approval 
 
 This environment proves at most `FORK_REPRODUCED` local behavior. It does not prove a Base mainnet transaction, production execution, public-testnet behavior, independent Mode B limits or custody safety. The pinned Anvil's OP-stack receipt omits L1 data and operator fees; the service derives those fees independently from signed bytes and L1Block state and discloses that limitation in evidence. A stop cannot be retried without a new owner decision. BUILD-003D's exhausted budget is never reused.
 
-ADR acceptance requires the pinned tools and clean public accounts, finalized canonical source N/H, complete transcript and byte-identical replay, both exact manually signed transactions, independent recovery/reconciliation, credential-free evidence, final local gates, green PR and post-merge CI, and the separate owner certification decision. Until then BUILD-003 remains `IN_PROGRESS` and this ADR stays `PROPOSED`.
+ADR acceptance requires the pinned tools and clean public accounts, finalized canonical source N/H, complete transcript and byte-identical replay, both exact manually signed transactions, independent recovery/reconciliation, credential-free evidence, final local gates, green PR and post-merge CI, and the separate owner certification decision. DEC-0030 records that these criteria passed and certifies BUILD-003 only at `FORK_REPRODUCED` on local chain 31337. This acceptance grants no mainnet, public-testnet, production, live-provider, wallet-custody or financial-execution authority.
