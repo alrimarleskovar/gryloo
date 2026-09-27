@@ -120,7 +120,7 @@ jobs:
         if: ${{ failure() && steps.browser.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: build-003f-visual-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          name: build-004-visual-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             apps/reference-dapp/test-results/**/*-actual.png
             apps/reference-dapp/test-results/**/*-expected.png
@@ -184,7 +184,7 @@ jobs:
               }
               for manifest_path,(name,license_id) in workspace.items():
                   manifest=json.loads(pathlib.Path(manifest_path).read_text())
-                  expected_version='0.2.0' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
+                  expected_version='0.2.1' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
                   if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,expected_version,True,license_id):
                       raise SystemExit('Workspace manifest inventory differs: '+manifest_path)
               lock=pathlib.Path('pnpm-lock.yaml').read_text()

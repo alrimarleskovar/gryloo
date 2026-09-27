@@ -1,5 +1,10 @@
 # Next build
 
+## Current BUILD-004 path (2026-09-27)
+
+DEC-0031 approved [BUILD-004](builds/BUILD-004-PLAN.md) and the finite Safe/Roles D-1 profile; DEC-0032 recorded Amendment A-1. Implementation and local automated acceptance pass on the clean closed-replay fork. Still outstanding: the owner's injected-wallet session, push, the pull request, remote CI, the merge decision and post-merge checks. BUILD-004 is not yet certified. After successful BUILD-004 completion, proceed directly to BUILD-005 planning. BUILD-005 implementation has no separate approval. The older `NONE_APPROVED` and BUILD-003F pending statements below are historical as of their dated sections. The evidence ceiling remains `FORK_REPRODUCED` on local chain 31337.
+
+
 ## Current state after BUILD-003 certification (2026-09-27)
 
 DEC-0028 approved the complete BUILD-003F implementation and the bounded, single-use owner recording. F2, real F3 recording, byte-identical F4 replay, F5 local-fork application tests and the owner-operated G7 wallet verification have passed locally; see the [BUILD-003F report](builds/BUILD-003F-REPORT.md). PR #11 passed 4/4 checks on `45dc852c88810be41ec2a703c163f4e41bcfa2eb`, merged as `4bf7d4f6e96c5ef433b0c930dad067d4001f2956`, and post-merge Governance `36286360276` and Contracts/app `36286360265` passed. DEC-0030 accepts ADR-0004 and certifies BUILD-003 `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 only. This grants no public-chain, production, live-provider, wallet-custody or financial-execution authority.
