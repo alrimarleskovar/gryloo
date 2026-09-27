@@ -7,7 +7,7 @@ authority.
 
 ## Current status
 
-BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is approved under DEC-0034 and implements a CoW signed-intent swap journey in the reference app using a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. See the [current status](docs/STATUS.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Gryloo remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
+BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is COMPLETE / CERTIFIED: MOCKED under DEC-0035 after PR #15 merged and post-merge checks passed. Its CoW signed-intent journey in the reference app uses a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. BUILD-006 is authorized for planning only. See the [current status](docs/STATUS.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Gryloo remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
 
 ## Licensing
 

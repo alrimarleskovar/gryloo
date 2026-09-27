@@ -130,3 +130,7 @@ DEC-0031 and Amendment A-1 (DEC-0032) approve exactly the 31 created and 45 modi
 ## BUILD-005 approved boundary (DEC-0034)
 
 The owner approved one [BUILD-005 plan](builds/BUILD-005-PLAN.md) from synchronized main `9c5484d`. It authorizes a CoW `SIGNED_INTENT` user journey for the existing semantic swap IR, with exact path scope and protected baseline enforced by governance. Acceptance is deterministic loopback with a disposable local wallet and `MOCKED` settlement only. No public provider, public chain, production wallet, credential, spending, financial transaction or PR merge is in scope. The Master Spec, Master Prompt, accepted ADRs, frozen schemas and historical BUILD-003/004 evidence remain protected. The global multichain roadmap and Solana priority remain intact.
+
+## BUILD-005 certified boundary and BUILD-006 planning (DEC-0035)
+
+After the owner merged PR #15 and both post-merge checks passed, DEC-0035 certifies BUILD-005 COMPLETE at MOCKED only. The deterministic loopback orderbook, disposable injected local wallet and scripted settlement confer no public CoW, public-chain, production-wallet or real-funds authority. BUILD-006 planning is the only next milestone; implementation requires a separate approved plan and owner decision. BUILD-003/004 evidence limits, the global non-custodial multichain roadmap and Solana priority remain unchanged.

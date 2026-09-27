@@ -204,6 +204,8 @@ The approved [BUILD-004 plan](builds/BUILD-004-PLAN.md) maps its finite Mode B a
 
 ## BUILD-005 CoW signed-intent acceptance mapping
 
+DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed. The rows below are accepted for the deterministic MOCKED local profile only; IMPLEMENTED_LOCAL does not imply public CoW, public-chain or production certification. BUILD-006 implementation remains unapproved.
+
 | ID | Requirement | Source area | Check or evidence | Status |
 |---|---|---|---|---|
 | B005-IR-001 | Reuse the semantic exact-input swap IR and require CoW preauthorization without silently rerouting legacy nodes. | Master Spec workflow and adapter model; Master Prompt BUILD-005 | Compiler, registry, linter and browser tests | IMPLEMENTED_LOCAL |

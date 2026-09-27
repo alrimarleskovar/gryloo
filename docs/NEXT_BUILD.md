@@ -1,6 +1,10 @@
 # Next build
 
-## Active milestone: BUILD-005 CoW signed intent (2026-09-27)
+## Next milestone: BUILD-006 planning only (2026-09-27)
+
+DEC-0035 closes BUILD-005 as COMPLETE / CERTIFIED: MOCKED after [PR #15](https://github.com/alrimarleskovar/gryloo/pull/15) merged into main as 37a0782ece81f83c362b50f68adfc1accb37ccff and post-merge Governance run 36344564513 and contracts/app run 36344564511 passed. BUILD-006 may be planned, but no BUILD-006 plan, implementation, public provider, public chain, production wallet or real-funds operation is approved. A later plan and separate explicit owner approval are required before implementation. BUILD-003E public-testnet evidence and the global non-custodial multichain roadmap, including Solana priority, remain unchanged.
+
+## BUILD-005 active milestone (historical, 2026-09-27)
 
 DEC-0034 approves the [single BUILD-005 plan](builds/BUILD-005-PLAN.md). Implementation and local acceptance are underway on `codex/build-005-cow-signed-intent` from synchronized `main` at `9c5484d`. The user-facing outcome is capability discovery through exact EIP-712 review, local-wallet signing, duplicate-safe posting/recovery, tracking, supported cancellation, and scripted settlement evidence for the same semantic swap IR. This build uses only a deterministic loopback orderbook and disposable local wallet, so its resulting financial evidence is `MOCKED`. Its final PR will remain unmerged for owner review. No later build is approved. BUILD-003E public-testnet evidence and the broader global multichain roadmap, including Solana priority, retain their source-of-truth positions.
 

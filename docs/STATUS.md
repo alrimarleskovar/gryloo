@@ -1,6 +1,14 @@
 # Repository status
 
-## BUILD-005 implementation on one branch (2026-09-27)
+## Current BUILD-005 certification state (2026-09-27)
+
+**Current markers:** BUILD-005: COMPLETE. BUILD-005 certification: CERTIFIED: MOCKED.
+
+Under DEC-0035 the owner merged [PR #15](https://github.com/alrimarleskovar/gryloo/pull/15) into main as 37a0782ece81f83c362b50f68adfc1accb37ccff at 2026-09-27T19:30:00Z. All four final-head PR/push checks passed on 171fc02857b43318460de6b25a2a013d3edbd24e; post-merge [Governance run 36344564513](https://github.com/alrimarleskovar/gryloo/actions/runs/36344564513) and [contracts/app run 36344564511](https://github.com/alrimarleskovar/gryloo/actions/runs/36344564511) also passed. The [BUILD-005 report](builds/BUILD-005-REPORT.md) records the local and CI gates. Its signed-intent orderbook, injected disposable wallet and settlement are deterministic loopback and scripted only; every BUILD-005 financial result remains MOCKED. This grants no public CoW, public-chain, production-wallet, real-funds or production-financial-execution evidence. BUILD-003/004 retain their separate local-fork evidence ceilings. Gryloo remains global, non-custodial and multichain, with Solana priority unchanged.
+
+The next milestone is BUILD-006 planning only. No BUILD-006 plan or implementation is approved; see [NEXT_BUILD.md](NEXT_BUILD.md).
+
+## BUILD-005 pre-merge implementation state (historical, 2026-09-27)
 
 DEC-0034 approves the [BUILD-005 plan](builds/BUILD-005-PLAN.md) from synchronized `main` at `9c5484d`. The CoW signed-intent user journey is implemented in the reference DApp and local acceptance is in progress. It uses the same semantic swap IR and a separate EIP-712 order lifecycle. The only BUILD-005 orderbook, wallet and settlement acceptance is deterministic loopback with a disposable local signer; all resulting evidence is `MOCKED`. No public CoW endpoint, public chain, production wallet, credential or financial transaction is used or authorized. BUILD-003 and BUILD-004 remain certified only at their recorded `FORK_REPRODUCED` local-fork boundaries. Gryloo remains global, non-custodial and multichain, with Solana's stated roadmap priority intact. The owner retains PR merge.
 

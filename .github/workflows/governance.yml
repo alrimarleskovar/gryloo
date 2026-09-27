@@ -767,6 +767,10 @@ jobs:
               errors.append('DEC-0034 local CoW authority missing')
           if not re.search(r'(?m)^\| Mainnet execution, public testnet execution or Mode C \|[^|\n]+\|[^|\n]+\| NOT_APPROVED \|$',authority):
               errors.append('mainnet, testnet and Mode C must remain NOT_APPROVED')
+          if not re.search(r'(?m)^\| BUILD-005 CoW local profile certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_MOCKED_LOCAL \(DEC-0035\) \|$',authority):
+              errors.append('DEC-0035 MOCKED certification missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-006 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
+              errors.append('BUILD-006 must remain planning only in authority matrix')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -796,10 +800,27 @@ jobs:
               rows=[line for line in decisions.splitlines() if line.startswith('| DEC-%04d |' % number)]
               if len(rows)!=1 or not rows[0].endswith('| APPROVED |') or any(m not in rows[0] for m in expected):
                   errors.append('decision record incomplete: DEC-%04d' % number)
+          decision35=[line for line in decisions.splitlines() if line.startswith('| DEC-0035 |')]
+          if (len(decision35)!=1 or not decision35[0].endswith('| APPROVED |') or
+                  any(v not in decision35[0] for v in ('BUILD-005 COMPLETE / CERTIFIED: MOCKED',
+                      '36344564513','36344564511','BUILD-006 planning only',
+                      '37a0782ece81f83c362b50f68adfc1accb37ccff'))):
+              errors.append('DEC-0035 closure authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
+          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-006 planning only') or
+                  'no BUILD-006 plan, implementation' not in next_build):
+              errors.append('BUILD-006 planning-only transition missing')
           status=markdown['docs/STATUS.md']
+          for marker in ('BUILD-005: COMPLETE','BUILD-005 certification: CERTIFIED: MOCKED',
+                         'DEC-0035','37a0782ece81f83c362b50f68adfc1accb37ccff',
+                         '36344564513','36344564511'):
+              if marker not in status: errors.append('current BUILD-005 certification marker missing: '+marker)
+          report005=markdown['docs/builds/BUILD-005-REPORT.md']
+          for marker in ('BUILD-005 COMPLETE / CERTIFIED: MOCKED','DEC-0035',
+                         '36343981039','36343981022','36344564513','36344564511'):
+              if marker not in report005: errors.append('BUILD-005 closure report missing: '+marker)
           for marker in ('BUILD-001','BUILD-002','BUILD-003A','BUILD-003B','COMPLETED','606174f0bd944e5a1c31baf8dad685d7558b7cc8',
                          '36dd05e2bcea2d9a19c7b571d2126aea0390e5dd','NONE_APPROVED'):
               if marker not in status: errors.append('STATUS.md missing: '+marker)
