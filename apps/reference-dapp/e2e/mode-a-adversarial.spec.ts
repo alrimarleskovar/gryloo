@@ -63,16 +63,16 @@ test('slippage above the reviewed ceiling cannot be simulated or authorized', as
 });
 
 test('manipulated calldata or an unknown spender in a server response is blocked in the browser', async ({ page, testWallet }) => {
-  // Replace the router in every Server Action response: the server's payload hash no longer matches.
+  await page.goto('/');
+  await authorSwap(page, 'WETH_TO_USDC', '1', '100');
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  // Intercept only the fork simulation action: earlier authoring actions are unrelated to this tamper case.
   await page.route('http://127.0.0.1:3000/**', async route => {
     if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) { await route.fallback(); return; }
     const response = await route.fetch();
     const body = (await response.text()).replaceAll('2626664c2603336e57b271c5c0b26f421741e481', '000000000000000000000000000000000000dead');
     await route.fulfill({ response, body });
   });
-  await page.goto('/');
-  await authorSwap(page, 'WETH_TO_USDC', '1', '100');
-  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await forkPanel(page).getByRole('button', { name: /^Simulate on local fork for revision \d+$/ }).click();
   await expect(forkPanel(page).getByText(/Browser verification blocked the wallet: BROWSER_/)).toBeVisible();
   await expect(forkPanel(page).locator('[data-browser-verification="BLOCKED"]')).toBeVisible();

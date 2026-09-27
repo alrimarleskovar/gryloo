@@ -31,6 +31,7 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 36dd05e2bcea2d9a19c7b571d2126aea0390e5dd
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 0faec71207628dfe27fb23c81680d2c27827f5ea
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 8a5fbaed26e005e5719528c399f7ca1adb334eb6
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ca22dd5796614691a8de3a4271c3af5a7c889fd9
           unset auth GH_TOKEN
 
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
