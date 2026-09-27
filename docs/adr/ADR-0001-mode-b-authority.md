@@ -1,6 +1,6 @@
 # ADR-0001 — Finite Mode B authority
 
-- Status: `IMPLEMENTED_LOCAL_FORK; ACCEPTANCE_PENDING`
+- Status: `ACCEPTED_FOR_LOCAL_FORK_31337` under DEC-0033. The acceptance is limited to the demonstrated finite Safe/Roles profile on local chain 31337 at `FORK_REPRODUCED`; it grants no public-chain, production or composed Mode B authority.
 - Owner decision: D-1 approved Safe 1.4.1 plus Zodiac Roles 2.1.0 for BUILD-004, limited to local chain 31337 and `FORK_REPRODUCED` evidence.
 - Public-chain or production authority: none.
 
