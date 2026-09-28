@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useState, type FormEvent } from 'react';
-import { HELP, parseLocalCommand, summarize } from '../domain/commands';
+import { HELP, BRIDGE_HELP, parseLocalCommand, summarize } from '../domain/commands';
 import { useWorkflow } from '../state/workflow-store';
+import { useBridge } from '../state/bridge-store';
 
 type Message = { role: 'system' | 'you'; text: string };
 export function CopilotPanel() {
   const { state, context, pending, propose, applyProposal, dismissProposal } = useWorkflow();
+  const bridgeEnabled = useBridge().enabled;
+  const guidance = bridgeEnabled ? BRIDGE_HELP : HELP;
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([{ role: 'system', text: 'Local command assistant ready. Review each proposal before applying it.' }]);
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -25,7 +28,7 @@ export function CopilotPanel() {
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: `Proposal: ${text}. Review against revision ${command.baseRevision} before applying.` }]);
     } catch {
       dismissProposal();
-      setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: HELP }]);
+      setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: guidance }]);
     }
   }
   function apply() {
@@ -43,6 +46,6 @@ export function CopilotPanel() {
       {pending.review && <p>Review: {pending.review.findings.length} findings · execution unavailable</p>}</div>
       <div className="proposal-actions"><button type="button" onClick={apply} disabled={pending.diff.length === 1 && pending.diff[0] !== 'Edit'}>Apply proposal</button><button type="button" className="quiet" onClick={dismissProposal}>Dismiss</button></div>
     </div>}
-    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">Describe a mock edit or Base swap</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder="Swap 2 USDC to WETH on Base slippage 50 bps" maxLength={1024} autoComplete="off"/><button type="submit">Send</button></div><small>{HELP}</small></form>
+    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">{bridgeEnabled ? 'Describe a mock edit, Base swap or bridge' : 'Describe a mock edit or Base swap'}</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder="Swap 2 USDC to WETH on Base slippage 50 bps" maxLength={1024} autoComplete="off"/><button type="submit">Send</button></div><small>{guidance}</small></form>
   </aside>;
 }

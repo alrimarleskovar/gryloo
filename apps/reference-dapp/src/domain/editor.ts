@@ -6,6 +6,8 @@ import { createMockNode } from './mock-actions';
 import { createSwapNode, parseHumanAmount, parseSlippage, swapDetails, SWAP_ACTION } from './swap-authoring';
 import { createLiquidityNode, LIQUIDITY_ACTION } from './liquidity-authoring';
 import { createCompositionWorkflow } from './composition-authoring';
+import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
+import { createBridgeNode } from './bridge-authoring';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -17,6 +19,17 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if (command.type === 'ADD_BRIDGE' || command.type === 'SET_BRIDGE') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try {
+      if (command.type === 'SET_BRIDGE' && !current.nodes.some(node => node.nodeId === command.nodeId && node.actionType === BRIDGE_ACTION)) return reject('UNKNOWN_BRIDGE_NODE');
+      const id = command.type === 'SET_BRIDGE' ? command.nodeId : `node-${String(current.revision + 2).padStart(3, '0')}`;
+      const replacement = createBridgeNode(id, command.input);
+      const workflow = { ...current, revision: current.revision + 1, nodes: [replacement], resourceEdges: [] };
+      validateAuthoringWorkflow(workflow, context);
+      return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_BRIDGE_INPUT'); }
+  }
   if (command.type === 'AUTHOR_COMPOSITION') {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
     try {
@@ -45,7 +58,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     if (command.from === command.to || !nodes.some(n => n.nodeId === command.from)
         || !nodes.some(n => n.nodeId === command.to)) return reject('INVALID_CONNECTION');
     if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && n.actionType === SWAP_ACTION)) return reject('SWAP_EDGE_UNSUPPORTED');
-    if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && n.actionType === LIQUIDITY_ACTION)) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
+    if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && [LIQUIDITY_ACTION, BRIDGE_ACTION].includes(n.actionType))) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
     const target = nodes.find(n => n.nodeId === command.to)!;
     if (target.dependencies.includes(command.from)) return { workflow: current, error: null };
     if (target.dependencies.length) return reject('INPUT_ALREADY_CONNECTED');

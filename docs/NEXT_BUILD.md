@@ -1,8 +1,8 @@
 # Next build
 
-## Next milestone: BUILD-008 planning only (2026-09-28)
+## Current BUILD-008 review checkpoint (2026-09-28)
 
-DEC-0043 closes BUILD-007 as COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337 only. [PR #17](https://github.com/alrimarleskovar/gryloo/pull/17) merged into main as b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce. Post-merge Governance run 36438835696 passed. Post-merge contracts/app run 36438835487 failed only at a known pre-existing intermittent Simulate canvas timeout, which reproduces at the certified baseline (6/30, against 12/30 at the merge; not a significant difference). The owner accepted it as a documented exception. BUILD-008, the LI.FI-routed bridge in the Master Prompt roadmap, may be planned. No BUILD-008 plan, implementation, public provider, public chain, production wallet or real-funds operation is approved; a later plan and separate explicit owner approval are required before implementation. The pre-existing canvas race needs its own approved diagnosis. BUILD-003E public-testnet evidence and the global non-custodial multichain roadmap, including Solana priority, remain unchanged.
+DEC-0044 approves the one-path LI.FI bridge implementation. The local `codex/build-008-lifi-bridge` branch from certified main bf280d4184a83c9841d9a6b70dbebab1fd03e23e contains the working Base → Optimism USDC chat/canvas, live quote, bounded Manifest, exact transaction review, durable MOCKED execution/recovery and destination reconciliation. Local `pnpm check` and the bridge browser journey pass; the report is [BUILD-008-REPORT.md](builds/BUILD-008-REPORT.md). DEC-0045 authorizes the narrow Governance workflow alignment, branch push and one PR for CI review. Merge and certification remain owner decisions. Financial evidence cannot exceed `MOCKED`; no public-chain transaction, real funds or public demo execution is authorized. BUILD-007E public EVM demo readiness remains separate. The known intermittent BUILD-007-era Simulate canvas test is not part of this bridge scope.
 
 ## BUILD-007 approved implementation (historical, 2026-09-28)
 

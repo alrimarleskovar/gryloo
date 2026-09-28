@@ -10,6 +10,10 @@ export const referenceRegistry = Object.freeze({
     id: 'liquidity.position-direct', version: '1.0.0', status: 'DECLARED_ONLY',
     enforcement: 'NOT_ENFORCED', executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const),
     authorizationModes: Object.freeze(['A'] as const),
+  }), Object.freeze({
+    id: 'bridge.direct-transaction', version: '1.0.0', status: 'DECLARED_ONLY',
+    enforcement: 'NOT_ENFORCED', executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const),
+    authorizationModes: Object.freeze(['A'] as const),
   })]),
   actions: Object.freeze([Object.freeze({
     id: 'asset.swap.exact-input', version: '1.0.0', nodeClass: 'ACTION',
@@ -37,6 +41,15 @@ export const referenceRegistry = Object.freeze({
     constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS',
       minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453']) }),
     requiredCapability: Object.freeze({ id: 'liquidity.position-direct', version: '1.0.0' }),
+    executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const), authorizationModes: Object.freeze(['A'] as const),
+  }), Object.freeze({
+    id: 'asset.bridge', version: '1.0.0', nodeClass: 'ACTION',
+    inputs: Object.freeze([Object.freeze({ name: 'amount-in', type: 'AMOUNT_UNITS', required: true }),
+      Object.freeze({ name: 'asset-out', type: 'ASSET_REF', required: true })]),
+    outputs: Object.freeze([Object.freeze({ name: 'amount-out', type: 'AMOUNT_UNITS', required: true })]),
+    constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS',
+      minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453', 'eip155:10']) }),
+    requiredCapability: Object.freeze({ id: 'bridge.direct-transaction', version: '1.0.0' }),
     executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const), authorizationModes: Object.freeze(['A'] as const),
   })]),
 });

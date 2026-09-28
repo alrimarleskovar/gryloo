@@ -15,3 +15,5 @@ export type { CowOrderState, CowOrderbookStatus, CowOrderbookView, CowSignedOrde
 
 export * from "./liquidity.js";
 export * from './composition.js';
+
+export * from './bridge.js';

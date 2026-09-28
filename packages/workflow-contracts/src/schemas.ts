@@ -18,6 +18,7 @@ import {
   ExecutionJournalSchema, type ExecutionJournal,
 } from './execution-journal.js';
 import { EvidenceBundleSchema } from './evidence-bundle.js';
+import { BRIDGE_ACTION, BRIDGE_SOURCE, BRIDGE_DESTINATION } from './bridge.js';
 import { EnforcementMatrixSchema, type EnforcementMatrix } from './enforcement-matrix.js';
 
 export {
@@ -133,7 +134,9 @@ function checkWorkflow(value: SemanticWorkflow): void {
       }
     }
     for (const output of node.expectedOutputs) {
-      if (output.asset.chainId !== node.chainId) {
+      if (output.asset.chainId !== node.chainId
+        && !(node.actionType === BRIDGE_ACTION && node.chainId === BRIDGE_SOURCE
+          && output.asset.chainId === BRIDGE_DESTINATION)) {
         fail('expected output chain differs from node chain');
       }
     }

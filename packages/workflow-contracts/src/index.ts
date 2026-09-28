@@ -8,6 +8,8 @@ export type { CompositionPermission } from './mode-b-composition-permission.js';
 export type { RawHashKind, StructuredHashKind } from './canonical.js';
 export type { ArtifactKind, ArtifactByKind } from './schemas.js';
 export type { Asset } from './common.js';
+export { BRIDGE_ACTION, BRIDGE_SOURCE, BRIDGE_DESTINATION, BRIDGE_SOURCE_USDC, BRIDGE_DESTINATION_USDC, validateBridgeJournal } from './bridge.js';
+export type { BridgeState, BridgeEvent, BridgeJournal } from './bridge.js';
 export type { SemanticWorkflow } from './semantic-workflow.js';
 export type { QuoteStateArtifact } from './quote-state.js';
 export type { ArtifactSet } from './artifact-set.js';

@@ -9,10 +9,23 @@ import { useLiquidity } from '../state/liquidity-store';
 import { useComposition } from '../state/composition-store';
 import { createCompositionWorkflow } from '../domain/composition-authoring';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
+import { createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
+import { useBridge } from '../state/bridge-store';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
+  const bridgeEnabled = useBridge().enabled;
+  const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
+  const [bridgeError, setBridgeError] = useState('');
+  const selectedBridge = selectedId ? state.workflow.nodes.find(node => node.nodeId === selectedId && node.actionType === 'asset.bridge') : null;
+  function submitBridge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try { createBridgeNode(selectedBridge?.nodeId ?? 'node-preview', bridgeInput); setBridgeError('');
+      propose(selectedBridge ? { type: 'SET_BRIDGE', nodeId: selectedBridge.nodeId, input: bridgeInput, source: 'CANVAS', baseRevision: state.workflow.revision }
+        : { type: 'ADD_BRIDGE', input: bridgeInput, source: 'CANVAS', baseRevision: state.workflow.revision });
+    } catch (cause) { setBridgeError(cause instanceof Error ? cause.message : 'BRIDGE_INPUT_INVALID'); }
+  }
   const composition = useComposition();
   const compositionEnabled = composition.info?.available === true;
   const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
@@ -57,6 +70,18 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   return <aside className="library panel" aria-label="Action library">
     <p className="eyebrow">BUILD / 01</p><h2>Action library</h2>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
+    {bridgeEnabled && <form className="swap-create bridge-create" onSubmit={submitBridge} aria-label="Create Base to Optimism bridge proposal">
+      <strong>Bridge · Base → Optimism</strong>
+      <p className="muted">USDC to USDC. Recipient is your connected address. Live LI.FI route, MOCKED execution.</p>
+      <label htmlFor="bridge-amount">USDC amount</label>
+      <input id="bridge-amount" type="text" inputMode="decimal" autoComplete="off" maxLength={40} value={bridgeInput.amount}
+        onChange={e => setBridgeInput(value => ({ ...value, amount: e.target.value }))} aria-invalid={Boolean(bridgeError)} aria-describedby={bridgeError ? 'bridge-create-error' : undefined}/>
+      <label htmlFor="bridge-slippage">Maximum slippage (bps)</label>
+      <input id="bridge-slippage" type="text" inputMode="numeric" autoComplete="off" maxLength={5} value={bridgeInput.slippageBps}
+        onChange={e => setBridgeInput(value => ({ ...value, slippageBps: e.target.value }))} aria-invalid={Boolean(bridgeError)} aria-describedby={bridgeError ? 'bridge-create-error' : undefined}/>
+      {bridgeError && <p id="bridge-create-error" role="alert">{bridgeError}. Use 1–300 bps and up to 1,000,000 USDC.</p>}
+      <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
+    </form>}
     <form className="swap-create" onSubmit={submit} aria-label="Create Base swap proposal">
       <strong>Exact-input swap · Base</strong>
       <label htmlFor="swap-direction">Direction</label>

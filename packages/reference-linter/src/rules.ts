@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from './context.js';
 import { validateAuthoringWorkflow } from './validation.js';
+import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
 export interface ReviewFinding {
   readonly code: string;
@@ -21,6 +22,7 @@ export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResu
   const findings: ReviewFinding[] = [];
   const composition = workflow.resourceEdges.some(edge => edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap');
   for (const node of workflow.nodes) {
+    if (node.actionType === BRIDGE_ACTION) { findings.push({ code: 'BRIDGE_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'A fresh LI.FI route and Manifest review are required before the mocked rehearsal.' }); continue; }
     if (node.actionType !== 'asset.swap.exact-input') continue;
     const slippage = node.userConstraints.filter(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS');
     if (slippage.length !== 1) findings.push({ code: 'SLIPPAGE_REQUIRED_ONCE', severity: 'BLOCK', nodeId: node.nodeId, field: 'userConstraints', message: 'Set one explicit slippage limit.' });
