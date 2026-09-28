@@ -1,5 +1,11 @@
 # Repository status
 
+## Current BUILD-007 implementation state (2026-09-28)
+
+**Markers:** BUILD-007 APPROVED / IN PROGRESS; certification NOT CERTIFIED. DEC-0038 records the owner's complete plan and six-manifest scope amendment from synchronized main `f4868b94e10981b820653dd21d1ef94a72edb067`. The first Mode B Base USDC → WETH swap → Safe-owned Uniswap v3 WETH/USDC fee tier 500 position is implemented for local chain 31337. Direct Safe 1.4.1 / Zodiac Roles 2.1.0 mint-cap bypass tests pass. A credential-free synthetic source and closed replay pass but remain `MOCKED`; the single approved owner-operated Base recording stopped during local harness startup. The [BUILD-007 report](builds/BUILD-007-REPORT.md) lists the current gates and pending evidence.
+
+The recording preflight passed with manifest SHA-256 `977502de3c68f054365d1d2b41ed0121260b4b8940b158db837a8b3d11515627`. The fresh credential and truthful attestations passed, then the one authorized attempt stopped with a local harness readiness timeout after 2 read-only provider requests and 52 reserved CU. The credential was removed. No BUILD-007 transcript exists and the one-attempt authority is exhausted. BUILD-007 has no `FORK_REPRODUCED` claim; the actual local evidence ceiling is `MOCKED` pending a new owner decision. The approved PR will remain unmerged; BUILD-003/004/006 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications are unchanged.
+
 ## Current BUILD-006 certification state (2026-09-28)
 
 **Current markers:** BUILD-006: COMPLETE. BUILD-006 certification: CERTIFIED: FORK_REPRODUCED.

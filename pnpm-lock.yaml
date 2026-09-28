@@ -55,7 +55,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../../packages/reference-reconciler
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../../packages/workflow-contracts
       '@xyflow/react':
         specifier: 12.11.6
@@ -83,7 +83,7 @@ importers:
   packages/action-registry:
     dependencies:
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       '@sinclair/typebox':
         specifier: 0.34.52
@@ -98,7 +98,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       '@noble/hashes':
         specifier: 2.4.0
@@ -110,7 +110,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../reference-compiler
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       '@noble/curves':
         specifier: 2.4.0
@@ -125,7 +125,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
@@ -140,7 +140,7 @@ importers:
         specifier: workspace:0.1.0
         version: link:../reference-compiler
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       '@noble/curves':
         specifier: 2.4.0

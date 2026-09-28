@@ -18,6 +18,7 @@ export const HASH_DOMAINS = Object.freeze({
   payload: 'defi-workflow-engine/payload',
   intent: 'defi-workflow-engine/intent',
   'mode-b-permission': 'defi-workflow-engine/mode-b-permission/v2',
+  'mode-b-composition-permission': 'defi-workflow-engine/mode-b-composition-permission/v3',
 } as const);
 export type HashKind = keyof typeof HASH_DOMAINS;
 export type StructuredHashKind = Exclude<ArtifactKind, 'execution-journal'>;
@@ -87,7 +88,7 @@ export function hashPreimage(kind: HashKind, data: Uint8Array): Uint8Array {
   const bytes = new Uint8Array(12 + domain.length + 8 + data.length);
   bytes.set(new TextEncoder().encode('DWE-HASH'), 0);
   bytes[8] = 0;
-  bytes[9] = kind === 'mode-b-permission' ? 2 : 1;
+  bytes[9] = kind === 'mode-b-permission' ? 2 : kind === 'mode-b-composition-permission' ? 3 : 1;
   const view = new DataView(bytes.buffer);
   view.setUint16(10, domain.length, false);
   bytes.set(domain, 12);

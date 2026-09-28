@@ -7,6 +7,14 @@ import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
+  if (command.type === 'AUTHOR_COMPOSITION') return Object.freeze([
+    `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Base USDC → WETH swap then WETH/USDC 0.05% Uniswap v3 mint in Safe ${command.safe}`,
+    `Swap ${command.input.swapUSDC} USDC; slippage ${command.input.slippageBps} bps`,
+    `Mint caps ${command.input.mint.weth} WETH and ${command.input.mint.usdc} USDC; minimums ${command.input.mint.minimumWeth} WETH and ${command.input.mint.minimumUsdc} USDC`,
+    `Ticks ${command.input.mint.tickLower} to ${command.input.mint.tickUpper}; one typed WETH output dependency`,
+    'Material edit invalidates prior quotes, simulation, policy, manifest, permission and attempts.',
+  ]);
   const oldNode = 'nodeId' in command ? before.workflow.nodes.find(n => n.nodeId === command.nodeId) : undefined;
   const newNode = after.workflow.nodes.find(n => n.nodeId === ('nodeId' in command ? command.nodeId : `node-${String(before.workflow.revision + 2).padStart(3, '0')}`));
   const oldLiquidity = oldNode && liquidityDetails(oldNode, context);

@@ -19,6 +19,7 @@ export interface ReviewResult {
 export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResult {
   const workflow = validateAuthoringWorkflow(input, context);
   const findings: ReviewFinding[] = [];
+  const composition = workflow.resourceEdges.some(edge => edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap');
   for (const node of workflow.nodes) {
     if (node.actionType !== 'asset.swap.exact-input') continue;
     const slippage = node.userConstraints.filter(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS');
@@ -28,7 +29,9 @@ export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResu
       if (bps === 0 || bps > 100 && bps <= 300) findings.push({ code: bps === 0 ? 'ZERO_SLIPPAGE' : 'ELEVATED_SLIPPAGE', severity: 'WARNING', nodeId: node.nodeId, field: 'slippage', message: 'Review the prototype slippage limit.' });
       if (bps > 300) findings.push({ code: 'SLIPPAGE_ABOVE_REVIEW_LIMIT', severity: 'BLOCK', nodeId: node.nodeId, field: 'slippage', message: 'Above the BUILD-003A review limit.' });
     }
-    findings.push({ code: 'UNQUOTED_EXECUTION_UNAVAILABLE', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Output is an unquoted placeholder. Execution is unavailable.' });
+    findings.push(composition ? { code: 'COMPOSITION_FORK_REVIEW_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs',
+      message: 'This authoring graph needs a fresh fork quote, chained simulation and finite Safe/Roles review before local execution.' }
+      : { code: 'UNQUOTED_EXECUTION_UNAVAILABLE', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Output is an unquoted placeholder. Execution is unavailable.' });
   }
   findings.sort((a, b) => a.nodeId.localeCompare(b.nodeId) || a.field.localeCompare(b.field) || a.code.localeCompare(b.code));
   return Object.freeze({ revision: workflow.revision, findings: Object.freeze(findings.map(f => Object.freeze(f))), executable: false, enforcement: 'NOT_ENFORCED' });

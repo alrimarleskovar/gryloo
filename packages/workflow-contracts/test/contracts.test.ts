@@ -144,7 +144,7 @@ describe('v1 artifact contracts at serialized ingress', () => {
   it('publishes only the approved ESM package surfaces', async () => {
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as Record<string, unknown>;
     expect(manifest).toMatchObject({
-      name: '@defi-workflow-engine/workflow-contracts', version: '0.2.1',
+      name: '@defi-workflow-engine/workflow-contracts', version: '0.3.0',
       private: true, type: 'module', license: 'Apache-2.0',
     });
     expect(Object.keys(manifest.exports as object).sort()).toEqual([

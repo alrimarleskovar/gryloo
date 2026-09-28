@@ -15,3 +15,4 @@ export type {
 } from './base-observation.js';
 
 export * from './liquidity.js';
+export * from './composition.js';

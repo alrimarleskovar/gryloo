@@ -3,6 +3,8 @@ import { hashArtifactValue, hashJournalEntries, type StructuredHashKind } from '
 
 export { parseJsonBytes, parseArtifactBytes, RawJsonError, RAW_JSON_LIMITS } from './raw-json.js';
 export { HASH_DOMAINS, hashRawBytes, hashModeBPermission } from './canonical.js';
+export { hashModeBCompositionPermission } from './mode-b-composition-permission.js';
+export type { CompositionPermission } from './mode-b-composition-permission.js';
 export type { RawHashKind, StructuredHashKind } from './canonical.js';
 export type { ArtifactKind, ArtifactByKind } from './schemas.js';
 export type { Asset } from './common.js';

@@ -13,3 +13,4 @@ export { verifyCowSignature, verifyCowDigestSignature, reconcileCowSettlement } 
 export type { CowTrade, CowSettlementObservation, CowReconciliation } from './cow.js';
 
 export * from "./liquidity.js";
+export * from './composition.js';

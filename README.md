@@ -99,3 +99,8 @@ This is **local-fork evidence**, not a Base mainnet or public-testnet transactio
 ## BUILD-004 finite Mode B local fork (certified `FORK_REPRODUCED`, local chain 31337)
 
 The approved [BUILD-004 plan](docs/builds/BUILD-004-PLAN.md) adds an opt-in Safe 1.4.1 plus Zodiac Roles 2.1.0 path for one exact Uniswap swap on local chain 31337. The app reviews the finite permission and separate owner transactions, displays remaining native-unit budget and residual token allowance, runs a browser-independent disposable executor, reconciles chain effects, and requests four distinct revocation signatures. The [report](docs/builds/BUILD-004-REPORT.md) records the automated local proof and the owner-operated MetaMask acceptance. DEC-0033 certifies BUILD-004 `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 only, after PR #13 merged as `e71de3946c7aac6095023ca1ee6f1e1a58a98112` and both post-merge checks passed; this is not public-chain or production authority. DEC-0030 still certifies BUILD-003 only at `FORK_REPRODUCED`.
+
+
+## BUILD-007 local composition (in progress)
+
+The approved [BUILD-007 plan](docs/builds/BUILD-007-PLAN.md) adds one finite Safe/Roles USDC → WETH swap followed by a Safe-owned Uniswap v3 WETH/USDC fee tier 500 mint on local chain 31337. The new authoring, review, fixed worker and recovery path is opt-in. Synthetic rehearsals are `MOCKED`; a distinct read-only Base recording and closed fork evidence are required for any `FORK_REPRODUCED` claim. Earlier certified builds remain separate. No public-chain transaction, production wallet, real funds or PR merge is authorized.

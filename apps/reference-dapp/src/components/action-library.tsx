@@ -6,12 +6,16 @@ import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '..
 import { useWorkflow } from '../state/workflow-store';
 import { useCow } from '../state/cow-store';
 import { useLiquidity } from '../state/liquidity-store';
+import { useComposition } from '../state/composition-store';
+import { createCompositionWorkflow } from '../domain/composition-authoring';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
-  const liquidityEnabled = useLiquidity().info?.available === true;
+  const composition = useComposition();
+  const compositionEnabled = composition.info?.available === true;
+  const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
@@ -28,6 +32,17 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       propose(selectedLiquidity ? { type: 'SET_LIQUIDITY', nodeId: selectedLiquidity.nodeId, input: liquidity, source: 'CANVAS', baseRevision: state.workflow.revision }
         : { type: 'ADD_LIQUIDITY', input: liquidity, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setLiquidityError(cause instanceof Error ? cause.message : 'Invalid liquidity input'); }
+  }
+  function submitComposition() {
+    try {
+      if (!compositionEnabled || !composition.info?.safe || direction !== 'USDC_TO_WETH' || allowCow) throw new Error('COMPOSITION_MODE_B_PROFILE_REQUIRED');
+      const safe = composition.info.safe.toLowerCase();
+      if (liquidity.recipient.toLowerCase() !== safe) throw new Error('COMPOSITION_SAFE_RECIPIENT_REQUIRED');
+      const input = { swapUSDC: amount, slippageBps: slippage, mint: { ...liquidity, recipient: safe } };
+      createCompositionWorkflow(state.workflow.workflowId, state.workflow.revision + 1, safe, input, context);
+      setLiquidityError('');
+      propose({ type: 'AUTHOR_COMPOSITION', safe, input, source: 'CANVAS', baseRevision: state.workflow.revision });
+    } catch (cause) { setLiquidityError(cause instanceof Error ? cause.message : 'Invalid composition input'); }
   }
   function setLiquidityField(key: keyof LiquidityInput, value: string) { setLiquidity(current => ({ ...current, [key]: value })); }
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -76,6 +91,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <input id="liquidity-recipient" type="text" autoComplete="off" spellCheck={false} maxLength={42} value={liquidity.recipient} onChange={e => setLiquidityField('recipient', e.target.value)}/>
       {liquidityError && <p role="alert">{liquidityError}</p>}
       <button type="submit">{selectedLiquidity ? 'Review position edit' : 'Review position proposal'}</button>
+      {compositionEnabled && <button type="button" onClick={submitComposition}>Review swap → position composition</button>}
       <small>Pool identity, current tick and price are checked before simulation. Editing here invalidates prior liquidity artifacts.</small>
     </form>}
     <div className="action-list">{mockActions.map((action, index) =>

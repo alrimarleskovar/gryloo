@@ -1,5 +1,9 @@
 # Security model
 
+## BUILD-007 composition boundary
+
+The Safe owner is the root authority; a disposable local executor receives two one-use Roles permissions after separately reviewed owner transactions. The worker may submit only fixed swap and mint calls from the prepared Manifest, persists an attempt before submission, and reconciles the swap before choosing a bounded mint amount. Unknown submission stays `INCONCLUSIVE` without guessing or retrying a send. A successful swap with failed mint leaves assets in the Safe and requires owner review; no automatic swap-back occurs. The new Base source recording is read-only, single-flight, limited to 1,500 provider requests, 39,000 reserved listed CU and 30 minutes, and stops on the first provider or policy error. Its credential was owner created outside Git after credential-free preflight and removed after the stopped attempt (2 reads / 52 reserved CU). The one-attempt authority is exhausted. Certified BUILD-003–006 evidence is preserved.
+
 ## Build 000 posture
 
 BUILD-000 has authorization mode `NONE`, no assets under execution, and no

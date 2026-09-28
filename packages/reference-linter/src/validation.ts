@@ -4,6 +4,7 @@ import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts'
 import workflowSchema from '@defi-workflow-engine/workflow-contracts/schemas/v1/semantic-workflow.schema.json' with { type: 'json' };
 import { assetSymbol, createReviewContext, hasKeys, isRecord, type ReviewContext } from './context.js';
 import { LIQUIDITY_ACTION, validateLiquidityNode } from './liquidity.js';
+import { validateCompositionWorkflow } from './composition.js';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
@@ -71,6 +72,12 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   }
   if (!schemaValidator(input)) fail('INVALID_SEMANTIC_WORKFLOW');
   const workflow = input;
+  if (workflow.resourceEdges.length === 1 && workflow.nodes.length === 2 &&
+      workflow.nodes.some(node => node.actionType === LIQUIDITY_ACTION) &&
+      workflow.nodes.some(node => node.actionType === SWAP)) {
+    validateCompositionWorkflow(workflow, trusted);
+    return workflow;
+  }
   unique(workflow.nodes.map(node => node.nodeId), 'DUPLICATE_NODE');
   const nodes = new Map(workflow.nodes.map(node => [node.nodeId, node]));
   for (const node of workflow.nodes) {

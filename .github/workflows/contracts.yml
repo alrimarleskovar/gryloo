@@ -100,6 +100,9 @@ jobs:
           # Static validation runs in CI without owner material, provider credentials or external RPC.
           test -f apps/reference-dapp/e2e/fork/liquidity-transcript.json
           node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyLiquidityTranscript } from './apps/reference-dapp/e2e/fork/liquidity-replay-upstream.mjs'; const t=JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/liquidity-transcript.json','utf8')); const r=verifyLiquidityTranscript(t,t.identity.accounts); if (t.sourceChainId!==8453 || r.providerRequests<1) process.exit(1); console.log('BUILD-006 closed transcript verified',r.providerRequests,r.localReplies);"
+          # BUILD-007 has a separate complete source recording and cannot reuse BUILD-003F or BUILD-006 evidence.
+          test -f apps/reference-dapp/e2e/fork/composition-transcript.json
+          node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyCompositionTranscript } from './apps/reference-dapp/e2e/fork/composition-replay-upstream.mjs'; const t=JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/composition-transcript.json','utf8')); const r=verifyCompositionTranscript(t,t.identity.accounts); if(t.sourceChainId!==8453||r.providerRequests<1||t.codeFingerprints.composition.syntheticCodePins) process.exit(1); console.log('BUILD-007 closed transcript verified',r.providerRequests,r.localReplies);"
 
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         id: browser
@@ -118,6 +121,49 @@ jobs:
           export GRYLOO_COW=loopback
           export GRYLOO_COW_RUNTIME="$RUNNER_TEMP/gryloo-cow-e2e"
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test cow-intent.spec.ts cow-recovery.spec.ts
+          # BUILD-007: only official digest-pinned test-time artifacts are downloaded, outside Git.
+          export GRYLOO_B007_INPUTS="$RUNNER_TEMP/gryloo-build-007-inputs"
+          mkdir -p "$GRYLOO_B007_INPUTS"
+          python3 - <<'PYCODE'
+          import hashlib, os, pathlib, re, tarfile, urllib.request
+          root=pathlib.Path(os.environ['GRYLOO_B007_INPUTS'])
+          sources={
+            'safe':('https://registry.npmjs.org/@safe-global/safe-contracts/-/safe-contracts-1.4.1.tgz','8803f7cf26e2c58300b8136342faa7b8bce59436e300f52115fa25b095e0bf79'),
+            'roles':('https://raw.githubusercontent.com/gnosisguild/zodiac-modifier-roles/main/packages/evm/mastercopies.json','a80d737a2b5394897fad0aa290b129bc446fdb1736efc3e1ad06edcd2d8ea224'),
+          }
+          for name,(url,expected) in sources.items():
+            raw=urllib.request.urlopen(url,timeout=60).read()
+            if hashlib.sha256(raw).hexdigest()!=expected: raise SystemExit('BUILD-007 official artifact digest changed: '+name)
+            (root/({'safe':'safe.tgz','roles':'roles-mastercopies.json'}[name])).write_bytes(raw)
+          with tarfile.open(root/'safe.tgz','r:gz') as archive:
+            archive.extractall(root/'safe',filter='data')
+          source=urllib.request.urlopen('https://raw.githubusercontent.com/ethereum/ercs/master/ERCS/erc-2470.md',timeout=60).read().decode()
+          matches=[bytes.fromhex(value[2:]) for value in re.findall(r'0x[0-9a-fA-F]{680}',source)]
+          init=next((value for value in matches if hashlib.sha256(value).hexdigest()=='dae33ba7a8745a325d78fd9dbf4585b47524070f5c8b73c84bf373e91a24fff6'),None)
+          if init is None or len(init)!=340: raise SystemExit('BUILD-007 ERC-2470 initcode pin changed')
+          (root/'erc2470-initcode.bin').write_bytes(init)
+          PYCODE
+          export GRYLOO_MODE_B_RUNTIME="/tmp/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export GRYLOO_MODE_B_SAFE_PACKAGE="$GRYLOO_B007_INPUTS/safe/package"
+          export GRYLOO_MODE_B_ROLES_MASTERCOPIES="$GRYLOO_B007_INPUTS/roles-mastercopies.json"
+          export GRYLOO_MODE_B_EIP2470_INITCODE="$GRYLOO_B007_INPUTS/erc2470-initcode.bin"
+          export GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_PATH="$PWD/apps/reference-dapp/e2e/fork/composition-transcript.json"
+          export GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_SHA256="$(sha256sum "$GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_PATH" | cut -d' ' -f1)"
+          node apps/reference-dapp/e2e/fork/composition-harness.mjs serve > "$RUNNER_TEMP/gryloo-b007-harness.log" 2>&1 &
+          b007_pid=$!
+          trap 'kill "$b007_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 120); do
+            if [ -s "$GRYLOO_MODE_B_RUNTIME/profile.json" ] && [ -s "$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json" ]; then break; fi
+            if ! kill -0 "$b007_pid" 2>/dev/null; then cat "$RUNNER_TEMP/gryloo-b007-harness.log"; exit 1; fi
+            sleep 1
+          done
+          test -s "$GRYLOO_MODE_B_RUNTIME/profile.json"
+          export GRYLOO_COMPOSITION_PROFILE="$GRYLOO_MODE_B_RUNTIME/profile.json"
+          export GRYLOO_COMPOSITION_EXECUTOR_KEY_FILE="$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json"
+          export GRYLOO_COMPOSITION_SMOKE_PROFILE="$GRYLOO_COMPOSITION_PROFILE"
+          export GRYLOO_COMPOSITION_MODE=fork
+          pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts packages/reference-executor/test/composition.fork.test.ts packages/reference-reconciler/test/composition.fork.test.ts --testTimeout=120000
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test composition-adversarial.spec.ts composition-fork.spec.ts composition-recovery.spec.ts
 
       - name: Summarize screenshot differences after a browser failure
         if: failure()
@@ -194,7 +240,7 @@ jobs:
               }
               for manifest_path,(name,license_id) in workspace.items():
                   manifest=json.loads(pathlib.Path(manifest_path).read_text())
-                  expected_version='0.2.1' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
+                  expected_version='0.3.0' if manifest_path=='packages/workflow-contracts/package.json' else '0.1.0'
                   if (manifest.get('name'),manifest.get('version'),manifest.get('private'),manifest.get('license'))!=(name,expected_version,True,license_id):
                       raise SystemExit('Workspace manifest inventory differs: '+manifest_path)
               lock=pathlib.Path('pnpm-lock.yaml').read_text()
