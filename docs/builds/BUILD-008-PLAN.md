@@ -59,6 +59,7 @@ apps/reference-dapp/src/components/bridge-panel.tsx
 apps/reference-dapp/e2e/bridge.spec.ts
 
 Modify:
+.github/workflows/governance.yml
 docs/DECISIONS.md
 docs/STATUS.md
 docs/NEXT_BUILD.md
@@ -87,8 +88,12 @@ Delete: none. Frozen v1 schemas and vectors, Master Spec, Master Prompt, accepte
 
 ## 9. Owner decision
 
-The owner approved this plan, branch implementation and live read-only LI.FI quote data on 2026-09-28. Only deterministic MOCKED financial execution is authorized. The agent stops before merge and reports functional result, tests, browser journey, changed files and blockers.
+Under DEC-0044, the owner approved this plan, branch implementation and live read-only LI.FI quote data on 2026-09-28. Only deterministic MOCKED financial execution is authorized. The agent stops before merge and reports functional result, tests, browser journey, changed files and blockers.
 
 ## 10. Amendment 1 — cross-chain semantic output
 
 Implementation validation found the shared workflow validator assumes every expected output is on the action source chain. The approved typed bridge requires its USDC output on Optimism. Add `packages/workflow-contracts/src/schemas.ts` to the Modify path set and permit that precise `asset.bridge` Base → Optimism output only. The owner-approved cross-chain semantic action and single path authorize this narrow compatibility change; all other actions retain the same-chain rule.
+
+## 11. Amendment 2 — BUILD-008 governance alignment
+
+On 2026-09-28 the owner added only `.github/workflows/governance.yml` to the Modify path set. Its current BUILD-008 planning-only condition and exact-scope comparison may be advanced to the approved, implemented Base → Optimism USDC bridge from certified main. Historical BUILD-007 and earlier protections remain intact. Governance must continue to enforce live LI.FI as quote-only input, deterministic `MOCKED` financial execution/recovery/reconciliation, no real funds, and no mainnet or testnet execution claim. This amendment authorizes a branch push and one PR for CI review, but no merge or certification.
