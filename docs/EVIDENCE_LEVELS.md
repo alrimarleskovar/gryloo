@@ -2,6 +2,8 @@
 
 ## BUILD-007 evidence boundary
 
+DEC-0043 certifies BUILD-007 at `FORK_REPRODUCED` on local chain 31337 only. The evidence is the attempt-2 Base transcript at block 51,906,032, byte-identical closed replay, direct Safe/Roles mint-bound results, the actual local swap and Safe-owned mint, and independent raw-RPC reconciliation. This is not testnet or mainnet evidence. The boundary text below still applies.
+
 Synthetic official-code rehearsals and their local-chain outcomes are `MOCKED`. A Base read-only transcript is source-state evidence, not a public-chain transaction result. BUILD-007 can reach `FORK_REPRODUCED` only after a complete new transcript at one Base source block, byte-identical closed replay, direct Safe/Roles boundary results, actual local swap and Safe-owned mint, independent raw-RPC reconciliation and passing gates. Receipts alone are `CONFIRMED_NOT_RECONCILED`; missing or inconsistent reads are `INCONCLUSIVE` or `DIVERGENT`. The one approved BUILD-007 Base attempt stopped before a transcript, so the actual BUILD-007 ceiling is currently `MOCKED`. Owner merge, post-merge gates and certification remain distinct decisions. Existing BUILD-003/004/006 fork and BUILD-005 mocked certifications are unchanged.
 
 Future financial evidence environments are `MOCKED`, `FORK_REPRODUCED`,

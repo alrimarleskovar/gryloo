@@ -885,6 +885,10 @@ jobs:
               errors.append('DEC-0037 historical BUILD-007 planning boundary missing')
           if not re.search(r'(?m)^\| BUILD-007 finite Mode B local-fork composition implementation \|[^|\n]+\|[^|\n]+\| APPROVED_LOCAL_FORK_ONLY \|$',authority):
               errors.append('DEC-0038 BUILD-007 bounded implementation authority missing')
+          if not re.search(r'(?m)^\| BUILD-007 composition local-fork certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_FORK_REPRODUCED_LOCAL \(DEC-0043\) \|$',authority):
+              errors.append('DEC-0043 FORK_REPRODUCED certification missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-008 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
+              errors.append('BUILD-008 must remain planning only in authority matrix')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -936,16 +940,32 @@ jobs:
                   any(v not in decision38[0] for v in ('BUILD-007 plan','f4868b94e10981b820653dd21d1ef94a72edb067',
                     'Zodiac Roles 2.1.0','1,500-request','39,000-CU','six workspace consumer manifest','one unmerged PR'))):
               errors.append('DEC-0038 BUILD-007 authority incomplete')
+          decision43=[line for line in decisions.splitlines() if line.startswith('| DEC-0043 |')]
+          if (len(decision43)!=1 or not decision43[0].endswith('| APPROVED |') or
+                  any(v not in decision43[0] for v in ('BUILD-007 COMPLETE / CERTIFIED: FORK_REPRODUCED','local chain 31337 only',
+                      'b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce','a83dd0597b043cebe87da207c805173bce6d598b','36438835696','36438835487',
+                      '337da42d5a89f504a37ea795703b52a340a27cfbac2ccbf6793de532c30a496d','6/30','12/30','pre-existing intermittent',
+                      'documented exception','BUILD-008 planning only','No BUILD-008 plan or implementation is approved'))):
+              errors.append('DEC-0043 BUILD-007 closure authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
           if 'DEC-0036' not in next_build or 'one unmerged PR' not in next_build:
               errors.append('BUILD-006 approval history missing')
-          if (not next_build.startswith('# Next build\n\n## Current approved milestone: BUILD-007 implementation') or
-                  'DEC-0038' not in next_build or '## Historical next milestone: BUILD-007 planning only' not in next_build or
-                  'No BUILD-007 plan, implementation' not in next_build):
-              errors.append('BUILD-007 approved transition or DEC-0037 history missing')
-          if ('BUILD-007 APPROVED / IN PROGRESS' not in markdown['docs/STATUS.md'] or
+          if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
+                  '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
+              errors.append('BUILD-007 approval history or DEC-0037 history missing')
+          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-008 planning only') or
+                  'DEC-0043' not in next_build or 'No BUILD-008 plan, implementation' not in next_build):
+              errors.append('BUILD-008 planning-only transition missing')
+          for marker in ('BUILD-007: COMPLETE','BUILD-007 certification: CERTIFIED: FORK_REPRODUCED','DEC-0043',
+                         'b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce','36438835696','36438835487','6/30','12/30'):
+              if marker not in markdown['docs/STATUS.md']: errors.append('current BUILD-007 certification marker missing: '+marker)
+          report007=markdown['docs/builds/BUILD-007-REPORT.md']
+          for marker in ('BUILD-007 COMPLETE / CERTIFIED: FORK_REPRODUCED','DEC-0043','36435653196','36435662578',
+                         '36435653152','36435662629','36438835696','36438835487','6/30','12/30'):
+              if marker not in report007: errors.append('BUILD-007 closure report missing: '+marker)
+          if ('BUILD-007' not in markdown['docs/STATUS.md'] or
                   'BUILD-007' not in markdown['docs/REQUIREMENTS.md'] or
                   not any(line.startswith('| B007-EVIDENCE-001 |') and 'FORK_REPRODUCED on local chain 31337' in line
                           for line in markdown['docs/REQUIREMENTS.md'].splitlines())):

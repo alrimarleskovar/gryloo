@@ -1,6 +1,10 @@
 # Scope guard
 
-## BUILD-007 approved path and authority guard
+## BUILD-007 certified boundary and BUILD-008 planning (DEC-0043)
+
+After the owner merged PR #17, DEC-0043 certifies BUILD-007 COMPLETE at FORK_REPRODUCED on local chain 31337 only. The finite composition confers no public-chain, testnet, mainnet, real-funds, production-wallet, CoW-composition or later-liquidity authority. BUILD-008, the LI.FI-routed bridge, is the only next milestone and is planning only; implementation requires a separate approved plan and owner decision. The pre-existing intermittent Simulate canvas race is out of BUILD-007 scope and needs its own approved diagnosis.
+
+## BUILD-007 approved path and authority guard (historical implementation scope)
 
 DEC-0038 approves only the exact created and modified paths in [BUILD-007 plan §11](builds/BUILD-007-PLAN.md), plus the six consumer-manifest pin amendments recorded there. Every other tracked baseline path, including certified BUILD-003–006 records and transcripts, frozen v1 contracts/vectors and prior visual snapshots, is byte- and mode-protected. The owner authorizes implementation, local gates, one conditional bounded read-only Base recording, report, commit, push and one unmerged PR. Public-chain writes, testnet, mainnet, production keys, real funds, later liquidity operations, package publication and PR merge remain outside scope.
 

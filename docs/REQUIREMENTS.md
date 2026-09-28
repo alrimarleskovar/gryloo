@@ -232,14 +232,14 @@ DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BU
 
 ## BUILD-007 finite composition acceptance mapping
 
-DEC-0038 approves the [BUILD-007 plan](builds/BUILD-007-PLAN.md). `IN_PROGRESS` records implementation and local synthetic checks only. The one owner-approved recording attempt stopped after 2 read-only requests / 52 reserved CU; its credential was removed and no transcript exists. BUILD-007 fork evidence and certification require a new owner decision.
+DEC-0038 approves the [BUILD-007 plan](builds/BUILD-007-PLAN.md). The first recording attempt stopped; under DEC-0039 and DEC-0040, attempt 2 produced the Base transcript. Every row is satisfied locally on chain 31337: the transcript, byte-identical closed replay, independent verifier, fork tests and real-transcript browser specs are the evidence. After PR #17 merged, DEC-0043 certifies BUILD-007 at FORK_REPRODUCED on local chain 31337 only.
 
 | ID | Requirement | Check or evidence | Status |
 |---|---|---|---|
-| B007-IR-001 | One revisioned two-node swap→mint IR with typed WETH output and strict invalidation. | Linter, domain and guarded browser tests | IN_PROGRESS |
-| B007-SIM-001 | One-block verified quote, pool state, chained simulation and bounded native-unit mint planning. | Compiler, service and synthetic closed replay | IN_PROGRESS |
-| B007-AUTH-001 | Exact owner-reviewed approvals and two one-use Safe/Roles permissions; direct mint limits enforceable onchain. | Direct fork bypass and readback tests | IN_PROGRESS |
-| B007-EXEC-001 | Fixed two-step worker, actual swap-output dependency and Safe-owned NFT. | Browser-independent worker and guarded browser journey | IN_PROGRESS |
-| B007-RECOVERY-001 | Durable reservation, restart, known-hash observation and fail-closed unknown submission or partial completion. | Worker and recovery tests | IN_PROGRESS |
+| B007-IR-001 | One revisioned two-node swap→mint IR with typed WETH output and strict invalidation. | Linter, domain and guarded browser tests | SATISFIED_LOCALLY |
+| B007-SIM-001 | One-block verified quote, pool state, chained simulation and bounded native-unit mint planning. | Compiler, service and synthetic closed replay | SATISFIED_LOCALLY |
+| B007-AUTH-001 | Exact owner-reviewed approvals and two one-use Safe/Roles permissions; direct mint limits enforceable onchain. | Direct fork bypass and readback tests | SATISFIED_LOCALLY |
+| B007-EXEC-001 | Fixed two-step worker, actual swap-output dependency and Safe-owned NFT. | Browser-independent worker and guarded browser journey | SATISFIED_LOCALLY |
+| B007-RECOVERY-001 | Durable reservation, restart, known-hash observation and fail-closed unknown submission or partial completion. | Worker and recovery tests | SATISFIED_LOCALLY |
 | B007-EVIDENCE-001 | New bounded Base transcript, closed byte-identical replay and independent raw-RPC reconciliation before any fork claim. | Preflight, recording, verifier and browser gates | FORK_REPRODUCED on local chain 31337 (not certified) |
-| B007-ROADMAP-001 | Preserve certified BUILD-003–006 evidence and global non-custodial multichain/Solana roadmap. | Exact protected-byte governance | IN_PROGRESS |
+| B007-ROADMAP-001 | Preserve certified BUILD-003–006 evidence and global non-custodial multichain/Solana roadmap. | Exact protected-byte governance | SATISFIED_LOCALLY |

@@ -2,6 +2,8 @@
 
 ## BUILD-007 finite composition authority
 
+After the owner merged PR #17 as b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce, DEC-0043 certifies BUILD-007 COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337 only. The certification rests on the attempt-2 transcript, byte-identical closed replay, direct Roles mint-bound tests and independent raw-RPC reconciliation, and it accepts one post-merge failure of a pre-existing intermittent canvas test as a documented exception. It establishes no public-chain, production-wallet, real-funds, CoW-composition, later-liquidity or BUILD-008 authority. BUILD-008 is planning only. The historical implementation boundary follows.
+
 The approved `MODE_B_FINITE_DELEGATION` profile applies only on local chain 31337. A Safe owner signs the exact approvals, two role installations and revocation; the owner retains broader Safe control. The disposable executor can call only the reviewed Router02 exact-input swap and Position Manager mint through separate one-use Zodiac Roles permissions. Roles enforces target, selector, token pair, Safe recipient, swap input and mint fee, ticks, desired-amount ceilings, fixed minimums and deadline fields. Uniswap enforces output minimum, mint minimums and deadlines. The application checks cumulative budgets, gas reserve, sequential step order, state freshness and durable recovery. Hashes bind review artifacts but do not create onchain enforcement. The direct onchain bypass table and exact boundary results are in the [BUILD-007 report](builds/BUILD-007-REPORT.md). The one read-only Base recording attempt stopped after 2 requests / 52 reserved CU and is exhausted; a new attempt requires another owner decision.
 
 `NOT_ENFORCED` means no financial enforcement control exists in BUILD-001. Documentation,
@@ -35,6 +37,8 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-006 liquidity local-fork certification | Human owner | DEC-0037, [BUILD-006 report](builds/BUILD-006-REPORT.md), PR #16 merge and passing post-merge checks | CERTIFIED_FORK_REPRODUCED_LOCAL (DEC-0037) |
 | BUILD-007 planning after BUILD-006 (historical) | Human owner | DEC-0037 allowed planning only before DEC-0038 | PLANNING_ONLY_HISTORICAL |
 | BUILD-007 finite Mode B local-fork composition implementation | Human owner | DEC-0038 and approved BUILD-007 plan; one conditional bounded read-only owner recording; merge remains owner decision | APPROVED_LOCAL_FORK_ONLY |
+| BUILD-007 composition local-fork certification | Human owner | DEC-0043, [BUILD-007 report](builds/BUILD-007-REPORT.md), PR #17 merge and a documented post-merge exception for a pre-existing intermittent canvas test | CERTIFIED_FORK_REPRODUCED_LOCAL (DEC-0043) |
+| BUILD-008 planning | Human owner | DEC-0043 allows planning only; a separate plan and approval are required for implementation | PLANNING_ONLY |
 | Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.
