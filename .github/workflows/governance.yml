@@ -34,6 +34,7 @@ jobs:
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ca22dd5796614691a8de3a4271c3af5a7c889fd9
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 05910364feac7f9fe0856a5c2c197eeeb12db902
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 9c5484db1a78602cb6603744b03fb1b4096266da
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 4a402dd6be956fee0e3df001b8ad0f356f625937
           unset auth GH_TOKEN
 
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
@@ -229,20 +230,42 @@ jobs:
                   create005&set(delivered004) or not modify005<=set(delivered004) or
                   len(set(delivered004)-modify005)!=374 or 'DEC-0034' not in plan005):
               errors.append('BUILD-005 approved scope list or authority inconsistent')
-          errors += ['BUILD-005 unapproved created path: '+v for v in sorted((now-set(delivered004))-create005)]
-          errors += ['BUILD-005 removed baseline file: '+v for v in sorted(set(delivered004)-now)]
+          # Preserve BUILD-005 exact delivery at the certified BUILD-006 baseline.
+          base006='4a402dd6be956fee0e3df001b8ad0f356f625937'
+          delivered005=tree(base006)
+          if len(delivered005)!=421:
+              errors.append('BUILD-006 baseline inventory changed')
+          errors += ['historical BUILD-005 unapproved created path: '+v for v in sorted((set(delivered005)-set(delivered004))-create005)]
+          errors += ['historical BUILD-005 removed baseline file: '+v for v in sorted(set(delivered004)-set(delivered005))]
+          for v in sorted(set(delivered004)&set(delivered005)):
+              if delivered005[v][0]!=delivered004[v][0]: errors.append('historical BUILD-005 mode changed: '+v)
+              if v not in modify005 and delivered005[v][1]!=delivered004[v][1]:
+                  errors.append('historical BUILD-005 protected baseline changed: '+v)
+          # DEC-0036: apply the approved exact BUILD-006 path set against certified main.
+          plan006=(root/'docs/builds/BUILD-006-PLAN.md').read_text()
+          scope006=plan006.split('## 11. Exact expected files',1)[1].split('## 12. Risks and rollback',1)[0]
+          def plan_list(part):
+              return set(part.split('```text',1)[1].split('```',1)[0].strip().splitlines())
+          create006=plan_list(scope006.split('**Create:**',1)[1].split('**Modify:**',1)[0])
+          modify006=plan_list(scope006.split('**Modify:**',1)[1].split('**Delete:**',1)[0])
+          if (len(create006)!=31 or len(modify006)!=31 or create006&modify006 or
+                  create006&set(delivered005) or not modify006<=set(delivered005) or
+                  len(set(delivered005)-modify006)!=390 or 'DEC-0036' not in plan006):
+              errors.append('BUILD-006 approved scope list or authority inconsistent')
+          errors += ['BUILD-006 unapproved created path: '+v for v in sorted((now-set(delivered005))-create006)]
+          errors += ['BUILD-006 removed baseline file: '+v for v in sorted(set(delivered005)-now)]
           for v in sorted(now):
               file=root/v
               if not file.is_file() or file.is_symlink():
                   errors.append('missing, non-file or symlink: '+v)
                   continue
               actual_mode='100755' if file.stat().st_mode & 0o111 else '100644'
-              if v in delivered004:
-                  if actual_mode!=delivered004[v][0]: errors.append('BUILD-005 mode changed: '+v)
-                  if v not in modify005 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered004[v][1]:
-                      errors.append('BUILD-005 protected baseline changed: '+v)
+              if v in delivered005:
+                  if actual_mode!=delivered005[v][0]: errors.append('BUILD-006 mode changed: '+v)
+                  if v not in modify006 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered005[v][1]:
+                      errors.append('BUILD-006 protected baseline changed: '+v)
               elif actual_mode!='100644':
-                  errors.append('BUILD-005 new executable file: '+v)
+                  errors.append('BUILD-006 new executable file: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -289,13 +312,19 @@ jobs:
           cow_store='apps/reference-dapp/src/state/cow-store.tsx'
           cow_wallet='apps/reference-dapp/src/wallet/cow-eip712.ts'
           cow_panel='apps/reference-dapp/src/components/cow-panel.tsx'
+          l_server='apps/reference-dapp/src/server/liquidity-service.ts'
+          l_action='apps/reference-dapp/src/app/liquidity-action.ts'
+          l_store='apps/reference-dapp/src/state/liquidity-store.tsx'
+          l_wallet='apps/reference-dapp/src/wallet/liquidity-eip1193.ts'
+          l_panel='apps/reference-dapp/src/components/liquidity-panel.tsx'
           f_client={'apps/reference-dapp/src/state/mode-a-store.tsx',f_wallet,'apps/reference-dapp/src/components/fork-simulation-panel.tsx',
                     'apps/reference-dapp/src/components/manifest-review.tsx','apps/reference-dapp/src/components/execution-panel.tsx',
                     'apps/reference-dapp/src/components/summary-bar.tsx','apps/reference-dapp/src/components/top-bar.tsx',
-                    'apps/reference-dapp/src/components/app-shell.tsx','apps/reference-dapp/src/app/page.tsx',b_store,cow_store}
+                    'apps/reference-dapp/src/components/app-shell.tsx','apps/reference-dapp/src/app/page.tsx',b_store,cow_store,l_store,l_wallet,l_panel}
           f_tests={'apps/reference-dapp/src/server/mode-a-service.test.ts','apps/reference-dapp/src/server/fork-rpc.test.ts',
                    'apps/reference-dapp/src/wallet/eip1193.test.ts','apps/reference-dapp/src/domain/contracts.integration.test.ts',
-                   'apps/reference-dapp/src/server/cow-service.test.ts'}
+                   'apps/reference-dapp/src/server/cow-service.test.ts',
+                   'apps/reference-dapp/src/server/liquidity-service.test.ts','apps/reference-dapp/src/wallet/liquidity-eip1193.test.ts'}
           fork_read_methods={'eth_chainId','eth_getBlockByNumber','eth_getBlockByHash','eth_call','eth_getCode','eth_getBalance',
                              'eth_getTransactionCount','eth_getStorageAt','eth_simulateV1','eth_getTransactionReceipt','eth_getRawTransactionByHash'}
           f_refused_urls=('https://127.0.0.1:8545','http://127.0.0.2:8545','http://localhost:8545','https://base-mainnet.g.alchemy.com/v2',
@@ -314,6 +343,8 @@ jobs:
                   if 'attempts: 3, requests: 63' not in body:
                       errors.append('BUILD-003C Alchemy live limits changed')
                   body=body.replace('https://base-mainnet.g.alchemy.com/v2','').replace('fetch(','')
+              if file.as_posix() in {l_server}|f_tests:
+                  body=body.replace('http://127.0.0.1:', '')
               if file.as_posix() in f_tests:
                   for url in f_refused_urls: body=body.replace(url,'')
                   body=re.sub(r'http://127\.0\.0\.1:[0-9]{2,5}','',body)
@@ -332,10 +363,12 @@ jobs:
                   name=file.as_posix()
                   if pattern.startswith('\\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
                       scanned=scanned.replace('globalThis.fetch(url, init)','',1)
-                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel}:
+                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel,l_server,l_store,l_panel}:
                       continue
                   if pattern.startswith('window') and name in {f_wallet,'apps/reference-dapp/src/wallet/eip1193.test.ts',cow_wallet,'apps/reference-dapp/src/wallet/cow-eip712.test.ts',cow_store}:
                       scanned=re.sub(r'\beth_sendTransaction\b|\beth_signTypedData_v4\b|signTypedData','',scanned)
+                  if pattern.startswith('window') and name=='apps/reference-dapp/src/server/liquidity-service.test.ts':
+                      scanned=scanned.replace('eth_sendTransaction','')
                   if pattern.startswith('window') and name==b_server:
                       scanned=scanned.replace('eth_sendRawTransaction','')
                   if pattern.startswith('\\bfetch') and name==b_server:
@@ -369,17 +402,17 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action} and name not in f_tests:
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action} and name not in f_tests:
                   if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body) if name in f_client else body):
                       errors.append('client imports server module: '+name)
               if file in non_test:
                   allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
-                           else fork_read_methods|{'eth_sendRawTransaction'} if name==b_server else fork_read_methods if name in f_server|{f_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction'} if name==b_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
+                           else fork_read_methods|{'eth_sendRawTransaction'} if name==b_server else fork_read_methods if name in f_server|{f_action,l_server,l_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction'} if name==b_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
                   for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
-                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server} else selectors):
+                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors):
                           errors.append('seventh selector or other short hex in source: '+name+' '+selector)
           action=(root/'apps/reference-dapp/src/app/observation-action.ts').read_text()
           if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action):
@@ -400,7 +433,7 @@ jobs:
           # BUILD-003D Mode A package boundaries (plan section 3.17), exhaustive over the delivered sources.
           mode_a_bases=('packages/reference-compiler/src','packages/reference-executor/src','packages/reference-reconciler/src')
           mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts'}]
-          if len(mode_a_sources)!=23: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
+          if len(mode_a_sources)!=26: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
           mode_a_selectors=selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc'}
@@ -430,10 +463,18 @@ jobs:
                   errors.append('compiler imports the executor or reconciler: '+name)
           for file in sources:
               name=file.as_posix()
-              body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts'}|f_tests else type_only(file.read_text())
-              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service}|f_tests: continue
+              body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts',l_server,l_wallet}|f_tests else type_only(file.read_text())
+              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet}|f_tests: continue
               if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
                   errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
+          # BUILD-006 adds one explicit local-fork liquidity server and a browser-only exact-payload verifier.
+          liquidity_action=(root/l_action).read_text()
+          if not liquidity_action.startswith("// SPDX-License-Identifier: AGPL-3.0-only\n'use server';") or "GRYLOO_LIQUIDITY !== 'fork'" not in liquidity_action:
+              errors.append('BUILD-006 server opt-in boundary missing')
+          if re.search(r'\beth_(?:send|sign)[A-Za-z0-9]*\b', (root/l_server).read_text()):
+              errors.append('BUILD-006 server signs or broadcasts')
+          if "0x7a69" not in (root/l_server).read_text() or "127.0.0.1" not in (root/l_server).read_text():
+              errors.append('BUILD-006 chain or loopback boundary missing')
           # BUILD-004 keeps the new signer and service in their exact local-only modules.
           b_service=(root/b_server).read_text()
           if "GRYLOO_MODE_B" not in (root/b_action).read_text() or '127' not in b_service or 'MODE_B_CODE_PIN_MISMATCH' not in b_service:
@@ -649,7 +690,7 @@ jobs:
                   'tests/compatibility/v1/':(22,'59b8714f4c85596f85fd2fe95b185f113c6b1f97e2f9cd85b624362f9c72ef2c'),
                   'third_party/licenses/':(21,'237a7f6102cf7b5891ba9c436285c38dc7dae37604dd41c213bcc13a24e56c63')}
           for prefix,(count,digest) in frozen.items():
-              selected=sorted(v for v in current if v.startswith(prefix) and v not in {'tests/compatibility/v1/mode-b-permission-vectors.json','tests/compatibility/v1/cow-signed-intent-vectors.json'})
+              selected=sorted(v for v in current if v.startswith(prefix) and v not in {'tests/compatibility/v1/mode-b-permission-vectors.json','tests/compatibility/v1/cow-signed-intent-vectors.json','tests/compatibility/v1/uniswap-v3-liquidity-vectors.json'})
               listing=''.join(hashlib.sha256((root/v).read_bytes()).hexdigest()+'  '+v+'\n' for v in selected)
               if len(selected)!=count or hashlib.sha256(listing.encode()).hexdigest()!=digest:
                   errors.append('frozen tree changed: '+prefix)
@@ -769,8 +810,8 @@ jobs:
               errors.append('mainnet, testnet and Mode C must remain NOT_APPROVED')
           if not re.search(r'(?m)^\| BUILD-005 CoW local profile certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_MOCKED_LOCAL \(DEC-0035\) \|$',authority):
               errors.append('DEC-0035 MOCKED certification missing from authority matrix')
-          if not re.search(r'(?m)^\| BUILD-006 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
-              errors.append('BUILD-006 must remain planning only in authority matrix')
+          if not re.search(r'(?m)^\| BUILD-006 isolated Mode A local-fork liquidity implementation \|[^|\n]+\|[^|\n]+\| APPROVED_LOCAL_FORK_ONLY \|$',authority):
+              errors.append('DEC-0036 local-fork BUILD-006 authority missing')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -806,12 +847,16 @@ jobs:
                       '36344564513','36344564511','BUILD-006 planning only',
                       '37a0782ece81f83c362b50f68adfc1accb37ccff'))):
               errors.append('DEC-0035 closure authority incomplete')
+          decision36=[line for line in decisions.splitlines() if line.startswith('| DEC-0036 |')]
+          if (len(decision36)!=1 or not decision36[0].endswith('| APPROVED |') or
+                  any(v not in decision36[0] for v in ('BUILD-006 plan','4a402dd6be956fee0e3df001b8ad0f356f625937','FORK_REPRODUCED','1,500','39,000','unmerged PR'))):
+              errors.append('DEC-0036 BUILD-006 authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
-          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-006 planning only') or
-                  'no BUILD-006 plan, implementation' not in next_build):
-              errors.append('BUILD-006 planning-only transition missing')
+          if (not next_build.startswith('# Next build\n\n## Current milestone: BUILD-006 approved implementation') or
+                  'DEC-0036' not in next_build or 'one unmerged PR' not in next_build):
+              errors.append('BUILD-006 approval transition missing')
           status=markdown['docs/STATUS.md']
           for marker in ('BUILD-005: COMPLETE','BUILD-005 certification: CERTIFIED: MOCKED',
                          'DEC-0035','37a0782ece81f83c362b50f68adfc1accb37ccff',

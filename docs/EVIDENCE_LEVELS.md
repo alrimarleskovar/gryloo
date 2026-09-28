@@ -71,3 +71,11 @@ DEC-0031 approved an independently scoped Safe/Roles swap on the controlled chai
 DEC-0034 approves a deterministic loopback CoW orderbook, disposable injected local wallet and scripted posting, tracking, cancellation and settlement. The adapter may show `RECONCILED` only after its scripted receipt, trade, balance, fee and allowance checks agree; the Evidence Bundle environment is always `MOCKED`. An ambiguous post remains unknown until UID lookup, and a missing or inconsistent settlement remains inconclusive or divergent. This does not raise BUILD-003/004 local-fork certification and does not establish any public CoW fill, public-chain receipt, production wallet safety or financial outcome. The [BUILD-005 report](builds/BUILD-005-REPORT.md) records local and CI results separately.
 
 After the owner merged PR #15 as 37a0782ece81f83c362b50f68adfc1accb37ccff, post-merge Governance run 36344564513 and contracts/app run 36344564511 passed. DEC-0035 certifies BUILD-005 COMPLETE / CERTIFIED: MOCKED for this loopback signed-intent profile only. This does not alter the separate BUILD-003/004 FORK_REPRODUCED certifications or establish public CoW, public-chain, production-wallet or real-funds evidence.
+
+## BUILD-006 demonstrated locally, not certified
+
+DEC-0036 authorizes an isolated Uniswap v3 liquidity lifecycle with a maximum `FORK_REPRODUCED` target on local chain 31337, conditional on a new complete credential-free closed replay and independent reconciliation of each local effect.
+
+On 2026-09-28 those conditions were met locally. The owner-operated recording produced transcript `c9a02102…95805` at Base block 51,880,679; the closed replay was `REPLAY_BYTE_IDENTICAL`, and an independent raw-RPC verifier reconciled all 12 lifecycle operations. BUILD-006's demonstrated local level is therefore `FORK_REPRODUCED`. It is not certified until remote CI, the owner's merge, post-merge checks and a separate owner decision.
+
+Offline fixtures and the synthetic dry run are `MOCKED`; read-only Base state is not public transaction evidence. BUILD-003/004 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications remain separate. No `TESTNET_EXECUTED` or `MAINNET_EXECUTED` evidence exists.

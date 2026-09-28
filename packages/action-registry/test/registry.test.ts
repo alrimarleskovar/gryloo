@@ -39,6 +39,16 @@ describe("declarative Action Registry", () => {
     expect(referenceRegistry.actions[0]?.executionKinds).toEqual(['DIRECT_TRANSACTION', 'SIGNED_INTENT']);
     expect(referenceRegistry.capabilities[0]?.status).toBe('DECLARED_ONLY');
   });
+  it('declares one Mode A direct liquidity capability without broadening swap authority', () => {
+    expect(validateActionRegistry(referenceRegistry)).toBe(true);
+    const liquidity = getActionDefinition(referenceRegistry, 'asset.liquidity.uniswap-v3');
+    expect(liquidity?.requiredCapability.id).toBe('liquidity.position-direct');
+    expect(liquidity?.executionKinds).toEqual(['DIRECT_TRANSACTION']);
+    expect(liquidity?.authorizationModes).toEqual(['A']);
+    expect(liquidity?.inputs.map(port => port.name)).toEqual(['amount0-max', 'amount1-max', 'amount0-min', 'amount1-min', 'tick-lower', 'tick-upper', 'fee-tier', 'recipient']);
+    expect(checkActionCompatibility(referenceRegistry, { actionId: 'asset.liquidity.uniswap-v3', actionVersion: '1.0.0',
+      capabilityId: 'liquidity.position-direct', capabilityVersion: '1.0.0', executionKind: 'DIRECT_TRANSACTION', authorizationMode: 'B' }).compatible).toBe(false);
+  });
   it("parses the fixture through guarded bytes and freezes the registry/schema", () => {
     const registry = parseActionRegistryBytes(fixtureBytes);
     expect(validateActionRegistry(registry)).toBe(true);

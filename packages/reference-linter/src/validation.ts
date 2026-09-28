@@ -3,6 +3,7 @@ import { Ajv } from 'ajv';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import workflowSchema from '@defi-workflow-engine/workflow-contracts/schemas/v1/semantic-workflow.schema.json' with { type: 'json' };
 import { assetSymbol, createReviewContext, hasKeys, isRecord, type ReviewContext } from './context.js';
+import { LIQUIDITY_ACTION, validateLiquidityNode } from './liquidity.js';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
@@ -78,6 +79,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     unique(node.lockedParameters.map(p => p.name), 'DUPLICATE_LOCK');
     unique(node.editableBounds.map(p => p.parameterName), 'DUPLICATE_BOUND');
     for (const parent of node.dependencies) if (!nodes.has(parent) || parent === node.nodeId) fail('INVALID_DEPENDENCY');
+    if (node.actionType === LIQUIDITY_ACTION) { validateLiquidityNode(node, trusted); continue; }
     if (node.actionType !== SWAP) continue;
     if (node.actionSchemaVersion !== '1.0.0' || node.chainId !== 'eip155:8453'
         || node.requiredCapabilities.length !== 1 || node.requiredCapabilities[0] !== trusted.capabilityId
@@ -131,7 +133,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   for (const edge of workflow.resourceEdges) {
     const from = nodes.get(edge.fromNodeId), to = nodes.get(edge.toNodeId);
     if (!from || !to) fail('INVALID_EDGE');
-    if (from.actionType === SWAP || to.actionType === SWAP) fail('SWAP_EDGE_UNSUPPORTED');
+    if ([SWAP, LIQUIDITY_ACTION].includes(from.actionType) || [SWAP, LIQUIDITY_ACTION].includes(to.actionType)) fail('SWAP_EDGE_UNSUPPORTED');
     if (!from.expectedOutputs.some(p => p.outputId === edge.outputId)
         || !to.dependencies.includes(edge.fromNodeId)) fail('INVALID_EDGE');
     const target = to.inputs.find(p => p.name === edge.inputName);
@@ -139,8 +141,8 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
         || target.value.outputId !== edge.outputId) fail('INVALID_EDGE');
   }
   for (const node of workflow.nodes) {
-    if (node.actionType === SWAP) continue;
-    if (node.dependencies.some(id => nodes.get(id)?.actionType === SWAP)) fail('SWAP_EDGE_UNSUPPORTED');
+    if ([SWAP, LIQUIDITY_ACTION].includes(node.actionType)) continue;
+    if (node.dependencies.some(id => [SWAP, LIQUIDITY_ACTION].includes(nodes.get(id)!.actionType))) fail('SWAP_EDGE_UNSUPPORTED');
     for (const input of node.inputs) if (input.kind === 'OUTPUT_REFERENCE' &&
       (!nodes.has(input.value.nodeId) || !nodes.get(input.value.nodeId)?.expectedOutputs.some(p => p.outputId === input.value.outputId)
         || !node.dependencies.includes(input.value.nodeId))) fail('INVALID_REFERENCE');

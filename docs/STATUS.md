@@ -1,12 +1,26 @@
 # Repository status
 
+## Current BUILD-006 local acceptance state (2026-09-28)
+
+**Current markers:** BUILD-006: LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. BUILD-006 local evidence: `FORK_REPRODUCED` demonstrated on local chain 31337. BUILD-006 certification: NOT CERTIFIED.
+
+DEC-0036 and the [approved plan](builds/BUILD-006-PLAN.md) authorize the work, from synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The owner ran the single approved read-only Base recording on 2026-09-28. It completed at source block 51,880,679 with 207 requests and 5,382 reserved CU, and the credential was removed.
+
+Validation of the credential-free transcript `c9a02102…95805`, the closed `REPLAY_BYTE_IDENTICAL` replay and an independent raw-RPC verifier all passed. Together they reconcile one isolated Uniswap v3 Base USDC/WETH Mode A lifecycle of 12 separately signed operations, ending in the burn of NFT #6104987. The real-transcript browser specs pass. The [BUILD-006 report](builds/BUILD-006-REPORT.md) separates each gate.
+
+Still outstanding: remote CI on the unmerged PR head, the owner's merge decision, post-merge checks and any certification decision. BUILD-003/004 and BUILD-005 keep their separate certified ceilings. No public-chain transaction, mainnet, real funds, production wallet, BUILD-007 composition, Mode B liquidity authority or PR merge is authorized.
+
+## BUILD-006 implementation state (historical, 2026-09-27)
+
+BUILD-006 was APPROVED / IN_PROGRESS under DEC-0036 before the recording; the state above supersedes this.
+
 ## Current BUILD-005 certification state (2026-09-27)
 
 **Current markers:** BUILD-005: COMPLETE. BUILD-005 certification: CERTIFIED: MOCKED.
 
 Under DEC-0035 the owner merged [PR #15](https://github.com/alrimarleskovar/gryloo/pull/15) into main as 37a0782ece81f83c362b50f68adfc1accb37ccff at 2026-09-27T19:30:00Z. All four final-head PR/push checks passed on 171fc02857b43318460de6b25a2a013d3edbd24e; post-merge [Governance run 36344564513](https://github.com/alrimarleskovar/gryloo/actions/runs/36344564513) and [contracts/app run 36344564511](https://github.com/alrimarleskovar/gryloo/actions/runs/36344564511) also passed. The [BUILD-005 report](builds/BUILD-005-REPORT.md) records the local and CI gates. Its signed-intent orderbook, injected disposable wallet and settlement are deterministic loopback and scripted only; every BUILD-005 financial result remains MOCKED. This grants no public CoW, public-chain, production-wallet, real-funds or production-financial-execution evidence. BUILD-003/004 retain their separate local-fork evidence ceilings. Gryloo remains global, non-custodial and multichain, with Solana priority unchanged.
 
-The next milestone is BUILD-006 planning only. No BUILD-006 plan or implementation is approved; see [NEXT_BUILD.md](NEXT_BUILD.md).
+That BUILD-005-era next-milestone statement is historical. The current BUILD-006 authority is stated above and in [NEXT_BUILD.md](NEXT_BUILD.md).
 
 ## BUILD-005 pre-merge implementation state (historical, 2026-09-27)
 
