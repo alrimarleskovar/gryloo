@@ -16,22 +16,22 @@ function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
   if (card.simulate !== undefined) {
     return <div className={`flow-card simulated ${card.swap ? 'swap' : ''}`}>
-      {!card.swap && <Handle type="target" position={Position.Left} isConnectable={false} />}
+      {!card.swap && (!card.liquidity || card.composition) && <Handle type="target" position={Position.Left} isConnectable={false} />}
       <span className="flow-card-kind">{card.liquidity ? 'BASE · LIQUIDITY UNOBSERVED' : card.swap ? (card.simulate ? 'BASE · MOCKED OUTPUT' : 'BASE · NO CURRENT OUTPUT') : 'MOCK ACTION'}</span>
       <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
       {card.swap && card.simulate ? <>
         <span className="mocked-value" data-mocked-value=""><span>Expected {card.simulate.expected}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
         <span className="mocked-value" data-mocked-value=""><span>Minimum {card.simulate.minimum}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
       </> : <small>{card.liquidity ? 'Use the isolated fork liquidity simulation' : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
-      {!card.liquidity && <Handle type="source" position={Position.Right} isConnectable={false} />}
+      {!card.liquidity && (!card.swap || card.composition) && <Handle type="source" position={Position.Right} isConnectable={false} />}
     </div>;
   }
   return <div className={`flow-card ${card.selected ? 'active' : ''}`}>
-    {!card.swap && <Handle type="target" position={Position.Left} isConnectable={!card.composition} />}
+    {!card.swap && (!card.liquidity || card.composition) && <Handle type="target" position={Position.Left} isConnectable={!card.composition} />}
     <span className="flow-card-kind">{card.composition && card.liquidity ? 'BASE · MODE B POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
     <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
     <small>{card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Editable on canvas'}</small>
-    {!card.liquidity && <Handle type="source" position={Position.Right} isConnectable={!card.composition} />}
+    {!card.liquidity && (!card.swap || card.composition) && <Handle type="source" position={Position.Right} isConnectable={!card.composition} />}
   </div>;
 }
 const nodeTypes = { workflow: WorkflowCard };
