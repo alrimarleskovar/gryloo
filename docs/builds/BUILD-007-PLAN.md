@@ -150,6 +150,8 @@ pnpm-lock.yaml
 
 **Owner-authorized attempt 2 (2026-09-28, DEC-0040):** One attempt-2 read-only Base recording is authorized from `/home/asus/.gryloo/build-007-attempt-2` against manifest SHA-256 `6a171dc81fcda36ead2f0f561e19220464c6e2c431cdfd40e16b1a6796ca292f`. The §3 limits are unchanged: 1,500 requests, 39,000 reserved listed CU, 30 minutes, at least 400 ms single-flight spacing and a permanent stop on the first error. It runs only after the owner reports the fresh credential ready. A stop spends attempt 2. The first-attempt evidence stays untouched.
 
+**Owner-approved evidence-record amendment (2026-09-28, DEC-0041):** Requirement B007-EVIDENCE-001 is corrected to `FORK_REPRODUCED on local chain 31337 (not certified)`. Within the existing `.github/workflows/governance.yml` path, only the condition that required the old `BLOCKED_PENDING_OWNER_DECISION` marker changes; it now requires the B007-EVIDENCE-001 row to state that demonstrated local evidence. No other governance rule, requirement or protected path changes.
+
 **Delete:** none. Every other tracked baseline path is byte- and mode-protected, including the Master Spec, Master Prompt, accepted ADRs, frozen v1 schemas/vectors, BUILD-003 through BUILD-006 certified records and transcripts, legal texts and prior visual baselines. A necessary path outside the lists requires a plan amendment and owner decision before editing.
 
 ## 12. Risks and rollback

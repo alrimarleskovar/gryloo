@@ -947,7 +947,8 @@ jobs:
               errors.append('BUILD-007 approved transition or DEC-0037 history missing')
           if ('BUILD-007 APPROVED / IN PROGRESS' not in markdown['docs/STATUS.md'] or
                   'BUILD-007' not in markdown['docs/REQUIREMENTS.md'] or
-                  'BLOCKED_PENDING_OWNER_DECISION' not in markdown['docs/REQUIREMENTS.md']):
+                  not any(line.startswith('| B007-EVIDENCE-001 |') and 'FORK_REPRODUCED on local chain 31337' in line
+                          for line in markdown['docs/REQUIREMENTS.md'].splitlines())):
               errors.append('BUILD-007 status or requirements boundary missing')
           for marker in ('BUILD-006: COMPLETE','BUILD-006 certification: CERTIFIED: FORK_REPRODUCED','DEC-0037',
                          '1edd783028ee8eed0953ca1e7e1446ad03229844','36361208012','36361208019'):

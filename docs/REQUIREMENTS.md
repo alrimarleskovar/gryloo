@@ -241,5 +241,5 @@ DEC-0038 approves the [BUILD-007 plan](builds/BUILD-007-PLAN.md). `IN_PROGRESS` 
 | B007-AUTH-001 | Exact owner-reviewed approvals and two one-use Safe/Roles permissions; direct mint limits enforceable onchain. | Direct fork bypass and readback tests | IN_PROGRESS |
 | B007-EXEC-001 | Fixed two-step worker, actual swap-output dependency and Safe-owned NFT. | Browser-independent worker and guarded browser journey | IN_PROGRESS |
 | B007-RECOVERY-001 | Durable reservation, restart, known-hash observation and fail-closed unknown submission or partial completion. | Worker and recovery tests | IN_PROGRESS |
-| B007-EVIDENCE-001 | New bounded Base transcript, closed byte-identical replay and independent raw-RPC reconciliation before any fork claim. | Preflight, recording, verifier and browser gates | BLOCKED_PENDING_OWNER_DECISION |
+| B007-EVIDENCE-001 | New bounded Base transcript, closed byte-identical replay and independent raw-RPC reconciliation before any fork claim. | Preflight, recording, verifier and browser gates | FORK_REPRODUCED on local chain 31337 (not certified) |
 | B007-ROADMAP-001 | Preserve certified BUILD-003–006 evidence and global non-custodial multichain/Solana roadmap. | Exact protected-byte governance | IN_PROGRESS |
