@@ -22,19 +22,27 @@ jobs:
           set -euo pipefail
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git init .
+          # No automatic or detached background gc/maintenance may rewrite .git/shallow while a fetch reads it.
+          git config gc.auto 0
+          git config maintenance.auto false
           git remote add origin "$SERVER/$REPOSITORY.git"
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "$REVISION"
           git checkout --detach FETCH_HEAD
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin fb285da4ea4efaaae5b839974b669b3c8335ddd7
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 606174f0bd944e5a1c31baf8dad685d7558b7cc8
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 14a94584b0a3119c1f6275a05b9e752dafe0a042
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 36dd05e2bcea2d9a19c7b571d2126aea0390e5dd
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 0faec71207628dfe27fb23c81680d2c27827f5ea
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 8a5fbaed26e005e5719528c399f7ca1adb334eb6
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin ca22dd5796614691a8de3a4271c3af5a7c889fd9
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 05910364feac7f9fe0856a5c2c197eeeb12db902
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 9c5484db1a78602cb6603744b03fb1b4096266da
-          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin 4a402dd6be956fee0e3df001b8ad0f356f625937
+          # Every historical scope baseline in one shallow fetch, so .git/shallow is updated exactly once.
+          baselines=(
+            fb285da4ea4efaaae5b839974b669b3c8335ddd7
+            606174f0bd944e5a1c31baf8dad685d7558b7cc8
+            14a94584b0a3119c1f6275a05b9e752dafe0a042
+            36dd05e2bcea2d9a19c7b571d2126aea0390e5dd
+            0faec71207628dfe27fb23c81680d2c27827f5ea
+            8a5fbaed26e005e5719528c399f7ca1adb334eb6
+            ca22dd5796614691a8de3a4271c3af5a7c889fd9
+            05910364feac7f9fe0856a5c2c197eeeb12db902
+            9c5484db1a78602cb6603744b03fb1b4096266da
+            4a402dd6be956fee0e3df001b8ad0f356f625937
+          )
+          git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
+          for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
           unset auth GH_TOKEN
 
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
