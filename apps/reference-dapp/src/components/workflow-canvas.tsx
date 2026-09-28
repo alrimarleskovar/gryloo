@@ -105,7 +105,7 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
     </div>
-    <div className="canvas-foot"><span>{workflow.nodes.length - swaps - bridges} mock · {bridges} bridge · {swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></div>
+    <div className="canvas-foot"><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></div>
   </section>;
 }
 
@@ -146,6 +146,6 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
     </div>
-    <div className="canvas-foot"><span>{mocks} mock · {bridges} bridge · {liquidityCount ? `${liquidityCount} liquidity · ` : ''}{swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>{workflow.resourceEdges.some(edge => edge.inputName === 'weth-from-swap') ? 'Typed WETH dependency · no other connections' : liquidityCount ? 'Swap and liquidity connections unavailable' : 'Swap connections unavailable'} · Select a node to edit</span></div>
+    <div className="canvas-foot"><span>{mocks} mock · {bridges ? `${bridges} bridge · ` : ''}{liquidityCount ? `${liquidityCount} liquidity · ` : ''}{swaps} Base swap {swaps === 1 ? 'node' : 'nodes'}</span><span>{workflow.resourceEdges.some(edge => edge.inputName === 'weth-from-swap') ? 'Typed WETH dependency · no other connections' : liquidityCount ? 'Swap and liquidity connections unavailable' : 'Swap connections unavailable'} · Select a node to edit</span></div>
   </section>;
 }
