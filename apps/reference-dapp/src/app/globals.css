@@ -198,3 +198,10 @@
 .bridge-create input,.bridge-create button{min-height:40px}
 .bridge-panel button:focus-visible,.bridge-panel select:focus-visible,.bridge-create button:focus-visible,.bridge-create input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 @media(max-width:800px){.bridge-grid{grid-template-columns:1fr}.bridge-panel{padding:14px}}
+
+/* BUILD-009 wallet and compact authoring: preserve existing shell dimensions until opened. */
+.build009-create{display:block}.build009-create summary{cursor:pointer;font-size:12px;font-weight:700;line-height:1.4}.build009-create[open]{display:grid}
+.top-meta>button{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:6px 9px;color:var(--blue);font-weight:700;white-space:nowrap}
+@media(max-width:1350px){.top-bar{height:auto;min-height:70px;flex-wrap:wrap;padding:12px 26px}.top-meta{flex-wrap:wrap;justify-content:flex-end;white-space:normal;gap:8px}}
+@media(max-width:1180px){.top-meta .build009-required,.top-meta .build009-wallet-info{display:inline}}
+@media(max-width:700px){.top-bar{padding:12px 15px}.top-meta{max-width:100%;justify-content:flex-start}}

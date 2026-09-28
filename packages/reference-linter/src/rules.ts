@@ -20,6 +20,7 @@ export interface ReviewResult {
 export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResult {
   const workflow = validateAuthoringWorkflow(input, context);
   const findings: ReviewFinding[] = [];
+  const bridgeSwap = workflow.nodes[0]?.nodeId === 'build009-bridge';
   const composition = workflow.resourceEdges.some(edge => edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap');
   for (const node of workflow.nodes) {
     if (node.actionType === BRIDGE_ACTION) { findings.push({ code: 'BRIDGE_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'A fresh LI.FI route and Manifest review are required before the mocked rehearsal.' }); continue; }
@@ -31,7 +32,8 @@ export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResu
       if (bps === 0 || bps > 100 && bps <= 300) findings.push({ code: bps === 0 ? 'ZERO_SLIPPAGE' : 'ELEVATED_SLIPPAGE', severity: 'WARNING', nodeId: node.nodeId, field: 'slippage', message: 'Review the prototype slippage limit.' });
       if (bps > 300) findings.push({ code: 'SLIPPAGE_ABOVE_REVIEW_LIMIT', severity: 'BLOCK', nodeId: node.nodeId, field: 'slippage', message: 'Above the BUILD-003A review limit.' });
     }
-    findings.push(composition ? { code: 'COMPOSITION_FORK_REVIEW_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs',
+    findings.push(bridgeSwap ? { code: 'DESTINATION_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs',
+      message: 'Reconcile Arbitrum USDC first, then quote the received amount and review a fresh MOCKED destination Manifest.' } : composition ? { code: 'COMPOSITION_FORK_REVIEW_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs',
       message: 'This authoring graph needs a fresh fork quote, chained simulation and finite Safe/Roles review before local execution.' }
       : { code: 'UNQUOTED_EXECUTION_UNAVAILABLE', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Output is an unquoted placeholder. Execution is unavailable.' });
   }

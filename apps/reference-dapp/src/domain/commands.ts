@@ -7,6 +7,7 @@ import { type LiquidityInput } from './liquidity-authoring';
 import type { CompositionInput } from './composition-authoring';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { bridgeDetails, parseBridgeAmount, type BridgeInput } from './bridge-authoring';
+import type { BridgeSwapInput } from './bridge-swap-authoring';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
@@ -22,6 +23,7 @@ export type Command = Base & (
   | { readonly type: 'SET_SLIPPAGE'; readonly nodeId: string; readonly slippage: string }
   | { readonly type: 'AUTHOR_COMPOSITION'; readonly safe: string; readonly input: CompositionInput }
   | { readonly type: 'ADD_BRIDGE'; readonly input: BridgeInput }
+  | { readonly type: 'AUTHOR_BRIDGE_SWAP'; readonly input: BridgeSwapInput }
   | { readonly type: 'SET_BRIDGE'; readonly nodeId: string; readonly input: BridgeInput }
   | { readonly type: 'ADD_LIQUIDITY'; readonly input: LiquidityInput }
   | { readonly type: 'SET_LIQUIDITY'; readonly nodeId: string; readonly input: LiquidityInput }
@@ -40,6 +42,9 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const bridgeSwap = /^compose bridge ([0-9]+(?:\.[0-9]+)?) USDC from Base to Arbitrum slippage ([0-9]+) bps then swap to WETH slippage ([0-9]+) bps$/i.exec(input);
+  if (bridgeSwap) { parseBridgeAmount(bridgeSwap[1]!); parseSlippage(bridgeSwap[2]!); parseSlippage(bridgeSwap[3]!);
+    return { type: 'AUTHOR_BRIDGE_SWAP', input: { amount: bridgeSwap[1]!, slippageBps: bridgeSwap[2]!, swapSlippageBps: bridgeSwap[3]! }, source: 'CHAT', baseRevision: workflow.revision }; }
   const bridge = /^(bridge|set (node-\d+) bridge) ([0-9]+(?:\.[0-9]+)?) USDC from Base to Optimism slippage ([0-9]+) bps$/i.exec(input);
   if (bridge) { parseBridgeAmount(bridge[3]!); parseSlippage(bridge[4]!);
     const value = { amount: bridge[3]!, slippageBps: bridge[4]! };
@@ -99,7 +104,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD: ['kind'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD: ['kind'], AUTHOR_BRIDGE_SWAP: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -123,6 +128,12 @@ export function commandIsValid(input: unknown): input is Command {
       return !!mint && typeof mint === 'object' && !Array.isArray(mint) && Object.getPrototypeOf(mint) === Object.prototype &&
         Reflect.ownKeys(mint).sort().join() === ['weth', 'usdc', 'minimumWeth', 'minimumUsdc', 'tickLower', 'tickUpper', 'recipient'].sort().join() &&
         Object.values(mint).every(item => typeof item === 'string' && item.length <= 80);
+    }
+    case 'AUTHOR_BRIDGE_SWAP': {
+      const value = command.input;
+      return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype
+        && Reflect.ownKeys(value).sort().join() === ['amount','slippageBps','swapSlippageBps'].sort().join()
+        && Object.values(value).every(item => typeof item === 'string' && item.length <= 40);
     }
     case 'ADD_BRIDGE':
     case 'SET_BRIDGE': {
@@ -157,7 +168,7 @@ export function amountOf(node: Workflow['nodes'][number]): string {
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const bridge = bridgeDetails(node);
-    if (bridge) return `${node.nodeId}: Base to Optimism USDC bridge, ${bridge.amount} USDC, ${bridge.slippageBps} bps, unquoted.`;
+    if (bridge) return `${node.nodeId}: Base to ${node.expectedOutputs[0]?.asset.chainId === 'eip155:42161' ? 'Arbitrum' : 'Optimism'} USDC bridge, ${bridge.amount} USDC, ${bridge.slippageBps} bps, unquoted.`;
     const position = context && liquidityDetails(node, context);
     if (position) return `${node.nodeId}: Uniswap v3 Base WETH/USDC position, ${position.amountWeth} WETH units and ${position.amountUsdc} USDC units maximum, minimums ${position.minimumWeth} WETH and ${position.minimumUsdc} USDC units, ticks ${position.tickLower} to ${position.tickUpper}, recipient ${position.recipient}.`;
     const details = context && swapDetails(node, context);

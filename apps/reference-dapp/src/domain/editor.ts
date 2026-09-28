@@ -8,6 +8,7 @@ import { createLiquidityNode, LIQUIDITY_ACTION } from './liquidity-authoring';
 import { createCompositionWorkflow } from './composition-authoring';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { createBridgeNode } from './bridge-authoring';
+import { createBridgeSwapWorkflow } from './bridge-swap-authoring';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -19,6 +20,12 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if (command.type === 'AUTHOR_BRIDGE_SWAP') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try { const workflow = createBridgeSwapWorkflow(current.workflowId, current.revision + 1, command.input);
+      validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'BRIDGE_SWAP_INVALID'); }
+  }
   if (command.type === 'ADD_BRIDGE' || command.type === 'SET_BRIDGE') {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
     try {

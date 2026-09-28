@@ -43,6 +43,7 @@ jobs:
             f4868b94e10981b820653dd21d1ef94a72edb067
             bf280d4184a83c9841d9a6b70dbebab1fd03e23e
             d5d3934d595943a45f5696fab440437d81e0690c
+            308901495790416c149976aaee747c2fd5ef9f52
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -317,34 +318,41 @@ jobs:
               'docs/AUTHORITY_MATRIX.md','docs/DECISIONS.md','docs/EVIDENCE_LEVELS.md',
               'docs/NEXT_BUILD.md','docs/SCOPE_GUARD.md','docs/STATUS.md',
               'docs/builds/BUILD-008-REPORT.md'}
-          errors += ['BUILD-008 unapproved created path: '+v for v in sorted((now-set(delivered007))-create008)]
-          errors += ['BUILD-008 removed baseline file: '+v for v in sorted(set(delivered007)-now)]
-          for v in sorted(now):
-              file=root/v
-              if not file.is_file() or file.is_symlink():
-                  errors.append('missing, non-file or symlink: '+v)
-                  continue
-              actual_mode='100755' if file.stat().st_mode & 0o111 else '100644'
-              if v in delivered007:
-                  if actual_mode!=delivered007[v][0]: errors.append('BUILD-008 mode changed: '+v)
-                  if v not in (modify008|certification_records008) and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered007[v][1]:
-                      errors.append('BUILD-008 protected baseline changed: '+v)
-              elif actual_mode!='100644':
-                  errors.append('BUILD-008 new executable file: '+v)
-          # DEC-0046: freeze the merged BUILD-008 product tree; this commit is records only.
+          # Verify BUILD-008 against its historical merged and certified trees, not the evolving BUILD-009 worktree.
           merged008=tree('d5d3934d595943a45f5696fab440437d81e0690c')
+          errors += ['BUILD-008 unapproved created path: '+v for v in sorted((set(merged008)-set(delivered007))-create008)]
+          errors += ['BUILD-008 removed baseline file: '+v for v in sorted(set(delivered007)-set(merged008))]
+          for v in sorted(set(delivered007)&set(merged008)):
+              if merged008[v][0]!=delivered007[v][0]: errors.append('BUILD-008 mode changed: '+v)
+              if v not in modify008 and merged008[v][1]!=delivered007[v][1]:
+                  errors.append('BUILD-008 protected baseline changed: '+v)
           if len(merged008)!=len(delivered007)+len(create008):
               errors.append('BUILD-008 merge inventory changed')
-          errors += ['BUILD-008 certification added path: '+v for v in sorted(now-set(merged008))]
-          errors += ['BUILD-008 certification removed path: '+v for v in sorted(set(merged008)-now)]
-          closure_changed=set()
-          for v in sorted(now&set(merged008)):
+          certified008=tree('308901495790416c149976aaee747c2fd5ef9f52')
+          errors += ['BUILD-008 certification added path: '+v for v in sorted(set(certified008)-set(merged008))]
+          errors += ['BUILD-008 certification removed path: '+v for v in sorted(set(merged008)-set(certified008))]
+          closure_changed={v for v in set(certified008)&set(merged008) if certified008[v]!=merged008[v]}
+          if closure_changed!=certification_records008:
+              errors.append('BUILD-008 certification must change only its nine records/governance files: '+repr(sorted(closure_changed^certification_records008)))
+          # DEC-0047: BUILD-009 may change only its plan-listed paths from the exact certified main.
+          plan009=(root/'docs/builds/BUILD-009-PLAN.md').read_text()
+          scope009=plan009.split('## Exact expected files',1)[1].split('## Delivery',1)[0]
+          create009=set(scope009.split('Create:\n',1)[1].split('\nModify:',1)[0].strip().splitlines())
+          modify009=set(scope009.split('Modify:\n',1)[1].strip().splitlines())
+          if (create009&modify009 or create009&set(certified008) or not modify009<=set(certified008)
+                  or 'DEC-0047' not in plan009):
+              errors.append('BUILD-009 approved scope list inconsistent')
+          errors += ['BUILD-009 unapproved created path: '+v for v in sorted((now-set(certified008))-create009)]
+          errors += ['BUILD-009 removed certified path: '+v for v in sorted(set(certified008)-now)]
+          for v in sorted(now&set(certified008)):
               file=root/v
               mode='100755' if file.stat().st_mode & 0o111 else '100644'
               oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
-              if (mode,oid)!=merged008[v]: closure_changed.add(v)
-          if closure_changed!=certification_records008:
-              errors.append('BUILD-008 certification must change only its nine records/governance files: '+repr(sorted(closure_changed^certification_records008)))
+              if mode!=certified008[v][0]: errors.append('BUILD-009 changed file mode: '+v)
+              if v not in modify009 and oid!=certified008[v][1]: errors.append('BUILD-009 protected certified file changed: '+v)
+          for v in sorted(now-set(certified008)):
+              if not (root/v).is_file() or (root/v).is_symlink() or (root/v).stat().st_mode & 0o111:
+                  errors.append('BUILD-009 new path must be regular non-executable file: '+v)
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
@@ -408,6 +416,10 @@ jobs:
           bridge_action='apps/reference-dapp/src/app/bridge-action.ts'
           bridge_store='apps/reference-dapp/src/state/bridge-store.tsx'
           bridge_service='apps/reference-dapp/src/server/bridge-service.ts'
+          build009_adapter='apps/reference-dapp/src/server/build009-lifi.ts'
+          build009_action='apps/reference-dapp/src/app/build009-action.ts'
+          build009_wallet='apps/reference-dapp/src/state/build009-wallet-store.tsx'
+          build009_store='apps/reference-dapp/src/state/bridge-swap-store.tsx'
           f_client={'apps/reference-dapp/src/state/mode-a-store.tsx',f_wallet,'apps/reference-dapp/src/components/fork-simulation-panel.tsx',
                     'apps/reference-dapp/src/components/manifest-review.tsx','apps/reference-dapp/src/components/execution-panel.tsx',
                     'apps/reference-dapp/src/components/summary-bar.tsx','apps/reference-dapp/src/components/top-bar.tsx',
@@ -443,6 +455,10 @@ jobs:
                   permitted=('https://li.quest/v1/tokens?chains=8453,10','https://li.quest/v1/quote?')
                   if any(body.count(url)!=1 for url in permitted) or re.search(r'https?://|wss?://|@import\s+url',body.replace(permitted[0],'').replace(permitted[1],'')):
                       errors.append('BUILD-008 LI.FI endpoint changed: '+file.as_posix())
+              elif file.as_posix()==build009_adapter:
+                  permitted=('https://li.quest/v1/tokens?', 'https://li.quest/v1/quote?')
+                  if any(body.count(url)!=1 for url in permitted) or re.search(r'https?://|wss?://|@import\s+url',body.replace(permitted[0],'').replace(permitted[1],'')):
+                      errors.append('BUILD-009 LI.FI endpoint changed: '+file.as_posix())
               elif re.search(r'https?://|wss?://|@import\s+url',body):
                   errors.append('remote application URL: '+file.as_posix())
           # BUILD-003B: mocked artifacts must not reach authority, wallet, RPC or network code.
@@ -454,11 +470,11 @@ jobs:
           for file in sources:
               body=file.read_text()
               for pattern in forbidden:
-                  scanned=body.replace('fetch(', '', 1) if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts' and pattern.startswith('\\bfetch') else body
+                  scanned=body.replace('fetch(', '', 1) if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts' and pattern.startswith(r'\bfetch') else body
                   name=file.as_posix()
-                  if pattern.startswith('\\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
+                  if pattern.startswith(r'\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
                       scanned=scanned.replace('globalThis.fetch(url, init)','',1)
-                  if pattern.startswith('\\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel,l_server,l_store,l_panel}:
+                  if pattern.startswith(r'\b(?:AuthorizationPolicy') and name in {'apps/reference-dapp/src/server/mode-a-service.ts',cow_service,cow_store,cow_panel,l_server,l_store,l_panel}:
                       continue
                   if pattern.startswith('window') and name in {f_wallet,'apps/reference-dapp/src/wallet/eip1193.test.ts',cow_wallet,'apps/reference-dapp/src/wallet/cow-eip712.test.ts',cow_store}:
                       scanned=re.sub(r'\beth_sendTransaction\b|\beth_signTypedData_v4\b|signTypedData','',scanned)
@@ -466,18 +482,23 @@ jobs:
                       scanned=scanned.replace('eth_sendTransaction','')
                   if pattern.startswith('window') and name==b_server:
                       scanned=scanned.replace('eth_sendRawTransaction','')
-                  if pattern.startswith('\\bfetch') and name==bridge_adapter:
+                  if pattern.startswith(r'\bfetch') and name==bridge_adapter:
                       if body.count('fetch(url,')!=1: errors.append('BUILD-008 LI.FI fetch count changed')
                       scanned=scanned.replace('fetch(url,','',1)
-                  if pattern.startswith('\\bfetch') and name==b_server:
+                  if pattern.startswith(r'\bfetch') and name==b_server:
                       scanned=scanned.replace('fetch(profile.rpcUrl,','',1)
+                  if pattern.startswith(r'\bfetch') and name==build009_adapter:
+                      if body.count('fetch(url,')!=1: errors.append('BUILD-009 LI.FI fetch count changed')
+                      scanned=scanned.replace('fetch(url,','',1)
+                  if pattern.startswith(r'\b(?:localStorage') and name==build009_store:
+                      scanned=scanned.replace('localStorage','')
                   if pattern.startswith('window') and name==b_store:
                       scanned=scanned.replace('eth_sendTransaction','')
                   if pattern.startswith('window') and name==composition_store:
                       scanned=scanned.replace('eth_sendTransaction','')
                   if pattern.startswith('window') and name==composition_service:
                       scanned=scanned.replace('eth_sendRawTransaction','')
-                  if pattern.startswith('\\bfetch') and name==composition_service:
+                  if pattern.startswith(r'\bfetch') and name==composition_service:
                       scanned=scanned.replace('fetch(profile.rpcUrl,','',1)
                   if pattern.startswith('window') and name=='apps/reference-dapp/src/server/fork-rpc.test.ts':
                       scanned=re.sub(r"'eth_(?:sendTransaction|sendRawTransaction|sign|signTransaction|signTypedData_v4)'|'personal_sign'",'',scanned)
@@ -510,12 +531,12 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action} and name not in f_tests:
-                  if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body) if name in f_client else body):
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action,build009_action} and name not in f_tests:
+                  if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body)):
                       errors.append('client imports server module: '+name)
               if file in non_test:
                   allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
-                           else fork_read_methods|{'eth_sendRawTransaction'} if name in {b_server,composition_service} else fork_read_methods if name in f_server|{f_action,l_server,l_action,composition_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction','eth_requestAccounts'} if name in {b_store,composition_store} else {'eth_chainId','eth_requestAccounts'} if name==bridge_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
+                           else fork_read_methods|{'eth_sendRawTransaction'} if name in {b_server,composition_service} else fork_read_methods if name in f_server|{f_action,l_server,l_action,composition_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction','eth_requestAccounts'} if name in {b_store,composition_store} else {'eth_chainId','eth_requestAccounts'} if name in {bridge_store,build009_wallet} else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
@@ -968,6 +989,8 @@ jobs:
               errors.append('DEC-0046 MOCKED certification missing from authority matrix')
           if not re.search(r'(?m)^\| BUILD-009 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
               errors.append('BUILD-009 planning-only boundary missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-009 Base → Arbitrum bridge and destination swap implementation \|[^|\n]+\|[^|\n]+\| APPROVED_MOCKED_ONLY \|$',authority):
+              errors.append('DEC-0047 BUILD-009 implementation authority missing')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -1066,11 +1089,12 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-009 planning only') or
+          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-009 approved implementation') or
+                  'DEC-0047' not in next_build or
                   'DEC-0046' not in next_build or 'MOCKED' not in next_build or
                   'Base → Optimism USDC' not in next_build or
                   'no BUILD-009 plan or implementation is approved' not in next_build):
-              errors.append('BUILD-009 planning-only transition missing')
+              errors.append('BUILD-009 approved implementation or historical planning transition missing')
           for record in ('README.md','docs/EVIDENCE_LEVELS.md','docs/SCOPE_GUARD.md','docs/AUTHORITY_MATRIX.md'):
               if ('DEC-0046' not in markdown[record] or 'BUILD-009' not in markdown[record] or
                       'MOCKED' not in markdown[record]):

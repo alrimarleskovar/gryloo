@@ -6,6 +6,7 @@ import { assetSymbol, createReviewContext, hasKeys, isRecord, type ReviewContext
 import { LIQUIDITY_ACTION, validateLiquidityNode } from './liquidity.js';
 import { validateCompositionWorkflow } from './composition.js';
 import { validateBridgeWorkflow } from './bridge.js';
+import { validateBridgeSwapWorkflow } from './bridge-swap.js';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
@@ -74,7 +75,11 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   }
   if (!schemaValidator(input)) fail('INVALID_SEMANTIC_WORKFLOW');
   const workflow = input;
-  if (workflow.nodes.some(node => node.actionType === BRIDGE_ACTION)) { validateBridgeWorkflow(workflow); return workflow; }
+  if (workflow.nodes.some(node => node.actionType === BRIDGE_ACTION)) {
+    if (workflow.nodes.length === 2) validateBridgeSwapWorkflow(workflow);
+    else validateBridgeWorkflow(workflow);
+    return workflow;
+  }
   if (workflow.resourceEdges.length === 1 && workflow.nodes.length === 2 &&
       workflow.nodes.some(node => node.actionType === LIQUIDITY_ACTION) &&
       workflow.nodes.some(node => node.actionType === SWAP)) {

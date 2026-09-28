@@ -6,6 +6,8 @@ import { ModeAProvider } from '../state/mode-a-store';
 import { WorkflowProvider } from '../state/workflow-store';
 import { LiquidityProvider } from '../state/liquidity-store';
 import { BridgeProvider } from '../state/bridge-store';
+import { Build009WalletProvider } from '../state/build009-wallet-store';
+import { BridgeSwapProvider } from '../state/bridge-swap-store';
 
 const initialContext = {
   registryId: referenceRegistry.registryId,
@@ -14,4 +16,4 @@ const initialContext = {
   assets: baseAssetRegistry,
 };
 // The local-fork Mode A boundary is a separate provider; the mocked chain and Base observation never reach it.
-export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><ModeAProvider><CowProvider><LiquidityProvider><AppShell/></LiquidityProvider></CowProvider></ModeAProvider></BridgeProvider></WorkflowProvider>; }
+export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><AppShell/></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }
