@@ -72,7 +72,11 @@ DEC-0034 approves a deterministic loopback CoW orderbook, disposable injected lo
 
 After the owner merged PR #15 as 37a0782ece81f83c362b50f68adfc1accb37ccff, post-merge Governance run 36344564513 and contracts/app run 36344564511 passed. DEC-0035 certifies BUILD-005 COMPLETE / CERTIFIED: MOCKED for this loopback signed-intent profile only. This does not alter the separate BUILD-003/004 FORK_REPRODUCED certifications or establish public CoW, public-chain, production-wallet or real-funds evidence.
 
-## BUILD-006 demonstrated locally, not certified
+## BUILD-006 certified local fork evidence (DEC-0037)
+
+After PR #16 merged as 1edd783028ee8eed0953ca1e7e1446ad03229844 and the post-merge checks passed (Governance run 36361208012 and contracts/app run 36361208019 on 3e4aae6fb48812a6db64abdd771e13718f96615e), DEC-0037 certifies BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337 only. The pre-merge text below is historical.
+
+## BUILD-006 demonstrated locally (historical pre-merge record)
 
 DEC-0036 authorizes an isolated Uniswap v3 liquidity lifecycle with a maximum `FORK_REPRODUCED` target on local chain 31337, conditional on a new complete credential-free closed replay and independent reconciliation of each local effect.
 

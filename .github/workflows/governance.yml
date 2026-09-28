@@ -820,6 +820,10 @@ jobs:
               errors.append('DEC-0035 MOCKED certification missing from authority matrix')
           if not re.search(r'(?m)^\| BUILD-006 isolated Mode A local-fork liquidity implementation \|[^|\n]+\|[^|\n]+\| APPROVED_LOCAL_FORK_ONLY \|$',authority):
               errors.append('DEC-0036 local-fork BUILD-006 authority missing')
+          if not re.search(r'(?m)^\| BUILD-006 liquidity local-fork certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_FORK_REPRODUCED_LOCAL \(DEC-0037\) \|$',authority):
+              errors.append('DEC-0037 FORK_REPRODUCED certification missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-007 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
+              errors.append('BUILD-007 must remain planning only in authority matrix')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -859,12 +863,28 @@ jobs:
           if (len(decision36)!=1 or not decision36[0].endswith('| APPROVED |') or
                   any(v not in decision36[0] for v in ('BUILD-006 plan','4a402dd6be956fee0e3df001b8ad0f356f625937','FORK_REPRODUCED','1,500','39,000','unmerged PR'))):
               errors.append('DEC-0036 BUILD-006 authority incomplete')
+          decision37=[line for line in decisions.splitlines() if line.startswith('| DEC-0037 |')]
+          if (len(decision37)!=1 or not decision37[0].endswith('| APPROVED |') or
+                  any(v not in decision37[0] for v in ('BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED','local chain 31337 only',
+                      '1edd783028ee8eed0953ca1e7e1446ad03229844','3e4aae6fb48812a6db64abdd771e13718f96615e',
+                      '36361208012','36361208019','c9a02102422df5a333d67bdf869a4f1b75ae2ec314d1e834872d92c86ea95805',
+                      'BUILD-007 planning only','No BUILD-007 plan or implementation is approved'))):
+              errors.append('DEC-0037 BUILD-006 closure authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
-          if (not next_build.startswith('# Next build\n\n## Current milestone: BUILD-006 approved implementation') or
-                  'DEC-0036' not in next_build or 'one unmerged PR' not in next_build):
-              errors.append('BUILD-006 approval transition missing')
+          if 'DEC-0036' not in next_build or 'one unmerged PR' not in next_build:
+              errors.append('BUILD-006 approval history missing')
+          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-007 planning only') or
+                  'DEC-0037' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
+              errors.append('BUILD-007 planning-only transition missing')
+          for marker in ('BUILD-006: COMPLETE','BUILD-006 certification: CERTIFIED: FORK_REPRODUCED','DEC-0037',
+                         '1edd783028ee8eed0953ca1e7e1446ad03229844','36361208012','36361208019'):
+              if marker not in markdown['docs/STATUS.md']: errors.append('current BUILD-006 certification marker missing: '+marker)
+          report006=markdown['docs/builds/BUILD-006-REPORT.md']
+          for marker in ('BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED','DEC-0037','36360355076','36360364627',
+                         '36360355151','36360364744','36361208012','36361208019'):
+              if marker not in report006: errors.append('BUILD-006 closure report missing: '+marker)
           status=markdown['docs/STATUS.md']
           for marker in ('BUILD-005: COMPLETE','BUILD-005 certification: CERTIFIED: MOCKED',
                          'DEC-0035','37a0782ece81f83c362b50f68adfc1accb37ccff',

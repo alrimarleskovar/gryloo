@@ -1,8 +1,16 @@
 # Repository status
 
-## Current BUILD-006 local acceptance state (2026-09-28)
+## Current BUILD-006 certification state (2026-09-28)
 
-**Current markers:** BUILD-006: LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. BUILD-006 local evidence: `FORK_REPRODUCED` demonstrated on local chain 31337. BUILD-006 certification: NOT CERTIFIED.
+**Current markers:** BUILD-006: COMPLETE. BUILD-006 certification: CERTIFIED: FORK_REPRODUCED.
+
+Under DEC-0037 the owner merged [PR #16](https://github.com/alrimarleskovar/gryloo/pull/16) into main as 1edd783028ee8eed0953ca1e7e1446ad03229844 at 2026-09-28T00:06:06Z. All four PR-head checks passed on e8ec5a256f346d4062ab5e4c1716efed4996f1c8. The merge-commit Governance run 36360916944 failed only in its historical shallow fetch, while the merge-commit contracts/app run 36360916815 passed. The minimal fetch fix 3e4aae6fb48812a6db64abdd771e13718f96615e then passed [Governance run 36361208012](https://github.com/alrimarleskovar/gryloo/actions/runs/36361208012) and [contracts/app run 36361208019](https://github.com/alrimarleskovar/gryloo/actions/runs/36361208019).
+
+The certification covers one isolated Uniswap v3 Base USDC/WETH Mode A liquidity lifecycle on local chain 31337. It rests on the owner-recorded Base transcript `c9a02102422df5a333d67bdf869a4f1b75ae2ec314d1e834872d92c86ea95805`, the closed byte-identical replay and independent reconciliation; see the [BUILD-006 report](builds/BUILD-006-REPORT.md). It grants no public-chain, testnet, mainnet, real-funds, production-wallet, Mode B liquidity or BUILD-007 composition authority. BUILD-003/004 `FORK_REPRODUCED` and BUILD-005 `MOCKED` remain separate. The next milestone is BUILD-007 planning only; no BUILD-007 plan or implementation is approved. See [NEXT_BUILD.md](NEXT_BUILD.md).
+
+## BUILD-006 pre-merge local acceptance state (historical, 2026-09-28)
+
+**Pre-merge markers (historical):** BUILD-006: LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. BUILD-006 local evidence: `FORK_REPRODUCED` demonstrated on local chain 31337. BUILD-006 certification: NOT CERTIFIED.
 
 DEC-0036 and the [approved plan](builds/BUILD-006-PLAN.md) authorize the work, from synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The owner ran the single approved read-only Base recording on 2026-09-28. It completed at source block 51,880,679 with 207 requests and 5,382 reserved CU, and the credential was removed.
 

@@ -142,3 +142,7 @@ The owner approved the exact create and modify paths in the [BUILD-006 plan](bui
 ## BUILD-006 implementation checkpoint
 
 The additive liquidity path is disabled without an explicit local-fork profile. Its shared IR action cannot compose with a swap or CoW node in BUILD-006. Offline math, wallet-byte and mocked service tests establish engineering behavior only. The distinct new Base transcript, byte-identical owner-local replay and independent lifecycle results were required before any `FORK_REPRODUCED` statement. They passed locally on 2026-09-28. The single approved recording attempt is spent, and a new recording needs a new owner decision. The BUILD-003/004/005 protected records and evidence ceilings remain separate.
+
+## BUILD-006 certified boundary and BUILD-007 planning (DEC-0037)
+
+After the owner merged PR #16 and the post-merge checks passed, DEC-0037 certifies BUILD-006 COMPLETE at FORK_REPRODUCED on local chain 31337 only. The isolated liquidity lifecycle confers no public-chain, testnet, mainnet, real-funds, production-wallet or Mode B liquidity authority. BUILD-007 swap-to-liquidity composition planning is the only next milestone; implementation requires a separate approved plan and owner decision.

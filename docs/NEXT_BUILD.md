@@ -1,6 +1,10 @@
 # Next build
 
-## Current milestone: BUILD-006 approved implementation (2026-09-27)
+## Next milestone: BUILD-007 planning only (2026-09-28)
+
+DEC-0037 closes BUILD-006 as COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337. [PR #16](https://github.com/alrimarleskovar/gryloo/pull/16) merged into main as 1edd783028ee8eed0953ca1e7e1446ad03229844. After the Governance fetch fix 3e4aae6fb48812a6db64abdd771e13718f96615e, post-merge Governance run 36361208012 and contracts/app run 36361208019 passed. BUILD-007, the first swap-to-liquidity Mode B composition in the Master Prompt roadmap, may be planned. No BUILD-007 plan, implementation, public provider, public chain, production wallet or real-funds operation is approved; a later plan and separate explicit owner approval are required before implementation. BUILD-003E public-testnet evidence and the global non-custodial multichain roadmap, including Solana priority, remain unchanged.
+
+## BUILD-006 approved implementation (historical, 2026-09-27)
 
 DEC-0036 approves the [BUILD-006 plan](builds/BUILD-006-PLAN.md) from clean synchronized main `4a402dd6be956fee0e3df001b8ad0f356f625937`. The one isolated Uniswap v3 Base USDC/WETH Mode A liquidity lifecycle is limited to a controlled chain-31337 fork, with a conditional one-attempt owner-operated read-only Base recording and a maximum `FORK_REPRODUCED` evidence target. Implementation, local gates, report, commit, push and one unmerged PR are authorized. The owner retains merge. No public-chain transaction, mainnet execution, real funds, production wallet, BUILD-007 composition or Mode B liquidity authority is approved. The BUILD-003/004 fork and BUILD-005 mocked certifications and global non-custodial multichain roadmap, including Solana priority, remain unchanged.
 

@@ -216,7 +216,7 @@ DEC-0035 closes BUILD-005 after PR #15 merged and both post-merge checks passed.
 
 ## BUILD-006 approved local liquidity acceptance mapping
 
-DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BUILD-006 plan](builds/BUILD-006-PLAN.md). As of 2026-09-28 every row is satisfied locally on chain 31337. The evidence is the owner-recorded Base transcript, the closed byte-identical replay, the independent raw-RPC verifier, the fork tests and the real-transcript browser specs; see the [BUILD-006 report](builds/BUILD-006-REPORT.md). SATISFIED_LOCALLY is not certification: remote CI, the owner's merge and post-merge checks remain.
+DEC-0036 approves the isolated Uniswap v3 Mode A local-fork lifecycle in the [BUILD-006 plan](builds/BUILD-006-PLAN.md). As of 2026-09-28 every row is satisfied locally on chain 31337. The evidence is the owner-recorded Base transcript, the closed byte-identical replay, the independent raw-RPC verifier, the fork tests and the real-transcript browser specs; see the [BUILD-006 report](builds/BUILD-006-REPORT.md). SATISFIED_LOCALLY is not itself certification. After PR #16 merged and the post-merge checks passed, DEC-0037 certifies BUILD-006 at FORK_REPRODUCED on local chain 31337 only.
 
 | ID | Requirement | Source area | Check or evidence | Status |
 |---|---|---|---|---|

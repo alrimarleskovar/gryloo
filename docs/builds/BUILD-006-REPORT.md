@@ -1,6 +1,19 @@
 # BUILD-006 report — isolated Uniswap v3 liquidity on a Base fork
 
-**Status:** LOCAL ACCEPTANCE COMPLETE / READY FOR OWNER MERGE DECISION. `FORK_REPRODUCED` is demonstrated on local chain 31337; BUILD-006 is not certified. Remote PR CI, the owner's merge decision, post-merge checks and certification remain separate gates. **Authority:** DEC-0036 and the [approved BUILD-006 plan](BUILD-006-PLAN.md). **Baseline:** synchronized main and origin/main `4a402dd6be956fee0e3df001b8ad0f356f625937`. **Branch:** `codex/build-006-uniswap-liquidity`.
+**Status:** BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337 under DEC-0037; see the closure section below. The pre-merge sections that follow are historical. **Authority:** DEC-0036 and the [approved BUILD-006 plan](BUILD-006-PLAN.md). **Baseline:** synchronized main and origin/main `4a402dd6be956fee0e3df001b8ad0f356f625937`. **Branch:** `codex/build-006-uniswap-liquidity`.
+
+## Closure and certification (DEC-0037, 2026-09-28)
+
+| Gate | Result |
+|---|---|
+| PR-head checks on `e8ec5a256f346d4062ab5e4c1716efed4996f1c8` | 4/4 passed: Governance push 36360355076 and PR 36360364627; contracts/app push 36360355151 and PR 36360364744. CI ran the unit suite in parallel (388 passed, 1 skipped), validated the BUILD-006 transcript and passed the audit and the browser suite. |
+| Owner merge | [PR #16](https://github.com/alrimarleskovar/gryloo/pull/16) merged as `1edd783028ee8eed0953ca1e7e1446ad03229844` at 2026-09-28T00:06:06Z. |
+| Merge-commit checks | Contracts/app run 36360916815 passed. Governance run 36360916944 failed in its historical-baseline fetch step with `fatal: shallow file has changed since we read it`, before any check ran. |
+| Governance fetch fix `3e4aae6fb48812a6db64abdd771e13718f96615e` | Automatic gc and maintenance are disabled in the throwaway CI repository, and the same ten baselines are fetched in one shallow fetch with explicit commit-presence checks. No check or baseline was removed. The fix passed three fresh CI-equivalent local reproductions. |
+| Post-fix checks on main | Governance run 36361208012 and contracts/app run 36361208019 passed. |
+| Certification | DEC-0037: BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED, on local chain 31337 only. |
+
+The certified level is `FORK_REPRODUCED`. No `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, public-chain, real-funds, production-wallet, Mode B liquidity or BUILD-007 composition claim is made. BUILD-007 is planning only.
 
 ## Delivered implementation
 
@@ -150,7 +163,7 @@ This is not a certification. Certification needs remote CI on the PR head, the o
 | Byte-identical chain-31337 replay of the Base transcript and independent reconciliation | Pass: `REPLAY_BYTE_IDENTICAL`, fork tests 3/3, independent verifier `PASS`. |
 | Owner-local browser acceptance on the Base transcript | Pass, 2/2 in each of two runs (automated test wallet). |
 | Dependency audit and registry metadata checks | Not run locally; they need the network. The contracts/app CI workflow runs registry integrity, license and release-age checks, the low-threshold audit and the CycloneDX SBOM. |
-| Remote push/PR checks, owner merge and post-merge checks | Not run. The owner retains merge and certification. |
+| Remote push/PR checks, owner merge and post-merge checks | Passed; see the closure section above. |
 
 Offline mocked checks establish at most `MOCKED` engineering evidence. The `FORK_REPRODUCED` result rests on the recorded transcript, byte-identical replay and independent reconciliation above. The BUILD-003/004 certified fork results and the BUILD-005 certified mocked result are unchanged.
 
