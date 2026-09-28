@@ -6,7 +6,7 @@ import {
   hashRawBytes, hashJournalEntries, projectArtifact, HASH_DOMAINS,
   type HashKind, type StructuredHashKind,
 } from '../src/canonical.js';
-import { hashArtifactBytes, hashModeBPermission } from '../src/index.js';
+import { hashArtifactBytes, hashModeBPermission, hashModeBCompositionPermission } from '../src/index.js';
 import { artifactSchemas } from '../src/schemas.js';
 
 type Vector = {
@@ -26,7 +26,7 @@ describe('DWE-HASH v1 byte compatibility', () => {
   it('covers every exact domain with lowercase 0x-prefixed SHA-256', () => {
     expect(vectors.profile).toBe('DWE-HASH-v1');
     expect(new Set(vectors.vectors.map(vector => vector.domain))).toEqual(
-      new Set(Object.keys(HASH_DOMAINS).filter(domain => domain !== 'enforcement-matrix' && domain !== 'mode-b-permission')),
+      new Set(Object.keys(HASH_DOMAINS).filter(domain => domain !== 'enforcement-matrix' && domain !== 'mode-b-permission' && domain !== 'mode-b-composition-permission')),
     );
     for (const vector of vectors.vectors) {
       expect(vector.digest).toMatch(/^0x[0-9a-f]{64}$/);
@@ -66,6 +66,23 @@ describe('DWE-HASH v1 byte compatibility', () => {
       'assert "0x"+hashlib.sha256(frame).hexdigest()==v["digest"]',
     ].join('\n');
     expect(() => execFileSync('python3', ['-c', script, new URL('../../../tests/compatibility/v1/mode-b-permission-vectors.json', import.meta.url).pathname])).not.toThrow();
+  });
+
+  it('keeps BUILD-007 composition v3 separate from frozen v1 and Mode B v2 vectors', () => {
+    const path = new URL('../../../tests/compatibility/v2/mode-b-composition-vectors.json', import.meta.url).pathname;
+    const vector = JSON.parse(readFileSync(path, 'utf8')) as { profile: string; permission: Record<string, unknown>; digest: string };
+    expect(vector.profile).toBe('DWE-HASH-v3-mode-b-composition');
+    expect(hashModeBCompositionPermission(vector.permission)).toBe(vector.digest);
+    expect(hashModeBCompositionPermission({ ...vector.permission, maxWETH: (BigInt(vector.permission.maxWETH as string) + 1n).toString() })).not.toBe(vector.digest);
+    const script = [
+      'import json,hashlib,sys',
+      'v=json.load(open(sys.argv[1],encoding="utf-8"))',
+      'p=json.dumps(v["permission"],sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()',
+      'd=b"defi-workflow-engine/mode-b-composition-permission/v3"',
+      'frame=b"DWE-HASH"+bytes([0,3])+len(d).to_bytes(2,"big")+d+len(p).to_bytes(8,"big")+p',
+      'assert "0x"+hashlib.sha256(frame).hexdigest()==v["digest"]',
+    ].join('\n');
+    expect(() => execFileSync('python3', ['-c', script, path])).not.toThrow();
   });
 
   it('classifies every structured schema field in the canonical projection', () => {

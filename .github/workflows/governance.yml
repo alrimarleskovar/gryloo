@@ -40,6 +40,7 @@ jobs:
             05910364feac7f9fe0856a5c2c197eeeb12db902
             9c5484db1a78602cb6603744b03fb1b4096266da
             4a402dd6be956fee0e3df001b8ad0f356f625937
+            f4868b94e10981b820653dd21d1ef94a72edb067
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -260,20 +261,51 @@ jobs:
                   create006&set(delivered005) or not modify006<=set(delivered005) or
                   len(set(delivered005)-modify006)!=390 or 'DEC-0036' not in plan006):
               errors.append('BUILD-006 approved scope list or authority inconsistent')
-          errors += ['BUILD-006 unapproved created path: '+v for v in sorted((now-set(delivered005))-create006)]
-          errors += ['BUILD-006 removed baseline file: '+v for v in sorted(set(delivered005)-now)]
+          # Freeze certified BUILD-006 before applying the owner-approved BUILD-007 scope.
+          base007='f4868b94e10981b820653dd21d1ef94a72edb067'
+          delivered006=tree(base007)
+          if len(delivered006)!=452:
+              errors.append('BUILD-007 certified baseline inventory changed')
+          errors += ['historical BUILD-006 unapproved created path: '+v for v in sorted((set(delivered006)-set(delivered005))-create006)]
+          errors += ['historical BUILD-006 removed baseline file: '+v for v in sorted(set(delivered005)-set(delivered006))]
+          for v in sorted(set(delivered005)&set(delivered006)):
+              if delivered006[v][0]!=delivered005[v][0]: errors.append('historical BUILD-006 mode changed: '+v)
+              if v not in modify006 and delivered006[v][1]!=delivered005[v][1]:
+                  errors.append('historical BUILD-006 protected baseline changed: '+v)
+          plan007=(root/'docs/builds/BUILD-007-PLAN.md').read_text()
+          scope007=plan007.split('## 11. Exact expected files',1)[1].split('## 12. Risks and rollback',1)[0]
+          create007=plan_list(scope007.split('**Create:**',1)[1].split('**Modify:**',1)[0])
+          modify007=plan_list(scope007.split('**Modify:**',1)[1].split('**Delete:**',1)[0])
+          consumer007={'apps/reference-dapp/package.json','packages/action-registry/package.json',
+              'packages/reference-linter/package.json','packages/reference-compiler/package.json',
+              'packages/reference-executor/package.json','packages/reference-reconciler/package.json'}
+          amended007=consumer007|{'scripts/bootstrap-ci.py'}
+          if (len(create007)!=36 or len(modify007)!=35 or create007&modify007 or
+                  create007&set(delivered006) or not modify007<=set(delivered006) or
+                  amended007&modify007 or not amended007<=set(delivered006) or
+                  'Owner-approved scope amendment' not in scope007 or 'Owner-approved verifier amendment' not in scope007 or
+                  len(set(delivered006)-(modify007|amended007))!=410):
+              errors.append('BUILD-007 approved scope list or amendment inconsistent')
+          modify007 |= amended007
+          errors += ['BUILD-007 unapproved created path: '+v for v in sorted((now-set(delivered006))-create007)]
+          errors += ['BUILD-007 removed baseline file: '+v for v in sorted(set(delivered006)-now)]
           for v in sorted(now):
               file=root/v
               if not file.is_file() or file.is_symlink():
                   errors.append('missing, non-file or symlink: '+v)
                   continue
               actual_mode='100755' if file.stat().st_mode & 0o111 else '100644'
-              if v in delivered005:
-                  if actual_mode!=delivered005[v][0]: errors.append('BUILD-006 mode changed: '+v)
-                  if v not in modify006 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered005[v][1]:
-                      errors.append('BUILD-006 protected baseline changed: '+v)
+              if v in delivered006:
+                  if actual_mode!=delivered006[v][0]: errors.append('BUILD-007 mode changed: '+v)
+                  if v not in modify007 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered006[v][1]:
+                      errors.append('BUILD-007 protected baseline changed: '+v)
               elif actual_mode!='100644':
-                  errors.append('BUILD-006 new executable file: '+v)
+                  errors.append('BUILD-007 new executable file: '+v)
+          for v in sorted(consumer007):
+              old=subprocess.check_output(['git','show',base007+':'+v],text=True)
+              new=(root/v).read_text()
+              if new!=old.replace('workspace:0.2.1','workspace:0.3.0'):
+                  errors.append('BUILD-007 consumer manifest changed beyond approved pin: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
               if v.startswith(('managed/','private/','proprietary/','services/managed/','services/partner-gateway/','services/enterprise-policy/','services/hosted-explorer/')):
@@ -325,6 +357,9 @@ jobs:
           l_store='apps/reference-dapp/src/state/liquidity-store.tsx'
           l_wallet='apps/reference-dapp/src/wallet/liquidity-eip1193.ts'
           l_panel='apps/reference-dapp/src/components/liquidity-panel.tsx'
+          composition_service='apps/reference-dapp/src/server/composition-service.ts'
+          composition_action='apps/reference-dapp/src/app/composition-action.ts'
+          composition_store='apps/reference-dapp/src/state/composition-store.tsx'
           f_client={'apps/reference-dapp/src/state/mode-a-store.tsx',f_wallet,'apps/reference-dapp/src/components/fork-simulation-panel.tsx',
                     'apps/reference-dapp/src/components/manifest-review.tsx','apps/reference-dapp/src/components/execution-panel.tsx',
                     'apps/reference-dapp/src/components/summary-bar.tsx','apps/reference-dapp/src/components/top-bar.tsx',
@@ -383,12 +418,22 @@ jobs:
                       scanned=scanned.replace('fetch(profile.rpcUrl,','',1)
                   if pattern.startswith('window') and name==b_store:
                       scanned=scanned.replace('eth_sendTransaction','')
+                  if pattern.startswith('window') and name==composition_store:
+                      scanned=scanned.replace('eth_sendTransaction','')
+                  if pattern.startswith('window') and name==composition_service:
+                      scanned=scanned.replace('eth_sendRawTransaction','')
+                  if pattern.startswith('\\bfetch') and name==composition_service:
+                      scanned=scanned.replace('fetch(profile.rpcUrl,','',1)
                   if pattern.startswith('window') and name=='apps/reference-dapp/src/server/fork-rpc.test.ts':
                       scanned=re.sub(r"'eth_(?:sendTransaction|sendRawTransaction|sign|signTransaction|signTypedData_v4)'|'personal_sign'",'',scanned)
                   if re.search(pattern,scanned): errors.append('forbidden authority, wallet or network token in '+str(file)+': '+pattern)
           # BUILD-003C network, pinning, server and consumer boundaries.
           non_test=[file for file in sources if not file.name.endswith('.test.ts') and not file.name.endswith('.test.tsx')]
           rpc_methods={'eth_chainId','eth_getBlockByNumber','eth_getCode','eth_call'}
+          composition_selectors={'0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8',
+                                 '0x0dfe1681','0xd21220a7','0xddca3f43','0xd0c93a7c','0x3850c7bd',
+                                 '0x70a08231','0xdd62ed3e','0x5e7c9fe8','0x2d9ad53d','0x5ae401dc',
+                                 '0x88316456','0x3b9aca00','0x6352211e','0x99fbab88'}
           selectors={'0x313ce567','0x95d89b41','0xc45a0155','0x4aa4a4fc','0x1698ee82','0xc6a5026a'}
           observation_files={
               'packages/reference-linter/src/base-observation.ts','packages/reference-linter/src/index.ts',
@@ -410,17 +455,17 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action} and name not in f_tests:
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action} and name not in f_tests:
                   if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body) if name in f_client else body):
                       errors.append('client imports server module: '+name)
               if file in non_test:
                   allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
-                           else fork_read_methods|{'eth_sendRawTransaction'} if name==b_server else fork_read_methods if name in f_server|{f_action,l_server,l_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction'} if name==b_store else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
+                           else fork_read_methods|{'eth_sendRawTransaction'} if name in {b_server,composition_service} else fork_read_methods if name in f_server|{f_action,l_server,l_action,composition_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction','eth_requestAccounts'} if name in {b_store,composition_store} else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
                   for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
-                      if selector not in (selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors):
+                      if selector not in (selectors|composition_selectors if name==composition_service else selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors):
                           errors.append('seventh selector or other short hex in source: '+name+' '+selector)
           action=(root/'apps/reference-dapp/src/app/observation-action.ts').read_text()
           if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action):
@@ -440,7 +485,7 @@ jobs:
                   errors.append('mocked and observation modules import each other: '+observed+' '+mocked)
           # BUILD-003D Mode A package boundaries (plan section 3.17), exhaustive over the delivered sources.
           mode_a_bases=('packages/reference-compiler/src','packages/reference-executor/src','packages/reference-reconciler/src')
-          mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts'}]
+          mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts','composition.ts'}]
           if len(mode_a_sources)!=26: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
@@ -472,7 +517,7 @@ jobs:
           for file in sources:
               name=file.as_posix()
               body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts',l_server,l_wallet}|f_tests else type_only(file.read_text())
-              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet}|f_tests: continue
+              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet,composition_service}|f_tests: continue
               if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
                   errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
           # BUILD-006 adds one explicit local-fork liquidity server and a browser-only exact-payload verifier.
@@ -503,6 +548,20 @@ jobs:
               errors.append('BUILD-005 local signed-intent boundary changed')
           if any(token in (root/cow_store).read_text() for token in ('privateKey','mnemonic','executorKey')):
               errors.append('BUILD-005 secret entered browser state')
+          # BUILD-007: one reviewed local-only composition service and an exact fixed worker send.
+          composition_action_text=(root/composition_action).read_text()
+          composition_service_text=(root/composition_service).read_text()
+          composition_store_text=(root/composition_store).read_text()
+          if (not composition_action_text.startswith("// SPDX-License-Identifier: AGPL-3.0-only\n'use server';") or
+                  "process.env.GRYLOO_COMPOSITION_MODE !== 'fork'" not in composition_action_text or
+                  "profile.environment !== 'FORK_REPRODUCED'" not in composition_action_text or
+                  '127\\.0\\.0\\.1' not in composition_service_text or
+                  "profile.chainId !== 31337" not in composition_service_text or
+                  composition_service_text.count('fetch(profile.rpcUrl,')!=1 or
+                  'COMPOSITION_WORKER_CALL_CHANGED' not in composition_service_text or
+                  'COMPOSITION_PERMISSION_NOT_INSTALLED' not in composition_service_text or
+                  any(token in composition_store_text for token in ('privateKey','mnemonic','executorKey'))):
+              errors.append('BUILD-007 opt-in, loopback, exact-worker or browser-secret boundary changed')
           # BUILD-003F negative boundary checks.
           for file in sources:
               if re.search(r'''(?:from|import)\s*\(?['"][^'"]*e2e/''',file.read_text()):
@@ -558,7 +617,7 @@ jobs:
           if errors:
               print('\n'.join(errors),file=sys.stderr)
               raise SystemExit(1)
-          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B/BUILD-003C and historical BUILD-003D closure, BUILD-003F approved subset and BUILD-005 exact scope, modes, protected bytes, source scans and legal hashes passed')
+          print('Historical BUILD-002/amendment/BUILD-003A/BUILD-003B/BUILD-003C and historical BUILD-003D closure, BUILD-003F approved subset and BUILD-005/BUILD-006 historical and BUILD-007 exact scope, modes, protected bytes, source scans and legal hashes passed')
           PYCODE
 
       - name: Verify restored persistent governance controls
@@ -822,8 +881,10 @@ jobs:
               errors.append('DEC-0036 local-fork BUILD-006 authority missing')
           if not re.search(r'(?m)^\| BUILD-006 liquidity local-fork certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_FORK_REPRODUCED_LOCAL \(DEC-0037\) \|$',authority):
               errors.append('DEC-0037 FORK_REPRODUCED certification missing from authority matrix')
-          if not re.search(r'(?m)^\| BUILD-007 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
-              errors.append('BUILD-007 must remain planning only in authority matrix')
+          if not re.search(r'(?m)^\| BUILD-007 planning after BUILD-006 \(historical\) \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY_HISTORICAL \|$',authority):
+              errors.append('DEC-0037 historical BUILD-007 planning boundary missing')
+          if not re.search(r'(?m)^\| BUILD-007 finite Mode B local-fork composition implementation \|[^|\n]+\|[^|\n]+\| APPROVED_LOCAL_FORK_ONLY \|$',authority):
+              errors.append('DEC-0038 BUILD-007 bounded implementation authority missing')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -870,14 +931,25 @@ jobs:
                       '36361208012','36361208019','c9a02102422df5a333d67bdf869a4f1b75ae2ec314d1e834872d92c86ea95805',
                       'BUILD-007 planning only','No BUILD-007 plan or implementation is approved'))):
               errors.append('DEC-0037 BUILD-006 closure authority incomplete')
+          decision38=[line for line in decisions.splitlines() if line.startswith('| DEC-0038 |')]
+          if (len(decision38)!=1 or not decision38[0].endswith('| APPROVED |') or
+                  any(v not in decision38[0] for v in ('BUILD-007 plan','f4868b94e10981b820653dd21d1ef94a72edb067',
+                    'Zodiac Roles 2.1.0','1,500-request','39,000-CU','six workspace consumer manifest','one unmerged PR'))):
+              errors.append('DEC-0038 BUILD-007 authority incomplete')
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
               errors.append('NEXT_BUILD.md must record BUILD-004 and direct BUILD-005 transition plus history')
           if 'DEC-0036' not in next_build or 'one unmerged PR' not in next_build:
               errors.append('BUILD-006 approval history missing')
-          if (not next_build.startswith('# Next build\n\n## Next milestone: BUILD-007 planning only') or
-                  'DEC-0037' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
-              errors.append('BUILD-007 planning-only transition missing')
+          if (not next_build.startswith('# Next build\n\n## Current approved milestone: BUILD-007 implementation') or
+                  'DEC-0038' not in next_build or '## Historical next milestone: BUILD-007 planning only' not in next_build or
+                  'No BUILD-007 plan, implementation' not in next_build):
+              errors.append('BUILD-007 approved transition or DEC-0037 history missing')
+          if ('BUILD-007 APPROVED / IN PROGRESS' not in markdown['docs/STATUS.md'] or
+                  'BUILD-007' not in markdown['docs/REQUIREMENTS.md'] or
+                  not any(line.startswith('| B007-EVIDENCE-001 |') and 'FORK_REPRODUCED on local chain 31337' in line
+                          for line in markdown['docs/REQUIREMENTS.md'].splitlines())):
+              errors.append('BUILD-007 status or requirements boundary missing')
           for marker in ('BUILD-006: COMPLETE','BUILD-006 certification: CERTIFIED: FORK_REPRODUCED','DEC-0037',
                          '1edd783028ee8eed0953ca1e7e1446ad03229844','36361208012','36361208019'):
               if marker not in markdown['docs/STATUS.md']: errors.append('current BUILD-006 certification marker missing: '+marker)
@@ -1027,7 +1099,7 @@ jobs:
                   if len(keys)!=len(set(keys)): raise ValueError('duplicate JSON key')
                   return dict(items)
               return json.loads(body,object_pairs_hook=pairs)
-          for directory,version in (('workflow-contracts','0.2.1'),('action-registry','0.1.0')):
+          for directory,version in (('workflow-contracts','0.3.0'),('action-registry','0.1.0')):
               manifest=strict_json(authored['packages/'+directory+'/package.json'])
               expected={'name':'@defi-workflow-engine/'+directory,'version':version,'private':True,'type':'module',
                         'license':'Apache-2.0','exports':exports,'files':['dist','schemas/v1','LICENSE']}
@@ -1039,12 +1111,12 @@ jobs:
                             'private':True,'type':'module','license':'AGPL-3.0-only',
                             'exports':linter_exports,'files':['dist','LICENSE'],
                             'dependencies':{'@defi-workflow-engine/action-registry':'workspace:0.1.0',
-                                            '@defi-workflow-engine/workflow-contracts':'workspace:0.2.1',
+                                            '@defi-workflow-engine/workflow-contracts':'workspace:0.3.0',
                                             'ajv':'8.20.0','canonicalize':'5.0.0'}}.items():
               if linter.get(key)!=value: errors.append('reference-linter package contract mismatch: '+key)
-          mode_a_dependencies={'reference-compiler':{'@defi-workflow-engine/action-registry':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.1','@noble/hashes':'2.4.0'},
-                               'reference-executor':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.1','@noble/curves':'2.4.0','@noble/hashes':'2.4.0'},
-                               'reference-reconciler':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.2.1',
+          mode_a_dependencies={'reference-compiler':{'@defi-workflow-engine/action-registry':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.3.0','@noble/hashes':'2.4.0'},
+                               'reference-executor':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.3.0','@noble/curves':'2.4.0','@noble/hashes':'2.4.0'},
+                               'reference-reconciler':{'@defi-workflow-engine/reference-compiler':'workspace:0.1.0','@defi-workflow-engine/workflow-contracts':'workspace:0.3.0',
                                                        '@noble/curves':'2.4.0','@noble/hashes':'2.4.0'}}
           for directory,dependencies in mode_a_dependencies.items():
               manifest=strict_json(authored['packages/'+directory+'/package.json'])

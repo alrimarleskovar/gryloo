@@ -1,5 +1,9 @@
 # License map
 
+## BUILD-007 license impact
+
+The additive composition permission domain and v2 compatibility vector in `packages/workflow-contracts/**` remain Apache-2.0. New reference compiler, linter, executor, reconciler and DApp files follow their existing AGPL-3.0-only path rules. Official Safe, Zodiac Roles, ERC-2470 and Uniswap artifacts are digest-pinned temporary test inputs outside Git; this build adds no registry dependency, vendored binary or third-party legal text. `workflow-contracts` advances to private workspace version 0.3.0 with exact consumer pins; publication is not authorized.
+
 This is the authoritative path classification for the multi-licensed Gryloo
 repository. Each currently tracked file belongs to exactly one row below.
 Paths in a row do not overlap paths in another row. The license texts are

@@ -32,3 +32,5 @@ export { COW_ADAPTER, COW_CHAIN, COW_SETTLEMENT, COW_RELAYER, compileCow, verify
 export type { CowQuote, CowOrder, CowCompiled, CowTypedData } from './cow.js';
 
 export * from './liquidity.js';
+
+export * from './composition.js';

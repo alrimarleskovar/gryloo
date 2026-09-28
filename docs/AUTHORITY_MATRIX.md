@@ -1,5 +1,9 @@
 # Authority matrix
 
+## BUILD-007 finite composition authority
+
+The approved `MODE_B_FINITE_DELEGATION` profile applies only on local chain 31337. A Safe owner signs the exact approvals, two role installations and revocation; the owner retains broader Safe control. The disposable executor can call only the reviewed Router02 exact-input swap and Position Manager mint through separate one-use Zodiac Roles permissions. Roles enforces target, selector, token pair, Safe recipient, swap input and mint fee, ticks, desired-amount ceilings, fixed minimums and deadline fields. Uniswap enforces output minimum, mint minimums and deadlines. The application checks cumulative budgets, gas reserve, sequential step order, state freshness and durable recovery. Hashes bind review artifacts but do not create onchain enforcement. The direct onchain bypass table and exact boundary results are in the [BUILD-007 report](builds/BUILD-007-REPORT.md). The one read-only Base recording attempt stopped after 2 requests / 52 reserved CU and is exhausted; a new attempt requires another owner decision.
+
 `NOT_ENFORCED` means no financial enforcement control exists in BUILD-001. Documentation,
 UI checks, and monitoring do not become independent enforcement.
 
@@ -29,7 +33,8 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-005 CoW local profile certification | Human owner | DEC-0035, [BUILD-005 report](builds/BUILD-005-REPORT.md), PR #15 merge and passing post-merge checks | CERTIFIED_MOCKED_LOCAL (DEC-0035) |
 | BUILD-006 isolated Mode A local-fork liquidity implementation | Human owner | DEC-0036 and the approved BUILD-006 plan; owner-operated read-only recording only after its bounded preflight | APPROVED_LOCAL_FORK_ONLY |
 | BUILD-006 liquidity local-fork certification | Human owner | DEC-0037, [BUILD-006 report](builds/BUILD-006-REPORT.md), PR #16 merge and passing post-merge checks | CERTIFIED_FORK_REPRODUCED_LOCAL (DEC-0037) |
-| BUILD-007 planning | Human owner | DEC-0037 allows planning only; a separate plan and approval are required for implementation | PLANNING_ONLY |
+| BUILD-007 planning after BUILD-006 (historical) | Human owner | DEC-0037 allowed planning only before DEC-0038 | PLANNING_ONLY_HISTORICAL |
+| BUILD-007 finite Mode B local-fork composition implementation | Human owner | DEC-0038 and approved BUILD-007 plan; one conditional bounded read-only owner recording; merge remains owner decision | APPROVED_LOCAL_FORK_ONLY |
 | Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.
@@ -68,4 +73,4 @@ DEC-0028 approved 52 created and 46 modified paths, one real Alchemy Free Base M
 
 BUILD-006 implementation remains bounded by DEC-0036: the owner operates the one read-only Base recording after preflight; the DApp and server may prepare exact Mode A payloads on local chain 31337, and only the user wallet may sign. Offline unit results confer no recording completion, public-chain write, Mode B liquidity, BUILD-007 composition or merge authority.
 
-After the owner merged PR #16 as 1edd783028ee8eed0953ca1e7e1446ad03229844, the post-merge Governance fetch was fixed in 3e4aae6fb48812a6db64abdd771e13718f96615e; Governance run 36361208012 and contracts/app run 36361208019 then passed. DEC-0037 certifies BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED for the isolated Uniswap v3 Mode A liquidity lifecycle on local chain 31337 only. This does not alter the separate BUILD-003/004/005 certifications. It establishes no public-chain, production-wallet, real-funds, Mode B liquidity or BUILD-007 composition authority. BUILD-007 is planning only.
+After the owner merged PR #16 as 1edd783028ee8eed0953ca1e7e1446ad03229844, the post-merge Governance fetch was fixed in 3e4aae6fb48812a6db64abdd771e13718f96615e; Governance run 36361208012 and contracts/app run 36361208019 then passed. DEC-0037 certifies BUILD-006 COMPLETE / CERTIFIED: FORK_REPRODUCED for the isolated Uniswap v3 Mode A liquidity lifecycle on local chain 31337 only. This does not alter the separate BUILD-003/004/005 certifications. It establishes no public-chain, production-wallet, real-funds, Mode B liquidity or BUILD-007 composition authority. DEC-0037's BUILD-007 planning-only statement is historical; DEC-0038 now approves the bounded BUILD-007 implementation.

@@ -243,18 +243,18 @@ BUILD003D_DIRECT_VERSIONS = {
 BUILD003D_REFERENCE_PACKAGES = {
     "packages/reference-compiler/package.json": ("@defi-workflow-engine/reference-compiler", {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         "@noble/hashes": "2.4.0",
     }),
     "packages/reference-executor/package.json": ("@defi-workflow-engine/reference-executor", {
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
     }),
     "packages/reference-reconciler/package.json": ("@defi-workflow-engine/reference-reconciler", {
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
     }),
@@ -335,6 +335,17 @@ def verify_dependencies():
         if locked.get(identity) != digest:
             errors.append(f"BUILD-001 direct integrity mismatch: {identity}")
 
+    # BUILD-007 owner-approved additive contracts 0.3.0 and exact six consumer links.
+    contracts = json.loads(Path("packages/workflow-contracts/package.json").read_text())
+    if contracts.get("version") != "0.3.0" or contracts.get("private") is not True:
+        errors.append("BUILD-007 workflow-contracts workspace version differs")
+    registry = json.loads(Path("packages/action-registry/package.json").read_text())
+    if registry.get("dependencies") != {
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
+        "@sinclair/typebox": "0.34.52",
+        "ajv": "8.20.0",
+    }:
+        errors.append("BUILD-007 action-registry workspace pin differs")
     app = json.loads(Path("apps/reference-dapp/package.json").read_text())
     expected_app_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
@@ -343,7 +354,7 @@ def verify_dependencies():
         "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
         "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
         "@defi-workflow-engine/reference-reconciler": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
     }
@@ -354,7 +365,7 @@ def verify_dependencies():
     linter = json.loads(Path("packages/reference-linter/package.json").read_text())
     expected_linter_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-        "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+        "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         "ajv": "8.20.0",
         "canonicalize": "5.0.0",
     }
@@ -369,13 +380,16 @@ def verify_dependencies():
         match = re.search(rf"(?ms)^  {re.escape(path)}:\n(.*?)(?=^  \S|\Z)", importer_section)
         return match.group(1) if match else ""
 
+    registry_importer = importer_block("packages/action-registry")
+    if "      '@defi-workflow-engine/workflow-contracts':\n        specifier: workspace:0.3.0\n        version: link:../workflow-contracts\n" not in registry_importer:
+        errors.append("BUILD-007 action-registry lock importer differs")
     linter_importer = importer_block("packages/reference-linter")
     expected_linter_importer = """    dependencies:
       '@defi-workflow-engine/action-registry':
         specifier: workspace:0.1.0
         version: link:../action-registry
       '@defi-workflow-engine/workflow-contracts':
-        specifier: workspace:0.2.1
+        specifier: workspace:0.3.0
         version: link:../workflow-contracts
       ajv:
         specifier: 8.20.0
@@ -387,6 +401,8 @@ def verify_dependencies():
     if linter_importer.strip() != expected_linter_importer.strip():
         errors.append("BUILD-003A linter lock importer differs")
     app_importer = importer_section.split("  apps/reference-dapp:\n", 1)[1].split("\n  packages/action-registry:", 1)[0]
+    if "      '@defi-workflow-engine/workflow-contracts':\n        specifier: workspace:0.3.0\n        version: link:../../packages/workflow-contracts\n" not in app_importer:
+        errors.append("BUILD-007 app lock workflow-contracts link differs")
     if app_importer.count("'@defi-workflow-engine/reference-linter':") != 1 or not re.search(
             r"(?m)^      '@defi-workflow-engine/reference-linter':\n        specifier: workspace:0\.1\.0\n        version: link:\.\./\.\./packages/reference-linter$",
             app_importer):
@@ -419,7 +435,7 @@ def verify_dependencies():
         manifest = json.loads(manifest_path.read_text())
         for kind in ("dependencies", "devDependencies"):
             for name, version in manifest.get(kind, {}).items():
-                if version in ("workspace:0.1.0", "workspace:0.2.1") and name.startswith("@defi-workflow-engine/"):
+                if version in ("workspace:0.1.0", "workspace:0.3.0") and name.startswith("@defi-workflow-engine/"):
                     continue
                 if (name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version
                         and BUILD003D_DIRECT_VERSIONS.get(name) != version):

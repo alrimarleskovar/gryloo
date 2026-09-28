@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@defi-workflow-engine/action-registry": "workspace:0.1.0",
-    "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+    "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
     "@noble/hashes": "2.4.0"
   }
 }

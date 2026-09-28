@@ -1,5 +1,9 @@
 # Scope guard
 
+## BUILD-007 approved path and authority guard
+
+DEC-0038 approves only the exact created and modified paths in [BUILD-007 plan §11](builds/BUILD-007-PLAN.md), plus the six consumer-manifest pin amendments recorded there. Every other tracked baseline path, including certified BUILD-003–006 records and transcripts, frozen v1 contracts/vectors and prior visual snapshots, is byte- and mode-protected. The owner authorizes implementation, local gates, one conditional bounded read-only Base recording, report, commit, push and one unmerged PR. Public-chain writes, testnet, mainnet, production keys, real funds, later liquidity operations, package publication and PR merge remain outside scope.
+
 ## Immutable product thesis
 
 - Gryloo is a conversational and visual compiler plus bounded executor, not a

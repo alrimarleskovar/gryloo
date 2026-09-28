@@ -14,3 +14,4 @@ export { initialCowRecord, transitionCow, cowStatus, postCowOnce, recoverCowPost
 export type { CowOrderState, CowOrderbookStatus, CowOrderbookView, CowSignedOrder, CowOrderbookTransport, CowPostingRecord } from './cow.js';
 
 export * from "./liquidity.js";
+export * from './composition.js';

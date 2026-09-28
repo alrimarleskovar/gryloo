@@ -17,7 +17,7 @@
     "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
     "@defi-workflow-engine/reference-linter": "workspace:0.1.0",
     "@defi-workflow-engine/reference-reconciler": "workspace:0.1.0",
-    "@defi-workflow-engine/workflow-contracts": "workspace:0.2.1",
+    "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
     "@xyflow/react": "12.11.6",
     "next": "16.3.5",
     "react": "19.3.0",
