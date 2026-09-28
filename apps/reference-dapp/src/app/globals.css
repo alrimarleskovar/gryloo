@@ -177,3 +177,24 @@
 .liquidity-payload code { display: block; max-height: 10rem; overflow: auto; overflow-wrap: anywhere; padding: .75rem; font-size: .75rem; }
 .liquidity-panel [role='alert'] { overflow-wrap: anywhere; }
 @media (max-width: 720px) { .liquidity-buttons { display: grid; grid-template-columns: 1fr; } .liquidity-buttons button { width: 100%; } }
+
+/* BUILD-008 bridge review follows the existing panel language and remains visibly MOCKED. */
+.library{overflow-y:auto}
+.bridge-panel{margin-top:14px;padding:18px}
+.bridge-panel .simulate-head{margin-bottom:16px}
+.bridge-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}
+.bridge-controls button{min-height:40px;border:0;border-radius:6px;background:var(--blue);color:white;padding:0 14px;font-weight:700}
+.bridge-controls select{min-height:40px;border:1px solid var(--line);border-radius:6px;background:var(--paper);padding:0 10px}
+.bridge-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bridge-review .step-card{margin:12px 0}
+.bridge-review code{overflow-wrap:anywhere}
+.bridge-review .numeric{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.bridge-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bridge-calldata{display:block;max-height:170px;overflow:auto;word-break:break-all}
+.bridge-timeline ol{padding-left:22px}
+.bridge-timeline li{margin:8px 0;line-height:1.5}
+.bridge-timeline code{display:block;font-size:11px}
+.bridge-create{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px}
+.bridge-create input,.bridge-create button{min-height:40px}
+.bridge-panel button:focus-visible,.bridge-panel select:focus-visible,.bridge-create button:focus-visible,.bridge-create input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media(max-width:800px){.bridge-grid{grid-template-columns:1fr}.bridge-panel{padding:14px}}

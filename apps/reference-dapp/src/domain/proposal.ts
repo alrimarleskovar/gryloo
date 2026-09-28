@@ -3,6 +3,7 @@ import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import type { EditorState } from './editor';
 import type { Command } from './commands';
 import { swapDetails } from './swap-authoring';
+import { bridgeDetails } from './bridge-authoring';
 import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
@@ -17,6 +18,11 @@ export function describeProposal(before: EditorState, after: EditorState, comman
   ]);
   const oldNode = 'nodeId' in command ? before.workflow.nodes.find(n => n.nodeId === command.nodeId) : undefined;
   const newNode = after.workflow.nodes.find(n => n.nodeId === ('nodeId' in command ? command.nodeId : `node-${String(before.workflow.revision + 2).padStart(3, '0')}`));
+  const bridge = newNode && bridgeDetails(newNode);
+  if (bridge) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Node ${newNode?.nodeId}: Base → Optimism USDC bridge`,
+    `Input ${bridge.amount} USDC; slippage ${bridge.slippageBps} bps`,
+    'Recipient is the connected owner. A fresh live LI.FI quote and Manifest review are required.' ]);
   const oldLiquidity = oldNode && liquidityDetails(oldNode, context);
   const newLiquidity = newNode && liquidityDetails(newNode, context);
   if (newLiquidity) return Object.freeze([

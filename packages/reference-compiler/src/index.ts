@@ -34,3 +34,6 @@ export type { CowQuote, CowOrder, CowCompiled, CowTypedData } from './cow.js';
 export * from './liquidity.js';
 
 export * from './composition.js';
+
+export { BRIDGE_ADAPTER, compileBridge, verifyBridgeReview } from './bridge.js';
+export type { BridgeRoute, BridgeCompiled } from './bridge.js';

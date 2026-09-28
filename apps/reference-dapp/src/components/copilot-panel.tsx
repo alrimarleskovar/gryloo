@@ -43,6 +43,6 @@ export function CopilotPanel() {
       {pending.review && <p>Review: {pending.review.findings.length} findings · execution unavailable</p>}</div>
       <div className="proposal-actions"><button type="button" onClick={apply} disabled={pending.diff.length === 1 && pending.diff[0] !== 'Edit'}>Apply proposal</button><button type="button" className="quiet" onClick={dismissProposal}>Dismiss</button></div>
     </div>}
-    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">Describe a mock edit or Base swap</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder="Swap 2 USDC to WETH on Base slippage 50 bps" maxLength={1024} autoComplete="off"/><button type="submit">Send</button></div><small>{HELP}</small></form>
+    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">Describe a mock edit</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder="Swap 2 USDC to WETH on Base slippage 50 bps" maxLength={1024} autoComplete="off"/><button type="submit">Send</button></div><small>{HELP}</small></form>
   </aside>;
 }

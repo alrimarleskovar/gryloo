@@ -14,3 +14,5 @@ export type { CowTrade, CowSettlementObservation, CowReconciliation } from './co
 
 export * from "./liquidity.js";
 export * from './composition.js';
+
+export * from './bridge.js';
