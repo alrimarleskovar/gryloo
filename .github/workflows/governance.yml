@@ -42,6 +42,7 @@ jobs:
             4a402dd6be956fee0e3df001b8ad0f356f625937
             f4868b94e10981b820653dd21d1ef94a72edb067
             bf280d4184a83c9841d9a6b70dbebab1fd03e23e
+            d5d3934d595943a45f5696fab440437d81e0690c
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -312,6 +313,10 @@ jobs:
                   'DEC-0044' not in plan008 or 'Amendment 2' not in plan008 or
                   '.github/workflows/governance.yml' not in modify008):
               errors.append('BUILD-008 approved scope list or amendment inconsistent')
+          certification_records008={'.github/workflows/governance.yml','README.md',
+              'docs/AUTHORITY_MATRIX.md','docs/DECISIONS.md','docs/EVIDENCE_LEVELS.md',
+              'docs/NEXT_BUILD.md','docs/SCOPE_GUARD.md','docs/STATUS.md',
+              'docs/builds/BUILD-008-REPORT.md'}
           errors += ['BUILD-008 unapproved created path: '+v for v in sorted((now-set(delivered007))-create008)]
           errors += ['BUILD-008 removed baseline file: '+v for v in sorted(set(delivered007)-now)]
           for v in sorted(now):
@@ -322,10 +327,24 @@ jobs:
               actual_mode='100755' if file.stat().st_mode & 0o111 else '100644'
               if v in delivered007:
                   if actual_mode!=delivered007[v][0]: errors.append('BUILD-008 mode changed: '+v)
-                  if v not in modify008 and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered007[v][1]:
+                  if v not in (modify008|certification_records008) and subprocess.check_output(['git','hash-object',v],text=True).strip()!=delivered007[v][1]:
                       errors.append('BUILD-008 protected baseline changed: '+v)
               elif actual_mode!='100644':
                   errors.append('BUILD-008 new executable file: '+v)
+          # DEC-0046: freeze the merged BUILD-008 product tree; this commit is records only.
+          merged008=tree('d5d3934d595943a45f5696fab440437d81e0690c')
+          if len(merged008)!=len(delivered007)+len(create008):
+              errors.append('BUILD-008 merge inventory changed')
+          errors += ['BUILD-008 certification added path: '+v for v in sorted(now-set(merged008))]
+          errors += ['BUILD-008 certification removed path: '+v for v in sorted(set(merged008)-now)]
+          closure_changed=set()
+          for v in sorted(now&set(merged008)):
+              file=root/v
+              mode='100755' if file.stat().st_mode & 0o111 else '100644'
+              oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
+              if (mode,oid)!=merged008[v]: closure_changed.add(v)
+          if closure_changed!=certification_records008:
+              errors.append('BUILD-008 certification must change only its nine records/governance files: '+repr(sorted(closure_changed^certification_records008)))
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
@@ -942,10 +961,13 @@ jobs:
               errors.append('DEC-0038 BUILD-007 bounded implementation authority missing')
           if not re.search(r'(?m)^\| BUILD-007 composition local-fork certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_FORK_REPRODUCED_LOCAL \(DEC-0043\) \|$',authority):
               errors.append('DEC-0043 FORK_REPRODUCED certification missing from authority matrix')
-          # The frozen authority-matrix row records DEC-0043's historical planning state.
-          # DEC-0044/0045 and the current plan supersede it without changing an unapproved path.
+          # DEC-0043's BUILD-008 planning row remains historical and unchanged.
           if not re.search(r'(?m)^\| BUILD-008 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
               errors.append('historical BUILD-008 planning row changed outside approved scope')
+          if not re.search(r'(?m)^\| BUILD-008 bridge certification \|[^|\n]+\|[^|\n]+\| CERTIFIED_MOCKED \(DEC-0046\) \|$',authority):
+              errors.append('DEC-0046 MOCKED certification missing from authority matrix')
+          if not re.search(r'(?m)^\| BUILD-009 planning \|[^|\n]+\|[^|\n]+\| PLANNING_ONLY \|$',authority):
+              errors.append('BUILD-009 planning-only boundary missing from authority matrix')
           decisions=markdown['docs/DECISIONS.md']
           exact=('| DEC-0003 | Keep ADR-0001 proposed until separate human approval. | APPROVED |',
                  '| DEC-0004 | Record legal files as blocked pending formal team IP ownership. | SUPERSEDED_BY_DEC-0008 |',
@@ -1012,14 +1034,29 @@ jobs:
           if (len(decision45)!=1 or not decision45[0].endswith('| APPROVED |') or
                   any(v not in decision45[0] for v in ('.github/workflows/governance.yml','MOCKED','no real funds','TESTNET_EXECUTED','MAINNET_EXECUTED','Merge and certification are not approved'))):
               errors.append('DEC-0045 governance amendment boundary missing')
+          decision46=[line for line in decisions.splitlines() if line.startswith('| DEC-0046 |')]
+          if (len(decision46)!=1 or not decision46[0].endswith('| APPROVED |') or
+                  any(v not in decision46[0] for v in ('BUILD-008 COMPLETE / CERTIFIED: MOCKED',
+                      'd5d3934d595943a45f5696fab440437d81e0690c','36479683368','36479683443',
+                      'Base → Optimism USDC','LI.FI','read-only provider evidence',
+                      'execution, recovery and destination reconciliation remain deterministic MOCKED',
+                      'TESTNET_EXECUTED','MAINNET_EXECUTED','no real-funds claim',
+                      'no public-chain financial execution claim','BUILD-009 is planning only'))):
+              errors.append('DEC-0046 BUILD-008 closure authority incomplete')
           report008=markdown['docs/builds/BUILD-008-REPORT.md']
           status008=markdown['docs/STATUS.md']
-          for marker in ('Base (8453) USDC → Optimism (10) USDC', 'read-only LI.FI',
-                         'MOCKED', 'No public transaction or real funds',
+          for marker in ('BUILD-008 COMPLETE / CERTIFIED: MOCKED','Base (8453) USDC → Optimism (10) USDC',
+                         'read-only LI.FI','real provider evidence','deterministic MOCKED',
+                         'd5d3934d595943a45f5696fab440437d81e0690c',
+                         '36479683368','36479683443','Browser','Audit','SBOM',
+                         'No public transaction or real funds',
                          'No `TESTNET_EXECUTED` or `MAINNET_EXECUTED` claim'):
               if marker not in report008: errors.append('BUILD-008 report boundary missing: '+marker)
-          for marker in ('BUILD-008 local implementation', 'financial evidence `MOCKED`',
-                         'certification NOT CERTIFIED', 'branch unmerged'):
+          for marker in ('BUILD-008: COMPLETE','BUILD-008 certification: CERTIFIED: MOCKED',
+                         'DEC-0046','d5d3934d595943a45f5696fab440437d81e0690c',
+                         '36479683368','36479683443','real read-only provider evidence',
+                         'financial bridge execution, recovery and destination reconciliation remain deterministic MOCKED',
+                         'BUILD-009 is planning only'):
               if marker not in status008: errors.append('BUILD-008 status boundary missing: '+marker)
           next_build=markdown['docs/NEXT_BUILD.md']
           if 'BUILD-004' not in next_build or 'BUILD-005' not in next_build or 'BUILD-003D' not in next_build or 'BUILD-003F' not in next_build:
@@ -1029,10 +1066,15 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current BUILD-008 review checkpoint') or
-                  'DEC-0044' not in next_build or 'MOCKED' not in next_build or
-                  'Base → Optimism USDC' not in next_build or 'unmerged' not in next_build):
-              errors.append('BUILD-008 bounded implementation transition missing')
+          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-009 planning only') or
+                  'DEC-0046' not in next_build or 'MOCKED' not in next_build or
+                  'Base → Optimism USDC' not in next_build or
+                  'no BUILD-009 plan or implementation is approved' not in next_build):
+              errors.append('BUILD-009 planning-only transition missing')
+          for record in ('README.md','docs/EVIDENCE_LEVELS.md','docs/SCOPE_GUARD.md','docs/AUTHORITY_MATRIX.md'):
+              if ('DEC-0046' not in markdown[record] or 'BUILD-009' not in markdown[record] or
+                      'MOCKED' not in markdown[record]):
+                  errors.append('BUILD-008 certification record missing: '+record)
           for marker in ('BUILD-007: COMPLETE','BUILD-007 certification: CERTIFIED: FORK_REPRODUCED','DEC-0043',
                          'b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce','36438835696','36438835487','6/30','12/30'):
               if marker not in markdown['docs/STATUS.md']: errors.append('current BUILD-007 certification marker missing: '+marker)

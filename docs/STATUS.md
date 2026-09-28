@@ -1,10 +1,10 @@
 # Repository status
 
-## BUILD-008 local implementation (2026-09-28)
+## BUILD-008 certified state (2026-09-28)
 
-Under DEC-0044, `codex/build-008-lifi-bridge` starts from certified `main` bf280d4184a83c9841d9a6b70dbebab1fd03e23e. The single Base → Optimism USDC `asset.bridge` workflow is implemented with shared chat/canvas IR, live read-only LI.FI token and quote data, bounded Manifest and exact payload review, durable deterministic MOCKED lifecycle, restart/recheck, and scripted destination reconciliation. The live browser journey reached `RECONCILED` with one source attempt; LI.FI selected Across during that run. DEC-0045 adds only the Governance workflow to the allowed Modify paths. Local governance, `pnpm check` and the focused browser journey passed. See [BUILD-008 report](builds/BUILD-008-REPORT.md) for exact results and limitations.
+Under DEC-0046, BUILD-008 is COMPLETE / CERTIFIED: MOCKED. [PR #18](https://github.com/alrimarleskovar/gryloo/pull/18) merged the approved head `13ed18c082dfefb7d830eca4c071403e0ed2d39a` into main as `d5d3934d595943a45f5696fab440437d81e0690c`. Post-merge [Governance run 36479683368](https://github.com/alrimarleskovar/gryloo/actions/runs/36479683368) and [contracts/reference-app run 36479683443](https://github.com/alrimarleskovar/gryloo/actions/runs/36479683443) passed on that merge commit; the latter passed contracts, guarded Browser, dependency Audit and SBOM validation. See the [BUILD-008 report](builds/BUILD-008-REPORT.md) for the implementation and CI record.
 
-**Markers:** BUILD-008 local implementation complete; financial evidence `MOCKED`; certification NOT CERTIFIED; branch unmerged. No testnet/mainnet transaction, real funds, public demo execution, production wallet, PR-head CI, owner merge or post-merge certification occurred. BUILD-007 remains separately COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337. BUILD-007E public EVM demo readiness remains a separate milestone.
+**Markers:** BUILD-008: COMPLETE. BUILD-008 certification: CERTIFIED: MOCKED. The implemented `asset.bridge` path is Base → Optimism USDC with the connected owner as recipient. Live LI.FI token and quote/route data are real read-only provider evidence; financial bridge execution, recovery and destination reconciliation remain deterministic MOCKED. There is no `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, real-funds or public-chain financial execution claim. BUILD-003/004/006/007 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications are unchanged. BUILD-009 is planning only, with no plan or implementation approved. BUILD-007E public EVM demo readiness remains separate.
 
 ## Current state after BUILD-007 certification (2026-09-28)
 

@@ -1,5 +1,9 @@
 # Scope guard
 
+## BUILD-008 certified boundary and BUILD-009 planning (DEC-0046)
+
+DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED for one Base → Optimism USDC bridge path. Live LI.FI token and quote/route data are real read-only provider evidence; financial bridge execution, recovery and destination reconciliation are deterministic MOCKED. The certification establishes no `TESTNET_EXECUTED` or `MAINNET_EXECUTED` result, real-funds use or public-chain financial execution. Earlier BUILD certifications remain unchanged. BUILD-009 is planning only; implementation requires a separate approved plan and owner decision. The BUILD-007 boundary below is historical and separately certified.
+
 ## BUILD-007 certified boundary and BUILD-008 planning (DEC-0043)
 
 After the owner merged PR #17, DEC-0043 certifies BUILD-007 COMPLETE at FORK_REPRODUCED on local chain 31337 only. The finite composition confers no public-chain, testnet, mainnet, real-funds, production-wallet, CoW-composition or later-liquidity authority. BUILD-008, the LI.FI-routed bridge, is the only next milestone and is planning only; implementation requires a separate approved plan and owner decision. The pre-existing intermittent Simulate canvas race is out of BUILD-007 scope and needs its own approved diagnosis.

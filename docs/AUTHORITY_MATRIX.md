@@ -1,5 +1,9 @@
 # Authority matrix
 
+## Current BUILD-008 certification authority
+
+DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED after PR #18 merged as `d5d3934d595943a45f5696fab440437d81e0690c` and post-merge Governance `36479683368` and contracts/reference-app `36479683443` passed. Live LI.FI quote/route data are real read-only provider evidence for the Base → Optimism USDC path. Financial bridge execution, recovery and destination reconciliation are deterministic MOCKED. No `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, real-funds or public-chain financial execution authority follows. BUILD-009 is planning only, with no plan or implementation approved. Previous BUILD certifications are unchanged. The DEC-0043 BUILD-008 planning row below is historical.
+
 ## BUILD-007 finite composition authority
 
 After the owner merged PR #17 as b4e2ea34bc04b537014ce54e635f6da9f3a9b1ce, DEC-0043 certifies BUILD-007 COMPLETE / CERTIFIED: FORK_REPRODUCED on local chain 31337 only. The certification rests on the attempt-2 transcript, byte-identical closed replay, direct Roles mint-bound tests and independent raw-RPC reconciliation, and it accepts one post-merge failure of a pre-existing intermittent canvas test as a documented exception. It establishes no public-chain, production-wallet, real-funds, CoW-composition, later-liquidity or BUILD-008 authority. BUILD-008 is planning only. The historical implementation boundary follows.
@@ -39,6 +43,9 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-007 finite Mode B local-fork composition implementation | Human owner | DEC-0038 and approved BUILD-007 plan; one conditional bounded read-only owner recording; merge remains owner decision | APPROVED_LOCAL_FORK_ONLY |
 | BUILD-007 composition local-fork certification | Human owner | DEC-0043, [BUILD-007 report](builds/BUILD-007-REPORT.md), PR #17 merge and a documented post-merge exception for a pre-existing intermittent canvas test | CERTIFIED_FORK_REPRODUCED_LOCAL (DEC-0043) |
 | BUILD-008 planning | Human owner | DEC-0043 allows planning only; a separate plan and approval are required for implementation | PLANNING_ONLY |
+| BUILD-008 Base → Optimism USDC bridge implementation | Human owner | DEC-0044 and DEC-0045, approved BUILD-008 plan; live LI.FI read-only quote and deterministic MOCKED financial lifecycle only | APPROVED_MOCKED_ONLY |
+| BUILD-008 bridge certification | Human owner | DEC-0046, [BUILD-008 report](builds/BUILD-008-REPORT.md), PR #18 merge and passing post-merge Governance, Contracts, Browser, Audit and SBOM | CERTIFIED_MOCKED (DEC-0046) |
+| BUILD-009 planning | Human owner | DEC-0046 allows planning only; no BUILD-009 plan or implementation is approved | PLANNING_ONLY |
 | Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.

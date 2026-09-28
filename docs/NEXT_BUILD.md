@@ -1,8 +1,8 @@
 # Next build
 
-## Current BUILD-008 review checkpoint (2026-09-28)
+## Current next milestone: BUILD-009 planning only (2026-09-28)
 
-DEC-0044 approves the one-path LI.FI bridge implementation. The local `codex/build-008-lifi-bridge` branch from certified main bf280d4184a83c9841d9a6b70dbebab1fd03e23e contains the working Base → Optimism USDC chat/canvas, live quote, bounded Manifest, exact transaction review, durable MOCKED execution/recovery and destination reconciliation. Local `pnpm check` and the bridge browser journey pass; the report is [BUILD-008-REPORT.md](builds/BUILD-008-REPORT.md). DEC-0045 authorizes the narrow Governance workflow alignment, branch push and one PR for CI review. Merge and certification remain owner decisions. Financial evidence cannot exceed `MOCKED`; no public-chain transaction, real funds or public demo execution is authorized. BUILD-007E public EVM demo readiness remains separate. The known intermittent BUILD-007-era Simulate canvas test is not part of this bridge scope.
+DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED after [PR #18](https://github.com/alrimarleskovar/gryloo/pull/18) merged as `d5d3934d595943a45f5696fab440437d81e0690c` and post-merge Governance `36479683368` and contracts/reference-app `36479683443` passed, including Browser, Audit and SBOM. The implemented path is Base → Optimism USDC. Live LI.FI quote/route data are real read-only provider evidence; financial execution, recovery and destination reconciliation remain deterministic MOCKED. No `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, real-funds or public-chain financial execution claim follows. BUILD-009 is planning only; no BUILD-009 plan or implementation is approved. BUILD-003/004/006/007 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications, BUILD-003E and BUILD-007E separation, and the global non-custodial multichain roadmap with Solana priority remain unchanged. See the [BUILD-008 report](builds/BUILD-008-REPORT.md).
 
 ## BUILD-007 approved implementation (historical, 2026-09-28)
 

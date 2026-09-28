@@ -1,5 +1,9 @@
 # Evidence levels
 
+## BUILD-008 evidence boundary
+
+DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED for the Base → Optimism USDC bridge. Live LI.FI token and quote/route data are real read-only provider evidence. Financial bridge execution, recovery and destination reconciliation remain deterministic MOCKED. The source and destination observations in the bridge Evidence Bundle are scripted local results, not public-chain financial execution or settlement. There is no `TESTNET_EXECUTED`, `MAINNET_EXECUTED` or real-funds claim. The BUILD-003/004/006/007 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications are unchanged. BUILD-009 is planning only.
+
 ## BUILD-007 evidence boundary
 
 DEC-0043 certifies BUILD-007 at `FORK_REPRODUCED` on local chain 31337 only. The evidence is the attempt-2 Base transcript at block 51,906,032, byte-identical closed replay, direct Safe/Roles mint-bound results, the actual local swap and Safe-owned mint, and independent raw-RPC reconciliation. This is not testnet or mainnet evidence. The boundary text below still applies.
