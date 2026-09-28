@@ -1,6 +1,10 @@
 # Next build
 
-## Current next milestone: BUILD-009 planning only (2026-09-28)
+## Current next milestone: BUILD-009 approved implementation (2026-09-28)
+
+DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) from certified main `308901495790416c149976aaee747c2fd5ef9f52`: Base USDC → LI.FI bridge → Arbitrum USDC → Arbitrum WETH swap, with injected EIP-1193 wallet connection and explicit chain switching. Live wallet connection and LI.FI reads are allowed. Financial execution, recovery and reconciliation remain MOCKED. Implementation, tests and one unmerged PR are approved; merge and certification are not. BUILD-008 and prior certifications remain unchanged.
+
+## Historical BUILD-009 planning-only state (2026-09-28)
 
 DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED after [PR #18](https://github.com/alrimarleskovar/gryloo/pull/18) merged as `d5d3934d595943a45f5696fab440437d81e0690c` and post-merge Governance `36479683368` and contracts/reference-app `36479683443` passed, including Browser, Audit and SBOM. The implemented path is Base → Optimism USDC. Live LI.FI quote/route data are real read-only provider evidence; financial execution, recovery and destination reconciliation remain deterministic MOCKED. No `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, real-funds or public-chain financial execution claim follows. BUILD-009 is planning only; no BUILD-009 plan or implementation is approved. BUILD-003/004/006/007 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications, BUILD-003E and BUILD-007E separation, and the global non-custodial multichain roadmap with Solana priority remain unchanged. See the [BUILD-008 report](builds/BUILD-008-REPORT.md).
 

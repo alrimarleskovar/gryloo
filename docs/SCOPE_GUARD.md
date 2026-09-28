@@ -1,6 +1,10 @@
 # Scope guard
 
-## BUILD-008 certified boundary and BUILD-009 planning (DEC-0046)
+## BUILD-009 approved implementation boundary (DEC-0047)
+
+DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) only for Base USDC → LI.FI bridge → Arbitrum USDC → Arbitrum WETH and an injected EIP-1193 top-bar wallet. Live wallet connection and read-only LI.FI quotes are allowed. Financial execution, recovery and reconciliation are deterministic MOCKED. No public-chain financial execution, real funds, `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, merge or certification is approved. Exact created and modified paths are enumerated in the plan; all other certified-main paths remain protected.
+
+## Historical BUILD-008 certified boundary and BUILD-009 planning (DEC-0046)
 
 DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED for one Base → Optimism USDC bridge path. Live LI.FI token and quote/route data are real read-only provider evidence; financial bridge execution, recovery and destination reconciliation are deterministic MOCKED. The certification establishes no `TESTNET_EXECUTED` or `MAINNET_EXECUTED` result, real-funds use or public-chain financial execution. Earlier BUILD certifications remain unchanged. BUILD-009 is planning only; implementation requires a separate approved plan and owner decision. The BUILD-007 boundary below is historical and separately certified.
 

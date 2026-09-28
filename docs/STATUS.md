@@ -1,5 +1,7 @@
 # Repository status
 
+BUILD-009 implementation is approved under DEC-0047 on a separate branch from certified main `308901495790416c149976aaee747c2fd5ef9f52`. The approved Base → Arbitrum USDC bridge → Arbitrum WETH swap and injected EIP-1193 wallet flow have passed local implementation gates and await PR-head CI and the owner merge decision. Financial execution/recovery/reconciliation remain MOCKED. No merge or certification is approved. The BUILD-008 and prior certification statements below remain historical and unchanged.
+
 ## BUILD-008 certified state (2026-09-28)
 
 Under DEC-0046, BUILD-008 is COMPLETE / CERTIFIED: MOCKED. [PR #18](https://github.com/alrimarleskovar/gryloo/pull/18) merged the approved head `13ed18c082dfefb7d830eca4c071403e0ed2d39a` into main as `d5d3934d595943a45f5696fab440437d81e0690c`. Post-merge [Governance run 36479683368](https://github.com/alrimarleskovar/gryloo/actions/runs/36479683368) and [contracts/reference-app run 36479683443](https://github.com/alrimarleskovar/gryloo/actions/runs/36479683443) passed on that merge commit; the latter passed contracts, guarded Browser, dependency Audit and SBOM validation. See the [BUILD-008 report](builds/BUILD-008-REPORT.md) for the implementation and CI record.

@@ -8,6 +8,12 @@ import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
+  if (command.type === 'AUTHOR_BRIDGE_SWAP') return Object.freeze([
+    `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    'Base USDC → Arbitrum USDC LI.FI bridge → Arbitrum WETH swap',
+    `Bridge ${command.input.amount} USDC; bridge slippage ${command.input.slippageBps} bps; swap slippage ${command.input.swapSlippageBps} bps`,
+    'The destination swap waits for MOCKED destination reconciliation and a fresh quote of the actual received amount.',
+  ]);
   if (command.type === 'AUTHOR_COMPOSITION') return Object.freeze([
     `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Base USDC → WETH swap then WETH/USDC 0.05% Uniswap v3 mint in Safe ${command.safe}`,

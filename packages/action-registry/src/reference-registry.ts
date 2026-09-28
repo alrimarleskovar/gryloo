@@ -22,7 +22,7 @@ export const referenceRegistry = Object.freeze({
       Object.freeze({ name: 'asset-out', type: 'ASSET_REF', required: true }),
     ]),
     outputs: Object.freeze([Object.freeze({ name: 'amount-out', type: 'AMOUNT_UNITS', required: true })]),
-    constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS', minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453']) }),
+    constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS', minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453', 'eip155:42161']) }),
     requiredCapability: Object.freeze({ id: 'swap.direct-transaction', version: '1.0.0' }),
     executionKinds: Object.freeze(['DIRECT_TRANSACTION', 'SIGNED_INTENT'] as const), authorizationModes: Object.freeze(['A'] as const),
   }), Object.freeze({
@@ -48,7 +48,7 @@ export const referenceRegistry = Object.freeze({
       Object.freeze({ name: 'asset-out', type: 'ASSET_REF', required: true })]),
     outputs: Object.freeze([Object.freeze({ name: 'amount-out', type: 'AMOUNT_UNITS', required: true })]),
     constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS',
-      minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453', 'eip155:10']) }),
+      minInputAmountUnits: '1', allowedChainRefs: Object.freeze(['eip155:8453', 'eip155:10', 'eip155:42161']) }),
     requiredCapability: Object.freeze({ id: 'bridge.direct-transaction', version: '1.0.0' }),
     executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const), authorizationModes: Object.freeze(['A'] as const),
   })]),

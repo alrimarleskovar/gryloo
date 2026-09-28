@@ -11,6 +11,7 @@ import { createCompositionWorkflow } from '../domain/composition-authoring';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 import { createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { useBridge } from '../state/bridge-store';
+import { createBridgeSwapWorkflow } from '../domain/bridge-swap-authoring';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
@@ -18,6 +19,13 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const bridgeEnabled = useBridge().enabled;
   const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
   const [bridgeError, setBridgeError] = useState('');
+  const [swapBridgeSlippage, setSwapBridgeSlippage] = useState('50');
+  function submitBridgeSwap() {
+    try { const input = { ...bridgeInput, swapSlippageBps: swapBridgeSlippage };
+      createBridgeSwapWorkflow(state.workflow.workflowId, state.workflow.revision + 1, input); setBridgeError('');
+      propose({ type: 'AUTHOR_BRIDGE_SWAP', input, source: 'CANVAS', baseRevision: state.workflow.revision });
+    } catch (cause) { setBridgeError(cause instanceof Error ? cause.message : 'BRIDGE_SWAP_INPUT_INVALID'); }
+  }
   const selectedBridge = selectedId ? state.workflow.nodes.find(node => node.nodeId === selectedId && node.actionType === 'asset.bridge') : null;
   function submitBridge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,6 +90,18 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {bridgeError && <p id="bridge-create-error" role="alert">{bridgeError}. Use 1–300 bps and up to 1,000,000 USDC.</p>}
       <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
     </form>}
+    <details className="swap-create build009-create" aria-label="Create Base to Arbitrum bridge swap proposal">
+      <summary>BUILD-009 · Base → Arbitrum → WETH</summary>
+      <p className="muted">Live read-only LI.FI quotes. Financial execution and reconciliation are MOCKED.</p>
+      <label htmlFor="build009-amount">BUILD-009 source amount (USDC)</label>
+      <input id="build009-amount" type="text" inputMode="decimal" maxLength={40} value={bridgeInput.amount} onChange={event => setBridgeInput(value => ({ ...value, amount: event.target.value }))}/>
+      <label htmlFor="build009-bridge-slip">Bridge slippage (bps)</label>
+      <input id="build009-bridge-slip" type="text" inputMode="numeric" maxLength={5} value={bridgeInput.slippageBps} onChange={event => setBridgeInput(value => ({ ...value, slippageBps: event.target.value }))}/>
+      <label htmlFor="build009-swap-slip">Arbitrum swap slippage (bps)</label>
+      <input id="build009-swap-slip" type="text" inputMode="numeric" maxLength={5} value={swapBridgeSlippage} onChange={event => setSwapBridgeSlippage(event.target.value)}/>
+      <button type="button" onClick={submitBridgeSwap}>Review Base → Arbitrum bridge → WETH swap</button>
+      {bridgeError && <p role="alert">{bridgeError}</p>}
+    </details>
     <form className="swap-create" onSubmit={submit} aria-label="Create Base swap proposal">
       <strong>Exact-input swap · Base</strong>
       <label htmlFor="swap-direction">Direction</label>

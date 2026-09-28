@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+'use client';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+
+export const BASE_HEX = '0x2105';
+export const ARBITRUM_HEX = '0xa4b1';
+type Chain = typeof BASE_HEX | typeof ARBITRUM_HEX;
+type Provider = { request(input: { method: string; params?: unknown[] }): Promise<unknown>;
+  on?(event: string, listener: (...args: unknown[]) => void): void;
+  removeListener?(event: string, listener: (...args: unknown[]) => void): void };
+type Wallet = { readonly available: boolean; readonly account: string | null; readonly chainId: string | null;
+  readonly error: string | null; readonly revision: number; readonly busy: boolean;
+  connect(): Promise<void>; switchTo(chain: Chain): Promise<void>; reset(): void };
+const Context = createContext<Wallet | null>(null);
+const validAccount = (value: unknown): value is string => typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value);
+export function injected(): Provider | null {
+  if (typeof window === 'undefined') return null;
+  const value = (window as Window & { ethereum?: unknown }).ethereum;
+  return value && typeof (value as Provider).request === 'function' ? value as Provider : null;
+}
+export function chainName(id: string | null): string {
+  if (!id) return 'Unknown';
+  if (id.toLowerCase() === BASE_HEX) return 'Base (8453)';
+  if (id.toLowerCase() === ARBITRUM_HEX) return 'Arbitrum (42161)';
+  return `Other chain (${id})`;
+}
+export function Build009WalletProvider({ children }: { children: ReactNode }) {
+  const [available, setAvailable] = useState(false);
+  const [account, setAccount] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const connected = useRef(false);
+  const generation = useRef(0);
+  const invalidate = () => setRevision(n => n + 1);
+  useEffect(() => {
+    const provider = injected();
+    setAvailable(Boolean(provider));
+    if (!provider) return;
+    const accountsChanged = (...args: unknown[]) => {
+      if (!connected.current) return;
+      const accounts = args[0];
+      const next = Array.isArray(accounts) && validAccount(accounts[0]) ? accounts[0].toLowerCase() : null;
+      if (!next) connected.current = false;
+      setAccount(next); invalidate();
+    };
+    const chainChanged = (...args: unknown[]) => {
+      if (!connected.current) return;
+      setChainId(typeof args[0] === 'string' ? args[0].toLowerCase() : null); invalidate();
+    };
+    const disconnected = () => { connected.current = false; setAccount(null); setChainId(null); invalidate(); };
+    provider.on?.('accountsChanged', accountsChanged);
+    provider.on?.('chainChanged', chainChanged);
+    provider.on?.('disconnect', disconnected);
+    return () => { provider.removeListener?.('accountsChanged', accountsChanged); provider.removeListener?.('chainChanged', chainChanged);
+      provider.removeListener?.('disconnect', disconnected); };
+  }, []);
+  const connect = useCallback(async () => {
+    const provider = injected();
+    if (!provider) { setError('No injected wallet detected'); setAvailable(false); return; }
+    setBusy(true); setError(null); const op = ++generation.current;
+    try {
+      const accounts = await provider.request({ method: 'eth_requestAccounts' });
+      const chain = await provider.request({ method: 'eth_chainId' });
+      if (!Array.isArray(accounts) || !validAccount(accounts[0]) || typeof chain !== 'string' || !/^0x[0-9a-fA-F]+$/.test(chain))
+        throw new Error('Wallet returned an invalid account or chain');
+      if (op !== generation.current) return;
+      connected.current = true; setAccount(accounts[0].toLowerCase()); setChainId(chain.toLowerCase()); invalidate();
+    } catch (cause) { if (op === generation.current) setError(cause instanceof Error ? cause.message : 'Wallet connection failed'); }
+    finally { if (op === generation.current) setBusy(false); }
+  }, []);
+  const switchTo = useCallback(async (chain: Chain) => {
+    const provider = injected();
+    if (!provider || !connected.current) { setError('Connect Wallet first'); return; }
+    if (chainId === chain) return;
+    setBusy(true); setError(null); const op = ++generation.current;
+    try {
+      await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chain }] });
+      const actual = await provider.request({ method: 'eth_chainId' });
+      if (typeof actual !== 'string' || actual.toLowerCase() !== chain) throw new Error('Wallet did not switch to the required chain');
+      if (op !== generation.current) return;
+      setChainId(chain); invalidate();
+    } catch (cause) { if (op === generation.current) setError(cause instanceof Error ? cause.message : 'Chain switch failed'); }
+    finally { if (op === generation.current) setBusy(false); }
+  }, [chainId]);
+  const reset = useCallback(() => { ++generation.current; connected.current = false; setAccount(null); setChainId(null);
+    setError(null); setBusy(false); invalidate(); }, []);
+  return <Context.Provider value={{ available, account, chainId, error, revision, busy, connect, switchTo, reset }}>{children}</Context.Provider>;
+}
+export function useBuild009Wallet(): Wallet { const value = useContext(Context); if (!value) throw new Error('BUILD009_WALLET_MISSING'); return value; }

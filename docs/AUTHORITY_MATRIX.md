@@ -1,6 +1,10 @@
 # Authority matrix
 
-## Current BUILD-008 certification authority
+## Current BUILD-009 implementation authority
+
+DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) from certified main `308901495790416c149976aaee747c2fd5ef9f52`: Base USDC → Arbitrum USDC through LI.FI, then Arbitrum USDC → WETH, with an injected EIP-1193 wallet connection in the top bar. Live wallet state and read-only LI.FI quote/route data may be used. Financial execution, recovery and reconciliation remain deterministic MOCKED. This approval permits implementation, tests and one unmerged PR; merge and certification require separate owner decisions. No public-chain financial execution, real funds, `TESTNET_EXECUTED` or `MAINNET_EXECUTED` claim follows.
+
+## Historical BUILD-008 certification authority
 
 DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED after PR #18 merged as `d5d3934d595943a45f5696fab440437d81e0690c` and post-merge Governance `36479683368` and contracts/reference-app `36479683443` passed. Live LI.FI quote/route data are real read-only provider evidence for the Base → Optimism USDC path. Financial bridge execution, recovery and destination reconciliation are deterministic MOCKED. No `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, real-funds or public-chain financial execution authority follows. BUILD-009 is planning only, with no plan or implementation approved. Previous BUILD certifications are unchanged. The DEC-0043 BUILD-008 planning row below is historical.
 
@@ -46,6 +50,7 @@ UI checks, and monitoring do not become independent enforcement.
 | BUILD-008 Base → Optimism USDC bridge implementation | Human owner | DEC-0044 and DEC-0045, approved BUILD-008 plan; live LI.FI read-only quote and deterministic MOCKED financial lifecycle only | APPROVED_MOCKED_ONLY |
 | BUILD-008 bridge certification | Human owner | DEC-0046, [BUILD-008 report](builds/BUILD-008-REPORT.md), PR #18 merge and passing post-merge Governance, Contracts, Browser, Audit and SBOM | CERTIFIED_MOCKED (DEC-0046) |
 | BUILD-009 planning | Human owner | DEC-0046 allows planning only; no BUILD-009 plan or implementation is approved | PLANNING_ONLY |
+| BUILD-009 Base → Arbitrum bridge and destination swap implementation | Human owner | DEC-0047 and [approved BUILD-009 plan](builds/BUILD-009-PLAN.md); injected wallet and LI.FI reads; MOCKED financial lifecycle | APPROVED_MOCKED_ONLY |
 | Mainnet execution, public testnet execution or Mode C | Human owner | Separate explicit approval required | NOT_APPROVED |
 
 The BUILD-005 CoW signature is an injected-wallet EIP-712 authorization for a disposable local order only. Gryloo does not hold that key. The signed order, posting journal and MOCKED settlement are not public-chain evidence or production financial enforcement.
