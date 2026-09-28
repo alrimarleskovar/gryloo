@@ -146,6 +146,8 @@ pnpm-lock.yaml
 
 **Owner-approved verifier amendment (2026-09-28):** The owner explicitly added `scripts/bootstrap-ci.py` to the modify scope solely to update the current exact `workflow-contracts` 0.3.0 version and six consumer `workspace:0.3.0` manifest/lock expectations. The 247 registry identity integrity, license and release-age checks, historical baselines and all other rules remain unchanged.
 
+**Owner-approved recording remediation amendment (2026-09-28, DEC-0039):** The spent attempt stopped because `composition-recording.mjs` placed the harness runtime under the recording root, outside the `/tmp/` path required for disposable keys; synthetic rehearsal did not exercise that layout. Within the existing `composition-recording.mjs` path only, the owner approved a fresh `/tmp/` runtime in every mode (session journal and request log unmoved), a 120,000 ms fork RPC call timeout in live recording sessions only (closed replay keeps the default), and a distinct new attempt root `/home/asus/.gryloo/build-007-attempt-2`. The spent first-attempt evidence under `/home/asus/.gryloo/build-007` remains unmodified. The 1,500-request, 39,000-CU, 30-minute, 400 ms spacing and first-error stop limits and the Anvil timeout are unchanged. No new recording attempt, credential, provider request, merge or certification is authorized.
+
 **Delete:** none. Every other tracked baseline path is byte- and mode-protected, including the Master Spec, Master Prompt, accepted ADRs, frozen v1 schemas/vectors, BUILD-003 through BUILD-006 certified records and transcripts, legal texts and prior visual baselines. A necessary path outside the lists requires a plan amendment and owner decision before editing.
 
 ## 12. Risks and rollback

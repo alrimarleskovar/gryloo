@@ -6,6 +6,8 @@
 
 The recording preflight passed with manifest SHA-256 `977502de3c68f054365d1d2b41ed0121260b4b8940b158db837a8b3d11515627`. The fresh credential and truthful attestations passed, then the one authorized attempt stopped with a local harness readiness timeout after 2 read-only provider requests and 52 reserved CU. The credential was removed. No BUILD-007 transcript exists and the one-attempt authority is exhausted. BUILD-007 has no `FORK_REPRODUCED` claim; the actual local evidence ceiling is `MOCKED` pending a new owner decision. The approved PR will remain unmerged; BUILD-003/004/006 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications are unchanged.
 
+DEC-0039 records the credential-free diagnosis and the owner-approved remediation. The confirmed root cause was that `record` mode placed the harness runtime outside the `/tmp/` path the harness requires for disposable keys. `composition-recording.mjs` now uses a fresh `/tmp/` runtime in every mode and a 120,000 ms fork RPC timeout in live recording sessions only, because one source simulation otherwise ran 17–20 s against a 20-second limit. New attempts use `/home/asus/.gryloo/build-007-attempt-2`; the first-attempt stop evidence in `/home/asus/.gryloo/build-007` is unmodified. After the fixes, 16/16 offline synthetic rehearsals passed with `REPLAY_BYTE_IDENTICAL` closed replay. Attempt-2 preflight awaits the owner's same-day billing report. The evidence ceiling stays `MOCKED` until a real Base transcript exists. A second recording attempt is owner-gated and not authorized.
+
 ## Current BUILD-006 certification state (2026-09-28)
 
 **Current markers:** BUILD-006: COMPLETE. BUILD-006 certification: CERTIFIED: FORK_REPRODUCED.

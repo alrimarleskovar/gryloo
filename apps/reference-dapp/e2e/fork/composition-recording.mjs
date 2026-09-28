@@ -16,7 +16,10 @@ import { signModeBLocalTransaction } from '../../../../packages/reference-execut
 import { ANVIL_PIN, FORK_UPSTREAM_POLICY } from '../../../../packages/reference-compiler/dist/profile.js';
 import { validateAnvilBinary } from './harness.mjs';
 const REPO = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
-const ROOT = '/home/asus/.gryloo/build-007';
+// The spent first attempt's stop evidence stays untouched in /home/asus/.gryloo/build-007; each new attempt has its own root.
+const ROOT = '/home/asus/.gryloo/build-007-attempt-2';
+// Live sessions pace every cold upstream read at >= 400 ms, so one simulation can exceed the 20 s fork RPC default.
+const LIVE_FORK_RPC_TIMEOUT_MS = 120_000;
 const TRANSCRIPT = join(REPO, 'apps/reference-dapp/e2e/fork/composition-transcript.json');
 const PROXY = fileURLToPath(new URL('./recording-proxy.mjs', import.meta.url));
 const HARNESS = fileURLToPath(new URL('./composition-harness.mjs', import.meta.url));
@@ -186,7 +189,7 @@ async function sourceSetup(port, packages) {
   for (let i = 0; i < 100; i++) await call('evm_mine');
   return { pool, syntheticCodePins };
 }
-async function lifecycle(profilePath, keyPath, sessionDir) {
+async function lifecycle(profilePath, keyPath, sessionDir, live) {
   const { createServer } = await import('vite');
   const { baseAssetRegistry, referenceRegistry } = await import('../../../../packages/action-registry/dist/index.js');
   const { createReviewContext } = await import('../../../../packages/reference-linter/dist/index.js');
@@ -196,7 +199,8 @@ async function lifecycle(profilePath, keyPath, sessionDir) {
     const { createCompositionService } = await vite.ssrLoadModule('/apps/reference-dapp/src/server/composition-service.ts');
     const { createForkRpc } = await vite.ssrLoadModule('/apps/reference-dapp/src/server/fork-rpc.ts');
     const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
-    const service = createCompositionService(profile, createForkRpc({ url: profile.rpcUrl }));
+    const service = createCompositionService(profile,
+      createForkRpc({ url: profile.rpcUrl, ...(live ? { timeoutMs: LIVE_FORK_RPC_TIMEOUT_MS } : {}) }));
     const context = createReviewContext({ registryId: referenceRegistry.registryId,
       capabilityId: referenceRegistry.capabilities[0]?.id, actionId: referenceRegistry.actions[0]?.id, assets: baseAssetRegistry });
     const pool = await service.poolState(await service.atHead());
@@ -255,9 +259,9 @@ async function lifecycle(profilePath, keyPath, sessionDir) {
   } finally { await vite.close(); }
 }
 async function runSession({ mode, scratch, transcriptPath, packages }) {
-  const sessionDir = join(scratch, 'session'), runtime = join(scratch, 'runtime');
+  // The harness and worker hold the disposable executor key only under /tmp/, whatever the session scratch is.
+  const sessionDir = join(scratch, 'session'), runtime = mkdtempSync('/tmp/gryloo-b007-runtime-');
   mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
-  mkdirSync(runtime, { recursive: true, mode: 0o700 });
   let source = null, proxy = null, harness = null;
   const live = mode !== 'replay';
   try {
@@ -316,7 +320,7 @@ async function runSession({ mode, scratch, transcriptPath, packages }) {
       await sleep(50);
     }
     if (!existsSync(profilePath) || !existsSync(keyPath)) fail(`HARNESS_NOT_READY:${harness.output()}`);
-    const { result, profile } = await lifecycle(profilePath, keyPath, sessionDir);
+    const { result, profile } = await lifecycle(profilePath, keyPath, sessionDir, live);
     await stop(harness.process); harness = null;
     if (live) {
       const code = await stop(proxy.process, 'SIGTERM'); proxy = null;
