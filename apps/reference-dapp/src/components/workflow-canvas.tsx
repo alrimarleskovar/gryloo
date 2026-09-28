@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, useReactFlow, useStore, useStoreApi, type NodeProps, type ReactFlowState } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Handle, Position, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import { bridgeDetails } from '../domain/bridge-authoring';
@@ -49,23 +49,36 @@ function viewportInputs(state: ReactFlowState): CanvasViewportInputs {
 /**
  * Applies the fitted viewport whenever the pane size, node set or any measured
  * node size changes, so the final viewport depends only on the final layout
- * (BUILD-003D §3.16). No timer or animation frame is used.
+ * (BUILD-003D §3.16). React Flow is asked to remeasure a node if its
+ * first ResizeObserver notification is missed.
  */
 function SimulationViewport({ onState }: { onState: (state: ViewportState) => void }) {
   const store = useStoreApi();
   const { setViewport } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
   const ready = useStore((state: ReactFlowState) => state.panZoom !== null);
   const signature = useStore((state: ReactFlowState) => canvasViewportSignature(viewportInputs(state)));
   const applied = useRef<string | null>(null);
+  const requestedMeasurement = useRef<string | null>(null);
   useLayoutEffect(() => {
-    const viewport = ready ? canvasViewportFor(viewportInputs(store.getState())) : null;
-    if (!viewport) { applied.current = null; onState('pending'); return; }
+    const inputs = viewportInputs(store.getState());
+    const viewport = ready ? canvasViewportFor(inputs) : null;
+    if (!viewport) {
+      applied.current = null;
+      onState('pending');
+      if (ready && inputs.paneWidth > 0 && inputs.paneHeight > 0 && requestedMeasurement.current !== signature) {
+        requestedMeasurement.current = signature;
+        updateNodeInternals(inputs.nodes.filter(node => !node.width || !node.height).map(node => node.id));
+      }
+      return;
+    }
+    requestedMeasurement.current = null;
     if (applied.current !== signature) {
       void setViewport(viewport, { duration: 0 });
       applied.current = signature;
     }
     onState('fitted');
-  }, [ready, signature, store, setViewport, onState]);
+  }, [ready, signature, store, setViewport, updateNodeInternals, onState]);
   return null;
 }
 
