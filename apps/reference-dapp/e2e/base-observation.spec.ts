@@ -25,7 +25,7 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   expect(await mocked.locator('[data-mocked-value]').count()).toBeGreaterThan(0);
   await expect(region.locator('[data-observation-json]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
   networkGuard.assertClean();
 });
@@ -89,7 +89,7 @@ for (const [from, to, amount, at] of [
     expect(await region.locator('[data-observation-hash="transcript:node-002"]').textContent())
       .toBe(await digestRawResponse(new TextEncoder().encode(transcriptText!)));
     await region.getByRole('button', { name: 'Hide transcript · node-002' }).click();
-    await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
     await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
     if (from === 'WETH') {
       await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');

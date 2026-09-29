@@ -101,7 +101,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     for (const parent of node.dependencies) if (!nodes.has(parent) || parent === node.nodeId) fail('INVALID_DEPENDENCY');
     if (node.actionType === LIQUIDITY_ACTION) { validateLiquidityNode(node, trusted); continue; }
     if (node.actionType !== SWAP) continue;
-    if (node.actionSchemaVersion !== '1.0.0' || node.chainId !== 'eip155:8453'
+    if (node.actionSchemaVersion !== '1.0.0' || node.chainId !== trusted.assets.USDC.asset.chainId
         || node.requiredCapabilities.length !== 1 || node.requiredCapabilities[0] !== trusted.capabilityId
         || node.requiredAuthorizationClass !== 'MODE_A' || node.failurePolicy !== 'ABORT'
         || node.adapterConstraints.adapters.length !== 0 || !(node.adapterConstraints.protocols.length === 1 && node.adapterConstraints.protocols[0] === 'uniswap') &&

@@ -1,5 +1,9 @@
 # Next build
 
+## Current implementation: BUILD-011D-2
+
+The owner approved the [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) under DEC-0055. The owner-authorized DApp swap succeeded and its public receipt, balances, gas and Evidence Bundle support `TESTNET_EXECUTED` for the exact Uniswap Swap + Base Sepolia profile. Local gates, one unmerged PR and CI close this build. BUILD-012 — Aave V3 primitives — remains a separate future decision; no BUILD-012 implementation is underway.
+
 ## Current next milestone: BUILD-011D-2 — First real public testnet/devnet execution
 
 DEC-0054 approves BUILD-011D-1 from main `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`: capability registry, runtime environment inspection and honest Execute gating. Its unmerged PR remains for owner review. BUILD-011D-2 is the next planned build for the first real public testnet/devnet execution from the canonical Gryloo DApp, subject to a separate plan and owner approval. No public financial transaction, `TESTNET_EXECUTED`, Mainnet, BUILD-012 Aave V3, or merge is authorized by BUILD-011D-1.

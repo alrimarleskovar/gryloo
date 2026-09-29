@@ -118,7 +118,7 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
   await expect(page.locator('.canvas-head').getByRole('button', { name: 'Add swap' })).toBeVisible();
   await expect(page.getByText('Technical workflow details')).toHaveCount(0);
   await expect(page.getByText('Demo assistant')).toHaveCount(0);
-  await expect(page.getByText('Demo mode', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
 });
 test('drag keeps node mounted and invalid connections leave semantic edges unchanged', async ({ page }) => {
   await page.goto('/');

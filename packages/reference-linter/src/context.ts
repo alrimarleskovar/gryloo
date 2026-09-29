@@ -15,10 +15,26 @@ export interface ReviewContext {
   readonly assets: Readonly<Record<Symbol, AssetRecord>>;
 }
 
-const EXPECTED = Object.freeze({
+const MAINNET_EXPECTED = Object.freeze({
   USDC: Object.freeze({ chainId: 'eip155:8453', address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', decimals: 6, maximumAmountUnits: '1000000000000' }),
   WETH: Object.freeze({ chainId: 'eip155:8453', address: '0x4200000000000000000000000000000000000006', decimals: 18, maximumAmountUnits: '1000000000000000000000' }),
 });
+
+const TESTNET_EXPECTED = Object.freeze({
+  USDC: Object.freeze({ chainId: 'eip155:84532', address: '0x036cbd53842c5426634e7929541ec2318f3dcf7e', decimals: 6, maximumAmountUnits: '1000000000' }),
+  WETH: Object.freeze({ chainId: 'eip155:84532', address: '0x4200000000000000000000000000000000000006', decimals: 18, maximumAmountUnits: '1000000000000000000' }),
+});
+
+/** Exact public-testnet asset profile; no caller-supplied token addresses. */
+export function createBaseSepoliaReviewContext(): ReviewContext {
+  const assets = Object.fromEntries((['USDC', 'WETH'] as const).map(symbol => [symbol, {
+    symbol, asset: { chainId: TESTNET_EXPECTED[symbol].chainId, address: TESTNET_EXPECTED[symbol].address,
+      decimals: TESTNET_EXPECTED[symbol].decimals }, maximumAmountUnits: TESTNET_EXPECTED[symbol].maximumAmountUnits,
+    provenance: 'NOT_ONCHAIN_VERIFIED' as const,
+  }]));
+  return validatedContext({ registryId: 'reference.registry', capabilityId: 'swap.direct-transaction',
+    actionId: 'asset.swap.exact-input', assets });
+}
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -41,9 +57,11 @@ function validatedContext(input: unknown): ReviewContext {
       || input.registryId !== 'reference.registry' || input.capabilityId !== 'swap.direct-transaction'
       || input.actionId !== 'asset.swap.exact-input' || !isRecord(input.assets)
       || !hasKeys(input.assets, ['USDC', 'WETH'])) throw new Error('INVALID_REVIEW_CONTEXT');
+  const expectedProfile = isRecord(input.assets.USDC) && isRecord(input.assets.USDC.asset) &&
+    input.assets.USDC.asset.chainId === 'eip155:84532' ? TESTNET_EXPECTED : MAINNET_EXPECTED;
   for (const symbol of ['USDC', 'WETH'] as const) {
     const item = input.assets[symbol];
-    const expected = EXPECTED[symbol];
+    const expected = expectedProfile[symbol];
     if (!isRecord(item) || !hasKeys(item, ['symbol', 'asset', 'maximumAmountUnits', 'provenance'])
         || item.symbol !== symbol || item.provenance !== 'NOT_ONCHAIN_VERIFIED'
         || item.maximumAmountUnits !== expected.maximumAmountUnits || !isRecord(item.asset)
@@ -55,8 +73,8 @@ function validatedContext(input: unknown): ReviewContext {
     registryId: 'reference.registry', capabilityId: 'swap.direct-transaction',
     actionId: 'asset.swap.exact-input',
     assets: {
-      USDC: { symbol: 'USDC', asset: { chainId: EXPECTED.USDC.chainId, address: EXPECTED.USDC.address, decimals: EXPECTED.USDC.decimals }, maximumAmountUnits: EXPECTED.USDC.maximumAmountUnits, provenance: 'NOT_ONCHAIN_VERIFIED' },
-      WETH: { symbol: 'WETH', asset: { chainId: EXPECTED.WETH.chainId, address: EXPECTED.WETH.address, decimals: EXPECTED.WETH.decimals }, maximumAmountUnits: EXPECTED.WETH.maximumAmountUnits, provenance: 'NOT_ONCHAIN_VERIFIED' },
+      USDC: { symbol: 'USDC', asset: { chainId: expectedProfile.USDC.chainId, address: expectedProfile.USDC.address, decimals: expectedProfile.USDC.decimals }, maximumAmountUnits: expectedProfile.USDC.maximumAmountUnits, provenance: 'NOT_ONCHAIN_VERIFIED' },
+      WETH: { symbol: 'WETH', asset: { chainId: expectedProfile.WETH.chainId, address: expectedProfile.WETH.address, decimals: expectedProfile.WETH.decimals }, maximumAmountUnits: expectedProfile.WETH.maximumAmountUnits, provenance: 'NOT_ONCHAIN_VERIFIED' },
     },
   });
 }

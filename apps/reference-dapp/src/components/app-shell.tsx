@@ -32,7 +32,8 @@ import { ObservationPanel } from './observation-panel';
 import { TopBar, type Tab } from './top-bar';
 import { WorkflowCanvas } from './workflow-canvas';
 import { CapabilityProvider, useWorkflowCapability } from '../state/capability-store';
-import { CapabilitySummary } from './capability-summary';
+import { usePublicTestnet } from '../state/public-testnet-store';
+import { PublicTestnetPanel } from './public-testnet-panel';
 import { capabilityBlockMessage, primaryExecutionBlocker } from '../domain/capability-view';
 
 const headings: Record<Tab, string> = {
@@ -57,6 +58,13 @@ function AppShellContent() {
   const bridgeSwap = useBridgeSwap();
   const across = useAcross();
   const [tab, setTab] = useState<Tab>('Build');
+  const publicTestnet = usePublicTestnet();
+  const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const publicRecovery = Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
+  const continuedApproval = Boolean(publicTestnet.run && !publicTestnet.retired &&
+    publicTestnet.run.attempts.at(-1)?.step === 'approval' &&
+    publicTestnet.run.attempts.at(-1)?.state === 'CONFIRMED');
+  const publicPath = testnetWorkflow || publicRecovery || continuedApproval;
   const [selectedId, select] = useState<string | null>(null);
   const { environment, result: capability } = useWorkflowCapability();
   const blocker = primaryExecutionBlocker(capability, selectedId);
@@ -71,17 +79,14 @@ function AppShellContent() {
     !['BRIDGE_QUOTED', 'BRIDGE_AUTHORIZED'].includes(bridgeSwap.run.state);
   const recoveryPath = Boolean(modeA.recoveryOnly || modeB.recoveryOnly || composition.recoveryOnly || liquidity.recoveryOnly ||
     cow.recoveryOnly || bridge.recoveryOnly || persistedBuild009Recovery || across.recovered);
-  const executionSurface = recoveryPath || (environment !== 'PUBLIC_TESTNET' && environment !== 'MAINNET' &&
+  const executionSurface = publicPath || recoveryPath || (environment !== 'PUBLIC_TESTNET' && environment !== 'MAINNET' &&
     capability.executionSupported && forkExecution);
-  const recoveryEnvironment = modeA.recoveryOnly || modeB.recoveryOnly || composition.recoveryOnly || liquidity.recoveryOnly
-    ? 'Local Fork' : cow.recoveryOnly || bridge.recoveryOnly || persistedBuild009Recovery || across.recovered ? 'Mock' : null;
   return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/>
     <main className="main">
-      <div className="page-heading"><div><p className="eyebrow">{tab === 'Build' ? 'WORKFLOW' : tab.toUpperCase()}</p><h1>{tab === 'Build' ? product.strategyName : tab}</h1><p>{forkExecution ? (across.run ? 'Direct Across bridge with simulated deposit, fill, recovery and refund.' : bridge.execution ? 'LI.FI live route with deterministic MOCKED execution and destination reconciliation.' : liquidity.info?.available && liquidity.prepared ? 'Local-fork Mode A Uniswap v3 position: review one exact payload, request the wallet transaction, then reconcile.' : info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : tab === 'Build' && crossChainWorkflow ? 'One reviewed Base → Arbitrum bridge, calculated destination split, and Uniswap v3 position.' : tab === 'Build' && acrossWorkflow ? 'Bridge Base USDC to Arbitrum directly through Across.' : tab === 'Build' && bridgeSwapWorkflow ? 'Author Base USDC → Arbitrum USDC → WETH in one workflow.' : tab === 'Build' && bridge.enabled ? 'Author one Base to Optimism USDC bridge in chat or canvas.' : tab === 'Build' && liquidity.info?.available ? 'Author locally. Review every swap or liquidity edit in one shared semantic workflow.' : headings[tab]}</p></div></div>
-      <CapabilitySummary recoveryEnvironment={recoveryEnvironment}/>
-      {tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={select}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId} select={select}/><ReviewPanel/><ActionLibrary selectedId={selectedId}/></>
-        : tab === 'Simulate' ? crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <><SimulatePanel/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></>
-        : executionSurface ? persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
+      <div className="page-heading"><div><p className="eyebrow">{tab === 'Build' ? 'WORKFLOW' : tab.toUpperCase()}</p><h1>{tab === 'Build' ? product.strategyName : tab}</h1><p>{publicPath && tab !== 'Build' ? 'Swap test USDC and WETH through the verified Uniswap pool on Base Sepolia.' : forkExecution ? (across.run ? 'Direct Across bridge with simulated deposit, fill, recovery and refund.' : bridge.execution ? 'LI.FI live route with deterministic MOCKED execution and destination reconciliation.' : liquidity.info?.available && liquidity.prepared ? 'Local-fork Mode A Uniswap v3 position: review one exact payload, request the wallet transaction, then reconcile.' : info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : tab === 'Build' && crossChainWorkflow ? 'One reviewed Base → Arbitrum bridge, calculated destination split, and Uniswap v3 position.' : tab === 'Build' && acrossWorkflow ? 'Bridge Base USDC to Arbitrum directly through Across.' : tab === 'Build' && bridgeSwapWorkflow ? 'Author Base USDC → Arbitrum USDC → WETH in one workflow.' : tab === 'Build' && bridge.enabled ? 'Author one Base to Optimism USDC bridge in chat or canvas.' : tab === 'Build' && liquidity.info?.available ? 'Author locally. Review every swap or liquidity edit in one shared semantic workflow.' : headings[tab]}</p></div></div>
+      {tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={select}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId} select={select}/>{!testnetWorkflow && <ReviewPanel/>}<ActionLibrary selectedId={selectedId}/></>
+        : tab === 'Simulate' ? publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <><SimulatePanel/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></>
+        : executionSurface ? publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
           bridge.recoveryOnly ? <BridgePanel view="execute"/> : modeA.recoveryOnly || modeB.recoveryOnly ||
           composition.recoveryOnly || liquidity.recoveryOnly || cow.recoveryOnly ?
             <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></> :
@@ -93,6 +98,6 @@ function AppShellContent() {
           {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
           <button type="button" onClick={() => setTab('Build')}>Return to Build</button></section>}
       {state.error && <div className="error-banner" role="alert"><strong>Edit not applied</strong><span>{state.error}</span></div>}
-    </main><SummaryBar tab={tab} setTab={setTab} recoveryEnvironment={recoveryEnvironment}/>
+    </main><SummaryBar tab={tab} setTab={setTab}/>
   </div>;
 }

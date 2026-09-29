@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { actionKinds, type ActionKind } from './mock-actions';
 import type { Workflow } from './initial-workflow';
 import { SWAP_ACTION, directionLabel, parseHumanAmount, parseSlippage, swapDetails, type Direction } from './swap-authoring';
@@ -20,6 +20,7 @@ export type Command = Base & (
   | { readonly type: 'DISCONNECT'; readonly from: string; readonly to: string }
   | { readonly type: 'REMOVE'; readonly nodeId: string }
   | { readonly type: 'ADD_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
+  | { readonly type: 'ADD_TESTNET_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'SET_SWAP_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'SET_SLIPPAGE'; readonly nodeId: string; readonly slippage: string }
@@ -81,14 +82,15 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
     return liquidity[2] ? { type: 'SET_LIQUIDITY', nodeId: liquidity[2], input: details, source: 'CHAT', baseRevision: workflow.revision }
       : { type: 'ADD_LIQUIDITY', input: details, source: 'CHAT', baseRevision: workflow.revision };
   }
-  const swap = /^swap ([0-9]+(?:\.[0-9]+)?) (USDC|WETH) to (USDC|WETH) on Base slippage ([0-9]+) bps$/i.exec(input);
+  const swap = /^swap ([0-9]+(?:\.[0-9]+)?) (USDC|WETH) to (USDC|WETH) on (Base|Base Sepolia) slippage ([0-9]+) bps$/i.exec(input);
   if (swap) {
     const from = swap[2]!.toUpperCase(), to = swap[3]!.toUpperCase();
     if (from === to) throw new Error('INVALID_ASSET_PAIR');
     const direction: Direction = from === 'USDC' && to === 'WETH' ? 'USDC_TO_WETH' : from === 'WETH' && to === 'USDC' ? 'WETH_TO_USDC' : (() => { throw new Error('INVALID_ASSET_PAIR'); })();
-    parseHumanAmount(swap[1], from as 'USDC' | 'WETH', context);
-    parseSlippage(swap[4]);
-    return { type: 'ADD_SWAP', direction, amount: swap[1]!, slippage: swap[4]!, source: 'CHAT', baseRevision: workflow.revision };
+    const testnet = swap[4]!.toLowerCase() === 'base sepolia';
+    parseHumanAmount(swap[1], from as 'USDC' | 'WETH', testnet ? createBaseSepoliaReviewContext() : context);
+    parseSlippage(swap[5]);
+    return { type: testnet ? 'ADD_TESTNET_SWAP' : 'ADD_SWAP', direction, amount: swap[1]!, slippage: swap[5]!, source: 'CHAT', baseRevision: workflow.revision };
   }
   const amount = /^set (node-\d+) amount (\S+)$/i.exec(input);
   if (amount && workflow.nodes.find(n => n.nodeId === amount[1])?.actionType === SWAP_ACTION) {
@@ -118,7 +120,7 @@ export function commandIsValid(input: unknown): input is Command {
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
     ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
-    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
+    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
   if (typeof command.type !== 'string' || !fields[command.type]
@@ -175,6 +177,7 @@ export function commandIsValid(input: unknown): input is Command {
         && Object.values(value).every(item => typeof item === 'string' && item.length <= 80);
     }
     case 'ADD_SWAP':
+    case 'ADD_TESTNET_SWAP':
     case 'ADD_COW_SWAP': return ['USDC_TO_WETH', 'WETH_TO_USDC'].includes(command.direction as string)
       && typeof command.amount === 'string' && command.amount.length <= 80
       && typeof command.slippage === 'string' && command.slippage.length <= 5;

@@ -26,7 +26,7 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
     } });
   }, OWNER);
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
+  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
@@ -36,7 +36,6 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.getByText('Required: Base (8453)')).toBeVisible();
-  await page.getByRole('button', { name: 'Connect Wallet' }).click();
   await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
@@ -56,13 +55,12 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await expect(page.getByText('Required: Arbitrum (42161)')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Switch to Arbitrum (42161)' })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
+  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   const recovered = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
   await expect(recovered.locator('[data-build009-state]')).toContainText('PARTIAL_COMPLETION');
   await expect(recovered).toContainText('recovered MOCKED journal');
-  await page.getByRole('button', { name: 'Connect Wallet' }).click();
   await page.getByRole('button', { name: 'Switch to Arbitrum (42161)' }).click();
   await expect(page.getByText('Wallet: 0x1111…1111 · Arbitrum (42161)')).toBeVisible();
   await recovered.getByRole('button', { name: 'Get fresh LI.FI destination quote from reconciled amount' }).click();

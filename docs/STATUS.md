@@ -1,5 +1,9 @@
 # Repository status
 
+## BUILD-011D-2 public recording gate (2026-09-29)
+
+DEC-0055 approves the [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) from main `205055605d96f36e024a0bbc770453113e4f7b40`. The normal Build view no longer displays the environment selector or permanent readiness diagnostics. The owner submitted one approval and one Uniswap v3 swap through Gryloo. The successful public swap receipt, exact delegated inner call, independent USDC/WETH reconciliation, sponsored gas and Evidence Bundle establish `TESTNET_EXECUTED` for **Uniswap Swap + Base Sepolia only**. The [BUILD-011D-2 report](builds/BUILD-011D-2-REPORT.md) records the transaction and evidence. Other public profiles and Mainnet remain unavailable.
+
 
 ## Current BUILD-011D-1 implementation state (2026-09-29)
 
