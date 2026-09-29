@@ -1,6 +1,10 @@
 # Repository status
 
 
+## Current BUILD-011D-1 implementation state (2026-09-29)
+
+DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) from main `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`. The typed registry resolves action, adapter, chain and environment without deriving execution authority from declaration alone. Base Uniswap swap and isolated liquidity retain their existing `FORK_REPRODUCED` local-fork evidence; CoW, LI.FI, Across and cross-chain composition retain `MOCKED` financial ceilings. Supply, Lending and Borrow are authoring templates. Public Testnet and Mainnet execution remain unavailable. See the [BUILD-011D-1 report](builds/BUILD-011D-1-REPORT.md) for measured checks. The owner retains merge; BUILD-011D-2 is next only after that decision.
+
 ## Current BUILD-011C-2 implementation state (2026-09-29)
 
 DEC-0053 approves the [bounded BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. The cross-chain recovery extension remains a deterministic MOCKED proof. It records irreversible bridge/swap effects, partial states, independently classified mint ambiguity, bounded retry, separate compensation authority and a manual stop. The [BUILD-011C-2 report](builds/BUILD-011C-2-REPORT.md) records measured acceptance. The functional requirements originally assigned to Master Prompt BUILD-011 are fulfilled by BUILD-011C-1 plus BUILD-011C-2 on the unmerged PR head at MOCKED evidence maturity. Public financial execution and owner merge remain future decisions.

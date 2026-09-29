@@ -280,3 +280,15 @@ DEC-0053 approves the [BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from `0ac
 | B011C-COMPENSATION-001 | Require current authority, Manifest, artifacts and budget for bounded retry; compensation uses a new authorized attempt. | Recovery and compensation tests | IMPLEMENTED_LOCAL_MOCKED |
 | B011C-MANUAL-001 | Expose partial state, balances, costs, authority and safe/manual choices in the canonical DApp. | Browser recovery acceptance | IMPLEMENTED_LOCAL_MOCKED |
 | B011C-RECOVERY-001 | Keep partial evidence outcome and maturity truthful; never imply global rollback or public execution. | Partial Evidence Bundle and governance checks | IMPLEMENTED_LOCAL_MOCKED |
+
+## BUILD-011D-1 capability and environment mapping
+
+DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) from `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`. Public financial execution remains disabled.
+
+| ID | Requirement | Evidence | State |
+| --- | --- | --- | --- |
+| B011D-CAPABILITY-001 | Resolve exact semantic action, adapter/version, chain, authorization mode and environment; unknown inputs fail closed. | Registry and resolver unit tests | IMPLEMENTED_LOCAL |
+| B011D-WEAKEST-001 | Require every financial node for workflow execution and cap composed evidence at its weakest demonstrated level. | Resolver composition tests | IMPLEMENTED_LOCAL |
+| B011D-ENVIRONMENT-001 | Keep environment selection separate from Semantic Workflow IR, revision and canvas layout. | Browser environment inspection | IMPLEMENTED_LOCAL |
+| B011D-EXECUTE-001 | Gate Execute through capability resolution and show typed product-facing blockers while retaining existing artifact and wallet guards. | Browser and resolver tests | IMPLEMENTED_LOCAL |
+| B011D-EVIDENCE-001 | Preserve Base Uniswap local-fork evidence, MOCKED provider/composition evidence, authoring-only templates, and disabled Public Testnet/Mainnet. | Capability matrix and governance | IMPLEMENTED_LOCAL |

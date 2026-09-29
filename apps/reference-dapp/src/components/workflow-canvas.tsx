@@ -8,6 +8,8 @@ import type { ActionKind } from '../domain/mock-actions';
 import { bridgeDetails } from '../domain/bridge-authoring';
 import { formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { useWorkflowCapability } from '../state/capability-store';
+import { nodeCapabilityLabel } from '../domain/capability-view';
 import { editorReducer } from '../domain/editor';
 import { canvasShortcut, canDeleteCanvasEdge, isTextEntry } from '../domain/canvas-keyboard';
 import { canvasPosition, defaultCanvasPosition, readCanvasLayout, readToolboxMode, reconcileCanvasLayout, saveCanvasLayout, saveToolboxMode, type CanvasLayout, type ToolboxMode } from '../domain/canvas-layout';
@@ -22,7 +24,7 @@ export function setCrossChainCanvasRuntime(workflowId: string, revision: number,
   window.dispatchEvent(new CustomEvent('gryloo:cross-chain-runtime', { detail: key }));
 }
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
-type CardData = { title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
+type CardData = { title: string; amount: string; capability?: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
@@ -42,6 +44,7 @@ function WorkflowCard({ data }: NodeProps) {
     <Handle type="target" position={Position.Left} isConnectable={!card.composition} />
     <span className="flow-card-kind">{card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : card.preparation ? 'ARBITRUM · CALCULATED SPLIT' : card.liquidity ? 'ARBITRUM · UNISWAP V3' : 'ARBITRUM · DESTINATION SWAP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
     <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
+    {card.capability && <span className="flow-capability">{card.capability}</span>}
     <small>{card.crossChain && card.runtime ? `Runtime: ${card.runtime}` : card.crossChain ? 'Select to review · non-atomic boundaries' : card.across ? 'Direct Across quote in Simulate · demo execution' : card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Template · no execution'}</small>
     <Handle type="source" position={Position.Right} isConnectable={!card.composition} />
   </div>;
@@ -160,6 +163,8 @@ export function WorkflowCanvas(props: { selectedId: string | null; select: (id: 
 function BuildCanvas({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
+  const { environment, result: capability } = useWorkflowCapability();
+  const statusById = new Map(capability.nodes.map(node => [node.nodeId, nodeCapabilityLabel(node)]));
   const [layout, setLayout] = useState<CanvasLayout>({});
   const layoutRef = useRef<CanvasLayout>({});
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
@@ -230,9 +235,9 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const upper = node.inputs.find(i => i.name === 'tick-upper');
     const range = lower?.kind === 'IDENTIFIER' && upper?.kind === 'IDENTIFIER' ? `${lower.value.slice(5)}–${upper.value.slice(5)}` : 'unreviewed';
     return { id: node.nodeId, type: 'workflow', position: canvasPosition(layoutRef.current, node, index),
-      data: { title: crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedId === node.nodeId, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined },
+      data: { title: crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedId === node.nodeId, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined, capability: node.actionType.startsWith('mock-') ? undefined : statusById.get(node.nodeId) },
     };
-  }), [workflow, selectedId, context, layout, runtime]);
+  }), [workflow, selectedId, context, layout, runtime, capability]);
   // Live pointer positions stay in React Flow state; layout is committed on release.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(projectedNodes);
   useEffect(() => {
@@ -281,7 +286,10 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     dispatch(command); setFeedback('');
   }
   const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Add an action">
-    {actions.map(action => <button key={action} type="button" title={action === 'swap' ? 'Add an unquoted Base swap' : `Add a ${actionLabel(action)} template · execution unavailable`} aria-label={`Add ${action}`} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
+    {actions.map(action => <button key={action} type="button" data-capability-status={action === 'swap' ? 'simulation' : 'template'}
+      title={action === 'swap' ? 'Add an unquoted Base swap · ' + (environment === 'LOCAL_FORK' ? 'local fork requires exact review' : 'simulation only here') :
+        'Add a ' + actionLabel(action) + ' template · authoring only'}
+      aria-label={'Add ' + action} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
   </div>;
   return <section className="canvas panel" aria-label="Workflow canvas">
     <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<label className="toolbox-mode-label">Tools <select aria-label="Toolbox position" value={toolboxMode} onChange={event => changeToolboxMode(event.target.value as ToolboxMode)}><option value="top">Top toolbar</option><option value="floating">Floating toolbox</option></select></label><span className="revision">{workflow.nodes.length} steps</span></div>

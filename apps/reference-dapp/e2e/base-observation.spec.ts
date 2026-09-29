@@ -56,7 +56,8 @@ for (const [from, to, amount, at] of [
   test(`${from} to ${to}: recorded quote is verified, visible and never authorizes action`, async ({ page, networkGuard }) => {
     await page.clock.install({ time: new Date(Date.parse(at) - 1000) });
     await page.goto('/');
-    await page.clock.pauseAt(new Date(at));
+    // Keep the recorded wall time fixed while ResizeObserver and animation frames fit the graph.
+    await page.clock.setFixedTime(new Date(at));
     await page.getByLabel('Describe a mock edit').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
     await page.getByRole('button', { name: 'Send' }).click();
     await page.getByRole('button', { name: 'Apply proposal' }).click();
