@@ -3,7 +3,7 @@
 
 ## Current BUILD-011C-2 implementation state (2026-09-29)
 
-DEC-0053 approves the [bounded BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. The cross-chain recovery extension remains a deterministic MOCKED proof. It records irreversible bridge/swap effects, partial states, independently classified mint ambiguity, bounded retry, separate compensation authority and a manual stop. The [BUILD-011C-2 report](builds/BUILD-011C-2-REPORT.md) records measured acceptance. Public financial execution and owner merge remain future decisions.
+DEC-0053 approves the [bounded BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. The cross-chain recovery extension remains a deterministic MOCKED proof. It records irreversible bridge/swap effects, partial states, independently classified mint ambiguity, bounded retry, separate compensation authority and a manual stop. The [BUILD-011C-2 report](builds/BUILD-011C-2-REPORT.md) records measured acceptance. The functional requirements originally assigned to Master Prompt BUILD-011 are fulfilled by BUILD-011C-1 plus BUILD-011C-2 on the unmerged PR head at MOCKED evidence maturity. Public financial execution and owner merge remain future decisions.
 
 ## Historical BUILD-011C-1 implementation state (2026-09-29)
 
