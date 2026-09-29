@@ -1,6 +1,10 @@
 # Next build
 
-## Current next milestone: BUILD-011C-1 approved implementation (2026-09-29)
+## Current next milestone: BUILD-011D-1 — Execution Capability Registry + environment gating
+
+BUILD-011C-2 implements MOCKED cross-chain liquidity failure and recovery under DEC-0053 from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. One unmerged PR is authorized. After owner merge, the planned sequence is BUILD-011D-1, BUILD-011D-2 public testnet/devnet execution, then BUILD-012 Aave V3. No BUILD-011D or BUILD-012 implementation is part of this build.
+
+## Historical next milestone: BUILD-011C-1 approved implementation (2026-09-29)
 
 DEC-0052 approves the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. The bounded successful Base → Arbitrum liquidity composition reuses the existing bridge and Uniswap adapter; financial execution remains MOCKED. One unmerged PR is authorized. BUILD-011C-2 destination failure, compensation authority, recovery and manual intervention remain required before Master Prompt Build 011 is complete. Merge remains the owner's decision.
 

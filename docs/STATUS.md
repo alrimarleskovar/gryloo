@@ -1,6 +1,11 @@
 # Repository status
 
-## Current BUILD-011C-1 implementation state (2026-09-29)
+
+## Current BUILD-011C-2 implementation state (2026-09-29)
+
+DEC-0053 approves the [bounded BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. The cross-chain recovery extension remains a deterministic MOCKED proof. It records irreversible bridge/swap effects, partial states, independently classified mint ambiguity, bounded retry, separate compensation authority and a manual stop. The [BUILD-011C-2 report](builds/BUILD-011C-2-REPORT.md) records measured acceptance. Public financial execution and owner merge remain future decisions.
+
+## Historical BUILD-011C-1 implementation state (2026-09-29)
 
 DEC-0052 approves the [bounded BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. The shared Base → Arbitrum bridge, calculated destination split, existing Uniswap v3 liquidity adapter extended to the verified Arbitrum WETH/native-USDC fee tier 500 pool, canonical artifacts/Manifest, MOCKED journal, reconciliation and Evidence Bundle are implemented on an unmerged branch. Base liquidity remains supported. Public financial execution, recovery/compensation and merge remain outside this approval. The [BUILD-011C-1 report](builds/BUILD-011C-1-REPORT.md) records local gates and remaining limits.
 

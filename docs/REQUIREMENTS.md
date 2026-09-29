@@ -268,3 +268,15 @@ DEC-0052 approves the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from `894
 | B011C-AUTH-001 | Bind provider, quote freshness, target/function, source and destination cumulative spend, gas reserve and refreshed destination Manifest. | Artifact and Manifest tests | CONTRACT_VALIDATED_NOT_ENFORCED |
 | B011C-EVIDENCE-001 | Journal each non-atomic boundary and report reconciled LP NFT, deposits, allowances, gas and residual WETH/USDC in a canonical Evidence Bundle. | Journal and reconciler tests | IMPLEMENTED_LOCAL_MOCKED |
 | B011C-BOUNDARY-001 | Preserve BUILD-011/011B and prior evidence limits; defer destination failure, compensation authority, recovery and manual intervention to BUILD-011C-2. | Exact-path governance and report | IN_PROGRESS |
+
+## BUILD-011C-2 bounded failure and recovery mapping
+
+DEC-0053 approves the [BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) from `0ac839738e9aa198007fbf354ea2f14894459c38`. Composed recovery evidence remains MOCKED.
+
+| ID | Requirement | Evidence | State |
+| --- | --- | --- | --- |
+| B011C-FAILURE-001 | Preserve settled bridge and swap effects on destination failure; report actual asset location and costs. | Executor and browser failure fixtures | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-UNKNOWN-001 | Persist mint attempt before submission; independently classify unknown result before retry or completion. | Attempt journal, shared classifier and restart fixture | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-COMPENSATION-001 | Require current authority, Manifest, artifacts and budget for bounded retry; compensation uses a new authorized attempt. | Recovery and compensation tests | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-MANUAL-001 | Expose partial state, balances, costs, authority and safe/manual choices in the canonical DApp. | Browser recovery acceptance | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-RECOVERY-001 | Keep partial evidence outcome and maturity truthful; never imply global rollback or public execution. | Partial Evidence Bundle and governance checks | IMPLEMENTED_LOCAL_MOCKED |

@@ -21,3 +21,4 @@ export * from './bridge.js';
 export * from './across.js';
 
 export * from './cross-chain-liquidity.js';
+export * from './cross-chain-liquidity-store.js';
