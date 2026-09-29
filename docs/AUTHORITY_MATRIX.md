@@ -1,6 +1,11 @@
 # Authority matrix
 
-## Current BUILD-011C-1 implementation authority
+
+## Current BUILD-011C-2 recovery authority
+
+DEC-0053 authorizes the [bounded recovery implementation](builds/BUILD-011C-2-PLAN.md) at MOCKED evidence maturity. A failed destination action never inherits authority for retry or compensation. Retry requires independently established NOT_FOUND status, current artifacts, original provider/Manifest, available balances and gas budget. Material requote and compensation need fresh review and authorization. Compensation is a separate financial attempt with its own gas and reconciliation. Manual stop pauses local execution; it does not confirm revocation. Public execution and merge remain outside this authority.
+
+## Historical BUILD-011C-1 implementation authority
 
 DEC-0052 approves the [bounded BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. Existing LI.FI or direct Across Base → Arbitrum bridge semantics and the same Uniswap v3 liquidity action/adapter may be composed; the adapter may validate the pinned Arbitrum factory, position manager, WETH/native-USDC 0.05% pool and code. Review, Manifest and MOCKED evidence retain existing P1–P14 and Mode A limits. No public financial transaction, new provider, new protocol, return bridge, compensation, failure recovery, owner merge or completed Master Prompt Build 011 claim is authorized.
 

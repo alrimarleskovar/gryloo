@@ -48,6 +48,7 @@ jobs:
             5d169748e6a44e3fb63e371a18ace2e0814d5f04
             502d167212cdff80ad4c6740ed8bde47eace1c31
             89415eb3574ddd28ab8b1cb0d39e221791c5521f
+            0ac839738e9aa198007fbf354ea2f14894459c38
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -408,18 +409,35 @@ jobs:
                   'DEC-0052' not in plan011c or '89415eb3574ddd28ab8b1cb0d39e221791c5521f' not in plan011c or
                   'BUILD-011C-2 is still required' not in plan011c):
               errors.append('BUILD-011C-1 approved scope list inconsistent')
-          errors += ['BUILD-011C-1 unapproved created path: '+v for v in sorted((now-set(merged011b))-create011c)]
-          errors += ['BUILD-011C-1 removed baseline path: '+v for v in sorted(set(merged011b)-now)]
-          for v in sorted(now&set(merged011b)):
+          # BUILD-011C-1 is frozen at the owner's merged base. Its original scope
+          # is checked against that historical tree, then BUILD-011C-2 gets its own guard.
+          merged011c1=tree('0ac839738e9aa198007fbf354ea2f14894459c38')
+          errors += ['historical BUILD-011C-1 unapproved created path: '+v for v in sorted((set(merged011c1)-set(merged011b))-create011c)]
+          errors += ['historical BUILD-011C-1 removed baseline path: '+v for v in sorted(set(merged011b)-set(merged011c1))]
+          for v in sorted(set(merged011c1)&set(merged011b)):
+              if merged011c1[v][0]!=merged011b[v][0]: errors.append('historical BUILD-011C-1 changed file mode: '+v)
+              if v not in modify011c and merged011c1[v][1]!=merged011b[v][1]:
+                  errors.append('historical BUILD-011C-1 protected baseline file changed: '+v)
+          plan011c2=(root/'docs/builds/BUILD-011C-2-PLAN.md').read_text()
+          scope011c2=plan011c2.split('## Exact expected files',1)[1]
+          create011c2=set(scope011c2.split('Create:\n',1)[1].split('\nModify:',1)[0].strip().splitlines())
+          modify011c2=set(scope011c2.split('Modify:\n',1)[1].split('\nDelete:',1)[0].strip().splitlines())
+          if (create011c2&modify011c2 or create011c2&set(merged011c1) or
+                  not modify011c2<=set(merged011c1) or 'DEC-0053' not in plan011c2 or
+                  '0ac839738e9aa198007fbf354ea2f14894459c38' not in plan011c2):
+              errors.append('BUILD-011C-2 approved scope list inconsistent')
+          errors += ['BUILD-011C-2 unapproved created path: '+v for v in sorted((now-set(merged011c1))-create011c2)]
+          errors += ['BUILD-011C-2 removed baseline path: '+v for v in sorted(set(merged011c1)-now)]
+          for v in sorted(now&set(merged011c1)):
               file=root/v
               mode='100755' if file.stat().st_mode & 0o111 else '100644'
               oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
-              if mode!=merged011b[v][0]: errors.append('BUILD-011C-1 changed file mode: '+v)
-              if v not in modify011c and oid!=merged011b[v][1]:
-                  errors.append('BUILD-011C-1 protected baseline file changed: '+v)
-          for v in sorted(now-set(merged011b)):
+              if mode!=merged011c1[v][0]: errors.append('BUILD-011C-2 changed file mode: '+v)
+              if v not in modify011c2 and oid!=merged011c1[v][1]:
+                  errors.append('BUILD-011C-2 protected baseline file changed: '+v)
+          for v in sorted(now-set(merged011c1)):
               if not (root/v).is_file() or (root/v).is_symlink() or (root/v).stat().st_mode & 0o111:
-                  errors.append('BUILD-011C-1 new path must be regular non-executable file: '+v)
+                  errors.append('BUILD-011C-2 new path must be regular non-executable file: '+v)
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
@@ -653,7 +671,7 @@ jobs:
                               'packages/reference-executor/src/cross-chain-liquidity.ts',
                               'packages/reference-reconciler/src/cross-chain-liquidity.ts'}
           mode_a_names={file.as_posix() for file in mode_a_sources}
-          if len(mode_a_sources)!=30 or mode_a_names-set(merged011b)!=cross_chain_mode_a:
+          if len(mode_a_sources)!=31 or mode_a_names-set(merged011b)!=cross_chain_mode_a|{'packages/reference-executor/src/cross-chain-liquidity-store.ts'}:
               errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
@@ -667,7 +685,9 @@ jobs:
                   if re.search(pattern,body): errors.append('forbidden wallet, network, storage or cheat token in '+name+': '+pattern)
               if re.search(network_modules,body): errors.append('forbidden Node network module: '+name)
               node_imports=set(re.findall(r'''['"](node:[a-z_/]+)['"]''',body))
-              if node_imports and (name!='packages/reference-executor/src/file-store.ts' or not node_imports<={'node:fs/promises','node:path'}):
+              if node_imports and (name not in {'packages/reference-executor/src/file-store.ts',
+                                         'packages/reference-executor/src/cross-chain-liquidity-store.ts'} or
+                                   not node_imports<={'node:fs/promises','node:path'}):
                   errors.append('Node module outside the executor file store: '+name)
               methods=set(re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body))
               allowed_methods=(d5_policy if name=='packages/reference-compiler/src/profile.ts'
@@ -1188,7 +1208,7 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-011C-1 approved implementation') or
+          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-011D-1') or
                   'DEC-0047' not in next_build or
                   'DEC-0046' not in next_build or 'MOCKED' not in next_build or
                   'Base → Optimism USDC' not in next_build or

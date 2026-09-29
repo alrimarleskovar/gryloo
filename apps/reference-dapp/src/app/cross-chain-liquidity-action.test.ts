@@ -18,6 +18,29 @@ describe('BUILD-011C-1 server-side MOCKED trace', () => {
     expect(trace.sourceManifestHash).not.toBe(trace.hashes.manifest);
     expect(trace.evidenceHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
+  it.each(['SWAP_REVERT', 'MINT_REVERT', 'MINT_UNKNOWN_INCONCLUSIVE', 'POLICY_EXPIRED', 'ARTIFACT_STALE', 'LATE_BRIDGE_SETTLEMENT'] as const)(
+    'exposes MOCKED partial evidence for %s', async failure => {
+      const trace = await buildMockCrossChainLiquidityScenario(createCrossChainLiquidityWorkflow('workflow-local', 1, base), failure);
+      expect(trace.snapshots.at(-1)?.stage).toMatch(/PARTIALLY COMPLETED|RECOVERY REQUIRED/);
+      expect(trace.recovery?.workflowState).toBe('PARTIALLY_COMPLETED');
+      expect(trace.recovery?.balances.usdc).not.toBeNull();
+      expect(trace.recovery?.options.find(o => o.action === 'MANUAL')?.status).toBe('AVAILABLE');
+      expect(trace.evidenceHash).toMatch(/^0x[0-9a-f]{64}$/);
+    });
+  it('creates fresh artifacts and a distinct Manifest for stale destination preparation', async () => {
+    const trace = await buildMockCrossChainLiquidityScenario(createCrossChainLiquidityWorkflow('workflow-local', 1, base), 'ARTIFACT_STALE');
+    expect(trace.requote?.artifactSet).not.toBe(trace.hashes.artifactSet);
+    expect(trace.requote?.simulation).not.toBe(trace.hashes.simulation);
+    expect(trace.requote?.manifest).not.toBe(trace.hashes.manifest);
+    expect(trace.requote?.review).toBe('REQUIRES_NEW_AUTHORIZATION');
+  });
+  it('reconciles an unknown mint to one LP position', async () => {
+    const trace = await buildMockCrossChainLiquidityScenario(createCrossChainLiquidityWorkflow('workflow-local', 1, base),
+      'MINT_UNKNOWN_CONFIRMED');
+    expect(trace.snapshots.at(-2)?.stage).toBe('SUBMISSION RESULT UNKNOWN');
+    expect(trace.snapshots.at(-1)?.lp).toBe('77');
+    expect(trace.recovery).toBeNull();
+  });
   it('keeps a one-sided no-swap path with zero destination swap gas', async () => {
     const trace = await buildMockCrossChainLiquidityScenario(createCrossChainLiquidityWorkflow('workflow-local', 1,
       { ...base, noSwap: true, provider: 'across.direct' }));

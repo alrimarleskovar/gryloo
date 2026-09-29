@@ -1,5 +1,10 @@
 # Scope guard
 
+
+## BUILD-011C-2 approved implementation boundary (DEC-0053)
+
+Only the [BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) exact paths may change from `0ac839738e9aa198007fbf354ea2f14894459c38`. Preserve the BUILD-011C-1 tree as historical baseline. Recovery may classify destination swap/mint failure, unknown mint results, policy expiry and stale artifacts in MOCKED composition, and present bounded choices in the existing DApp. No new provider, return bridge, public-chain execution, BUILD-011D, BUILD-012 or merge is authorized.
+
 ## BUILD-011C-1 approved implementation boundary (DEC-0052)
 
 From BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`, use only the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) exact paths. Reuse Base → Arbitrum LI.FI or direct Across bridge and the existing Uniswap liquidity adapter with only Arbitrum deployment and pool identity validation added. The composed financial journey is MOCKED, with no public financial transaction, new bridge route/provider, new liquidity protocol, Aave, compensation, failure recovery, BUILD-012 or merge authorization. The historical BUILD-011 and BUILD-011B scopes remain frozen. BUILD-011C-2 is still required before Master Prompt Build 011 completion.
