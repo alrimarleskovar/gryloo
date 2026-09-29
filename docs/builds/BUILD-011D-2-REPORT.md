@@ -47,6 +47,6 @@ Passed locally on 2026-09-29 after swap recovery and exact-profile promotion:
 - Fork suite after all browser servers exited: 31 passed, 29 environment-gated skips. Pinned Anvil compatibility: 4 passed, 10 gated skips.
 - The earlier opt-in read-only public Base Sepolia pool and Quoter probe passed. No live quote or wallet submission was made during recovery of the submitted swap.
 - Both embedded governance CI scripts and `git diff --check` passed.
-- PR-head CI: pending after push.
+- [PR #26](https://github.com/alrimarleskovar/gryloo/pull/26) is open and unmerged. Push and PR-head Governance and Contracts/reference-app/dependencies/SBOM checks passed; Vercel preview passed.
 
 The approval and swap were distinct owner actions. No further transaction was submitted or requested during receipt recovery. The branch remains unmerged; BUILD-012 remains untouched.
