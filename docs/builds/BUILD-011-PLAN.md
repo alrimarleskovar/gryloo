@@ -31,6 +31,7 @@ apps/reference-dapp/e2e/bridge.spec.ts
 apps/reference-dapp/e2e/build-roundtrip.spec.ts
 apps/reference-dapp/e2e/build009.spec.ts
 apps/reference-dapp/e2e/cow-fixtures.ts
+apps/reference-dapp/e2e/cow-intent.spec.ts
 apps/reference-dapp/e2e/cow-recovery.spec.ts
 apps/reference-dapp/e2e/interface-honesty.spec.ts
 apps/reference-dapp/e2e/liquidity-fixtures.ts
