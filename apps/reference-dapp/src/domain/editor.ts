@@ -9,6 +9,8 @@ import { createCompositionWorkflow } from './composition-authoring';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { createBridgeNode } from './bridge-authoring';
 import { createBridgeSwapWorkflow } from './bridge-swap-authoring';
+import { createAcrossWorkflow } from './across-authoring';
+import { canDeleteCanvasNode } from './canvas-keyboard';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -20,6 +22,12 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if (command.type === 'AUTHOR_ACROSS') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try { const workflow = createAcrossWorkflow(current.workflowId, current.revision + 1, command.input);
+      validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'ACROSS_WORKFLOW_INVALID'); }
+  }
   if (command.type === 'AUTHOR_BRIDGE_SWAP') {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
     try { const workflow = createBridgeSwapWorkflow(current.workflowId, current.revision + 1, command.input);
@@ -82,8 +90,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     const node = nodes.find(n => n.nodeId === command.nodeId);
     if (!node) return reject('UNKNOWN_NODE');
     if (command.type === 'REMOVE') {
-      if (nodes.length === 1) return reject('WORKFLOW_REQUIRES_ONE_NODE');
-      if (node.lockedParameters.length) return reject('LOCKED_PARAMETER: unlock before removing this node.');
+      if (!canDeleteCanvasNode(current, node.nodeId)) return reject('PROTECTED_NODE: this node is required by the workflow.');
       nodes = nodes.filter(n => n.nodeId !== node.nodeId).map(n => ({ ...n, dependencies: n.dependencies.filter(id => id !== node.nodeId) }));
       resourceEdges = resourceEdges.filter(edge => edge.fromNodeId !== node.nodeId && edge.toNodeId !== node.nodeId);
     } else if (node.actionType === LIQUIDITY_ACTION) {

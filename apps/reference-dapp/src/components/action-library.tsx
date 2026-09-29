@@ -12,6 +12,7 @@ import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-au
 import { createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { useBridge } from '../state/bridge-store';
 import { createBridgeSwapWorkflow } from '../domain/bridge-swap-authoring';
+import { createAcrossWorkflow } from '../domain/across-authoring';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
@@ -20,6 +21,15 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
   const [bridgeError, setBridgeError] = useState('');
   const [swapBridgeSlippage, setSwapBridgeSlippage] = useState('50');
+  const [acrossAmount, setAcrossAmount] = useState('');
+  const [acrossError, setAcrossError] = useState('');
+  function submitAcross(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try { const input = { amount: acrossAmount, slippageBps: '50' };
+      createAcrossWorkflow(state.workflow.workflowId, state.workflow.revision + 1, input); setAcrossError('');
+      propose({ type: 'AUTHOR_ACROSS', input, source: 'CANVAS', baseRevision: state.workflow.revision });
+    } catch (cause) { setAcrossError(cause instanceof Error ? cause.message : 'Enter a valid USDC amount'); }
+  }
   function submitBridgeSwap() {
     try { const input = { ...bridgeInput, swapSlippageBps: swapBridgeSlippage };
       createBridgeSwapWorkflow(state.workflow.workflowId, state.workflow.revision + 1, input); setBridgeError('');
@@ -76,8 +86,17 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
   return <aside className="library panel" aria-label="Action library">
-    <p className="eyebrow">BUILD / 01</p><h2>Action library</h2>
+    <p className="eyebrow">ACTIONS</p><h2>Action library</h2>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
+    <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">
+      <strong>Bridge · Base → Arbitrum via Across</strong>
+      <p className="muted">Direct Across quote. Deposit, fill and refund are simulated.</p>
+      <label htmlFor="across-amount">Across amount (USDC)</label>
+      <input id="across-amount" type="text" inputMode="decimal" autoComplete="off" value={acrossAmount}
+        onChange={event => setAcrossAmount(event.target.value)} />
+      {acrossError && <p role="alert">{acrossError}</p>}
+      <button type="submit">Review direct Across bridge</button>
+    </form>
     {bridgeEnabled && <form className="swap-create bridge-create" onSubmit={submitBridge} aria-label="Create Base to Optimism bridge proposal">
       <strong>Bridge · Base → Optimism</strong>
       <p className="muted">USDC to USDC. Recipient is your connected address. Live LI.FI route, MOCKED execution.</p>
@@ -91,9 +110,9 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
     </form>}
     <details className="swap-create build009-create" aria-label="Create Base to Arbitrum bridge swap proposal">
-      <summary>BUILD-009 · Base → Arbitrum → WETH</summary>
+      <summary>Base → Arbitrum → WETH</summary>
       <p className="muted">Live read-only LI.FI quotes. Financial execution and reconciliation are MOCKED.</p>
-      <label htmlFor="build009-amount">BUILD-009 source amount (USDC)</label>
+      <label htmlFor="build009-amount">Source amount (USDC)</label>
       <input id="build009-amount" type="text" inputMode="decimal" maxLength={40} value={bridgeInput.amount} onChange={event => setBridgeInput(value => ({ ...value, amount: event.target.value }))}/>
       <label htmlFor="build009-bridge-slip">Bridge slippage (bps)</label>
       <input id="build009-bridge-slip" type="text" inputMode="numeric" maxLength={5} value={bridgeInput.slippageBps} onChange={event => setBridgeInput(value => ({ ...value, slippageBps: event.target.value }))}/>

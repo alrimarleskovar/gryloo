@@ -68,7 +68,7 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
     await page.goto('/');
     if (evidenceDir) {
       mkdirSync(evidenceDir, { recursive: true });
-      await expect(page.getByText('MODE B · LOCAL FORK', { exact: true })).toBeVisible();
+      await expect(page.getByText('Permission demo', { exact: true })).toBeVisible();
       await page.screenshot({ path: join(evidenceDir, 'build.png'), fullPage: true });
     }
     await authorSwap(page, 'WETH_TO_USDC', '1', '100');

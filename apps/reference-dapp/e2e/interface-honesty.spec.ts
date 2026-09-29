@@ -3,9 +3,7 @@ import { test, expect } from './fixtures';
 
 test('shows honest authorization and unavailable stage states', async ({ page }) => {
   await page.goto('/');
-  for (const status of ['MOCKED', 'NONE', 'NOT_ENFORCED', 'NOT_APPLICABLE']) {
-    await expect(page.getByText(status, { exact: true }).last()).toBeVisible();
-  }
+  await expect(page.getByText('Demo mode', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open mocked simulation' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();
@@ -38,7 +36,7 @@ test('provides semantic landmarks, labelled controls and keyboard access', async
 test('labels the local fork honestly and enables no execution without a reviewed fork Manifest', async ({ page }) => {
   await page.goto('/');
   const banner = page.getByRole('banner');
-  await expect(banner.getByText(/^LOCAL FORK · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
+  await expect(banner.getByText(/^Local demo · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
   await expect(banner).toContainText('local fork 31337');
   await expect(banner).toContainText('Wallet: injected · not connected');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();

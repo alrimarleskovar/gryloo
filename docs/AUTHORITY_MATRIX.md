@@ -1,5 +1,9 @@
 # Authority matrix
 
+## Current BUILD-010 implementation authority
+
+DEC-0048 records BUILD-009 merged on main at `f455892b58561bbe740a83f1aa0837e8ac82f5e4`, without a separate certification claim. DEC-0049 approves the [BUILD-010 plan](builds/BUILD-010-PLAN.md) for direct Across Base → Arbitrum USDC with FIXED `across.direct` authorization, deterministic MOCKED financial lifecycle, optional credentialed read-only Across data, bounded UI cleanup and canvas keyboard edits. No public-chain financial submission or merge is approved.
+
 ## Current BUILD-009 implementation authority
 
 DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) from certified main `308901495790416c149976aaee747c2fd5ef9f52`: Base USDC → Arbitrum USDC through LI.FI, then Arbitrum USDC → WETH, with an injected EIP-1193 wallet connection in the top bar. Live wallet state and read-only LI.FI quote/route data may be used. Financial execution, recovery and reconciliation remain deterministic MOCKED. This approval permits implementation, tests and one unmerged PR; merge and certification require separate owner decisions. No public-chain financial execution, real funds, `TESTNET_EXECUTED` or `MAINNET_EXECUTED` claim follows.

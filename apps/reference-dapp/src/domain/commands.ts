@@ -24,6 +24,7 @@ export type Command = Base & (
   | { readonly type: 'AUTHOR_COMPOSITION'; readonly safe: string; readonly input: CompositionInput }
   | { readonly type: 'ADD_BRIDGE'; readonly input: BridgeInput }
   | { readonly type: 'AUTHOR_BRIDGE_SWAP'; readonly input: BridgeSwapInput }
+  | { readonly type: 'AUTHOR_ACROSS'; readonly input: BridgeInput }
   | { readonly type: 'SET_BRIDGE'; readonly nodeId: string; readonly input: BridgeInput }
   | { readonly type: 'ADD_LIQUIDITY'; readonly input: LiquidityInput }
   | { readonly type: 'SET_LIQUIDITY'; readonly nodeId: string; readonly input: LiquidityInput }
@@ -104,7 +105,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD: ['kind'], AUTHOR_BRIDGE_SWAP: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD: ['kind'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -135,6 +136,7 @@ export function commandIsValid(input: unknown): input is Command {
         && Reflect.ownKeys(value).sort().join() === ['amount','slippageBps','swapSlippageBps'].sort().join()
         && Object.values(value).every(item => typeof item === 'string' && item.length <= 40);
     }
+    case 'AUTHOR_ACROSS':
     case 'ADD_BRIDGE':
     case 'SET_BRIDGE': {
       if (command.type === 'SET_BRIDGE' && !id(command.nodeId)) return false;

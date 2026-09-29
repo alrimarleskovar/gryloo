@@ -1,6 +1,10 @@
 # Repository status
 
-BUILD-009 implementation is approved under DEC-0047 on a separate branch from certified main `308901495790416c149976aaee747c2fd5ef9f52`. The approved Base → Arbitrum USDC bridge → Arbitrum WETH swap and injected EIP-1193 wallet flow have passed local implementation gates and await PR-head CI and the owner merge decision. Financial execution/recovery/reconciliation remain MOCKED. No merge or certification is approved. The BUILD-008 and prior certification statements below remain historical and unchanged.
+BUILD-009 is merged on main at `f455892b58561bbe740a83f1aa0837e8ac82f5e4` (DEC-0048). No separate BUILD-009 certification or post-merge CI claim is recorded. BUILD-010 implementation is approved under DEC-0049 from that main; direct Across financial execution remains MOCKED and the branch must stop before merge.
+
+## Historical BUILD-009 implementation state (before merge)
+
+BUILD-009 implementation is approved under DEC-0047 on a separate branch from certified main `308901495790416c149976aaee747c2fd5ef9f52`. The approved Base → Arbitrum USDC bridge → Arbitrum WETH swap and injected EIP-1193 wallet flow had passed local implementation gates and awaited PR-head CI and the owner merge decision at that time. Financial execution/recovery/reconciliation remain MOCKED. No merge or certification is approved. The BUILD-008 and prior certification statements below remain historical and unchanged.
 
 ## BUILD-008 certified state (2026-09-28)
 

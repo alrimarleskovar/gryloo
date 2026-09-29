@@ -37,3 +37,6 @@ export * from './composition.js';
 
 export { BRIDGE_ADAPTER, compileBridge, verifyBridgeReview } from './bridge.js';
 export type { BridgeRoute, BridgeCompiled } from './bridge.js';
+
+export { compileAcrossReview, verifyAcrossReview, providerAuthorized } from './across.js';
+export type { AcrossReview, ProviderBinding } from './across.js';

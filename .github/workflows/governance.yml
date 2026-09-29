@@ -44,6 +44,7 @@ jobs:
             bf280d4184a83c9841d9a6b70dbebab1fd03e23e
             d5d3934d595943a45f5696fab440437d81e0690c
             308901495790416c149976aaee747c2fd5ef9f52
+            f455892b58561bbe740a83f1aa0837e8ac82f5e4
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -334,7 +335,7 @@ jobs:
           closure_changed={v for v in set(certified008)&set(merged008) if certified008[v]!=merged008[v]}
           if closure_changed!=certification_records008:
               errors.append('BUILD-008 certification must change only its nine records/governance files: '+repr(sorted(closure_changed^certification_records008)))
-          # DEC-0047: BUILD-009 may change only its plan-listed paths from the exact certified main.
+          # Preserve BUILD-009 at its merged main tree; apply BUILD-010 scope to this revision.
           plan009=(root/'docs/builds/BUILD-009-PLAN.md').read_text()
           scope009=plan009.split('## Exact expected files',1)[1].split('## Delivery',1)[0]
           create009=set(scope009.split('Create:\n',1)[1].split('\nModify:',1)[0].strip().splitlines())
@@ -342,17 +343,31 @@ jobs:
           if (create009&modify009 or create009&set(certified008) or not modify009<=set(certified008)
                   or 'DEC-0047' not in plan009):
               errors.append('BUILD-009 approved scope list inconsistent')
-          errors += ['BUILD-009 unapproved created path: '+v for v in sorted((now-set(certified008))-create009)]
-          errors += ['BUILD-009 removed certified path: '+v for v in sorted(set(certified008)-now)]
-          for v in sorted(now&set(certified008)):
+          merged009=tree('f455892b58561bbe740a83f1aa0837e8ac82f5e4')
+          errors += ['historical BUILD-009 unapproved created path: '+v for v in sorted((set(merged009)-set(certified008))-create009)]
+          errors += ['historical BUILD-009 removed certified path: '+v for v in sorted(set(certified008)-set(merged009))]
+          for v in sorted(set(merged009)&set(certified008)):
+              if merged009[v][0]!=certified008[v][0]: errors.append('historical BUILD-009 changed file mode: '+v)
+              if v not in modify009 and merged009[v][1]!=certified008[v][1]:
+                  errors.append('historical BUILD-009 protected certified file changed: '+v)
+          plan010=(root/'docs/builds/BUILD-010-PLAN.md').read_text()
+          scope010=plan010.split('## Exact expected files',1)[1]
+          create010=set(scope010.split('Create:\n',1)[1].split('\nModify:',1)[0].strip().splitlines())
+          modify010=set(scope010.split('Modify:\n',1)[1].split('\nDelete:',1)[0].strip().splitlines())
+          if (create010&modify010 or create010&set(merged009) or not modify010<=set(merged009)
+                  or 'DEC-0049' not in plan010 or 'f455892b58561bbe740a83f1aa0837e8ac82f5e4' not in plan010):
+              errors.append('BUILD-010 approved scope list inconsistent')
+          errors += ['BUILD-010 unapproved created path: '+v for v in sorted((now-set(merged009))-create010)]
+          errors += ['BUILD-010 removed baseline path: '+v for v in sorted(set(merged009)-now)]
+          for v in sorted(now&set(merged009)):
               file=root/v
               mode='100755' if file.stat().st_mode & 0o111 else '100644'
               oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
-              if mode!=certified008[v][0]: errors.append('BUILD-009 changed file mode: '+v)
-              if v not in modify009 and oid!=certified008[v][1]: errors.append('BUILD-009 protected certified file changed: '+v)
-          for v in sorted(now-set(certified008)):
+              if mode!=merged009[v][0]: errors.append('BUILD-010 changed file mode: '+v)
+              if v not in modify010 and oid!=merged009[v][1]: errors.append('BUILD-010 protected baseline file changed: '+v)
+          for v in sorted(now-set(merged009)):
               if not (root/v).is_file() or (root/v).is_symlink() or (root/v).stat().st_mode & 0o111:
-                  errors.append('BUILD-009 new path must be regular non-executable file: '+v)
+                  errors.append('BUILD-010 new path must be regular non-executable file: '+v)
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
@@ -412,6 +427,7 @@ jobs:
           composition_service='apps/reference-dapp/src/server/composition-service.ts'
           composition_action='apps/reference-dapp/src/app/composition-action.ts'
           composition_store='apps/reference-dapp/src/state/composition-store.tsx'
+          across_adapter='apps/reference-dapp/src/server/across-adapter.ts'
           bridge_adapter='apps/reference-dapp/src/server/lifi-adapter.ts'
           bridge_action='apps/reference-dapp/src/app/bridge-action.ts'
           bridge_store='apps/reference-dapp/src/state/bridge-store.tsx'
@@ -459,6 +475,10 @@ jobs:
                   permitted=('https://li.quest/v1/tokens?', 'https://li.quest/v1/quote?')
                   if any(body.count(url)!=1 for url in permitted) or re.search(r'https?://|wss?://|@import\s+url',body.replace(permitted[0],'').replace(permitted[1],'')):
                       errors.append('BUILD-009 LI.FI endpoint changed: '+file.as_posix())
+              elif file.as_posix()==across_adapter:
+                  permitted=('https://app.across.to/api/swap/approval?', 'https://app.across.to/api/deposit/status?')
+                  if any(body.count(url)!=1 for url in permitted) or re.search(r'https?://|wss?://|@import\s+url',body.replace(permitted[0],'').replace(permitted[1],'')):
+                      errors.append('BUILD-010 Across endpoint changed: '+file.as_posix())
               elif re.search(r'https?://|wss?://|@import\s+url',body):
                   errors.append('remote application URL: '+file.as_posix())
           # BUILD-003B: mocked artifacts must not reach authority, wallet, RPC or network code.
@@ -487,9 +507,14 @@ jobs:
                       scanned=scanned.replace('fetch(url,','',1)
                   if pattern.startswith(r'\bfetch') and name==b_server:
                       scanned=scanned.replace('fetch(profile.rpcUrl,','',1)
+                  if pattern.startswith(r'\bfetch') and name==across_adapter:
+                      if body.count('fetch(')!=2: errors.append('BUILD-010 Across fetch count changed')
+                      scanned=scanned.replace('fetch(', '', 2)
                   if pattern.startswith(r'\bfetch') and name==build009_adapter:
                       if body.count('fetch(url,')!=1: errors.append('BUILD-009 LI.FI fetch count changed')
                       scanned=scanned.replace('fetch(url,','',1)
+                  if pattern.startswith(r'\b(?:localStorage') and name=='apps/reference-dapp/src/state/across-store.tsx':
+                      scanned=scanned.replace('localStorage','')
                   if pattern.startswith(r'\b(?:localStorage') and name==build009_store:
                       scanned=scanned.replace('localStorage','')
                   if pattern.startswith('window') and name==b_store:
@@ -531,7 +556,7 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action,build009_action} and name not in f_tests:
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action,build009_action,'apps/reference-dapp/src/app/across-action.ts'} and name not in f_tests:
                   if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body)):
                       errors.append('client imports server module: '+name)
               if file in non_test:
@@ -541,7 +566,7 @@ jobs:
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
                   for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
-                      if selector not in (selectors|composition_selectors if name==composition_service else selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors):
+                      if selector not in (selectors|composition_selectors if name==composition_service else selectors|{'0x095ea7b3','0xdd62ed3e','0x70a08231','0x04e45aaf','0x5ae401dc','0x8da5cb5b','0x5aef7de6','0xd4b83992','0xa0e67e2b','0xe75235b8','0x2d9ad53d','0x3b9aca00','0x5e7c9fe8'} if name in f_server|{f_wallet,b_server,l_server,l_wallet} else selectors|{'0x095ea7b3','0x110560ad'} if name==across_adapter else selectors):
                           errors.append('seventh selector or other short hex in source: '+name+' '+selector)
           action=(root/'apps/reference-dapp/src/app/observation-action.ts').read_text()
           if not re.match(r"// SPDX-License-Identifier: AGPL-3.0-only\n'use server';",action):
@@ -561,7 +586,7 @@ jobs:
                   errors.append('mocked and observation modules import each other: '+observed+' '+mocked)
           # BUILD-003D Mode A package boundaries (plan section 3.17), exhaustive over the delivered sources.
           mode_a_bases=('packages/reference-compiler/src','packages/reference-executor/src','packages/reference-reconciler/src')
-          mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts','composition.ts','bridge.ts'}]
+          mode_a_sources=[file for base in mode_a_bases for file in sorted((root/base).rglob('*')) if file.suffix=='.ts' and file.name not in {'mode-b.ts','cow.ts','composition.ts','bridge.ts','across.ts'}]
           if len(mode_a_sources)!=26: errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
@@ -593,7 +618,7 @@ jobs:
           for file in sources:
               name=file.as_posix()
               body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts',l_server,l_wallet}|f_tests else type_only(file.read_text())
-              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet,composition_service,bridge_service}|f_tests: continue
+              if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet,composition_service,bridge_service,'apps/reference-dapp/src/server/across-service.ts'}|f_tests: continue
               if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
                   errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
           # BUILD-006 adds one explicit local-fork liquidity server and a browser-only exact-payload verifier.
@@ -1089,7 +1114,7 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-009 approved implementation') or
+          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-010 approved implementation') or
                   'DEC-0047' not in next_build or
                   'DEC-0046' not in next_build or 'MOCKED' not in next_build or
                   'Base → Optimism USDC' not in next_build or

@@ -28,8 +28,8 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
-  await page.getByText('BUILD-009 · Base → Arbitrum → WETH', { exact: true }).click();
-  await page.getByLabel('BUILD-009 source amount (USDC)').fill('1');
+  await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
+  await page.getByLabel('Source amount (USDC)').fill('1');
   await page.getByLabel('Bridge slippage (bps)').fill('50');
   await page.getByLabel('Arbitrum swap slippage (bps)').fill('50');
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
@@ -38,7 +38,7 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
   await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  const panel = page.getByRole('region', { name: 'BUILD-009 bridge to swap composition' });
+  const panel = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
   await panel.getByRole('button', { name: 'Get live Base → Arbitrum LI.FI bridge quote' }).click();
   await expect(panel.locator('[data-build009-state]')).toContainText('BRIDGE_QUOTED', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
@@ -58,7 +58,7 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  const recovered = page.getByRole('region', { name: 'BUILD-009 bridge to swap composition' });
+  const recovered = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
   await expect(recovered.locator('[data-build009-state]')).toContainText('PARTIAL_COMPLETION');
   await expect(recovered).toContainText('recovered MOCKED journal');
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
@@ -99,8 +99,8 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
     } });
   }, OWNER);
   await page.goto('/');
-  await page.getByText('BUILD-009 · Base → Arbitrum → WETH', { exact: true }).click();
-  await page.getByLabel('BUILD-009 source amount (USDC)').fill('1');
+  await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
+  await page.getByLabel('Source amount (USDC)').fill('1');
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
@@ -108,7 +108,7 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
   await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
   await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  const panel = page.getByRole('region', { name: 'BUILD-009 bridge to swap composition' });
+  const panel = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
   await panel.getByRole('button', { name: 'Get live Base → Arbitrum LI.FI bridge quote' }).click();
   await expect(panel.locator('[data-build009-state]')).toContainText('BRIDGE_QUOTED', { timeout: 30_000 });
   await page.evaluate(() => (window as unknown as { __build009WalletTest: { changeChain(value: string): void } }).__build009WalletTest.changeChain('0xa4b1'));

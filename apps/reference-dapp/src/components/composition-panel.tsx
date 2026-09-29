@@ -18,7 +18,7 @@ export function CompositionPanel({ view }: { view: 'simulate' | 'execute' }) {
   const completed = mint?.state === 'RECONCILED';
   const partial = swap?.state === 'RECONCILED' && mint?.state === 'REVERTED';
   return <section className="panel" aria-label="Mode B swap to liquidity composition">
-    <p className="eyebrow">BUILD-007 / {flow.info.environment ?? 'UNKNOWN'} / LOCAL CHAIN 31337</p>
+    <p className="eyebrow">Local demo · Base position</p>
     <h2>Swap → position</h2>
     <p>Base USDC → WETH, then one Uniswap v3 WETH/USDC 0.05% position owned by the Safe.</p>
     <p className="muted">{flow.info.environment === 'FORK_REPRODUCED' ? 'Recorded Base state is replayed locally.' :

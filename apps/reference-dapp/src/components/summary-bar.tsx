@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { product } from '../config/product';
 import { chainStatus, checkChainAccess } from '../domain/artifact-chain';
 import { SWAP_ACTION } from '../domain/swap-authoring';
 import { useModeA } from '../state/mode-a-store';
@@ -25,9 +24,9 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const evidence = execution?.evidence.at(-1);
   const forkState = !prepared ? 'NOT PREPARED' : evidence ? (evidence.revocationConfirmed ? 'REVOCATION_CONFIRMED' : evidence.outcome) : retired ? 'INVALIDATED' : 'REVIEW';
   return <footer className="summary-bar"><div><span className="eyebrow">WORKFLOW STATE</span><strong>Revision {state.workflow.revision}</strong><span>{state.workflow.nodes.filter(node => node.actionType === SWAP_ACTION).length} Base swap · {state.workflow.nodes.filter(node => node.actionType !== SWAP_ACTION).length} mock nodes</span></div>
-    <div className="summary-status"><StatusBadge label={product.environment} tone="info"/><StatusBadge label={product.authorization}/><StatusBadge label={product.enforcement} tone="warning"/><StatusBadge label={product.outcome}/><StatusBadge label={`MOCKED ARTIFACTS: ${shown}`}/>
-      {info?.available && <StatusBadge label={`MODE A · ${info.environment}: ${forkState}`} tone="warning"/>}
-      {modeB.info?.available && <StatusBadge label={`MODE B · LOCAL FORK: ${modeBState}`} tone="warning"/>}</div>
+    <div className="summary-status"><StatusBadge label="Demo mode" tone="info"/><StatusBadge label={`Simulation: ${shown}`}/>
+      {info?.available && <StatusBadge label={`Direct review · ${forkState}`} tone="warning"/>}
+      {modeB.info?.available && <StatusBadge label={`Permission review · ${modeBState}`} tone="warning"/>}</div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Open mocked simulation</button>
       : tab === 'Simulate' && modeB.info?.available && modeBRecord ? <button type="button" className="primary" onClick={() => setTab('Execute')}>Review finite Mode B permission</button>
       : tab === 'Simulate' ? (reviewable

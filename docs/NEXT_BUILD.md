@@ -1,6 +1,12 @@
 # Next build
 
-## Current next milestone: BUILD-009 approved implementation (2026-09-28)
+## Current next milestone: BUILD-010 approved implementation (2026-09-29)
+
+BUILD-009 is merged on main at `f455892b58561bbe740a83f1aa0837e8ac82f5e4` under DEC-0048; no separate BUILD-009 certification or post-merge CI claim is made. DEC-0049 approves the [BUILD-010 plan](builds/BUILD-010-PLAN.md): direct Across Base → Arbitrum USDC, fixed-provider authorization, deterministic MOCKED financial lifecycle, bounded UI cleanup and canvas keyboard controls. Live Across reads require server-side credentials; merge remains an owner decision.
+
+## Historical next milestone: BUILD-009 approved implementation (2026-09-28)
+
+## Historical BUILD-009 approved implementation (2026-09-28)
 
 DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) from certified main `308901495790416c149976aaee747c2fd5ef9f52`: Base USDC → LI.FI bridge → Arbitrum USDC → Arbitrum WETH swap, with injected EIP-1193 wallet connection and explicit chain switching. Live wallet connection and LI.FI reads are allowed. Financial execution, recovery and reconciliation remain MOCKED. Implementation, tests and one unmerged PR are approved; merge and certification are not. BUILD-008 and prior certifications remain unchanged.
 
