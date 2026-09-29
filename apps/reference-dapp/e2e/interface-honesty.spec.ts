@@ -3,16 +3,16 @@ import { test, expect } from './fixtures';
 
 test('shows honest authorization and unavailable stage states', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Demo mode', { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open mocked simulation' })).toBeEnabled();
+  await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Continue to Simulate' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('Add a Base swap in Build before generating mocked artifacts.');
   await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('USD values: not modeled.');
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution. Read-only Base observations cannot authorize execution either. There is no wallet, signature, transaction, execution or outcome here.');
-  await expect(page.getByRole('button', { name: 'Execution unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Back to Build' })).toBeVisible();
 });
 
 test('provides semantic landmarks, labelled controls and keyboard access', async ({ page }) => {
@@ -42,7 +42,7 @@ test('labels the local fork honestly and enables no execution without a reviewed
   const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });
   await expect(fork).toContainText('Local-fork Mode A needs exactly one USDC/WETH swap in the workflow.');
   await expect(fork.getByRole('button', { name: 'Simulate on local fork for revision 0' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Local-fork Mode A is enabled on this server');
   await expect(page.getByRole('region', { name: 'Mode A execution' })).toHaveCount(0);

@@ -185,7 +185,7 @@ export async function simulateOnFork(page: Page): Promise<void> {
   await expect(forkPanel(page).locator('[data-browser-verification="EXACT"]')).toBeVisible();
 }
 export async function reviewAndConnect(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Review Mode A Manifest' }).click();
+  await page.getByRole('button', { name: 'Review swap' }).click();
   await expect(page.getByRole('region', { name: 'Mode A Manifest review' })).toBeVisible();
   await page.getByRole('button', { name: 'I reviewed both exact payloads' }).click();
   await executionPanel(page).getByRole('button', { name: 'Connect injected wallet' }).click();

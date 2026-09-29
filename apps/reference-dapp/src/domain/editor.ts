@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { commandIsValid, type Command } from './commands';
 import { freeze, initialWorkflow, type Workflow } from './initial-workflow';
 import { createMockNode } from './mock-actions';
@@ -62,7 +62,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   }
   let nodes = [...current.nodes];
   let resourceEdges = [...current.resourceEdges];
-  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
+  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_TESTNET_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
     if (nodes.length >= 1024) return reject('NODE_LIMIT');
     const id = `node-${String(current.revision + 2).padStart(3, '0')}`;
     if (nodes.some(node => node.nodeId === id)) return reject('DUPLICATE_NODE');
@@ -73,7 +73,8 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
         if (nodes.some(n => n.actionType === LIQUIDITY_ACTION)) return reject('ONE_LIQUIDITY_POSITION_ONLY');
         try { nodes.push(createLiquidityNode(id, command.input, context)); }
         catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_LIQUIDITY_INPUT'); }
-      } else try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
+      } else try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage,
+        command.type === 'ADD_TESTNET_SWAP' ? createBaseSepoliaReviewContext() : context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
       catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_SWAP_INPUT'); }
     }
   } else if (command.type === 'CONNECT') {
@@ -172,7 +173,8 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   }
   const candidate = { ...current, revision: current.revision + 1, nodes, resourceEdges };
   if (context) {
-    try { validateAuthoringWorkflow(candidate, context); }
+    try { validateAuthoringWorkflow(candidate, candidate.nodes.some(n => n.actionType === SWAP_ACTION && n.chainId === 'eip155:84532')
+      ? createBaseSepoliaReviewContext() : context); }
     catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_WORKFLOW'); }
   } else if (nodes.some(n => [SWAP_ACTION, LIQUIDITY_ACTION].includes(n.actionType))) return reject('REVIEW_CONTEXT_REQUIRED');
   return { workflow: freeze(candidate), error: null };

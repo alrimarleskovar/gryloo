@@ -27,7 +27,7 @@ test('a wallet on the wrong chain or account is refused before any transaction r
   await page.goto('/');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
-  await page.getByRole('button', { name: 'Review Mode A Manifest' }).click();
+  await page.getByRole('button', { name: 'Review swap' }).click();
   await page.getByRole('button', { name: 'I reviewed both exact payloads' }).click();
   testWallet.fault = { chainId: '0x2105' };
   await executionPanel(page).getByRole('button', { name: 'Connect injected wallet' }).click();
@@ -59,7 +59,7 @@ test('slippage above the reviewed ceiling cannot be simulated or authorized', as
   await forkPanel(page).getByRole('button', { name: /^Simulate on local fork for revision \d+$/ }).click();
   await expect(forkPanel(page)).toContainText('SLIPPAGE_NOT_ELIGIBLE');
   expect(fork.preparedFiles()).toHaveLength(0);
-  expect(testWallet.calls).toHaveLength(0);
+  expect(sends(testWallet.calls)).toBe(0);
 });
 
 test('manipulated calldata or an unknown spender in a server response is blocked in the browser', async ({ page, testWallet }) => {
@@ -76,6 +76,6 @@ test('manipulated calldata or an unknown spender in a server response is blocked
   await forkPanel(page).getByRole('button', { name: /^Simulate on local fork for revision \d+$/ }).click();
   await expect(forkPanel(page).getByText(/Browser verification blocked the wallet: BROWSER_/)).toBeVisible();
   await expect(forkPanel(page).locator('[data-browser-verification="BLOCKED"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
-  expect(testWallet.calls).toHaveLength(0);
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  expect(sends(testWallet.calls)).toBe(0);
 });

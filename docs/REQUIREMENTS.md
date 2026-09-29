@@ -292,3 +292,14 @@ DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) from `33a
 | B011D-ENVIRONMENT-001 | Keep environment selection separate from Semantic Workflow IR, revision and canvas layout. | Browser environment inspection | IMPLEMENTED_LOCAL |
 | B011D-EXECUTE-001 | Gate Execute through capability resolution and show typed product-facing blockers while retaining existing artifact and wallet guards. | Browser and resolver tests | IMPLEMENTED_LOCAL |
 | B011D-EVIDENCE-001 | Preserve Base Uniswap local-fork evidence, MOCKED provider/composition evidence, authoring-only templates, and disabled Public Testnet/Mainnet. | Capability matrix and governance | IMPLEMENTED_LOCAL |
+
+## BUILD-011D-2 public testnet acceptance (DEC-0055)
+
+| ID | Requirement | Check or evidence | Status |
+|---|---|---|---|
+| B011D-PUBLICUX-001 | Remove normal Build environment selector and permanent readiness diagnostics while preserving canvas, toolbox and navigation. | Browser and visual tests | IMPLEMENTED_LOCAL |
+| B011D-PUBLICWALLET-001 | Reuse a connected EIP-1193 session; connect contextually at Execute; author and quote without wallet. | Wallet and browser tests | IMPLEMENTED_LOCAL |
+| B011D-PUBLICCHAIN-001 | Verify Base Sepolia 84532, official Uniswap deployments, bytecode, canonical pool and live quote. | Public RPC observation and service checks | VERIFIED_READ_ONLY |
+| B011D-PUBLICEXEC-001 | Persist bounded approval/swap attempts before wallet send and hashes immediately; fail closed on unknown result. | Deterministic service and recovery tests | IMPLEMENTED_LOCAL |
+| B011D-PUBLICEVIDENCE-001 | Promote only the exact swap profile after a real canonical DApp transaction, successful receipt, independent token reconciliation, gas and Evidence Bundle. | [Public swap receipt](https://sepolia.basescan.org/tx/0xb5dd3f4bb4d2f5a101ff5da371636fde917894eb03ef3c5f1ac0e71605799ff8) and [BUILD-011D-2 report](builds/BUILD-011D-2-REPORT.md) | TESTNET_EXECUTED_EXACT_PROFILE |
+| B011D-PUBLICSCOPE-001 | Keep other public profiles and Mainnet unavailable and preserve Mock/Fork evidence. | Registry and regression tests | IMPLEMENTED_LOCAL |

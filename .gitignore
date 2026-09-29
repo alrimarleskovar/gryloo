@@ -153,3 +153,6 @@ apps/reference-dapp/test-results/
 apps/reference-dapp/.mode-a/
 disposable-phrase
 alchemy-key*
+
+# BUILD-011D-2 durable local public-testnet attempt journal (never tracked)
+.public-testnet/

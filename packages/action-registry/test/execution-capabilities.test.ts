@@ -76,6 +76,24 @@ describe('execution capability registry', () => {
     expect(resolveNodeCapability(swap(), { environment: 'LOCAL_FORK', runtime: { forkAvailable: true } }).evidenceCeiling)
       .toBe('FORK_REPRODUCED');
   });
+  it('records public evidence only for the reconciled Base Sepolia Uniswap swap', () => {
+    const testnetSwap = node('asset.swap.exact-input', 'eip155:84532');
+    const profile = resolveNodeCapability(testnetSwap, { environment: 'PUBLIC_TESTNET' });
+    expect(profile.profile).toMatchObject({ adapterId: 'uniswap.v3', chainId: 'eip155:84532',
+      environment: 'PUBLIC_TESTNET', executionKind: 'DIRECT_TRANSACTION', evidenceMaturity: 'TESTNET_EXECUTED' });
+    expect(profile.evidenceCeiling).toBe('TESTNET_EXECUTED');
+    expect(profile.capabilities.EXECUTE).toBe(true);
+    expect(resolveWorkflowCapability(workflow(testnetSwap), { environment: 'PUBLIC_TESTNET' }).executionReady).toBe(false);
+    expect(resolveWorkflowCapability(workflow(testnetSwap), { environment: 'PUBLIC_TESTNET', runtime: {
+      quoteProviderAvailable: true, walletConnected: true, walletChainId: 'eip155:84532',
+      artifacts: 'CURRENT', simulationReady: true, authorizationReady: true,
+    } }).executionReady).toBe(true);
+    expect(resolveNodeCapability(testnetSwap, { environment: 'MAINNET' }).capabilities.EXECUTE).toBe(false);
+    expect(resolveNodeCapability(pool('eip155:84532'), { environment: 'PUBLIC_TESTNET' }).capabilities.EXECUTE).toBe(false);
+    expect(executionCapabilityRegistry.filter(row => row.environment === 'PUBLIC_TESTNET' && row.evidenceMaturity === 'TESTNET_EXECUTED'))
+      .toEqual([profile.profile]);
+    expect(resolveWorkflowCapability(workflow(testnetSwap, bridge()), { environment: 'PUBLIC_TESTNET' }).executionSupported).toBe(false);
+  });
   it('keeps isolated authoring templates out of financial execution and evidence', () => {
     const read = node('mock-read', 'mock:local', null, []);
     const result = resolveWorkflowCapability(workflow(read, swap()), { environment: 'LOCAL_FORK', runtime: {

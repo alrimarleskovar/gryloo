@@ -10,6 +10,7 @@ import { useComposition } from './composition-store';
 import { useLiquidity } from './liquidity-store';
 import { useBuild009Wallet } from './build009-wallet-store';
 import { useCow } from './cow-store';
+import { usePublicTestnet } from './public-testnet-store';
 
 type Selection = { readonly selected: ExecutionEnvironment | null; select(environment: ExecutionEnvironment): void };
 const Context = createContext<Selection | null>(null);
@@ -22,14 +23,16 @@ export function useExecutionEnvironment() {
   if (!selection) throw new Error('CAPABILITY_PROVIDER_MISSING');
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
-  const environment: ExecutionEnvironment = selection.selected ?? (forkPrepared ? 'LOCAL_FORK' : 'MOCK');
+  const workflow = useWorkflow().state.workflow;
+  const testnetSwap = workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const environment: ExecutionEnvironment = selection.selected ?? (testnetSwap ? 'PUBLIC_TESTNET' : forkPrepared ? 'LOCAL_FORK' : 'MOCK');
   return { environment, selectEnvironment: selection.select };
 }
 export function useWorkflowCapability() {
   const { state, chain } = useWorkflow();
   const { environment, selectEnvironment } = useExecutionEnvironment();
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
-  const cow = useCow(), wallet = useBuild009Wallet();
+  const cow = useCow(), wallet = useBuild009Wallet(), publicTestnet = usePublicTestnet();
   const forkAvailable = Boolean(modeA.info?.available || modeB.info?.available || liquidity.info?.available || composition.info?.available);
   const forkEvidence = modeA.info?.available ? modeA.info.environment : liquidity.info?.available ? liquidity.info.environment :
     composition.info?.available ? composition.info.environment ?? 'MOCKED' : 'FORK_REPRODUCED';
@@ -38,14 +41,17 @@ export function useWorkflowCapability() {
     state.workflow.nodes.some(node => node.adapterConstraints.protocols.includes('cow-protocol')) ? Boolean(cow.wallet) : Boolean(wallet.account);
   const walletChainId = environment === 'LOCAL_FORK' ? selectedForkWallet ? 'eip155:31337' : null :
     cow.wallet ? 'eip155:8453' : wallet.chainId === '0x2105' ? 'eip155:8453' :
-    wallet.chainId === '0xa4b1' ? 'eip155:42161' : null;
+    wallet.chainId === '0xa4b1' ? 'eip155:42161' : wallet.chainId === '0x14a34' ? 'eip155:84532' : null;
   const status = chainStatus(chain);
-  const artifacts = modeA.retired || liquidity.retired || modeB.retired || status === 'INVALIDATED' || status === 'EXPIRED'
+  const artifacts = environment === 'PUBLIC_TESTNET' ? (publicTestnet.retired ? 'STALE' : publicTestnet.run ? 'CURRENT' : 'MISSING') :
+    modeA.retired || liquidity.retired || modeB.retired || status === 'INVALIDATED' || status === 'EXPIRED'
     ? 'STALE' : modeA.prepared || liquidity.prepared || modeB.status?.prepared || status === 'CURRENT' ? 'CURRENT' : 'MISSING';
-  const simulationReady = Boolean(modeA.prepared || liquidity.prepared || modeB.status?.prepared || composition.status?.prepared || status === 'CURRENT');
-  const authorizationReady = Boolean(modeA.reviewAccepted || liquidity.reviewAccepted || modeB.reviewed);
+  const simulationReady = environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run && !publicTestnet.retired) :
+    Boolean(modeA.prepared || liquidity.prepared || modeB.status?.prepared || composition.status?.prepared || status === 'CURRENT');
+  const authorizationReady = environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run?.reviewedManifestHash) :
+    Boolean(modeA.reviewAccepted || liquidity.reviewAccepted || modeB.reviewed);
   const result = useMemo(() => resolveWorkflowCapability(state.workflow, { environment, runtime: {
-    forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
-  } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady]);
+    forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
+  } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady, publicTestnet.available]);
   return { environment, selectEnvironment, result };
 }

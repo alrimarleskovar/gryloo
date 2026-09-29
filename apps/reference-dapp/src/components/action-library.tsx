@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { mockActions, actionKinds } from '../domain/mock-actions';
 import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '../domain/swap-authoring';
+import { createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { useWorkflow } from '../state/workflow-store';
 import { useCow } from '../state/cow-store';
 import { useLiquidity } from '../state/liquidity-store';
@@ -60,6 +61,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const compositionEnabled = composition.info?.available === true;
   const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
+  const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA'>('BASE');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
   const [allowCow, setAllowCow] = useState(false);
@@ -91,10 +93,11 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      parseHumanAmount(amount, inputSymbol(direction), context);
+      parseHumanAmount(amount, inputSymbol(direction), swapNetwork === 'BASE_SEPOLIA' ? createBaseSepoliaReviewContext() : context);
       parseSlippage(slippage);
       setError('');
-      propose({ type: cowEnabled && allowCow ? 'ADD_COW_SWAP' : 'ADD_SWAP', direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
+      propose({ type: swapNetwork === 'BASE_SEPOLIA' ? 'ADD_TESTNET_SWAP' : cowEnabled && allowCow ? 'ADD_COW_SWAP' : 'ADD_SWAP',
+        direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
@@ -148,8 +151,12 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         {crossError && <p role="alert">{crossError}</p>}
       </form>
     </details>
-    <form className="swap-create" onSubmit={submit} aria-label="Create Base swap proposal">
-      <strong>Base swap</strong>
+    <form className="swap-create" onSubmit={submit} aria-label="Create swap proposal">
+      <strong>Swap</strong>
+      <label htmlFor="swap-network">Network</label>
+      <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA')}>
+        <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option>
+      </select>
       <label htmlFor="swap-direction">Direction</label>
       <select id="swap-direction" value={direction} onChange={event => setDirection(event.target.value as Direction)}>
         <option value="USDC_TO_WETH">USDC → WETH</option><option value="WETH_TO_USDC">WETH → USDC</option>
@@ -158,10 +165,10 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <input id="swap-amount" type="text" inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80} value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
       <label htmlFor="swap-slippage">Slippage in bps (required)</label>
       <input id="swap-slippage" type="text" inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} value={slippage} onChange={event => setSlippage(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
-      {cowEnabled && <label className="cow-authoring-choice"><input type="checkbox" checked={allowCow} onChange={event => setAllowCow(event.target.checked)}/> Enable CoW signed intent for this swap</label>}
+      {cowEnabled && swapNetwork === 'BASE' && <label className="cow-authoring-choice"><input type="checkbox" checked={allowCow} onChange={event => setAllowCow(event.target.checked)}/> Enable CoW signed intent for this swap</label>}
       {error && <p id="swap-create-error" role="alert">{error}. Check the amount, asset cap and slippage.</p>}
       <button type="submit">Review swap proposal</button>
-      <small>Caps: 1,000,000 USDC or 1,000 WETH. Prototype limits; no quote or execution.</small>
+      <small>{swapNetwork === 'BASE_SEPOLIA' ? 'Use test USDC and WETH only. Simulate for a live quote before review.' : 'Base swaps use the existing local review path.'}</small>
     </form>
     {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
       <strong>Uniswap v3 position · Base</strong>

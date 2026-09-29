@@ -47,7 +47,7 @@ export function createSwapNode(nodeId: string, direction: Direction, humanAmount
   const amount = parseHumanAmount(humanAmount, from, trusted);
   const slippage = parseSlippage(slippageText);
   return {
-    nodeId, actionType: SWAP_ACTION, actionSchemaVersion: '1.0.0', chainId: 'eip155:8453',
+    nodeId, actionType: SWAP_ACTION, actionSchemaVersion: '1.0.0', chainId: input.chainId,
     requiredCapabilities: ['swap.direct-transaction'],
     adapterConstraints: { adapters: [], protocols: provider === 'cow' ? ['uniswap', 'cow-protocol'] : ['uniswap'] },
     inputs: [

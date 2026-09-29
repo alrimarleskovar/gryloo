@@ -88,8 +88,8 @@ test('a semantic edit retires the reviewed fork action and no wallet request is 
   await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(forkPanel(page).getByText('FORK: INVALIDATED', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
-  expect(testWallet.calls).toHaveLength(0);
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  expect(testWallet.calls.filter(call => call.method === 'eth_sendTransaction')).toHaveLength(0);
 });
 
 test('mocked and observed artifacts can never open Mode A review or execution', async ({ page, testWallet, fork }) => {
@@ -99,9 +99,9 @@ test('mocked and observed artifacts can never open Mode A review or execution', 
   const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution.');
   expect(fork.preparedFiles()).toHaveLength(0);
-  expect(testWallet.calls).toHaveLength(0);
+  expect(testWallet.calls.filter(call => call.method === 'eth_sendTransaction')).toHaveLength(0);
 });

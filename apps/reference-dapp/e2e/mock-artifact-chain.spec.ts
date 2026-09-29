@@ -238,11 +238,11 @@ test('mocked numbers stay labelled and execution stays unavailable after generat
   for (const name of await page.locator('main button:enabled, footer button:enabled').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent ?? ''))) {
     expect(name).not.toMatch(/sign|approv|authori[sz]|submit|execut|wallet|connect/i);
   }
-  await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   await tab(page, 'Execute');
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution.');
-  await expect(page.getByRole('button', { name: 'Execution unavailable' })).toBeDisabled();
-  await expect(page.getByText('Simulation: CURRENT', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to Build' })).toBeVisible();
+  await expect(page.getByText('Simulation: CURRENT', { exact: true })).toHaveCount(0);
 });
 
 test('keyboard generation and responsive layout of the mocked chain', async ({ page }) => {

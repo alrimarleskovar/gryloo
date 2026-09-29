@@ -115,7 +115,7 @@ jobs:
           export GRYLOO_MODE_A_RUNTIME="$RUNNER_TEMP/gryloo-mode-a-e2e"
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           # Visual/default-state specs run before local-fork execution writes a recovery journal.
-          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts public-testnet.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mode-a-adversarial.spec.ts mode-a-fork.spec.ts mode-a-recovery.spec.ts
           # BUILD-005: a separate MOCKED CoW profile, never a public CoW or chain endpoint.
           export GRYLOO_COW=loopback

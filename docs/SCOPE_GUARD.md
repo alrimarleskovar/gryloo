@@ -189,3 +189,7 @@ The additive liquidity path is disabled without an explicit local-fork profile. 
 ## BUILD-006 certified boundary and BUILD-007 planning (DEC-0037)
 
 After the owner merged PR #16 and the post-merge checks passed, DEC-0037 certifies BUILD-006 COMPLETE at FORK_REPRODUCED on local chain 31337 only. The isolated liquidity lifecycle confers no public-chain, testnet, mainnet, real-funds, production-wallet or Mode B liquidity authority. BUILD-007 swap-to-liquidity composition planning is the only next milestone; implementation requires a separate approved plan and owner decision.
+
+## BUILD-011D-2 scope guard (DEC-0055)
+
+The [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) lists exact paths from baseline `205055605d96f36e024a0bbc770453113e4f7b40`. Only the Uniswap v3 Swap + Base Sepolia + PUBLIC_TESTNET profile gains public execution support. Implementation support alone leaves demonstrated evidence unset. A real canonical DApp swap with explicit wallet authorization, successful public receipt, independent balances, gas, Evidence Bundle and explorer is required for exact-profile `TESTNET_EXECUTED`. All earlier records and unrelated capabilities remain protected.

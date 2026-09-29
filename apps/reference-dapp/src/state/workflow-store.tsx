@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, useMemo, type Dispatch, type ReactNode } from 'react';
-import { BaseObservationError, createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
+import { BaseObservationError, createBaseSepoliaReviewContext, createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
 import { editorReducer, initialEditor, type EditorState } from '../domain/editor';
 import { describeProposal } from '../domain/proposal';
 import { chainReducer, checkChainAccess, initialChainState, type ChainState } from '../domain/artifact-chain';
@@ -18,8 +18,11 @@ type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewC
 const Context = createContext<Store | null>(null);
 
 export function WorkflowProvider({ children, initialContext }: { children: ReactNode; initialContext: unknown }) {
-  const context = useMemo(() => createReviewContext(initialContext), [initialContext]);
-  const [state, dispatch] = useReducer((current: EditorState, command: Command) => editorReducer(current, command, context), undefined, initialEditor);
+  const [state, dispatch] = useReducer((current: EditorState, command: Command) => editorReducer(current, command,
+    current.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
+      ? createBaseSepoliaReviewContext() : createReviewContext(initialContext)), undefined, initialEditor);
+  const context = useMemo(() => state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
+    ? createBaseSepoliaReviewContext() : createReviewContext(initialContext), [state.workflow, initialContext]);
   const [pending, setPending] = useState<Pending | null>(null);
   const [chain, dispatchChain] = useReducer(chainReducer, undefined, initialChainState);
   const workflowRef = useRef(state.workflow);

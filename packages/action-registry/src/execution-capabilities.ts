@@ -58,11 +58,12 @@ add('asset.bridge', 'lifi.rest', 'eip155:8453', 'MOCK', mock, 'MOCKED', 'DIRECT_
 add('asset.bridge', 'across.direct', 'eip155:8453', 'MOCK', mock, 'MOCKED', 'DIRECT_TRANSACTION', [], ['A']);
 add('asset.swap.exact-input', 'uniswap.v3', 'eip155:8453', 'MOCK', mockReadOnly, null, 'DIRECT_TRANSACTION');
 add('asset.swap.exact-input', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', fork, 'FORK_REPRODUCED', 'DIRECT_TRANSACTION', ['FORK_RUNTIME', 'INJECTED_WALLET', 'REVIEWED_ARTIFACTS']);
+add('asset.swap.exact-input', 'uniswap.v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, 'TESTNET_EXECUTED', 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 add('asset.swap.exact-input', 'cow.protocol', 'eip155:8453', 'MOCK', mock, 'MOCKED', 'SIGNED_INTENT', ['INJECTED_WALLET'], ['A']);
 add('asset.liquidity.uniswap-v3', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', fork, 'FORK_REPRODUCED', 'DIRECT_TRANSACTION', ['FORK_RUNTIME', 'INJECTED_WALLET', 'REVIEWED_ARTIFACTS']);
 add('asset.liquidity.prepare', 'gryloo.calculated-split', 'eip155:42161', 'MOCK', preparation, 'MOCKED', null, [], ['A']);
 for (const kind of templateKinds) add(kind, 'gryloo.template', 'mock:local', 'MOCK', author, null, null, [], []);
-// Environment types exist without enabling public execution. Future profiles require separate evidence.
+// Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 
 export type CapabilityRuntime = {

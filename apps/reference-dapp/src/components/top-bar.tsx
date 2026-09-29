@@ -8,8 +8,6 @@ import { useBuild009Wallet, chainName, BASE_HEX, ARBITRUM_HEX } from '../state/b
 import { useBridgeSwap } from '../state/bridge-swap-store';
 import { useAcross } from '../state/across-store';
 import { useWorkflow } from '../state/workflow-store';
-import { useExecutionEnvironment } from '../state/capability-store';
-import type { ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
 
 export type Tab = 'Build' | 'Simulate' | 'Execute';
 export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void }) {
@@ -19,7 +17,6 @@ export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void
   const bridgeSwap = useBridgeSwap();
   const across = useAcross();
   const workflow = useWorkflow().state.workflow;
-  const { environment, selectEnvironment } = useExecutionEnvironment();
   const build009Active = Boolean(bridgeSwap.run) || workflow.nodes[0]?.nodeId === 'build009-bridge';
   const destination = bridgeSwap.run && ['PARTIAL_COMPLETION','SWAP_QUOTED','SWAP_AUTHORIZED','SWAP_UNKNOWN','SWAP_SUBMITTED','SWAP_RECONCILED'].includes(bridgeSwap.run.state);
   const required = destination ? ARBITRUM_HEX : BASE_HEX;
@@ -28,12 +25,7 @@ export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void
     <div className="brand"><span className="brand-mark" aria-hidden="true">G</span><span>{product.name}</span></div>
     <nav aria-label="Workflow stages" className="tabs">{(['Build', 'Simulate', 'Execute'] as const).map((value) =>
       <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}>{value}</button>)}</nav>
-    <div className="top-meta"><StatusBadge label="Demo mode" tone="info"/>
-      <label className="environment-control">Environment <select aria-label="Execution environment" value={environment}
-        onChange={event => selectEnvironment(event.target.value as ExecutionEnvironment)}>
-        <option value="MOCK">Mock</option><option value="LOCAL_FORK">Local Fork</option>
-        <option value="PUBLIC_TESTNET">Public Testnet · unavailable</option><option value="MAINNET">Mainnet · unavailable</option>
-      </select></label>
+    <div className="top-meta">
       {fork && <span className="fork-badge"><StatusBadge label={`Local demo · ${fork.environment}`} tone="warning"/></span>}
       {modeB.info?.available && <span className="fork-badge"><StatusBadge label="Permission demo" tone="warning"/></span>}
       {(build009Active || across.run) && <span className="build009-required">Required: {chainName(required)}</span>}
