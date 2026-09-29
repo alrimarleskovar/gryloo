@@ -11,6 +11,11 @@ export { actionRegistrySchema } from "./schemas.js";
 export { referenceRegistry } from "./reference-registry.js";
 export { baseAssetRegistry } from "./base-assets.js";
 export { capabilityDeclares } from "./capabilities.js";
+export { executionCapabilityRegistry, executionEnvironments, capabilityDimensions,
+  resolveNodeCapability, resolveWorkflowCapability } from "./execution-capabilities.js";
+export type { ExecutionCapabilityProfile, ExecutionEnvironment, CapabilityDimension, CapabilityFlags,
+  CapabilityBlocker, CapabilityBlockerCode, CapabilityRequirement, CapabilityRuntime,
+  CapabilityRequest, NodeCapability, WorkflowCapability, EvidenceMaturity } from "./execution-capabilities.js";
 export type { ActionRegistry } from "./schemas.js";
 export type { ActionDefinition } from "./actions.js";
 export type {

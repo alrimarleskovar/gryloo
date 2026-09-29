@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useWorkflow } from '../state/workflow-store';
+import { useWorkflowCapability } from '../state/capability-store';
+import { capabilityBlockMessage, primaryExecutionBlocker } from '../domain/capability-view';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { validateCrossChainLiquidityWorkflow } from '@defi-workflow-engine/reference-linter';
 export function ReviewPanel() {
   const { review, reviewError, state } = useWorkflow();
+  const { environment, result: capability } = useWorkflowCapability();
+  const firstBlock = primaryExecutionBlocker(capability);
   const cross = (() => { try { return state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.prepare') ? validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]) : null; } catch { return null; } })();
   const reviewable = state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' || n.actionType === BRIDGE_ACTION);
   if (!reviewable && !reviewError) return null;
   return <section className="review-panel panel" aria-label="Deterministic review findings">
     <div><p className="eyebrow">REVIEW</p><h2>Workflow checks</h2>
-      <p className="muted">Authoring and lint are implemented. Simulate offers MOCKED artifacts; Base execution is unavailable. Only an explicitly started local-fork acceptance environment offers Mode A wallet requests, on chain 31337. Review is not financial enforcement.</p></div>
+      <p className="muted">Environment {environment === 'LOCAL_FORK' ? 'Local Fork' : environment === 'PUBLIC_TESTNET' ? 'Public Testnet' :
+        environment === 'MAINNET' ? 'Mainnet' : 'Mock'} · Adapters {capability.nodes.map(node => node.adapterId ?? 'unavailable').join(', ')} ·
+        Execution {capability.executionSupported ? 'supported in this runtime after exact review' : 'unavailable here'} ·
+        Evidence ceiling {capability.evidenceCeiling?.replaceAll('_', ' ').toLowerCase() ?? 'none'}.
+        {firstBlock && ' ' + capabilityBlockMessage(firstBlock, capability.nodes.find(node => node.nodeId === firstBlock.nodeId))}</p>
+      <p className="muted">Review does not authorize execution. Exact current artifacts, wallet state, runtime and authorization remain separate submission checks.</p></div>
     {cross && <div className="review-workflow-summary" aria-label="Cross-chain composition review"><h3>Base → Arbitrum liquidity composition</h3><ul>
       <li>Source: {Number(cross.bridgeAmount) / 1e6} USDC on Base. Destination: native USDC on Arbitrum.</li>
       <li>Bridge provider: {cross.bridgeProvider === 'lifi.rest' ? 'LI.FI' : 'Across direct'} · maximum bridge slippage {cross.bridgeSlippageBps} bps. Estimated output awaits a fresh quote; the actual amount is taken from destination reconciliation.</li>

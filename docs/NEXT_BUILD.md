@@ -1,8 +1,12 @@
 # Next build
 
-## Current next milestone: BUILD-011D-1 — Execution Capability Registry + environment gating
+## Current next milestone: BUILD-011D-2 — First real public testnet/devnet execution
 
-BUILD-011C-2 implements MOCKED cross-chain liquidity failure and recovery under DEC-0053 from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. One unmerged PR is authorized. After owner merge, the planned sequence is BUILD-011D-1, BUILD-011D-2 public testnet/devnet execution, then BUILD-012 Aave V3. No BUILD-011D or BUILD-012 implementation is part of this build.
+DEC-0054 approves BUILD-011D-1 from main `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`: capability registry, runtime environment inspection and honest Execute gating. Its unmerged PR remains for owner review. BUILD-011D-2 is the next planned build for the first real public testnet/devnet execution from the canonical Gryloo DApp, subject to a separate plan and owner approval. No public financial transaction, `TESTNET_EXECUTED`, Mainnet, BUILD-012 Aave V3, or merge is authorized by BUILD-011D-1.
+
+## Historical next milestone: BUILD-011D-1 (2026-09-29)
+
+BUILD-011C-2 implemented MOCKED cross-chain liquidity failure and recovery under DEC-0053 from merged main `0ac839738e9aa198007fbf354ea2f14894459c38`. The planned sequence was BUILD-011D-1, BUILD-011D-2 public testnet/devnet execution, then BUILD-012 Aave V3. Its implementation authority did not include BUILD-011D or BUILD-012.
 
 ## Historical next milestone: BUILD-011C-1 approved implementation (2026-09-29)
 

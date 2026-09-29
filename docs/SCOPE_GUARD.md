@@ -1,6 +1,10 @@
 # Scope guard
 
 
+## BUILD-011D-1 approved implementation boundary (DEC-0054)
+
+Only the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) exact paths may change from `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`. The owner’s `.canvas-toolbox` margin and floating toolbox position are preserved. The Action Registry gains a distinct capability resolver and the DApp gains presentation-only environment inspection and typed Execute blockers. No public transaction, `TESTNET_EXECUTED`, Mainnet, new provider, BUILD-011D-2, BUILD-012 or merge is authorized. Historical BUILD-011C-1 and BUILD-011C-2 scopes remain frozen.
+
 ## BUILD-011C-2 approved implementation boundary (DEC-0053)
 
 Only the [BUILD-011C-2 plan](builds/BUILD-011C-2-PLAN.md) exact paths may change from `0ac839738e9aa198007fbf354ea2f14894459c38`. Preserve the BUILD-011C-1 tree as historical baseline. Recovery may classify destination swap/mint failure, unknown mint results, policy expiry and stale artifacts in MOCKED composition, and present bounded choices in the existing DApp. No new provider, return bridge, public-chain execution, BUILD-011D, BUILD-012 or merge is authorized.

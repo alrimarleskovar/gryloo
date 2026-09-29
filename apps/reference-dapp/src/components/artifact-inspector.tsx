@@ -9,12 +9,16 @@ import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { useWorkflowCapability } from '../state/capability-store';
+import { nodeCapabilityLabel } from '../domain/capability-view';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
 export function ArtifactInspector({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId);
+  const { environment, result: capability } = useWorkflowCapability();
+  const nodeCapability = capability.nodes.find(item => item.nodeId === selectedId);
   const cross = useMemo(() => {
     if (!state.workflow.nodes.some(item => item.actionType === 'asset.liquidity.prepare')) return null;
     try { return validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]); } catch { return null; }
@@ -76,6 +80,12 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
   const label = cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
     {node ? <>
+      {nodeCapability && <div className="selected-capability" role="region" aria-label="Selected action capability">
+        <strong>Execution · {nodeCapabilityLabel(nodeCapability)}</strong>
+        <span>Adapter {nodeCapability.adapterId ?? 'unavailable'} · {environment === 'LOCAL_FORK' ? 'Local Fork' :
+          environment === 'PUBLIC_TESTNET' ? 'Public Testnet' : environment === 'MAINNET' ? 'Mainnet' : 'Mock'} ·
+          Evidence {nodeCapability.evidenceCeiling?.replaceAll('_', ' ').toLowerCase() ?? 'none'}</span>
+      </div>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
       {swap && <p className="muted">Base {swap.from} → {swap.to} · unquoted. Changes require review.</p>}

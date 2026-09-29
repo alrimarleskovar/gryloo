@@ -1,6 +1,10 @@
 # Authority matrix
 
 
+## Current BUILD-011D-1 capability authority
+
+DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) for a typed capability registry, environment selection and Execute gating. Registry rows report separately demonstrated support and evidence; they do not grant signature or transaction authority. The existing Base Uniswap local-fork paths have `FORK_REPRODUCED` ceilings on chain 31337. CoW, LI.FI, Across and composed financial paths remain `MOCKED`; LI.FI live reads are data only. Supply, Lending and Borrow remain authoring templates. Public Testnet and Mainnet are disabled. One unmerged PR is authorized; owner merge is separate.
+
 ## Current BUILD-011C-2 recovery authority
 
 DEC-0053 authorizes the [bounded recovery implementation](builds/BUILD-011C-2-PLAN.md) at MOCKED evidence maturity. A failed destination action never inherits authority for retry or compensation. Retry requires independently established NOT_FOUND status, current artifacts, original provider/Manifest, available balances and gas budget. Material requote and compensation need fresh review and authorization. Compensation is a separate financial attempt with its own gas and reconciliation. Manual stop pauses local execution; it does not confirm revocation. Public execution and merge remain outside this authority.
