@@ -1,6 +1,10 @@
 # Next build
 
-## Current next milestone: BUILD-011 approved implementation (2026-09-29)
+## Current next milestone: BUILD-011B approved implementation (2026-09-29)
+
+BUILD-011 merged on main at `502d167212cdff80ad4c6740ed8bde47eace1c31`. DEC-0051 approves the [BUILD-011B editor stabilization plan](builds/BUILD-011B-PLAN.md), including drag and connection fixes, selectable toolbox presentation, and an exact-path governance amendment. One unmerged PR is authorized; merge remains the owner’s decision. No next functional Master Prompt build is approved.
+
+## Historical next milestone: BUILD-011 approved implementation (2026-09-29)
 
 BUILD-010 is merged on main at `5d169748e6a44e3fb63e371a18ace2e0814d5f04`. DEC-0050 approves the [BUILD-011 canvas/product UX plan](builds/BUILD-011-PLAN.md): direct node manipulation, editable connections, contextual action editing, a six-action toolbox and a quieter Build workspace. The existing semantic IR, provider rules, wallet, and evidence ceilings remain unchanged. One PR is authorized; merge remains the owner’s decision. No separate BUILD-010 certification or post-merge CI claim is made here.
 

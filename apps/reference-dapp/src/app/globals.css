@@ -210,9 +210,17 @@
 .build-grid{grid-template-columns:minmax(0,1fr) 305px}
 .canvas-head{align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px}
 .canvas-head h2{margin:0;font-size:16px}
-.canvas-toolbox{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-left:auto}
-.canvas-toolbox button{min-height:40px;min-width:54px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--ink);padding:0 9px;font-weight:700;font-size:12px}
+.canvas-toolbox{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-left:auto}
+.canvas-toolbox button{min-height:38px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--ink);padding:0 7px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.canvas-toolbox button svg{flex:none;color:var(--blue)}
 .canvas-toolbox button:hover,.canvas-toolbox button:focus-visible{border-color:var(--line);background:var(--blue-soft)}
+.toolbox-mode-label{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:11px;font-weight:700;white-space:nowrap}
+.toolbox-mode-label select{min-height:36px;max-width:150px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);padding:0 5px;font:inherit}
+.build-flow-surface{position:relative}
+.floating-toolbox{position:absolute;z-index:5;left:10px;top:50%;transform:translateY(-50%);max-height:calc(100% - 24px);overflow:auto;border:1px solid var(--line);border-radius:11px;background:var(--paper);box-shadow:0 8px 24px rgba(24,59,104,.16);padding:5px}
+.floating-toolbox .canvas-toolbox{display:flex;flex-direction:column;margin:0;gap:2px}
+.floating-toolbox .canvas-toolbox button{width:38px;height:38px;min-height:38px;justify-content:center;padding:0}
+.floating-toolbox .canvas-toolbox button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .canvas-feedback{margin:0;padding:8px 16px;background:var(--amber-soft);color:var(--amber);font-size:12px}
 .flow-card.active{border:2px solid var(--blue);box-shadow:0 0 0 4px var(--blue-soft),0 8px 22px rgba(24,59,104,.12)}
 .react-flow__edge.selected .react-flow__edge-path{stroke:var(--blue);stroke-width:4}
@@ -223,7 +231,7 @@
 .library .action-list{display:flex;flex-wrap:wrap}.library .action-card{width:180px}
 .top-bar{position:relative}.wallet-toast{position:absolute;z-index:20;right:20px;top:calc(100% + 6px);max-width:360px;padding:10px 12px;border:1px solid #edc4c9;border-radius:8px;background:#fff1f2;color:var(--red);box-shadow:0 8px 20px rgba(20,35,58,.12)}
 @media(max-width:1180px){.build-grid{grid-template-columns:minmax(0,1fr)}.copilot{grid-column:auto}.library .swap-create{width:calc(50% - 12px)}}
-@media(max-width:700px){.canvas{height:530px}.canvas-head .revision{display:none}.canvas-toolbox{order:3;width:100%;margin:0}.canvas-toolbox button{flex:1}.library .swap-create{width:100%}}
+@media(max-width:700px){.canvas{height:530px}.canvas-head .revision{display:none}.canvas-head .canvas-toolbox{order:3;width:100%;margin:0}.canvas-head .canvas-toolbox button{flex:1;justify-content:center}.canvas-head .canvas-toolbox button span{display:none}.floating-toolbox{top:auto;bottom:8px;left:50%;transform:translateX(-50%);max-width:calc(100% - 16px)}.floating-toolbox .canvas-toolbox{flex-direction:row}.library .swap-create{width:100%}}
 
 .inspector-fields{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:12px}
 .inspector-fields label{width:180px;margin:0!important}
@@ -234,3 +242,7 @@
 .library>summary{min-height:48px;padding:14px 18px;cursor:pointer;font-weight:700;list-style-position:inside}
 .library>summary:hover{background:var(--blue-soft)}
 .library-content{padding:0 18px 18px;border-top:1px solid var(--line)}
+
+.review-workflow-ir{border-top:1px solid var(--line);padding-top:12px;font-size:11px}
+.review-workflow-ir summary{cursor:pointer;font-weight:700}
+.review-workflow-ir pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:290px;overflow:auto;background:var(--soft);padding:12px}

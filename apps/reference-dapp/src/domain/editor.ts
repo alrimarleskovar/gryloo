@@ -84,13 +84,23 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
       return nodes.find(n => n.nodeId === id)!.dependencies.some(parent => ancestors(parent, seen));
     };
     if (ancestors(command.from)) return reject('CYCLIC_CONNECTION');
-    nodes = nodes.map(n => n.nodeId === command.to ? { ...n, dependencies: [...n.dependencies, command.from] } : n);
-    resourceEdges.push({ fromNodeId: command.from, outputId: 'result', toNodeId: command.to, inputName: 'amount' });
+    if (!nodes.find(n => n.nodeId === command.from)!.actionType.startsWith('mock-')
+        || !target.actionType.startsWith('mock-') || target.inputs.some(input => input.name === 'source')) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
+    nodes = nodes.map(n => n.nodeId === command.to ? { ...n,
+      dependencies: [...n.dependencies, command.from],
+      inputs: [...n.inputs, { name: 'source' as const, kind: 'OUTPUT_REFERENCE' as const,
+        value: { nodeId: command.from, outputId: 'result' } }],
+    } : n);
+    resourceEdges.push({ fromNodeId: command.from, outputId: 'result', toNodeId: command.to, inputName: 'source' });
   } else if (command.type === 'DISCONNECT') {
     if (!current.resourceEdges.some(edge => edge.fromNodeId === command.from && edge.toNodeId === command.to)) return reject('UNKNOWN_CONNECTION');
     if (!canDeleteCanvasEdge(current, command.from, command.to)) return reject('PROTECTED_CONNECTION: this connection is required by the workflow.');
     resourceEdges = resourceEdges.filter(edge => !(edge.fromNodeId === command.from && edge.toNodeId === command.to));
-    nodes = nodes.map(node => node.nodeId === command.to ? { ...node, dependencies: node.dependencies.filter(id => id !== command.from) } : node);
+    nodes = nodes.map(node => node.nodeId === command.to ? { ...node,
+      dependencies: node.dependencies.filter(id => id !== command.from),
+      inputs: node.inputs.filter(input => !(input.name === 'source' && input.kind === 'OUTPUT_REFERENCE'
+        && input.value.nodeId === command.from)),
+    } : node);
   } else {
     const node = nodes.find(n => n.nodeId === command.nodeId);
     if (!node) return reject('UNKNOWN_NODE');
@@ -154,10 +164,9 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     }
   }
   const candidate = { ...current, revision: current.revision + 1, nodes, resourceEdges };
-  if (nodes.some(n => [SWAP_ACTION, LIQUIDITY_ACTION].includes(n.actionType))) {
-    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+  if (context) {
     try { validateAuthoringWorkflow(candidate, context); }
     catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_WORKFLOW'); }
-  }
+  } else if (nodes.some(n => [SWAP_ACTION, LIQUIDITY_ACTION].includes(n.actionType))) return reject('REVIEW_CONTEXT_REQUIRED');
   return { workflow: freeze(candidate), error: null };
 }

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type NodeProps, type ReactFlowState } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Handle, Position, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import type { ActionKind } from '../domain/mock-actions';
 import { bridgeDetails } from '../domain/bridge-authoring';
 import { formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { editorReducer } from '../domain/editor';
 import { canvasShortcut, canDeleteCanvasEdge, isTextEntry } from '../domain/canvas-keyboard';
-import { canvasPosition, readCanvasLayout, reconcileCanvasLayout, saveCanvasLayout, type CanvasLayout } from '../domain/canvas-layout';
+import { canvasPosition, defaultCanvasPosition, readCanvasLayout, readToolboxMode, reconcileCanvasLayout, saveCanvasLayout, saveToolboxMode, type CanvasLayout, type ToolboxMode } from '../domain/canvas-layout';
 import type { Workflow } from '../domain/initial-workflow';
 import { canvasViewportFor, canvasViewportSignature, SIMULATION_VIEWPORT, type CanvasViewportInputs } from '../domain/mode-a';
 
@@ -31,14 +32,27 @@ function WorkflowCard({ data }: NodeProps) {
     </div>;
   }
   return <div className={`flow-card ${card.selected ? 'active' : ''}`}>
-    {((card.bridgeSwap && card.swap) || (!card.swap && !card.bridge && (!card.liquidity || card.composition))) && <Handle type="target" position={Position.Left} isConnectable={!card.composition} />}
+    <Handle type="target" position={Position.Left} isConnectable={!card.composition} />
     <span className="flow-card-kind">{card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
     <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
     <small>{card.across ? 'Direct Across quote in Simulate · demo execution' : card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Template · no execution'}</small>
-    {((card.bridgeSwap && card.bridge) || (!card.liquidity && !card.bridge && (!card.swap || card.composition))) && <Handle type="source" position={Position.Right} isConnectable={!card.composition} />}
+    <Handle type="source" position={Position.Right} isConnectable={!card.composition} />
   </div>;
 }
 const nodeTypes = { workflow: WorkflowCard };
+const actions = ['swap', 'bridge', 'pool', 'supply', 'lending', 'borrow'] as const;
+function actionLabel(action: typeof actions[number]) { return action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
+function ActionIcon({ action }: { action: typeof actions[number] }) {
+  const paths = {
+    swap: <><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4"/></>,
+    bridge: <><path d="M3 18h18M5 18V9m14 9V9M5 9c4 0 4 6 7 6s3-6 7-6M3 7h4m10 0h4"/></>,
+    pool: <><path d="M12 3c-3 5-7 9-7 13a7 7 0 0 0 14 0c0-4-4-8-7-13Z"/></>,
+    supply: <><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></>,
+    lending: <><path d="m3 10 9-6 9 6M5 10v9m5-9v9m4-9v9m5-9v9M3 20h18"/></>,
+    borrow: <><path d="M4 20h16M6 17V9m4 8V9m4 8V9m4 8V9M3 8l9-5 9 5M12 11v6m-3-3 3 3 3-3"/></>,
+  };
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[action]}</svg>;
+}
 
 type ViewportState = 'pending' | 'fitted';
 function viewportInputs(state: ReactFlowState): CanvasViewportInputs {
@@ -136,11 +150,25 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   const { state, dispatch, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const [layout, setLayout] = useState<CanvasLayout>({});
+  const layoutRef = useRef<CanvasLayout>({});
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
   const [feedback, setFeedback] = useState('');
-  useEffect(() => { setLayout(readCanvasLayout(workflow)); }, [workflow.workflowId]);
+  const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('top');
+  useEffect(() => { setToolboxMode(readToolboxMode()); }, []);
+  function changeToolboxMode(mode: ToolboxMode) {
+    setToolboxMode(mode);
+    saveToolboxMode(mode);
+  }
   useEffect(() => {
-    setLayout(current => { const next = reconcileCanvasLayout(current, workflow); saveCanvasLayout(workflow.workflowId, next); return next; });
+    const saved = readCanvasLayout(workflow);
+    layoutRef.current = saved;
+    setLayout(saved);
+  }, [workflow.workflowId]);
+  useEffect(() => {
+    const next = reconcileCanvasLayout(layoutRef.current, workflow);
+    layoutRef.current = next;
+    setLayout(next);
+    saveCanvasLayout(workflow.workflowId, next);
   }, [workflow]);
   useEffect(() => {
     if (selectedEdge && !workflow.resourceEdges.some(edge => edge.fromNodeId === selectedEdge.from && edge.toNodeId === selectedEdge.to)) setSelectedEdge(null);
@@ -152,7 +180,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const onKey = (event: KeyboardEvent) => {
       if (event.isComposing || event.key === 'Process' || event.keyCode === 229 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const textEntry = isTextEntry(event.target);
-      if (event.key === 'Escape' && (selectedId || selectedEdge)) { event.preventDefault(); select(null); setSelectedEdge(null); setFeedback(''); return; }
+      if (event.key === 'Escape' && !textEntry && (selectedId || selectedEdge)) { event.preventDefault(); select(null); setSelectedEdge(null); setFeedback(''); return; }
       if (textEntry || (event.key !== 'Delete' && event.key !== 'Backspace')) return;
       if (selectedEdge) {
         event.preventDefault();
@@ -167,7 +195,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [dispatch, workflow, selectedId, selectedEdge, select]);
-  const nodes = useMemo(() => workflow.nodes.map((node, index) => {
+  const projectedNodes = useMemo<Node[]>(() => workflow.nodes.map((node, index) => {
     const swap = swapDetails(node, context);
     const bridge = bridgeDetails(node);
     const bridgeSwap = workflow.nodes[0]?.nodeId === 'build009-bridge';
@@ -177,38 +205,72 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const lower = node.inputs.find(i => i.name === 'tick-lower');
     const upper = node.inputs.find(i => i.name === 'tick-upper');
     const range = lower?.kind === 'IDENTIFIER' && upper?.kind === 'IDENTIFIER' ? `${lower.value.slice(5)}–${upper.value.slice(5)}` : 'unreviewed';
-    return { id: node.nodeId, type: 'workflow', position: canvasPosition(layout, node, index),
+    return { id: node.nodeId, type: 'workflow', position: canvasPosition(layoutRef.current, node, index),
       data: { title: across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedId === node.nodeId, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge), liquidity: isLiquidity, composition, bridgeSwap, across },
     };
   }), [workflow, selectedId, context, layout]);
+  // Live pointer positions stay in React Flow state; layout is committed on release.
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(projectedNodes);
+  useEffect(() => {
+    setNodes(current => projectedNodes.map(node => {
+      const previous = current.find(item => item.id === node.id);
+      return previous?.measured ? { ...node, measured: previous.measured } : node;
+    }));
+  }, [projectedNodes, setNodes]);
   const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId,
     label: edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap' ? 'WETH output reference' : edge.inputName === 'amount-in' ? 'Arbitrum USDC output' : 'sample units', animated: false, selected: selectedEdge?.from === edge.fromNodeId && selectedEdge?.to === edge.toNodeId,
   })), [workflow, selectedEdge]);
   function addAction(action: 'swap' | ActionKind) {
     const nodeId = `node-${String(workflow.revision + 2).padStart(3, '0')}`;
-    if (action === 'swap') dispatch({ type: 'ADD_SWAP', direction: 'USDC_TO_WETH', amount: '1', slippage: '50', source: 'CANVAS', baseRevision: workflow.revision });
-    else dispatch({ type: 'ADD', kind: action, source: 'CANVAS', baseRevision: workflow.revision });
+    const command = action === 'swap'
+      ? { type: 'ADD_SWAP' as const, direction: 'USDC_TO_WETH' as const, amount: '1', slippage: '50', source: 'CANVAS' as const, baseRevision: workflow.revision }
+      : { type: 'ADD' as const, kind: action, source: 'CANVAS' as const, baseRevision: workflow.revision };
+    const preview = editorReducer(state, command, context);
+    if (preview.error) { setFeedback('This action could not be added. Check the workflow and try again.'); return; }
+    let slot = workflow.nodes.length;
+    let position = defaultCanvasPosition(slot);
+    while (nodes.some(node => Math.abs(node.position.x - position.x) < 220 && Math.abs(node.position.y - position.y) < 140)) {
+      slot += 1;
+      position = defaultCanvasPosition(slot);
+    }
+    const next = { ...layoutRef.current, [nodeId]: { ...position, actionType: action === 'swap' ? SWAP_ACTION : `mock-${action}` } };
+    layoutRef.current = next;
+    saveCanvasLayout(workflow.workflowId, next);
+    dispatch(command);
     select(nodeId); setSelectedEdge(null); setFeedback('');
   }
   function moveNode(id: string, position: { x: number; y: number }) {
     const node = workflow.nodes.find(item => item.nodeId === id);
     if (!node) return;
-    setLayout(current => { const next = { ...current, [id]: { ...position, actionType: node.actionType } }; saveCanvasLayout(workflow.workflowId, next); return next; });
+    layoutRef.current = { ...layoutRef.current, [id]: { ...position, actionType: node.actionType } };
+    saveCanvasLayout(workflow.workflowId, layoutRef.current);
   }
+  function connect(source: string | null, target: string | null) {
+    if (!source || !target) return;
+    const command = { type: 'CONNECT' as const, from: source, to: target, source: 'CANVAS' as const, baseRevision: workflow.revision };
+    const preview = editorReducer(state, command, context);
+    if (preview.error) {
+      const reasons: Record<string, string> = { CYCLIC_CONNECTION: 'This connection would create a loop.', INPUT_ALREADY_CONNECTED: 'This step already has an input.', SWAP_EDGE_UNSUPPORTED: 'Swap connections are not available in this workflow.', ISOLATED_ACTION_EDGE_UNSUPPORTED: 'This step cannot be connected in this workflow.', INVALID_CONNECTION: 'Choose two different steps to connect.' };
+      setFeedback(reasons[preview.error] ?? 'These steps cannot be connected.'); return;
+    }
+    dispatch(command); setFeedback('');
+  }
+  const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Add an action">
+    {actions.map(action => <button key={action} type="button" title={action === 'swap' ? 'Add an unquoted Base swap' : `Add a ${actionLabel(action)} template · execution unavailable`} aria-label={`Add ${action}`} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
+  </div>;
   return <section className="canvas panel" aria-label="Workflow canvas">
-    <div className="canvas-head"><h2>Your Workflow</h2><div className="canvas-toolbox" role="toolbar" aria-label="Add an action">
-      {(['swap', 'bridge', 'pool', 'supply', 'lending', 'borrow'] as const).map(action => <button key={action} type="button" title={action === 'swap' ? 'Add an unquoted Base swap' : `Add a ${action} template · execution unavailable`} aria-label={`Add ${action}`} onClick={() => addAction(action)}>{action[0]!.toUpperCase() + action.slice(1)}</button>)}
-    </div><span className="revision">{workflow.nodes.length} steps</span></div>
+    <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<label className="toolbox-mode-label">Tools <select aria-label="Toolbox position" value={toolboxMode} onChange={event => changeToolboxMode(event.target.value as ToolboxMode)}><option value="top">Top toolbar</option><option value="floating">Floating toolbox</option></select></label><span className="revision">{workflow.nodes.length} steps</span></div>
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
-    <div className="flow-surface" role="region" aria-label="Workflow graph">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.35} maxZoom={1.4}
+    <div className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph">
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView minZoom={0.35} maxZoom={1.4}
         nodesDraggable nodesConnectable onNodeClick={(_event, node) => { select(node.id); setSelectedEdge(null); setFeedback(''); }}
-        onNodeDrag={(_event, node) => moveNode(node.id, node.position)}
+        onNodeDragStop={(_event, node) => moveNode(node.id, node.position)}
         onEdgeClick={(_event, edge) => { select(null); setSelectedEdge({ from: edge.source, to: edge.target }); setFeedback(''); }}
-        onPaneClick={() => { select(null); setSelectedEdge(null); setFeedback(''); }} onConnect={({ source, target }) => dispatch({ type: 'CONNECT', from: source, to: target, source: 'CANVAS', baseRevision: workflow.revision })}>
+        onPaneClick={() => { select(null); setSelectedEdge(null); setFeedback(''); }} onConnect={({ source, target }) => connect(source, target)}>
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
+      {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
     </div>
     <div className="canvas-foot"><span>Drag steps to arrange your workflow.</span><span>Select a step or connection to edit.</span></div>
   </section>;

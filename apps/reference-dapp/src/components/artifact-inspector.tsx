@@ -81,7 +81,6 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}
         <button type="button" className="quiet" disabled={!deletable} onClick={() => { dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision }); select(null); }}>Remove step</button></div>
       {!deletable && <p className="muted">This step is required by the workflow or protected.</p>}
-      <details><summary>Technical workflow details</summary><pre>{JSON.stringify(state.workflow, null, 2)}</pre></details>
     </> : <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
   </section>;
 }

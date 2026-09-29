@@ -1,6 +1,10 @@
 # Scope guard
 
-## BUILD-011 approved implementation boundary (DEC-0050)
+## BUILD-011B approved implementation boundary (DEC-0051)
+
+From merged BUILD-011 main `502d167212cdff80ad4c6740ed8bde47eace1c31`, implement only the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) exact paths. The toolbox mode key stores presentation preference only; canvas layout stays separate from semantic IR. BUILD-011 remains historically frozen. Existing MOCKED, local-fork, wallet, provider and evidence limits remain in force. No new financial execution level, provider, chain, real funds, testnet/mainnet executed claim, next functional build, or merge is approved.
+
+## Historical BUILD-011 implementation boundary (DEC-0050)
 
 From merged BUILD-010 main `5d169748e6a44e3fb63e371a18ace2e0814d5f04`, implement the [BUILD-011 plan](builds/BUILD-011-PLAN.md) for canvas and product UX only. Layout metadata remains separate from semantic IR. Existing provider authorization, wallet and evidence limits remain in force. No new provider, chain, financial execution level, real funds, testnet/mainnet executed claim or merge is approved.
 

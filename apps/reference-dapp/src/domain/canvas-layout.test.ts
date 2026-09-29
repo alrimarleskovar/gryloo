@@ -12,6 +12,8 @@ describe('workflow canvas layout', () => {
     const changed = editorReducer(initialEditor(), parseMockCommand('add transform', 0));
     expect(canvasPosition(reconcileCanvasLayout(layout, changed.workflow), changed.workflow.nodes[0]!, 0)).toEqual({ x: 420, y: 315 });
     expect(changed.workflow.nodes[0]).toEqual(initial.nodes[0]);
+    expect(changed.workflow.revision).toBe(1);
+    expect(initial.revision).toBe(0);
     expect('position' in changed.workflow.nodes[0]!).toBe(false);
     expect(defaultCanvasPosition(0)).not.toEqual(defaultCanvasPosition(1));
   });

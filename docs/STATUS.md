@@ -1,5 +1,9 @@
 # Repository status
 
+BUILD-011 merged on main at `502d167212cdff80ad4c6740ed8bde47eace1c31`; this records the Git merge, not a separate certification. DEC-0051 approves [BUILD-011B](builds/BUILD-011B-PLAN.md) from that merge for editor stabilization and presentation-only toolbox preference storage. The current branch remains unmerged; owner approval is required for merge. No financial execution or evidence authority expands.
+
+## Historical BUILD-011 implementation state
+
 BUILD-010 is merged on main at `5d169748e6a44e3fb63e371a18ace2e0814d5f04`; this records the Git merge only and does not assert post-merge CI or separate certification. DEC-0050 approves [BUILD-011](builds/BUILD-011-PLAN.md), a canvas/product UX refactor from that main. It changes authoring and interaction, not financial execution authority. Local acceptance is in progress on an unmerged branch; the owner retains merge.
 
 ## Historical BUILD-010 pre-merge state

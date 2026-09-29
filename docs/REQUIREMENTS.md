@@ -243,3 +243,15 @@ DEC-0038 approves the [BUILD-007 plan](builds/BUILD-007-PLAN.md). The first reco
 | B007-RECOVERY-001 | Durable reservation, restart, known-hash observation and fail-closed unknown submission or partial completion. | Worker and recovery tests | SATISFIED_LOCALLY |
 | B007-EVIDENCE-001 | New bounded Base transcript, closed byte-identical replay and independent raw-RPC reconciliation before any fork claim. | Preflight, recording, verifier and browser gates | FORK_REPRODUCED on local chain 31337 (not certified) |
 | B007-ROADMAP-001 | Preserve certified BUILD-003–006 evidence and global non-custodial multichain/Solana roadmap. | Exact protected-byte governance | SATISFIED_LOCALLY |
+
+## BUILD-011B approved editor stabilization mapping
+
+DEC-0051 approves the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) from merged BUILD-011 main. These are local acceptance requirements; they grant no new financial or evidence authority.
+
+| ID | Requirement | Check or evidence | Status |
+|---|---|---|---|
+| B011B-DRAG-001 | Live node dragging is stable; position persists without changing semantic revision or CURRENT artifacts. | Canvas unit and browser tests | IMPLEMENTED_LOCAL |
+| B011B-EDGE-001 | Mock connections preserve edge, dependency and output reference consistency; protected edges remain guarded. | Reducer and browser tests | IMPLEMENTED_LOCAL |
+| B011B-UX-001 | Selection and keyboard guards, Selected Action inspector, iconized toolbox modes, Review JSON and clean default Build/Copilot surfaces work. | Canvas, visual and regression browser tests | IMPLEMENTED_LOCAL |
+| B011B-STORAGE-001 | Toolbox preference uses only the bounded presentation key `gryloo:toolbox-mode`, separate from layout and semantic IR. | Layout tests and exact source governance | IMPLEMENTED_LOCAL |
+| B011B-GOVERNANCE-001 | BUILD-011 is checked historically at its merged commit; BUILD-011B has its own exact create/modify paths and preserves prior checks. | Local governance passed; PR-head governance pending | SATISFIED_LOCALLY |

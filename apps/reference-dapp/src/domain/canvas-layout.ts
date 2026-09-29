@@ -27,3 +27,14 @@ export function readCanvasLayout(workflow: Workflow): CanvasLayout {
 export function saveCanvasLayout(workflowId: string, layout: CanvasLayout) {
   try { localStorage.setItem(canvasLayoutKey(workflowId), JSON.stringify(layout)); } catch { /* storage is optional */ }
 }
+
+
+export type ToolboxMode = 'top' | 'floating';
+const toolboxModeKey = 'gryloo:toolbox-mode';
+export function readToolboxMode(): ToolboxMode {
+  try { return localStorage.getItem(toolboxModeKey) === 'floating' ? 'floating' : 'top'; }
+  catch { return 'top'; }
+}
+export function saveToolboxMode(mode: ToolboxMode): void {
+  try { localStorage.setItem(toolboxModeKey, mode); } catch { /* storage is optional */ }
+}

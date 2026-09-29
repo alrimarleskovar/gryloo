@@ -31,7 +31,7 @@ async function generate(page: Page) {
 async function readIr(page: Page) {
   await tab(page, 'Build');
   await page.locator('.flow-card').nth(1).click();
-  const raw = await page.locator('.inspector pre').textContent();
+  const raw = await page.locator('[data-workflow-ir]').textContent();
   await tab(page, 'Simulate');
   return JSON.parse(raw!) as { revision: number };
 }
