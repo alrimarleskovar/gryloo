@@ -53,6 +53,7 @@ packages/workflow-contracts/src/schemas.ts
 .github/workflows/governance.yml
 .github/workflows/contracts.yml
 apps/reference-dapp/e2e/build009.spec.ts
+apps/reference-dapp/e2e/composition-fork.spec.ts
 apps/reference-dapp/e2e/interface-honesty.spec.ts
 apps/reference-dapp/e2e/mode-b-fork.spec.ts
 apps/reference-dapp/e2e/mode-a-fixtures.ts

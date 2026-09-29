@@ -27,7 +27,8 @@ test('review exact owner setup, complete with browser closed, reconcile Safe NFT
     await authorComposition(page);
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
     const panel = page.getByRole('region', { name: 'Mode B swap to liquidity composition' });
-    await expect(panel).toContainText(profile().environment);
+    await expect(panel).toContainText(profile().environment === 'FORK_REPRODUCED'
+      ? 'Recorded Base state is replayed locally.' : 'Synthetic Base-like source state is used for this mocked test.');
     await expect(panel).toContainText('Roles limits target, selector, pair, recipient, ticks, desired amounts');
     if (profile().environment === 'MOCKED')
       await expect(panel).toHaveScreenshot('composition-review.png', { mask: [panel.locator('dd')] });
