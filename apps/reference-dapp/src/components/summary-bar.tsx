@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { chainStatus, checkChainAccess } from '../domain/artifact-chain';
-import { SWAP_ACTION } from '../domain/swap-authoring';
 import { useModeA } from '../state/mode-a-store';
 import { useModeB } from '../state/mode-b-store';
 import { useWorkflow } from '../state/workflow-store';
@@ -23,7 +22,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const reviewable = Boolean(info?.available && prepared && !retired && !verifyError && verified['step-approve'] && verified['step-swap']);
   const evidence = execution?.evidence.at(-1);
   const forkState = !prepared ? 'NOT PREPARED' : evidence ? (evidence.revocationConfirmed ? 'REVOCATION_CONFIRMED' : evidence.outcome) : retired ? 'INVALIDATED' : 'REVIEW';
-  return <footer className="summary-bar"><div><span className="eyebrow">WORKFLOW STATE</span><strong>Revision {state.workflow.revision}</strong><span>{state.workflow.nodes.filter(node => node.actionType === SWAP_ACTION).length} Base swap · {state.workflow.nodes.filter(node => node.actionType !== SWAP_ACTION).length} mock nodes</span></div>
+  return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}><div><span className="eyebrow">WORKFLOW</span><strong>{state.workflow.nodes.length} steps</strong></div>
     <div className="summary-status"><StatusBadge label="Demo mode" tone="info"/><StatusBadge label={`Simulation: ${shown}`}/>
       {info?.available && <StatusBadge label={`Direct review · ${forkState}`} tone="warning"/>}
       {modeB.info?.available && <StatusBadge label={`Permission review · ${modeBState}`} tone="warning"/>}</div>

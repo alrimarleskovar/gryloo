@@ -28,13 +28,12 @@ export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void
     <div className="top-meta"><StatusBadge label="Demo mode" tone="info"/>
       {fork && <span className="fork-badge"><StatusBadge label={`Local demo · ${fork.environment}`} tone="warning"/></span>}
       {modeB.info?.available && <span className="fork-badge"><StatusBadge label="Permission demo" tone="warning"/></span>}
-      <span>{fork || modeB.info?.available ? product.forkChain : product.chain}</span>
       {(build009Active || across.run) && <span className="build009-required">Required: {chainName(required)}</span>}
       {build009.account ? <><span className="build009-wallet-info">Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>
         {build009Active && build009.chainId !== required && <button type="button" onClick={() => void build009.switchTo(required)} disabled={build009.busy}>Switch to {chainName(required)}</button>}
         <button type="button" onClick={build009.reset} disabled={build009.busy}>Disconnect/Reset (app only)</button></>
         : <button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button>}
-      {build009.error && <span role="alert" className="wallet-inline-error">{build009.error}</span>}
       {(fork || modeB.info?.available) && <span>Wallet: {modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet}</span>}</div>
+    {build009.error && <div role="alert" className="wallet-toast">Wallet: {build009.error}</div>}
   </header>;
 }

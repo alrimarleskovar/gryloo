@@ -28,6 +28,7 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
   await page.getByLabel('Source amount (USDC)').fill('1');
   await page.getByLabel('Bridge slippage (bps)').fill('50');
@@ -99,6 +100,7 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
     } });
   }, OWNER);
   await page.goto('/');
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
   await page.getByLabel('Source amount (USDC)').fill('1');
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();

@@ -16,6 +16,7 @@ export const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') =>
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 export async function authorCowSwap(page: Page): Promise<void> {
   await stage(page, 'Build');
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('Direction').selectOption('WETH_TO_USDC');
   await page.getByLabel('Input amount (required)').fill('1');
   await page.getByLabel('Slippage in bps (required)').fill('100');

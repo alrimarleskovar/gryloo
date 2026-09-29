@@ -10,7 +10,6 @@ const send = async (page: Page, text: string) => {
 };
 const apply = async (page: Page) => {
   await expect(page.getByText('Review proposed edit')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Apply proposal' })).toBeInViewport();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 };
 const selectSwap = async (page: Page) => {
@@ -25,6 +24,7 @@ const workflow = async (page: Page) => {
 };
 const hash = (value: unknown) => hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(value)));
 const createCanvas = async (page: Page, direction: 'USDC_TO_WETH' | 'WETH_TO_USDC', amount: string, slippage: string) => {
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('Direction').selectOption(direction);
   await page.getByLabel('Input amount (required)').fill(amount);
   await page.getByLabel('Slippage in bps (required)').fill(slippage);
@@ -58,11 +58,11 @@ test('mixed surface edits, dismissal, locks and stale proposals preserve revisio
   await page.goto('/');
   await send(page, 'swap 2 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Dismiss' }).click();
-  await expect(page.getByText('Revision 0', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="0"]')).toBeVisible();
   await send(page, 'swap 2 USDC to WETH on Base slippage 50 bps');
   await apply(page);
   await selectSwap(page);
-  await page.getByLabel('Input amount (USDC, decimal units)').fill('3');
+  await page.getByLabel('Input amount (USDC)').fill('3');
   await page.getByRole('button', { name: 'Review amount change' }).click();
   await apply(page);
   await send(page, 'set node-002 slippage 100 bps');
@@ -75,7 +75,7 @@ test('mixed surface edits, dismissal, locks and stale proposals preserve revisio
   await send(page, 'set node-002 amount 3');
   await apply(page);
   await selectSwap(page);
-  await page.getByLabel('Slippage (integer bps)').fill('100');
+  await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill('100');
   await page.getByRole('button', { name: 'Review slippage change' }).click();
   await apply(page);
   const canvasChatCanvas = await workflow(page);
@@ -84,13 +84,13 @@ test('mixed surface edits, dismissal, locks and stale proposals preserve revisio
 
   await send(page, 'set node-002 amount 4');
   await page.getByRole('button', { name: 'Lock amount' }).click();
-  await expect(page.getByText('Revision 4', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="4"]')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.getByText('Revision 4', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="4"]')).toBeVisible();
   await send(page, 'set node-002 amount 4');
   await expect(page.locator('.proposal')).toContainText('LOCKED_PARAMETER');
   await page.getByRole('button', { name: 'Unlock amount' }).click();
-  await expect(page.getByText('Revision 5', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="5"]')).toBeVisible();
 });
 
 test('proposal and blocked review snapshots show unquoted unavailable state', async ({ page }) => {

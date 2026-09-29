@@ -1,60 +1,87 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
-import { parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
+import { bridgeDetails, createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
+import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
+import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
+import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 
-export function ArtifactInspector({ selectedId }: { selectedId: string | null }) {
+const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
+export function ArtifactInspector({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId);
-  const swap = node && swapDetails(node, context);
+  const swap = useMemo(() => node && swapDetails(node, context), [node, context]);
+  const bridge = useMemo(() => node && bridgeDetails(node), [node]);
+  const liquidity = useMemo(() => node && liquidityDetails(node, context), [node, context]);
+  const template = node?.actionType.startsWith('mock-') ?? false;
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
+  const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
+  const [liquidityInput, setLiquidityInput] = useState<LiquidityInput>(emptyLiquidity);
   const [error, setError] = useState('');
   useEffect(() => {
-    setAmount(swap ? swap.amount : node ? amountOf(node) : '');
+    setAmount(swap ? swap.amount : template && node ? amountOf(node) : '');
     setSlippage(swap?.slippage?.toString() ?? '');
+    setBridgeInput(bridge ? { amount: bridge.amount, slippageBps: String(bridge.slippageBps) } : { amount: '', slippageBps: '50' });
+    setLiquidityInput(liquidity ? {
+      weth: formatHumanAmount(liquidity.amountWeth, 'WETH', context), usdc: formatHumanAmount(liquidity.amountUsdc, 'USDC', context),
+      minimumWeth: formatHumanAmount(liquidity.minimumWeth, 'WETH', context), minimumUsdc: formatHumanAmount(liquidity.minimumUsdc, 'USDC', context),
+      tickLower: String(liquidity.tickLower), tickUpper: String(liquidity.tickUpper), recipient: liquidity.recipient,
+    } : emptyLiquidity);
     setError('');
-  }, [node]);
+  }, [node, swap?.amount, swap?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
   const locked = Boolean(node?.lockedParameters.length);
+  const deletable = canDeleteCanvasNode(state.workflow, selectedId);
   function saveAmount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!node) return;
+    event.preventDefault(); if (!node) return;
     if (swap) {
-      try {
-        parseHumanAmount(amount, swap.from, context);
-        setError('');
-        propose({ type: 'SET_SWAP_AMOUNT', nodeId: node.nodeId, amount, source: 'CANVAS', baseRevision: state.workflow.revision });
-      } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid amount'); }
-    } else dispatch({ type: 'SET_AMOUNT', nodeId: node.nodeId, amount, source: 'CANVAS', baseRevision: state.workflow.revision });
+      try { parseHumanAmount(amount, swap.from, context); setError(''); propose({ type: 'SET_SWAP_AMOUNT', nodeId: node.nodeId, amount, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid amount'); }
+    } else if (template) dispatch({ type: 'SET_AMOUNT', nodeId: node.nodeId, amount, source: 'CANVAS', baseRevision: state.workflow.revision });
   }
   function saveSlippage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!node || !swap) return;
-    try {
-      parseSlippage(slippage);
-      setError('');
-      propose({ type: 'SET_SLIPPAGE', nodeId: node.nodeId, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid slippage'); }
+    event.preventDefault(); if (!node || !swap) return;
+    try { parseSlippage(slippage); setError(''); propose({ type: 'SET_SLIPPAGE', nodeId: node.nodeId, slippage, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid slippage'); }
   }
-  return <section className="inspector panel" aria-label="Artifact inspector"><div><p className="eyebrow">BUILD / 03</p><h2>Inspector</h2></div>
-    {node ? <><p className="muted">{node.nodeId} · {node.actionType} · {node.chainId}</p>
-      {swap && <div className="asset-facts"><strong>{swap.from} → {swap.to} · Base</strong><span>Input: {swap.amount} {swap.from} · {swap.units} native units</span>
-        <span>Input contract: {JSON.stringify(context.assets[swap.from].asset)}</span><span>Output contract: {JSON.stringify(context.assets[swap.to].asset)}</span>
-        <span>Decimals: {context.assets[swap.from].asset.decimals} → {context.assets[swap.to].asset.decimals}</span>
-        <span>Metadata: NOT_ONCHAIN_VERIFIED · minimum output: 0 unquoted</span>
-        <span>Prototype cap: {swap.from === 'USDC' ? '1,000,000 USDC' : '1,000 WETH'}; no financial guarantee.</span></div>}
-      <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from}, decimal units)` : 'Sample amount (integer native units)'}</label>
+  function saveBridge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!node || !bridge) return;
+    try { createBridgeNode(node.nodeId, bridgeInput); setError(''); propose({ type: 'SET_BRIDGE', nodeId: node.nodeId, input: bridgeInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid bridge parameters'); }
+  }
+  function saveLiquidity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!node || !liquidity) return;
+    try { createLiquidityNode(node.nodeId, liquidityInput, context); setError(''); propose({ type: 'SET_LIQUIDITY', nodeId: node.nodeId, input: liquidityInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid pool parameters'); }
+  }
+  const label = swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
+  return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
+    {node ? <>
+      {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
+      {swap && <p className="muted">Base {swap.from} → {swap.to} · unquoted. Changes require review.</p>}
+      {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
+      {liquidity && <p className="muted">Base WETH/USDC position. Pool conditions require separate simulation.</p>}
+      {(swap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>
         <input id="sample-amount" type="text" value={amount} onChange={event => setAmount(event.target.value)} inputMode={swap ? 'decimal' : 'numeric'} autoComplete="off" spellCheck={false} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
-        <button type="submit" disabled={locked || amount === (swap ? swap.amount : amountOf(node))}>{swap ? 'Review amount change' : 'Save parameter'}</button></form>
-      {swap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (integer bps)</label>
+        <button type="submit" disabled={locked || amount === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button></form>}
+      {swap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (bps)</label>
         <input id="swap-edit-slippage" type="text" value={slippage} onChange={event => setSlippage(event.target.value)} inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} aria-invalid={Boolean(error)}/>
         <button type="submit" disabled={slippage === (swap.slippage?.toString() ?? '')}>Review slippage change</button></form>}
-      {error && <p role="alert" className="form-error">{error}. Check the field and review the prototype bounds.</p>}
-      <div className="inspector-actions"><button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>
-        <button type="button" className="quiet" onClick={() => dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision })}>Remove node</button></div>
-      <details><summary>Semantic Workflow IR</summary><pre>{JSON.stringify(state.workflow, null, 2)}</pre></details>
-    </> : <div className="inspector-empty"><strong>No node selected</strong><p>Select a canvas node to edit its parameters or inspect the shared IR.</p></div>}
+      {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<input type="text" inputMode="decimal" value={bridgeInput.amount} onChange={event => setBridgeInput(current => ({ ...current, amount: event.target.value }))}/></label>
+        <label>Maximum slippage (bps)<input type="text" inputMode="numeric" value={bridgeInput.slippageBps} onChange={event => setBridgeInput(current => ({ ...current, slippageBps: event.target.value }))}/></label><button type="submit">Review bridge change</button></form>}
+      {liquidity && <form onSubmit={saveLiquidity} className="inspector-fields">{([
+        ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
+        ['tickLower', 'Lower tick'], ['tickUpper', 'Upper tick'], ['recipient', 'Recipient'],
+      ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}<button type="submit">Review pool change</button></form>}
+      {!swap && !bridge && !liquidity && !template && <p className="muted">This step is configured through its workflow review.</p>}
+      {error && <p role="alert" className="form-error">{error}. Check the parameters and try again.</p>}
+      <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}
+        <button type="button" className="quiet" disabled={!deletable} onClick={() => { dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision }); select(null); }}>Remove step</button></div>
+      {!deletable && <p className="muted">This step is required by the workflow or protected.</p>}
+      <details><summary>Technical workflow details</summary><pre>{JSON.stringify(state.workflow, null, 2)}</pre></details>
+    </> : <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
   </section>;
 }

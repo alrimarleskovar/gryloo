@@ -10,7 +10,7 @@ import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { createBridgeNode } from './bridge-authoring';
 import { createBridgeSwapWorkflow } from './bridge-swap-authoring';
 import { createAcrossWorkflow } from './across-authoring';
-import { canDeleteCanvasNode } from './canvas-keyboard';
+import { canDeleteCanvasEdge, canDeleteCanvasNode } from './canvas-keyboard';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -86,6 +86,11 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     if (ancestors(command.from)) return reject('CYCLIC_CONNECTION');
     nodes = nodes.map(n => n.nodeId === command.to ? { ...n, dependencies: [...n.dependencies, command.from] } : n);
     resourceEdges.push({ fromNodeId: command.from, outputId: 'result', toNodeId: command.to, inputName: 'amount' });
+  } else if (command.type === 'DISCONNECT') {
+    if (!current.resourceEdges.some(edge => edge.fromNodeId === command.from && edge.toNodeId === command.to)) return reject('UNKNOWN_CONNECTION');
+    if (!canDeleteCanvasEdge(current, command.from, command.to)) return reject('PROTECTED_CONNECTION: this connection is required by the workflow.');
+    resourceEdges = resourceEdges.filter(edge => !(edge.fromNodeId === command.from && edge.toNodeId === command.to));
+    nodes = nodes.map(node => node.nodeId === command.to ? { ...node, dependencies: node.dependencies.filter(id => id !== command.from) } : node);
   } else {
     const node = nodes.find(n => n.nodeId === command.nodeId);
     if (!node) return reject('UNKNOWN_NODE');

@@ -2,9 +2,9 @@
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import type { ActionDefinition } from '@defi-workflow-engine/action-registry';
 
-export const actionKinds = ['read', 'transform', 'condition'] as const;
+export const actionKinds = ['read', 'transform', 'condition', 'bridge', 'pool', 'supply', 'lending', 'borrow'] as const;
 export type ActionKind = typeof actionKinds[number];
-export const mockActions = actionKinds.map((kind): ActionDefinition => ({
+export const mockActions = actionKinds.slice(0, 3).map((kind): ActionDefinition => ({
   id: `mock-${kind}`, version: '1.0.0',
   nodeClass: kind === 'read' ? 'READ' : 'LOGIC',
   inputs: [{ name: 'amount', type: 'AMOUNT_UNITS', required: true }],

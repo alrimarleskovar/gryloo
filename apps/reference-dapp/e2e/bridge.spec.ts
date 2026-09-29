@@ -24,6 +24,7 @@ test('chat and canvas share bridge IR; live route drives durable MOCKED recovery
   expect(chat.nodes[0]?.actionType).toBe('asset.bridge');
 
   await page.reload();
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('USDC amount').fill('1');
   await page.getByLabel('Maximum slippage (bps)').fill('50');
   await page.getByRole('button', { name: 'Review bridge proposal' }).click();

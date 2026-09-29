@@ -1,5 +1,11 @@
 # Scope guard
 
+## BUILD-011 approved implementation boundary (DEC-0050)
+
+From merged BUILD-010 main `5d169748e6a44e3fb63e371a18ace2e0814d5f04`, implement the [BUILD-011 plan](builds/BUILD-011-PLAN.md) for canvas and product UX only. Layout metadata remains separate from semantic IR. Existing provider authorization, wallet and evidence limits remain in force. No new provider, chain, financial execution level, real funds, testnet/mainnet executed claim or merge is approved.
+
+## Historical BUILD-010 pre-merge boundary
+
 ## BUILD-010 approved implementation boundary (DEC-0049)
 
 From main `f455892b58561bbe740a83f1aa0837e8ac82f5e4`, implement only the exact [BUILD-010 plan](builds/BUILD-010-PLAN.md) path set. Direct Across Base → Arbitrum USDC uses FIXED authorization and deterministic MOCKED financial execution. Credentials for optional read-only Across data stay server-side. No post-authorization silent provider change, public-chain financial submission, real funds, broad redesign, testnet/mainnet execution claim, or merge is approved.
