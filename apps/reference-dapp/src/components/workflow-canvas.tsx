@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, Handle, Position, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import { bridgeDetails } from '../domain/bridge-authoring';
 import { formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { canvasShortcut, isTextEntry } from '../domain/canvas-keyboard';
 import type { Workflow } from '../domain/initial-workflow';
 import { canvasViewportFor, canvasViewportSignature, SIMULATION_VIEWPORT, type CanvasViewportInputs } from '../domain/mode-a';
 
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
-type CardData = { title: string; amount: string; locked: boolean; selected: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean;
+type CardData = { title: string; amount: string; locked: boolean; selected: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
@@ -23,15 +24,15 @@ function WorkflowCard({ data }: NodeProps) {
       {card.swap && card.simulate ? <>
         <span className="mocked-value" data-mocked-value=""><span>Expected {card.simulate.expected}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
         <span className="mocked-value" data-mocked-value=""><span>Minimum {card.simulate.minimum}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
-      </> : <small>{card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
+      </> : <small>{card.across ? 'Direct Across quote in bridge review' : card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
       {((card.bridgeSwap && card.bridge) || (!card.liquidity && !card.bridge && (!card.swap || card.composition))) && <Handle type="source" position={Position.Right} isConnectable={false} />}
     </div>;
   }
   return <div className={`flow-card ${card.selected ? 'active' : ''}`}>
     {((card.bridgeSwap && card.swap) || (!card.swap && !card.bridge && (!card.liquidity || card.composition))) && <Handle type="target" position={Position.Left} isConnectable={!card.composition} />}
-    <span className="flow-card-kind">{card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · MODE B POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
+    <span className="flow-card-kind">{card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
     <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
-    <small>{card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Editable on canvas'}</small>
+    <small>{card.across ? 'Direct Across quote in Simulate · demo execution' : card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Editable on canvas'}</small>
     {((card.bridgeSwap && card.bridge) || (!card.liquidity && !card.bridge && (!card.swap || card.composition))) && <Handle type="source" position={Position.Right} isConnectable={!card.composition} />}
   </div>;
 }
@@ -90,6 +91,7 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
     const swap = swapDetails(node, context);
     const bridge = bridgeDetails(node);
     const bridgeSwap = workflow.nodes[0]?.nodeId === 'build009-bridge';
+    const across = node.adapterConstraints.adapters[0]?.id === 'across.direct';
     const composition = workflow.resourceEdges.length === 1 && (node.requiredAuthorizationClass === 'MODE_B' || bridgeSwap);
     const isLiquidity = node.actionType === 'asset.liquidity.uniswap-v3';
     const lower = node.inputs.find(i => i.name === 'tick-lower');
@@ -101,7 +103,7 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
       minimum: `${formatHumanAmount(current.minimum, current.symbol, context)} ${current.symbol}`,
     } : null;
     return { id: node.nodeId, type: 'workflow', position: { x: 60 + index * 280, y: 70 + (index % 2) * 40 },
-      data: { title: bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.replace('mock-', 'Mock '), amount: bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge), liquidity: isLiquidity, composition, bridgeSwap, simulate },
+      data: { title: across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.replace('mock-', 'Mock '), amount: bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge), liquidity: isLiquidity, composition, bridgeSwap, across, simulate },
     };
   }), [workflow, overlay, context]);
   const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
@@ -111,7 +113,7 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
   const bridges = workflow.nodes.filter(n => n.actionType === 'asset.bridge').length;
   const [viewportState, setViewportState] = useState<ViewportState>('pending');
   return <section className="canvas simulate-canvas panel" aria-label="Mocked outputs graph">
-    <div className="canvas-head"><div><p className="eyebrow">MOCKED OUTPUTS · READ-ONLY</p><h2>Graph</h2></div><span className="revision">REV {workflow.revision.toString().padStart(2, '0')}</span></div>
+    <div className="canvas-head"><div><p className="eyebrow">MOCKED OUTPUTS · READ-ONLY</p><h2>Graph</h2></div><span className="revision">{workflow.nodes.length} steps</span></div>
     <div className="flow-surface" role="region" aria-label="Mocked outputs on the workflow graph" data-viewport={viewportState}>
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
@@ -131,17 +133,33 @@ export function WorkflowCanvas(props: { selectedId: string | null; select: (id: 
 function BuildCanvas({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
+  useEffect(() => {
+    if (selectedId && !workflow.nodes.some(node => node.nodeId === selectedId)) select(null);
+  }, [workflow, selectedId, select]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const action = canvasShortcut(event.key, isTextEntry(event.target), selectedId, workflow);
+      if (!action) return;
+      event.preventDefault();
+      if (action === 'CLEAR') select(null);
+      else { dispatch({ type: 'REMOVE', nodeId: selectedId!, source: 'CANVAS', baseRevision: workflow.revision }); select(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dispatch, workflow, selectedId, select]);
   const nodes = useMemo(() => workflow.nodes.map((node, index) => {
     const swap = swapDetails(node, context);
     const bridge = bridgeDetails(node);
     const bridgeSwap = workflow.nodes[0]?.nodeId === 'build009-bridge';
+    const across = node.adapterConstraints.adapters[0]?.id === 'across.direct';
     const composition = workflow.resourceEdges.length === 1 && (node.requiredAuthorizationClass === 'MODE_B' || bridgeSwap);
     const isLiquidity = node.actionType === 'asset.liquidity.uniswap-v3';
     const lower = node.inputs.find(i => i.name === 'tick-lower');
     const upper = node.inputs.find(i => i.name === 'tick-upper');
     const range = lower?.kind === 'IDENTIFIER' && upper?.kind === 'IDENTIFIER' ? `${lower.value.slice(5)}–${upper.value.slice(5)}` : 'unreviewed';
     return { id: node.nodeId, type: 'workflow', position: { x: 85 + index * 260, y: 125 + (index % 2) * 55 },
-      data: { title: bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.replace('mock-', 'Mock '), amount: bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedId === node.nodeId, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge), liquidity: isLiquidity, composition, bridgeSwap },
+      data: { title: across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.replace('mock-', 'Mock '), amount: bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedId === node.nodeId, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge), liquidity: isLiquidity, composition, bridgeSwap, across },
     };
   }), [workflow, selectedId, context]);
   const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
@@ -153,7 +171,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   const liquidityCount = workflow.nodes.filter(n => n.actionType === 'asset.liquidity.uniswap-v3').length;
   const mocks = workflow.nodes.length - swaps - liquidityCount - bridges;
   return <section className="canvas panel" aria-label="Workflow canvas">
-    <div className="canvas-head"><div><p className="eyebrow">SEMANTIC WORKFLOW IR</p><h2>Canvas</h2></div><span className="revision">REV {workflow.revision.toString().padStart(2, '0')}</span></div>
+    <div className="canvas-head"><div><p className="eyebrow">YOUR WORKFLOW</p><h2>Canvas</h2></div><span className="revision">{workflow.nodes.length} steps</span></div>
     <div className="flow-surface" role="region" aria-label="Workflow graph">
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.35} maxZoom={1.4}
         nodesDraggable={false} nodesConnectable onNodeClick={(_event, node) => select(node.id)}

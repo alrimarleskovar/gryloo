@@ -2,7 +2,7 @@
 export const product = Object.freeze({
   name: 'Gryloo',
   strategyName: 'Untitled workflow',
-  build: 'BUILD-003F',
+  build: 'Gryloo',
   environment: 'MOCKED',
   authorization: 'NONE',
   enforcement: 'NOT_ENFORCED',

@@ -8,6 +8,11 @@ import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
+  if (command.type === 'AUTHOR_ACROSS') return Object.freeze([
+    `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Direct Across Base → Arbitrum USDC bridge for ${command.input.amount} USDC`,
+    'A fresh Across quote, fixed-provider review and simulated lifecycle are required.',
+  ]);
   if (command.type === 'AUTHOR_BRIDGE_SWAP') return Object.freeze([
     `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     'Base USDC → Arbitrum USDC LI.FI bridge → Arbitrum WETH swap',

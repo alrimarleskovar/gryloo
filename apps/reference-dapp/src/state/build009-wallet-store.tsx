@@ -31,6 +31,8 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!error) return; const timer = window.setTimeout(() => setError(null), 6000);
+    return () => window.clearTimeout(timer); }, [error]);
   const connected = useRef(false);
   const generation = useRef(0);
   const invalidate = () => setRevision(n => n + 1);
@@ -58,7 +60,7 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
   }, []);
   const connect = useCallback(async () => {
     const provider = injected();
-    if (!provider) { setError('No injected wallet detected'); setAvailable(false); return; }
+    if (!provider) { setError('No wallet found. Install or enable a browser wallet.'); setAvailable(false); return; }
     setBusy(true); setError(null); const op = ++generation.current;
     try {
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -67,12 +69,12 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('Wallet returned an invalid account or chain');
       if (op !== generation.current) return;
       connected.current = true; setAccount(accounts[0].toLowerCase()); setChainId(chain.toLowerCase()); invalidate();
-    } catch (cause) { if (op === generation.current) setError(cause instanceof Error ? cause.message : 'Wallet connection failed'); }
+    } catch { if (op === generation.current) setError('Could not connect. Check your wallet and try again.'); }
     finally { if (op === generation.current) setBusy(false); }
   }, []);
   const switchTo = useCallback(async (chain: Chain) => {
     const provider = injected();
-    if (!provider || !connected.current) { setError('Connect Wallet first'); return; }
+    if (!provider || !connected.current) { setError('Connect your wallet first.'); return; }
     if (chainId === chain) return;
     setBusy(true); setError(null); const op = ++generation.current;
     try {
@@ -81,7 +83,7 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
       if (typeof actual !== 'string' || actual.toLowerCase() !== chain) throw new Error('Wallet did not switch to the required chain');
       if (op !== generation.current) return;
       setChainId(chain); invalidate();
-    } catch (cause) { if (op === generation.current) setError(cause instanceof Error ? cause.message : 'Chain switch failed'); }
+    } catch { if (op === generation.current) setError('Could not switch networks. Check your wallet and try again.'); }
     finally { if (op === generation.current) setBusy(false); }
   }, [chainId]);
   const reset = useCallback(() => { ++generation.current; connected.current = false; setAccount(null); setChainId(null);

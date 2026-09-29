@@ -137,7 +137,7 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await expect(panel(page).locator('[data-mocked-value]')).toHaveCount(0);
   await expect(panel(page).locator('pre[data-artifact-json]')).toHaveCount(0);
   await expect(panel(page).getByRole('button', { name: /Show JSON/ })).toHaveCount(0);
-  await expect(page.getByText('MOCKED ARTIFACTS: INVALIDATED', { exact: true })).toBeVisible();
+  await expect(page.getByText('ARTIFACTS: INVALIDATED', { exact: true })).toBeVisible();
   await viewportFitted(page);
   await expect(page).toHaveScreenshot('simulate-invalidated.png', { fullPage: true });
 });
@@ -241,7 +241,7 @@ test('mocked numbers stay labelled and execution stays unavailable after generat
   await tab(page, 'Execute');
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution.');
   await expect(page.getByRole('button', { name: 'Execution unavailable' })).toBeDisabled();
-  await expect(page.getByText('MOCKED ARTIFACTS: CURRENT', { exact: true })).toBeVisible();
+  await expect(page.getByText('Simulation: CURRENT', { exact: true })).toBeVisible();
 });
 
 test('keyboard generation and responsive layout of the mocked chain', async ({ page }) => {

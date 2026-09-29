@@ -25,10 +25,9 @@ export function LiquidityPanel({ view }: { view: 'simulate' | 'execute' }) {
   const details = options.find(item => item.operation === operation)!;
   const current = liquidity.status?.reconciliation;
   const status = liquidity.status?.journal?.attempts.at(-1)?.state ?? 'NOT_STARTED';
-  const evidence = liquidity.info?.available ? liquidity.info.environment : 'OFF';
   if (!liquidity.info?.available) return null;
   return <section className="panel liquidity-panel" aria-label={view === 'simulate' ? 'Local fork liquidity simulation' : 'Local fork liquidity execution'}>
-    <p className="eyebrow">BUILD-006 / {view === 'simulate' ? 'SIMULATE' : 'EXECUTE'} · {evidence}</p>
+    <p className="eyebrow">{view === 'simulate' ? 'Simulate' : 'Execute'} · local demo</p>
     <h2>Uniswap v3 position · Base WETH/USDC</h2>
     <p className="muted">Isolated Mode A on local chain 31337. Base state is read only; every token approval and position change needs its own wallet review.</p>
     {!liquidity.info?.available && <p role="status">Local fork liquidity is off. No wallet request is available in this session.</p>}

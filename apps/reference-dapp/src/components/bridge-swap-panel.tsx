@@ -11,8 +11,8 @@ export function BridgeSwapPanel({ view }: { view: 'simulate' | 'execute' }) {
   const ready = Boolean(wallet.account && wallet.account === run?.owner && wallet.chainId === required);
   const sourceFresh = Boolean(run && quoteFresh(run.bridge));
   const swapFresh = Boolean(run?.swap && quoteFresh(run.swap));
-  return <section className="panel bridge-panel" role="region" aria-label="BUILD-009 bridge to swap composition">
-    <p className="eyebrow">BUILD-009 / {view.toUpperCase()} · MOCKED FINANCIAL EXECUTION</p>
+  return <section className="panel bridge-panel" role="region" aria-label="Base to Arbitrum bridge and swap">
+    <p className="eyebrow">BRIDGE TO SWAP · DEMO MODE</p>
     <h2>Base USDC → Arbitrum USDC → WETH</h2>
     <p>LI.FI quotes are live read-only provider data. Source, bridge, destination swap, recovery and reconciliation below are deterministic MOCKED steps. No wallet signature or public-chain transaction is requested.</p>
     <p role="status">Required wallet chain: {required === BASE_HEX ? 'Base (8453)' : 'Arbitrum (42161)'} · {ready ? 'ready' : 'connect or switch in the top bar'}</p>

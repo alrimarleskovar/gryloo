@@ -1,5 +1,9 @@
 # Scope guard
 
+## BUILD-010 approved implementation boundary (DEC-0049)
+
+From main `f455892b58561bbe740a83f1aa0837e8ac82f5e4`, implement only the exact [BUILD-010 plan](builds/BUILD-010-PLAN.md) path set. Direct Across Base → Arbitrum USDC uses FIXED authorization and deterministic MOCKED financial execution. Credentials for optional read-only Across data stay server-side. No post-authorization silent provider change, public-chain financial submission, real funds, broad redesign, testnet/mainnet execution claim, or merge is approved.
+
 ## BUILD-009 approved implementation boundary (DEC-0047)
 
 DEC-0047 approves the [BUILD-009 plan](builds/BUILD-009-PLAN.md) only for Base USDC → LI.FI bridge → Arbitrum USDC → Arbitrum WETH and an injected EIP-1193 top-bar wallet. Live wallet connection and read-only LI.FI quotes are allowed. Financial execution, recovery and reconciliation are deterministic MOCKED. No public-chain financial execution, real funds, `TESTNET_EXECUTED`, `MAINNET_EXECUTED`, merge or certification is approved. Exact created and modified paths are enumerated in the plan; all other certified-main paths remain protected.

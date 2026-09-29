@@ -36,10 +36,10 @@ export function CopilotPanel() {
     applyProposal();
     setMessages(old => [...old, { role: 'system', text: `Submitted proposal based on revision ${pending.command.baseRevision}. Check the canvas and review findings.` }]);
   }
-  return <aside className="copilot panel" aria-label="Mock copilot">
-    <div className="copilot-head"><div><p className="eyebrow">BUILD / 02</p><h2>Copilot</h2></div><span className="local-tag">LOCAL MOCK</span></div>
-    <div className="chat-messages" role="log" aria-live="polite" aria-label="Mock conversation">{messages.map((message, index) =>
-      <div key={index} className={`message ${message.role}`}><small>{message.role === 'you' ? 'YOU' : 'GRYL OO · MOCK'.replace(' ', '')}</small><p>{message.text}</p></div>)}</div>
+  return <aside className="copilot panel" aria-label="Workflow assistant">
+    <div className="copilot-head"><div><p className="eyebrow">ASSISTANT</p><h2>Copilot</h2></div><span className="local-tag">Demo assistant</span></div>
+    <div className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">{messages.map((message, index) =>
+      <div key={index} className={`message ${message.role}`}><small>{message.role === 'you' ? 'YOU' : 'GRYLOO'}</small><p>{message.text}</p></div>)}</div>
     {pending && <div className="proposal" role="status"><div className="proposal-copy"><strong>Review proposed edit</strong>
       <p>{pending.command.type} · base revision {pending.command.baseRevision}</p>
       <ul>{pending.diff.map((line, index) => <li key={index}>{line}</li>)}</ul>

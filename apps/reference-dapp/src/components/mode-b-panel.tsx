@@ -21,9 +21,9 @@ export function ModeBPanel({ view }: { view: 'simulate' | 'execute' }) {
   const revoked = Boolean(prepared && revokeIndex === prepared.compiled.revocation.length && revokeIndex > 0 && !status?.moduleEnabled && !status?.executorEnabled);
   return <section className="mode-b-panel panel" aria-label="Finite Mode B authority">
     <div className="simulate-head">
-      <div><p className="eyebrow">{view.toUpperCase()} / MODE B · LOCAL FORK 31337</p><h2>Finite delegated swap</h2>
+      <div><p className="eyebrow">{view === 'simulate' ? 'Simulate' : 'Execute'} · local demo</p><h2>Finite delegated swap</h2>
         <p className="muted">Safe 1.4.1 and Zodiac Roles 2.1.0. One exact Uniswap call, one non-refilling allowance, protocol deadline. Local fork only.</p></div>
-      <div className="simulate-controls"><StatusBadge label="FORK_REPRODUCED" tone="warning"/><StatusBadge label="MODE_B_FINITE" tone="info"/></div>
+      <div className="simulate-controls"><StatusBadge label="Local fork" tone="warning"/><StatusBadge label="Limited permission" tone="info"/></div>
     </div>
     {!info && <p role="status" className="simulate-note">Checking the local Mode B boundary…</p>}
     {info?.available && !prepared && <div className="simulate-empty"><h3>No Mode B review yet</h3>
