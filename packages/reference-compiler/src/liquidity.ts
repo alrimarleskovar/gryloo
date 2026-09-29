@@ -10,6 +10,22 @@ export const POSITION_MANAGER = '0x03a520b32c04bf3beef7beb72e919cf822ed34f1';
 export const LIQUIDITY_FACTORY = '0x33128a8fc17869897dce68ed026d694621f6fdfd';
 export const LIQUIDITY_USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
 export const LIQUIDITY_WETH = '0x4200000000000000000000000000000000000006';
+/** Official Uniswap v3 Arbitrum deployments; resolve the pool through factory.getPool. */
+export const ARBITRUM_LIQUIDITY = Object.freeze({
+  chainId: 42161 as const, factory: '0x1f98431c8ad98523631ae4a59f267346ea31f984',
+  positionManager: '0xc36442b4a4522e871399cd717abdd847ab11fe88',
+  weth: '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+  usdc: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+  pool: '0xc6962004f452be9203591991d15f6b388e09e8d0', fee: 500 as const, tickSpacing: 10 as const,
+});
+export type LiquidityDeployment = { readonly chainId: 8453 | 42161; readonly factory: string;
+  readonly positionManager: string; readonly weth: string; readonly usdc: string;
+  readonly fee: 500; readonly tickSpacing: 10; readonly pool?: string };
+export const BASE_LIQUIDITY: LiquidityDeployment = Object.freeze({ chainId: 8453, factory: LIQUIDITY_FACTORY,
+  positionManager: POSITION_MANAGER, weth: LIQUIDITY_WETH, usdc: LIQUIDITY_USDC, fee: 500, tickSpacing: 10 });
+export function liquidityDeployment(chainId: 8453 | 42161): LiquidityDeployment {
+  return chainId === 42161 ? ARBITRUM_LIQUIDITY : BASE_LIQUIDITY;
+}
 export const Q96 = 1n << 96n;
 const Q384 = 1n << 384n;
 const MAX_UINT128 = (1n << 128n) - 1n;
@@ -49,7 +65,7 @@ export function sqrtRatioAtTick(tick: number): bigint {
   return ceilDiv(ratio, 1n << 288n);
 }
 export type PoolState = {
-  readonly sourceChainId: 8453; readonly executionChainId: 31337;
+  readonly sourceChainId: 8453 | 42161; readonly executionChainId: 31337 | 42161;
   readonly sourceBlockHash: string; readonly sourceBlockNumber: number;
   readonly pool: string; readonly factory: string; readonly positionManager: string;
   readonly token0: string; readonly token1: string; readonly fee: number;
@@ -64,14 +80,17 @@ export type Composition = {
 };
 const hash = (value: string) => /^0x[0-9a-f]{64}$/.test(value);
 export function verifyPoolState(state: PoolState, nowMs: number): void {
-  if (state.sourceChainId !== 8453 || state.executionChainId !== FORK_CHAIN_ID ||
-      state.factory !== LIQUIDITY_FACTORY || state.positionManager !== POSITION_MANAGER ||
-      state.token0 !== LIQUIDITY_WETH || state.token1 !== LIQUIDITY_USDC ||
+  if (state.sourceChainId !== 8453 && state.sourceChainId !== 42161) fail('LIQUIDITY_CHAIN_UNSUPPORTED');
+  const deployment = liquidityDeployment(state.sourceChainId);
+  if ((state.sourceChainId === 8453 && state.executionChainId !== FORK_CHAIN_ID) ||
+      (state.sourceChainId === 42161 && state.executionChainId !== 42161 && state.executionChainId !== FORK_CHAIN_ID) ||
+      state.factory !== deployment.factory || state.positionManager !== deployment.positionManager ||
+      (deployment.pool !== undefined && state.pool !== deployment.pool) ||
+      state.token0 !== deployment.weth || state.token1 !== deployment.usdc ||
       !/^0x[0-9a-f]{40}$/.test(state.pool) || state.pool === '0x0000000000000000000000000000000000000000' ||
       !hash(state.sourceBlockHash) || !hash(state.poolCodeHash) || !hash(state.positionManagerCodeHash) ||
       !Number.isSafeInteger(state.sourceBlockNumber) || state.sourceBlockNumber < 1 ||
-      !Number.isSafeInteger(state.fee) || state.fee <= 0 || state.fee > 10000 ||
-      !Number.isSafeInteger(state.tickSpacing) || state.tickSpacing < 1 || state.tickSpacing > 200 ||
+      state.fee !== deployment.fee || state.tickSpacing !== deployment.tickSpacing ||
       !Number.isSafeInteger(state.tick) || Math.abs(state.tick) > MAX_TICK ||
       !Number.isSafeInteger(state.observedAtMs) || !Number.isSafeInteger(state.expiresAtMs) ||
       nowMs < state.observedAtMs || nowMs >= state.expiresAtMs ||
@@ -93,7 +112,8 @@ export function rangeComposition(state: PoolState, tickLower: number, tickUpper:
   if (!Number.isSafeInteger(tickLower) || !Number.isSafeInteger(tickUpper) ||
       tickLower >= tickUpper || tickLower < -MAX_TICK || tickUpper > MAX_TICK ||
       tickLower % state.tickSpacing !== 0 || tickUpper % state.tickSpacing !== 0) fail('LIQUIDITY_RANGE_INVALID');
-  positive(amount0Max); positive(amount1Max);
+  integer(amount0Max); integer(amount1Max);
+  if (amount0Max === 0n && amount1Max === 0n) fail('LIQUIDITY_ZERO');
   const a = sqrtRatioAtTick(tickLower), b = sqrtRatioAtTick(tickUpper), s = state.sqrtPriceX96;
   if (a >= b) fail('LIQUIDITY_RANGE_INVALID');
   let liquidity: bigint, amount0: bigint, amount1: bigint;
@@ -150,19 +170,20 @@ function join(parts: readonly Uint8Array[]): Uint8Array {
   for (const part of parts) { result.set(part, at); at += part.length; }
   return result;
 }
-export function encodeLiquidityCall(call: LiquidityCall): { readonly to: string; readonly data: Uint8Array } {
+export function encodeLiquidityCall(call: LiquidityCall, deployment: LiquidityDeployment = BASE_LIQUIDITY): { readonly to: string; readonly data: Uint8Array } {
   if (call.kind === 'APPROVE') {
-    if (![LIQUIDITY_USDC, LIQUIDITY_WETH].includes(call.token)) fail('LIQUIDITY_TOKEN_INVALID');
+    if (![deployment.usdc, deployment.weth].includes(call.token)) fail('LIQUIDITY_TOKEN_INVALID');
     integer(call.amount);
-    return { to: call.token, data: encodeApprove(POSITION_MANAGER, call.amount) };
+    return { to: call.token, data: encodeApprove(deployment.positionManager, call.amount) };
   }
   let sig: string, args: Uint8Array[];
   switch (call.kind) {
     case 'MINT':
-      if (call.token0 !== LIQUIDITY_WETH || call.token1 !== LIQUIDITY_USDC ||
+      if (call.token0 !== deployment.weth || call.token1 !== deployment.usdc ||
           ![100, 500, 3000, 10000].includes(call.fee) || call.tickLower >= call.tickUpper ||
           call.amount0Min > call.amount0Desired || call.amount1Min > call.amount1Desired) fail('LIQUIDITY_MINT_INVALID');
-      positive(call.amount0Desired); positive(call.amount1Desired); positive(call.deadline);
+      integer(call.amount0Desired); integer(call.amount1Desired); positive(call.deadline);
+      if (call.amount0Desired === 0n && call.amount1Desired === 0n) fail('LIQUIDITY_ZERO');
       sig = 'mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))';
       args = [addr(call.token0), addr(call.token1), word(BigInt(call.fee)), signedTick(call.tickLower), signedTick(call.tickUpper),
         word(call.amount0Desired), word(call.amount1Desired), word(call.amount0Min), word(call.amount1Min), addr(call.recipient), word(call.deadline)];
@@ -187,12 +208,12 @@ export function encodeLiquidityCall(call: LiquidityCall): { readonly to: string;
     case 'BURN':
       positive(call.tokenId); sig = 'burn(uint256)'; args = [word(call.tokenId)]; break;
   }
-  return { to: POSITION_MANAGER, data: join([selector(sig), ...args]) };
+  return { to: deployment.positionManager, data: join([selector(sig), ...args]) };
 }
 export function buildLiquidityPayload(call: LiquidityCall, input: {
   readonly nonce: bigint; readonly gasLimit: bigint; readonly maxFeePerGas: bigint;
-}): { readonly bytes: Uint8Array; readonly payloadHash: string; readonly signingHash: string } {
-  const encoded = encodeLiquidityCall(call);
+}, deployment: LiquidityDeployment = BASE_LIQUIDITY): { readonly bytes: Uint8Array; readonly payloadHash: string; readonly signingHash: string } {
+  const encoded = encodeLiquidityCall(call, deployment);
   const payload: UnsignedPayload = {
     chainId: FORK_CHAIN_ID, nonce: integer(input.nonce), gasLimit: positive(input.gasLimit),
     maxPriorityFeePerGas: 1_000_000n, maxFeePerGas: positive(input.maxFeePerGas),
@@ -205,14 +226,14 @@ export function buildLiquidityPayload(call: LiquidityCall, input: {
 }
 export function verifyLiquidityPayload(bytes: Uint8Array, call: LiquidityCall, input: {
   readonly nonce: bigint; readonly gasLimit: bigint; readonly maxFeePerGas: bigint;
-}): { readonly payloadHash: string; readonly signingHash: string; readonly to: string; readonly data: string } {
+}, deployment: LiquidityDeployment = BASE_LIQUIDITY): { readonly payloadHash: string; readonly signingHash: string; readonly to: string; readonly data: string } {
   const payload = decodeUnsignedPayload(bytes);
-  const expected = buildLiquidityPayload(call, input);
+  const expected = buildLiquidityPayload(call, input, deployment);
   if (toHex(bytes) !== toHex(expected.bytes) || payload.nonce !== input.nonce ||
       payload.gasLimit !== input.gasLimit || payload.maxFeePerGas !== input.maxFeePerGas) fail('LIQUIDITY_PAYLOAD_MISMATCH');
   if (call.kind === 'APPROVE') {
     const approval = decodeApprove(payload.data);
-    if (approval.spender !== POSITION_MANAGER || approval.amount !== call.amount) fail('LIQUIDITY_APPROVAL_MISMATCH');
+    if (approval.spender !== deployment.positionManager || approval.amount !== call.amount) fail('LIQUIDITY_APPROVAL_MISMATCH');
   }
   return { payloadHash: expected.payloadHash, signingHash: expected.signingHash, to: payload.to, data: toHex(payload.data) };
 }

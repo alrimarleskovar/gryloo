@@ -255,3 +255,16 @@ DEC-0051 approves the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) from merged B
 | B011B-UX-001 | Selection and keyboard guards, Selected Action inspector, iconized toolbox modes, Review JSON and clean default Build/Copilot surfaces work. | Canvas, visual and regression browser tests | IMPLEMENTED_LOCAL |
 | B011B-STORAGE-001 | Toolbox preference uses only the bounded presentation key `gryloo:toolbox-mode`, separate from layout and semantic IR. | Layout tests and exact source governance | IMPLEMENTED_LOCAL |
 | B011B-GOVERNANCE-001 | BUILD-011 is checked historically at its merged commit; BUILD-011B has its own exact create/modify paths and preserves prior checks. | Local governance passed; PR-head governance pending | SATISFIED_LOCALLY |
+
+## BUILD-011C-1 bounded happy-path mapping
+
+DEC-0052 approves the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. The path is the successful-composition half of Master Prompt Build 011; financial evidence remains MOCKED.
+
+| ID | Requirement | Check or evidence | Status |
+|---|---|---|---|
+| B011C-IR-001 | One bridge → destination preparation → optional calculated swap → Uniswap mint semantic graph with real output references; chat and canvas produce the same IR. | Graph and browser tests | IMPLEMENTED_LOCAL |
+| B011C-POOL-001 | Extend existing v3 adapter only to the verified Arbitrum WETH/native-USDC fee-500 pool while retaining Base. | Single-block factory, manager, token, fee, spacing and code read; adapter regression | IMPLEMENTED_LOCAL |
+| B011C-VALUE-001 | Use reconciled Arbitrum USDC rather than estimated bridge output; compute a range-aware partial/one-sided split and reconcile destination swap debit/output before mint. | Compiler, executor and browser tests | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-AUTH-001 | Bind provider, quote freshness, target/function, source and destination cumulative spend, gas reserve and refreshed destination Manifest. | Artifact and Manifest tests | CONTRACT_VALIDATED_NOT_ENFORCED |
+| B011C-EVIDENCE-001 | Journal each non-atomic boundary and report reconciled LP NFT, deposits, allowances, gas and residual WETH/USDC in a canonical Evidence Bundle. | Journal and reconciler tests | IMPLEMENTED_LOCAL_MOCKED |
+| B011C-BOUNDARY-001 | Preserve BUILD-011/011B and prior evidence limits; defer destination failure, compensation authority, recovery and manual intervention to BUILD-011C-2. | Exact-path governance and report | IN_PROGRESS |

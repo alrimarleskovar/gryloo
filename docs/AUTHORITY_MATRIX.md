@@ -1,6 +1,10 @@
 # Authority matrix
 
-## Current BUILD-011B implementation authority
+## Current BUILD-011C-1 implementation authority
+
+DEC-0052 approves the [bounded BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. Existing LI.FI or direct Across Base → Arbitrum bridge semantics and the same Uniswap v3 liquidity action/adapter may be composed; the adapter may validate the pinned Arbitrum factory, position manager, WETH/native-USDC 0.05% pool and code. Review, Manifest and MOCKED evidence retain existing P1–P14 and Mode A limits. No public financial transaction, new provider, new protocol, return bridge, compensation, failure recovery, owner merge or completed Master Prompt Build 011 claim is authorized.
+
+## Historical BUILD-011B implementation authority
 
 DEC-0051 approves the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) from merged BUILD-011 main `502d167212cdff80ad4c6740ed8bde47eace1c31`. Only editor stabilization and presentation changes, including optional `gryloo:toolbox-mode` storage, are authorized. Exact paths and historical BUILD-011 bytes remain governed separately. No financial, provider, chain, wallet, or evidence authority expands; one unmerged PR is authorized and owner approval is required for merge.
 

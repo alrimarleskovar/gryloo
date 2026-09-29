@@ -7,6 +7,7 @@ import { LIQUIDITY_ACTION, validateLiquidityNode } from './liquidity.js';
 import { validateCompositionWorkflow } from './composition.js';
 import { validateBridgeWorkflow } from './bridge.js';
 import { validateBridgeSwapWorkflow } from './bridge-swap.js';
+import { validateCrossChainLiquidityWorkflow } from './cross-chain-liquidity.js';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
@@ -75,6 +76,10 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   }
   if (!schemaValidator(input)) fail('INVALID_SEMANTIC_WORKFLOW');
   const workflow = input;
+  if (workflow.nodes.some(node => node.actionType === 'asset.liquidity.prepare')) {
+    validateCrossChainLiquidityWorkflow(workflow);
+    return workflow;
+  }
   if (workflow.nodes.some(node => node.actionType === BRIDGE_ACTION)) {
     if (workflow.nodes.length === 2) validateBridgeSwapWorkflow(workflow);
     else validateBridgeWorkflow(workflow);

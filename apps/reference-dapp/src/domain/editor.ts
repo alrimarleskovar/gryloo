@@ -10,6 +10,7 @@ import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { createBridgeNode } from './bridge-authoring';
 import { createBridgeSwapWorkflow } from './bridge-swap-authoring';
 import { createAcrossWorkflow } from './across-authoring';
+import { createCrossChainLiquidityWorkflow } from './cross-chain-liquidity';
 import { canDeleteCanvasEdge, canDeleteCanvasNode } from './canvas-keyboard';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
@@ -22,6 +23,12 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if (command.type === 'AUTHOR_CROSS_CHAIN_LIQUIDITY') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try { const workflow = createCrossChainLiquidityWorkflow(current.workflowId, current.revision + 1, command.input);
+      validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'CROSS_CHAIN_LIQUIDITY_INVALID'); }
+  }
   if (command.type === 'AUTHOR_ACROSS') {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
     try { const workflow = createAcrossWorkflow(current.workflowId, current.revision + 1, command.input);

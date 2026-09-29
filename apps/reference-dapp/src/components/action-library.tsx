@@ -13,11 +13,23 @@ import { createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { useBridge } from '../state/bridge-store';
 import { createBridgeSwapWorkflow } from '../domain/bridge-swap-authoring';
 import { createAcrossWorkflow } from '../domain/across-authoring';
+import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
   const bridgeEnabled = useBridge().enabled;
+  const [crossInput, setCrossInput] = useState<CrossChainLiquidityInput>({ amount: '100', bridgeSlippageBps: '50',
+    swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900',
+    recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false });
+  const [crossError, setCrossError] = useState('');
+  function submitCross(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try { createCrossChainLiquidityWorkflow(state.workflow.workflowId, state.workflow.revision + 1, crossInput);
+      setCrossError(''); propose({ type: 'AUTHOR_CROSS_CHAIN_LIQUIDITY', input: crossInput,
+        source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    catch (cause) { setCrossError(cause instanceof Error ? cause.message : 'Invalid composition'); }
+  }
   const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
   const [bridgeError, setBridgeError] = useState('');
   const [swapBridgeSlippage, setSwapBridgeSlippage] = useState('50');
@@ -120,6 +132,21 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <input id="build009-swap-slip" type="text" inputMode="numeric" maxLength={5} value={swapBridgeSlippage} onChange={event => setSwapBridgeSlippage(event.target.value)}/>
       <button type="button" onClick={submitBridgeSwap}>Review Base → Arbitrum bridge → WETH swap</button>
       {bridgeError && <p role="alert">{bridgeError}</p>}
+    </details>
+    <details className="cross-liquidity-create" aria-label="Create cross-chain liquidity proposal"><summary>Base → Arbitrum → Uniswap v3 position</summary>
+      <form className="swap-create" onSubmit={submitCross} aria-label="Compose cross-chain liquidity">
+        <p className="muted">One semantic bridge, calculated destination split and existing Uniswap v3 position. MOCKED financial rehearsal.</p>
+        <label>Composition source quantity (USDC)<input value={crossInput.amount} onChange={e => setCrossInput(v => ({ ...v, amount: e.target.value }))} inputMode="decimal" /></label>
+        <label>Composition bridge provider<select value={crossInput.provider} onChange={e => setCrossInput(v => ({ ...v, provider: e.target.value as CrossChainLiquidityInput['provider'] }))}><option value="lifi.rest">LI.FI</option><option value="across.direct">Across direct</option></select></label>
+        <label>Cross-chain bridge tolerance (bps)<input value={crossInput.bridgeSlippageBps} onChange={e => setCrossInput(v => ({ ...v, bridgeSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+        <label>Composition swap slippage (bps)<input value={crossInput.swapSlippageBps} onChange={e => setCrossInput(v => ({ ...v, swapSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+        <label>Composition lower tick<input value={crossInput.tickLower} onChange={e => setCrossInput(v => ({ ...v, tickLower: e.target.value }))} inputMode="numeric" /></label>
+        <label>Composition upper tick<input value={crossInput.tickUpper} onChange={e => setCrossInput(v => ({ ...v, tickUpper: e.target.value }))} inputMode="numeric" /></label>
+        <label>Composition LP recipient<input value={crossInput.recipient} onChange={e => setCrossInput(v => ({ ...v, recipient: e.target.value.toLowerCase() }))} autoComplete="off" /></label>
+        <label><input type="checkbox" checked={crossInput.noSwap} onChange={e => setCrossInput(v => ({ ...v, noSwap: e.target.checked }))} /> No swap (USDC-only range)</label>
+        <button type="submit">Review cross-chain composition</button>
+        {crossError && <p role="alert">{crossError}</p>}
+      </form>
     </details>
     <form className="swap-create" onSubmit={submit} aria-label="Create Base swap proposal">
       <strong>Base swap</strong>

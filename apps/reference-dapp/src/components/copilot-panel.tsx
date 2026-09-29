@@ -9,7 +9,9 @@ type Message = { role: 'system' | 'you'; text: string };
 export function CopilotPanel() {
   const { state, context, pending, propose, applyProposal, dismissProposal } = useWorkflow();
   const bridgeEnabled = useBridge().enabled;
-  const guidance = bridgeEnabled ? BRIDGE_HELP : HELP;
+  const guidance = state.workflow.nodes.some(node => node.actionType === 'asset.liquidity.prepare')
+    ? `${bridgeEnabled ? BRIDGE_HELP : HELP} Cross-chain: bridge 100 USDC from Base to Arbitrum via LI.FI and create Uniswap liquidity ticks -200100 to -199900 recipient 0x1111111111111111111111111111111111111111.`
+    : bridgeEnabled ? BRIDGE_HELP : HELP;
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([{ role: 'system', text: 'Local command assistant ready. Review each proposal before applying it.' }]);
   function submit(event: FormEvent<HTMLFormElement>) {

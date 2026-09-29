@@ -16,3 +16,5 @@ export * from "./liquidity.js";
 export * from './composition.js';
 
 export * from './bridge.js';
+
+export * from './cross-chain-liquidity.js';

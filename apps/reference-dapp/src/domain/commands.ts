@@ -8,6 +8,7 @@ import type { CompositionInput } from './composition-authoring';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { bridgeDetails, parseBridgeAmount, type BridgeInput } from './bridge-authoring';
 import type { BridgeSwapInput } from './bridge-swap-authoring';
+import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
@@ -26,6 +27,7 @@ export type Command = Base & (
   | { readonly type: 'ADD_BRIDGE'; readonly input: BridgeInput }
   | { readonly type: 'AUTHOR_BRIDGE_SWAP'; readonly input: BridgeSwapInput }
   | { readonly type: 'AUTHOR_ACROSS'; readonly input: BridgeInput }
+  | { readonly type: 'AUTHOR_CROSS_CHAIN_LIQUIDITY'; readonly input: CrossChainLiquidityInput }
   | { readonly type: 'SET_BRIDGE'; readonly nodeId: string; readonly input: BridgeInput }
   | { readonly type: 'ADD_LIQUIDITY'; readonly input: LiquidityInput }
   | { readonly type: 'SET_LIQUIDITY'; readonly nodeId: string; readonly input: LiquidityInput }
@@ -44,6 +46,15 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const crossChain = /^bridge ([0-9]+(?:\.[0-9]+)?) USDC from Base to Arbitrum via (LI\.FI|Across) and create Uniswap liquidity ticks (-?[0-9]+) to (-?[0-9]+) recipient (0x[0-9a-fA-F]{40})(?: without swap)?$/i.exec(input);
+  if (crossChain) {
+    parseBridgeAmount(crossChain[1]!); parseTick(`tick:${crossChain[3]}`); parseTick(`tick:${crossChain[4]}`);
+    return { type: 'AUTHOR_CROSS_CHAIN_LIQUIDITY', source: 'CHAT', baseRevision: workflow.revision,
+      input: { amount: crossChain[1]!, bridgeSlippageBps: '50', swapSlippageBps: '50',
+        tickLower: crossChain[3]!, tickUpper: crossChain[4]!, recipient: crossChain[5]!.toLowerCase(),
+        provider: crossChain[2]!.toLowerCase() === 'across' ? 'across.direct' : 'lifi.rest',
+        noSwap: / without swap$/i.test(input) } };
+  }
   const bridgeSwap = /^compose bridge ([0-9]+(?:\.[0-9]+)?) USDC from Base to Arbitrum slippage ([0-9]+) bps then swap to WETH slippage ([0-9]+) bps$/i.exec(input);
   if (bridgeSwap) { parseBridgeAmount(bridgeSwap[1]!); parseSlippage(bridgeSwap[2]!); parseSlippage(bridgeSwap[3]!);
     return { type: 'AUTHOR_BRIDGE_SWAP', input: { amount: bridgeSwap[1]!, slippageBps: bridgeSwap[2]!, swapSlippageBps: bridgeSwap[3]! }, source: 'CHAT', baseRevision: workflow.revision }; }
@@ -106,7 +117,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD: ['kind'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -131,6 +142,14 @@ export function commandIsValid(input: unknown): input is Command {
       return !!mint && typeof mint === 'object' && !Array.isArray(mint) && Object.getPrototypeOf(mint) === Object.prototype &&
         Reflect.ownKeys(mint).sort().join() === ['weth', 'usdc', 'minimumWeth', 'minimumUsdc', 'tickLower', 'tickUpper', 'recipient'].sort().join() &&
         Object.values(mint).every(item => typeof item === 'string' && item.length <= 80);
+    }
+    case 'AUTHOR_CROSS_CHAIN_LIQUIDITY': {
+      const value = command.input;
+      if (!value || typeof value !== 'object' || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype ||
+          Reflect.ownKeys(value).sort().join() !== ['amount','bridgeSlippageBps','swapSlippageBps','tickLower','tickUpper','recipient','provider','noSwap'].sort().join()) return false;
+      const v = value as Record<string, unknown>;
+      return ['amount','bridgeSlippageBps','swapSlippageBps','tickLower','tickUpper','recipient'].every(key => typeof v[key] === 'string' && (v[key] as string).length <= 80)
+        && ['lifi.rest','across.direct'].includes(v.provider as string) && typeof v.noSwap === 'boolean';
     }
     case 'AUTHOR_BRIDGE_SWAP': {
       const value = command.input;

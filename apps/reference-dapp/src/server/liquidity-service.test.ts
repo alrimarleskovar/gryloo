@@ -7,11 +7,11 @@ import { describe, expect, it } from 'vitest';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
 import { createReviewContext } from '@defi-workflow-engine/reference-linter';
-import { Q96, decodeUnsignedPayload, fromHex, toHex } from '@defi-workflow-engine/reference-compiler';
+import { ARBITRUM_LIQUIDITY, Q96, decodeUnsignedPayload, fromHex, toHex } from '@defi-workflow-engine/reference-compiler';
 import { signModeBLocalTransaction } from '@defi-workflow-engine/reference-executor';
 import { initialWorkflow } from '../domain/initial-workflow';
 import { createLiquidityNode } from '../domain/liquidity-authoring';
-import { createLiquidityService, parseLiquidityProfile } from './liquidity-service';
+import { createLiquidityService, parseLiquidityProfile, readArbitrumLiquidityPool } from './liquidity-service';
 const owner = '0x1111111111111111111111111111111111111111';
 const pool = '0x2222222222222222222222222222222222222222';
 const block = `0x${'a'.repeat(64)}`;
@@ -61,6 +61,43 @@ function transport(mutate: (method: string) => unknown | undefined = () => undef
   };
   return { call, methods };
 }
+describe('Arbitrum extension of the Uniswap pool identity read', () => {
+  const d = ARBITRUM_LIQUIDITY;
+  const arbPool = '0xc6962004f452be9203591991d15f6b388e09e8d0';
+  function source(changedPool = false) {
+    const requests: string[] = [];
+    const call = async (method: string, params: readonly unknown[] = []): Promise<unknown> => {
+      if (method === 'eth_getCode') return code;
+      if (method !== 'eth_call') throw new Error('UNEXPECTED_RPC');
+      const request = params[0] as { to: string; data: string };
+      requests.push(request.to);
+      const selector = request.data.slice(0, 10);
+      if (selector === '0x1698ee82') return addr(arbPool);
+      if (selector === '0xc45a0155') return addr(d.factory);
+      if (selector === '0x4aa4a4fc') return addr(d.weth);
+      if (selector === '0x0dfe1681') return addr(changedPool ? d.usdc : d.weth);
+      if (selector === '0xd21220a7') return addr(d.usdc);
+      if (selector === '0xddca3f43') return `0x${w(500n)}`;
+      if (selector === '0xd0c93a7c') return `0x${w(10n)}`;
+      if (selector === '0x3850c7bd') return `0x${w(Q96)}${w(0n)}`;
+      throw new Error('UNEXPECTED_CALL');
+    };
+    return { call, requests };
+  }
+  it('resolves the pool through the official factory and checks its immutable identity', async () => {
+    const rpc = source();
+    const observed = await readArbitrumLiquidityPool(rpc.call, block, 1, 1000, 2000);
+    expect(observed.pool).toBe(arbPool);
+    expect(observed.sourceChainId).toBe(42161);
+    expect(observed.executionChainId).toBe(42161);
+    expect(rpc.requests[0]).toBe(d.factory);
+    expect(rpc.requests).toContain(d.positionManager);
+  });
+  it('rejects changed pool tokens and stale reads', async () => {
+    await expect(readArbitrumLiquidityPool(source(true).call, block, 1, 1000, 2000)).rejects.toThrow('LIQUIDITY_ARBITRUM_POOL_IDENTITY_MISMATCH');
+    await expect(readArbitrumLiquidityPool(source().call, block, 1, 1000, 61000)).rejects.toThrow('LIQUIDITY_POOL_STATE_INVALID');
+  });
+});
 describe('local liquidity service boundary', () => {
   it('prepares exact reviewed approval with canonical artifacts and durably freezes an unknown result', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'gryloo-liquidity-test-'));
