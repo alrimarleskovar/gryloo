@@ -33,6 +33,7 @@ apps/reference-dapp/e2e/build009.spec.ts
 apps/reference-dapp/e2e/cow-fixtures.ts
 apps/reference-dapp/e2e/cow-intent.spec.ts
 apps/reference-dapp/e2e/cow-recovery.spec.ts
+apps/reference-dapp/e2e/composition-fixtures.ts
 apps/reference-dapp/e2e/interface-honesty.spec.ts
 apps/reference-dapp/e2e/liquidity-fixtures.ts
 apps/reference-dapp/e2e/mock-artifact-chain.spec.ts

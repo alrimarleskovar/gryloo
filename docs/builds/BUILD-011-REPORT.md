@@ -19,7 +19,8 @@ No provider, chain, signing, financial transport, wallet authority or evidence l
 - The default contracts browser batch passed: 37 passed and 4 Mode B environment-gated skips. It includes BUILD-009 wallet/bridge authoring, BUILD-010 Across, canvas acceptance, mock artifact, network isolation and visual snapshot coverage.
 - The isolated Mode A browser regression batch passed: 13/13, including wallet authorization, fork execution, reconciliation and durable recovery.
 - The opt-in local CoW browser batch passed: 9/9, including its narrow-viewport keyboard path after moving advanced setup below the canvas.
+- The opt-in BUILD-007 composition browser batch passed: 3/3 with the digest-pinned local harness, including owner setup, reconciliation and recovery after opening advanced setup.
 - Both local governance programs passed: historical scope and protected-byte checks; 465 text files scanned for secret indicators, 444 authored files for email/brand/claim rules, 63 Markdown link checks, 29 protected digests, 50 decision IDs and 124 requirement IDs.
 - `git diff --check` passed. Visual baselines were refreshed for the changed workspace and reviewed locally.
 
-The standalone BUILD-009 live LI.FI route browser journey was not rerun because it depends on external quote availability. Its bridge editor/service unit coverage and the deterministic BUILD-009 browser regressions passed. The separate Mode B, liquidity and composition browser profiles remain gated on their opt-in local fixtures. Remote PR-head checks and owner merge remain separate.
+The standalone BUILD-009 live LI.FI route browser journey was not rerun because it depends on external quote availability. Its bridge editor/service unit coverage and the deterministic BUILD-009 browser regressions passed. The separate Mode B and liquidity browser profiles remain gated on their opt-in local fixtures. Remote PR-head checks and owner merge remain separate.
