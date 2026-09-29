@@ -20,7 +20,7 @@ test('chat and canvas share bridge IR; live route drives durable MOCKED recovery
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.locator('.flow-card').first().click();
-  const chat = JSON.parse((await page.locator('.inspector pre').textContent()) ?? '{}') as { nodes: { actionType: string }[] };
+  const chat = JSON.parse((await page.locator('[data-workflow-ir]').textContent()) ?? '{}') as { nodes: { actionType: string }[] };
   expect(chat.nodes[0]?.actionType).toBe('asset.bridge');
 
   await page.reload();
@@ -30,7 +30,7 @@ test('chat and canvas share bridge IR; live route drives durable MOCKED recovery
   await page.getByRole('button', { name: 'Review bridge proposal' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.locator('.flow-card').first().click();
-  const canvas = JSON.parse((await page.locator('.inspector pre').textContent()) ?? '{}');
+  const canvas = JSON.parse((await page.locator('[data-workflow-ir]').textContent()) ?? '{}');
   expect(canvas).toEqual(chat);
 
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();

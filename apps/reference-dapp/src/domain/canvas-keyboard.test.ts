@@ -19,6 +19,7 @@ describe('canvas keyboard semantic deletion', () => {
     const connected = editorReducer(added, { type: 'CONNECT', from: 'node-001', to: 'node-002', source: 'CANVAS', baseRevision: 1 });
     expect(canDeleteCanvasNode(connected.workflow, 'node-002')).toBe(true);
     const removed = editorReducer(connected, { type: 'REMOVE', nodeId: 'node-002', source: 'CANVAS', baseRevision: 2 });
+    expect(connected.workflow.nodes[1]?.inputs).toContainEqual({ name: 'source', kind: 'OUTPUT_REFERENCE', value: { nodeId: 'node-001', outputId: 'result' } });
     expect(removed.workflow.resourceEdges).toHaveLength(0);
     expect(removed.workflow.nodes.map(node => node.nodeId)).toEqual(['node-001']);
     const third = editorReducer(connected, parseMockCommand('add condition', 2));
@@ -33,6 +34,7 @@ describe('canvas keyboard semantic deletion', () => {
     const disconnected = editorReducer(connected, { type: 'DISCONNECT', from: 'node-001', to: 'node-002', source: 'CANVAS', baseRevision: 2 });
     expect(disconnected.workflow.resourceEdges).toHaveLength(0);
     expect(disconnected.workflow.nodes[1]?.dependencies).toEqual([]);
+    expect(disconnected.workflow.nodes[1]?.inputs.some(input => input.name === 'source')).toBe(false);
     const typed = { ...connected.workflow, nodes: connected.workflow.nodes.map(node => node.nodeId === 'node-002' ? { ...node, actionType: 'asset.swap.exact-input' } : node) } as typeof connected.workflow;
     expect(canDeleteCanvasEdge(typed, 'node-001', 'node-002')).toBe(false);
     const rejected = editorReducer({ workflow: typed, error: null }, { type: 'DISCONNECT', from: 'node-001', to: 'node-002', source: 'CANVAS', baseRevision: 2 });

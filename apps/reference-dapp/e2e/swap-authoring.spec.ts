@@ -2,6 +2,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
+import { readyForVisualCapture } from './mode-a-fixtures';
 
 const prompt = (page: Page) => page.getByLabel('Describe a mock edit');
 const send = async (page: Page, text: string) => {
@@ -14,11 +15,11 @@ const apply = async (page: Page) => {
 };
 const selectSwap = async (page: Page) => {
   await page.locator('.flow-card').nth(1).click();
-  await expect(page.locator('.inspector pre')).toContainText('asset.swap.exact-input');
+  await expect(page.locator('[data-workflow-ir]')).toContainText('asset.swap.exact-input');
 };
 const workflow = async (page: Page) => {
   await selectSwap(page);
-  const raw = await page.locator('.inspector pre').textContent();
+  const raw = await page.locator('[data-workflow-ir]').textContent();
   if (!raw) throw new Error('Semantic Workflow IR is missing');
   return JSON.parse(raw) as { revision: number; nodes: unknown[] };
 };
@@ -98,12 +99,14 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   await send(page, 'swap 0.125 WETH to USDC on Base slippage 301 bps');
   await expect(page.locator('.proposal')).toContainText('WETH → USDC');
   await expect(page.locator('.proposal')).toContainText('execution unavailable');
+  await readyForVisualCapture(page);
   await expect(page).toHaveScreenshot('proposal.png', { fullPage: true, maxDiffPixels: 0 });
   await apply(page);
   await selectSwap(page);
   await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('BLOCK');
   await expect(page.locator('.flow-card').nth(1)).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole('button', { name: 'Open mocked simulation' })).toBeEnabled();
+  await readyForVisualCapture(page);
   await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0 });
 });
 

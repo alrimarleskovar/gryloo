@@ -1,6 +1,10 @@
 # Authority matrix
 
-## Current BUILD-011 implementation authority
+## Current BUILD-011B implementation authority
+
+DEC-0051 approves the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) from merged BUILD-011 main `502d167212cdff80ad4c6740ed8bde47eace1c31`. Only editor stabilization and presentation changes, including optional `gryloo:toolbox-mode` storage, are authorized. Exact paths and historical BUILD-011 bytes remain governed separately. No financial, provider, chain, wallet, or evidence authority expands; one unmerged PR is authorized and owner approval is required for merge.
+
+## Historical BUILD-011 implementation authority
 
 DEC-0050 approves the [BUILD-011 canvas/product UX plan](builds/BUILD-011-PLAN.md) from merged BUILD-010 main `5d169748e6a44e3fb63e371a18ace2e0814d5f04`. The work changes authoring controls and graph layout without expanding financial or provider authority. Existing MOCKED, local-fork and read-only evidence boundaries remain separate. One unmerged PR is authorized; owner approval is required for merge.
 

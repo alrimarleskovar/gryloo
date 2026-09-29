@@ -15,7 +15,9 @@ describe('shared immutable editor reducer', () => {
     expect(original.workflow.revision).toBe(0);
     expect(original.workflow.nodes).toHaveLength(1);
     expect(added.workflow.nodes.map((node) => node.nodeId)).toEqual(['node-001', 'node-002']);
+    expect(connected.error).toBeNull();
     expect(connected.workflow.resourceEdges).toHaveLength(1);
+    expect(connected.workflow.resourceEdges[0]?.inputName).toBe('source');
     expect(edited.workflow.nodes[1] && amountOf(edited.workflow.nodes[1])).toBe('2500000');
     expect(locked.workflow.nodes[1]?.lockedParameters).toHaveLength(1);
     expect(rejected.workflow).toBe(locked.workflow);
