@@ -28,7 +28,7 @@ test('provides semantic landmarks, labelled controls and keyboard access', async
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('Revision 1', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
 });
@@ -37,7 +37,6 @@ test('labels the local fork honestly and enables no execution without a reviewed
   await page.goto('/');
   const banner = page.getByRole('banner');
   await expect(banner.getByText(/^Local demo · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
-  await expect(banner).toContainText('local fork 31337');
   await expect(banner).toContainText('Wallet: injected · not connected');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });

@@ -53,7 +53,7 @@ test('semantic revision change retires the reviewed installation', async ({ page
   await panel.getByRole('button', { name: 'I reviewed the finite permission and signatures' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
   await page.locator('.flow-card').nth(1).click();
-  await page.getByLabel('Slippage (integer bps)').fill('50');
+  await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill('50');
   await page.getByRole('button', { name: 'Review slippage change' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();

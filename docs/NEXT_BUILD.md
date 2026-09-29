@@ -1,6 +1,10 @@
 # Next build
 
-## Current next milestone: BUILD-010 approved implementation (2026-09-29)
+## Current next milestone: BUILD-011 approved implementation (2026-09-29)
+
+BUILD-010 is merged on main at `5d169748e6a44e3fb63e371a18ace2e0814d5f04`. DEC-0050 approves the [BUILD-011 canvas/product UX plan](builds/BUILD-011-PLAN.md): direct node manipulation, editable connections, contextual action editing, a six-action toolbox and a quieter Build workspace. The existing semantic IR, provider rules, wallet, and evidence ceilings remain unchanged. One PR is authorized; merge remains the owner’s decision. No separate BUILD-010 certification or post-merge CI claim is made here.
+
+## Historical next milestone: BUILD-010 approved implementation (2026-09-29)
 
 BUILD-009 is merged on main at `f455892b58561bbe740a83f1aa0837e8ac82f5e4` under DEC-0048; no separate BUILD-009 certification or post-merge CI claim is made. DEC-0049 approves the [BUILD-010 plan](builds/BUILD-010-PLAN.md): direct Across Base → Arbitrum USDC, fixed-provider authorization, deterministic MOCKED financial lifecycle, bounded UI cleanup and canvas keyboard controls. Live Across reads require server-side credentials; merge remains an owner decision.
 

@@ -13,6 +13,7 @@ test('direct Across fixture review, uncertain deposit recovery, fill and reconci
     } });
   }, OWNER);
   await page.goto('/');
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('Across amount (USDC)').fill('1');
   await page.getByRole('button', { name: 'Review direct Across bridge' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();

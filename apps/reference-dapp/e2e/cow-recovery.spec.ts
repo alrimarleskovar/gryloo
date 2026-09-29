@@ -57,7 +57,7 @@ test('semantic edit invalidates a prepared order before wallet signing', async (
   await prepareCow(page, 'hold');
   await stage(page, 'Build');
   await page.locator('.flow-card').nth(1).click();
-  await page.getByLabel('Slippage (integer bps)').fill('50');
+  await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill('50');
   await page.getByRole('button', { name: 'Review slippage change' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await stage(page, 'Execute');

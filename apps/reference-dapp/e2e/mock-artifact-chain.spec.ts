@@ -84,6 +84,7 @@ test('chat-created and canvas-created swaps yield identical mocked artifacts', a
     await page.goto('/');
     if (surface === 'chat') await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
     else {
+      await page.getByText('Advanced action setup', { exact: true }).click();
       await page.getByLabel('Direction').selectOption('USDC_TO_WETH');
       await page.getByLabel('Input amount (required)').fill('2.25');
       await page.getByLabel('Slippage in bps (required)').fill('50');
@@ -116,12 +117,12 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await apply(page, 'set node-002 amount 2.25');
-  await expect(page.getByText('Revision 1', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
   await page.getByLabel('Describe a mock edit').fill('set node-002 amount 4');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.locator('.flow-card').nth(1).click();
   await page.getByRole('button', { name: 'Lock amount' }).click();
-  await expect(page.getByText('Revision 2', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
   await generate(page);
   await tab(page, 'Build');
   await page.getByRole('button', { name: 'Apply proposal' }).click();
@@ -212,7 +213,7 @@ test('ineligible workflows cannot generate; zero outputs carry a blocking findin
   await expect(panel(page)).toContainText('SLIPPAGE_ABOVE_REVIEW_LIMIT on node-002 blocks generation.');
   await tab(page, 'Build');
   await page.locator('.flow-card').nth(1).click();
-  await page.getByRole('button', { name: 'Remove node' }).click();
+  await page.getByRole('button', { name: 'Remove step' }).click();
   await apply(page, 'swap 0.000000000999999999 WETH to USDC on Base slippage 0 bps');
   await generate(page);
   await expect(panel(page)).toContainText('BLOCK · MOCKED_OUTPUT_ZERO');

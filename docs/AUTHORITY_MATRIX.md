@@ -1,6 +1,10 @@
 # Authority matrix
 
-## Current BUILD-010 implementation authority
+## Current BUILD-011 implementation authority
+
+DEC-0050 approves the [BUILD-011 canvas/product UX plan](builds/BUILD-011-PLAN.md) from merged BUILD-010 main `5d169748e6a44e3fb63e371a18ace2e0814d5f04`. The work changes authoring controls and graph layout without expanding financial or provider authority. Existing MOCKED, local-fork and read-only evidence boundaries remain separate. One unmerged PR is authorized; owner approval is required for merge.
+
+## Historical BUILD-010 implementation authority
 
 DEC-0048 records BUILD-009 merged on main at `f455892b58561bbe740a83f1aa0837e8ac82f5e4`, without a separate certification claim. DEC-0049 approves the [BUILD-010 plan](builds/BUILD-010-PLAN.md) for direct Across Base → Arbitrum USDC with FIXED `across.direct` authorization, deterministic MOCKED financial lifecycle, optional credentialed read-only Across data, bounded UI cleanup and canvas keyboard edits. No public-chain financial submission or merge is approved.
 

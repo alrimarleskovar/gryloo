@@ -43,6 +43,7 @@ export const test = forkTest.extend<{ liquidity: LiquidityFixture }>({
 });
 export async function authorLiquidity(page: import('@playwright/test').Page, fixture: LiquidityFixture): Promise<void> {
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
+  await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create or edit Base liquidity proposal' });
   await form.getByLabel('Maximum WETH').fill('0.1');
   await form.getByLabel('Maximum USDC').fill('200');

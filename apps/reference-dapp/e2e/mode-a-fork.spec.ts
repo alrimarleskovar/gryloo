@@ -81,11 +81,11 @@ test('a semantic edit retires the reviewed fork action and no wallet request is 
   await simulateOnFork(page);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
   await page.locator('.flow-card').nth(1).click();
-  await page.getByLabel('Slippage (integer bps)').fill('50');
+  await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill('50');
   await page.getByRole('button', { name: 'Review slippage change' }).click();
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.getByText('Revision 2', { exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(forkPanel(page).getByText('FORK: INVALIDATED', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Manifest review unavailable' })).toBeDisabled();

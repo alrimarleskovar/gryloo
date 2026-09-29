@@ -85,8 +85,8 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       propose({ type: cowEnabled && allowCow ? 'ADD_COW_SWAP' : 'ADD_SWAP', direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
-  return <aside className="library panel" aria-label="Action library">
-    <p className="eyebrow">ACTIONS</p><h2>Action library</h2>
+  return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
+    <p className="muted">Configure provider-specific and composed actions.</p>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">
       <strong>Bridge · Base → Arbitrum via Across</strong>
@@ -122,7 +122,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {bridgeError && <p role="alert">{bridgeError}</p>}
     </details>
     <form className="swap-create" onSubmit={submit} aria-label="Create Base swap proposal">
-      <strong>Exact-input swap · Base</strong>
+      <strong>Base swap</strong>
       <label htmlFor="swap-direction">Direction</label>
       <select id="swap-direction" value={direction} onChange={event => setDirection(event.target.value as Direction)}>
         <option value="USDC_TO_WETH">USDC → WETH</option><option value="WETH_TO_USDC">WETH → USDC</option>
@@ -165,5 +165,5 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         <span aria-hidden="true">+</span>
       </button>)}</div>
     <div className="library-note"><strong>One semantic plan</strong><p>Every accepted edit updates the same immutable workflow revision.</p></div>
-  </aside>;
+  </div></details>;
 }

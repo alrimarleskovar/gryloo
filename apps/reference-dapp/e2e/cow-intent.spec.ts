@@ -57,6 +57,7 @@ test('wrong-chain disposable wallet is refused before quote or signing', async (
 test('CoW option is keyboard reachable and review fits a narrow viewport', async ({ page, cowWallet }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await page.getByText('Advanced action setup', { exact: true }).click();
   const choice = page.getByLabel('Enable CoW signed intent for this swap');
   await expect(choice).toBeVisible();
   await choice.focus();

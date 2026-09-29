@@ -45,6 +45,7 @@ jobs:
             d5d3934d595943a45f5696fab440437d81e0690c
             308901495790416c149976aaee747c2fd5ef9f52
             f455892b58561bbe740a83f1aa0837e8ac82f5e4
+            5d169748e6a44e3fb63e371a18ace2e0814d5f04
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           for sha in "$REVISION" "${baselines[@]}"; do git cat-file -e "$sha^{commit}"; done
@@ -357,17 +358,31 @@ jobs:
           if (create010&modify010 or create010&set(merged009) or not modify010<=set(merged009)
                   or 'DEC-0049' not in plan010 or 'f455892b58561bbe740a83f1aa0837e8ac82f5e4' not in plan010):
               errors.append('BUILD-010 approved scope list inconsistent')
-          errors += ['BUILD-010 unapproved created path: '+v for v in sorted((now-set(merged009))-create010)]
-          errors += ['BUILD-010 removed baseline path: '+v for v in sorted(set(merged009)-now)]
-          for v in sorted(now&set(merged009)):
+          merged010=tree('5d169748e6a44e3fb63e371a18ace2e0814d5f04')
+          errors += ['historical BUILD-010 unapproved created path: '+v for v in sorted((set(merged010)-set(merged009))-create010)]
+          errors += ['historical BUILD-010 removed baseline path: '+v for v in sorted(set(merged009)-set(merged010))]
+          for v in sorted(set(merged010)&set(merged009)):
+              if merged010[v][0]!=merged009[v][0]: errors.append('historical BUILD-010 changed file mode: '+v)
+              if v not in modify010 and merged010[v][1]!=merged009[v][1]:
+                  errors.append('historical BUILD-010 protected baseline file changed: '+v)
+          plan011=(root/'docs/builds/BUILD-011-PLAN.md').read_text()
+          scope011=plan011.split('## Exact expected files',1)[1]
+          create011=set(scope011.split('Create:\n',1)[1].split('\nModify:',1)[0].strip().splitlines())
+          modify011=set(scope011.split('Modify:\n',1)[1].strip().splitlines())
+          if (create011&modify011 or create011&set(merged010) or not modify011<=set(merged010)
+                  or 'DEC-0050' not in plan011 or '5d169748e6a44e3fb63e371a18ace2e0814d5f04' not in plan011):
+              errors.append('BUILD-011 approved scope list inconsistent')
+          errors += ['BUILD-011 unapproved created path: '+v for v in sorted((now-set(merged010))-create011)]
+          errors += ['BUILD-011 removed baseline path: '+v for v in sorted(set(merged010)-now)]
+          for v in sorted(now&set(merged010)):
               file=root/v
               mode='100755' if file.stat().st_mode & 0o111 else '100644'
               oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
-              if mode!=merged009[v][0]: errors.append('BUILD-010 changed file mode: '+v)
-              if v not in modify010 and oid!=merged009[v][1]: errors.append('BUILD-010 protected baseline file changed: '+v)
-          for v in sorted(now-set(merged009)):
+              if mode!=merged010[v][0]: errors.append('BUILD-011 changed file mode: '+v)
+              if v not in modify011 and oid!=merged010[v][1]: errors.append('BUILD-011 protected baseline file changed: '+v)
+          for v in sorted(now-set(merged010)):
               if not (root/v).is_file() or (root/v).is_symlink() or (root/v).stat().st_mode & 0o111:
-                  errors.append('BUILD-010 new path must be regular non-executable file: '+v)
+                  errors.append('BUILD-011 new path must be regular non-executable file: '+v)
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
@@ -513,6 +528,10 @@ jobs:
                   if pattern.startswith(r'\bfetch') and name==build009_adapter:
                       if body.count('fetch(url,')!=1: errors.append('BUILD-009 LI.FI fetch count changed')
                       scanned=scanned.replace('fetch(url,','',1)
+                  if pattern.startswith(r'\b(?:localStorage') and name=='apps/reference-dapp/src/domain/canvas-layout.ts':
+                      if body.count('localStorage.getItem')!=1 or body.count('localStorage.setItem')!=1 or body.count('localStorage')!=2:
+                          errors.append('canvas layout storage scope changed')
+                      scanned=scanned.replace('localStorage.getItem','').replace('localStorage.setItem','')
                   if pattern.startswith(r'\b(?:localStorage') and name=='apps/reference-dapp/src/state/across-store.tsx':
                       scanned=scanned.replace('localStorage','')
                   if pattern.startswith(r'\b(?:localStorage') and name==build009_store:
@@ -1114,7 +1133,7 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-010 approved implementation') or
+          if (not next_build.startswith('# Next build\n\n## Current next milestone: BUILD-011 approved implementation') or
                   'DEC-0047' not in next_build or
                   'DEC-0046' not in next_build or 'MOCKED' not in next_build or
                   'Base → Optimism USDC' not in next_build or

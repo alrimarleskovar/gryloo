@@ -168,6 +168,7 @@ export async function visual(page: Page, name: string): Promise<void> {
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 export async function authorSwap(page: Page, direction: 'WETH_TO_USDC' | 'USDC_TO_WETH', amount: string, slippage: string): Promise<void> {
   await stage(page, 'Build');
+  await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('Direction').selectOption(direction);
   await page.getByLabel('Input amount (required)').fill(amount);
   await page.getByLabel('Slippage in bps (required)').fill(slippage);

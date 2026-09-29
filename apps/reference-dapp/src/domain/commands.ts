@@ -16,6 +16,7 @@ export type Command = Base & (
   | { readonly type: 'SET_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'LOCK'; readonly nodeId: string; readonly locked: boolean }
   | { readonly type: 'CONNECT'; readonly from: string; readonly to: string }
+  | { readonly type: 'DISCONNECT'; readonly from: string; readonly to: string }
   | { readonly type: 'REMOVE'; readonly nodeId: string }
   | { readonly type: 'ADD_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
@@ -106,7 +107,7 @@ export function commandIsValid(input: unknown): input is Command {
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
     ADD: ['kind'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
-    CONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
+    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
   if (typeof command.type !== 'string' || !fields[command.type]
@@ -116,7 +117,8 @@ export function commandIsValid(input: unknown): input is Command {
     case 'ADD': return actionKinds.includes(command.kind as ActionKind);
     case 'SET_AMOUNT': return id(command.nodeId) && typeof command.amount === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(command.amount);
     case 'LOCK': return id(command.nodeId) && typeof command.locked === 'boolean' && command.source === 'CANVAS';
-    case 'CONNECT': return id(command.from) && id(command.to);
+    case 'CONNECT':
+    case 'DISCONNECT': return id(command.from) && id(command.to);
     case 'REMOVE': return id(command.nodeId);
     case 'AUTHOR_COMPOSITION': {
       if (typeof command.safe !== 'string' || !/^0x[0-9a-f]{40}$/.test(command.safe)) return false;
