@@ -139,9 +139,9 @@ function checkWorkflow(value: SemanticWorkflow): void {
           && (output.asset.chainId === BRIDGE_DESTINATION
             || (output.asset.chainId === 'eip155:42161'
               && node.adapterConstraints.adapters.length === 1
-              && node.adapterConstraints.adapters[0]?.id === 'across.direct'
+              && ['across.direct', 'lifi.rest'].includes(node.adapterConstraints.adapters[0]?.id ?? '')
               && node.adapterConstraints.protocols.length === 1
-              && node.adapterConstraints.protocols[0] === 'across')))) {
+              && node.adapterConstraints.protocols[0] === (node.adapterConstraints.adapters[0]?.id === 'across.direct' ? 'across' : 'lifi'))))) {
         fail('expected output chain differs from node chain');
       }
     }

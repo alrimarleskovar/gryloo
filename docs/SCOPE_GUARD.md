@@ -1,5 +1,9 @@
 # Scope guard
 
+## BUILD-011C-1 approved implementation boundary (DEC-0052)
+
+From BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`, use only the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) exact paths. Reuse Base → Arbitrum LI.FI or direct Across bridge and the existing Uniswap liquidity adapter with only Arbitrum deployment and pool identity validation added. The composed financial journey is MOCKED, with no public financial transaction, new bridge route/provider, new liquidity protocol, Aave, compensation, failure recovery, BUILD-012 or merge authorization. The historical BUILD-011 and BUILD-011B scopes remain frozen. BUILD-011C-2 is still required before Master Prompt Build 011 completion.
+
 ## BUILD-011B approved implementation boundary (DEC-0051)
 
 From merged BUILD-011 main `502d167212cdff80ad4c6740ed8bde47eace1c31`, implement only the [BUILD-011B plan](builds/BUILD-011B-PLAN.md) exact paths. The toolbox mode key stores presentation preference only; canvas layout stays separate from semantic IR. BUILD-011 remains historically frozen. Existing MOCKED, local-fork, wallet, provider and evidence limits remain in force. No new financial execution level, provider, chain, real funds, testnet/mainnet executed claim, next functional build, or merge is approved.

@@ -8,6 +8,13 @@ import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
+  if (command.type === 'AUTHOR_CROSS_CHAIN_LIQUIDITY') return Object.freeze([
+    `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Base USDC → Arbitrum USDC via ${command.input.provider} → pool preparation${command.input.noSwap ? '' : ' → destination WETH swap'} → Uniswap v3 liquidity`,
+    `Bridge ${command.input.amount} USDC; ticks ${command.input.tickLower} to ${command.input.tickUpper}; recipient ${command.input.recipient}`,
+    'Actual Arbitrum amount and swap output must be reconciled before downstream execution. Each material change needs fresh review.',
+    'The workflow is non-atomic. Arbitrum ETH gas must already be available in the destination wallet.',
+  ]);
   if (command.type === 'AUTHOR_ACROSS') return Object.freeze([
     `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Direct Across Base → Arbitrum USDC bridge for ${command.input.amount} USDC`,

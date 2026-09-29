@@ -1,5 +1,13 @@
 # Repository status
 
+## Current BUILD-011C-1 implementation state (2026-09-29)
+
+DEC-0052 approves the [bounded BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. The shared Base → Arbitrum bridge, calculated destination split, existing Uniswap v3 liquidity adapter extended to the verified Arbitrum WETH/native-USDC fee tier 500 pool, canonical artifacts/Manifest, MOCKED journal, reconciliation and Evidence Bundle are implemented on an unmerged branch. Base liquidity remains supported. Public financial execution, recovery/compensation and merge remain outside this approval. The [BUILD-011C-1 report](builds/BUILD-011C-1-REPORT.md) records local gates and remaining limits.
+
+BUILD-011C-1 implements the successful cross-chain liquidity composition path. BUILD-011C-2 is still required for destination failure, compensation authority, recovery and manual-intervention proof before Master Prompt Build 011 is considered complete.
+
+## Historical BUILD-011B implementation state
+
 BUILD-011 merged on main at `502d167212cdff80ad4c6740ed8bde47eace1c31`; this records the Git merge, not a separate certification. DEC-0051 approves [BUILD-011B](builds/BUILD-011B-PLAN.md) from that merge for editor stabilization and presentation-only toolbox preference storage. The current branch remains unmerged; owner approval is required for merge. No financial execution or evidence authority expands.
 
 ## Historical BUILD-011 implementation state

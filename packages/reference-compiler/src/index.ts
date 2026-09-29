@@ -40,3 +40,6 @@ export type { BridgeRoute, BridgeCompiled } from './bridge.js';
 
 export { compileAcrossReview, verifyAcrossReview, providerAuthorized } from './across.js';
 export type { AcrossReview, ProviderBinding } from './across.js';
+
+export * from './cross-chain-liquidity.js';
+export * from './cross-chain-liquidity-artifacts.js';

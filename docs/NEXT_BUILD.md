@@ -1,6 +1,10 @@
 # Next build
 
-## Current next milestone: BUILD-011B approved implementation (2026-09-29)
+## Current next milestone: BUILD-011C-1 approved implementation (2026-09-29)
+
+DEC-0052 approves the [BUILD-011C-1 plan](builds/BUILD-011C-1-PLAN.md) from BUILD-011B merged main `89415eb3574ddd28ab8b1cb0d39e221791c5521f`. The bounded successful Base → Arbitrum liquidity composition reuses the existing bridge and Uniswap adapter; financial execution remains MOCKED. One unmerged PR is authorized. BUILD-011C-2 destination failure, compensation authority, recovery and manual intervention remain required before Master Prompt Build 011 is complete. Merge remains the owner's decision.
+
+## Historical next milestone: BUILD-011B approved implementation (2026-09-29)
 
 BUILD-011 merged on main at `502d167212cdff80ad4c6740ed8bde47eace1c31`. DEC-0051 approves the [BUILD-011B editor stabilization plan](builds/BUILD-011B-PLAN.md), including drag and connection fixes, selectable toolbox presentation, and an exact-path governance amendment. One unmerged PR is authorized; merge remains the owner’s decision. No next functional Master Prompt build is approved.
 

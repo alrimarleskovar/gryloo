@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
+import { liquidityDetails, validateCrossChainLiquidityWorkflow } from '@defi-workflow-engine/reference-linter';
+import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 import { amountOf } from '../domain/commands';
 import { bridgeDetails, createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
@@ -9,10 +10,16 @@ import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-au
 import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 
+const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
 export function ArtifactInspector({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId);
+  const cross = useMemo(() => {
+    if (!state.workflow.nodes.some(item => item.actionType === 'asset.liquidity.prepare')) return null;
+    try { return validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]); } catch { return null; }
+  }, [state.workflow]);
+  const [crossInput, setCrossInput] = useState<CrossChainLiquidityInput>(emptyCrossChain);
   const swap = useMemo(() => node && swapDetails(node, context), [node, context]);
   const bridge = useMemo(() => node && bridgeDetails(node), [node]);
   const liquidity = useMemo(() => node && liquidityDetails(node, context), [node, context]);
@@ -31,8 +38,11 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
       minimumWeth: formatHumanAmount(liquidity.minimumWeth, 'WETH', context), minimumUsdc: formatHumanAmount(liquidity.minimumUsdc, 'USDC', context),
       tickLower: String(liquidity.tickLower), tickUpper: String(liquidity.tickUpper), recipient: liquidity.recipient,
     } : emptyLiquidity);
+    if (cross) setCrossInput({ amount: (Number(cross.bridgeAmount) / 1e6).toString(), bridgeSlippageBps: String(cross.bridgeSlippageBps),
+      swapSlippageBps: String(cross.swapSlippageBps || 50), tickLower: String(cross.tickLower), tickUpper: String(cross.tickUpper),
+      recipient: cross.recipient, provider: cross.bridgeProvider, noSwap: cross.noSwap });
     setError('');
-  }, [node, swap?.amount, swap?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
+  }, [cross, node, swap?.amount, swap?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
   const locked = Boolean(node?.lockedParameters.length);
   const deletable = canDeleteCanvasNode(state.workflow, selectedId);
   function saveAmount(event: FormEvent<HTMLFormElement>) {
@@ -57,9 +67,16 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
     try { createLiquidityNode(node.nodeId, liquidityInput, context); setError(''); propose({ type: 'SET_LIQUIDITY', nodeId: node.nodeId, input: liquidityInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid pool parameters'); }
   }
-  const label = swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
+  function saveCross(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try { createCrossChainLiquidityWorkflow(state.workflow.workflowId, state.workflow.revision + 1, crossInput);
+      setError(''); propose({ type: 'AUTHOR_CROSS_CHAIN_LIQUIDITY', input: crossInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid composition'); }
+  }
+  const label = cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
     {node ? <>
+      {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
       {swap && <p className="muted">Base {swap.from} → {swap.to} · unquoted. Changes require review.</p>}
       {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
@@ -76,11 +93,24 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
         ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
         ['tickLower', 'Lower tick'], ['tickUpper', 'Upper tick'], ['recipient', 'Recipient'],
       ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}<button type="submit">Review pool change</button></form>}
-      {!swap && !bridge && !liquidity && !template && <p className="muted">This step is configured through its workflow review.</p>}
+      {!cross && !swap && !bridge && !liquidity && !template && <p className="muted">This step is configured through its workflow review.</p>}
       {error && <p role="alert" className="form-error">{error}. Check the parameters and try again.</p>}
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}
         <button type="button" className="quiet" disabled={!deletable} onClick={() => { dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision }); select(null); }}>Remove step</button></div>
       {!deletable && <p className="muted">This step is required by the workflow or protected.</p>}
-    </> : <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
+    </> : !cross && <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
+    {cross && <form className="inspector-fields" onSubmit={saveCross} aria-label="Compose cross-chain liquidity">
+      <p className="eyebrow">BASE → ARBITRUM · UNISWAP V3</p>
+      <label>Source USDC amount<input value={crossInput.amount} onChange={e => setCrossInput(v => ({ ...v, amount: e.target.value }))} inputMode="decimal" /></label>
+      <label>Bridge provider<select value={crossInput.provider} onChange={e => setCrossInput(v => ({ ...v, provider: e.target.value as CrossChainLiquidityInput['provider'] }))}><option value="lifi.rest">LI.FI</option><option value="across.direct">Across direct</option></select></label>
+      <label>Bridge slippage (bps)<input value={crossInput.bridgeSlippageBps} onChange={e => setCrossInput(v => ({ ...v, bridgeSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+      <label>Destination swap slippage (bps)<input value={crossInput.swapSlippageBps} onChange={e => setCrossInput(v => ({ ...v, swapSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+      <label>Lower tick<input value={crossInput.tickLower} onChange={e => setCrossInput(v => ({ ...v, tickLower: e.target.value }))} inputMode="numeric" /></label>
+      <label>Upper tick<input value={crossInput.tickUpper} onChange={e => setCrossInput(v => ({ ...v, tickUpper: e.target.value }))} inputMode="numeric" /></label>
+      <label>LP recipient<input value={crossInput.recipient} onChange={e => setCrossInput(v => ({ ...v, recipient: e.target.value.toLowerCase() }))} autoComplete="off" /></label>
+      <label><input type="checkbox" checked={crossInput.noSwap} onChange={e => setCrossInput(v => ({ ...v, noSwap: e.target.checked }))} /> No swap (USDC-only range)</label>
+      <button type="submit">Review {cross ? 'composition change' : 'cross-chain composition'}</button>
+      <p className="muted">A destination ETH balance is required for gas. Split amounts are computed from the reconciled bridge output and observed pool state.</p>
+    </form>}
   </section>;
 }

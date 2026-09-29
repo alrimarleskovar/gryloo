@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
 import { createReviewContext, liquidityDetails, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
 import { buildLiquidityPayload, encodeLiquidityCall, rangeComposition, verifyLiquidityPayload,
-  LIQUIDITY_FACTORY, LIQUIDITY_USDC, LIQUIDITY_WETH, POSITION_MANAGER,
+  LIQUIDITY_FACTORY, LIQUIDITY_USDC, LIQUIDITY_WETH, POSITION_MANAGER, ARBITRUM_LIQUIDITY, verifyPoolState,
   type LiquidityCall, type PoolState } from '@defi-workflow-engine/reference-compiler';
 import { advanceLiquidityAttempt, appendJournalState, classifyLiquidityUnknown, createJournal, markLiquidityReconciled, newLiquidityJournal, prepareLiquidityAttempt,
   type LiquidityJournal, type LiquidityStep } from '@defi-workflow-engine/reference-executor';
@@ -70,6 +70,42 @@ export function parseLiquidityProfile(value: unknown): LiquidityProfile {
   return { ...base, liquidity: pins as LiquidityProfile['liquidity'] };
 }
 export type ForkCall = (method: string, params?: readonly unknown[]) => Promise<unknown>;
+/** Read-only Arbitrum extension of the existing v3 pool identity check. The pool is
+ * resolved from factory.getPool at one canonical block; no address is inferred
+ * from an explorer listing or accepted solely from user input. */
+export async function readArbitrumLiquidityPool(call: ForkCall, blockHash: string, blockNumber: number, observedAtMs: number, nowMs: number): Promise<PoolState> {
+  if (!hash(blockHash) || !Number.isSafeInteger(blockNumber) || blockNumber < 1 ||
+      !Number.isSafeInteger(observedAtMs) || !Number.isSafeInteger(nowMs)) throw new Error('LIQUIDITY_ARBITRUM_BLOCK_INVALID');
+  const d = ARBITRUM_LIQUIDITY;
+  const read = (to: string, data: string) => call('eth_call', [{ to, data }, { blockHash, requireCanonical: true }]);
+  const pool = resultAddress(await read(d.factory, `${selector('getPool')}${addressWord(d.weth)}${addressWord(d.usdc)}${word(500n)}`));
+  if (pool !== d.pool) throw new Error('LIQUIDITY_ARBITRUM_POOL_MISMATCH');
+  const codeHashes = new Map<string, string>();
+  for (const target of [d.factory, d.positionManager, d.weth, d.usdc, pool]) {
+    const code = await call('eth_getCode', [target, { blockHash, requireCanonical: true }]);
+    if (typeof code !== 'string' || !/^0x(?:[0-9a-f]{2})+$/.test(code)) throw new Error('LIQUIDITY_ARBITRUM_CODE_MISSING');
+    codeHashes.set(target, sha(fromHex(code)));
+  }
+  const [poolFactory, managerFactory, managerWeth, token0, token1, fee, spacing, slot] = await Promise.all([
+    read(pool, selector('factory')), read(d.positionManager, selector('factory')),
+    read(d.positionManager, selector('WETH9')), read(pool, selector('token0')),
+    read(pool, selector('token1')), read(pool, selector('fee')),
+    read(pool, selector('tickSpacing')), read(pool, selector('slot0')),
+  ]);
+  if (resultAddress(poolFactory) !== d.factory || resultAddress(managerFactory) !== d.factory ||
+      resultAddress(managerWeth) !== d.weth || resultAddress(token0) !== d.weth ||
+      resultAddress(token1) !== d.usdc || resultWord(fee) !== 500n || signed24(resultWord(spacing)) !== 10)
+    throw new Error('LIQUIDITY_ARBITRUM_POOL_IDENTITY_MISMATCH');
+  const state: PoolState = { sourceChainId: 42161, executionChainId: 42161, sourceBlockHash: blockHash,
+    sourceBlockNumber: blockNumber, pool, factory: d.factory, positionManager: d.positionManager,
+    token0: d.weth, token1: d.usdc, fee: 500, tickSpacing: 10,
+    tick: signed24(resultWord(slot, 1)), sqrtPriceX96: resultWord(slot),
+    poolCodeHash: codeHashes.get(pool)!, positionManagerCodeHash: codeHashes.get(d.positionManager)!,
+    observedAtMs, expiresAtMs: observedAtMs + 60_000 };
+  verifyPoolState(state, nowMs);
+  return state;
+}
+
 export type LiquidityOperation = 'APPROVE_WETH' | 'APPROVE_USDC' | 'MINT' | 'INCREASE' | 'DECREASE_PARTIAL' | 'COLLECT_PARTIAL'
   | 'DECREASE_FULL' | 'COLLECT_FINAL' | 'BURN' | 'RESET_WETH' | 'RESET_USDC';
 const stepFor: Record<LiquidityOperation, LiquidityStep> = { APPROVE_WETH: 'approve-weth', APPROVE_USDC: 'approve-usdc',
