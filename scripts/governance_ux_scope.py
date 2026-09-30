@@ -14,6 +14,13 @@ WORKFLOW_STORE = APP + "src/state/workflow-store.tsx"
 SIMULATE_SPEC = APP + "e2e/mock-artifact-chain.spec.ts"
 SIMULATE_SNAPSHOTS = {APP + "e2e/mock-artifact-chain.spec.ts-snapshots/" + name + "-chromium-linux.png"
                       for name in ("simulate-current", "simulate-expired", "simulate-invalidated")}
+BASE_OBSERVATION_SPEC = APP + "e2e/base-observation.spec.ts"
+TECHNICAL_SNAPSHOTS = {
+    APP + "e2e/base-observation.spec.ts-snapshots/observation-recorded-chromium-linux.png",
+    APP + "e2e/base-observation.spec.ts-snapshots/observation-expired-chromium-linux.png",
+    APP + "e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png",
+    APP + "e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png",
+}
 ASSETS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2"}
 UX_COMPONENTS = {"workflow-canvas.tsx", "simulate-panel.tsx", "action-library.tsx", "summary-bar.tsx", "status-badge.tsx"}
 UX_TEST = re.compile(r"(?:canvas|visual|ux|interface|simulate|editor|toolbar|layout|keyboard|copy|duplicate)[\w-]*\.spec\.ts$")
@@ -34,6 +41,23 @@ SIMULATE_VISUAL_ASSERTION = re.compile(
     r"(?:toBeVisible\(\)|toHaveCSS\(['\"][\w-]+['\"],\s*['\"][^'\"]*['\"]\)|"
     r"toHaveClass\(/[^/]+/\)|toHaveAttribute\(['\"][\w-]+['\"],\s*['\"][^'\"]*['\"]\));\s*$"
 )
+SIMULATE_NAVIGATION = "await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();"
+TECHNICAL_DISCLOSURE = "await page.getByRole('button', { name: 'Show technical details' }).click();"
+
+
+def base_observation_disclosure_only(before: str, after: str) -> bool:
+    """Only reveal existing technical panels before the unchanged observation assertions."""
+    old, new = before.splitlines(), after.splitlines()
+    for tag, i, k, j, l in SequenceMatcher(None, old, new).get_opcodes():
+        if tag == "equal":
+            continue
+        if tag != "insert" or i == 0 or l - j != 1:
+            return False
+        preceding = old[i - 1]
+        indentation = preceding[:len(preceding) - len(preceding.lstrip())]
+        if preceding.strip() != SIMULATE_NAVIGATION or new[j] != indentation + TECHNICAL_DISCLOSURE:
+            return False
+    return True
 
 
 def simulate_visual_only(before: str, after: str) -> bool:
@@ -122,6 +146,8 @@ def low_risk_path(path: str) -> bool:
         return True  # Full before/after content is checked by workflow_store_editor_only.
     if path == SIMULATE_SPEC or path in SIMULATE_SNAPSHOTS:
         return True  # The spec also needs the narrow content guard below.
+    if path == BASE_OBSERVATION_SPEC or path in TECHNICAL_SNAPSHOTS:
+        return True  # The observation spec is restricted to disclosure clicks below.
     if relative in ("src/app/globals.css", "src/app/layout.tsx"):
         return True
     if relative.startswith("public/") and PurePosixPath(relative).suffix.lower() in ASSETS:
@@ -151,6 +177,8 @@ def low_risk_source(path: str, added_lines: str, removed_lines: str = "", before
         return workflow_store_editor_only(before, after)
     if path == SIMULATE_SPEC:
         return simulate_visual_only(before, after)
+    if path == BASE_OBSERVATION_SPEC:
+        return base_observation_disclosure_only(before, after)
     if path.endswith((".ts", ".tsx")) and not path.startswith(APP + "e2e/"):
         return not bool(SENSITIVE_SOURCE.search(added_lines) or SENSITIVE_REMOVAL.search(removed_lines))
     return True

@@ -9,6 +9,8 @@ WORKFLOW_STORE = PREFIX + "src/state/workflow-store.tsx"
 WORKFLOW_SOURCE = (Path(__file__).resolve().parents[1] / WORKFLOW_STORE).read_text()
 SIMULATE_SPEC = PREFIX + "e2e/mock-artifact-chain.spec.ts"
 SIMULATE_SOURCE = (Path(__file__).resolve().parents[1] / SIMULATE_SPEC).read_text()
+BASE_OBSERVATION_SPEC = PREFIX + "e2e/base-observation.spec.ts"
+BASE_OBSERVATION_SOURCE = (Path(__file__).resolve().parents[1] / BASE_OBSERVATION_SPEC).read_text()
 
 
 class ScopeTests(unittest.TestCase):
@@ -126,6 +128,53 @@ class ScopeTests(unittest.TestCase):
         unsafe = "  await expect(panel(page).locator('.simulate-grid')).toHaveCSS(fetch('/rpc'), 'x');\n"
         self.assertFalse(low_risk_source(SIMULATE_SPEC, "", "", SIMULATE_SOURCE, SIMULATE_SOURCE.replace(screenshot, unsafe + screenshot)))
         self.assertFalse(low_risk_path(PREFIX + "e2e/mock-artifact-chain.spec.ts-snapshots/unrelated-chromium-linux.png"))
+
+    def test_base_observation_only_opens_the_existing_disclosure(self):
+        navigation = "await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();"
+        disclosure = "await page.getByRole('button', { name: 'Show technical details' }).click();"
+        lines = BASE_OBSERVATION_SOURCE.splitlines()
+        changed = "\n".join(line + ("\n" + line[:len(line) - len(line.lstrip())] + disclosure
+                                     if line.strip() == navigation else "") for line in lines) + "\n"
+        self.assertEqual(sum(line.strip() == navigation for line in lines), 5)
+        self.assertTrue(low_risk_path(BASE_OBSERVATION_SPEC))
+        self.assertTrue(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE, changed))
+        self.assertTrue(low_risk_path(PREFIX + "e2e/interface-honesty.spec.ts"))
+
+        protected = (
+            ("'REPLAY_MISMATCH'", "'REPLAY_ACCEPTED'"),
+            ("'RECORDED REPLAY · NOT LIVE'", "'LIVE'"),
+            ("'Not an authorization input'", "'Authorization input'"),
+            ("getByRole('button', { name: 'Review swap' })).toBeDisabled()", "getByRole('button', { name: 'Review swap' })).toBeEnabled()"),
+            ("networkGuard.assertClean();", "networkGuard.assertDirty();"),
+            ("'Read Base quote'", "'Change RPC quote'"),
+        )
+        for before, after in protected:
+            with self.subTest(before=before):
+                self.assertIn(before, changed)
+                self.assertFalse(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE,
+                                                 changed.replace(before, after, 1)))
+        self.assertFalse(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE,
+                                         BASE_OBSERVATION_SOURCE.replace("'REPLAY_MISMATCH'", "'REPLAY_ACCEPTED'")))
+
+    def test_exact_observation_and_authoring_snapshots_only(self):
+        approved = (
+            "e2e/base-observation.spec.ts-snapshots/observation-recorded-chromium-linux.png",
+            "e2e/base-observation.spec.ts-snapshots/observation-expired-chromium-linux.png",
+            "e2e/swap-authoring.spec.ts-snapshots/proposal-chromium-linux.png",
+            "e2e/swap-authoring.spec.ts-snapshots/review-blocked-chromium-linux.png",
+        )
+        for path in approved:
+            with self.subTest(path=path):
+                self.assertTrue((Path(__file__).resolve().parents[1] / PREFIX / path).is_file())
+                self.assertTrue(low_risk_path(PREFIX + path))
+        for path in (
+            "e2e/base-observation.spec.ts-snapshots/observation-other-chromium-linux.png",
+            "e2e/swap-authoring.spec.ts-snapshots/unrelated-chromium-linux.png",
+            "e2e/swap-authoring.spec.ts",
+            "src/server/base-rpc.ts",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(low_risk_path(PREFIX + path))
 
 
 if __name__ == "__main__":
