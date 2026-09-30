@@ -117,6 +117,18 @@ jobs:
               if changed!=set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES or set(files)!=set(HOTFIX_003_TEST_BYTES):
                   return False
               return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_003_TEST_BYTES.items())
+          HOTFIX_004_BASE='4dbe16774acc6d30c2ba0425be14b205c8301423'
+          HOTFIX_004_REFS={'codex/hotfix-004-mode-a-recovery','main'}
+          HOTFIX_004_HARNESS_BYTES={
+              'apps/reference-dapp/e2e/fork/harness.mjs':'d4a5893966ddc917ce009d27a1249f5f676c76f189052e7514896b44868d922b',
+          }
+          HOTFIX_004_POLICY_FILES={'.github/workflows/governance.yml'}
+          def hotfix_004_scope(base, ref, changed, files):
+              if base!=HOTFIX_004_BASE or ref not in HOTFIX_004_REFS:
+                  return False
+              if changed!=set(HOTFIX_004_HARNESS_BYTES)|HOTFIX_004_POLICY_FILES or set(files)!=set(HOTFIX_004_HARNESS_BYTES):
+                  return False
+              return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_004_HARNESS_BYTES.items())
           baseline='fb285da4ea4efaaae5b839974b669b3c8335ddd7'
           merge='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
           approval_baseline='14a94584b0a3119c1f6275a05b9e752dafe0a042'
@@ -588,6 +600,16 @@ jobs:
               files={path:(root/path).read_bytes() for path in HOTFIX_003_TEST_BYTES if (root/path).is_file()}
               if not hotfix_003_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
                   errors.append('HOTFIX-003 exact base, changed paths or reviewed test bytes differ')
+          # HOTFIX-004 permits only the reviewed bounded observation in the Mode A fork harness.
+          hotfix_004=scope_base==HOTFIX_004_BASE and os.environ.get('GOVERNANCE_REF') in HOTFIX_004_REFS
+          if hotfix_004:
+              changed={v for v in now if v not in scoped or
+                       ('100755' if (root/v).stat().st_mode & 0o111 else '100644',
+                        subprocess.check_output(['git','hash-object',v],text=True).strip())!=scoped[v]}
+              changed.update(set(scoped)-now)
+              files={path:(root/path).read_bytes() for path in HOTFIX_004_HARNESS_BYTES if (root/path).is_file()}
+              if not hotfix_004_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
+                  errors.append('HOTFIX-004 exact base, changed paths or reviewed harness bytes differ')
           errors += ['unapproved removed path: '+v for v in sorted(set(scoped)-now)]
           for v in sorted(now):
               file=root/v
@@ -599,7 +621,8 @@ jobs:
               elif not file.is_file() or file.is_symlink() or file.stat().st_mode & 0o111:
                   errors.append('new path must be regular non-executable file: '+v)
               if (v in governance_files or (hotfix_002 and v in set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES)
-                      or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)): continue
+                      or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)
+                      or (hotfix_004 and v in set(HOTFIX_004_HARNESS_BYTES)|HOTFIX_004_POLICY_FILES)): continue
               if not low_risk_path(v):
                   errors.append('unapproved sensitive path: '+v)
                   continue
