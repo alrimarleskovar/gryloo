@@ -60,6 +60,7 @@ export function SimulatePanel() {
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
+  const [showTechnical, setShowTechnical] = useState(false);
   const status = chainStatus(chain);
   // Every render is an access: binding and expiry are re-evaluated now.
   const access = checkChainAccess(chain, workflow, Date.now(), performance.now());
@@ -76,9 +77,9 @@ export function SimulatePanel() {
   const jsonKeys = current ? [...current.chain.quotes.map(quote => [`quote:${quote.nodeId}`, `mocked quote · ${quote.nodeId}`] as const),
     ['artifact-set', 'Artifact Set'] as const, ['simulation-bundle', 'mocked simulation'] as const] : [];
 
-  return <section className="simulate-panel panel" aria-label="Mocked artifact chain">
+  return <section className="simulate-panel panel" aria-label="Mocked artifact chain" data-technical-open={showTechnical}>
     <div className="simulate-head">
-      <div><p className="eyebrow">SIMULATE / MOCKED ARTIFACT CHAIN</p><h2>Mocked artifact chain</h2>
+      <div><p className="eyebrow">SIMULATE</p><h2>Simulation</h2>
         <p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
       <div className="simulate-controls">
         <span className={`chain-status chain-${shown.toLowerCase()}`}>ARTIFACTS: {shown}</span>
@@ -94,6 +95,9 @@ export function SimulatePanel() {
     {chain.notice && <p className="simulate-note" role="status">Generation finished for a superseded revision and was discarded.</p>}
     {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
+    <button type="button" className="simulate-details-toggle quiet" aria-expanded={showTechnical} onClick={() => setShowTechnical(!showTechnical)}>
+      {showTechnical ? 'Hide technical details' : 'Show technical details'}
+    </button>
     <div className="simulate-grid">
       <WorkflowCanvas mode="simulate" overlay={overlay}/>
       <div className="simulate-results">
