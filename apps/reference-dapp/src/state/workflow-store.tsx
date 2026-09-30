@@ -17,6 +17,7 @@ type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewC
   canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
   moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
   addCanvasCommand(command: Command, position: { x: number; y: number }): void;
+  duplicateCanvasNodes(nodeIds: readonly string[]): void;
   pending: Pending | null; propose(command: Command): void; applyProposal(): void; dismissProposal(): void;
   review: ReviewResult | null; reviewError: string | null;
   chain: ChainState; eligibility: Eligibility; generateArtifacts(): void; refreshArtifacts(): void; accessCheck(): void };
@@ -39,6 +40,8 @@ export function WorkflowProvider({ children, initialContext }: { children: React
   useEffect(() => { if (layoutLoaded) saveCanvasLayout(state.workflow.workflowId, history.layout); }, [layoutLoaded, state.workflow.workflowId, history.layout]);
   const moveCanvasNodes = useCallback((positions: Readonly<Record<string, { x: number; y: number }>>) =>
     dispatchHistory({ type: 'MOVE', positions }), []);
+  const duplicateCanvasNodes = useCallback((nodeIds: readonly string[]) =>
+    dispatchHistory({ type: 'DUPLICATE', nodeIds, context }), [context]);
   const undo = useCallback(() => dispatchHistory({ type: 'UNDO' }), []);
   const redo = useCallback(() => dispatchHistory({ type: 'REDO' }), []);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -113,7 +116,7 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
   return <Context.Provider value={{ state, dispatch, context, canvasLayout: history.layout, canUndo: history.past.length > 0,
-    canRedo: history.future.length > 0, undo, redo, moveCanvasNodes, addCanvasCommand,
+    canRedo: history.future.length > 0, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes,
     pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
     chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck }}>
     <BaseObservationProvider>{children}</BaseObservationProvider>

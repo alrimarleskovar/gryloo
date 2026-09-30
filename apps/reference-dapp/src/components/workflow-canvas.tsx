@@ -11,6 +11,8 @@ import { useWorkflow } from '../state/workflow-store';
 import { editorReducer } from '../domain/editor';
 import { canDeleteCanvasEdge, deletableCanvasNodes, isTextEntry } from '../domain/canvas-keyboard';
 import { canvasPosition, defaultCanvasPosition, readToolboxMode, saveToolboxMode, type ToolboxMode } from '../domain/canvas-layout';
+import { canvasMarquee, marqueeIntersects } from '../domain/canvas-marquee';
+import { planCanvasDuplicate } from '../domain/editor-history';
 import type { Workflow } from '../domain/initial-workflow';
 import { canvasViewportFor, canvasViewportSignature, SIMULATION_VIEWPORT, type CanvasViewportInputs } from '../domain/mode-a';
 
@@ -64,6 +66,17 @@ function HistoryIcon({ direction }: { direction: 'undo' | 'redo' }) {
   return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {direction === 'undo' ? <><path d="m10 8-4 4 4 4"/><path d="M6 12h9a5 5 0 0 1 0 10"/></>
       : <><path d="m14 8 4 4-4 4"/><path d="M18 12H9a5 5 0 0 0 0 10"/></>}
+  </svg>;
+}
+function DuplicateIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+  </svg>;
+}
+function DockIcon({ floating }: { floating: boolean }) {
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>
+    {floating ? <path d="M10 14h4v-4m0 4-4-4"/> : <path d="M14 10h-4v4m0-4 4 4"/>}
   </svg>;
 }
 
@@ -164,13 +177,13 @@ export function WorkflowCanvas(props: { selectedId: string | null; select: (id: 
 }
 
 function BuildCanvas({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
-  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand } = useWorkflow();
+  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const [selectedIds, setSelectedIds] = useState<readonly string[]>(() => selectedId ? [selectedId] : []);
   const selectedIdsRef = useRef<readonly string[]>(selectedId ? [selectedId] : []);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const marqueeCleanup = useRef<(() => void) | null>(null);
-  const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const ignorePaneClick = useRef(false);
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string } | null>(null);
   const [feedback, setFeedback] = useState('');
@@ -293,6 +306,12 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const moved = draggedNodes.length ? draggedNodes : [dragged];
     moveCanvasNodes(Object.fromEntries(moved.map(node => [node.id, node.position])));
   }
+  const duplicatePlan = planCanvasDuplicate(workflow, canvasLayout, selectedIds, context);
+  function duplicateSelection() {
+    if (!duplicatePlan) return;
+    duplicateCanvasNodes(selectedIdsRef.current);
+    selectNodes(duplicatePlan.ids, duplicatePlan.ids.length === 1 ? duplicatePlan.ids[0]! : null);
+  }
   function startMarquee(event: React.MouseEvent<HTMLDivElement>) {
     if (event.button !== 0 || !(event.target instanceof Element) || !event.target.classList.contains('react-flow__pane')) return;
     const surface = surfaceRef.current;
@@ -301,9 +320,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     let current = origin;
     const onMove = (move: MouseEvent) => {
       current = { x: move.clientX, y: move.clientY };
-      const bounds = surface.getBoundingClientRect();
-      setMarquee({ x: Math.min(origin.x, current.x) - bounds.left, y: Math.min(origin.y, current.y) - bounds.top,
-        width: Math.abs(origin.x - current.x), height: Math.abs(origin.y - current.y) });
+      setMarquee(canvasMarquee(surface.getBoundingClientRect(), origin, current));
     };
     const cleanup = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); marqueeCleanup.current = null; setMarquee(null); };
     const onUp = (up: MouseEvent) => {
@@ -312,11 +329,12 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
       if (Math.abs(current.x - origin.x) < 4 && Math.abs(current.y - origin.y) < 4) return;
       ignorePaneClick.current = true;
       setTimeout(() => { ignorePaneClick.current = false; }, 0);
-      const box = { left: Math.min(origin.x, current.x), right: Math.max(origin.x, current.x),
-        top: Math.min(origin.y, current.y), bottom: Math.max(origin.y, current.y) };
+      const bounds = surface.getBoundingClientRect();
+      const rectangle = canvasMarquee(bounds, origin, current);
+      const box = { left: bounds.left + rectangle.left, right: bounds.left + rectangle.left + rectangle.width,
+        top: bounds.top + rectangle.top, bottom: bounds.top + rectangle.top + rectangle.height };
       const ids = [...surface.querySelectorAll<HTMLElement>('.react-flow__node[data-id]')]
-        .filter(element => { const rect = element.getBoundingClientRect();
-          return rect.left <= box.right && rect.right >= box.left && rect.top <= box.bottom && rect.bottom >= box.top; })
+        .filter(element => marqueeIntersects(box, element.getBoundingClientRect()))
         .map(element => element.dataset.id!).filter(Boolean);
       selectNodes(ids, ids.length === 1 ? ids[0]! : null);
     };
@@ -339,11 +357,12 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
       title={action === 'swap' ? 'Add swap' : 'Add a ' + actionLabel(action) + ' template'}
       aria-label={'Add ' + action} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
     <span className="toolbox-divider" aria-hidden="true"/>
+    <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
     <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>Undo</span></button>
     <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
   </div>;
   return <section className="canvas panel" aria-label="Workflow canvas">
-    <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<label className="toolbox-mode-label">Tools <select aria-label="Toolbox position" value={toolboxMode} onChange={event => changeToolboxMode(event.target.value as ToolboxMode)}><option value="top">Top toolbar</option><option value="floating">Floating toolbox</option></select></label><span className="revision">{workflow.nodes.length} steps</span></div>
+    <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{workflow.nodes.length} steps</span></div>
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView minZoom={0.35} maxZoom={1.4}

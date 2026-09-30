@@ -102,8 +102,8 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   const original = await graph.locator('.react-flow__node').first().textContent();
   const revisionBeforeSwitch = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
-  await expect(page.getByLabel('Toolbox position')).toHaveValue('top');
-  await page.getByLabel('Toolbox position').selectOption('floating');
+  await expect(page.getByRole('button', { name: 'Undock toolbar' })).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Undock toolbar' }).click();
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
   await expect(graph.getByRole('button', { name: 'Add swap' })).toBeVisible();
   await expect(graph.locator('.react-flow__node').first()).toHaveText(original!);
@@ -111,15 +111,97 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
   await addFromToolbox(page, 'lending');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
-  await expect(page.getByLabel('Toolbox position')).toHaveValue('floating');
+  await expect(page.getByRole('button', { name: 'Dock toolbar' })).toHaveAttribute('aria-pressed', 'true');
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
-  await page.getByLabel('Toolbox position').selectOption('top');
+  await page.getByRole('button', { name: 'Dock toolbar' }).click();
   await expect(graph.locator('.floating-toolbox')).toHaveCount(0);
   await expect(page.locator('.canvas-head').getByRole('button', { name: 'Add swap' })).toBeVisible();
   await expect(page.getByText('Technical workflow details')).toHaveCount(0);
   await expect(page.getByText('Demo assistant')).toHaveCount(0);
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
 });
+test('duplicate selection copies internal connections in one undoable edit', async ({ page }) => {
+  await page.goto('/');
+  await addFromToolbox(page, 'pool');
+  await addFromToolbox(page, 'supply');
+  await connect(page, 'node-001', 'node-002');
+  await page.locator('.react-flow__node[data-id="node-001"] .flow-card').click();
+  await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click({ modifiers: ['Shift'] });
+  await page.getByRole('button', { name: 'Duplicate selection' }).click();
+  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node')).toHaveCount(5);
+  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__edge')).toHaveCount(2);
+  const copied = await page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node').evaluateAll(nodes => nodes.slice(-2).map(node => node.getAttribute('data-id')));
+  expect(copied[0]).not.toBe('node-001');
+  expect(copied[1]).not.toBe('node-002');
+  for (const id of copied) await expect(page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`)).toHaveClass(/selected/);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node')).toHaveCount(5);
+});
+
+test('floating toolbox keeps a clickable gutter from viewport controls', async ({ page }) => {
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Undock toolbar' }).click();
+    const graph = page.getByRole('region', { name: 'Workflow graph' });
+    const toolbox = await graph.locator('.floating-toolbox').boundingBox();
+    const controls = await graph.locator('.react-flow__controls').boundingBox();
+    if (!toolbox || !controls) throw new Error('Canvas controls missing');
+    expect(toolbox.x).toBeGreaterThan(controls.x + controls.width + 8);
+    await graph.locator('.react-flow__controls-zoomout').click();
+    await graph.getByRole('button', { name: 'Add supply' }).click();
+    await expect(graph.locator('.react-flow__node')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Dock toolbar' }).click();
+  }
+});
+
+test('marquee follows the pointer, stays clipped, and selects exactly the intersecting group', async ({ page }) => {
+  await page.goto('/');
+  await addFromToolbox(page, 'pool');
+  await addFromToolbox(page, 'supply');
+  const graph = page.getByRole('region', { name: 'Workflow graph' });
+  await graph.locator('.react-flow__controls-zoomout').click();
+  const initialSurface = await graph.boundingBox();
+  if (!initialSurface) throw new Error('Canvas missing');
+  await page.mouse.move(initialSurface.x + initialSurface.width / 2, initialSurface.y + initialSurface.height / 2);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(initialSurface.x + initialSurface.width / 2 + 18, initialSurface.y + initialSurface.height / 2 + 12, { steps: 4 });
+  await page.mouse.up({ button: 'middle' });
+  const surface = await graph.boundingBox();
+  const second = await graph.locator('.react-flow__node[data-id="node-002"]').boundingBox();
+  const third = await graph.locator('.react-flow__node[data-id="node-003"]').boundingBox();
+  if (!surface || !second || !third) throw new Error('Canvas geometry missing');
+  const start = { x: surface.x + 5, y: surface.y + 5 };
+  const end = { x: Math.min(second.x + second.width + 5, third.x - 5), y: second.y + second.height + 5 };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  const marquee = await graph.locator('.canvas-marquee').boundingBox();
+  if (!marquee) throw new Error('Marquee missing');
+  expect(marquee.x).toBeCloseTo(start.x, 0);
+  expect(marquee.y).toBeCloseTo(start.y, 0);
+  expect(marquee.x + marquee.width).toBeLessThanOrEqual(surface.x + surface.width + 1);
+  expect(marquee.y + marquee.height).toBeLessThanOrEqual(surface.y + surface.height + 1);
+  await page.mouse.up();
+  await expect(graph.locator('.react-flow__node.selected')).toHaveCount(2);
+  await expect(graph.locator('.react-flow__node[data-id="node-003"]')).not.toHaveClass(/selected/);
+  const firstSelected = graph.locator('.react-flow__node[data-id="node-001"]');
+  const before = await firstSelected.boundingBox();
+  if (!before) throw new Error('Selected node missing');
+  await page.mouse.move(before.x + 60, before.y + 55);
+  await page.mouse.down();
+  await page.mouse.move(before.x + 95, before.y + 80, { steps: 8 });
+  await page.mouse.up();
+  const moved = await firstSelected.boundingBox();
+  expect(moved!.x).toBeGreaterThan(before.x + 20);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(async () => (await firstSelected.boundingBox())!.x).toBeCloseTo(before.x, 0);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect.poll(async () => (await firstSelected.boundingBox())!.x).toBeCloseTo(moved!.x, 0);
+});
+
 test('drag keeps node mounted and invalid connections leave semantic edges unchanged', async ({ page }) => {
   await page.goto('/');
   await addFromToolbox(page, 'pool');
@@ -152,7 +234,7 @@ test('drag keeps node mounted and invalid connections leave semantic edges uncha
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
   await page.mouse.up();
   await expect(page.getByText('This connection would create a loop.')).toBeVisible();
-  await page.getByLabel('Toolbox position').selectOption('floating');
+  await page.getByRole('button', { name: 'Undock toolbar' }).click();
   await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 });
 test('text controls guard both deletion keys and edge selection clears on Escape', async ({ page }) => {
@@ -174,10 +256,10 @@ test('text controls guard both deletion keys and edge selection clears on Escape
 test('floating toolbox stays inside a narrow editor without page overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByLabel('Toolbox position').selectOption('floating');
+  await page.getByRole('button', { name: 'Undock toolbar' }).click();
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
-  await expect(graph.locator('.floating-toolbox button')).toHaveCount(8);
+  await expect(graph.locator('.floating-toolbox button')).toHaveCount(9);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
