@@ -178,8 +178,12 @@ export async function authorSwap(page: Page, direction: 'WETH_TO_USDC' | 'USDC_T
 }
 export const forkPanel = (page: Page) => page.getByRole('region', { name: 'Local fork Mode A simulation' });
 export const executionPanel = (page: Page) => page.getByRole('region', { name: 'Mode A execution' });
+export async function openTechnicalDetails(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Show technical details' }).click();
+}
 export async function simulateOnFork(page: Page): Promise<void> {
   await stage(page, 'Simulate');
+  await openTechnicalDetails(page);
   await forkPanel(page).getByRole('button', { name: /^Simulate on local fork for revision \d+$/ }).click();
   await expect(forkPanel(page).getByText('FORK: CURRENT', { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(forkPanel(page).locator('[data-browser-verification="EXACT"]')).toBeVisible();

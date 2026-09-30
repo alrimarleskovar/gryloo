@@ -1,3 +1,6 @@
+import ast
+import hashlib
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -133,11 +136,14 @@ class ScopeTests(unittest.TestCase):
         navigation = "await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();"
         disclosure = "await page.getByRole('button', { name: 'Show technical details' }).click();"
         lines = BASE_OBSERVATION_SOURCE.splitlines()
-        changed = "\n".join(line + ("\n" + line[:len(line) - len(line.lstrip())] + disclosure
-                                     if line.strip() == navigation else "") for line in lines) + "\n"
         self.assertEqual(sum(line.strip() == navigation for line in lines), 5)
+        self.assertEqual(sum(line.strip() == disclosure for line in lines), 5)
+        pre_hotfix_lines = [line for index, line in enumerate(lines)
+                            if not (line.strip() == disclosure and index > 0 and lines[index - 1].strip() == navigation)]
+        self.assertEqual(len(lines) - len(pre_hotfix_lines), 5)
+        pre_hotfix = "\n".join(pre_hotfix_lines) + "\n"
         self.assertTrue(low_risk_path(BASE_OBSERVATION_SPEC))
-        self.assertTrue(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE, changed))
+        self.assertTrue(low_risk_source(BASE_OBSERVATION_SPEC, "", "", pre_hotfix, BASE_OBSERVATION_SOURCE))
         self.assertTrue(low_risk_path(PREFIX + "e2e/interface-honesty.spec.ts"))
 
         protected = (
@@ -150,9 +156,9 @@ class ScopeTests(unittest.TestCase):
         )
         for before, after in protected:
             with self.subTest(before=before):
-                self.assertIn(before, changed)
-                self.assertFalse(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE,
-                                                 changed.replace(before, after, 1)))
+                self.assertIn(before, BASE_OBSERVATION_SOURCE)
+                self.assertFalse(low_risk_source(BASE_OBSERVATION_SPEC, "", "", pre_hotfix,
+                                                 BASE_OBSERVATION_SOURCE.replace(before, after, 1)))
         self.assertFalse(low_risk_source(BASE_OBSERVATION_SPEC, "", "", BASE_OBSERVATION_SOURCE,
                                          BASE_OBSERVATION_SOURCE.replace("'REPLAY_MISMATCH'", "'REPLAY_ACCEPTED'")))
 
@@ -175,6 +181,87 @@ class ScopeTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assertFalse(low_risk_path(PREFIX + path))
+
+
+class Hotfix002ScopeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/governance.yml").read_text()
+        phase = workflow.split("          python3 - <<'PYCODE'\n", 1)[1].split("          PYCODE", 1)[0]
+        module = ast.parse(textwrap.dedent(phase))
+        names = {"HOTFIX_002_BASE", "HOTFIX_002_REFS", "HOTFIX_002_TEST_BYTES", "HOTFIX_002_POLICY_FILES"}
+        policy = [node for node in module.body if
+                  isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names
+                                                        for target in node.targets)]
+        policy += [node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "hotfix_002_scope"]
+        if len(policy) != 5:
+            raise AssertionError("HOTFIX-002 workflow policy is missing or duplicated")
+        namespace = {"hashlib": hashlib}
+        exec(compile(ast.Module(body=policy, type_ignores=[]), str(root / ".github/workflows/governance.yml"), "exec"), namespace)
+        cls.scope = staticmethod(namespace["hotfix_002_scope"])
+        cls.base = namespace["HOTFIX_002_BASE"]
+        cls.refs = namespace["HOTFIX_002_REFS"]
+        cls.digests = namespace["HOTFIX_002_TEST_BYTES"]
+        cls.policy_files = namespace["HOTFIX_002_POLICY_FILES"]
+        cls.files = {path: (root / path).read_bytes() for path in cls.digests}
+        cls.changed = set(cls.files) | cls.policy_files
+
+    def test_exact_current_hotfix_diff_accepted(self):
+        expected = {
+            "apps/reference-dapp/e2e/mode-a-adversarial.spec.ts",
+            "apps/reference-dapp/e2e/mode-a-fixtures.ts",
+            "apps/reference-dapp/e2e/mode-a-fork.spec.ts",
+            "apps/reference-dapp/e2e/mode-a-fork.spec.ts-snapshots/fork-simulated-chromium-linux.png",
+            "scripts/test_governance_ux_scope.py",
+        }
+        self.assertEqual(set(self.digests), expected)
+        self.assertEqual(self.policy_files, {".github/workflows/governance.yml"})
+        self.assertTrue(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, self.files))
+        self.assertTrue(self.scope(self.base, "main", self.changed, self.files))
+
+    def test_mode_a_execution_assertion_change_blocked(self):
+        path = PREFIX + "e2e/mode-a-fork.spec.ts"
+        source = self.files[path].decode()
+        assertion = "toHaveText('RECONCILED')"
+        self.assertIn(assertion, source)
+        changed = dict(self.files, **{path: source.replace(assertion, "toHaveText('DIVERGENT')", 1).encode()})
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, changed))
+
+    def test_mode_a_wallet_behavior_change_blocked(self):
+        path = PREFIX + "e2e/mode-a-fixtures.ts"
+        source = self.files[path].decode()
+        statement = "if (this.fault.reject)"
+        self.assertIn(statement, source)
+        changed = dict(self.files, **{path: source.replace(statement, "if (!this.fault.reject)", 1).encode()})
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, changed))
+
+    def test_mode_a_rpc_fork_behavior_change_blocked(self):
+        path = PREFIX + "e2e/mode-a-fixtures.ts"
+        source = self.files[path].decode()
+        statement = "await forkRpc('eth_chainId') !== '0x7a69'"
+        self.assertIn(statement, source)
+        changed = dict(self.files, **{path: source.replace(statement, "await forkRpc('eth_chainId') === '0x7a69'", 1).encode()})
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, changed))
+
+    def test_unrelated_mode_a_snapshot_blocked(self):
+        approved = PREFIX + "e2e/mode-a-fork.spec.ts-snapshots/fork-simulated-chromium-linux.png"
+        unrelated = PREFIX + "e2e/mode-a-fork.spec.ts-snapshots/manifest-review-chromium-linux.png"
+        changed = dict(self.files)
+        changed[unrelated] = changed.pop(approved)
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration",
+                                    (self.changed - {approved}) | {unrelated}, changed))
+
+    def test_other_mode_a_e2e_file_blocked(self):
+        other = PREFIX + "e2e/mode-a-recovery.spec.ts"
+        changed = dict(self.files, **{other: self.files[PREFIX + "e2e/mode-a-fork.spec.ts"]})
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed | {other}, changed))
+
+    def test_other_base_branch_or_changed_path_blocked(self):
+        self.assertFalse(self.scope("0" * 40, "codex/hotfix-002-simulate-test-migration", self.changed, self.files))
+        self.assertFalse(self.scope(self.base, "codex/other", self.changed, self.files))
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration",
+                                    self.changed | {PREFIX + "e2e/mode-a-recovery.spec.ts"}, self.files))
 
 
 if __name__ == "__main__":

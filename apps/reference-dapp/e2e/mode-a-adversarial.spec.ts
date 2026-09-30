@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {
-  authorSwap, executionPanel, expect, forkPanel, requestStep, reviewAndConnect, simulateOnFork, stepState, test, visual,
+  authorSwap, executionPanel, expect, forkPanel, openTechnicalDetails, requestStep, reviewAndConnect, simulateOnFork, stepState, test, visual,
 } from './mode-a-fixtures';
 
 const sends = (calls: readonly { method: string }[]) => calls.filter(call => call.method === 'eth_sendTransaction').length;
@@ -56,6 +56,7 @@ test('slippage above the reviewed ceiling cannot be simulated or authorized', as
   await page.goto('/');
   await authorSwap(page, 'WETH_TO_USDC', '1', '301');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await openTechnicalDetails(page);
   await forkPanel(page).getByRole('button', { name: /^Simulate on local fork for revision \d+$/ }).click();
   await expect(forkPanel(page)).toContainText('SLIPPAGE_NOT_ELIGIBLE');
   expect(fork.preparedFiles()).toHaveLength(0);
@@ -66,6 +67,7 @@ test('manipulated calldata or an unknown spender in a server response is blocked
   await page.goto('/');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await openTechnicalDetails(page);
   // Intercept only the fork simulation action: earlier authoring actions are unrelated to this tamper case.
   await page.route('http://127.0.0.1:3000/**', async route => {
     if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) { await route.fallback(); return; }
