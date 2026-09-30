@@ -100,6 +100,23 @@ jobs:
               if changed!=set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES or set(files)!=set(HOTFIX_002_TEST_BYTES):
                   return False
               return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_002_TEST_BYTES.items())
+          HOTFIX_003_BASE='c42cb3910494e5608ff4fc4cca57a47d21e73aca'
+          HOTFIX_003_REFS={'codex/hotfix-003-complete-simulate-test-migration','main'}
+          HOTFIX_003_TEST_BYTES={
+              'apps/reference-dapp/e2e/composition-fixtures.ts':'c075ed97627ae4e9ab6565743921da6de0f8322918857d70f25ed855cae85aba',
+              'apps/reference-dapp/e2e/liquidity-fork.spec.ts':'83e088b0f56f1af6f48a741174e69007cfa4d41b0338bb3aa6fbef96976a6041',
+              'apps/reference-dapp/e2e/liquidity-recovery.spec.ts':'fbeda1daa6e39bbf25f2e30e0a7095ba2477a41849865c6fc4873edbc47677f0',
+              'apps/reference-dapp/e2e/mode-b-adversarial.spec.ts':'63f78ec9f3c7f721716c837ed0f3f2ed4bf9cc2fdd2fdce0b7156d2c3d85838a',
+              'apps/reference-dapp/e2e/mode-b-fork.spec.ts':'389d337e11e3f1bec369f147b1cd3589261a10b3bef1000ad396ccb2ffb49b01',
+              'scripts/test_governance_ux_scope.py':'57de3f84993fa7e847563c88ab72d4286431eed2e31407b58c9783faa3e56b12',
+          }
+          HOTFIX_003_POLICY_FILES={'.github/workflows/governance.yml'}
+          def hotfix_003_scope(base, ref, changed, files):
+              if base!=HOTFIX_003_BASE or ref not in HOTFIX_003_REFS:
+                  return False
+              if changed!=set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES or set(files)!=set(HOTFIX_003_TEST_BYTES):
+                  return False
+              return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_003_TEST_BYTES.items())
           baseline='fb285da4ea4efaaae5b839974b669b3c8335ddd7'
           merge='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
           approval_baseline='14a94584b0a3119c1f6275a05b9e752dafe0a042'
@@ -561,6 +578,16 @@ jobs:
               files={path:(root/path).read_bytes() for path in HOTFIX_002_TEST_BYTES if (root/path).is_file()}
               if not hotfix_002_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
                   errors.append('HOTFIX-002 exact base, changed paths or reviewed test bytes differ')
+          # HOTFIX-003 names only the five audited E2E files and its self-test.
+          hotfix_003=scope_base==HOTFIX_003_BASE and os.environ.get('GOVERNANCE_REF') in HOTFIX_003_REFS
+          if hotfix_003:
+              changed={v for v in now if v not in scoped or
+                       ('100755' if (root/v).stat().st_mode & 0o111 else '100644',
+                        subprocess.check_output(['git','hash-object',v],text=True).strip())!=scoped[v]}
+              changed.update(set(scoped)-now)
+              files={path:(root/path).read_bytes() for path in HOTFIX_003_TEST_BYTES if (root/path).is_file()}
+              if not hotfix_003_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
+                  errors.append('HOTFIX-003 exact base, changed paths or reviewed test bytes differ')
           errors += ['unapproved removed path: '+v for v in sorted(set(scoped)-now)]
           for v in sorted(now):
               file=root/v
@@ -571,7 +598,8 @@ jobs:
                   if mode!=scoped[v][0]: errors.append('changed file mode: '+v)
               elif not file.is_file() or file.is_symlink() or file.stat().st_mode & 0o111:
                   errors.append('new path must be regular non-executable file: '+v)
-              if v in governance_files or (hotfix_002 and v in set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES): continue
+              if (v in governance_files or (hotfix_002 and v in set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES)
+                      or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)): continue
               if not low_risk_path(v):
                   errors.append('unapproved sensitive path: '+v)
                   continue
