@@ -209,6 +209,8 @@ class Hotfix002ScopeTests(unittest.TestCase):
 
     def test_exact_current_hotfix_diff_accepted(self):
         expected = {
+            "apps/reference-dapp/e2e/cow-fixtures.ts",
+            "apps/reference-dapp/e2e/cow-intent.spec.ts",
             "apps/reference-dapp/e2e/mode-a-adversarial.spec.ts",
             "apps/reference-dapp/e2e/mode-a-fixtures.ts",
             "apps/reference-dapp/e2e/mode-a-fork.spec.ts",
@@ -256,6 +258,31 @@ class Hotfix002ScopeTests(unittest.TestCase):
         other = PREFIX + "e2e/mode-a-recovery.spec.ts"
         changed = dict(self.files, **{other: self.files[PREFIX + "e2e/mode-a-fork.spec.ts"]})
         self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed | {other}, changed))
+
+    def test_cow_wallet_and_signature_changes_blocked(self):
+        path = PREFIX + "e2e/cow-fixtures.ts"
+        source = self.files[path].decode()
+        for before, after in (("if (wallet.reject)", "if (!wallet.reject)"),
+                              ("typed.domain.chainId !== 8453", "typed.domain.chainId === 8453")):
+            with self.subTest(before=before):
+                self.assertIn(before, source)
+                changed = dict(self.files, **{path: source.replace(before, after, 1).encode()})
+                self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, changed))
+
+    def test_cow_lifecycle_assertion_change_blocked(self):
+        path = PREFIX + "e2e/cow-intent.spec.ts"
+        source = self.files[path].decode()
+        before = "toHaveText('RECONCILED')"
+        self.assertIn(before, source)
+        changed = dict(self.files, **{path: source.replace(before, "toHaveText('POSTED')", 1).encode()})
+        self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed, changed))
+
+    def test_unrelated_cow_file_and_snapshot_blocked(self):
+        for other in (PREFIX + "e2e/cow-recovery.spec.ts",
+                      PREFIX + "e2e/cow-intent.spec.ts-snapshots/unrelated-chromium-linux.png"):
+            with self.subTest(path=other):
+                changed = dict(self.files, **{other: self.files[PREFIX + "e2e/cow-intent.spec.ts"]})
+                self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration", self.changed | {other}, changed))
 
     def test_other_base_branch_or_changed_path_blocked(self):
         self.assertFalse(self.scope("0" * 40, "codex/hotfix-002-simulate-test-migration", self.changed, self.files))

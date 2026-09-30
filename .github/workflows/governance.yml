@@ -85,11 +85,13 @@ jobs:
           HOTFIX_002_BASE='c67cc13bfeebd8f98affddf52d4f7a25f5f07a48'
           HOTFIX_002_REFS={'codex/hotfix-002-simulate-test-migration','main'}
           HOTFIX_002_TEST_BYTES={
+              'apps/reference-dapp/e2e/cow-fixtures.ts':'fc22efe8bfa441446ece24674172c0d01a84aec04219294c7ecc21f2ea53d643',
+              'apps/reference-dapp/e2e/cow-intent.spec.ts':'522a48fa5ee353dda90953d0f7b941046c29a7efd9451e12b2658a1b73b7762b',
               'apps/reference-dapp/e2e/mode-a-adversarial.spec.ts':'d8a8a49f15207ae8b62d5a1113bbb622d78e5525d824c27fc3fd1cd9da76ab93',
               'apps/reference-dapp/e2e/mode-a-fixtures.ts':'4888f4411ae066db489c932e216e9779df34cf4ca719d5faabc4ca1d8dd008e9',
               'apps/reference-dapp/e2e/mode-a-fork.spec.ts':'c5124a06b432d37d3e63111b9fcb8f837069605a452916ccf12d45b4f55222ae',
               'apps/reference-dapp/e2e/mode-a-fork.spec.ts-snapshots/fork-simulated-chromium-linux.png':'53de055796ad8fb7210983f031c09a8c05ab905ed7a920207d10a7714d064e3b',
-              'scripts/test_governance_ux_scope.py':'b911c22c3d3024776cd81f8a4d5f46c818ad9d3bc58c0173fef62fc336fc2e73',
+              'scripts/test_governance_ux_scope.py':'e80e62f148f2df30a2eaef4520d7a443ad48eee16354b194128a2c2962df3cef',
           }
           HOTFIX_002_POLICY_FILES={'.github/workflows/governance.yml'}
           def hotfix_002_scope(base, ref, changed, files):
@@ -549,7 +551,7 @@ jobs:
               governance_files={'.github/workflows/governance.yml','scripts/governance_ux_scope.py',
                                 'scripts/test_governance_ux_scope.py'}
           # HOTFIX-002 is a one-time, byte-pinned test migration from this exact main.
-          # No Mode A directory or ordinary UX category is added to low_risk_path.
+          # No Mode A or CoW directory or ordinary UX category is added to low_risk_path.
           hotfix_002=scope_base==HOTFIX_002_BASE and os.environ.get('GOVERNANCE_REF') in HOTFIX_002_REFS
           if hotfix_002:
               changed={v for v in now if v not in scoped or
