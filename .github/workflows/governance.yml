@@ -468,8 +468,16 @@ jobs:
                   create011d2&set(delivered011d1) or not modify011d2<=set(delivered011d1) or
                   not delete011d2<=set(delivered011d1) or 'DEC-0055' not in plan011d2 or base011d2 not in plan011d2):
               errors.append('BUILD-011D-2 approved scope list inconsistent')
-          errors += ['BUILD-011D-2 unapproved created path: '+v for v in sorted((now-set(delivered011d1))-create011d2)]
-          errors += ['BUILD-011D-2 missing created path: '+v for v in sorted(create011d2-(now-set(delivered011d1)))]
+          # Owner-approved BUILD-UX-001 extension; historical BUILD-011D-2 scope remains fixed above.
+          create_ux={'apps/reference-dapp/e2e/build-ux-001.spec.ts',
+                     'apps/reference-dapp/public/gryloo-logo.png',
+                     'apps/reference-dapp/src/domain/editor-history.test.ts',
+                     'apps/reference-dapp/src/domain/editor-history.ts'}
+          modify_ux={'apps/reference-dapp/src/domain/canvas-keyboard.ts'}
+          if create_ux&set(delivered011d1) or not modify_ux<=set(delivered011d1):
+              errors.append('BUILD-UX-001 approved scope baseline mismatch')
+          errors += ['unapproved created path: '+v for v in sorted((now-set(delivered011d1))-create011d2-create_ux)]
+          errors += ['missing approved created path: '+v for v in sorted((create011d2|create_ux)-(now-set(delivered011d1)))]
           errors += ['BUILD-011D-2 unapproved removed path: '+v for v in sorted((set(delivered011d1)-now)-delete011d2)]
           errors += ['BUILD-011D-2 missing deleted path: '+v for v in sorted(delete011d2-(set(delivered011d1)-now))]
           for v in sorted(now&set(delivered011d1)):
@@ -477,9 +485,9 @@ jobs:
               mode='100755' if file.stat().st_mode & 0o111 else '100644'
               oid=subprocess.check_output(['git','hash-object',v],text=True).strip()
               if mode!=delivered011d1[v][0]: errors.append('BUILD-011D-2 changed file mode: '+v)
-              if v not in modify011d2 and oid!=delivered011d1[v][1]:
+              if v not in modify011d2|modify_ux and oid!=delivered011d1[v][1]:
                   errors.append('BUILD-011D-2 protected baseline file changed: '+v)
-          for v in sorted(create011d2&now):
+          for v in sorted((create011d2|create_ux)&now):
               if not (root/v).is_file() or (root/v).is_symlink() or (root/v).stat().st_mode & 0o111:
                   errors.append('BUILD-011D-2 new path must be regular non-executable file: '+v)
           owner_css=subprocess.check_output(['git','show','33a83ce9de18d8bbbfe4ccfb73811b00c09f290d:apps/reference-dapp/src/app/globals.css'],text=True)
