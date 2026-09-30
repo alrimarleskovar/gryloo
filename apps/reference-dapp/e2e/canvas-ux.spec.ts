@@ -177,7 +177,7 @@ test('floating toolbox stays inside a narrow editor without page overflow', asyn
   await page.getByLabel('Toolbox position').selectOption('floating');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
-  await expect(graph.locator('.floating-toolbox button')).toHaveCount(6);
+  await expect(graph.locator('.floating-toolbox button')).toHaveCount(8);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 

@@ -223,6 +223,12 @@
 .floating-toolbox .canvas-toolbox button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .canvas-feedback{margin:0;padding:8px 16px;background:var(--amber-soft);color:var(--amber);font-size:12px}
 .flow-card.active{border:2px solid var(--blue);box-shadow:0 0 0 4px var(--blue-soft),0 8px 22px rgba(24,59,104,.12)}
+.brand-mark{background:transparent;overflow:visible}
+.brand-mark img{width:36px;height:36px;max-width:none;object-fit:contain}
+.canvas-marquee{position:absolute;z-index:4;pointer-events:none;border:1px solid var(--blue);background:var(--blue-soft);opacity:.65;border-radius:3px}
+.toolbox-divider{width:1px;height:24px;background:var(--line);margin:0 3px}
+.canvas-toolbox button:disabled{opacity:.4}
+.canvas-toolbox button:disabled:hover{border-color:transparent;background:transparent}
 .react-flow__edge.selected .react-flow__edge-path{stroke:var(--blue);stroke-width:4}
 .react-flow__edge-interaction{stroke-width:22}
 .library{height:auto;margin-top:14px;overflow:visible;padding:18px}
