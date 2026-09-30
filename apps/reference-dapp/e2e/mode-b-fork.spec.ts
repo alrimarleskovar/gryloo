@@ -73,6 +73,7 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
     }
     await authorSwap(page, 'WETH_TO_USDC', '1', '100');
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+    await page.getByRole('button', { name: 'Show technical details' }).click();
     const simulate = page.getByRole('region', { name: 'Finite Mode B authority' });
     await simulate.getByRole('button', { name: /Simulate finite Mode B for revision/ }).click();
     await expect(simulate).toContainText('one-time allowance', { timeout: 30_000 });

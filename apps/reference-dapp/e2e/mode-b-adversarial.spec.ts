@@ -11,6 +11,7 @@ async function prepare(page: import('@playwright/test').Page) {
   await page.goto('/');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   const panel = page.getByRole('region', { name: 'Finite Mode B authority' });
   await panel.getByRole('button', { name: /Simulate finite Mode B for revision/ }).click();
   await expect(panel).toContainText('Mode B permission', { timeout: 30_000 });

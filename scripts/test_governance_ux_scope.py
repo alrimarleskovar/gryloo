@@ -1,5 +1,6 @@
 import ast
 import hashlib
+import subprocess
 import textwrap
 import unittest
 from pathlib import Path
@@ -204,7 +205,10 @@ class Hotfix002ScopeTests(unittest.TestCase):
         cls.refs = namespace["HOTFIX_002_REFS"]
         cls.digests = namespace["HOTFIX_002_TEST_BYTES"]
         cls.policy_files = namespace["HOTFIX_002_POLICY_FILES"]
-        cls.files = {path: (root / path).read_bytes() for path in cls.digests}
+        # HOTFIX-002 is historical now; test its exact reviewed bytes as merged at HOTFIX-003's base.
+        cls.files = {path: subprocess.check_output(
+            ["git", "show", "c42cb3910494e5608ff4fc4cca57a47d21e73aca:" + path], cwd=root)
+            for path in cls.digests}
         cls.changed = set(cls.files) | cls.policy_files
 
     def test_exact_current_hotfix_diff_accepted(self):
@@ -289,6 +293,64 @@ class Hotfix002ScopeTests(unittest.TestCase):
         self.assertFalse(self.scope(self.base, "codex/other", self.changed, self.files))
         self.assertFalse(self.scope(self.base, "codex/hotfix-002-simulate-test-migration",
                                     self.changed | {PREFIX + "e2e/mode-a-recovery.spec.ts"}, self.files))
+
+
+class Hotfix003ScopeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/governance.yml").read_text()
+        phase = workflow.split("          python3 - <<'PYCODE'\n", 1)[1].split("          PYCODE", 1)[0]
+        module = ast.parse(textwrap.dedent(phase))
+        names = {"HOTFIX_003_BASE", "HOTFIX_003_REFS", "HOTFIX_003_TEST_BYTES", "HOTFIX_003_POLICY_FILES"}
+        policy = [node for node in module.body if
+                  isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names
+                                                        for target in node.targets)]
+        policy += [node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "hotfix_003_scope"]
+        if len(policy) != 5:
+            raise AssertionError("HOTFIX-003 workflow policy is missing or duplicated")
+        namespace = {"hashlib": hashlib}
+        exec(compile(ast.Module(body=policy, type_ignores=[]), str(root / ".github/workflows/governance.yml"), "exec"), namespace)
+        cls.scope = staticmethod(namespace["hotfix_003_scope"])
+        cls.base = namespace["HOTFIX_003_BASE"]
+        cls.digests = namespace["HOTFIX_003_TEST_BYTES"]
+        cls.policy_files = namespace["HOTFIX_003_POLICY_FILES"]
+        cls.files = {path: (root / path).read_bytes() for path in cls.digests}
+        cls.changed = set(cls.files) | cls.policy_files
+
+    def test_exact_disclosure_migration_allowed(self):
+        self.assertEqual(set(self.digests), {
+            PREFIX + "e2e/composition-fixtures.ts",
+            PREFIX + "e2e/liquidity-fork.spec.ts",
+            PREFIX + "e2e/liquidity-recovery.spec.ts",
+            PREFIX + "e2e/mode-b-adversarial.spec.ts",
+            PREFIX + "e2e/mode-b-fork.spec.ts",
+            "scripts/test_governance_ux_scope.py",
+        })
+        self.assertEqual(self.policy_files, {".github/workflows/governance.yml"})
+        self.assertTrue(self.scope(self.base, "codex/hotfix-003-complete-simulate-test-migration", self.changed, self.files))
+        self.assertTrue(self.scope(self.base, "main", self.changed, self.files))
+
+    def test_semantic_and_guard_mutations_blocked(self):
+        for path, before, after in (
+            (PREFIX + "e2e/composition-fixtures.ts", "expect(tx.chainId).toBe('0x7a69')", "expect(tx.chainId).toBe('0x2105')"),
+            (PREFIX + "e2e/liquidity-recovery.spec.ts", "toContainText('SUBMISSION_RESULT_UNKNOWN')", "toContainText('RECONCILED')"),
+            (PREFIX + "e2e/mode-b-adversarial.spec.ts", "toContainText('WALLET_WRONG_CHAIN')", "toContainText('WALLET_CONNECTED')"),
+        ):
+            with self.subTest(path=path):
+                source = self.files[path].decode()
+                self.assertIn(before, source)
+                changed = dict(self.files, **{path: source.replace(before, after, 1).encode()})
+                self.assertFalse(self.scope(self.base, "codex/hotfix-003-complete-simulate-test-migration", self.changed, changed))
+
+    def test_unrelated_file_snapshot_base_and_ref_blocked(self):
+        for other in (PREFIX + "e2e/composition-fork.spec.ts",
+                      PREFIX + "e2e/composition-fork.spec.ts-snapshots/composition-review-chromium-linux.png"):
+            with self.subTest(path=other):
+                changed = dict(self.files, **{other: b"unexpected"})
+                self.assertFalse(self.scope(self.base, "codex/hotfix-003-complete-simulate-test-migration", self.changed | {other}, changed))
+        self.assertFalse(self.scope("0" * 40, "codex/hotfix-003-complete-simulate-test-migration", self.changed, self.files))
+        self.assertFalse(self.scope(self.base, "codex/other", self.changed, self.files))
 
 
 if __name__ == "__main__":
