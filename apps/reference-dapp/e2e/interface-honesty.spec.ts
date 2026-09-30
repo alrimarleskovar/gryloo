@@ -39,6 +39,7 @@ test('labels the local fork honestly and enables no execution without a reviewed
   await expect(banner.getByText(/^Local demo · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
   await expect(banner).toContainText('Wallet: injected · not connected');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });
   await expect(fork).toContainText('Local-fork Mode A needs exactly one USDC/WETH swap in the workflow.');
   await expect(fork.getByRole('button', { name: 'Simulate on local fork for revision 0' })).toBeDisabled();

@@ -12,6 +12,7 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
@@ -36,6 +37,7 @@ test('observation controls are keyboard reachable and fit mobile, tablet and des
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   const read = observation(page).getByRole('button', { name: 'Read Base quote' });
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -62,6 +64,7 @@ for (const [from, to, amount, at] of [
     await page.getByRole('button', { name: 'Send' }).click();
     await page.getByRole('button', { name: 'Apply proposal' }).click();
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
+    await page.getByRole('button', { name: 'Show technical details' }).click();
     const region = observation(page);
     await region.getByRole('button', { name: 'Read Base quote' }).click();
     await expect(region).toContainText('OBSERVATION: CURRENT');
@@ -115,6 +118,7 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
@@ -126,6 +130,7 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
+  await page.getByRole('button', { name: 'Show technical details' }).click();
   await expect(region).toContainText('OBSERVATION: INVALIDATED');
   await expect(region.locator('[data-observed-value]')).toHaveCount(0);
   await expect(region.locator('[data-observation-json]')).toHaveCount(0);
