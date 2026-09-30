@@ -4,11 +4,13 @@ Historical build scopes are verified separately by the governance workflow.
 An unrecognized path is sensitive and needs an explicit governance approval.
 """
 
+from difflib import SequenceMatcher
 from pathlib import PurePosixPath
 import re
 
 
 APP = "apps/reference-dapp/"
+WORKFLOW_STORE = APP + "src/state/workflow-store.tsx"
 ASSETS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2"}
 UX_COMPONENTS = {"workflow-canvas.tsx", "simulate-panel.tsx", "action-library.tsx", "summary-bar.tsx", "status-badge.tsx"}
 UX_TEST = re.compile(r"(?:canvas|visual|ux|interface|simulate|editor|toolbar|layout|keyboard|copy|duplicate)[\w-]*\.spec\.ts$")
@@ -22,6 +24,52 @@ SENSITIVE_SOURCE = re.compile(
     re.I,
 )
 SENSITIVE_REMOVAL = re.compile(r"\b(?:checkChainAccess|validateAuthoringWorkflow|lintWorkflow|authorization|evidence|wallet|sign|execut\w*|provider|rpc|network|TESTNET_EXECUTED|MAINNET_EXECUTED)\b", re.I)
+WORKFLOW_SENSITIVE = re.compile(r"(?:wallet|sign|rpc|network|fetch|https?|transaction|submit|execut|protocol|capabilit|testnet|mainnet|evidence|promot|server|observation|quote|chain|artifact|accessCheck|review|lintWorkflow|eligib|authoriz|provider|ethereum|request\s*\(|process\.env|use server|eth_)", re.I)
+EDITOR_IMPORT = re.compile(r"\s*import(?:\s+type)?\s+.+\s+from\s+['\"]\.\./domain/(?:editor[\w-]*|canvas-[\w-]+)['\"];?\s*$")
+
+
+def workflow_store_editor_only(before: str, after: str) -> bool:
+    """Allow edits only in the existing editor portion of workflow-store."""
+    old, new = before.splitlines(), after.splitlines()
+
+    def regions(lines: list[str]):
+        markers = ("type Pending =", "type Store =", "  pending: Pending", "  const dispatch = useCallback",
+                   "  const [pending, setPending]", "  return <Context.Provider value={{", "    pending, propose")
+        try:
+            found = [next(i for i, line in enumerate(lines) if line.startswith(marker)) for marker in markers]
+        except StopIteration:
+            return None
+        if found != sorted(set(found)):
+            return None
+        pending_type, store, store_end, editor, editor_end, value, value_end = found
+
+        def section(index: int) -> str:
+            if index < pending_type:
+                return "import"
+            if store < index < store_end:
+                return "editor"
+            if editor < index < editor_end:
+                return "editor"
+            if value < index < value_end:
+                return "editor"
+            return "protected"
+
+        return section
+
+    old_section, new_section = regions(old), regions(new)
+    if old_section is None or new_section is None:
+        return False
+    for tag, i, k, j, l in SequenceMatcher(None, old, new).get_opcodes():
+        if tag == "equal":
+            continue
+        changed = [(old_section(index), old[index]) for index in range(i, k)]
+        changed += [(new_section(index), new[index]) for index in range(j, l)]
+        for section, line in changed:
+            if section == "protected" or WORKFLOW_SENSITIVE.search(line) or SENSITIVE_SOURCE.search(line):
+                return False
+            if section == "import" and not EDITOR_IMPORT.fullmatch(line):
+                return False
+    return True
 
 
 def low_risk_path(path: str) -> bool:
@@ -29,6 +77,8 @@ def low_risk_path(path: str) -> bool:
     if not path.startswith(APP) or ".." in PurePosixPath(path).parts:
         return False
     relative = path[len(APP):]
+    if path == WORKFLOW_STORE:
+        return True  # Full before/after content is checked by workflow_store_editor_only.
     if relative in ("src/app/globals.css", "src/app/layout.tsx"):
         return True
     if relative.startswith("public/") and PurePosixPath(relative).suffix.lower() in ASSETS:
@@ -52,8 +102,10 @@ def low_risk_path(path: str) -> bool:
     return False
 
 
-def low_risk_source(path: str, added_lines: str, removed_lines: str = "") -> bool:
+def low_risk_source(path: str, added_lines: str, removed_lines: str = "", before: str = "", after: str = "") -> bool:
     """Reject privileged additions and removal of existing safety guards."""
+    if path == WORKFLOW_STORE:
+        return workflow_store_editor_only(before, after)
     if path.endswith((".ts", ".tsx")) and not path.startswith(APP + "e2e/"):
         return not bool(SENSITIVE_SOURCE.search(added_lines) or SENSITIVE_REMOVAL.search(removed_lines))
     return True
