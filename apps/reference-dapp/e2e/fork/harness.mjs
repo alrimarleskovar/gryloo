@@ -448,7 +448,12 @@ export async function runModeAScenarios({ call, profile, journalRoot, setupAccou
     const unknown = (await restarted.status(prepared.executionId)).attempts.at(-1);
     if (unknown?.state !== 'SUBMISSION_RESULT_UNKNOWN') throw new Error('SCENARIO_UNKNOWN_NOT_RECORDED');
     await expectError(restarted.beginStep(prepared.executionId, 'step-swap', 'step-swap-key-2'), 'ATTEMPT_IN_PROGRESS');
-    const recovered = await restarted.observeStep(prepared.executionId, 'step-swap');
+    let recovered;
+    for (let i = 0; i < 200; i++) {
+      recovered = await restarted.observeStep(prepared.executionId, 'step-swap');
+      if (!['SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(recovered.attempt.state)) break;
+      if (i < 199) await sleep(25);
+    }
     if (recovered.attempt.state !== 'CONFIRMED' || !recovered.observation?.code.startsWith('RECOVERED_')) throw new Error('SCENARIO_UNKNOWN_NOT_RECOVERED');
     await expectError(restarted.beginStep(prepared.executionId, 'step-swap', 'step-swap-key-3'), 'RETRY_NOT_AUTHORIZED');
     const evidence = await restarted.reconcile(prepared.executionId);

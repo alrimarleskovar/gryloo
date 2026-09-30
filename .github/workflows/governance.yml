@@ -53,6 +53,10 @@ jobs:
             33a83ce9de18d8bbbfe4ccfb73811b00c09f290d
             205055605d96f36e024a0bbc770453113e4f7b40
             8131ce6680d00e45b96c01353585ce548000d878
+            # HOTFIX-004 continuation pushes still validate the complete approved main-to-branch diff.
+            4dbe16774acc6d30c2ba0425be14b205c8301423
+            # HOTFIX-002 self-tests read its merged, byte-pinned historical fixtures.
+            c42cb3910494e5608ff4fc4cca57a47d21e73aca
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           if [[ "$SCOPE_BASE" =~ ^[0-9a-f]{40}$ && "$SCOPE_BASE" != 0000000000000000000000000000000000000000 ]]; then
@@ -117,6 +121,21 @@ jobs:
               if changed!=set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES or set(files)!=set(HOTFIX_003_TEST_BYTES):
                   return False
               return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_003_TEST_BYTES.items())
+          HOTFIX_004_BASE='4dbe16774acc6d30c2ba0425be14b205c8301423'
+          HOTFIX_004_REFS={'codex/hotfix-004-mode-a-recovery','main'}
+          HOTFIX_004_HARNESS_BYTES={
+              'apps/reference-dapp/e2e/fork/harness.mjs':'d4a5893966ddc917ce009d27a1249f5f676c76f189052e7514896b44868d922b',
+              'apps/reference-dapp/package.json':'b16d1c571d3339167f019b1eef3c8dec82f13f6ad45101ce2105f41ef01180ae',
+              'pnpm-lock.yaml':'59c42ec3d9ce2570064d54e475555ce130eceb369cf5a4103999d0fbe723c7db',
+              'scripts/bootstrap-ci.py':'252c86cb44dddf24097b171364aff2a3d97610f85c22fa30e04dfcac70c108de',
+          }
+          HOTFIX_004_POLICY_FILES={'.github/workflows/governance.yml'}
+          def hotfix_004_scope(base, ref, changed, files):
+              if base!=HOTFIX_004_BASE or ref not in HOTFIX_004_REFS:
+                  return False
+              if changed!=set(HOTFIX_004_HARNESS_BYTES)|HOTFIX_004_POLICY_FILES or set(files)!=set(HOTFIX_004_HARNESS_BYTES):
+                  return False
+              return all(hashlib.sha256(files[path]).hexdigest()==digest for path,digest in HOTFIX_004_HARNESS_BYTES.items())
           baseline='fb285da4ea4efaaae5b839974b669b3c8335ddd7'
           merge='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
           approval_baseline='14a94584b0a3119c1f6275a05b9e752dafe0a042'
@@ -554,6 +573,10 @@ jobs:
           # is confined to this branch and the 8131ce6 base (including its merge push).
           scope_base=os.environ.get('GOVERNANCE_BASE_REVISION') or policy_cutoff
           if not re.fullmatch(r'[0-9a-f]{40}',scope_base) or scope_base=='0'*40: scope_base=policy_cutoff
+          # Owner-approved context for this exact HOTFIX-004 security-patch continuation.
+          if (scope_base=='bd5717b51a2d879b786c002ba9c8aecafc41f4f4' and
+                  os.environ.get('GOVERNANCE_REF')=='codex/hotfix-004-mode-a-recovery'):
+              scope_base=HOTFIX_004_BASE
           scoped=tree(scope_base)
           governance_build=(scope_base==policy_cutoff and os.environ.get('GOVERNANCE_REF') in ('codex/build-gov-001','main'))
           governance_files={'.github/workflows/governance.yml','scripts/governance_ux_scope.py',
@@ -588,6 +611,16 @@ jobs:
               files={path:(root/path).read_bytes() for path in HOTFIX_003_TEST_BYTES if (root/path).is_file()}
               if not hotfix_003_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
                   errors.append('HOTFIX-003 exact base, changed paths or reviewed test bytes differ')
+          # HOTFIX-004 pins the bounded harness observation and exact Next.js 16.3.6 security patch.
+          hotfix_004=scope_base==HOTFIX_004_BASE and os.environ.get('GOVERNANCE_REF') in HOTFIX_004_REFS
+          if hotfix_004:
+              changed={v for v in now if v not in scoped or
+                       ('100755' if (root/v).stat().st_mode & 0o111 else '100644',
+                        subprocess.check_output(['git','hash-object',v],text=True).strip())!=scoped[v]}
+              changed.update(set(scoped)-now)
+              files={path:(root/path).read_bytes() for path in HOTFIX_004_HARNESS_BYTES if (root/path).is_file()}
+              if not hotfix_004_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files):
+                  errors.append('HOTFIX-004 exact base, changed paths or reviewed harness bytes differ')
           errors += ['unapproved removed path: '+v for v in sorted(set(scoped)-now)]
           for v in sorted(now):
               file=root/v
@@ -599,7 +632,8 @@ jobs:
               elif not file.is_file() or file.is_symlink() or file.stat().st_mode & 0o111:
                   errors.append('new path must be regular non-executable file: '+v)
               if (v in governance_files or (hotfix_002 and v in set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES)
-                      or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)): continue
+                      or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)
+                      or (hotfix_004 and v in set(HOTFIX_004_HARNESS_BYTES)|HOTFIX_004_POLICY_FILES)): continue
               if not low_risk_path(v):
                   errors.append('unapproved sensitive path: '+v)
                   continue
@@ -614,7 +648,10 @@ jobs:
           for v in sorted(consumer007):
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
-              if new!=old.replace('workspace:0.2.1','workspace:0.3.0'):
+              expected=old.replace('workspace:0.2.1','workspace:0.3.0')
+              if hotfix_004 and v=='apps/reference-dapp/package.json':
+                  expected=expected.replace('"next": "16.3.5"','"next": "16.3.6"')
+              if new!=expected:
                   errors.append('BUILD-007 consumer manifest changed beyond approved pin: '+v)
           for v in sorted(now):
               if (root/v).is_symlink(): errors.append('symlink: '+v)
