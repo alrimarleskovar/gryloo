@@ -53,6 +53,8 @@ jobs:
             33a83ce9de18d8bbbfe4ccfb73811b00c09f290d
             205055605d96f36e024a0bbc770453113e4f7b40
             8131ce6680d00e45b96c01353585ce548000d878
+            # HOTFIX-002 self-tests read its merged, byte-pinned historical fixtures.
+            c42cb3910494e5608ff4fc4cca57a47d21e73aca
           )
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "${baselines[@]}"
           if [[ "$SCOPE_BASE" =~ ^[0-9a-f]{40}$ && "$SCOPE_BASE" != 0000000000000000000000000000000000000000 ]]; then
