@@ -11,7 +11,7 @@ import { createBridgeNode } from './bridge-authoring';
 import { createBridgeSwapWorkflow } from './bridge-swap-authoring';
 import { createAcrossWorkflow } from './across-authoring';
 import { createCrossChainLiquidityWorkflow } from './cross-chain-liquidity';
-import { canDeleteCanvasEdge, canDeleteCanvasNode } from './canvas-keyboard';
+import { canDeleteCanvasEdge, canDeleteCanvasNode, deletableCanvasNodes } from './canvas-keyboard';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -62,7 +62,16 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   }
   let nodes = [...current.nodes];
   let resourceEdges = [...current.resourceEdges];
-  if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_TESTNET_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
+  if (command.type === 'REMOVE_MANY') {
+    const deletable = deletableCanvasNodes(current, command.nodeIds);
+    if (deletable.length !== command.nodeIds.length || current.nodes.length <= deletable.length) return reject('PROTECTED_NODE: this node is required by the workflow.');
+    const removed = new Set(deletable);
+    nodes = nodes.filter(node => !removed.has(node.nodeId)).map(node => ({ ...node,
+      dependencies: node.dependencies.filter(id => !removed.has(id)),
+      inputs: node.inputs.filter(input => !(input.kind === 'OUTPUT_REFERENCE' && removed.has(input.value.nodeId))),
+    }));
+    resourceEdges = resourceEdges.filter(edge => !removed.has(edge.fromNodeId) && !removed.has(edge.toNodeId));
+  } else if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_TESTNET_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
     if (nodes.length >= 1024) return reject('NODE_LIMIT');
     const id = `node-${String(current.revision + 2).padStart(3, '0')}`;
     if (nodes.some(node => node.nodeId === id)) return reject('DUPLICATE_NODE');

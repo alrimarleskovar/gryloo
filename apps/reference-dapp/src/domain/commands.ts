@@ -19,6 +19,7 @@ export type Command = Base & (
   | { readonly type: 'CONNECT'; readonly from: string; readonly to: string }
   | { readonly type: 'DISCONNECT'; readonly from: string; readonly to: string }
   | { readonly type: 'REMOVE'; readonly nodeId: string }
+  | { readonly type: 'REMOVE_MANY'; readonly nodeIds: readonly string[] }
   | { readonly type: 'ADD_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_TESTNET_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
@@ -120,7 +121,7 @@ export function commandIsValid(input: unknown): input is Command {
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
     ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
-    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
+    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
   if (typeof command.type !== 'string' || !fields[command.type]
@@ -133,6 +134,9 @@ export function commandIsValid(input: unknown): input is Command {
     case 'CONNECT':
     case 'DISCONNECT': return id(command.from) && id(command.to);
     case 'REMOVE': return id(command.nodeId);
+    case 'REMOVE_MANY': return command.source === 'CANVAS' && Array.isArray(command.nodeIds)
+      && command.nodeIds.length > 0 && command.nodeIds.length <= 1024
+      && command.nodeIds.every(id) && new Set(command.nodeIds).size === command.nodeIds.length;
     case 'AUTHOR_COMPOSITION': {
       if (typeof command.safe !== 'string' || !/^0x[0-9a-f]{40}$/.test(command.safe)) return false;
       const value = command.input;

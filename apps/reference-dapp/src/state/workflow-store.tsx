@@ -2,7 +2,9 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, useMemo, type Dispatch, type ReactNode } from 'react';
 import { BaseObservationError, createBaseSepoliaReviewContext, createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
-import { editorReducer, initialEditor, type EditorState } from '../domain/editor';
+import { editorReducer, type EditorState } from '../domain/editor';
+import { editorHistoryReducer, initialEditorHistory } from '../domain/editor-history';
+import { readCanvasLayout, saveCanvasLayout, type CanvasLayout } from '../domain/canvas-layout';
 import { describeProposal } from '../domain/proposal';
 import { chainReducer, checkChainAccess, initialChainState, type ChainState } from '../domain/artifact-chain';
 import { generateMockedChain, generationEligibility, type Eligibility } from '../domain/mock-artifacts';
@@ -12,17 +14,33 @@ import { browserFailureMessage, initialObservationState, observationReducer, rec
 
 type Pending = { command: Command; diff: readonly string[]; review: ReviewResult | null };
 type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
+  canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
+  moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
+  addCanvasCommand(command: Command, position: { x: number; y: number }): void;
   pending: Pending | null; propose(command: Command): void; applyProposal(): void; dismissProposal(): void;
   review: ReviewResult | null; reviewError: string | null;
   chain: ChainState; eligibility: Eligibility; generateArtifacts(): void; refreshArtifacts(): void; accessCheck(): void };
 const Context = createContext<Store | null>(null);
 
 export function WorkflowProvider({ children, initialContext }: { children: ReactNode; initialContext: unknown }) {
-  const [state, dispatch] = useReducer((current: EditorState, command: Command) => editorReducer(current, command,
-    current.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
-      ? createBaseSepoliaReviewContext() : createReviewContext(initialContext)), undefined, initialEditor);
+  const [history, dispatchHistory] = useReducer(editorHistoryReducer, undefined, initialEditorHistory);
+  const state = history.editor;
   const context = useMemo(() => state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
     ? createBaseSepoliaReviewContext() : createReviewContext(initialContext), [state.workflow, initialContext]);
+  const dispatch = useCallback((command: Command) => {
+    dispatchHistory({ type: 'COMMAND', command, context });
+  }, [context]);
+  const addCanvasCommand = useCallback((command: Command, position: { x: number; y: number }) => {
+    dispatchHistory({ type: 'COMMAND', command, position, context });
+  }, [context]);
+  const [layoutLoaded, setLayoutLoaded] = useState(false);
+  const initialWorkflow = useRef(state.workflow);
+  useEffect(() => { dispatchHistory({ type: 'LOAD_LAYOUT', layout: readCanvasLayout(initialWorkflow.current) }); setLayoutLoaded(true); }, []);
+  useEffect(() => { if (layoutLoaded) saveCanvasLayout(state.workflow.workflowId, history.layout); }, [layoutLoaded, state.workflow.workflowId, history.layout]);
+  const moveCanvasNodes = useCallback((positions: Readonly<Record<string, { x: number; y: number }>>) =>
+    dispatchHistory({ type: 'MOVE', positions }), []);
+  const undo = useCallback(() => dispatchHistory({ type: 'UNDO' }), []);
+  const redo = useCallback(() => dispatchHistory({ type: 'REDO' }), []);
   const [pending, setPending] = useState<Pending | null>(null);
   const [chain, dispatchChain] = useReducer(chainReducer, undefined, initialChainState);
   const workflowRef = useRef(state.workflow);
@@ -94,7 +112,9 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     if (!checkChainAccess(chainRef.current, workflowRef.current, Date.now(), performance.now()).ok) { accessCheck(); return; }
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
-  return <Context.Provider value={{ state, dispatch, context, pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
+  return <Context.Provider value={{ state, dispatch, context, canvasLayout: history.layout, canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0, undo, redo, moveCanvasNodes, addCanvasCommand,
+    pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
     chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck }}>
     <BaseObservationProvider>{children}</BaseObservationProvider>
   </Context.Provider>;
