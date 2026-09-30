@@ -1,5 +1,9 @@
 # Scope guard
 
+## Current UX path policy (BUILD-GOV-001)
+
+Ordinary reference DApp styling, image assets, canvas and Simulate presentation, editor helpers, and UX browser tests use the category rules in `scripts/governance_ux_scope.py`. They need typecheck, lint, focused tests, and browser tests when relevant. They do not need a DEC record, owner path approval, or a manual governance amendment. Unrecognized paths fail closed. Wallet/signing, server and network code, protocol adapters, execution and capability rules, public execution, evidence promotion, credentials, and governance files still require explicit approval. Historical build comparisons remain pinned to their delivered commits. This policy grants no execution authority.
+
 
 ## BUILD-011D-1 approved implementation boundary (DEC-0054)
 
