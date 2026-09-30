@@ -4,7 +4,7 @@ import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/acti
 import { createReviewContext } from '@defi-workflow-engine/reference-linter';
 import { amountOf, type Command } from './commands';
 import { deletableCanvasNodes } from './canvas-keyboard';
-import { editorHistoryReducer, initialEditorHistory, type EditorHistory } from './editor-history';
+import { editorHistoryReducer, initialEditorHistory, planCanvasDuplicate, type EditorHistory } from './editor-history';
 
 const context = createReviewContext({ registryId: referenceRegistry.registryId,
   capabilityId: referenceRegistry.capabilities[0]?.id, actionId: referenceRegistry.actions[0]?.id, assets: baseAssetRegistry });
@@ -15,6 +15,44 @@ const add = (state: EditorHistory, kind: 'read' | 'transform' | 'condition' = 't
   edit(state, { type: 'ADD', kind, source: 'CANVAS' });
 
 describe('canvas edit history', () => {
+  it('duplicates one selected node with a new ID and one undoable offset', () => {
+    let state = initialEditorHistory();
+    const before = state.past.length;
+    const plan = planCanvasDuplicate(state.editor.workflow, state.layout, ['node-001'], context)!;
+    state = editorHistoryReducer(state, { type: 'DUPLICATE', nodeIds: ['node-001'], context });
+    expect(state.past).toHaveLength(before + 1);
+    expect(state.editor.workflow.nodes).toHaveLength(2);
+    expect(plan.ids[0]).not.toBe('node-001');
+    expect(state.layout[plan.ids[0]!]).toMatchObject({ x: 121, y: 126 });
+    state = editorHistoryReducer(state, { type: 'UNDO' });
+    expect(state.editor.workflow.nodes).toHaveLength(1);
+    state = editorHistoryReducer(state, { type: 'REDO' });
+    expect(state.editor.workflow.nodes.map(node => node.nodeId)).toContain(plan.ids[0]);
+    expect(state.layout[plan.ids[0]!]).toMatchObject({ x: 121, y: 126 });
+  });
+
+  it('duplicates a connected group and keeps only edges inside the selection', () => {
+    let state = add(add(initialEditorHistory()), 'condition');
+    state = edit(state, { type: 'CONNECT', from: 'node-001', to: 'node-002', source: 'CANVAS' });
+    state = edit(state, { type: 'CONNECT', from: 'node-002', to: 'node-003', source: 'CANVAS' });
+    state = editorHistoryReducer(state, { type: 'MOVE', positions: { 'node-002': { x: 330, y: 210 }, 'node-003': { x: 600, y: 250 } } });
+    const plan = planCanvasDuplicate(state.editor.workflow, state.layout, ['node-002', 'node-003'], context)!;
+    const before = state.past.length;
+    state = editorHistoryReducer(state, { type: 'DUPLICATE', nodeIds: ['node-002', 'node-003'], context });
+    expect(state.past).toHaveLength(before + 1);
+    expect(new Set(state.editor.workflow.nodes.map(node => node.nodeId)).size).toBe(5);
+    expect(state.layout[plan.ids[1]!]!.x - state.layout[plan.ids[0]!]!.x).toBe(270);
+    expect(state.layout[plan.ids[1]!]!.y - state.layout[plan.ids[0]!]!.y).toBe(40);
+    expect(state.editor.workflow.resourceEdges.filter(edge => plan.ids.includes(edge.toNodeId)))
+      .toEqual([{ fromNodeId: plan.ids[0], outputId: 'result', toNodeId: plan.ids[1], inputName: 'source' }]);
+    expect(state.editor.workflow.nodes.find(node => node.nodeId === plan.ids[0])?.dependencies).toEqual([]);
+    state = editorHistoryReducer(state, { type: 'UNDO' });
+    expect(state.editor.workflow.nodes).toHaveLength(3);
+    expect(state.editor.workflow.resourceEdges).toHaveLength(2);
+    state = editorHistoryReducer(state, { type: 'REDO' });
+    expect(state.editor.workflow.nodes).toHaveLength(5);
+    expect(state.editor.workflow.resourceEdges).toHaveLength(3);
+  });
   it('records a group move once, preserving relative positions through undo and redo', () => {
     let state = add(add(initialEditorHistory()), 'condition');
     state = editorHistoryReducer(state, { type: 'MOVE', positions: { 'node-002': { x: 330, y: 210 }, 'node-003': { x: 600, y: 210 } } });
