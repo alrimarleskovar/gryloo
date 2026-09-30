@@ -529,6 +529,9 @@ jobs:
           if scope_base=='51dc1c31a964f19fab2d7dc7dd0771e28f14e0b7' and os.environ.get('GOVERNANCE_REF') in ('codex/build-gov-001-2','main'):
               governance_files={'.github/workflows/governance.yml','scripts/governance_ux_scope.py',
                                 'scripts/test_governance_ux_scope.py'}
+          if scope_base=='2fdc094f34ffe01f6204db447f9781f2a65715f0' and os.environ.get('GOVERNANCE_REF') in ('codex/build-gov-001-3','main'):
+              governance_files={'.github/workflows/governance.yml','scripts/governance_ux_scope.py',
+                                'scripts/test_governance_ux_scope.py'}
           errors += ['unapproved removed path: '+v for v in sorted(set(scoped)-now)]
           for v in sorted(now):
               file=root/v
