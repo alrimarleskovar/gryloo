@@ -176,6 +176,15 @@
 .liquidity-payload details { min-width: 0; }
 .liquidity-payload code { display: block; max-height: 10rem; overflow: auto; overflow-wrap: anywhere; padding: .75rem; font-size: .75rem; }
 .liquidity-panel [role='alert'] { overflow-wrap: anywhere; }
+/* BUILD-UX-002B: keep the workflow and simulated values in view; reveal engineering detail on request. */
+.main:has(> .simulate-panel) > .page-heading p:last-child{font-size:11px;max-width:620px;line-height:1.35}
+.simulate-details-toggle{justify-self:start;min-height:28px;padding:3px 9px;border-radius:6px;font-size:11px;color:var(--muted)!important;font-weight:600}
+.simulate-details-toggle::after{content:'⌄';display:inline-block;margin-left:7px}
+.simulate-details-toggle[aria-expanded='true']::after{transform:rotate(180deg)}
+.simulate-panel[data-technical-open='false'] :is(.simulate-head .muted,.chain-retired,.chain-strip,.enforcement-table,.chain-findings,.simulate-validity,.simulate-next,.simulate-empty p){display:none}
+.simulate-panel[data-technical-open='false'] .artifact-json{display:flex;gap:6px;flex-wrap:wrap}
+.simulate-panel[data-technical-open='false'] .artifact-json button{min-height:28px;padding:2px 7px;font-size:10px;font-weight:600}
+.main:has(> .simulate-panel[data-technical-open='false']) > :is(.observation-panel,.fork-panel,.mode-b-panel,.cow-panel,.liquidity-panel,[aria-label='Mode B swap to liquidity composition']){display:none}
 @media (max-width: 720px) { .liquidity-buttons { display: grid; grid-template-columns: 1fr; } .liquidity-buttons button { width: 100%; } }
 
 /* BUILD-008 bridge review follows the existing panel language and remains visibly MOCKED. */

@@ -107,6 +107,10 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
   await generate(page);
   await viewportFitted(page);
+  await expect(panel(page).locator('.simulate-canvas')).toBeVisible();
+  await expect(panel(page).locator('.simulate-swap')).toBeVisible();
+  await expect(panel(page).locator('.chain-strip')).toHaveCSS('display', 'none');
+  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true });
   await readIr(page);
   await tab(page, 'Execute');
@@ -140,6 +144,8 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await expect(panel(page).getByRole('button', { name: /Show JSON/ })).toHaveCount(0);
   await expect(page.getByText('ARTIFACTS: INVALIDATED', { exact: true })).toBeVisible();
   await viewportFitted(page);
+  await expect(panel(page).locator('.simulate-empty')).toBeVisible();
+  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(page).toHaveScreenshot('simulate-invalidated.png', { fullPage: true });
 });
 
@@ -167,6 +173,8 @@ test('expiry is detected on tab resume and on access without any timer firing (R
   await expect(panel(page)).toContainText('EXPIRED · the 60-second mock validity window ended');
   await expect(panel(page).locator('[data-mocked-value]')).toHaveCount(0);
   await viewportFitted(page);
+  await expect(panel(page).locator('.simulate-empty')).toBeVisible();
+  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
   await expect(page).toHaveScreenshot('simulate-expired.png', { fullPage: true });
 
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
