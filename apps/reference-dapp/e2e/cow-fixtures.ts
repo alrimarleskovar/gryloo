@@ -14,6 +14,8 @@ export const cowPanel = (page: Page, stage: 'simulation' | 'execution') =>
   page.getByRole('region', { name: 'CoW signed-intent ' + stage });
 export const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') =>
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
+export const openTechnicalDetails = (page: Page) =>
+  page.getByRole('button', { name: 'Show technical details' }).click();
 export async function authorCowSwap(page: Page): Promise<void> {
   await stage(page, 'Build');
   if (!(await page.getByLabel('Direction').isVisible())) await page.getByText('Advanced action setup', { exact: true }).click();
@@ -70,6 +72,7 @@ export { expect };
 export async function prepareCow(page: Page, scenario: string): Promise<void> {
   await authorCowSwap(page);
   await stage(page, 'Simulate');
+  await openTechnicalDetails(page);
   const panel = cowPanel(page, 'simulation');
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Connect disposable local wallet' }).click();

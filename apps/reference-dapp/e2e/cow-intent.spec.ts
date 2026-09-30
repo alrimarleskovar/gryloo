@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { authorCowSwap, cowPanel, expect, prepareCow, stage, test } from './cow-fixtures';
+import { authorCowSwap, cowPanel, expect, openTechnicalDetails, prepareCow, stage, test } from './cow-fixtures';
 
 test.skip(process.env.GRYLOO_COW !== 'loopback', 'CoW browser acceptance requires the isolated loopback orderbook');
 
@@ -47,6 +47,7 @@ test('wrong-chain disposable wallet is refused before quote or signing', async (
   await page.goto('/');
   await authorCowSwap(page);
   await stage(page, 'Simulate');
+  await openTechnicalDetails(page);
   const panel = cowPanel(page, 'simulation');
   await panel.getByRole('button', { name: 'Connect disposable local wallet' }).click();
   await expect(panel.getByRole('alert')).toContainText('COW_WALLET_CHAIN_MISMATCH');
@@ -65,6 +66,7 @@ test('CoW option is keyboard reachable and review fits a narrow viewport', async
   await expect(choice).toBeChecked();
   await authorCowSwap(page);
   await stage(page, 'Simulate');
+  await openTechnicalDetails(page);
   const simulation = cowPanel(page, 'simulation');
   await simulation.getByRole('button', { name: 'Connect disposable local wallet' }).click();
   await expect(simulation.locator('.wallet-chip')).toContainText(cowWallet.owner.slice(0, 10));

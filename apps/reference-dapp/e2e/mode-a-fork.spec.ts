@@ -2,7 +2,7 @@
 import { payloadIdentity, fromHex, encodeUnsignedPayload } from '@defi-workflow-engine/reference-compiler';
 import { verifySignedPayload } from '@defi-workflow-engine/reference-reconciler';
 import {
-  authorSwap, executionPanel, expect, forkPanel, forkRpc, preparedRecord, requestStep, reviewAndConnect, simulateOnFork, stepState, test, visual,
+  authorSwap, executionPanel, expect, forkPanel, forkRpc, openTechnicalDetails, preparedRecord, requestStep, reviewAndConnect, simulateOnFork, stepState, test, visual,
 } from './mode-a-fixtures';
 
 const unsignedFromRequest = (request: Record<string, string>) => encodeUnsignedPayload({ chainId: 31337, nonce: BigInt(request.nonce!),
@@ -87,6 +87,7 @@ test('a semantic edit retires the reviewed fork action and no wallet request is 
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await openTechnicalDetails(page);
   await expect(forkPanel(page).getByText('FORK: INVALIDATED', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
   expect(testWallet.calls.filter(call => call.method === 'eth_sendTransaction')).toHaveLength(0);
@@ -96,6 +97,7 @@ test('mocked and observed artifacts can never open Mode A review or execution', 
   await page.goto('/');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await openTechnicalDetails(page);
   const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
