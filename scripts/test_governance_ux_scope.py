@@ -7,6 +7,8 @@ from governance_ux_scope import low_risk_path, low_risk_source
 PREFIX = "apps/reference-dapp/"
 WORKFLOW_STORE = PREFIX + "src/state/workflow-store.tsx"
 WORKFLOW_SOURCE = (Path(__file__).resolve().parents[1] / WORKFLOW_STORE).read_text()
+SIMULATE_SPEC = PREFIX + "e2e/mock-artifact-chain.spec.ts"
+SIMULATE_SOURCE = (Path(__file__).resolve().parents[1] / SIMULATE_SPEC).read_text()
 
 
 class ScopeTests(unittest.TestCase):
@@ -96,6 +98,34 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(low_risk_source(WORKFLOW_STORE, "", "", WORKFLOW_SOURCE, changed_import))
         protected = WORKFLOW_SOURCE.replace("dispatchChain({ type: 'REVISION_ACCEPTED', workflow: state.workflow });", "dispatchChain({ type: 'EXECUTE', workflow: state.workflow });")
         self.assertFalse(low_risk_source(WORKFLOW_STORE, "", "", WORKFLOW_SOURCE, protected))
+
+    def test_simulate_visual_assertion_and_exact_snapshots(self):
+        anchor = "  await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true });"
+        visual = "  await expect(panel(page).locator('.simulate-grid')).toBeVisible();\n"
+        changed = SIMULATE_SOURCE.replace(anchor, visual + anchor)
+        self.assertTrue(low_risk_path(SIMULATE_SPEC))
+        self.assertTrue(low_risk_source(SIMULATE_SPEC, "", "", SIMULATE_SOURCE, changed))
+        for name in ("simulate-current", "simulate-expired", "simulate-invalidated"):
+            path = PREFIX + f"e2e/mock-artifact-chain.spec.ts-snapshots/{name}-chromium-linux.png"
+            with self.subTest(path=path):
+                self.assertTrue(low_risk_path(path))
+
+    def test_simulate_semantics_and_other_snapshots_stay_protected(self):
+        changes = (
+            ("await expect(page.getByRole('region', { name: 'Execute unavailable' }))", "await expect(page.getByRole('region', { name: 'Execute ready' }))"),
+            ("expect(simulation.value.artifactSetHash).toBe(setHash);", "expect(simulation.value.artifactSetHash).toBe('anything');"),
+            ("await expect(panel(page).locator('[data-mocked-value]')).toHaveCount(0);", "await expect(panel(page).locator('[data-mocked-value]')).toHaveCount(1);"),
+        )
+        for before, after in changes:
+            with self.subTest(before=before):
+                self.assertIn(before, SIMULATE_SOURCE)
+                changed = SIMULATE_SOURCE.replace(before, after, 1)
+                self.assertFalse(low_risk_source(SIMULATE_SPEC, "", "", SIMULATE_SOURCE, changed))
+        screenshot = "  await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true });"
+        self.assertFalse(low_risk_source(SIMULATE_SPEC, "", "", SIMULATE_SOURCE, SIMULATE_SOURCE.replace(screenshot, "")))
+        unsafe = "  await expect(panel(page).locator('.simulate-grid')).toHaveCSS(fetch('/rpc'), 'x');\n"
+        self.assertFalse(low_risk_source(SIMULATE_SPEC, "", "", SIMULATE_SOURCE, SIMULATE_SOURCE.replace(screenshot, unsafe + screenshot)))
+        self.assertFalse(low_risk_path(PREFIX + "e2e/mock-artifact-chain.spec.ts-snapshots/unrelated-chromium-linux.png"))
 
 
 if __name__ == "__main__":
