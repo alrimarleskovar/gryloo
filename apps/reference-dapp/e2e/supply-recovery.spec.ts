@@ -23,7 +23,7 @@ test('restart preserves a reverted approval and never requests it again',async({
 test('bounded missing approval can prepare a fresh review after restart without submitting or deleting the original intent',async({page})=>{
   await resetSupplyHarness({nonce:3});await installSupplyWallet(page,{notBroadcast:'APPROVAL'});await authorSupply(page);await reviewSupply(page);
   await page.getByRole('region',{name:'Aave Supply'}).getByRole('button',{name:'Execute',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Observe existing transaction'})).toBeVisible();expect(await supplySendCount(page)).toBe(1);
+  await expect(page.getByRole('button',{name:'Observe existing transaction'})).toBeVisible();await expect.poll(()=>supplySendCount(page)).toBe(1);await expect(page.getByRole('button',{name:'Observe existing transaction'})).toBeEnabled();
   await supplyHarnessRpc('MOCK_reset',[{block:200,nonce:3}]);await page.getByRole('button',{name:'Observe existing transaction'}).click();
   await expect(page.getByRole('button',{name:'Prepare fresh review'})).toBeVisible();
   await page.reload();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();

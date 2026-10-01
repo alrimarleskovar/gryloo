@@ -81,7 +81,7 @@ REVIEWED_BYTES = {'.github/workflows/contracts.yml': '7110c5fb783e162cc9792b39d4
  'apps/reference-dapp/e2e/canvas-ux.spec.ts': 'de1cf3236ecf5237739bf0503def218373129c57895e797661b07145e21c1536',
  'apps/reference-dapp/e2e/supply-fixtures.ts': '97253f888bae8afdeeabc57896e31326556fc8f0f8377653c98fe8a5f6ca216f',
  'apps/reference-dapp/e2e/supply-harness.mjs': '0afb7573866bf422c632d2a15d97b3a1eb60687c0a906d2ef1141f4d69c6b736',
- 'apps/reference-dapp/e2e/supply-recovery.spec.ts': '81243b7d7fa70b8512ee586b4d1b387d442c8b0fe82ab950534475eab64fec79',
+ 'apps/reference-dapp/e2e/supply-recovery.spec.ts': 'f0d0db7c3d1a93478dd584cc5e6a9c9c471d19eb8b56d9f90202861e85d300c3',
  'apps/reference-dapp/e2e/supply.spec.ts': '50f438a4438926e6d84b3700ba51c5dfcbfdd06bf15445bc0bd9ff0f60866303',
  'apps/reference-dapp/playwright.config.ts': '30d66e2ac1efbd21a982f68c2a7741a30c6415c607c931a66618295ebb88d0b3',
  'apps/reference-dapp/src/app/page.tsx': '3a2335c142e0a8d938aa5eb0f12101711efc2d2b032bd81179ab48eae0581d56',
