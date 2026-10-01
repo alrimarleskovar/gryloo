@@ -119,3 +119,7 @@ After the owner merged PR #16 as 1edd783028ee8eed0953ca1e7e1446ad03229844, the p
 ## BUILD-011D-2 exact public authority (DEC-0055)
 
 The owner authorizes one Base Sepolia (84532) Uniswap v3 exact-input swap through the canonical DApp with an injected wallet, bounded approval if needed, read-only public state verification, receipt and independent Evidence Bundle. The owner confirms transactions in the wallet. Gryloo does not sign server-side. Only this exact profile may become `TESTNET_EXECUTED` after the real receipt and reconciliation. Mainnet, bridge, pool as product action, lending and composed public execution remain unavailable. The branch and one PR remain unmerged for owner review.
+
+## BUILD-012A authority
+
+DEC-0056 authorizes only the exact 64 paths in BUILD-012A-PLAN §8 from baseline 64a0a46f45532d667e226193f29529d8938acf15. Canonical Supply / aave-v3 on the verified Base Sepolia Pool and Aave USDC reserve, existing injected wallet, read-only simulation, finite approval, persistence/recovery and independent reconciliation/evidence are permitted. Owner financial acceptance requires Execute and wallet approval in Gryloo. No new path, dependency, unrelated protocol/profile, merge or later lending action is authorized.

@@ -5,9 +5,12 @@ import { HELP, BRIDGE_HELP, parseLocalCommand, summarize } from '../domain/comma
 import { useWorkflow } from '../state/workflow-store';
 import { useBridge } from '../state/bridge-store';
 
+import { useBuild009Wallet } from '../state/build009-wallet-store';
+
 type Message = { role: 'system' | 'you'; text: string };
 export function CopilotPanel() {
   const { state, context, pending, propose, applyProposal, dismissProposal } = useWorkflow();
+  const wallet = useBuild009Wallet();
   const bridgeEnabled = useBridge().enabled;
   const guidance = state.workflow.nodes.some(node => node.actionType === 'asset.liquidity.prepare')
     ? `${bridgeEnabled ? BRIDGE_HELP : HELP} Cross-chain: bridge 100 USDC from Base to Arbitrum via LI.FI and create Uniswap liquidity ticks -200100 to -199900 recipient 0x1111111111111111111111111111111111111111.`
@@ -25,7 +28,7 @@ export function CopilotPanel() {
       return;
     }
     try {
-      const command = parseLocalCommand(text, state.workflow, context);
+      const command = parseLocalCommand(text, state.workflow, context, wallet.account);
       propose(command);
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: `Proposal: ${text}. Review against revision ${command.baseRevision} before applying.` }]);
     } catch {

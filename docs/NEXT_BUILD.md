@@ -1,10 +1,18 @@
 # Next build
 
-## Current implementation: BUILD-011D-2
+## Current implementation: BUILD-012A
+
+DEC-0056 approves [BUILD-012A Supply](builds/BUILD-012A-PLAN.md) from main `64a0a46f45532d667e226193f29529d8938acf15`. Status: IMPLEMENTATION_IN_PROGRESS. One exact official Aave V3 USDC Supply profile on Base Sepolia is authorized, with owner execution through Gryloo required for TESTNET_EXECUTED. Implementation, deterministic checks and one unmerged PR precede owner funding/signature. BUILD-012B Borrow, 012C Repay and 012D Withdraw remain unstarted and unapproved. No merge is authorized.
+
+## Current next milestone: BUILD-012A owner public execution
+
+Only independently reconciled real injected-wallet execution initiated by the owner in Gryloo satisfies acceptance. MOCKED fixtures and fork tests are development evidence.
+
+## Historical implementation: BUILD-011D-2
 
 The owner approved the [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) under DEC-0055. The owner-authorized DApp swap succeeded and its public receipt, balances, gas and Evidence Bundle support `TESTNET_EXECUTED` for the exact Uniswap Swap + Base Sepolia profile. Local gates, one unmerged PR and CI close this build. BUILD-012 — Aave V3 primitives — remains a separate future decision; no BUILD-012 implementation is underway.
 
-## Current next milestone: BUILD-011D-2 — First real public testnet/devnet execution
+## Historical next milestone: BUILD-011D-2 — First real public testnet/devnet execution
 
 DEC-0054 approves BUILD-011D-1 from main `33a83ce9de18d8bbbfe4ccfb73811b00c09f290d`: capability registry, runtime environment inspection and honest Execute gating. Its unmerged PR remains for owner review. BUILD-011D-2 is the next planned build for the first real public testnet/devnet execution from the canonical Gryloo DApp, subject to a separate plan and owner approval. No public financial transaction, `TESTNET_EXECUTED`, Mainnet, BUILD-012 Aave V3, or merge is authorized by BUILD-011D-1.
 

@@ -6,10 +6,14 @@ import { usePublicTestnet } from '../state/public-testnet-store';
 import { useWorkflow } from '../state/workflow-store';
 import type { Tab } from './top-bar';
 
+import { useSupply } from '../state/supply-store';
+
 export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void }) {
   const { state } = useWorkflow();
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
+  const supply = useSupply();
+  const supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply') || Boolean(supply.recovered && supply.record?.attempts.length);
   const publicTestnet = usePublicTestnet();
   const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
@@ -17,6 +21,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
     <div><span className="eyebrow">WORKFLOW</span><strong>{state.workflow.nodes.length} steps</strong></div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Continue to Simulate</button>
+      : tab === 'Simulate' && supplyPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!supply.record || supply.retired}>Review Supply</button>
       : tab === 'Simulate' && publicPath ? <button type="button" className="primary" onClick={() => setTab('Execute')}
           disabled={!publicTestnet.run || publicTestnet.retired}>Review swap</button>
       : tab === 'Simulate' && modeB.info?.available && modeB.status?.prepared ?

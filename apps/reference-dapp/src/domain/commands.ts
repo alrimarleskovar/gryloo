@@ -11,8 +11,12 @@ import type { BridgeSwapInput } from './bridge-swap-authoring';
 import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
+import { createAuthoredSupply, supplyDetails, type SupplyInput } from './supply-authoring';
+
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
+  | { readonly type: 'ADD_SUPPLY'; readonly input: SupplyInput }
+  | { readonly type: 'SET_SUPPLY'; readonly nodeId: string; readonly input: SupplyInput }
   | { readonly type: 'ADD'; readonly kind: ActionKind }
   | { readonly type: 'SET_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'LOCK'; readonly nodeId: string; readonly locked: boolean }
@@ -45,9 +49,24 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
   if (set) return { type: 'SET_AMOUNT', nodeId: set[1]!, amount: set[2]!, source: 'CHAT', baseRevision };
   throw new Error(HELP);
 }
-export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext): Command {
+export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext, defaultBeneficiary?: string | null): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const supply = /^supply ([0-9]+(?:\.[0-9]+)?) USDC to Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  if (supply) {
+    const beneficiary = supply[2] ?? defaultBeneficiary;
+    if (!beneficiary) throw new Error('SUPPLY_BENEFICIARY_REQUIRED');
+    const fields: SupplyInput = { network: 'Base Sepolia', asset: 'USDC', amount: supply[1]!, beneficiary };
+    createAuthoredSupply('node-preview', fields);
+    return { type: 'ADD_SUPPLY', input: fields, source: 'CHAT', baseRevision: workflow.revision };
+  }
+  const supplyEdit = /^set (node-\d+) amount (\S+)$/i.exec(input);
+  if (supplyEdit) {
+    const node = workflow.nodes.find(n => n.nodeId === supplyEdit[1]);
+    const fields = node && supplyDetails(node as Parameters<typeof supplyDetails>[0]);
+    if (fields) { const updated = { ...fields, amount: supplyEdit[2]! }; createAuthoredSupply(node!.nodeId, updated);
+      return { type: 'SET_SUPPLY', nodeId: node!.nodeId, input: updated, source: 'CHAT', baseRevision: workflow.revision }; }
+  }
   const crossChain = /^bridge ([0-9]+(?:\.[0-9]+)?) USDC from Base to Arbitrum via (LI\.FI|Across) and create Uniswap liquidity ticks (-?[0-9]+) to (-?[0-9]+) recipient (0x[0-9a-fA-F]{40})(?: without swap)?$/i.exec(input);
   if (crossChain) {
     parseBridgeAmount(crossChain[1]!); parseTick(`tick:${crossChain[3]}`); parseTick(`tick:${crossChain[4]}`);
@@ -120,7 +139,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -128,6 +147,15 @@ export function commandIsValid(input: unknown): input is Command {
       || (keys as string[]).sort().join() !== ['type', 'source', 'baseRevision', ...fields[command.type]!].sort().join()) return false;
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
+    case 'ADD_SUPPLY':
+    case 'SET_SUPPLY': {
+      if (command.type === 'SET_SUPPLY' && !id(command.nodeId)) return false;
+      const fields = command.input;
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.getPrototypeOf(fields) !== Object.prototype ||
+          Reflect.ownKeys(fields).sort().join() !== ['network','asset','amount','beneficiary'].sort().join() ||
+          !Object.values(fields).every(v => typeof v === 'string' && v.length <= 80)) return false;
+      try { createAuthoredSupply('node-preview', fields as SupplyInput); return true; } catch { return false; }
+    }
     case 'ADD': return actionKinds.includes(command.kind as ActionKind);
     case 'SET_AMOUNT': return id(command.nodeId) && typeof command.amount === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(command.amount);
     case 'LOCK': return id(command.nodeId) && typeof command.locked === 'boolean' && command.source === 'CANVAS';
@@ -197,6 +225,8 @@ export function amountOf(node: Workflow['nodes'][number]): string {
 }
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
+    const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);
+    if (supply) return `${node.nodeId}: Supply ${supply.amount} USDC to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
     const bridge = bridgeDetails(node);
     if (bridge) return `${node.nodeId}: Base to ${node.expectedOutputs[0]?.asset.chainId === 'eip155:42161' ? 'Arbitrum' : 'Optimism'} USDC bridge, ${bridge.amount} USDC, ${bridge.slippageBps} bps, unquoted.`;
     const position = context && liquidityDetails(node, context);

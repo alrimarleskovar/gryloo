@@ -53,6 +53,8 @@ jobs:
             33a83ce9de18d8bbbfe4ccfb73811b00c09f290d
             205055605d96f36e024a0bbc770453113e4f7b40
             8131ce6680d00e45b96c01353585ce548000d878
+            # DEC-0056: fixed BUILD-012A baseline; no broad category allowance.
+            64a0a46f45532d667e226193f29529d8938acf15
             # HOTFIX-004 continuation pushes still validate the complete approved main-to-branch diff.
             4dbe16774acc6d30c2ba0425be14b205c8301423
             # HOTFIX-002 self-tests read its merged, byte-pinned historical fixtures.
@@ -74,6 +76,10 @@ jobs:
         shell: bash
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_governance_ux_scope.py'
 
+      - name: Test exact BUILD-012A scope and source permissions
+        shell: bash
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_governance_build012a_scope.py'
+
       - name: Verify historical BUILD-002 through BUILD-003C and current BUILD-003D closure scope
         env:
           GOVERNANCE_REF: ${{ github.head_ref || github.ref_name }}
@@ -86,6 +92,7 @@ jobs:
           root=pathlib.Path('.')
           sys.path.insert(0,str(root/'scripts'))
           from governance_ux_scope import low_risk_path, low_risk_source
+          import governance_build012a_scope as supply_scope
           HOTFIX_002_BASE='c67cc13bfeebd8f98affddf52d4f7a25f5f07a48'
           HOTFIX_002_REFS={'codex/hotfix-002-simulate-test-migration','main'}
           HOTFIX_002_TEST_BYTES={
@@ -577,7 +584,20 @@ jobs:
           if (scope_base=='bd5717b51a2d879b786c002ba9c8aecafc41f4f4' and
                   os.environ.get('GOVERNANCE_REF')=='codex/hotfix-004-mode-a-recovery'):
               scope_base=HOTFIX_004_BASE
+          # One exact branch always compares the entire build against the owner's baseline,
+          # including continuation pushes. Event-before never widens this approved path set.
+          build012a=os.environ.get('GOVERNANCE_REF')==supply_scope.REF
+          if build012a: scope_base=supply_scope.BASE
           scoped=tree(scope_base)
+          if build012a:
+              changed={v for v in now if v not in scoped or
+                       ('100755' if (root/v).stat().st_mode & 0o111 else '100644',
+                        subprocess.check_output(['git','hash-object',v],text=True).strip())!=scoped[v]}
+              changed.update(set(scoped)-now)
+              files={v:(root/v).read_bytes() for v in supply_scope.CREATE|supply_scope.MODIFY if (root/v).is_file()}
+              errors += supply_scope.validate_scope(scope_base,os.environ['GOVERNANCE_REF'],changed,files)
+              if supply_scope.CREATE&set(scoped) or not supply_scope.MODIFY<=set(scoped):
+                  errors.append('BUILD-012A create/modify baseline mismatch')
           governance_build=(scope_base==policy_cutoff and os.environ.get('GOVERNANCE_REF') in ('codex/build-gov-001','main'))
           governance_files={'.github/workflows/governance.yml','scripts/governance_ux_scope.py',
                             'scripts/test_governance_ux_scope.py','docs/SCOPE_GUARD.md'} if governance_build else set()
@@ -631,6 +651,7 @@ jobs:
                   if mode!=scoped[v][0]: errors.append('changed file mode: '+v)
               elif not file.is_file() or file.is_symlink() or file.stat().st_mode & 0o111:
                   errors.append('new path must be regular non-executable file: '+v)
+              if (build012a and v in supply_scope.CREATE|supply_scope.MODIFY): continue
               if (v in governance_files or (hotfix_002 and v in set(HOTFIX_002_TEST_BYTES)|HOTFIX_002_POLICY_FILES)
                       or (hotfix_003 and v in set(HOTFIX_003_TEST_BYTES)|HOTFIX_003_POLICY_FILES)
                       or (hotfix_004 and v in set(HOTFIX_004_HARNESS_BYTES)|HOTFIX_004_POLICY_FILES)): continue
@@ -649,7 +670,7 @@ jobs:
               old=subprocess.check_output(['git','show',base007+':'+v],text=True)
               new=(root/v).read_text()
               expected=old.replace('workspace:0.2.1','workspace:0.3.0')
-              if hotfix_004 and v=='apps/reference-dapp/package.json':
+              if (hotfix_004 or build012a) and v=='apps/reference-dapp/package.json':
                   expected=expected.replace('"next": "16.3.5"','"next": "16.3.6"')
               if new!=expected:
                   errors.append('BUILD-007 consumer manifest changed beyond approved pin: '+v)
@@ -766,6 +787,7 @@ jobs:
                       'apps/reference-dapp/src/server/public-testnet-service.test.ts': ('https://sepolia.basescan.org/tx/',),
                       'apps/reference-dapp/src/state/build009-wallet-store.tsx': ('https://sepolia.base.org', 'https://sepolia.basescan.org'),
                   }
+                  body=supply_scope.mask_source(file.as_posix(),body,'urls')
                   for url in public_urls.get(file.as_posix(), ()): body=body.replace(url,'')
                   if re.search(r'https?://|wss?://|@import\s+url',body):
                       errors.append('remote application URL: '+file.as_posix())
@@ -778,7 +800,9 @@ jobs:
           for file in sources:
               body=file.read_text()
               for pattern in forbidden:
-                  scanned=body.replace('fetch(', '', 1) if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts' and pattern.startswith(r'\bfetch') else body
+                  category=('authority' if pattern.startswith(r'\b(?:AuthorizationPolicy') else 'fetch' if pattern.startswith(r'\bfetch') else 'wallet' if pattern.startswith('window') else 'storage' if pattern.startswith(r'\b(?:localStorage') else '')
+                  masked=supply_scope.mask_source(file.as_posix(),body,category)
+                  scanned=masked.replace('fetch(', '', 1) if file.as_posix()=='apps/reference-dapp/src/server/base-rpc.ts' and pattern.startswith(r'\bfetch') else masked
                   name=file.as_posix()
                   if pattern.startswith(r'\bfetch') and name=='apps/reference-dapp/src/server/fork-rpc.ts':
                       scanned=scanned.replace('globalThis.fetch(url, init)','',1)
@@ -866,12 +890,13 @@ jobs:
                   errors.append('server or linter observation marked use client: '+name)
               if name not in observation_files and any(token in body for token in observation_tokens):
                   errors.append('observation token outside consumer allowlist: '+name)
-              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action,build009_action,'apps/reference-dapp/src/app/across-action.ts','apps/reference-dapp/src/app/public-testnet-action.ts'} and name not in f_tests:
+              if name.startswith('apps/reference-dapp/src/') and '/server/' not in name and name not in {'apps/reference-dapp/src/app/observation-action.ts',f_action,b_action,cow_action,l_action,composition_action,bridge_action,build009_action,'apps/reference-dapp/src/app/across-action.ts','apps/reference-dapp/src/app/public-testnet-action.ts',supply_scope.ACTION} and name not in f_tests:
                   if re.search(r'''(?:from|import)\s*\(?['"][^'"]*(?:/server/|\.\./server/)''' ,type_only(body)):
                       errors.append('client imports server module: '+name)
               if file in non_test:
                   allowed=(rpc_methods if name in {'packages/reference-linter/src/base-observation.ts','apps/reference-dapp/src/server/base-rpc.ts'}
                            else {'eth_chainId','eth_accounts','eth_sendTransaction'} if name=='apps/reference-dapp/src/state/public-testnet-store.tsx' else {'eth_chainId','eth_accounts','eth_requestAccounts','wallet_switchEthereumChain','wallet_addEthereumChain'} if name==build009_wallet else fork_read_methods|{'eth_blockNumber','eth_estimateGas','eth_gasPrice','eth_getTransactionByHash'} if name in {'apps/reference-dapp/src/app/public-testnet-action.ts','apps/reference-dapp/src/server/public-testnet-service.ts'} else fork_read_methods|{'eth_sendRawTransaction'} if name in {b_server,composition_service} else fork_read_methods if name in f_server|{f_action,l_server,l_action,composition_action} else {'eth_chainId','eth_accounts','eth_getTransactionCount','eth_sendTransaction','eth_requestAccounts'} if name in {b_store,composition_store} else {'eth_chainId','eth_requestAccounts'} if name in {bridge_store,build009_wallet} else {'eth_chainId','eth_requestAccounts','eth_sendTransaction'} if name==f_wallet else {'eth_chainId','eth_requestAccounts','eth_accounts','eth_signTypedData_v4'} if name==cow_wallet else set())
+                  allowed=allowed|supply_scope.rpc_methods(name)
                   for method in re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body):
                       if method not in allowed:
                           errors.append('non-allowlisted RPC method: '+name+' '+method)
@@ -902,7 +927,7 @@ jobs:
                               'packages/reference-executor/src/cross-chain-liquidity.ts',
                               'packages/reference-reconciler/src/cross-chain-liquidity.ts'}
           mode_a_names={file.as_posix() for file in mode_a_sources}
-          if len(mode_a_sources)!=31 or mode_a_names-set(merged011b)!=cross_chain_mode_a|{'packages/reference-executor/src/cross-chain-liquidity-store.ts'}:
+          if len(mode_a_sources)!=34 or mode_a_names-set(merged011b)!=cross_chain_mode_a|{'packages/reference-executor/src/cross-chain-liquidity-store.ts'}|supply_scope.PACKAGE_SOURCES:
               errors.append('Mode A package source set changed: '+str(len(mode_a_sources)))
           d5_policy={'eth_chainId','eth_getBlockByNumber','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_getStorageAt',
                      'eth_gasPrice','eth_getAccountInfo','eth_getBlockByHash','eth_getTransactionByHash','eth_getTransactionReceipt'}
@@ -923,6 +948,7 @@ jobs:
               methods=set(re.findall(r'\beth_[A-Za-z][A-Za-z0-9]*\b',body))
               allowed_methods=(d5_policy if name=='packages/reference-compiler/src/profile.ts'
                                else {'eth_simulateV1'} if name=='packages/reference-compiler/src/simulation.ts' else set())
+              allowed_methods=allowed_methods|supply_scope.rpc_methods(name)
               if not methods<=allowed_methods:
                   errors.append('non-allowlisted RPC method in Mode A package: '+name+' '+repr(sorted(methods-allowed_methods)))
               for selector in re.findall(r'0x[0-9a-f]{8}\b',body):
@@ -938,7 +964,7 @@ jobs:
               name=file.as_posix()
               body=file.read_text() if name in {'apps/reference-dapp/src/server/mode-a-service.ts',l_server,l_wallet}|f_tests else type_only(file.read_text())
               if name in {'apps/reference-dapp/src/server/mode-a-service.ts',b_server,cow_service,l_server,l_wallet,composition_service,bridge_service,'apps/reference-dapp/src/server/across-service.ts',
-                          'apps/reference-dapp/src/app/cross-chain-liquidity-action.ts'}|f_tests: continue
+                          'apps/reference-dapp/src/app/cross-chain-liquidity-action.ts',supply_scope.SERVICE,supply_scope.SERVICE_TEST}|f_tests: continue
               if re.search(r'@defi-workflow-engine/reference-(?:compiler|executor|reconciler)|packages/reference-(?:compiler|executor|reconciler)',body):
                   errors.append('application or linter imports a Mode A package outside the BUILD-003F server service: '+name)
           cross_chain_action=(root/'apps/reference-dapp/src/app/cross-chain-liquidity-action.ts').read_text()
@@ -1009,7 +1035,7 @@ jobs:
                   errors.append('BUILD-008 pure bridge package acquired network or wallet authority: '+name)
           # BUILD-003F negative boundary checks.
           for file in sources:
-              if re.search(r'''(?:from|import)\s*\(?['"][^'"]*e2e/''',file.read_text()):
+              if (file.as_posix()!=supply_scope.SERVICE_TEST or not supply_scope.reviewed_source(file.as_posix(),file.read_text())) and re.search(r'''(?:from|import)\s*\(?['"][^'"]*e2e/''',file.read_text()):
                   errors.append('application imports test harness code: '+file.as_posix())
           fork_rpc=(root/'apps/reference-dapp/src/server/fork-rpc.ts').read_text()
           declared=set(re.findall(r"'(eth_[A-Za-z0-9]+|anvil_metadata|txpool_content)'",fork_rpc.split('FORK_RPC_METHODS',1)[1].split(']',1)[0]))
@@ -1070,8 +1096,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PYCODE'
-          import hashlib, json, pathlib, re, subprocess, sys
+          import hashlib, json, os, pathlib, re, subprocess, sys
           root=pathlib.Path('.')
+          sys.path.insert(0,str(root/'scripts'))
+          import governance_build012a_scope as supply_scope
           amendment_baseline='606174f0bd944e5a1c31baf8dad685d7558b7cc8'
           amendment='docs/builds/BUILD-002-GOVERNANCE-AMENDMENT.md'
           errors=[]
@@ -1439,8 +1467,10 @@ jobs:
           if ('DEC-0038' not in next_build or '## BUILD-007 approved implementation (historical' not in next_build or
                   '## Historical next milestone: BUILD-007 planning only' not in next_build or 'No BUILD-007 plan, implementation' not in next_build):
               errors.append('BUILD-007 approval history or DEC-0037 history missing')
-          if (not next_build.startswith('# Next build\n\n## Current implementation: BUILD-011D-2') or
-                  '## Current next milestone: BUILD-011D-2' not in next_build or
+          if (not next_build.startswith('# Next build\n\n## Current implementation: BUILD-012A') or
+                  '## Current next milestone: BUILD-012A' not in next_build or
+                  'DEC-0056' not in next_build or
+                  '## Historical implementation: BUILD-011D-2' not in next_build or
                   'DEC-0047' not in next_build or
                   'DEC-0046' not in next_build or 'MOCKED' not in next_build or
                   'Base → Optimism USDC' not in next_build or

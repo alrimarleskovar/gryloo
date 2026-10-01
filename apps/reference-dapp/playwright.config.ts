@@ -33,6 +33,11 @@ if (!runtime.startsWith('/')) throw new Error('GRYLOO_MODE_A_RUNTIME must be abs
 process.env.GRYLOO_MODE_A_RUNTIME = runtime;
 process.env.GRYLOO_MODE_A_E2E = modeA;
 
+const supplyHarness = process.env.GRYLOO_SUPPLY_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_SUPPLY_E2E && !supplyHarness) throw new Error('Supply E2E permits only the MOCKED loopback harness');
+const supplyJournal = process.env.GRYLOO_SUPPLY_JOURNAL ?? join(tmpdir(), 'gryloo-build012a-' + Date.now() + '-' + process.pid);
+if (supplyHarness) process.env.GRYLOO_SUPPLY_JOURNAL = supplyJournal;
+
 export default defineConfig({
   testDir: './e2e',
   workers: 1,
@@ -54,7 +59,7 @@ export default defineConfig({
     video: 'off', trace: 'off', screenshot: 'off',
   },
   projects: [{ name: 'chromium' }],
-  webServer: [{
+  webServer: [...(supplyHarness ? [{ command: 'node e2e/supply-harness.mjs --serve', url: 'http://127.0.0.1:8549', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: 'http://127.0.0.1:8547',
     reuseExistingServer: false,
@@ -68,6 +73,7 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 60_000,
     env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',
+      ...(supplyHarness ? { GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: supplyJournal } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });

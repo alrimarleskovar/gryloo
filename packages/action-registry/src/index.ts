@@ -196,3 +196,5 @@ export function checkActionCompatibility(
     executable: false,
   });
 }
+
+export * from './aave-v3-testnet.js';

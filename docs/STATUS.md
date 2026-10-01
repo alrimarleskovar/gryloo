@@ -1,5 +1,10 @@
 # Repository status
 
+## BUILD-012A current implementation
+
+IMPLEMENTATION_IN_PROGRESS under DEC-0056 and the [approved plan](builds/BUILD-012A-PLAN.md), baseline `64a0a46f45532d667e226193f29529d8938acf15`. Exact official Aave V3 Supply on Base Sepolia only. No public Supply transaction, owner signature, TESTNET_EXECUTED evidence, remote CI or merge is claimed. Deterministic checks and PR preparation are underway. BUILD-012B/C/D remain unstarted. Prior public swap and historical certifications below remain unchanged.
+
+
 ## BUILD-011D-2 public recording gate (2026-09-29)
 
 DEC-0055 approves the [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) from main `205055605d96f36e024a0bbc770453113e4f7b40`. The normal Build view no longer displays the environment selector or permanent readiness diagnostics. The owner submitted one approval and one Uniswap v3 swap through Gryloo. The successful public swap receipt, exact delegated inner call, independent USDC/WETH reconciliation, sponsored gas and Evidence Bundle establish `TESTNET_EXECUTED` for **Uniswap Swap + Base Sepolia only**. The [BUILD-011D-2 report](builds/BUILD-011D-2-REPORT.md) records the transaction and evidence. Other public profiles and Mainnet remain unavailable.

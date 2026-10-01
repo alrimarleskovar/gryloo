@@ -10,6 +10,8 @@ import { validateBridgeSwapWorkflow } from './bridge-swap.js';
 import { validateCrossChainLiquidityWorkflow } from './cross-chain-liquidity.js';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
+import { validateSupplyWorkflow } from './supply.js';
+
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
 const UINT256 = (1n << 256n) - 1n;
@@ -91,6 +93,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     validateCompositionWorkflow(workflow, trusted);
     return workflow;
   }
+  if (workflow.nodes.some(node => node.actionType === 'supply')) validateSupplyWorkflow(workflow);
   unique(workflow.nodes.map(node => node.nodeId), 'DUPLICATE_NODE');
   const nodes = new Map(workflow.nodes.map(node => [node.nodeId, node]));
   for (const node of workflow.nodes) {

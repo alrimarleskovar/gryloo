@@ -36,3 +36,5 @@ export function hashArtifactBytes(kind: StructuredHashKind, bytes: Uint8Array): 
 export function hashJournalBytes(bytes: Uint8Array): readonly string[] {
   return hashJournalEntries(parseArtifactBytes(bytes, 'execution-journal'));
 }
+
+export * from './supply.js';

@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 
 const node = (page: Page, id: string) => page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`);
 async function addThree(page: Page) {
-  for (const action of ['pool', 'supply', 'lending']) await page.getByRole('button', { name: `Add ${action}` }).click();
+  for (const action of ['pool', 'borrow', 'lending']) await page.getByRole('button', { name: `Add ${action}` }).click();
   await expect(page.locator('.build-flow-surface .react-flow__node')).toHaveCount(4);
 }
 async function marquee(page: Page) {

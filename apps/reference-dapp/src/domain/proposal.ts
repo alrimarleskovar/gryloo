@@ -1,3 +1,4 @@
+import { supplyDetails } from './supply-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import type { EditorState } from './editor';
@@ -53,6 +54,11 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `Fee tier: ${newLiquidity.fee}; recipient: ${newLiquidity.recipient}`,
     'Pool state and position outcome are unobserved. Every liquidity wallet operation needs separate exact Mode A review.',
   ]);
+  const oldSupply = oldNode && supplyDetails(oldNode as Parameters<typeof supplyDetails>[0]);
+  const newSupply = newNode && supplyDetails(newNode as Parameters<typeof supplyDetails>[0]);
+  if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Supply to Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
+    `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
   const oldSwap = oldNode && swapDetails(oldNode, context);
   const newSwap = newNode && swapDetails(newNode, context);
   if (newSwap) return Object.freeze([

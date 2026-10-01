@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import { createSupplyNode, readSupplyNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
+export type SupplyInput={network:'Base Sepolia';asset:'USDC';amount:string;beneficiary:string};
+export function parseSupplyAmount(value:string):string {
+  if(!/^(0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/.test(value)||value.length>80)throw new Error('SUPPLY_AMOUNT_INVALID');
+  const [whole,fraction='']=value.split('.');const units=BigInt(whole!)*1_000_000n+BigInt(fraction.padEnd(6,'0'));
+  if(units<=0n||units>=1n<<256n)throw new Error('SUPPLY_AMOUNT_INVALID');return units.toString();
+}
+export function createAuthoredSupply(nodeId:string,input:SupplyInput):SemanticWorkflow['nodes'][number]{
+  if(input.network!==profile.network||input.asset!=='USDC')throw new Error('SUPPLY_DEPLOYMENT_UNSUPPORTED');
+  return createSupplyNode(nodeId,{chain:profile.chain,asset:{chainId:profile.chain,address:profile.asset,decimals:profile.decimals},amount:parseSupplyAmount(input.amount),beneficiary:input.beneficiary});
+}
+export function supplyDetails(node:SemanticWorkflow['nodes'][number]):SupplyInput|null{
+  if(node.actionType!=='supply')return null;
+  const fields=readSupplyNode(node),amount=BigInt(fields.amount);
+  return{network:'Base Sepolia',asset:'USDC',amount:`${amount/1_000_000n}${amount%1_000_000n?'.'+(amount%1_000_000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,beneficiary:fields.beneficiary};
+}

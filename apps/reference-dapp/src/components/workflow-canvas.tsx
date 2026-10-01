@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { supplyDetails } from '../domain/supply-authoring';
+import { SupplyAuthoringForm } from './supply-panel';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, Controls, Handle, Position, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
@@ -24,19 +26,19 @@ export function setCrossChainCanvasRuntime(workflowId: string, revision: number,
   window.dispatchEvent(new CustomEvent('gryloo:cross-chain-runtime', { detail: key }));
 }
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
-type CardData = { title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
+type CardData = { title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; swap: boolean; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
   if (card.simulate !== undefined) {
     return <div className={`flow-card simulated ${card.swap ? 'swap' : ''}`}>
       {((card.bridgeSwap && card.swap) || (!card.swap && !card.bridge && (!card.liquidity || card.composition))) && <Handle type="target" position={Position.Left} isConnectable={false} />}
-      <span className="flow-card-kind">{card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : 'ARBITRUM · COMPOSED STEP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE ROUTE' : 'ARBITRUM · DESTINATION SWAP') : card.bridge ? 'BASE → OPTIMISM · BRIDGE ROUTE' : card.liquidity ? 'BASE · LIQUIDITY UNOBSERVED' : card.swap ? (card.simulate ? 'BASE · MOCKED OUTPUT' : 'BASE · NO CURRENT OUTPUT') : 'MOCK ACTION'}</span>
+      <span className="flow-card-kind">{card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : 'ARBITRUM · COMPOSED STEP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE ROUTE' : 'ARBITRUM · DESTINATION SWAP') : card.bridge ? 'BASE → OPTIMISM · BRIDGE ROUTE' : card.liquidity ? 'BASE · LIQUIDITY UNOBSERVED' : card.swap ? (card.simulate ? 'BASE · MOCKED OUTPUT' : 'BASE · NO CURRENT OUTPUT') : 'MOCK ACTION'}</span>
       <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
       {card.swap && card.simulate ? <>
         <span className="mocked-value" data-mocked-value=""><span>Expected {card.simulate.expected}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
         <span className="mocked-value" data-mocked-value=""><span>Minimum {card.simulate.minimum}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
-      </> : <small>{card.crossChain ? 'MOCKED composed simulation · actual outputs require reconciliation' : card.across ? 'Direct Across quote in bridge review' : card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
+      </> : <small>{card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? 'MOCKED composed simulation · actual outputs require reconciliation' : card.across ? 'Direct Across quote in bridge review' : card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
       {((card.bridgeSwap && card.bridge) || (!card.liquidity && !card.bridge && (!card.swap || card.composition))) && <Handle type="source" position={Position.Right} isConnectable={false} />}
     </div>;
   }
@@ -44,7 +46,7 @@ function WorkflowCard({ data }: NodeProps) {
     <Handle type="target" position={Position.Left} isConnectable={!card.composition} />
     <span className="flow-card-kind">{card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : card.preparation ? 'ARBITRUM · CALCULATED SPLIT' : card.liquidity ? 'ARBITRUM · UNISWAP V3' : 'ARBITRUM · DESTINATION SWAP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.swap ? 'BASE · UNQUOTED SWAP' : 'MOCK ACTION'}</span>
     <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
-    <small>{card.crossChain && card.runtime ? `Runtime: ${card.runtime}` : card.crossChain ? 'Select to review · non-atomic boundaries' : card.across ? 'Direct Across quote in Simulate · demo execution' : card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Template · no execution'}</small>
+    <small>{card.supply ? 'Select to edit · simulate before review' : card.crossChain && card.runtime ? `Runtime: ${card.runtime}` : card.crossChain ? 'Select to review · non-atomic boundaries' : card.across ? 'Direct Across quote in Simulate · demo execution' : card.bridge ? 'Live LI.FI route in Simulate · MOCKED execution' : card.composition && card.liquidity ? 'Receives typed WETH output · local fork only' : card.liquidity ? 'Select to edit · local fork only' : card.swap ? 'Execution unavailable' : card.locked ? 'Amount locked' : 'Template · no execution'}</small>
     <Handle type="source" position={Position.Right} isConnectable={!card.composition} />
   </div>;
 }
@@ -149,7 +151,7 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
       minimum: `${formatHumanAmount(current.minimum, current.symbol, context)} ${current.symbol}`,
     } : null;
     return { id: node.nodeId, type: 'workflow', position: { x: 60 + index * 280, y: 70 + (index % 2) * 40 },
-      data: { title: crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, simulate },
+      data: { title: node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, supply: node.actionType === 'supply', swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, simulate },
     };
   }), [workflow, overlay, context]);
   const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
@@ -271,7 +273,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const upper = node.inputs.find(i => i.name === 'tick-upper');
     const range = lower?.kind === 'IDENTIFIER' && upper?.kind === 'IDENTIFIER' ? `${lower.value.slice(5)}–${upper.value.slice(5)}` : 'unreviewed';
     return { id: node.nodeId, type: 'workflow', position: canvasPosition(canvasLayout, node, index), selected: selectedIds.includes(node.nodeId),
-      data: { title: crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedIds.includes(node.nodeId), swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined },
+      data: { title: node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedIds.includes(node.nodeId), supply: node.actionType === 'supply', swap: node.actionType === SWAP_ACTION, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined },
     };
   }), [workflow, selectedIds, context, canvasLayout, runtime]);
   // Live pointer positions stay in React Flow state; layout is committed on release.
@@ -282,11 +284,13 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
       return previous?.measured ? { ...node, measured: previous.measured } : node;
     }));
   }, [projectedNodes, setNodes]);
+  const [supplySetup, setSupplySetup] = useState(false);
   const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId,
     label: edge.outputId === 'swap-input' ? 'Calculated swap USDC' : edge.outputId === 'liquidity-usdc' ? 'Reserved liquidity USDC' : edge.outputId === 'liquidity-weth' ? 'Existing WETH' : edge.outputId === 'amount-out' && edge.inputName === 'amount0-max' ? 'Reconciled WETH output' : edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap' ? 'WETH output reference' : edge.inputName === 'amount-in' ? 'Arbitrum USDC output' : 'sample units', animated: false, selected: selectedEdge?.from === edge.fromNodeId && selectedEdge?.to === edge.toNodeId,
   })), [workflow, selectedEdge]);
-  function addAction(action: 'swap' | ActionKind) {
+  function addAction(action: 'swap' | 'supply' | ActionKind) {
+    if (action === 'supply') { setSupplySetup(true); return; }
     const nodeId = `node-${String(workflow.revision + 2).padStart(3, '0')}`;
     const command = action === 'swap'
       ? { type: 'ADD_SWAP' as const, direction: 'USDC_TO_WETH' as const, amount: '1', slippage: '50', source: 'CANVAS' as const, baseRevision: workflow.revision }
@@ -354,7 +358,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   }
   const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Canvas tools">
     {actions.map(action => <button key={action} type="button"
-      title={action === 'swap' ? 'Add swap' : 'Add a ' + actionLabel(action) + ' template'}
+      title={action === 'swap' || action === 'supply' ? 'Add ' + action : 'Add a ' + actionLabel(action) + ' template'}
       aria-label={'Add ' + action} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
     <span className="toolbox-divider" aria-hidden="true"/>
     <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
@@ -363,6 +367,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   </div>;
   return <section className="canvas panel" aria-label="Workflow canvas">
     <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{workflow.nodes.length} steps</span></div>
+    {supplySetup && <div role="dialog" aria-label="Configure Supply" className="panel"><SupplyAuthoringForm direct onDone={() => setSupplySetup(false)}/></div>}
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView minZoom={0.35} maxZoom={1.4}

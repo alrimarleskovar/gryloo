@@ -21,3 +21,5 @@ export * from './bridge.js';
 export { validateBridgeSwapWorkflow } from './bridge-swap.js';
 
 export * from './cross-chain-liquidity.js';
+
+export * from './supply.js';
