@@ -2,7 +2,7 @@
 import { createJournal, appendJournalState } from './journal.js';
 import { supplyHash, supplyArtifactHash, rpcRecord, rpcUint, rpcHash, supplyHex, type SupplyReview, type SupplyRpc, type SupplyTransaction } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
-export type SupplyAttempt = { step: 'APPROVAL' | 'SUPPLY'; state: 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'PENDING' | 'CONFIRMED' | 'REVERTED' | 'RECONCILIATION_REQUIRED';
+export type SupplyAttempt = { step: 'APPROVAL' | 'SUPPLY'; state: 'PREPARED' | 'CANCELLED' | 'NOT_FOUND' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'PENDING' | 'CONFIRMED' | 'REVERTED' | 'RECONCILIATION_REQUIRED';
   nonce: string; preparedAtBlock: number; transaction: SupplyTransaction; transactionHash: string | null; receipt: Record<string, unknown> | null; reconciled: boolean };
 export type SupplyRun = { format: 'gryloo.supply-run.v1'; id: string; review: SupplyReview; provenance: 'PUBLIC_TESTNET' | 'MOCKED';
   authorization: string | null; attempts: SupplyAttempt[]; journal: ExecutionJournal; verdict: 'PENDING' | 'RECONCILED' | 'DIVERGENT' | 'INCONCLUSIVE'; ownerInitiated: boolean };
@@ -25,7 +25,7 @@ export function supplyTransition(run: SupplyRun, attempt: SupplyAttempt, state: 
   return {...run,journal,attempts:run.attempts.map(a => a.step===attempt.step?{...a,state}:a)};
 }
 /** Pure preparation is persisted by the coordinator BEFORE releasing a wallet request. */
-export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: string): SupplyRun {
+export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: string, submitting=true): SupplyRun {
   if (run.verdict !== 'PENDING') throw new Error('SUPPLY_RUN_TERMINAL');
   const step = run.review.approvalRequired && !run.attempts.some(a => a.step==='APPROVAL'&&a.reconciled) ? 'APPROVAL' : 'SUPPLY';
   // Every existing attempt, including unknown/missing/rejected, is observation-only.
@@ -34,12 +34,12 @@ export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: strin
   const expectedNonce = BigInt(run.review.state.nonce)+(step==='SUPPLY'&&run.review.approvalRequired?1n:0n);
   if (BigInt(nonce)!==expectedNonce || !Number.isSafeInteger(block) || block<run.review.state.block) throw new Error('SUPPLY_NONCE_CHANGED');
   const tx = run.review.transactions[step==='APPROVAL'?0:run.review.transactions.length-1]!;
-  const attempt: SupplyAttempt = {step,state:'SUBMITTING',nonce,preparedAtBlock:block,transaction:tx,transactionHash:null,receipt:null,reconciled:false};
+  const attempt: SupplyAttempt = {step,state:submitting?'SUBMITTING':'PREPARED',nonce,preparedAtBlock:block,transaction:tx,transactionHash:null,receipt:null,reconciled:false};
   const prepared = {...run,ownerInitiated:true,attempts:[...run.attempts,attempt]};
-  // The canonical attempt starts PREPARED, followed by SUBMITTING. Both are durable together.
+  // The DApp persists PREPARED first; its handoff boundary separately persists SUBMITTING.
   const journal = appendJournalState(prepared.journal,{level:'attempt',entityId:`${run.id}.${step}`,segmentId:'supply-segment',stepId:step==='APPROVAL'?'supply-approval':'supply-deposit',
     executionAttemptId:`${run.id}.${step}`,toState:'PREPARED',recordedAt:new Date().toISOString()}).journal;
-  return supplyTransition({...prepared,journal},attempt,'SUBMITTING');
+  return submitting?supplyTransition({...prepared,journal},attempt,'SUBMITTING'):{...prepared,journal};
 }
 export function matchSupplyTransaction(attempt: SupplyAttempt, transaction: unknown): boolean {
   const tx = rpcRecord(transaction), expected = attempt.transaction;

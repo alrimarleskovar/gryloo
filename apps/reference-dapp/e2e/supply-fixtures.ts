@@ -13,7 +13,7 @@ export async function supplyHarnessRpc(method:string,params:unknown[]=[]):Promis
   const response=await fetch('http://127.0.0.1:8549',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
   const value=await response.json() as {result?:unknown;error?:unknown};if(value.error)throw new Error('MOCK_HARNESS_ERROR');return value.result;
 }
-export async function installSupplyWallet(page:Page,options:{nonceFailure?:boolean;notBroadcast?:'APPROVAL'|'SUPPLY';pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean}={}){
+export async function installSupplyWallet(page:Page,options:{nonceFailure?:boolean;lateNonceFailure?:boolean;walletNonce?:unknown;providerFailure?:boolean;notBroadcast?:'APPROVAL'|'SUPPLY';pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean}={}){
   await page.exposeFunction('grylooSupplyTestRpc',supplyHarnessRpc);
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[];
@@ -25,8 +25,9 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
       if(input.method==='eth_accounts')return state.connected?[state.account]:[];
       if(input.method==='eth_requestAccounts'){state.connected=true;return[state.account];}
       if(input.method==='eth_chainId')return state.chain;
-      if(input.method==='eth_getTransactionCount'){if(options.nonceFailure)throw new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION');return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);}
+      if(input.method==='eth_getTransactionCount'){if(options.nonceFailure||options.lateNonceFailure&&requests.filter(r=>r.method==='eth_getTransactionCount').length===2)throw Object.assign(new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION',{cause:new Error('Disconnected transport')}),{code:4900,data:{stage:'READ_ONLY_PREFLIGHT'}});if(options.walletNonce!==undefined)return options.walletNonce;return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);}
       if(input.method==='eth_sendTransaction'){
+        if(options.providerFailure)throw Object.assign(new Error('Provider refused malformed request',{cause:new Error('Validation')}),{code:-32602,data:{reason:'invalid transaction'}});
         const tx=input.params?.[0] as {to:string};const step=tx.to==='0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f'?'APPROVAL':'SUPPLY';
         if(options.pause===step)await new Promise<void>(resolve=>{w.releaseSupplyWalletRequest=resolve;});
         if(options.reject===step)throw Object.assign(new Error('Owner rejected test request'),{code:4001});

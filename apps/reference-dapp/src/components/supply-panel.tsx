@@ -26,7 +26,7 @@ export function SupplyAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string
   </form>;
 }
 function formatUnits(value:string,decimals:number){const units=BigInt(value),scale=10n**BigInt(decimals);const fraction=(units%scale).toString().padStart(decimals,'0').replace(/0+$/,'');return (units/scale).toString()+(fraction?'.'+fraction:'');}
-const messages:Record<string,string>={SUPPLY_INSUFFICIENT_USDC:'Your wallet needs more Aave test USDC for this Supply.',SUPPLY_INSUFFICIENT_ETH:'Your wallet needs more Base Sepolia ETH for gas.',
+const messages:Record<string,string>={SUPPLY_WALLET_REQUEST_REFUSED:'The wallet provider refused the transaction request before submission. No transaction was sent. Inspect the provider error under technical details before reviewing again.',SUPPLY_WALLET_NOT_SUBMITTED:'No transaction was requested from your wallet. Prepare a fresh review to retry safely.',SUPPLY_WALLET_NONCE_MISMATCH:'The wallet provider reports a different pending nonce than Base Sepolia. No transaction was requested. Refresh the wallet connection before reviewing again.',SUPPLY_WALLET_NONCE_RESPONSE_INVALID:'The wallet provider returned an invalid nonce. No transaction was requested.',SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION:'The wallet provider read failed before any transaction request. No transaction was submitted; review again after restoring the connection.',SUPPLY_WALLET_PROVIDER_CHANGED:'The injected wallet provider changed. No transaction was requested. Review again using the current wallet.',SUPPLY_SEMANTIC_REVISION_CHANGED:'The workflow changed before the wallet request. Review the current Supply again.',SUPPLY_INSUFFICIENT_USDC:'Your wallet needs more Aave test USDC for this Supply.',SUPPLY_INSUFFICIENT_ETH:'Your wallet needs more Base Sepolia ETH for gas.',
   SUPPLY_WRONG_CHAIN:'Switch your wallet to Base Sepolia before executing.',SUPPLY_WRONG_ACCOUNT:'Select the wallet account shown in Review.',SUPPLY_APPROVAL_REJECTED:'Approval was declined. No Supply was sent.',
   SUPPLY_REJECTED:'Supply was declined. Any completed approval is preserved.',SUPPLY_RPC_RATE_LIMITED:'The network provider is busy. Try the read again.',
   SUPPLY_TRANSACTION_NOT_OBSERVED:'The existing transaction is not visible yet. Observe it again; Gryloo will not send another.',AWAITING_CONFIRMATIONS:'Waiting for network confirmations.',
@@ -36,7 +36,7 @@ export function SupplyPanel({view}:{view:'simulate'|'execute'}){
   const {state}=useWorkflow(),supply=useSupply();
   const node=state.workflow.nodes.find(n=>n.actionType==='supply'),fields=node?supplyDetails(node as Parameters<typeof supplyDetails>[0]):null;
   const record=supply.record,review=record?.review;
-  const pending=record?.attempts.find(a=>!a.reconciled),approval=record?.attempts.find(a=>a.step==='APPROVAL');
+  const pending=record?.notSubmitted?undefined:record?.attempts.find(a=>!a.reconciled),approval=record?.attempts.find(a=>a.step==='APPROVAL');
   const canExecute=Boolean(record?.authorization&&!supply.retired&&!pending&&record.verdict==='PENDING');
   const info=supply.error??record?.error;
   return <section className="panel" aria-label="Aave Supply"><h2>{view==='simulate'?'Simulate Supply':'Review Supply'}</h2>
@@ -53,14 +53,14 @@ export function SupplyPanel({view}:{view:'simulate'|'execute'}){
         <p>Approval required: {review.approvalRequired?'Yes, exact amount':'No'}</p></>}
       {record&&!record.authorization&&!record.attempts.length&&!supply.retired&&<button type="button" disabled={supply.busy} onClick={()=>void supply.review()}>Accept Supply review</button>}
       {canExecute&&<button type="button" className="primary" disabled={supply.busy} onClick={()=>void supply.execute()}>{approval?.reconciled?'Execute Supply':'Execute'}</button>}
-      {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Supply'}: {a.reconciled?'Independently verified':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
+      {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Supply'}: {a.reconciled?'Independently verified':record.notSubmitted?(record.walletDiagnostic?.invoked?'not submitted (wallet request refused)':'not submitted (wallet was never requested)'):a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
       {record&&record.attempts.length>0&&!record.evidence&&<a download="gryloo-aave-supply-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>}
       {pending&&<button type="button" disabled={supply.busy} onClick={()=>void supply.observe()}>Observe existing transaction</button>}
-      {record?.error==='SUPPLY_TRANSACTION_NOT_FOUND'&&<><p>No approval was found after bounded observation. The allowance is zero and the wallet nonce is unchanged. A fresh review will keep the same nonce and exact approval; it will not submit a transaction.</p>
+      {(record?.notSubmitted||record?.error==='SUPPLY_TRANSACTION_NOT_FOUND')&&<><p>{record?.notSubmitted?(record.walletDiagnostic?.invoked?'The wallet refused the request before submission.':'The wallet request was never invoked.'):'No approval was found after bounded observation.'} A fresh review will verify the current allowance and nonce, and keep the same nonce and exact approval; it will not submit a transaction.</p>
         <button type="button" disabled={supply.busy} onClick={()=>void supply.recoverReview()}>Prepare fresh review</button></>}
       {record?.evidence&&<><p>Supply independently reconciled. Position increased by {formatUnits(record.observations.at(-1)?.delta??'0',6)} USDC.</p><a download="gryloo-aave-supply-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
     </>}
     {info&&<p role="status">{messages[info]??'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,submissionError:record?.submissionError,absence:record?.absence,recoveryOf:record?.recoveryOf,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
+    <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,submissionError:record?.submissionError,walletDiagnostic:record?.walletDiagnostic,notSubmitted:record?.notSubmitted,absence:record?.absence,recoveryOf:record?.recoveryOf,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
   </section>;
 }

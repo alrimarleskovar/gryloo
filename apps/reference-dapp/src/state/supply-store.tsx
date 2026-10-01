@@ -4,8 +4,24 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { useWorkflow } from './workflow-store';
 import { injected, useBuild009Wallet } from './build009-wallet-store';
-import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate, supplyRecoverReview } from '../app/supply-action';
-import type { SupplyRecord } from '../server/supply-service';
+import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate, supplyRecoverReview, supplyWalletFailure, supplyWalletTrace, supplyHandoff } from '../app/supply-action';
+import type { SupplyRecord, SupplyWalletDiagnostic } from '../server/supply-service';
+function walletValue(value:unknown,depth=0,seen=new Set<object>()):unknown{
+  if(value===undefined)return null;
+  if(value===null||typeof value==='boolean'||typeof value==='number')return value;
+  if(typeof value==='string')return value.slice(0,4096);
+  if(typeof value==='bigint')return value.toString();
+  if(typeof value!=='object')return String(value);
+  if(depth>6||seen.has(value))return '[bounded]';seen.add(value);
+  if(Array.isArray(value))return value.slice(0,32).map(v=>walletValue(v,depth+1,seen));
+  const result:Record<string,unknown>={};
+  for(const name of new Set([...Object.getOwnPropertyNames(value),...['name','code','message','data','cause','stack']])){
+    if(/private|secret|password|mnemonic|seed/i.test(name))continue;
+    try{const item=(value as Record<string,unknown>)[name];if(item!==undefined)result[name]=walletValue(item,depth+1,seen);}catch{result[name]='[unreadable]';}
+    if(Object.keys(result).length>=32)break;
+  }
+  return result;
+}
 const key='gryloo:build012a:supply';
 type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY';hash?:string};
 type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
@@ -21,6 +37,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
   },[signing]);
   const workflow=state.workflow as unknown as SemanticWorkflow;
   const latest=useRef(workflow);latest.current=workflow;
+  const latestWallet=useRef(wallet);latestWallet.current=wallet;
   const busyRef=useRef(false);
   const equal=record&&JSON.stringify(record.review.workflow)===JSON.stringify(workflow);
   const pristineRecovery=recovered&&workflow.revision===0&&workflow.nodes.length===1&&workflow.nodes[0]?.actionType==='mock-read';
@@ -73,25 +90,57 @@ export function SupplyProvider({children}:{children:ReactNode}){
     const provider=injected();if(!provider)throw new Error('SUPPLY_WALLET_REQUIRED');
     const snapshot=latest.current,executionWorkflow=pristineRecovery?record.review.workflow:snapshot;
     if(!pristineRecovery&&JSON.stringify(executionWorkflow)!==JSON.stringify(record.review.workflow))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');
-    const begin=await supplyBegin(record.id,session.account,executionWorkflow);if(!begin.ok)throw new Error(begin.code);
-    accept(begin.value.record);
-    const {step,transaction}=begin.value;
-    let walletRequestStarted=false;
+    const diagnostic:SupplyWalletDiagnostic={invoked:false,transaction:null,calls:[],error:null,code:'SUPPLY_WALLET_PREFLIGHT'};
+    let step:'APPROVAL'|'SUPPLY'|null=null;
+    const request=async(method:string,params:unknown[]=[])=>{
+      const call:SupplyWalletDiagnostic['calls'][number]={method,params,...method==='eth_sendTransaction'?{submission:true}:{}};diagnostic.calls.push(call);
+      try{const result=await provider.request({method,...params.length?{params}:{}});call.result=walletValue(result);return result;}
+      catch(cause){call.error=walletValue(cause);throw cause;}
+    };
+    const validateSession=async(nonce:string)=>{
+      const accounts=await request('eth_accounts'),chain=await request('eth_chainId'),pendingNonce=await request('eth_getTransactionCount',[session.account,'pending']);
+      if(JSON.stringify(latest.current)!==JSON.stringify(snapshot))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');
+      if(injected()!==provider)throw new Error('SUPPLY_WALLET_PROVIDER_CHANGED');
+      if(!Array.isArray(accounts)||typeof accounts[0]!=='string'||accounts[0].toLowerCase()!==session.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
+      if(typeof chain!=='string'||chain.toLowerCase()!=='0x14a34')throw new Error('SUPPLY_WRONG_CHAIN');
+      if(typeof pendingNonce!=='string'||!/^0x[0-9a-f]+$/i.test(pendingNonce))throw new Error('SUPPLY_WALLET_NONCE_RESPONSE_INVALID');
+      if(BigInt(pendingNonce)!==BigInt(nonce))throw new Error('SUPPLY_WALLET_NONCE_MISMATCH');
+    };
     try{
-      const accounts=await provider.request({method:'eth_accounts'}),chain=await provider.request({method:'eth_chainId'});
-      const nonce=await provider.request({method:'eth_getTransactionCount',params:[session.account,'pending']});
-      if(latest.current!==snapshot||!Array.isArray(accounts)||accounts[0]?.toLowerCase()!==session.account||typeof chain!=='string'||chain.toLowerCase()!=='0x14a34'||typeof nonce!=='string'||BigInt(nonce)!==BigInt(transaction.nonce))throw new Error('SUPPLY_WALLET_OR_AUTHORIZATION_CHANGED');
+      const expectedNonce=(BigInt(record.review.state.nonce)+(record.attempts.some(a=>a.step==='APPROVAL'&&a.reconciled)?1n:0n)).toString();
+      await validateSession(expectedNonce); // Read-only provider failures never create an economic attempt.
+      const begin=await supplyBegin(record.id,session.account,executionWorkflow);if(!begin.ok)throw new Error(begin.code);
+      accept(begin.value.record);step=begin.value.step;
+      const transaction=begin.value.transaction;diagnostic.transaction=transaction;
+      await validateSession(transaction.nonce); // Fail closed if session changes during durable preparation.
+      const handoff=await supplyHandoff(record.id,step);if(!handoff.ok)throw new Error(handoff.code);
+      if(latestWallet.current.account!==session.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
+      if(latestWallet.current.chainId!==session.chainId)throw new Error('SUPPLY_WRONG_CHAIN');
+      if(JSON.stringify(latest.current)!==JSON.stringify(snapshot))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');
+      if(injected()!==provider)throw new Error('SUPPLY_WALLET_PROVIDER_CHANGED');
       // This is the sole submission point, reachable only from the owner's Execute click.
       setSigning(true);
-      walletRequestStarted=true;
-      let hash:unknown;try{hash=await provider.request({method:'eth_sendTransaction',params:[transaction]});}finally{setSigning(false);}
+      diagnostic.invoked=true;
+      let hash:unknown;try{hash=await request('eth_sendTransaction',[transaction]);}finally{setSigning(false);}
       if(typeof hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(hash))throw new Error('SUPPLY_SUBMISSION_UNKNOWN');
       window.localStorage.setItem(key,JSON.stringify({id:record.id,step,hash:hash.toLowerCase()}));
       const report=await supplyReport(record.id,step,{kind:'HASH',hash:hash.toLowerCase()});if(!report.ok)throw new Error(report.code);accept(report.value);
+      await supplyWalletTrace(record.id,diagnostic);
     }catch(cause){
       const rejected=!!cause&&typeof cause==='object'&&'code'in cause&&cause.code===4001;
-      const code=!walletRequestStarted?(cause instanceof Error&&cause.message==='SUPPLY_WALLET_OR_AUTHORIZATION_CHANGED'?cause.message:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'):'SUPPLY_WALLET_SUBMISSION_RESULT_UNKNOWN';
-      const report=await supplyReport(record.id,step,{kind:rejected?'REJECTED':'UNKNOWN',code});if(report.ok)accept(report.value);
+      diagnostic.error=walletValue(cause);
+      const send=diagnostic.calls.find(c=>c.method==='eth_sendTransaction'),providerError=send?.error as {code?:unknown}|undefined;
+      const refused=send&&send.result===undefined&&typeof providerError?.code==='number'&&[4001,4100,4200,-32600,-32601,-32602].includes(providerError.code);
+      if(refused)diagnostic.rejectionCode=providerError.code as number;
+      diagnostic.code=!diagnostic.invoked?(cause instanceof Error&&/^SUPPLY_[A-Z0-9_]+$/.test(cause.message)?cause.message:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'):'SUPPLY_WALLET_SUBMISSION_RESULT_UNKNOWN';
+      console.error('[gryloo/supply/wallet]',diagnostic);
+      if(!diagnostic.invoked||refused){
+        if(refused)diagnostic.code=rejected?(step==='APPROVAL'?'SUPPLY_APPROVAL_REJECTED':'SUPPLY_REJECTED'):'SUPPLY_WALLET_REQUEST_REFUSED';
+        const failure=await supplyWalletFailure(record.id,diagnostic);if(failure.ok)accept(failure.value);
+        throw new Error(diagnostic.code,{cause});
+      }
+      await supplyWalletTrace(record.id,diagnostic);
+      if(step){const report=await supplyReport(record.id,step,{kind:rejected?'REJECTED':'UNKNOWN',code:diagnostic.code});if(report.ok)accept(report.value);}
       throw new Error(rejected?(step==='APPROVAL'?'SUPPLY_APPROVAL_REJECTED':'SUPPLY_REJECTED'):'SUPPLY_SUBMISSION_UNKNOWN_OBSERVE_EXISTING',{cause});
     }
     const observed=await supplyObserve(record.id);if(observed.ok)accept(observed.value);

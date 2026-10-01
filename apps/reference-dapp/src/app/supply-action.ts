@@ -2,7 +2,7 @@
 'use server';
 import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import { createSupplyService, type SupplyService } from '../server/supply-service';
+import { createSupplyService, type SupplyWalletDiagnostic, type SupplyService } from '../server/supply-service';
 let service:SupplyService|null=null;
 const methods=new Set(['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getCode','eth_call','eth_simulateV1',
   'eth_getBalance','eth_getTransactionCount','eth_estimateGas','eth_gasPrice','eth_getTransactionByHash','eth_getTransactionReceipt']);
@@ -47,3 +47,8 @@ export async function supplyStatus(id:string){return run(service=>service.load(i
 
 export async function supplyInvalidate(id:string){return run(service=>service.invalidate(id));}
 export async function supplyRecoverReview(id:string){return run(service=>service.recoverReview(id));}
+
+export async function supplyWalletFailure(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletFailure(id,diagnostic));}
+export async function supplyWalletTrace(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletTrace(id,diagnostic));}
+
+export async function supplyHandoff(id:string,step:'APPROVAL'|'SUPPLY'){return run(service=>service.handoff(id,step));}
