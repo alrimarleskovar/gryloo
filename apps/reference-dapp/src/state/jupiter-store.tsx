@@ -29,7 +29,7 @@ const networkOfId = (id: string): SolanaNetwork | null => /^jupiter-[a-f0-9]{32}
 type Store = { record: JupiterRecord | null; owner: string | null; network: SolanaNetwork;
   /** The owner-chosen Wallet Standard session; shared with the Solana liquidity flow (one wallet experience). */
   session: SolanaSession | null; codePrefix: string; busy: boolean; error: string | null; retired: boolean; recovered: boolean;
-  executionEnabled: boolean; walletChoices: string[] | null; connect(): Promise<void>; chooseWallet(name: string): Promise<void>; cancelWalletChoice(): void;
+  executionEnabled: boolean; walletChoices: string[] | null; connect(chain?: SolanaWalletChain): Promise<void>; chooseWallet(name: string): Promise<void>; cancelWalletChoice(): void;
   simulate(): Promise<void>; review(): Promise<void>; execute(): Promise<void>; observe(): Promise<void> };
 const Context = createContext<Store | null>(null);
 const unresolved = (record: JupiterRecord | null) => Boolean(record?.attempt && record.verdict === 'PENDING' && ['SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(record.attempt.state));
@@ -43,7 +43,7 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
   const { state } = useWorkflow();
   const [record, setRecord] = useState<JupiterRecord | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [recovered, setRecovered] = useState(false), [signing, setSigning] = useState(false), [session, setSession] = useState<SolanaSession | null>(null);
-  const [walletChoices, setWalletChoices] = useState<string[] | null>(null);
+  const [walletChoices, setWalletChoices] = useState<string[] | null>(null), [choiceChain, setChoiceChain] = useState<SolanaWalletChain | null>(null);
   const [enabled, setEnabled] = useState<Record<SolanaNetwork, boolean>>({ Solana: false, 'Solana Devnet': false });
   const workflow = state.workflow as unknown as SemanticWorkflow;
   const latest = useRef(workflow); latest.current = workflow;
@@ -86,16 +86,17 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
     throw new Error(`${runtime.prefix}_SOLANA_WALLET_SELECTION_REQUIRED`);
   }
   /** List the Wallet Standard wallets compatible with the current cluster; the owner picks one, even if it is the only one. */
-  async function connect() { await operation(async () => {
-    const names = solanaWalletNames(runtime.walletChain);
+  /** `chain` lets another Solana flow on the same session (BUILD-015 Devnet liquidity) ask for its own cluster explicitly. */
+  async function connect(chain: SolanaWalletChain = runtime.walletChain) { await operation(async () => {
+    const names = solanaWalletNames(chain);
     if (!names.length) throw new Error(`${runtime.prefix}_SOLANA_WALLET_REQUIRED`);
-    setWalletChoices(names);
+    setChoiceChain(chain); setWalletChoices(names);
   }); }
   async function chooseWallet(name: string) { await operation(async () => {
-    const next = await connectSolanaWallet(name, runtime.walletChain, runtime.prefix);
-    setSession(next); setWalletChoices(null);
+    const next = await connectSolanaWallet(name, choiceChain ?? runtime.walletChain, runtime.prefix);
+    setSession(next); setWalletChoices(null); setChoiceChain(null);
   }); }
-  function cancelWalletChoice() { setWalletChoices(null); }
+  function cancelWalletChoice() { setWalletChoices(null); setChoiceChain(null); }
   async function poll(id: string) {
     const api = runtimes[networkOfId(id) ?? network];
     for (let i = 0; i < 30; i++) {

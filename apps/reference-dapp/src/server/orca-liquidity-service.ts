@@ -182,6 +182,9 @@ export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: 
       const height = await blockHeight('confirmed');
       assertOrcaLiquidityReview(record.review, workflow, solanaAddress(ownerInput), height, now());
       return locked('owner-' + record.review.owner, async () => {
+        // Re-checked under the owner lock: another reviewed OPEN may have created a position since this one was simulated.
+        if (record.operation === 'OPEN' && (await positions(record.review.owner)).some(p => p.positionMint !== record.positionMint &&
+            ['OPEN_PENDING', 'ACTIVE', 'EMPTY'].includes(p.status))) throw new Error(`${X}_POSITION_ALREADY_OPEN`);
         await acquireOwnerLease(record.review.owner, id);
         // Position identity is durable before any signature exists.
         await appendRegistry(record.review.owner, { positionMint: record.positionMint, id, operation: record.operation });

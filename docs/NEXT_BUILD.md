@@ -4,7 +4,11 @@
 
 Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.
 
-## Current implementation: BUILD-DEMO-001 — Solana Devnet real execution
+## Current implementation: BUILD-015 — Solana liquidity / Orca Whirlpools
+
+READY_FOR_OWNER_EXECUTION. The canonical concentrated-liquidity intent runs on Solana Devnet through Orca Whirlpools (open + add, partial removal with fee collection, exit with close). Each step has exact-message Review binding, signature-first recovery, independent reconciliation and Evidence Bundles. The owner's execution of the lifecycle through Gryloo is the remaining step for `DEVNET_EXECUTED`. One PR awaits the owner's merge decision. BUILD-016 is not started. See the [BUILD-015 report](builds/BUILD-015-REPORT.md).
+
+## Previous implementation: BUILD-DEMO-001 — Solana Devnet real execution
 
 DEVNET_EXECUTED. The owner executed one real public Solana Devnet swap of the canonical intent through Gryloo (Orca Whirlpools, valueless test tokens, owner wallet signature). It was independently reconciled and verified, and its Evidence Bundle is archived. PR #42 awaits the owner's merge decision. No further build is started. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
 

@@ -100,9 +100,23 @@ describe('Orca liquidity service lifecycle (MOCKED Devnet loopback, no public su
     expect(deposited - withdrawn).toBeGreaterThanOrEqual(0n);
     expect(deposited - withdrawn).toBeLessThanOrEqual(2n);
     expect(s.env.state.sent).toHaveLength(3);
+    // The independent post-execution verifier (scripts/) passes on this MOCKED journal with the same checks it applies to public Devnet.
+    const { verifyOrcaLiquidityLifecycle } = await import('../../../../scripts/solana-devnet-liquidity-execution-verification.mjs');
+    const verification = await verifyOrcaLiquidityLifecycle({ journalDir: s.dir, owner: s.wallet.owner, rpc: s.env.rpc, provenance: 'MOCKED' });
+    expect(verification.operations.map(o => o.verified)).toEqual([true, true, true]);
+    expect(verification.verified).toBeGreaterThan(50);
     // A new position is allowed only after the previous one is closed.
     const next = await createPositionMintSigner();
     await expect(s.service.simulate(workflow(), s.wallet.owner, { operation: 'OPEN', positionMint: next.address })).resolves.toMatchObject({ operation: 'OPEN' });
+  });
+  it('two OPEN reviews prepared in parallel never create two positions', async () => {
+    const s = await setup();
+    const a = await createPositionMintSigner(), b = await createPositionMintSigner();
+    const first = await reviewed(s, 'OPEN', a.address), second = await reviewed(s, 'OPEN', b.address);
+    expect((await execute(s, first.id, a)).verdict).toBe('RECONCILED');
+    await expect(s.service.begin(second.id, s.wallet.owner, workflow())).rejects.toThrow('ORCA_LIQUIDITY_POSITION_ALREADY_OPEN');
+    expect((await s.service.load(second.id)).attempt).toBeNull();
+    expect(s.env.state.sent).toHaveLength(1);
   });
   it('never creates a second position while one exists, and recovers the real position after a failed later step', async () => {
     const s = await setup();

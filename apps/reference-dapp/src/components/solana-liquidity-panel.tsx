@@ -101,12 +101,12 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
     {fields && <p>Concentrated liquidity on Solana Devnet via Orca Whirlpools: up to {fields.maxSol} Devnet SOL and {fields.maxDevUsdc} devUSDC between {fields.lowerPrice} and {fields.upperPrice} devUSDC per SOL.</p>}
     <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>
     {liquidity.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current position again.</p>}
-    {!jupiter.owner && !jupiter.walletChoices && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
-    {!jupiter.owner && jupiter.walletChoices && <div role="group" aria-label="Choose a Solana wallet"><p>Choose a Solana wallet for Solana Devnet:</p>
+    {!liquidity.owner && !jupiter.walletChoices && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect('solana:devnet')}>Connect Solana wallet</button>}
+    {!liquidity.owner && jupiter.walletChoices && <div role="group" aria-label="Choose a Solana wallet"><p>Choose a Solana wallet for Solana Devnet:</p>
       {jupiter.walletChoices.map((name, i) => <button key={name + i} type="button" disabled={jupiter.busy} onClick={() => void jupiter.chooseWallet(name)}>{name}</button>)}
       <button type="button" className="quiet" disabled={jupiter.busy} onClick={jupiter.cancelWalletChoice}>Cancel</button></div>}
-    {jupiter.owner && <p>Wallet connected · Solana Devnet: <span>{jupiter.owner}</span></p>}
-    {jupiter.error && !jupiter.owner && <p role="status">{jupiter.error}</p>}
+    {liquidity.owner && <p>Wallet connected · Solana Devnet: <span>{liquidity.owner}</span></p>}
+    {jupiter.error && !liquidity.owner && <p role="status">{jupiter.error}</p>}
     {liquidity.positions && <section aria-label="Your Gryloo positions"><h3>Your Gryloo positions on this pool</h3>
       {liquidity.positions.length === 0 ? <p className="muted">None yet.</p> : <ul>{liquidity.positions.map(p => <li key={p.positionMint}>
         <code>{p.positionMint}</code> · {p.status.toLowerCase().replaceAll('_', ' ')}{p.liquidity !== null ? ` · liquidity ${p.liquidity}` : ''}
@@ -114,7 +114,7 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
         {' · '}{p.runs.map(r => `${r.operation.toLowerCase().replaceAll('_', ' ')}: ${(r.state ?? 'not started').toLowerCase().replaceAll('_', ' ')}`).join(' → ')}
       </li>)}</ul>}
       <p className="muted">Recorded fees owed update only when the position is modified; collection may include more. Principal returned by a removal is never counted as fees.</p>
-      <button type="button" className="quiet" disabled={liquidity.busy || !jupiter.owner} onClick={() => void liquidity.refreshPositions()}>Inspect positions</button></section>}
+      <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.owner} onClick={() => void liquidity.refreshPositions()}>Inspect positions</button></section>}
     {view === 'simulate' ? <>
       <div role="group" aria-label="Liquidity operation">
         <label htmlFor="orca-operation">Operation</label>
@@ -124,7 +124,7 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
         </select>
         {operation === 'DECREASE_PARTIAL' && <label>Portion to remove (basis points, 1–9999)<input aria-label="Portion to remove (bps)" inputMode="numeric" maxLength={4} value={part} onChange={e => setPart(e.target.value)}/></label>}
       </div>
-      <button type="button" disabled={liquidity.busy || pending || !jupiter.owner} onClick={() => void liquidity.simulate(operation, operation === 'OPEN' ? undefined : active?.positionMint,
+      <button type="button" disabled={liquidity.busy || pending || !liquidity.owner} onClick={() => void liquidity.simulate(operation, operation === 'OPEN' ? undefined : active?.positionMint,
         operation === 'DECREASE_PARTIAL' ? Number(part) : undefined)}>Simulate {operation === 'OPEN' ? 'position' : 'removal'}</button>
       {review && sim && !liquidity.retired && <dl className="swap-summary" aria-label="Liquidity simulation">
         <dt>Operation</dt><dd>{labels[review.operation]} (1 transaction; the full lifecycle is open, partial removal, then exit)</dd>
