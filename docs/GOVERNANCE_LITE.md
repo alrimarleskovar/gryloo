@@ -9,7 +9,10 @@ signature, public transaction or real-funds authority.
 
 Work began on `codex/governance-lite` with a clean working tree at the
 post-BUILD-012A baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`.
-This migration changes governance, agent instructions and explanatory docs only.
+This migration changes governance, agent instructions and explanatory docs.
+A small browser-test clock correction discovered by current-head CI also uses
+the neighboring tests' fixed replay time instead of rewinding an elapsed clock;
+every assertion and network guard remains. Product runtime code is unchanged.
 BUILD-012A plans, reports and evidence remain unchanged. No BUILD-014 worktree
 was inspected or modified, and no BUILD-014 product feature was implemented.
 
@@ -93,6 +96,18 @@ pass. The sandboxed build could not read a TypeScript subprocess result; the
 normal check succeeded outside that process sandbox. Registry checks likewise
 required permitted network access. No gate or configuration was changed to
 obtain those results.
+
+Initial current-head Governance passed both events in 8 seconds. Push Contracts
+passed; PR Contracts exposed an existing browser-clock race in
+`base-observation.spec.ts`: navigation can exceed the one-second interval before
+`pauseAt`, causing "Cannot fast-forward to the past". The test now uses
+`setFixedTime`, as its neighboring recorded-quote tests do. No assertion was
+removed or weakened. This correction requires no scope amendment or byte-pin
+update. Typecheck/lint/governance passed again; the corrected browser test passed
+three isolated loopback repetitions. A broader local five-test file run passed
+four tests and failed a separate unchanged screenshot baseline; that snapshot
+passed initial remote push CI and was not updated. Updated-head normal CI is
+recorded in the PR; the initial failure remains part of the CI history.
 
 ## Future builds
 
