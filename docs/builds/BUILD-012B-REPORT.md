@@ -1,0 +1,49 @@
+# BUILD-012B — Aave V3 Borrow
+
+STATUS: READY_FOR_OWNER_EXECUTION
+
+Branch `codex/build-012b-aave-borrow`, baseline main `7726970` after BUILD-012A and GOVERNANCE-LITE. One PR; human owner merge only. No other worktree inspected or modified.
+
+## Current authority and public state
+
+Verified on 2026-10-01 before implementation using the current [Aave DAO Base Sepolia address book](https://github.com/aave-dao/aave-address-book/blob/main/src/AaveV3BaseSepolia.sol), [official Pool documentation](https://aave.com/docs/aave-v3/smart-contracts/pool), and [current IPool interface](https://github.com/aave-dao/aave-v3-origin/blob/main/src/contracts/interfaces/IPool.sol). Live reads through the public Base Sepolia RPC bound chain 84532, Provider.getPool(), Provider.getPriceOracle(), reserve data, decimals, oracle price, balances, variable debt and owner collateral configuration to one block.
+
+Pool `0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27`; provider `0xe4c23309117aa30342bfaae6c95c6478e0a4ad00`; oracle `0x943b0de18d4abf4ef02a85912f8fc07684c141df`. Selected USDC `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f`, 6 decimals, aToken `0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc`, variable debt token `0xfb3e85601b7feb3691bbb8779ef0e1069e347204`. This is the Aave reserve token.
+
+The initial read-only market scan at block 47551528 found USDC, USDT, WETH, cbETH and LINK borrow-enabled; WBTC borrowing disabled. All six reserves were active, unfrozen and unpaused. USDC has no borrow cap and ample liquidity. Selection happened after these reads: 0.01 USDC (10,000 native units), variable mode 2, borrower/onBehalfOf equal to the owner. This practical demonstration amount avoids economically insignificant single-unit index rounding and consumes about 1.2% of the existing available capacity.
+
+Owner `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`: 0.999999 USDC aToken balance from the earlier nominal 1-USDC Supply, collateral enabled, eMode 0, zero debt, health factor uint256.max (no debt). Collateral $0.999959, LTV 82.5%, liquidation threshold 86%, available borrow $0.82496617. No new collateral-enabling action is added.
+
+Exact public `eth_call` and `eth_estimateGas` passed at block 47552322 with zero wallet USDC and zero debt. Expected post-Borrow debt value $0.00999960, health factor 85.999913996559862394. Gas limit with existing 50% margin 374936, fee ceiling 12000000 wei, budget including existing reserve 14499232000000 wei. Owner native balance 99773024516581 wei is sufficient. No simulation, verification script or agent action signed or submitted a public transaction. These snapshots are read-only observations, never execution acceptance evidence.
+
+## Borrow safety and reuse
+
+The canonical `borrow` action carries chain, asset, amount, beneficiary/onBehalfOf and variable interest-rate mode 2 under `aave-v3`. Chat and Canvas share the same reducer and semantic revision. Runtime capability limits this build to the verified USDC Base Sepolia profile; the IR has no testnet action alias. Self-borrow is required; delegated third-party credit, collateral changes, Repay and Withdraw are absent.
+
+The BUILD-012A compiler artifacts, injected wallet, durable journal, file persistence, pre-submission diagnostics, provider-managed nonce, transaction discovery, EIP-7702 owner signature/enforcer verification, and Evidence Bundle schema are reused. Existing internal Supply service/run names are retained for compatibility. Borrow has one `BORROW` attempt and one exact `Pool.borrow(asset, amount, 2, 0, owner)` call, with no approval.
+
+There was no existing product health-factor floor. BUILD-012B explicitly sets a conservative minimum of **2.0**, in addition to protocol reserve, liquidity, borrow-cap and account-capacity constraints. Health factors use bigint arithmetic; zero debt is represented as infinity. Borrow value rounds upward for conservative preview. eMode and multi-reserve user configurations outside this narrow verified profile fail closed. State inputs and account capacity/health-factor consistency are validated.
+
+Simulation is read-only. Review, Execute preparation and final wallet handoff read fresh public collateral, debt, capacity, health factor, reserve configuration, price and liquidity. Review expires after 120 seconds. Configuration, owner, beneficiary, workflow/revision, calldata, amount and mode bind exactly. Price/account/debt/health drift above 0.1% (plus bounded integer rounding where needed) invalidates Review; smaller drift must still pass the same minimum health factor and protocol constraints. Borrow-specific economic leases prevent re-authoring the same uncertain intent under another nonce. Uncertain submissions remain observation-only. Only positively known pre-submission refusal/cancellation can prepare a fresh Review for the exact original intent and nonce; that action cannot submit.
+
+Reconciliation independently reads the canonical transaction, receipt, Borrow and underlying Transfer events and historical pre/post chain state. Direct transactions and owner-authorized wrapped calls share the existing secure envelope model. Wallet token delta must equal the requested amount. Variable debt scaled principal must match within the existing ray-index rounding bound; nominal debt, aggregate Aave debt, capacity and post-health factor must also agree. Collateral/configuration inconsistency, token effects without debt, debt without token receipt, wrong semantics and unsafe post-health factor fail closed. Receipt success or an event alone cannot produce evidence.
+
+The Evidence Bundle records debt, balances, pre/post risk, exact event, owner, beneficiary, Pool, asset, amount, mode, transaction envelope, hash/block, gas/cost and explorer metadata. The owner’s actual completed wrapped Supply was independently reconciled again before handoff: transaction `0x717f81f6c360d7f62c64a13d258a513cf003e76ae3c2c1318dd00d3115cf5f0a`, owner nonce 4 before and after. Borrow may append to that permanent nonce lease only after fresh independent proof that the preceding wrapped action completed; the previous economic identity is retained. Uncertain or unverified actions never release the nonce lease. This is covered by a signed wrapped-Supply → Borrow → known-pre-submission-refusal recovery test. MOCKED fixtures remain MOCKED. Only a real public owner execution followed by reconciliation can become TESTNET_EXECUTED. No acceptance evidence file is created before that.
+
+## Validation and delivery
+
+Final local current-code checks passed: `pnpm check` (typecheck, lint, production build, 11 schema exports; 700 tests passing, 2 existing optional cases skipped), Governance-Lite and 17 self-tests, registry integrity/license/release-age verification for all 247 dependencies, dependency audit (no known vulnerabilities), current Contracts-workflow CycloneDX validation (247 components and all eight workspace manifests), and whitespace checks. Normal pinned-Anvil compatibility gate: 4 passing, 10 owner-only cases skipped. Normal fork suite: 31 passing, 29 existing environment/owner-dependent cases skipped. No skipped case is claimed as execution proof.
+
+Focused browser checks: **41 passing**, including all 9 Borrow cases, all 18 existing Supply/recovery cases, Canvas UX and execution-capability regression. Screenshots visually inspected; no browser page errors in the canonical Borrow flow. The pinned BUILD-012A Chromium libraries/fonts were reused. Earlier sandbox DNS/bind failures and the Next TypeScript subprocess crash were rerun outside the sandbox without modifying product gates. A new browser test timing race and Borrow diagnostic classification issue were corrected before this final passing run.
+
+The running public Gryloo UI also completed Chat → Build → Borrow → read-only Simulate with the real owner’s position and **zero wallet requests**, no Review authorization and no execution attempt. At block **47553742**, collateral aToken balance is now 1.000000 USDC, collateral value $0.99996000, available borrow $0.82496700, debt zero, health factor infinity; estimated debt after 0.01-USDC Borrow is $0.00999960 and expected health factor **86.0**. Reserve/price/debt reads and exact `eth_call`/`eth_estimateGas` succeeded through the actual server action. The journal remains the existing public-testnet journal. `BUILD-012B-PRESTATE.json` includes the initial full-market scan and this later read-only preview; neither is acceptance evidence.
+
+Canvas/template tests now exercise Lending where they previously treated Borrow as a mock template; every template manipulation/selection/drag/undo/network-isolation assertion remains. The toolbox test additionally verifies that Borrow opens real setup. New Borrow browser cases exercise the canonical journey, provider-managed nonce, lost-response reload, refusal, pre-submission failure, wrong owner/chain, stale public state, semantic edits and unsafe simulation. CI includes these cases in the existing closed loopback Aave harness.
+
+Public owner execution, acceptance Evidence Bundle and final TESTNET_EXECUTED status remain pending. No merge and no BUILD-012C.
+
+## Owner handoff
+
+One owner action: in Gryloo at `http://localhost:3000`, complete Borrow 0.01 USDC on Base Sepolia → Simulate → Review → Execute and confirm in wallet `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`. The current collateral is enabled and native gas balance is sufficient; no funding or collateral setup is required. Current review values are re-read during the owner journey.
+
+Public Borrow transaction, debt/balance/health-factor reconciliation and TESTNET_EXECUTED acceptance evidence remain pending this explicit owner wallet action. Delivery commit and the unmerged single PR are recorded in Git/PR metadata. Normal current-head remote CI results belong to the PR.

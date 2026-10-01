@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {mkdtemp,writeFile,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createSupplyService} from '../../../apps/reference-dapp/src/server/supply-service';
+import {createSupplyRun,prepareSupplyAttempt} from '../../reference-executor/src/supply.js';
 import {describe,it,expect} from 'vitest';
 import {secp256k1} from '@noble/curves/secp256k1.js';
 import {keccak_256} from '@noble/hashes/sha3.js';
-import {createSupplyNode,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
+import {createSupplyNode,createBorrowNode,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import {simulateSupply,AAVE_V3_BASE_SEPOLIA as p,supplyHex,supplyCall,supplyWord,supplyTopic,encodeSupplyWalletEnvelope,decodeSupplyWalletEnvelope,SUPPLY_METAMASK,fromHex,toHex,type SupplyRpc} from '@defi-workflow-engine/reference-compiler';
 import {reconcileSupplyAttempt,verifySupplyPosition,buildSupplyEvidence,supplyWalletDelegationDigest} from '../src/supply.js';
 import {supplyModel,SUPPLY_OWNER,realWrappedApprovalFixture as wrappedApprovalFixture} from '../../../apps/reference-dapp/e2e/supply-fixtures';
@@ -75,12 +80,12 @@ describe('real MetaMask EIP-7702 approval envelope',()=>{
   });
 });
 
-async function syntheticWrappedSupply(){
+async function syntheticWrappedSupply(borrow=false){
   // The signed real approval fixture supplies verified deployed contract bytes; all economic state is local.
   const key=new Uint8Array(32).fill(0x42),publicKey=secp256k1.getPublicKey(key,false);
   const owner=toHex(keccak_256(publicKey.slice(1)).slice(12)),relay='0x'+'b'.repeat(40);
   const model=supplyModel();model.state.owner=owner;model.state.allowance=1_000_000n;model.history.set(10,{...model.state});
-  const supplyWorkflow:SemanticWorkflow={...workflow,nodes:[createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'1000000',beneficiary:owner})]};
+  const supplyWorkflow:SemanticWorkflow={...workflow,nodes:[borrow?createBorrowNode('borrow',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'1000000',beneficiary:owner,interestRateMode:2}):createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'1000000',beneficiary:owner})]};
   const review=await simulateSupply(supplyWorkflow,owner,model.rpc);
   expect(review.approvalRequired).toBe(false);
   const direct=review.transactions[0]!;
@@ -128,7 +133,7 @@ async function syntheticWrappedSupply(){
     }
     return model.rpc(method,params);
   };
-  const attempt={step:'SUPPLY' as const,nonce:'0',transaction:direct,transactionHash:hash,preparedAtBlock:10};
+  const attempt={step:borrow?'BORROW' as const:'SUPPLY' as const,nonce:'0',transaction:direct,transactionHash:hash,preparedAtBlock:10};
   return {review,attempt,model,rpc,owner,tx,receipt};
 }
 
@@ -154,4 +159,52 @@ describe('owner-authorized wrapped Aave Supply',()=>{
     if(kind==='position')(model.history.get(11) as {scaled:bigint}).scaled+=100n;
     expect((await reconcileSupplyAttempt(review,attempt,rpc)).verdict).toBe('DIVERGENT');
   });
+});
+
+
+describe('owner-authorized wrapped Aave Borrow reuses the verified envelope model',()=>{
+  it('proves owner signature, exact Borrow and independent wallet/debt/health effects',async()=>{
+    const {review,attempt,rpc,owner}=await syntheticWrappedSupply(true);
+    const result=await reconcileSupplyAttempt(review,attempt,rpc);
+    expect(result).toMatchObject({verdict:'RECONCILED',reason:'BORROW_TRANSACTION_DEBT_BALANCE_AND_HEALTH_VERIFIED',delta:'1000000',walletDelta:'1000000',debtDelta:'1000000'});
+    expect(result.walletEnvelope).toMatchObject({owner,ownerNonceBefore:'0',ownerNonceAfter:'0',callCountBefore:'0',callCountAfter:'1'});
+  });
+  it.each(['pool','amount','beneficiary','rate','signature','event','debt','wallet','health'])('rejects wrapped Borrow with wrong %s',async kind=>{
+    const {review,attempt,rpc,tx,receipt,model,owner}=await syntheticWrappedSupply(true);
+    const e=decodeSupplyWalletEnvelope(tx.input),call={...e.call};
+    if(kind==='pool')call.to='0x'+'3'.repeat(40);
+    if(kind==='amount')call.data=supplyCall('borrow(address,uint256,uint256,uint16,address)',p.asset,2000000n,2n,0n,owner);
+    if(kind==='beneficiary')call.data=supplyCall('borrow(address,uint256,uint256,uint16,address)',p.asset,1000000n,2n,0n,'0x'+'4'.repeat(40));
+    if(kind==='rate')call.data=supplyCall('borrow(address,uint256,uint256,uint16,address)',p.asset,1000000n,1n,0n,owner);
+    if(['pool','amount','beneficiary','rate','signature'].includes(kind))tx.input=encodeSupplyWalletEnvelope({...e,call,caveats:[e.caveats[0]!,{...e.caveats[1]!,terms:packedCall(call)}],signature:kind==='signature'?'0x'+'00'.repeat(65):e.signature});
+    if(kind==='event')(receipt.logs as Record<string,unknown>[]).splice(0,1);
+    if(kind==='debt')(model.history.get(11) as {scaledDebt:bigint}).scaledDebt+=100n;
+    if(kind==='wallet')(model.history.get(11) as {balance:bigint}).balance+=1n;
+    const guarded:SupplyRpc=async(method,params)=>{
+      if(kind==='health'&&method==='eth_call'&&(params[0] as {data:string}).data===supplyCall('getUserAccountData(address)',owner)&&params[1]==='0xb'){
+        const data=await rpc(method,params) as string;return data.slice(0,-64)+supplyWord(1n);
+      }
+      return rpc(method,params);
+    };
+    expect((await reconcileSupplyAttempt(review,attempt,guarded)).verdict).toBe('DIVERGENT');
+  });
+});
+
+
+it('Borrow reuses an unchanged owner nonce only after independent proof of completed wrapped Supply',async()=>{
+  const f=await syntheticWrappedSupply(),id='supply-'+ 'a'.repeat(32),journalDir=await mkdtemp(join(tmpdir(),'gryloo-borrow-after-supply-'));
+  const service=createSupplyService({rpc:f.rpc,journalDir,provenance:'MOCKED'});
+  const prior={...prepareSupplyAttempt({...createSupplyRun(id,f.review,'MOCKED'),authorization:f.review.commitment},10,'0'),observations:[],evidence:null,error:null};
+  await writeFile(join(journalDir,id+'.jsonl'),JSON.stringify(prior)+'\n');
+  await writeFile(join(journalDir,`${f.owner}-0.intent`),JSON.stringify({id,step:'SUPPLY',transaction:prior.attempts[0]!.transaction})+'\n');
+  await service.report(id,'SUPPLY',{kind:'HASH',hash:f.attempt.transactionHash});
+  expect((await service.observe(id)).verdict).toBe('RECONCILED');
+  const workflow:SemanticWorkflow={...f.review.workflow,revision:1,nodes:[createBorrowNode('borrow',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'10000',beneficiary:f.owner,interestRateMode:2})]};
+  const next=await service.simulate(workflow,f.owner);await service.review(next.id,next.review.commitment,workflow);
+  const begin=await service.begin(next.id,f.owner,workflow);expect(begin.step).toBe('BORROW');expect(begin.record.attempts[0]!.nonce).toBe('0');
+  const lease=(await readFile(join(journalDir,`${f.owner}-0.intent`),'utf8')).trimEnd().split('\n').map(line=>JSON.parse(line));
+  expect(lease.map(e=>e.step)).toEqual(['SUPPLY','BORROW']);
+  await service.walletFailure(next.id,{invoked:false,transaction:null,calls:[],error:{message:'Transport failure'},code:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'});
+  const recovered=await service.recoverReview(next.id);await service.review(recovered.id,recovered.review.commitment,workflow);
+  expect((await service.begin(recovered.id,f.owner,workflow)).step).toBe('BORROW');
 });

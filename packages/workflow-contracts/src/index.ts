@@ -40,3 +40,4 @@ export function hashJournalBytes(bytes: Uint8Array): readonly string[] {
 export * from './supply.js';
 
 export * from './swap.js';
+export * from './borrow.js';

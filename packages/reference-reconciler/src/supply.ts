@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { reconcileBorrowAttempt, buildBorrowEvidence } from './borrow.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { AAVE_V3_BASE_SEPOLIA as profile, readSupplyState, rpcRecord, rpcHash, rpcUint, rpcHex, supplyHex, supplyCall, supplyTopic,
   SUPPLY_METAMASK, decodeSupplyWalletEnvelope, supplySelector, rlpEncode, rlpInteger, fromHex, toHex, type SupplyWalletEnvelope, supplyWord, supplyHash, supplyArtifactHash, type SupplyRpc, type SupplyReview, type SupplyTransaction, type SupplyState } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type EvidenceBundle, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
-export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
+export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'|'BORROW'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
 export type SupplyObservation = { verdict:'RECONCILED'|'DIVERGENT'|'INCONCLUSIVE'; reason:string; transaction:Record<string,unknown>|null;
   receipt:Record<string,unknown>|null; prePosition:SupplyState|null; postPosition:SupplyState|null; delta:string|null; scaledDelta:string|null; cost:string|null; walletEnvelope?:SupplyWalletProof };
-function logMatches(log: unknown, address: string, topics: string[], data: string): boolean {
+export function logMatches(log: unknown, address: string, topics: string[], data: string): boolean {
   const l=rpcRecord(log);
   return typeof l.address==='string' && l.address.toLowerCase()===address && Array.isArray(l.topics) &&
     JSON.stringify(l.topics.map(t => rpcHex(t)))===JSON.stringify(topics) && typeof l.data==='string' && l.data.toLowerCase()===data && l.removed!==true;
 }
-const addressTopic = (v:string) => '0x'+supplyWord(v);
+export const addressTopic = (v:string) => '0x'+supplyWord(v);
 export function verifySupplyPosition(amount: string, pre: Pick<SupplyState,'scaledPosition'|'position'|'index'>, post: Pick<SupplyState,'scaledPosition'|'position'|'index'>): { delta:string; scaledDelta:string } {
   const ray=10n**27n, index=BigInt(post.index), scaledDelta=BigInt(post.scaledPosition)-BigInt(pre.scaledPosition);
   const delta=(scaledDelta*index+ray/2n)/ray;
@@ -41,7 +42,7 @@ function signatureOwner(digest:string,signature:string):string {
     return toHex(keccak_256(pub.slice(1)).slice(12));
   }catch{throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');}
 }
-export async function verifySupplyWalletEnvelope(review:SupplyReview,attempt:SupplyChainAttempt,transaction:Record<string,unknown>,receipt:Record<string,unknown>,rpc:SupplyRpc):Promise<SupplyWalletProof> {
+export async function verifySupplyWalletEnvelope(review:Pick<SupplyReview,'account'>,attempt:Pick<SupplyChainAttempt,'transaction'|'nonce'>,transaction:Record<string,unknown>,receipt:Record<string,unknown>,rpc:SupplyRpc):Promise<SupplyWalletProof> {
   const e=decodeSupplyWalletEnvelope(transaction.input),m=SUPPLY_METAMASK,block=rpcUint(receipt.blockNumber),tag=supplyHex(block),preTag=supplyHex(block-1n);
   if(transaction.to!==m.manager||e.owner!==review.account||e.call.to!==attempt.transaction.to||e.call.data!==attempt.transaction.data||e.call.value!=='0'||transaction.from===review.account)throw new Error('SUPPLY_ENVELOPE_MISMATCH');
   const hashes=await Promise.all([m.manager,m.implementation,m.limited,m.exact].map(async address=>hashHex(rpcHex(await rpc('eth_getCode',[address,tag])))));
@@ -74,6 +75,7 @@ export async function verifySupplyWalletEnvelope(review:SupplyReview,attempt:Sup
 }
 /** Independent public transaction, receipt, event and historical-state reads. */
 export async function reconcileSupplyAttempt(review: SupplyReview, attempt: SupplyChainAttempt, rpc: SupplyRpc): Promise<SupplyObservation> {
+  if(review.borrow) return reconcileBorrowAttempt(review,attempt,rpc);
   const base: SupplyObservation = {verdict:'INCONCLUSIVE',reason:'TRANSACTION_NOT_OBSERVED',transaction:null,receipt:null,prePosition:null,postPosition:null,delta:null,scaledDelta:null,cost:null};
   if (!attempt.transactionHash) return base;
   try {
@@ -127,6 +129,7 @@ export async function reconcileSupplyAttempt(review: SupplyReview, attempt: Supp
   }
 }
 export function buildSupplyEvidence(input:{id:string;review:SupplyReview;journal:ExecutionJournal;provenance:'PUBLIC_TESTNET'|'MOCKED';ownerInitiated:boolean;observations:SupplyObservation[];approval?:SupplyObservation}): {bundle:EvidenceBundle;bundleHash:string;publicExecution:unknown;artifacts:unknown} {
+  if(input.review.borrow) return buildBorrowEvidence(input);
   const supply=input.observations.at(-1), approval=input.approval??(input.review.approvalRequired?input.observations.find(o=>o.verdict==='RECONCILED'):null);
   if (!supply||supply.verdict!=='RECONCILED'||!supply.prePosition||!supply.postPosition||!supply.receipt||!supply.transaction||
       (input.review.approvalRequired&&approval?.verdict!=='RECONCILED') || !input.ownerInitiated) throw new Error('SUPPLY_EVIDENCE_NOT_RECONCILED');

@@ -16,6 +16,7 @@ import { createBridgeSwapWorkflow } from '../domain/bridge-swap-authoring';
 import { createAcrossWorkflow } from '../domain/across-authoring';
 import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 
+import { BorrowAuthoringForm } from './borrow-panel';
 import { SupplyAuthoringForm } from './supply-panel';
 import { SolanaSwapForm } from './jupiter-panel';
 
@@ -107,7 +108,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option>
   </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
-    <SupplyAuthoringForm/>
+    <BorrowAuthoringForm/><SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">

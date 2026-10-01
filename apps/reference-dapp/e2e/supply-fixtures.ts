@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
 import type { SupplyRpc } from '@defi-workflow-engine/reference-compiler';
 export const SUPPLY_OWNER='0x1111111111111111111111111111111111111111';
-type Model={state:{owner:string;block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;revert:boolean;mismatch:boolean;ignoreOverride:boolean};
+type Model={state:{owner:string;block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;scaledDebt:bigint;debtIndex:bigint;price:bigint;userConfig:bigint;reserveConfig:bigint;liquidity:bigint;revert:boolean;mismatch:boolean;ignoreOverride:boolean};
   rpc:SupplyRpc;transactions:Record<string,unknown>[];receipts:Map<string,Record<string,unknown>>;history:Map<number,unknown>};
 export function supplyModel():Model{
   const module=createRequire(import.meta.url)('./supply-harness.mjs') as {createSupplyHarness:()=>Model};return module.createSupplyHarness();
