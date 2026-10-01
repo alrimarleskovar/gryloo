@@ -2,7 +2,7 @@
 
 ## BUILD-012A current implementation
 
-IMPLEMENTATION_IN_PROGRESS under DEC-0056 and the [approved plan](builds/BUILD-012A-PLAN.md), baseline `64a0a46f45532d667e226193f29529d8938acf15`. Exact official Aave V3 Supply on Base Sepolia only. No public Supply transaction, owner signature, TESTNET_EXECUTED evidence, remote CI or merge is claimed. Deterministic checks and PR preparation are underway. BUILD-012B/C/D remain unstarted. Prior public swap and historical certifications below remain unchanged.
+READY_FOR_OWNER_EXECUTION under DEC-0056 and the [approved plan](builds/BUILD-012A-PLAN.md), baseline `64a0a46f45532d667e226193f29529d8938acf15`. Exact official Aave V3 Supply on Base Sepolia only. Implementation and deterministic validation pass; all four push/PR Governance and contracts checks pass on b08a97105ee87aec232a271af9395a9528d5c2b3. [Draft PR #38](https://github.com/alrimarleskovar/gryloo/pull/38) remains unmerged. Owner funding and real injected-wallet execution through Gryloo remain. No public Supply transaction, owner signature, TESTNET_EXECUTED Supply evidence or merge is claimed. BUILD-012B/C/D remain unstarted. Prior public swap and historical certifications below remain unchanged.
 
 
 ## BUILD-011D-2 public recording gate (2026-09-29)
