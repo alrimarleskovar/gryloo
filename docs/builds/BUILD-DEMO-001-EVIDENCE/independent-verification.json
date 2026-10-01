@@ -1,0 +1,116 @@
+{
+  "result": "VERIFIED",
+  "evidence": "DEVNET_EXECUTED",
+  "readOnly": true,
+  "broadcast": false,
+  "verifiedAt": "2026-10-01T20:16:32.505Z",
+  "endpoint": "https://api.devnet.solana.com",
+  "chain": {
+    "cluster": "devnet",
+    "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "signature": "5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB",
+    "slot": 506389990,
+    "blockTime": 1790885251,
+    "confirmation": "finalized",
+    "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+    "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "pool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+    "instruction": "swap_v2",
+    "amountIn": "100000000",
+    "minimumOut": "2220195",
+    "amountOut": "2231352",
+    "feeLamports": "5000",
+    "devUsdcAccountDepositLamports": "1488440",
+    "ownerLamports": {
+      "before": "4999977280",
+      "after": "4898483840"
+    },
+    "ownerDevUsdc": {
+      "account": "H2GQvRuH6yP1nESoAYNyuA8Py3sHgyFW8TpRqNPp6GzD",
+      "before": "0",
+      "after": "2231352"
+    },
+    "trade": {
+      "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+      "aToB": true,
+      "preSqrtPrice": "2758306768913778772",
+      "postSqrtPrice": "2758256077087189420",
+      "inputAmount": "100000000",
+      "outputAmount": "2231352",
+      "inputTransferFee": "0",
+      "outputTransferFee": "0",
+      "lpFee": "194000",
+      "protocolFee": "6000"
+    },
+    "programs": [
+      "ComputeBudget111111111111111111111111111111",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "11111111111111111111111111111111",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+    ],
+    "innerPrograms": [
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "11111111111111111111111111111111"
+    ],
+    "messageHash": "0xacda1c3eb8c8a2b9def250706a8004011e410edf2fe3fe756de154b063f03cd8",
+    "computeUnitsConsumed": 60479,
+    "explorer": "https://explorer.solana.com/tx/5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB?cluster=devnet"
+  },
+  "journal": {
+    "id": "orca-9fb765270fc68d7a1e1c9cac72ed9242",
+    "lines": 7,
+    "attemptStates": [
+      "PREPARED",
+      "SUBMITTING",
+      "PENDING",
+      "CONFIRMED"
+    ],
+    "reviewCommitment": "0x01c04bcc8cb58bba74774a5323af8944ba4b25cb00187b3affbdd36406a80578",
+    "verdict": "RECONCILED"
+  },
+  "evidenceBundle": {
+    "bundleHash": "0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9",
+    "bundleEnvironment": "TESTNET_EXECUTED",
+    "evidenceClass": "DEVNET_EXECUTED",
+    "publicExecutionEnvironment": "DEVNET_EXECUTED",
+    "realFunds": false
+  },
+  "checks": [
+    "cluster genesis EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG (Solana Devnet)",
+    "signature status finalized with no error",
+    "one signer; the signature is the transaction id",
+    "owner 6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR Ed25519 signature verifies over the exact message",
+    "no address lookup tables",
+    "only ComputeBudget, AssociatedToken, System, Token and Whirlpools instructions",
+    "the owner is the only signer",
+    "exactly one Orca Whirlpools instruction (whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc)",
+    "instruction is swap_v2",
+    "exact pool 3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt, mints, vaults and oracle",
+    "token authority and both token accounts are the owner's own ATAs",
+    "exact input, SOL → devUSDC (a_to_b), no price limit",
+    "transaction succeeded; fee 5000 lamports",
+    "temporary wrapped-SOL account created and closed in the transaction",
+    "owner SOL input delta 100000000 lamports = swap amount (net of fee 5000 and devUSDC account deposit 1488440)",
+    "owner devUSDC output delta 2231352 ≥ minimum 2220195",
+    "pool vault deltas mirror the owner deltas",
+    "no other owner token account moved",
+    "exactly one Orca Traded event: pool, direction, input and output equal the measured deltas",
+    "journal orca-9fb765270fc68d7a1e1c9cac72ed9242: 7 append-only lines, one Review commitment",
+    "Review commitment recomputes",
+    "reviewed runtime, cluster and owner match the chain",
+    "on-chain message is byte-identical to the reviewed message and the ExecutionPlan payload hash",
+    "journal signature and signed bytes equal the finalized transaction bytes",
+    "reviewed amount, minimum, slippage and mints equal the on-chain swap",
+    "journal: PUBLIC_DEVNET, owner-initiated, CONFIRMED and RECONCILED",
+    "attempt states PREPARED → SUBMITTING → PENDING → CONFIRMED (persisted before signing, signature before broadcast)",
+    "Gryloo reconciler re-run now against public Devnet: RECONCILED",
+    "classification DEVNET_EXECUTED",
+    "downloaded Evidence Bundle equals the journal evidence",
+    "Evidence Bundle artifact hash recomputes: 0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9",
+    "bundle binds the journal head, Manifest and ExecutionPlan",
+    "class DEVNET_EXECUTED; frozen v1 bundle environment TESTNET_EXECUTED; realFunds false; never MAINNET_EXECUTED",
+    "no MAINNET_EXECUTED anywhere in the evidence",
+    "every evidence fact equals the independent chain facts"
+  ]
+}

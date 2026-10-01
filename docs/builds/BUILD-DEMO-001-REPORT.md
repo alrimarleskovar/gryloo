@@ -1,8 +1,72 @@
 # BUILD-DEMO-001 — Solana Devnet real execution report
 
-STATUS: READY_FOR_OWNER_EXECUTION
+STATUS: DEVNET_EXECUTED
 
-Work follows [GOVERNANCE-LITE](../SCOPE_GUARD.md): branch `claude/build-demo-001-solana-devnet` from main `148f79c`, one PR, owner merge. No path manifest, byte pin, historical baseline fetch or governance amendment was created. Nothing was signed or broadcast during implementation. There is no `DEVNET_EXECUTED` claim yet: that needs one owner-driven public Devnet transaction through Gryloo, independently reconciled, with its Evidence Bundle.
+Work follows [GOVERNANCE-LITE](../SCOPE_GUARD.md): branch `claude/build-demo-001-solana-devnet` from main `148f79c`, one PR, owner merge. No path manifest, byte pin, historical baseline fetch or governance amendment was created. Nothing was signed or broadcast during implementation. On 2026-10-01 the owner executed one real public Solana Devnet swap through Gryloo with their own wallet. It was independently reconciled and produced an Evidence Bundle, so the status is **`DEVNET_EXECUTED`**. It used valueless Devnet test tokens; no real funds and no mainnet execution are involved.
+
+## DEVNET_EXECUTED acceptance
+
+| Fact | Value |
+|---|---|
+| Network | Solana Devnet, genesis `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG` |
+| Provider / program | Orca Whirlpools `swap_v2`, `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` |
+| Pool | `3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt` (SOL / devUSDC) |
+| Owner (sole signer) | `6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR` |
+| Transaction | [`5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB`](https://explorer.solana.com/tx/5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB?cluster=devnet) |
+| Slot / block time / finality | 506,389,990 / 1790885251 (2026-10-01T20:07:31Z) / finalized |
+| Input | 0.1 Devnet SOL = 100,000,000 lamports (exact) |
+| Output | 2.231352 devUSDC = 2,231,352 raw (quoted 2,231,352 at Review) |
+| Minimum output / slippage | 2,220,195 raw / 50 bps |
+| Network fee | 5,000 lamports |
+| Owner SOL | 4,999,977,280 → 4,898,483,840 lamports (−100,000,000 swap − 5,000 fee − 1,488,440 refundable devUSDC account deposit) |
+| Owner devUSDC (`H2GQvRuH6yP1nESoAYNyuA8Py3sHgyFW8TpRqNPp6GzD`) | 0 → 2,231,352 |
+| Orca `Traded` event | input 100,000,000, output 2,231,352, LP fee 194,000, protocol fee 6,000 lamports |
+| Message hash | `0xacda1c3eb8c8a2b9def250706a8004011e410edf2fe3fe756de154b063f03cd8` |
+| Gryloo journal | `orca-9fb765270fc68d7a1e1c9cac72ed9242`: PREPARED → SUBMITTING → PENDING → CONFIRMED, verdict RECONCILED |
+| Evidence class | `DEVNET_EXECUTED` (owner-initiated, independently reconciled, `realFunds: false`) |
+| Evidence Bundle hash | `0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9` |
+
+**Independent verification: VERIFIED (35/35 checks).** `scripts/solana-devnet-execution-verification.mjs` is read-only; its transport refuses `sendTransaction`. It re-derives the chain facts from the public finalized transaction using the raw wire codec, not Gryloo's reconciler:
+- **Signature and instructions.**
+  - Cluster genesis and finality.
+  - The owner's Ed25519 signature over the exact message, with the owner as the only signer.
+  - The instruction allowlist and no lookup tables.
+  - Exactly one Orca Whirlpools `swap_v2`: exact input, SOL→devUSDC, no price limit.
+  - The exact pool, mints, vaults and oracle.
+  - The owner's own token accounts.
+- **Fee and balances.**
+  - Fee of 5,000 lamports.
+  - Owner SOL input delta equal to the amount, net of fee and deposit.
+  - devUSDC output ≥ minimum.
+  - Pool vault deltas mirror the owner deltas.
+  - The temporary wrapped-SOL account was opened and closed in the transaction.
+  - No other owner token account moved.
+- **Traded event.** Exactly one Orca `Traded` event matching pool, direction, input and output.
+
+It then binds the journal:
+- Every line validates and the Review commitment recomputes.
+- The on-chain message is byte-identical to the reviewed message and the ExecutionPlan payload hash.
+- The journal's signature and signed bytes equal the finalized transaction.
+- The attempt sequence shows durable persistence before signing and the signature before broadcast.
+- Gryloo's reconciler, re-run against public Devnet, still returns `RECONCILED` / `DEVNET_EXECUTED`.
+
+It also binds the Evidence Bundle:
+- The downloaded bundle equals the journal evidence.
+- The artifact hash recomputes to `0x621c…e6c9`.
+- It binds the journal head, Manifest and ExecutionPlan.
+- Every reported fact equals the chain.
+
+The same 35 checks pass against the archived copies.
+
+**Schema note (honest labelling).** The frozen generic v1 Evidence Bundle schema has no Devnet environment value. The archived bundle therefore carries `bundle.environment: TESTNET_EXECUTED`, meaning a public non-mainnet network. The Gryloo runtime and evidence classification is **`DEVNET_EXECUTED`**: `evidenceClass` and `publicExecution.environment` are `DEVNET_EXECUTED`, `realFunds` is `false`, and the bundle's limitations state Solana Devnet with valueless test tokens. Nothing in the evidence says `MAINNET_EXECUTED`. This is not mainnet execution and involved no real funds.
+
+**Archived evidence** in [`BUILD-DEMO-001-EVIDENCE/`](BUILD-DEMO-001-EVIDENCE/), immutable byte copies listed in `SHA256SUMS`:
+- `evidence-bundle.json` (the owner's download, SHA-256 `d139251470503017f8ae873eaca0666212ec24b8e0ac0cadb01d30858192048b`)
+- `execution-journal.jsonl` (the run's append-only journal, `f82fd4335fddced99301a1231b8bcf02fbcb35b2fbc6759dc4bafa5201eb7248`)
+- `devnet-transaction.json` (the raw finalized `getTransaction` result, `7ebc7bd807cd49c15bdec72266c672bdad9327afdc94cd292ff659d74d7e3ad7`)
+- `independent-verification.json` (the verifier output, `cc2fca241f358d867e25e223debaf19d2d6782daffaa47652b0105ee0f88484d`)
+
+**Earlier fail-closed attempt.** Before the explicit wallet selector (commit `038b13e`), a run from another wallet account (`6NTyfs83wzEo7WkkhTuNSxXiyYM9x73icbdtQWVbhaRy`, journal `orca-e17951a4df9578bc78c9a5a0f0396ea2`) went `PREPARED → CANCELLED` with `DEVNET_SWAP_TRANSACTION_CHANGED`. The wallet returned bytes that differed from the Review. Gryloo stored no signature, broadcast nothing, and released the owner lease. This is the exact-byte guard working as designed; it was not relaxed.
 
 ## Goal
 
@@ -126,7 +190,7 @@ Local runs, 2026-10-01. Fixtures and the loopback harness are `MOCKED`; they are
 - Governance-lite and its 17 self-tests: PASS. `git diff --check`: PASS.
 - No dependency or lockfile change; `pnpm audit` and the SBOM/integrity gates are left to CI.
 
-## Owner action required for DEVNET_EXECUTED
+## Owner execution (completed 2026-10-01; recorded above)
 
 1. Fund a Wallet Standard Solana wallet (for example Phantom with Testnet Mode → Solana Devnet, or Solflare on Devnet) with **1 Devnet SOL** from [faucet.solana.com](https://faucet.solana.com). Nothing else is needed. The demo swap needs 0.1 SOL plus ≈0.0021 SOL refundable account deposits plus a 0.000005 SOL fee. To try "test USDC → SOL" later, first swap SOL → devUSDC in Gryloo.
 2. From this branch: `pnpm build`, then `GRYLOO_SOLANA_DEVNET_JOURNAL=/absolute/dir/outside/git pnpm --filter @defi-workflow-engine/reference-dapp start`. Optionally set `GRYLOO_SOLANA_DEVNET_RPC_URL=https://…` for a Devnet RPC provider.

@@ -6,7 +6,7 @@ Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR
 
 ## Current implementation: BUILD-DEMO-001 — Solana Devnet real execution
 
-READY_FOR_OWNER_EXECUTION. The canonical swap executes on Solana Devnet through Orca Whirlpools with valueless test tokens and the owner's Wallet Standard wallet. The remaining step for `DEVNET_EXECUTED` is one owner-driven public Devnet swap through Gryloo: fund the wallet with 1 Devnet SOL from the official faucet, then Simulate, Review, Execute and sign. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
+DEVNET_EXECUTED. The owner executed one real public Solana Devnet swap of the canonical intent through Gryloo (Orca Whirlpools, valueless test tokens, owner wallet signature). It was independently reconciled and verified, and its Evidence Bundle is archived. PR #42 awaits the owner's merge decision. No further build is started. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
 
 ## Previous implementation: BUILD-014 — Jupiter / Solana portability
 
