@@ -89,3 +89,26 @@ The variable-debt Mint/Transfer event itself records 10001 raw. The one-unit dif
 Product implementation `519ea9dfd558d0362f51026d56c253f108073546` passed [Governance CI](https://github.com/alrimarleskovar/gryloo/actions/runs/36902368727) and [normal Contracts/browser/dependency/SBOM CI](https://github.com/alrimarleskovar/gryloo/actions/runs/36902368791). Acceptance-only changes add the final report, immutable owner Evidence Bundle and independent public verification; runtime and tests are unchanged. Focused evidence/hash verification, Governance-Lite/self-tests and whitespace checks are run for this delivery. Normal CI results for the acceptance commit belong to PR #41.
 
 PR [#41](https://github.com/alrimarleskovar/gryloo/pull/41) remains unmerged. Main advanced after the original baseline through merged BUILD-014. After the acceptance evidence commit, current origin/main is fetched solely for ordinary shared-file conflict assessment, without inspecting or modifying the BUILD-014 worktree. Any rebase/conflict requirements are recorded in PR metadata and the final acceptance summary. No rebase or merge is performed during this evidence finalization, and BUILD-012C is not started.
+
+## Merge-readiness reconciliation
+
+At the owner's subsequent request, branch `codex/build-012b-aave-borrow` was rebased from accepted head `7d21ac34d0bd2f393d39b858e9ea8cdfc7b4db27` onto current `origin/main`, `148f79ce3b3a040e1406e54a3b1d7d8d5fd02d33` (merged BUILD-014). The three Borrow commits replayed successfully. Twelve shared-file conflicts were resolved by retaining both builds:
+
+- App shell, summary bar and Canvas retain Borrow/Supply and Solana/Jupiter presentation, simulation, Review and execution paths.
+- Commands, editor and proposals retain both canonical authoring flows; capability selection retains Aave PUBLIC_TESTNET and Jupiter MAINNET handling.
+- Shared linter validation retains both Aave and Solana safety checks. Compiler, reconciler and contracts indexes export both implementations.
+- Contracts CI runs Borrow in the existing closed Aave browser group and retains the independent closed Jupiter browser group.
+
+Solana/Jupiter-specific implementation and tests, the BUILD-014 report, dependency lockfile, compiler dependency manifest and bootstrap rules match the rebase base. No BUILD-014 feature, assertion or security gate was deleted or downgraded. The other worktree was not inspected or modified.
+
+Post-rebase validation: `pnpm check` passed (typecheck, lint, production build, all 11 schema exports; **772 tests passed**, 2 existing optional cases skipped). Combined focused Aave/Borrow and BUILD-014 tests: **197 passed across 13 files**, including all 71 existing BUILD-014 cases. Combined guarded browser run: **50 passed**, including all 9 Borrow, all 9 Jupiter, all 18 Supply/recovery, and Canvas/capability cases. Canonical Borrow and Jupiter journeys reported no browser page errors; Borrow Review/result screenshots were visually checked. Governance-Lite and all 17 self-tests, screenshot-summary self-test, frozen install without lifecycle scripts, all 247 dependency integrity/license/release-age checks, audit (no known vulnerabilities), and the current Contracts-workflow CycloneDX 1.6 validator passed. Pinned-Anvil compatibility: 4 passed, 10 owner-only cases skipped. Normal fork suite: 31 passed, 29 existing environment/owner-dependent cases skipped. Skips are not execution proof.
+
+Local validation initially encountered stale compiled package exports, temporary journal paths rejected by the existing mock safety guards, and a concurrent browser/fork port collision. Workspace exports were rebuilt, temporary paths corrected and loopback suites run sequentially; no product/test gate was relaxed.
+
+The public acceptance remains **TESTNET_EXECUTED / RECONCILED**. No transaction was regenerated or submitted for this reconciliation. The original report above is retained verbatim, followed only by this merge-readiness record. Accepted execution facts, transaction hash, health/debt/balance snapshots and Evidence Bundle are unchanged. Byte equality against accepted head was checked, and SHA-256 remains:
+
+- `BUILD-012B-EVIDENCE.json`: `d63603c933442086e93091fb52182c1bcbca4f9494b28a465141237871d05546`.
+- `BUILD-012B-VERIFICATION.json`: `38d19e915f65be4aefaeb67b1558fc4a291de3a533ee55b09ac78d69c0399592`.
+- `BUILD-012B-PRESTATE.json`: `d5a7e096a039274f7e9d3101b11d3736e7e203b941fde25510e066f5103dc07d`.
+
+The rebased exports recomputed and matched the original bundle, public-observation, six artifact and journal-head commitments, and reproduced the exact accepted wallet/debt/health-factor reconciliation from the immutable snapshots. Current-head GitHub CI and mergeability are recorded in PR #41. Delivery uses a lease-protected push of the rebased branch; PR #41 remains unmerged. No BUILD-012C or unrelated work was started.
