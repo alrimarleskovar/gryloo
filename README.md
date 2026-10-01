@@ -16,6 +16,13 @@ texts, and [the license map](docs/LICENSE_MAP.md) classifies each path.
 `docs/assets/**` is excluded as third-party reference material. The licenses
 grant no Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
 
+## Repository workflow
+
+Use [GOVERNANCE-LITE](docs/SCOPE_GUARD.md): branch → code → tests → PR → CI →
+human owner merge. Legitimate product paths need no build-specific permission
+manifest or byte-pin update. Secrets, dependency integrity, correctness and
+explicit owner wallet authorization remain required.
+
 ## Sources of truth
 
 - [Master Product Specification v3.2](docs/specs/MASTER_SPEC_V3.2.md)

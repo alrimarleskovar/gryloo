@@ -1,5 +1,9 @@
 # Security model
 
+## Governance-lite migration
+
+Repository source changes now use owner PR review and ordinary CI under [GOVERNANCE-LITE](SCOPE_GUARD.md). Historical source digests, path authorization and build-phase procedures below describe the old model and no longer constrain future implementation. Product authorization, financial execution, recovery, reconciliation, evidence and dependency controls remain in force. The current secret check reuses the old credential families, allows documented placeholders and never prints matched values. Its basic patterns cannot detect every secret; owner review remains necessary.
+
 ## BUILD-007 composition boundary
 
 The Safe owner is the root authority; a disposable local executor receives two one-use Roles permissions after separately reviewed owner transactions. The worker may submit only fixed swap and mint calls from the prepared Manifest, persists an attempt before submission, and reconciles the swap before choosing a bounded mint amount. Unknown submission stays `INCONCLUSIVE` without guessing or retrying a send. A successful swap with failed mint leaves assets in the Safe and requires owner review; no automatic swap-back occurs. The new Base source recording is read-only, single-flight, limited to 1,500 provider requests, 39,000 reserved listed CU and 30 minutes, and stops on the first provider or policy error. Its credential was owner created outside Git after credential-free preflight and removed after the stopped attempt (2 reads / 52 reserved CU). The one-attempt authority is exhausted. Certified BUILD-003–006 evidence is preserved.

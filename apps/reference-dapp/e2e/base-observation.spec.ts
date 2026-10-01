@@ -113,7 +113,8 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   const at = new Date('2026-09-24T14:51:42.000Z');
   await page.clock.install({ time: new Date(at.getTime() - 1000) });
   await page.goto('/');
-  await page.clock.pauseAt(at);
+  // Navigation can exceed one second; keep replay time fixed without rewinding timers.
+  await page.clock.setFixedTime(at);
   await page.getByLabel('Describe a mock edit').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
