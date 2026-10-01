@@ -12,10 +12,13 @@ import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
 import { createAuthoredSupply, supplyDetails, type SupplyInput } from './supply-authoring';
+import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, type SolanaSwapInput } from './jupiter-authoring';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
   | { readonly type: 'ADD_SUPPLY'; readonly input: SupplyInput }
+  | { readonly type: 'ADD_SOLANA_SWAP'; readonly input: SolanaSwapInput }
+  | { readonly type: 'SET_SOLANA_SWAP'; readonly nodeId: string; readonly input: SolanaSwapInput }
   | { readonly type: 'SET_SUPPLY'; readonly nodeId: string; readonly input: SupplyInput }
   | { readonly type: 'ADD'; readonly kind: ActionKind }
   | { readonly type: 'SET_AMOUNT'; readonly nodeId: string; readonly amount: string }
@@ -59,6 +62,16 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
     const fields: SupplyInput = { network: 'Base Sepolia', asset: 'USDC', amount: supply[1]!, beneficiary };
     createAuthoredSupply('node-preview', fields);
     return { type: 'ADD_SUPPLY', input: fields, source: 'CHAT', baseRevision: workflow.revision };
+  }
+  const solana = parseSolanaSwapChat(input);
+  if (solana) { createSolanaSwapNode('node-preview', solana); return { type: 'ADD_SOLANA_SWAP', input: solana, source: 'CHAT', baseRevision: workflow.revision }; }
+  const solanaEdit = /^set (node-\d+) (amount|slippage) (\S+?)(?: bps)?$/i.exec(input);
+  const solanaNode = solanaEdit && workflow.nodes.find(n => n.nodeId === solanaEdit[1]);
+  const solanaFields = solanaNode && solanaSwapDetails(solanaNode);
+  if (solanaEdit && solanaFields) {
+    const updated = { ...solanaFields, [solanaEdit[2]!.toLowerCase()]: solanaEdit[3]! };
+    createSolanaSwapNode(solanaNode!.nodeId, updated);
+    return { type: 'SET_SOLANA_SWAP', nodeId: solanaNode!.nodeId, input: updated, source: 'CHAT', baseRevision: workflow.revision };
   }
   const supplyEdit = /^set (node-\d+) amount (\S+)$/i.exec(input);
   if (supplyEdit) {
@@ -139,7 +152,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -155,6 +168,15 @@ export function commandIsValid(input: unknown): input is Command {
           Reflect.ownKeys(fields).sort().join() !== ['network','asset','amount','beneficiary'].sort().join() ||
           !Object.values(fields).every(v => typeof v === 'string' && v.length <= 80)) return false;
       try { createAuthoredSupply('node-preview', fields as SupplyInput); return true; } catch { return false; }
+    }
+    case 'ADD_SOLANA_SWAP':
+    case 'SET_SOLANA_SWAP': {
+      if (command.type === 'SET_SOLANA_SWAP' && !id(command.nodeId)) return false;
+      const fields = command.input;
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.getPrototypeOf(fields) !== Object.prototype ||
+          Reflect.ownKeys(fields).sort().join() !== ['network','from','to','amount','slippage'].sort().join() ||
+          !Object.values(fields).every(v => typeof v === 'string' && v.length <= 40)) return false;
+      try { createSolanaSwapNode('node-preview', fields as SolanaSwapInput); return true; } catch { return false; }
     }
     case 'ADD': return actionKinds.includes(command.kind as ActionKind);
     case 'SET_AMOUNT': return id(command.nodeId) && typeof command.amount === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(command.amount);
@@ -225,6 +247,8 @@ export function amountOf(node: Workflow['nodes'][number]): string {
 }
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
+    const solana = solanaSwapDetails(node);
+    if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on Solana via Jupiter, ${solana.slippage} bps, quote required.`;
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);
     if (supply) return `${node.nodeId}: Supply ${supply.amount} USDC to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
     const bridge = bridgeDetails(node);

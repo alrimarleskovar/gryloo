@@ -241,9 +241,11 @@ BUILD003D_DIRECT_VERSIONS = {
 
 # BUILD-003D private AGPL reference packages and their exact dependencies.
 BUILD003D_REFERENCE_PACKAGES = {
+    # BUILD-014: Solana Ed25519 signature/PDA checks reuse the already-pinned @noble/curves.
     "packages/reference-compiler/package.json": ("@defi-workflow-engine/reference-compiler", {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
         "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
+        "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
     }),
     "packages/reference-executor/package.json": ("@defi-workflow-engine/reference-executor", {

@@ -11,6 +11,7 @@ import { validateCrossChainLiquidityWorkflow } from './cross-chain-liquidity.js'
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
 import { validateSupplyWorkflow } from './supply.js';
+import { isSolanaSwapNode, validateSolanaSwapWorkflow } from './solana-swap.js';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
@@ -94,6 +95,8 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     return workflow;
   }
   if (workflow.nodes.some(node => node.actionType === 'supply')) validateSupplyWorkflow(workflow);
+  // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
+  if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }
   unique(workflow.nodes.map(node => node.nodeId), 'DUPLICATE_NODE');
   const nodes = new Map(workflow.nodes.map(node => [node.nodeId, node]));
   for (const node of workflow.nodes) {

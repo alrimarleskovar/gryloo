@@ -100,6 +100,9 @@ importers:
       '@defi-workflow-engine/workflow-contracts':
         specifier: workspace:0.3.0
         version: link:../workflow-contracts
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0

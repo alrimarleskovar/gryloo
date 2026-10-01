@@ -12,6 +12,7 @@ import { AcrossProvider } from '../state/across-store';
 import { PublicTestnetProvider } from '../state/public-testnet-store';
 
 import { SupplyProvider } from '../state/supply-store';
+import { JupiterProvider } from '../state/jupiter-store';
 
 const initialContext = {
   registryId: referenceRegistry.registryId,
@@ -20,4 +21,4 @@ const initialContext = {
   assets: baseAssetRegistry,
 };
 // The local-fork Mode A boundary is a separate provider; the mocked chain and Base observation never reach it.
-export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><AppShell/></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }
+export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><AppShell/></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }

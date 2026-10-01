@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import { rm } from 'node:fs/promises';
+import type { Page } from '@playwright/test';
+import { createMockedSolanaWallet } from '@defi-workflow-engine/reference-compiler';
+
+/** MOCKED Wallet Standard wallet. Its disposable key lives only in this test process's memory. */
+export async function resetJupiterHarness(options: Record<string, unknown> = {}, funding: { lamports?: string; usdc?: string } = {}) {
+  if (process.env.GRYLOO_JUPITER_E2E !== 'MOCKED_LOOPBACK_ONLY' || !process.env.GRYLOO_JUPITER_JOURNAL?.startsWith('/tmp/gryloo-build014-')) throw new Error('MOCK_RESET_DENIED');
+  await rm(process.env.GRYLOO_JUPITER_JOURNAL, { recursive: true, force: true });
+  const wallet = createMockedSolanaWallet();
+  await jupiterControl({ action: 'reset', owner: wallet.owner, options, ...funding });
+  return wallet;
+}
+export async function jupiterControl(body: Record<string, unknown>): Promise<unknown> {
+  const response = await fetch('http://127.0.0.1:8551/control', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return (await response.json() as { result: unknown }).result;
+}
+export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof createMockedSolanaWallet>, behavior: { reject?: boolean; modify?: string; pause?: boolean } = {}) {
+  await page.exposeFunction('grylooJupiterTestSign', async (unsigned: string) => behavior.modify ? wallet.sign(behavior.modify) : wallet.sign(unsigned));
+  await page.addInitScript(({ owner, behavior }) => {
+    const w = window as unknown as { grylooJupiterTestSign: (tx: string) => Promise<string>; solanaSignRequests: number; releaseSolanaSignature?: () => void };
+    w.solanaSignRequests = 0;
+    const account = { address: owner, publicKey: new Uint8Array(32), chains: ['solana:mainnet'], features: ['solana:signTransaction'] };
+    const toB64 = (bytes: Uint8Array) => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+    const wallet = { version: '1.0.0', name: 'Gryloo MOCKED Solana wallet', icon: 'data:image/svg+xml;base64,PHN2Zy8+', chains: ['solana:mainnet'], accounts: [account],
+      features: {
+        'standard:connect': { version: '1.0.0', connect: async () => ({ accounts: [account] }) },
+        'solana:signTransaction': { version: '1.0.0', supportedTransactionVersions: [0], signTransaction: async (...inputs: { transaction: Uint8Array }[]) => {
+          w.solanaSignRequests++;
+          if (behavior.pause) await new Promise<void>(resolve => { w.releaseSolanaSignature = resolve; });
+          if (behavior.reject) throw Object.assign(new Error('User rejected the request.'), { code: 4001 });
+          const signed = await w.grylooJupiterTestSign(toB64(inputs[0]!.transaction));
+          return [{ signedTransaction: Uint8Array.from(atob(signed), c => c.charCodeAt(0)) }];
+        } },
+      } };
+    const register = (api: { register: (w: unknown) => void }) => api.register(wallet);
+    window.addEventListener('wallet-standard:app-ready', event => register((event as CustomEvent).detail));
+    window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
+  }, { owner: wallet.owner, behavior: { reject: Boolean(behavior.reject), pause: Boolean(behavior.pause) } });
+}
+export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
+  await page.goto('/');
+  if (via === 'chat') {
+    await page.locator('#mock-prompt').fill('Swap 10 USDC to SOL on Solana');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+  } else {
+    await page.getByText('Advanced action setup').click();
+    await page.locator('#swap-network').selectOption('SOLANA');
+    const form = page.getByRole('form', { name: 'Create Solana swap' });
+    await form.getByLabel('From token').selectOption('USDC'); await form.getByLabel('To token').selectOption('SOL');
+    await form.getByLabel('Amount').fill('10');
+    await form.getByRole('button', { name: 'Review swap proposal' }).click();
+  }
+  await page.getByRole('button', { name: 'Apply proposal' }).click();
+}
+export async function reviewSolanaSwap(page: Page) {
+  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  const panel = page.getByRole('region', { name: 'Jupiter swap' });
+  await panel.getByRole('button', { name: 'Connect Solana wallet' }).click();
+  await panel.getByRole('button', { name: 'Simulate swap' }).click();
+  await panel.getByRole('definition').filter({ hasText: '→ expected' }).waitFor();
+  await page.getByRole('button', { name: 'Review swap', exact: true }).click();
+  await page.getByRole('region', { name: 'Jupiter swap' }).getByRole('button', { name: 'Accept swap review' }).click();
+}
+export const signRequests = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignRequests: number }).solanaSignRequests);

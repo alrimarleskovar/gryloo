@@ -40,7 +40,7 @@ const templateKinds = new Set(['mock-read', 'mock-transform', 'mock-condition', 
 const definedActions = new Set(['supply', 'asset.swap.exact-input', 'asset.bridge', 'asset.liquidity.uniswap-v3', 'asset.liquidity.prepare', ...templateKinds]);
 const adapterVersions: Readonly<Record<string, string>> = Object.freeze({
   'aave-v3': '1.0.0', 'uniswap.v3': '1.0.0', 'cow.protocol': '1.0.0', 'lifi.rest': '1.0.0', 'across.direct': '1.0.0',
-  'gryloo.calculated-split': '1.0.0', 'gryloo.template': '1.0.0',
+  'gryloo.calculated-split': '1.0.0', 'gryloo.template': '1.0.0', 'jupiter.swap-v2': '1.0.0',
 });
 const rows: ExecutionCapabilityProfile[] = [];
 function add(actionType: string, adapterId: string, chainId: string, environment: ExecutionEnvironment,
@@ -64,6 +64,8 @@ add('asset.liquidity.uniswap-v3', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', for
 add('asset.liquidity.prepare', 'gryloo.calculated-split', 'eip155:42161', 'MOCK', preparation, 'MOCKED', null, [], ['A']);
 for (const kind of templateKinds) add(kind, 'gryloo.template', 'mock:local', 'MOCK', author, null, null, [], []);
 add('supply', 'aave-v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
+// Jupiter routes only Solana mainnet-beta liquidity. Owner execution is implemented; no execution is demonstrated yet.
+add('asset.swap.exact-input', 'jupiter.swap-v2', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'MAINNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 
@@ -91,6 +93,7 @@ function selectedAdapter(node: Node): { id: string; version: string } | null {
   if (node.actionType === 'asset.liquidity.prepare') return { id: 'gryloo.calculated-split', version: '1.0.0' };
   if (node.actionType === 'asset.liquidity.uniswap-v3') return node.adapterConstraints.protocols.includes('uniswap-v3') ? { id: 'uniswap.v3', version: '1.0.0' } : null;
   if (node.actionType === 'asset.swap.exact-input') {
+    if (node.adapterConstraints.protocols.length === 1 && node.adapterConstraints.protocols[0] === 'jupiter') return { id: 'jupiter.swap-v2', version: '1.0.0' };
     if (node.adapterConstraints.protocols.includes('cow-protocol')) return { id: 'cow.protocol', version: '1.0.0' };
     if (node.adapterConstraints.protocols.includes('uniswap')) return { id: 'uniswap.v3', version: '1.0.0' };
   }
