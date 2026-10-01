@@ -1092,6 +1092,8 @@ jobs:
           PYCODE
 
       - name: Verify restored persistent governance controls
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
         shell: bash
         run: |
           set -euo pipefail
