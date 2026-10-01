@@ -10,6 +10,7 @@ import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-au
 import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 
+import { BorrowAuthoringForm } from './borrow-panel';
 import { SupplyAuthoringForm } from './supply-panel';
 import { SolanaSwapForm } from './jupiter-panel';
 import { solanaSwapDetails } from '../domain/jupiter-authoring';
@@ -82,6 +83,7 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
   const label = supply ? 'Supply' : solana ? 'Swap' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
     {node ? <>
+      {node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
       {solana && <><p className="muted">Solana {solana.from} → {solana.to} via Jupiter · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}

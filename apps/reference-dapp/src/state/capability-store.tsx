@@ -27,7 +27,7 @@ export function useExecutionEnvironment() {
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
   const workflow = useWorkflow().state.workflow;
-  const testnetSwap = workflow.nodes.some(node => node.actionType === 'supply' || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const testnetSwap = workflow.nodes.some(node => ['supply','borrow'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const solanaSwap = workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
   const environment: ExecutionEnvironment = selection.selected ?? (solanaSwap ? 'MAINNET' : testnetSwap ? 'PUBLIC_TESTNET' : forkPrepared ? 'LOCAL_FORK' : 'MOCK');
   return { environment, selectEnvironment: selection.select };
@@ -36,7 +36,7 @@ export function useWorkflowCapability() {
   const { state, chain } = useWorkflow();
   const { environment, selectEnvironment } = useExecutionEnvironment();
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
-  const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply');
+  const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => ['supply','borrow'].includes(n.actionType));
   const jupiter = useJupiter(), solanaPath = state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId.startsWith('solana:'));
   const cow = useCow(), wallet = useBuild009Wallet(), publicTestnet = usePublicTestnet();
   const forkAvailable = Boolean(modeA.info?.available || modeB.info?.available || liquidity.info?.available || composition.info?.available);

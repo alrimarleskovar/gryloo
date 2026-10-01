@@ -22,3 +22,4 @@ export * from './cross-chain-liquidity.js';
 export * from './supply.js';
 
 export * from './jupiter.js';
+export * from './borrow.js';
