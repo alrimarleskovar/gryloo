@@ -62,7 +62,7 @@ function AppShellContent() {
   const across = useAcross();
   const [tab, setTab] = useState<Tab>('Build');
   const supply = useSupply();
-  const supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply') || Boolean(supply.recovered && supply.record?.attempts.length);
+  const supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply') || Boolean(supply.recovered && supply.record);
   const publicTestnet = usePublicTestnet();
   const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const publicRecovery = Boolean(publicTestnet.recoveryOnly && publicTestnet.run);

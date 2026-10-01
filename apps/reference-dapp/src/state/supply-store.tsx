@@ -4,11 +4,11 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { useWorkflow } from './workflow-store';
 import { injected, useBuild009Wallet } from './build009-wallet-store';
-import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate } from '../app/supply-action';
+import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate, supplyRecoverReview } from '../app/supply-action';
 import type { SupplyRecord } from '../server/supply-service';
 const key='gryloo:build012a:supply';
 type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY';hash?:string};
-type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>};
+type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
 const Context=createContext<Store|null>(null);
 export function SupplyProvider({children}:{children:ReactNode}){
   const {state}=useWorkflow(),wallet=useBuild009Wallet();
@@ -47,13 +47,18 @@ export function SupplyProvider({children}:{children:ReactNode}){
   useEffect(()=>{if(record&&retired&&record.authorization)supplyInvalidate(record.id).then(result=>{if(result.ok)setRecord(result.value);}).catch(()=>setError('SUPPLY_AUTHORIZATION_INVALIDATION_FAILED'));},[record,retired]);
   async function operation(action:()=>Promise<void>){if(busyRef.current)return;busyRef.current=true;setBusy(true);setError(null);try{await action();}catch(cause){setError(cause instanceof Error?cause.message:'SUPPLY_OPERATION_FAILED');}finally{busyRef.current=false;setBusy(false);}}
   async function observe(){await operation(async()=>{if(!record)throw new Error('SUPPLY_RUN_MISSING');const result=await supplyObserve(record.id);if(!result.ok)throw new Error(result.code);accept(result.value);});}
+  async function recoverReview(){await operation(async()=>{
+    if(!record)throw new Error('SUPPLY_RUN_MISSING');
+    const result=await supplyRecoverReview(record.id);if(!result.ok)throw new Error(result.code);accept(result.value);setRecovered(true);
+  });}
   async function simulate(){await operation(async()=>{
     if(record?.attempts.some(a=>!a.reconciled))throw new Error('SUPPLY_EXISTING_ATTEMPT_OBSERVE_ONLY');
-    const node=workflow.nodes.find(n=>n.actionType==='supply'),beneficiary=node?.inputs.find(p=>p.name==='beneficiary');
+    const authored=pristineRecovery?record!.review.workflow:workflow;
+    const node=authored.nodes.find(n=>n.actionType==='supply'),beneficiary=node?.inputs.find(p=>p.name==='beneficiary');
     if(beneficiary?.kind!=='ACCOUNT')throw new Error('SUPPLY_BENEFICIARY_REQUIRED');
     const snapshot=latest.current;
-    const result=await supplySimulate(snapshot,wallet.account??beneficiary.value.address);if(!result.ok)throw new Error(result.code);
-    if(latest.current!==snapshot)throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');accept(result.value);setRecovered(false);
+    const result=record?.recoveryOf&&!retired&&!record.attempts.length?await supplyRecoverReview(record.recoveryOf):await supplySimulate(authored,wallet.account??beneficiary.value.address);if(!result.ok)throw new Error(result.code);
+    if(latest.current!==snapshot)throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');accept(result.value);setRecovered(pristineRecovery);
   });}
   async function review(){await operation(async()=>{if(!record||retired)throw new Error('SUPPLY_SIMULATION_REQUIRED');
     const snapshot=pristineRecovery?record.review.workflow:latest.current;
@@ -71,23 +76,26 @@ export function SupplyProvider({children}:{children:ReactNode}){
     const begin=await supplyBegin(record.id,session.account,executionWorkflow);if(!begin.ok)throw new Error(begin.code);
     accept(begin.value.record);
     const {step,transaction}=begin.value;
+    let walletRequestStarted=false;
     try{
       const accounts=await provider.request({method:'eth_accounts'}),chain=await provider.request({method:'eth_chainId'});
       const nonce=await provider.request({method:'eth_getTransactionCount',params:[session.account,'pending']});
-      if(latest.current!==snapshot||!Array.isArray(accounts)||accounts[0]?.toLowerCase()!==session.account||chain!=='0x14a34'||typeof nonce!=='string'||BigInt(nonce)!==BigInt(transaction.nonce))throw new Error('SUPPLY_WALLET_OR_AUTHORIZATION_CHANGED');
+      if(latest.current!==snapshot||!Array.isArray(accounts)||accounts[0]?.toLowerCase()!==session.account||typeof chain!=='string'||chain.toLowerCase()!=='0x14a34'||typeof nonce!=='string'||BigInt(nonce)!==BigInt(transaction.nonce))throw new Error('SUPPLY_WALLET_OR_AUTHORIZATION_CHANGED');
       // This is the sole submission point, reachable only from the owner's Execute click.
       setSigning(true);
+      walletRequestStarted=true;
       let hash:unknown;try{hash=await provider.request({method:'eth_sendTransaction',params:[transaction]});}finally{setSigning(false);}
       if(typeof hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(hash))throw new Error('SUPPLY_SUBMISSION_UNKNOWN');
       window.localStorage.setItem(key,JSON.stringify({id:record.id,step,hash:hash.toLowerCase()}));
       const report=await supplyReport(record.id,step,{kind:'HASH',hash:hash.toLowerCase()});if(!report.ok)throw new Error(report.code);accept(report.value);
     }catch(cause){
       const rejected=!!cause&&typeof cause==='object'&&'code'in cause&&cause.code===4001;
-      const report=await supplyReport(record.id,step,{kind:rejected?'REJECTED':'UNKNOWN'});if(report.ok)accept(report.value);
+      const code=!walletRequestStarted?(cause instanceof Error&&cause.message==='SUPPLY_WALLET_OR_AUTHORIZATION_CHANGED'?cause.message:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'):'SUPPLY_WALLET_SUBMISSION_RESULT_UNKNOWN';
+      const report=await supplyReport(record.id,step,{kind:rejected?'REJECTED':'UNKNOWN',code});if(report.ok)accept(report.value);
       throw new Error(rejected?(step==='APPROVAL'?'SUPPLY_APPROVAL_REJECTED':'SUPPLY_REJECTED'):'SUPPLY_SUBMISSION_UNKNOWN_OBSERVE_EXISTING',{cause});
     }
     const observed=await supplyObserve(record.id);if(observed.ok)accept(observed.value);
   });}
-  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
+  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe,recoverReview}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
 }
 export function useSupply(){const value=useContext(Context);if(!value)throw new Error('SUPPLY_PROVIDER_MISSING');return value;}

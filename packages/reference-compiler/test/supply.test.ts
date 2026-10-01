@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {describe,it,expect} from 'vitest';
 import {createSupplyNode,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
-import {simulateSupply,compileSupplyCalls,assertSupplyReview,supplyCall,AAVE_V3_BASE_SEPOLIA as p} from '../src/index.js';
+import {simulateSupply,compileSupplyCalls,assertSupplyReview,supplyCall,readSupplyLatestNonce,AAVE_V3_BASE_SEPOLIA as p} from '../src/index.js';
 import {supplyModel,SUPPLY_OWNER} from '../../../apps/reference-dapp/e2e/supply-fixtures';
 const workflow=():SemanticWorkflow=>({schemaVersion:'1.0.0',workflowId:'supply',revision:0,nodes:[createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'10000000',beneficiary:SUPPLY_OWNER})],resourceEdges:[]});
 describe('exact read-only Supply compiler and review',()=>{
+  it('reads latest nonce separately from pending and rejects a wrong chain or malformed nonce',async()=>{
+    const m=supplyModel(),calls:unknown[]=[];
+    const rpc=async(method:string,params:readonly unknown[])=>{calls.push([method,params]);if(method==='eth_getTransactionCount')return '0x3';return m.rpc(method,params);};
+    expect(await readSupplyLatestNonce(rpc,SUPPLY_OWNER)).toBe('3');expect(calls).toEqual([['eth_chainId',[]],['eth_getTransactionCount',[SUPPLY_OWNER,'latest']]]);
+    m.state.chain='0x1';await expect(readSupplyLatestNonce(rpc,SUPPLY_OWNER)).rejects.toThrow('WRONG_CHAIN');
+    await expect(readSupplyLatestNonce(async method=>method==='eth_chainId'?'0x14a34':'invalid',SUPPLY_OWNER)).rejects.toThrow('RPC_INVALID');
+  });
   it('prepares exact minimum approval and exact Supply calldata',()=>{const calls=compileSupplyCalls(workflow(),SUPPLY_OWNER,'9999999');expect(calls).toHaveLength(2);expect(calls[0]?.data).toBe(supplyCall('approve(address,uint256)',p.pool,10000000n));expect(calls[1]?.data).toBe('0x617ba037'+'0'.repeat(24)+p.asset.slice(2)+10000000n.toString(16).padStart(64,'0')+'0'.repeat(24)+SUPPLY_OWNER.slice(2)+'0'.repeat(64));});
   it.each(['10000000','99999999'])('does not approve sufficient allowance %s',allowance=>{const calls=compileSupplyCalls(workflow(),SUPPLY_OWNER,allowance);expect(calls).toHaveLength(1);expect(calls[0]?.to).toBe(p.pool);});
   it('simulates approval and Supply without submitting, then binds the review',async()=>{

@@ -65,6 +65,58 @@ describe('Supply service lifecycle',()=>{
    const restarted=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});await expect(restarted.load(run.id)).rejects.toThrow('CORRUPT');expect(model.transactions).toHaveLength(0);
  }));
 
+ it('records bounded NOT_FOUND without claiming non-broadcast, then prepares a read-only fresh review for the same nonce',async()=>fixture(async({model,dir,service})=>{
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);
+   const original=await service.begin(run.id,SUPPLY_OWNER,workflow);await service.report(run.id,'APPROVAL',{kind:'UNKNOWN',code:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'});
+   model.state.block=200;const absent=await service.observe(run.id);
+   expect(absent.absence).toMatchObject({outcome:'NOT_FOUND',latestNonce:'0',pendingNonce:'0',allowance:'0'});
+   expect(absent.attempts[0]?.state).toBe('SUBMISSION_RESULT_UNKNOWN');expect(absent.authorization).toBeNull();expect(absent.evidence).toBeNull();
+   const restarted=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});expect((await restarted.load(run.id)).submissionError).toBe('SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION');
+   const fresh=await restarted.recoverReview(run.id);expect(fresh.recoveryOf).toBe(run.id);expect(fresh.attempts).toEqual([]);expect(fresh.ownerInitiated).toBe(false);expect(fresh.authorization).toBeNull();
+   await expect(restarted.begin(fresh.id,SUPPLY_OWNER,workflow)).rejects.toThrow('REVIEW_REQUIRED');
+   await restarted.review(fresh.id,fresh.review.commitment,workflow);const retry=await restarted.begin(fresh.id,SUPPLY_OWNER,workflow);
+   expect(retry.transaction).toEqual(original.transaction);expect(model.transactions).toHaveLength(0);
+   const lease=(await readFile(join(dir,SUPPLY_OWNER+'-0.intent'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));expect(lease.map(l=>l.id)).toEqual([run.id,fresh.id]);
+   const hash=await model.rpc('MOCK_submit',[retry.transaction]) as string;await restarted.report(fresh.id,'APPROVAL',{kind:'HASH',hash});expect((await restarted.observe(fresh.id)).attempts[0]?.reconciled).toBe(true);expect(model.transactions).toHaveLength(1);
+ }));
+ it('never makes recovery available before the observation bound, when nonce advances, or when allowance changes',async()=>fixture(async({model,service})=>{
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);await service.begin(run.id,SUPPLY_OWNER,workflow);
+   expect((await service.observe(run.id)).absence).toBeUndefined();await expect(service.recoverReview(run.id)).rejects.toThrow('NOT_AVAILABLE');
+   model.state.block=200;model.state.nonce=1;expect((await service.observe(run.id)).absence).toBeUndefined();
+   model.state.nonce=0;model.state.allowance=10000000n;expect((await service.observe(run.id)).absence).toBeUndefined();
+   model.state.allowance=0n;await service.observe(run.id);model.state.nonce=1;
+   await expect(service.recoverReview(run.id)).rejects.toThrow('STATE_CHANGED');expect(model.transactions).toHaveLength(0);
+ }));
+ it('serializes competing explicit retries and retains the original lease bytes, including the legacy single-line format',async()=>fixture(async({model,dir,service})=>{
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);await service.begin(run.id,SUPPLY_OWNER,workflow);
+   const leasePath=join(dir,SUPPLY_OWNER+'-0.intent'),legacy=(await readFile(leasePath,'utf8')).trim();await writeFile(leasePath,legacy);
+   model.state.block=200;await service.observe(run.id);const a=await service.recoverReview(run.id),b=await service.recoverReview(run.id);
+   await service.review(a.id,a.review.commitment,workflow);await service.review(b.id,b.review.commitment,workflow);
+   const results=await Promise.allSettled([service.begin(a.id,SUPPLY_OWNER,workflow),service.begin(b.id,SUPPLY_OWNER,workflow)]);
+   expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);
+   expect((await readFile(leasePath,'utf8')).startsWith(legacy+'\n')).toBe(true);expect(model.transactions).toHaveLength(0);
+ }));
+ it('still reconciles the ORIGINAL attempt if its exact transaction appears after a NOT_FOUND observation',async()=>fixture(async({model,service})=>{
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);const begin=await service.begin(run.id,SUPPLY_OWNER,workflow);
+   model.state.block=200;await service.observe(run.id);const hash=await model.rpc('MOCK_submit',[begin.transaction]) as string;
+   await service.report(run.id,'APPROVAL',{kind:'HASH',hash});const observed=await service.observe(run.id);
+   expect(observed.attempts[0]?.reconciled).toBe(true);expect(observed.absence?.outcome).toBe('NOT_FOUND');expect(observed.error).toBeNull();
+   await expect(service.recoverReview(run.id)).rejects.toThrow('NOT_AVAILABLE');expect(model.transactions).toHaveLength(1);
+ }));
+ it.each(['latest','pending'])('does not classify absence when only the %s nonce has advanced',async advanced=>fixture(async({model,dir,service})=>{
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);await service.begin(run.id,SUPPLY_OWNER,workflow);model.state.block=200;
+   const observer=createSupplyService({journalDir:dir,provenance:'MOCKED',rpc:(method,params)=>method==='eth_getTransactionCount'&&params[1]===advanced?Promise.resolve('0x1'):model.rpc(method,params)});
+   expect((await observer.observe(run.id)).absence).toBeUndefined();await expect(observer.recoverReview(run.id)).rejects.toThrow('NOT_AVAILABLE');expect(model.transactions).toHaveLength(0);
+ }));
+ it('never transfers the original nonce lease to different financial semantics',async()=>fixture(async({model,dir,service})=>{
+   const original=await service.simulate(workflow,SUPPLY_OWNER);await service.review(original.id,original.review.commitment,workflow);await service.begin(original.id,SUPPLY_OWNER,workflow);model.state.block=200;await service.observe(original.id);
+   const changed={...workflow,revision:1,nodes:[createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'20000000',beneficiary:SUPPLY_OWNER})]};
+   const unrelated=await service.simulate(changed,SUPPLY_OWNER),path=join(dir,unrelated.id+'.jsonl');
+   // Even a forged linkage in an initial record cannot grant a different economic intent.
+   await writeFile(path,JSON.stringify({...unrelated,recoveryOf:original.id})+'\n');await service.review(unrelated.id,unrelated.review.commitment,changed);
+   await expect(service.begin(unrelated.id,SUPPLY_OWNER,changed)).rejects.toThrow('NONCE_ALREADY_RESERVED');expect(model.transactions).toHaveLength(0);
+ }));
+
  it('bounds public read throttling retries without releasing a wallet request',async()=>{
    const dir=await mkdtemp(join(tmpdir(),'build012a-rpc-')),priorJournal=process.env.GRYLOO_SUPPLY_JOURNAL,priorHarness=process.env.GRYLOO_SUPPLY_HARNESS;
    const methods:string[]=[];process.env.GRYLOO_SUPPLY_JOURNAL=dir;delete process.env.GRYLOO_SUPPLY_HARNESS;

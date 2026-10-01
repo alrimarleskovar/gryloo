@@ -41,8 +41,9 @@ async function run<T>(action:(service:SupplyService)=>Promise<T>):Promise<{ok:tr
 export async function supplySimulate(workflow:SemanticWorkflow,account:string){return run(service=>service.simulate(workflow,account));}
 export async function supplyReview(id:string,commitment:string,workflow:SemanticWorkflow){return run(service=>service.review(id,commitment,workflow));}
 export async function supplyBegin(id:string,account:string,workflow:SemanticWorkflow){return run(service=>service.begin(id,account,workflow));}
-export async function supplyReport(id:string,step:'APPROVAL'|'SUPPLY',result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'|'REJECTED'}){return run(service=>service.report(id,step,result));}
+export async function supplyReport(id:string,step:'APPROVAL'|'SUPPLY',result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'|'REJECTED';code?:string}){return run(service=>service.report(id,step,result));}
 export async function supplyObserve(id:string){return run(service=>service.observe(id));}
 export async function supplyStatus(id:string){return run(service=>service.load(id));}
 
 export async function supplyInvalidate(id:string){return run(service=>service.invalidate(id));}
+export async function supplyRecoverReview(id:string){return run(service=>service.recoverReview(id));}

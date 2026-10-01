@@ -30,7 +30,8 @@ const messages:Record<string,string>={SUPPLY_INSUFFICIENT_USDC:'Your wallet need
   SUPPLY_WRONG_CHAIN:'Switch your wallet to Base Sepolia before executing.',SUPPLY_WRONG_ACCOUNT:'Select the wallet account shown in Review.',SUPPLY_APPROVAL_REJECTED:'Approval was declined. No Supply was sent.',
   SUPPLY_REJECTED:'Supply was declined. Any completed approval is preserved.',SUPPLY_RPC_RATE_LIMITED:'The network provider is busy. Try the read again.',
   SUPPLY_TRANSACTION_NOT_OBSERVED:'The existing transaction is not visible yet. Observe it again; Gryloo will not send another.',AWAITING_CONFIRMATIONS:'Waiting for network confirmations.',
-  SUPPLY_AUTHORIZATION_STALE:'The reviewed state changed or expired. Simulate and review again.',SUPPLY_OBSERVATION_BOUND_REACHED:'The bounded transaction search ended. Keep this execution record for manual observation; do not repeat the transaction.'};
+  SUPPLY_AUTHORIZATION_STALE:'The reviewed state changed or expired. Simulate and review again.',SUPPLY_OBSERVATION_BOUND_REACHED:'The bounded transaction search ended. Keep this execution record for manual observation; do not repeat the transaction.',
+  SUPPLY_TRANSACTION_NOT_FOUND:'The original approval was not found. Prepare a fresh review for the same approval and nonce.',SUPPLY_RECOVERY_STATE_CHANGED_OBSERVE_EXISTING:'The wallet state changed. Observe the existing approval before proceeding.'};
 export function SupplyPanel({view}:{view:'simulate'|'execute'}){
   const {state}=useWorkflow(),supply=useSupply();
   const node=state.workflow.nodes.find(n=>n.actionType==='supply'),fields=node?supplyDetails(node as Parameters<typeof supplyDetails>[0]):null;
@@ -55,9 +56,11 @@ export function SupplyPanel({view}:{view:'simulate'|'execute'}){
       {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Supply'}: {a.reconciled?'Independently verified':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
       {record&&record.attempts.length>0&&!record.evidence&&<a download="gryloo-aave-supply-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>}
       {pending&&<button type="button" disabled={supply.busy} onClick={()=>void supply.observe()}>Observe existing transaction</button>}
+      {record?.error==='SUPPLY_TRANSACTION_NOT_FOUND'&&<><p>No approval was found after bounded observation. The allowance is zero and the wallet nonce is unchanged. A fresh review will keep the same nonce and exact approval; it will not submit a transaction.</p>
+        <button type="button" disabled={supply.busy} onClick={()=>void supply.recoverReview()}>Prepare fresh review</button></>}
       {record?.evidence&&<><p>Supply independently reconciled. Position increased by {formatUnits(record.observations.at(-1)?.delta??'0',6)} USDC.</p><a download="gryloo-aave-supply-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
     </>}
     {info&&<p role="status">{messages[info]??'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
+    <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,submissionError:record?.submissionError,absence:record?.absence,recoveryOf:record?.recoveryOf,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
   </section>;
 }

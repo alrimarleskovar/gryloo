@@ -13,7 +13,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
   const supply = useSupply();
-  const supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply') || Boolean(supply.recovered && supply.record?.attempts.length);
+  const supplyPath = state.workflow.nodes.some(n => n.actionType === 'supply') || Boolean(supply.recovered && supply.record);
   const publicTestnet = usePublicTestnet();
   const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);

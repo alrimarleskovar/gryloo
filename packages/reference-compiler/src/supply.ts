@@ -27,6 +27,11 @@ export function rpcHex(value: unknown): string {
 export function rpcUint(value: unknown): bigint { return BigInt(rpcHex(value)); }
 export function rpcHash(value: unknown): string { const v = rpcHex(value); if (v.length !== 66) throw new Error('SUPPLY_HASH_INVALID'); return v; }
 export function supplyHex(value: string | number | bigint): string { return '0x' + BigInt(value).toString(16); }
+export async function readSupplyLatestNonce(rpc:SupplyRpc,account:string):Promise<string> {
+  const normalized=supplyAddress(account);
+  if(rpcUint(await rpc('eth_chainId',[]))!==BigInt(profile.chainId))throw new Error('SUPPLY_WRONG_CHAIN');
+  return rpcUint(await rpc('eth_getTransactionCount',[normalized,'latest'])).toString();
+}
 export type SupplyState = { block: number; blockHash: string; account: string; allowance: string; balance: string; nativeBalance: string;
   nonce: string; gasPrice: string; scaledPosition: string; position: string; index: string; deploymentHash: string; observedAt: string };
 export async function readSupplyState(rpc: SupplyRpc, accountInput: string, beneficiaryInput: string, blockTag = 'latest'): Promise<SupplyState> {

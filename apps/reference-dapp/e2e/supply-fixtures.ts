@@ -13,7 +13,7 @@ export async function supplyHarnessRpc(method:string,params:unknown[]=[]):Promis
   const response=await fetch('http://127.0.0.1:8549',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
   const value=await response.json() as {result?:unknown;error?:unknown};if(value.error)throw new Error('MOCK_HARNESS_ERROR');return value.result;
 }
-export async function installSupplyWallet(page:Page,options:{pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean}={}){
+export async function installSupplyWallet(page:Page,options:{nonceFailure?:boolean;notBroadcast?:'APPROVAL'|'SUPPLY';pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean}={}){
   await page.exposeFunction('grylooSupplyTestRpc',supplyHarnessRpc);
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[];
@@ -25,11 +25,12 @@ export async function installSupplyWallet(page:Page,options:{pause?:'APPROVAL'|'
       if(input.method==='eth_accounts')return state.connected?[state.account]:[];
       if(input.method==='eth_requestAccounts'){state.connected=true;return[state.account];}
       if(input.method==='eth_chainId')return state.chain;
-      if(input.method==='eth_getTransactionCount')return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);
+      if(input.method==='eth_getTransactionCount'){if(options.nonceFailure)throw new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION');return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);}
       if(input.method==='eth_sendTransaction'){
         const tx=input.params?.[0] as {to:string};const step=tx.to==='0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f'?'APPROVAL':'SUPPLY';
         if(options.pause===step)await new Promise<void>(resolve=>{w.releaseSupplyWalletRequest=resolve;});
         if(options.reject===step)throw Object.assign(new Error('Owner rejected test request'),{code:4001});
+        if(options.notBroadcast===step)throw new Error('MOCK_NOT_BROADCAST');
         const hash=await w.grylooSupplyTestRpc('MOCK_submit',input.params??[]);if(options.uncertain===step)throw new Error('MOCK_RESPONSE_LOST');return hash;
       }
       throw new Error('MOCK_WALLET_METHOD_DENIED');
