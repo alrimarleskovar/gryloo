@@ -18,13 +18,13 @@ async function connect(page: Page, source: string, target: string) {
   await page.mouse.up();
   await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 }
-test('toolbox creates six typed actions, selects them, and keeps setup below the canvas', async ({ page }) => {
+test('toolbox creates the existing typed actions, selects them, and keeps setup below the canvas', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('region', { name: 'Workflow graph' })).toBeVisible();
   await expect(page.getByText('Advanced action setup', { exact: true })).toBeVisible();
   const grid = page.locator('.build-grid');
   await expect(grid.locator('.library')).toHaveCount(0);
-  for (const action of ['swap', 'bridge', 'pool', 'supply', 'lending', 'borrow']) {
+  for (const action of ['swap', 'bridge', 'pool', 'lending', 'borrow']) {
     const node = await addFromToolbox(page, action);
     await expect(node.locator('.flow-card')).toHaveClass(/active/);
     await expect(node).toContainText(action, { ignoreCase: true });
@@ -50,7 +50,7 @@ test('dragging updates stored layout, survives editor changes and Build navigati
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revisionBeforeDrag!);
   const saved = await page.evaluate(id => JSON.parse(localStorage.getItem('gryloo:canvas:workflow-local') ?? '{}')[id], id);
   expect(saved.x).toBeGreaterThan(100);
-  await page.getByRole('button', { name: 'Add supply' }).click();
+  await page.getByRole('button', { name: 'Add borrow' }).click();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   const returned = page.locator(`.react-flow__node[data-id="${id}"]`);
@@ -89,7 +89,7 @@ test('node and edge selection, deletion, text entry and composition guards', asy
 });
 test('selected template parameters edit shared IR', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'supply');
+  await addFromToolbox(page, 'borrow');
   await page.getByLabel('Sample amount').fill('2500000');
   await page.getByRole('button', { name: 'Save parameter' }).click();
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('2500000 sample units');
@@ -123,7 +123,7 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
 test('duplicate selection copies internal connections in one undoable edit', async ({ page }) => {
   await page.goto('/');
   await addFromToolbox(page, 'pool');
-  await addFromToolbox(page, 'supply');
+  await addFromToolbox(page, 'borrow');
   await connect(page, 'node-001', 'node-002');
   await page.locator('.react-flow__node[data-id="node-001"] .flow-card').click();
   await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click({ modifiers: ['Shift'] });
@@ -151,7 +151,7 @@ test('floating toolbox keeps a clickable gutter from viewport controls', async (
     if (!toolbox || !controls) throw new Error('Canvas controls missing');
     expect(toolbox.x).toBeGreaterThan(controls.x + controls.width + 8);
     await graph.locator('.react-flow__controls-zoomout').click();
-    await graph.getByRole('button', { name: 'Add supply' }).click();
+    await graph.getByRole('button', { name: 'Add borrow' }).click();
     await expect(graph.locator('.react-flow__node')).toHaveCount(2);
     await page.getByRole('button', { name: 'Dock toolbar' }).click();
   }
@@ -160,7 +160,7 @@ test('floating toolbox keeps a clickable gutter from viewport controls', async (
 test('marquee follows the pointer, stays clipped, and selects exactly the intersecting group', async ({ page }) => {
   await page.goto('/');
   await addFromToolbox(page, 'pool');
-  await addFromToolbox(page, 'supply');
+  await addFromToolbox(page, 'borrow');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await graph.locator('.react-flow__controls-zoomout').click();
   const initialSurface = await graph.boundingBox();

@@ -197,3 +197,7 @@ After the owner merged PR #16 and the post-merge checks passed, DEC-0037 certifi
 ## BUILD-011D-2 scope guard (DEC-0055)
 
 The [BUILD-011D-2 plan](builds/BUILD-011D-2-PLAN.md) lists exact paths from baseline `205055605d96f36e024a0bbc770453113e4f7b40`. Only the Uniswap v3 Swap + Base Sepolia + PUBLIC_TESTNET profile gains public execution support. Implementation support alone leaves demonstrated evidence unset. A real canonical DApp swap with explicit wallet authorization, successful public receipt, independent balances, gas, Evidence Bundle and explorer is required for exact-profile `TESTNET_EXECUTED`. All earlier records and unrelated capabilities remain protected.
+
+## BUILD-012A exact exception
+
+Under DEC-0056, scripts/governance_build012a_scope.py checks the exact approved baseline, branch and 64-file inventory in BUILD-012A-PLAN §8. This single Supply exception does not expand the ordinary UX category policy. No directories, extra paths, deletions, dependency/integrity changes or server signing are permitted. The public acceptance JSON remains absent until owner execution independently reconciles.

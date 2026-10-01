@@ -43,3 +43,5 @@ export type { AcrossReview, ProviderBinding } from './across.js';
 
 export * from './cross-chain-liquidity.js';
 export * from './cross-chain-liquidity-artifacts.js';
+
+export * from './supply.js';

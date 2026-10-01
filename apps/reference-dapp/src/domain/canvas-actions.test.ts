@@ -13,7 +13,7 @@ describe('canvas action toolbox semantics', () => {
     expect(result.error).toBeNull();
     expect(result.workflow.nodes[1]?.actionType).toBe('asset.swap.exact-input');
   });
-  it.each(['bridge', 'pool', 'supply', 'lending', 'borrow'] as const)('adds a clearly nonexecuting %s template', kind => {
+  it.each(['bridge', 'pool', 'lending', 'borrow'] as const)('adds a clearly nonexecuting %s template', kind => {
     const result = editorReducer(initialEditor(), { type: 'ADD', kind: kind as ActionKind, source: 'CANVAS', baseRevision: 0 }, context);
     expect(result.error).toBeNull();
     expect(result.workflow.nodes[1]?.actionType).toBe(`mock-${kind}`);

@@ -16,6 +16,8 @@ import { createBridgeSwapWorkflow } from '../domain/bridge-swap-authoring';
 import { createAcrossWorkflow } from '../domain/across-authoring';
 import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 
+import { SupplyAuthoringForm } from './supply-panel';
+
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
@@ -101,6 +103,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
+    <SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">

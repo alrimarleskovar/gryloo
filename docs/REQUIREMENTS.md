@@ -303,3 +303,13 @@ DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) from `33a
 | B011D-PUBLICEXEC-001 | Persist bounded approval/swap attempts before wallet send and hashes immediately; fail closed on unknown result. | Deterministic service and recovery tests | IMPLEMENTED_LOCAL |
 | B011D-PUBLICEVIDENCE-001 | Promote only the exact swap profile after a real canonical DApp transaction, successful receipt, independent token reconciliation, gas and Evidence Bundle. | [Public swap receipt](https://sepolia.basescan.org/tx/0xb5dd3f4bb4d2f5a101ff5da371636fde917894eb03ef3c5f1ac0e71605799ff8) and [BUILD-011D-2 report](builds/BUILD-011D-2-REPORT.md) | TESTNET_EXECUTED_EXACT_PROFILE |
 | B011D-PUBLICSCOPE-001 | Keep other public profiles and Mainnet unavailable and preserve Mock/Fork evidence. | Registry and regression tests | IMPLEMENTED_LOCAL |
+
+## BUILD-012A — Supply requirements (DEC-0056)
+
+| ID | Requirement | Validation / acceptance |
+| --- | --- | --- |
+| B012A-SUPPLY-001 | Canonical supply / aave-v3 IR from chat and canvas with explicit chain, asset, amount and beneficiary | Focused shared IR, linter and authoring tests; execution acceptance pending |
+| B012A-REVIEW-001 | Read-only exact simulation and revision/account/chain/Pool/allowance/calldata-bound review | Compiler and service tests; fresh public RPC reads |
+| B012A-EXECUTION-001 | Owner DApp Execute, exact finite approval if required, then real public Supply through injected wallet | Deterministic browser journey; owner public acceptance pending |
+| B012A-RECOVERY-001 | Durable attempt/account/nonce/calldata identity before wallet request; observe uncertainty after restart without duplicate intent | Executor, service and browser recovery tests |
+| B012A-EVIDENCE-001 | Independent canonical transaction/event/position delta verification before RECONCILED and exact-profile TESTNET_EXECUTED | Reconciler mismatch tests and honest MOCKED classification; public evidence pending |

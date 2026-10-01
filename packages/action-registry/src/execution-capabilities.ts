@@ -37,9 +37,9 @@ const mockReadOnly = flags(['AUTHOR', 'QUOTE_OR_READ', 'SIMULATE', 'REVIEW']);
 const fork = flags(['AUTHOR', 'QUOTE_OR_READ', 'SIMULATE', 'REVIEW', 'AUTHORIZE', 'EXECUTE', 'RECONCILE', 'RECOVER', 'EVIDENCE']);
 const preparation = flags(['AUTHOR', 'QUOTE_OR_READ', 'SIMULATE', 'REVIEW', 'EVIDENCE']);
 const templateKinds = new Set(['mock-read', 'mock-transform', 'mock-condition', 'mock-bridge', 'mock-pool', 'mock-supply', 'mock-lending', 'mock-borrow']);
-const definedActions = new Set(['asset.swap.exact-input', 'asset.bridge', 'asset.liquidity.uniswap-v3', 'asset.liquidity.prepare', ...templateKinds]);
+const definedActions = new Set(['supply', 'asset.swap.exact-input', 'asset.bridge', 'asset.liquidity.uniswap-v3', 'asset.liquidity.prepare', ...templateKinds]);
 const adapterVersions: Readonly<Record<string, string>> = Object.freeze({
-  'uniswap.v3': '1.0.0', 'cow.protocol': '1.0.0', 'lifi.rest': '1.0.0', 'across.direct': '1.0.0',
+  'aave-v3': '1.0.0', 'uniswap.v3': '1.0.0', 'cow.protocol': '1.0.0', 'lifi.rest': '1.0.0', 'across.direct': '1.0.0',
   'gryloo.calculated-split': '1.0.0', 'gryloo.template': '1.0.0',
 });
 const rows: ExecutionCapabilityProfile[] = [];
@@ -63,6 +63,7 @@ add('asset.swap.exact-input', 'cow.protocol', 'eip155:8453', 'MOCK', mock, 'MOCK
 add('asset.liquidity.uniswap-v3', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', fork, 'FORK_REPRODUCED', 'DIRECT_TRANSACTION', ['FORK_RUNTIME', 'INJECTED_WALLET', 'REVIEWED_ARTIFACTS']);
 add('asset.liquidity.prepare', 'gryloo.calculated-split', 'eip155:42161', 'MOCK', preparation, 'MOCKED', null, [], ['A']);
 for (const kind of templateKinds) add(kind, 'gryloo.template', 'mock:local', 'MOCK', author, null, null, [], []);
+add('supply', 'aave-v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 

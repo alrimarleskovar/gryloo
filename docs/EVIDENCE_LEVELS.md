@@ -93,3 +93,7 @@ DEC-0036 authorizes an isolated Uniswap v3 liquidity lifecycle with a maximum `F
 On 2026-09-28 those conditions were met locally. The owner-operated recording produced transcript `c9a02102…95805` at Base block 51,880,679; the closed replay was `REPLAY_BYTE_IDENTICAL`, and an independent raw-RPC verifier reconciled all 12 lifecycle operations. BUILD-006's demonstrated local level is therefore `FORK_REPRODUCED`. It is not certified until remote CI, the owner's merge, post-merge checks and a separate owner decision.
 
 Offline fixtures and the synthetic dry run are `MOCKED`; read-only Base state is not public transaction evidence. BUILD-003/004 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications remain separate. No `TESTNET_EXECUTED` or `MAINNET_EXECUTED` evidence exists.
+
+## BUILD-012A exact public evidence gate
+
+DEC-0056 permits TESTNET_EXECUTED only after a real owner-triggered Gryloo Supply on the verified official Aave V3 Base Sepolia deployment has exact transaction/event checks, successful canonical receipt and index-aware aToken principal delta. The downloadable canonical Evidence Bundle includes hashed observations and linked workflow, simulation, policy, Manifest, plan and journal. Deterministic harness observations remain MOCKED, and forks remain development evidence. No other Aave profile or network is promoted.
