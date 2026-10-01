@@ -4,7 +4,11 @@
 
 Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.
 
-## Current implementation: BUILD-014 — Jupiter / Solana portability
+## Current implementation: BUILD-DEMO-001 — Solana Devnet real execution
+
+READY_FOR_OWNER_EXECUTION. The canonical swap executes on Solana Devnet through Orca Whirlpools with valueless test tokens and the owner's Wallet Standard wallet. The remaining step for `DEVNET_EXECUTED` is one owner-driven public Devnet swap through Gryloo: fund the wallet with 1 Devnet SOL from the official faucet, then Simulate, Review, Execute and sign. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
+
+## Previous implementation: BUILD-014 — Jupiter / Solana portability
 
 READY_FOR_OWNER_EXECUTION. The canonical `asset.swap.exact-input` action executes on Solana mainnet-beta through Jupiter Swap V2 `/build` with owner Wallet Standard signing, exact-message Review binding, signature-first recovery, independent balance reconciliation and Evidence Bundles. Jupiter routing is mainnet-only, so validation is MOCKED plus PUBLIC_READ_ONLY. Owner-initiated execution is the remaining step for PUBLIC_EXECUTED. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).
 

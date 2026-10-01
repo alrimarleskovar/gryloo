@@ -12,6 +12,10 @@ export { referenceRegistry } from "./reference-registry.js";
 export { baseAssetRegistry } from "./base-assets.js";
 export { JUPITER_SOLANA_MAINNET, SOLANA_MAINNET_CHAIN, SOLANA_MAINNET_TOKENS, solanaTokenByMint } from "./jupiter-solana.js";
 export type { SolanaToken, SolanaTokenSymbol } from "./jupiter-solana.js";
+export { ORCA_WHIRLPOOLS_DEVNET, SOLANA_DEVNET_CHAIN, SOLANA_DEVNET_TOKENS, solanaDevnetTokenByMint } from "./solana-devnet.js";
+export type { SolanaDevnetToken, SolanaDevnetTokenSymbol } from "./solana-devnet.js";
+export { SOLANA_SWAP_RUNTIMES, solanaSwapRuntime, solanaTokenOn } from "./solana-swap-runtimes.js";
+export type { SolanaSwapRuntime, SolanaSwapToken } from "./solana-swap-runtimes.js";
 export { capabilityDeclares } from "./capabilities.js";
 export { executionCapabilityRegistry, executionEnvironments, capabilityDimensions,
   resolveNodeCapability, resolveWorkflowCapability } from "./execution-capabilities.js";

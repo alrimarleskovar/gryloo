@@ -12,7 +12,7 @@ import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
 import { createAuthoredSupply, supplyDetails, createAuthoredBorrow, borrowDetails, type SupplyInput } from './supply-authoring';
-import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, type SolanaSwapInput } from './jupiter-authoring';
+import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, solanaSwapLabels, type SolanaSwapInput } from './jupiter-authoring';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
@@ -260,7 +260,7 @@ export function amountOf(node: Workflow['nodes'][number]): string {
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const solana = solanaSwapDetails(node);
-    if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on Solana via Jupiter, ${solana.slippage} bps, quote required.`;
+    if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;
     const borrowed = borrowDetails(node as Parameters<typeof borrowDetails>[0]);
     if(borrowed)return `${node.nodeId}: Borrow ${borrowed.amount} USDC from Aave V3 on ${borrowed.network}, variable rate, borrower ${borrowed.beneficiary}.`;
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);

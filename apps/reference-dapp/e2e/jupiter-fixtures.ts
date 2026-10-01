@@ -15,18 +15,18 @@ export async function jupiterControl(body: Record<string, unknown>): Promise<unk
   const response = await fetch('http://127.0.0.1:8551/control', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   return (await response.json() as { result: unknown }).result;
 }
-export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof createMockedSolanaWallet>, behavior: { reject?: boolean; modify?: string; pause?: boolean } = {}) {
+export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof createMockedSolanaWallet>, behavior: { reject?: boolean; modify?: string; pause?: boolean; chains?: string[] } = {}) {
   await page.exposeFunction('grylooJupiterTestSign', async (unsigned: string) => behavior.modify ? wallet.sign(behavior.modify) : wallet.sign(unsigned));
   await page.addInitScript(({ owner, behavior }) => {
-    const w = window as unknown as { grylooJupiterTestSign: (tx: string) => Promise<string>; solanaSignRequests: number; releaseSolanaSignature?: () => void };
-    w.solanaSignRequests = 0;
-    const account = { address: owner, publicKey: new Uint8Array(32), chains: ['solana:mainnet'], features: ['solana:signTransaction'] };
+    const w = window as unknown as { grylooJupiterTestSign: (tx: string) => Promise<string>; solanaSignRequests: number; solanaSignChains: string[]; releaseSolanaSignature?: () => void };
+    w.solanaSignRequests = 0; w.solanaSignChains = [];
+    const account = { address: owner, publicKey: new Uint8Array(32), chains: behavior.chains, features: ['solana:signTransaction'] };
     const toB64 = (bytes: Uint8Array) => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
-    const wallet = { version: '1.0.0', name: 'Gryloo MOCKED Solana wallet', icon: 'data:image/svg+xml;base64,PHN2Zy8+', chains: ['solana:mainnet'], accounts: [account],
+    const wallet = { version: '1.0.0', name: 'Gryloo MOCKED Solana wallet', icon: 'data:image/svg+xml;base64,PHN2Zy8+', chains: behavior.chains, accounts: [account],
       features: {
         'standard:connect': { version: '1.0.0', connect: async () => ({ accounts: [account] }) },
-        'solana:signTransaction': { version: '1.0.0', supportedTransactionVersions: [0], signTransaction: async (...inputs: { transaction: Uint8Array }[]) => {
-          w.solanaSignRequests++;
+        'solana:signTransaction': { version: '1.0.0', supportedTransactionVersions: [0], signTransaction: async (...inputs: { transaction: Uint8Array; chain?: string }[]) => {
+          w.solanaSignRequests++; w.solanaSignChains.push(String(inputs[0]?.chain));
           if (behavior.pause) await new Promise<void>(resolve => { w.releaseSolanaSignature = resolve; });
           if (behavior.reject) throw Object.assign(new Error('User rejected the request.'), { code: 4001 });
           const signed = await w.grylooJupiterTestSign(toB64(inputs[0]!.transaction));
@@ -36,7 +36,7 @@ export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof 
     const register = (api: { register: (w: unknown) => void }) => api.register(wallet);
     window.addEventListener('wallet-standard:app-ready', event => register((event as CustomEvent).detail));
     window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
-  }, { owner: wallet.owner, behavior: { reject: Boolean(behavior.reject), pause: Boolean(behavior.pause) } });
+  }, { owner: wallet.owner, behavior: { reject: Boolean(behavior.reject), pause: Boolean(behavior.pause), chains: behavior.chains ?? ['solana:mainnet'] } });
 }
 export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
   await page.goto('/');
@@ -63,3 +63,4 @@ export async function reviewSolanaSwap(page: Page) {
   await page.getByRole('region', { name: 'Jupiter swap' }).getByRole('button', { name: 'Accept swap review' }).click();
 }
 export const signRequests = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignRequests: number }).solanaSignRequests);
+export const signChains = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignChains: string[] }).solanaSignChains);

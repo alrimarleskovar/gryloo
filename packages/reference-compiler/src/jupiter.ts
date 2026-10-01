@@ -1,25 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { JUPITER_SOLANA_MAINNET as profile, solanaTokenByMint, type SolanaToken } from '@defi-workflow-engine/action-registry';
-import { readExactInputSwap, EXACT_INPUT_SWAP_ACTION, hashArtifactBytes, hashSupplyValue, type SemanticWorkflow,
+import { readExactInputSwap, EXACT_INPUT_SWAP_ACTION, type SemanticWorkflow,
   type ArtifactSet, type SimulationBundle, type AuthorizationPolicy, type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
-import { associatedTokenAddress, base58Encode, findProgramAddress, compileMessageV0, decodeLookupTable, decodeTokenAccount, decompileMessageV0, fromBase64,
-  parseMessageV0, parseTransaction, readU16, readU64, serializeMessageV0, serializeTransaction, sha256Hex, solanaAddress, toBase64,
-  u32Bytes, verifyEd25519, type LookupTables, type SolanaInstruction } from './solana.js';
+import { associatedTokenAddress, findProgramAddress, compileMessageV0, decodeLookupTable, fromBase64,
+  readU16, readU64, serializeMessageV0, serializeTransaction, sha256Hex, solanaAddress, toBase64,
+  u32Bytes, type SolanaInstruction } from './solana.js';
+import { assertMessageRoundTrip, assertSolanaSwapReview, verifySignedSolanaSwap, buildSolanaSwapArtifacts, estimateFee, readSolanaAccounts, readSolanaSwapBalances, requireSolanaSwapRuntime,
+  rpcContextValue, setComputeUnitLimit, simulateSolanaMessage, solanaSwapArtifactHash, solanaSwapDeltas, solanaSwapHash, solanaTokenAmount, verifySolanaCluster,
+  type SolanaBalances, type SolanaRouteStep, type SolanaRpc, type SolanaSwapQuote, type SolanaSwapSimulation } from './solana-swap.js';
 export { JUPITER_SOLANA_MAINNET, SOLANA_MAINNET_TOKENS } from '@defi-workflow-engine/action-registry';
 export type { SolanaToken, SolanaTokenSymbol } from '@defi-workflow-engine/action-registry';
+// Shared Solana swap core, re-exported under its BUILD-014 import path.
+export { assertMessageRoundTrip, estimateFee, readSolanaAccounts, setComputeUnitLimit, verifySolanaCluster } from './solana-swap.js';
+export type { SolanaBalances, SolanaRpc } from './solana-swap.js';
 
 export type JupiterHttp = (query: Record<string, string>) => Promise<unknown>;
-export type SolanaRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 export type JupiterIntent = { owner: string; input: SolanaToken; output: SolanaToken; amount: string; slippageBps: number };
-export type JupiterRouteStep = { label: string; ammKey: string; inputMint: string; outputMint: string; inAmount: string; outAmount: string; bps: number };
-export type JupiterQuote = { inAmount: string; outAmount: string; otherAmountThreshold: string; priceImpactPct: string; slippageBps: number;
-  routePlan: JupiterRouteStep[]; fetchedAt: string };
+export type JupiterRouteStep = SolanaRouteStep;
+export type JupiterQuote = SolanaSwapQuote;
 export type JupiterSwapArgs = { instruction: 'route-v2' | 'shared-accounts-route-v2'; programAuthorityId: number | null; inAmount: string; quotedOutAmount: string; slippageBps: number; platformFeeBps: number; positiveSlippageBps: number };
 export type JupiterInspection = { programs: string[]; computeUnitPrice: string; ownerInputAccount: string; ownerOutputAccount: string;
   wrappedSolAccount: string | null; ensuredAccounts: string[]; swap: JupiterSwapArgs };
-export type SolanaBalances = { slot: number; ownerLamports: string; input: string | null; output: string | null };
-export type JupiterSimulation = { slot: number; unitsConsumed: number; logs: string[]; pre: SolanaBalances; post: SolanaBalances;
-  inputSpent: string; outputReceived: string; accountCreationLamports: string; feeLamports: string };
+export type JupiterSimulation = SolanaSwapSimulation;
 export type JupiterReview = { format: 'gryloo.jupiter-review.v1'; workflow: SemanticWorkflow; chain: string; cluster: 'mainnet-beta'; owner: string;
   input: { symbol: string; mint: string; decimals: number }; output: { symbol: string; mint: string; decimals: number };
   amount: string; slippageBps: number; quote: JupiterQuote; routeCommitment: string; inspection: JupiterInspection; lookupTables: Record<string, string[]>;
@@ -32,8 +34,9 @@ const LOOKUP_PROGRAM = 'AddressLookupTab1e1111111111111111111111111';
 const fail = (code: string): never => { throw new Error(code); };
 const uint = (value: unknown, code: string): string => typeof value === 'string' && /^(0|[1-9][0-9]{0,19})$/.test(value) && BigInt(value) < 1n << 64n ? value : fail(code);
 const record = (value: unknown, code: string): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : fail(code);
-export const jupiterHash = (value: unknown): string => hashSupplyValue(value);
-export const jupiterArtifactHash = (kind: Parameters<typeof hashArtifactBytes>[0], value: unknown): string => hashArtifactBytes(kind, new TextEncoder().encode(JSON.stringify(value)));
+/** Historical names; the hash domains are the shared Solana swap ones. */
+export const jupiterHash = solanaSwapHash;
+export const jupiterArtifactHash = solanaSwapArtifactHash;
 
 /** Read the canonical swap and resolve it against the exact Jupiter Solana profile. */
 export function jupiterIntent(workflow: SemanticWorkflow, owner: string): JupiterIntent & { nodeId: string } {
@@ -166,39 +169,11 @@ export function inspectJupiterInstructions(parsed: ParsedJupiterBuild, intent: J
     wrappedSolAccount: wrapped, ensuredAccounts: created, swap: args };
 }
 
-export function setComputeUnitLimit(units: number): SolanaInstruction {
-  return { programId: P.computeBudget, accounts: [], data: Uint8Array.from([2, ...u32Bytes(units)]) };
-}
 export function jupiterInstructions(parsed: ParsedJupiterBuild, units: number): SolanaInstruction[] {
   return [setComputeUnitLimit(units), ...parsed.computeBudget, ...parsed.setup, parsed.swap, ...parsed.cleanup ? [parsed.cleanup] : []];
 }
-const rpcValue = (value: unknown) => record(record(value, 'SOLANA_RPC_INVALID').value, 'SOLANA_RPC_INVALID');
-type RawAccount = { lamports: bigint; owner: string; data: Uint8Array } | null;
-function account(value: unknown): RawAccount {
-  if (value === null) return null;
-  const a = record(value, 'SOLANA_RPC_INVALID');
-  if (!Array.isArray(a.data) || a.data[1] !== 'base64' || typeof a.lamports !== 'number' || !Number.isSafeInteger(a.lamports)) fail('SOLANA_RPC_INVALID');
-  return { lamports: BigInt(a.lamports as number), owner: solanaAddress(a.owner), data: fromBase64((a.data as unknown[])[0], 1_000_000) };
-}
-export async function readSolanaAccounts(rpc: SolanaRpc, keys: string[]): Promise<{ slot: number; accounts: RawAccount[] }> {
-  const result = record(await rpc('getMultipleAccounts', [keys, { encoding: 'base64', commitment: 'confirmed' }]), 'SOLANA_RPC_INVALID');
-  const context = record(result.context, 'SOLANA_RPC_INVALID');
-  if (!Array.isArray(result.value) || result.value.length !== keys.length || !Number.isSafeInteger(context.slot)) fail('SOLANA_RPC_INVALID');
-  return { slot: context.slot as number, accounts: (result.value as unknown[]).map(account) };
-}
-function tokenAmount(a: RawAccount, owner: string, mint: string): string | null {
-  if (!a) return null;
-  const t = decodeTokenAccount(a.data);
-  if (a.owner !== P.token || t.owner !== owner || t.mint !== mint) fail('SOLANA_TOKEN_ACCOUNT_MISMATCH');
-  return t.amount.toString();
-}
-export async function verifySolanaCluster(rpc: SolanaRpc): Promise<void> {
-  if (await rpc('getGenesisHash', []) !== profile.genesisHash) fail('SOLANA_WRONG_CLUSTER');
-}
 export async function readJupiterBalances(rpc: SolanaRpc, intent: JupiterIntent, inspection: Pick<JupiterInspection, 'ownerInputAccount' | 'ownerOutputAccount'>): Promise<SolanaBalances> {
-  const { slot, accounts } = await readSolanaAccounts(rpc, [intent.owner, inspection.ownerInputAccount, inspection.ownerOutputAccount]);
-  return { slot, ownerLamports: (accounts[0]?.lamports ?? 0n).toString(),
-    input: tokenAmount(accounts[1]!, intent.owner, intent.input.mint), output: tokenAmount(accounts[2]!, intent.owner, intent.output.mint) };
+  return readSolanaSwapBalances(rpc, intent, inspection);
 }
 /** Lookup-table contents come from the chain, never from Jupiter's response. */
 export async function verifyLookupTables(rpc: SolanaRpc, addresses: string[]): Promise<Record<string, string[]>> {
@@ -212,42 +187,17 @@ export async function verifyLookupTables(rpc: SolanaRpc, addresses: string[]): P
     return [address, table.addresses];
   }));
 }
-export function estimateFee(units: number, computeUnitPrice: string): string {
-  return (BigInt(profile.baseFeeLamports) + (BigInt(units) * BigInt(computeUnitPrice) + 999_999n) / 1_000_000n).toString();
-}
-/** Economic deltas for the owner. Native SOL is measured on owner lamports with fees and new-account deposits separated. */
-export function jupiterDeltas(intent: JupiterIntent, pre: SolanaBalances, post: SolanaBalances, fee: bigint, created: bigint): { inputSpent: bigint; outputReceived: bigint } {
-  const lamports = BigInt(post.ownerLamports) - BigInt(pre.ownerLamports) + fee + created;
-  const spent = intent.input.native ? -lamports : BigInt(pre.input ?? fail('JUPITER_INPUT_ACCOUNT_MISSING')) - BigInt(post.input ?? '0');
-  const received = intent.output.native ? lamports : BigInt(post.output ?? '0') - BigInt(pre.output ?? '0');
-  return { inputSpent: spent, outputReceived: received };
-}
-/** The compiled bytes must resolve to exactly the inspected instructions under runtime account rules. */
-export function assertMessageRoundTrip(messageBytes: Uint8Array, instructions: SolanaInstruction[], owner: string, tables: LookupTables): void {
-  const writable = new Set([owner, ...instructions.flatMap(i => i.accounts.filter(a => a.isWritable).map(a => a.pubkey))]);
-  const normalize = (list: SolanaInstruction[]) => JSON.stringify(list.map(i => ({ programId: i.programId, data: toBase64(i.data),
-    accounts: i.accounts.map(a => [a.pubkey, a.pubkey === owner, writable.has(a.pubkey)]) })));
-  const decoded = decompileMessageV0(parseMessageV0(messageBytes), tables).map(i => ({ ...i, accounts: i.accounts.map(a => ({ ...a,
-    isSigner: a.isSigner, isWritable: a.isWritable })) }));
-  if (decoded.some(i => i.accounts.some(a => a.isSigner !== (a.pubkey === owner) || a.isWritable !== writable.has(a.pubkey))) ||
-      normalize(decoded) !== normalize(instructions)) fail('JUPITER_MESSAGE_ROUND_TRIP_MISMATCH');
-}
+export const jupiterDeltas = (intent: JupiterIntent, pre: SolanaBalances, post: SolanaBalances, fee: bigint, created: bigint) => solanaSwapDeltas(intent, pre, post, fee, created, 'JUPITER');
 async function simulateMessage(rpc: SolanaRpc, message: Uint8Array, intent: JupiterIntent, inspection: JupiterInspection) {
-  const tx = toBase64(serializeTransaction(null, message));
-  const value = rpcValue(await rpc('simulateTransaction', [tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: false, commitment: 'confirmed',
-    accounts: { encoding: 'base64', addresses: [intent.owner, inspection.ownerInputAccount, inspection.ownerOutputAccount] } }]));
-  const logs = Array.isArray(value.logs) ? (value.logs as unknown[]).filter((l): l is string => typeof l === 'string').slice(-40).map(l => l.slice(0, 300)) : [];
-  if (value.err !== null) throw new Error('JUPITER_SIMULATION_FAILED', { cause: { err: value.err, logs } });
-  if (!Number.isSafeInteger(value.unitsConsumed) || (value.unitsConsumed as number) <= 0 || !Array.isArray(value.accounts) || value.accounts.length !== 3) fail('JUPITER_SIMULATION_INVALID');
-  const [owner, inAccount, outAccount] = (value.accounts as unknown[]).map(account);
-  return { unitsConsumed: value.unitsConsumed as number, logs, owner: owner!, inAccount: inAccount!, outAccount: outAccount! };
+  const { unitsConsumed, logs, accounts } = await simulateSolanaMessage(rpc, message, [intent.owner, inspection.ownerInputAccount, inspection.ownerOutputAccount], 'JUPITER');
+  const [owner, inAccount, outAccount] = accounts;
+  return { unitsConsumed, logs, owner: owner!, inAccount: inAccount!, outAccount: outAccount! };
 }
 
 /** Read-only: Jupiter /build, chain-verified tables, exact v0 message, RPC simulation, review artifacts. Never sends. */
 export async function simulateJupiterSwap(workflow: SemanticWorkflow, ownerInput: string, http: JupiterHttp, rpc: SolanaRpc, now = Date.now()): Promise<JupiterReview> {
-  const semanticHash = jupiterArtifactHash('semantic-workflow', workflow);
   const intent = jupiterIntent(workflow, ownerInput);
-  await verifySolanaCluster(rpc);
+  await verifySolanaCluster(rpc, profile.genesisHash);
   const fetchedAt = new Date(now).toISOString();
   const parsed = parseJupiterBuild(await http(jupiterBuildQuery(intent)), intent, fetchedAt);
   const inspection = inspectJupiterInstructions(parsed, intent);
@@ -255,7 +205,7 @@ export async function simulateJupiterSwap(workflow: SemanticWorkflow, ownerInput
   const pre = await readJupiterBalances(rpc, intent, inspection);
   if (inspection.wrappedSolAccount && (intent.input.native ? pre.input : pre.output) !== null) fail('JUPITER_WRAPPED_SOL_ACCOUNT_PRESENT');
   if (!intent.input.native && BigInt(pre.input ?? '0') < BigInt(intent.amount)) fail(`JUPITER_INSUFFICIENT_${intent.input.symbol}`);
-  const latest = rpcValue(await rpc('getLatestBlockhash', [{ commitment: 'confirmed' }]));
+  const latest = rpcContextValue(await rpc('getLatestBlockhash', [{ commitment: 'confirmed' }]));
   const blockhash = solanaAddress(latest.blockhash), lastValidBlockHeight = latest.lastValidBlockHeight;
   if (!Number.isSafeInteger(lastValidBlockHeight)) fail('SOLANA_RPC_INVALID');
   const compile = (units: number) => serializeMessageV0(compileMessageV0(intent.owner, jupiterInstructions(parsed, units), blockhash, tables));
@@ -264,9 +214,9 @@ export async function simulateJupiterSwap(workflow: SemanticWorkflow, ownerInput
   const messageBytes = compile(units);
   assertMessageRoundTrip(messageBytes, jupiterInstructions(parsed, units), intent.owner, tables);
   const final = await simulateMessage(rpc, messageBytes, intent, inspection);
-  const fee = BigInt(estimateFee(units, inspection.computeUnitPrice));
+  const fee = BigInt(estimateFee(units, inspection.computeUnitPrice, profile.baseFeeLamports));
   const post: SolanaBalances = { slot: pre.slot, ownerLamports: final.owner?.lamports.toString() ?? '0',
-    input: tokenAmount(final.inAccount, intent.owner, intent.input.mint), output: tokenAmount(final.outAccount, intent.owner, intent.output.mint) };
+    input: solanaTokenAmount(final.inAccount, intent.owner, intent.input.mint), output: solanaTokenAmount(final.outAccount, intent.owner, intent.output.mint) };
   // A new owner output token account keeps a refundable rent deposit; the temporary wrapped-SOL account is closed.
   const created = !intent.output.native && pre.output === null ? final.outAccount?.lamports ?? 0n : 0n;
   if (BigInt(pre.ownerLamports) < fee + created + (intent.input.native ? BigInt(intent.amount) : 0n)) fail('JUPITER_INSUFFICIENT_SOL');
@@ -280,41 +230,10 @@ export async function simulateJupiterSwap(workflow: SemanticWorkflow, ownerInput
   const expiresAt = new Date(now + profile.reviewTtlSeconds * 1000).toISOString();
   const routeCommitment = jupiterHash({ routePlan: parsed.quote.routePlan, swapData: toBase64(parsed.swap.data), swapAccounts: parsed.swap.accounts });
   const message = toBase64(messageBytes), messageHash = sha256Hex(messageBytes);
-  const inputAsset = { chainId: profile.chain, address: intent.input.mint, decimals: intent.input.decimals };
-  const outputAsset = { chainId: profile.chain, address: intent.output.mint, decimals: intent.output.decimals };
-  const artifactSet: ArtifactSet = { schemaVersion: '1.0.0', artifactSetId: 'jupiter-artifacts', semanticWorkflowHash: semanticHash,
-    artifacts: [{ artifactId: 'jupiter-quote', nodeId: intent.nodeId, artifactHash: jupiterHash({ quote: parsed.quote, routeCommitment, messageHash, tables }) }] };
-  const artifactHash = jupiterArtifactHash('artifact-set', artifactSet);
-  const simulation: SimulationBundle = { schemaVersion: '1.0.0', simulationId: 'jupiter-simulation', semanticWorkflowRevision: workflow.revision,
-    semanticWorkflowHash: semanticHash, artifactSetHash: artifactHash, adapters: [{ id: profile.adapterId, version: '1.0.0' }],
-    contracts: [{ chainId: profile.chain, address: P.jupiter, version: 'jupiter-v6' }],
-    outputs: [{ nodeId: intent.nodeId, outputId: 'amount-out', expected: { asset: outputAsset, amount: parsed.quote.outAmount },
-      minimum: { asset: outputAsset, amount: parsed.quote.otherAmountThreshold }, adverse: { asset: outputAsset, amount: parsed.quote.otherAmountThreshold } }],
-    propagatedOutputs: [], failurePaths: [], uncertainty: [], unsupportedAssumptions: [],
-    freshness: { observedAt: fetchedAt, expiresAt, maximumAgeSeconds: profile.reviewTtlSeconds } };
-  const simulationHash = jupiterArtifactHash('simulation-bundle', simulation), owner = { chainId: profile.chain, address: intent.owner };
-  const spendLimits = [{ asset: inputAsset, maximumAmount: intent.amount, maximumPerStepAmount: intent.amount, maximumCumulativeAmount: intent.amount }];
-  const gasBudgets = [{ asset: { chainId: profile.chain, nativeId: 'SOL', decimals: 9 }, maximumAmount: (fee + created).toString() }];
-  const recovery = { failurePolicy: 'ABORT' as const, residualAssetRecipient: owner, maximumAttemptsPerStep: 1, requiresHumanReview: true as const };
-  const providers = { kind: 'FIXED' as const, providerId: profile.adapterId };
-  const policy: AuthorizationPolicy = { schemaVersion: '1.0.0', policyId: 'jupiter-policy', semanticWorkflowHash: semanticHash, artifactSetHash: artifactHash, simulationHash,
-    requiredAuthorizationClass: 'MODE_A', allowlists: { owners: [owner], accounts: [owner], recipients: [owner], chains: [profile.chain],
-      adapters: [{ id: profile.adapterId, version: '1.0.0' }], protocols: [profile.protocol],
-      contracts: [{ chainId: profile.chain, address: P.jupiter, version: 'jupiter-v6' }],
-      functions: [{ chainId: profile.chain, contract: P.jupiter, functionId: 'route-v2' }] },
-    budgetReservation: { rule: 'RESERVE_BEFORE_SUBMISSION', concurrentConsumption: 'CUMULATIVE_ACROSS_BRANCHES', implementation: 'NOT_IMPLEMENTED' },
-    spendLimits, maximumSlippageBps: intent.slippageBps, gasBudgets, feeBudgets: [], oracleRules: [], accountRiskRules: [], checkpointRules: [], providers,
-    nonce: String(lastValidBlockHeight), deadline: expiresAt, revocationEpoch: workflow.revision, recovery, enforcement: 'NOT_ENFORCED' };
-  const policyHash = jupiterArtifactHash('authorization-policy', policy);
-  const manifest: StrategyManifest = { schemaVersion: '1.0.0', manifestId: 'jupiter-manifest', semanticWorkflowRevision: workflow.revision, semanticWorkflowHash: semanticHash,
-    artifactSetHash: artifactHash, simulationHash, policyHash, authorizationMode: 'MODE_A', owner, executor: null, expiresAt, nonce: String(lastValidBlockHeight),
-    revocationEpoch: workflow.revision, spendLimits, maximumSlippageBps: intent.slippageBps, gasBudgets, feeBudgets: [], providers, recovery, enforcement: 'NOT_ENFORCED' };
-  const manifestHash = jupiterArtifactHash('strategy-manifest', manifest);
-  const plan: ExecutionPlan = { schemaVersion: '1.0.0', executionPlanId: 'jupiter-plan', semanticWorkflowHash: semanticHash, manifestHash,
-    segments: [{ segmentId: 'jupiter-segment', chainId: profile.chain, dependencies: [], steps: [{ stepId: 'jupiter-swap', nodeId: intent.nodeId,
-      chainId: profile.chain, adapter: { id: profile.adapterId, version: '1.0.0' }, dependencies: [], requiredAuthorizationClass: 'MODE_A',
-      executionKind: 'DIRECT_TRANSACTION', payloadHash: messageHash }] }], checkpointIds: [], enforcement: 'NOT_ENFORCED' };
-  jupiterArtifactHash('execution-plan', plan);
+  const { artifactSet, simulation, policy, manifest, plan } = buildSolanaSwapArtifacts({ runtime: requireSolanaSwapRuntime(profile.chain), workflow,
+    nodeId: intent.nodeId, intent, quote: parsed.quote, quoteArtifact: { quote: parsed.quote, routeCommitment, messageHash, tables },
+    messageHash, contract: { address: P.jupiter, version: 'jupiter-v6' }, functionId: 'route-v2', maximumNetworkCostLamports: fee + created,
+    lastValidBlockHeight: lastValidBlockHeight as number, expiresAt, reviewTtlSeconds: profile.reviewTtlSeconds });
   const review: Omit<JupiterReview, 'commitment'> = { format: 'gryloo.jupiter-review.v1', workflow, chain: profile.chain, cluster: 'mainnet-beta', owner: intent.owner,
     input: { symbol: intent.input.symbol, mint: intent.input.mint, decimals: intent.input.decimals },
     output: { symbol: intent.output.symbol, mint: intent.output.mint, decimals: intent.output.decimals },
@@ -327,25 +246,10 @@ export async function simulateJupiterSwap(workflow: SemanticWorkflow, ownerInput
 
 /** Review/Execute guard: commitment, semantic revision, owner, freshness and blockhash validity. */
 export function assertJupiterReview(review: JupiterReview, workflow: SemanticWorkflow, owner: string, blockHeight: number, now = Date.now()): void {
-  const { commitment, ...content } = review;
-  if (jupiterHash(content) !== commitment) fail('JUPITER_AUTHORIZATION_INVALID');
-  if (jupiterArtifactHash('semantic-workflow', workflow) !== review.manifest.semanticWorkflowHash) fail('JUPITER_SEMANTIC_REVISION_CHANGED');
-  if (owner !== review.owner) fail('JUPITER_WRONG_OWNER');
-  if (now >= Date.parse(review.expiresAt) || now < Date.parse(review.quote.fetchedAt)) fail('JUPITER_QUOTE_STALE');
-  if (!Number.isSafeInteger(blockHeight) || blockHeight >= review.lastValidBlockHeight - 20) fail('JUPITER_QUOTE_STALE');
-  const intent = jupiterIntent(workflow, owner);
-  if (intent.amount !== review.amount || intent.input.mint !== review.input.mint || intent.output.mint !== review.output.mint ||
-      intent.slippageBps !== review.slippageBps) fail('JUPITER_SEMANTIC_REVISION_CHANGED');
-  const step = review.plan.segments[0]?.steps[0];
-  if (sha256Hex(fromBase64(review.message)) !== review.messageHash || step?.executionKind !== 'DIRECT_TRANSACTION' || step.payloadHash !== review.messageHash ||
-      toBase64(serializeTransaction(null, fromBase64(review.message))) !== review.unsignedTransaction) fail('JUPITER_TRANSACTION_CHANGED');
+  assertSolanaSwapReview(review, workflow, owner, blockHeight, now, jupiterIntent, 'JUPITER');
 }
 
 /** The wallet must return exactly the reviewed message with a valid owner signature. Any modification fails closed. */
 export function verifySignedJupiterTransaction(review: JupiterReview, signedBase64: unknown): { signature: string; transaction: string } {
-  const bytes = fromBase64(signedBase64, 2048);
-  const { signatures, message } = parseTransaction(bytes);
-  if (signatures.length !== 1 || toBase64(message) !== review.message) fail('JUPITER_TRANSACTION_CHANGED');
-  if (!verifyEd25519(signatures[0]!, message, review.owner)) fail('JUPITER_SIGNATURE_INVALID');
-  return { signature: base58Encode(signatures[0]!), transaction: toBase64(bytes) };
+  return verifySignedSolanaSwap(review, signedBase64, 'JUPITER');
 }

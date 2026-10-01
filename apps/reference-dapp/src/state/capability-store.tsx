@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { resolveWorkflowCapability, type ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
+import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, resolveWorkflowCapability, solanaSwapRuntime, type ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
 import { chainStatus } from '../domain/artifact-chain';
 import { useWorkflow } from './workflow-store';
 import { useModeA } from './mode-a-store';
@@ -28,8 +28,10 @@ export function useExecutionEnvironment() {
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
   const workflow = useWorkflow().state.workflow;
   const testnetSwap = workflow.nodes.some(node => ['supply','borrow'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
-  const solanaSwap = workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
-  const environment: ExecutionEnvironment = selection.selected ?? (solanaSwap ? 'MAINNET' : testnetSwap ? 'PUBLIC_TESTNET' : forkPrepared ? 'LOCAL_FORK' : 'MOCK');
+  const solanaSwap = workflow.nodes.find(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
+  // The Solana runtime's environment: mainnet-beta (Jupiter) is MAINNET; Devnet (Orca, test tokens) is a public test network.
+  const solanaEnvironment = solanaSwap ? solanaSwapRuntime(solanaSwap.chainId)?.environment ?? 'MAINNET' : null;
+  const environment: ExecutionEnvironment = selection.selected ?? (solanaEnvironment ?? (testnetSwap ? 'PUBLIC_TESTNET' : forkPrepared ? 'LOCAL_FORK' : 'MOCK'));
   return { environment, selectEnvironment: selection.select };
 }
 export function useWorkflowCapability() {
@@ -45,7 +47,7 @@ export function useWorkflowCapability() {
   const selectedForkWallet = modeA.wallet ?? modeB.wallet ?? liquidity.wallet ?? composition.wallet;
   const walletConnected = solanaPath ? Boolean(jupiter.owner) : environment === 'LOCAL_FORK' ? Boolean(selectedForkWallet) :
     state.workflow.nodes.some(node => node.adapterConstraints.protocols.includes('cow-protocol')) ? Boolean(cow.wallet) : Boolean(wallet.account);
-  const walletChainId = solanaPath ? jupiter.owner ? 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' : null : environment === 'LOCAL_FORK' ? selectedForkWallet ? 'eip155:31337' : null :
+  const walletChainId = solanaPath ? jupiter.owner ? jupiter.network === 'Solana Devnet' ? ORCA_WHIRLPOOLS_DEVNET.chain : JUPITER_SOLANA_MAINNET.chain : null : environment === 'LOCAL_FORK' ? selectedForkWallet ? 'eip155:31337' : null :
     cow.wallet ? 'eip155:8453' : wallet.chainId === '0x2105' ? 'eip155:8453' :
     wallet.chainId === '0xa4b1' ? 'eip155:42161' : wallet.chainId === '0x14a34' ? 'eip155:84532' : null;
   const status = chainStatus(chain);
@@ -57,7 +59,7 @@ export function useWorkflowCapability() {
   const authorizationReady = solanaPath ? Boolean(jupiter.record?.authorization && !jupiter.retired) : supplyPath ? Boolean(supply.record?.authorization && !supply.retired) : environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run?.reviewedManifestHash) :
     Boolean(modeA.reviewAccepted || liquidity.reviewAccepted || modeB.reviewed);
   const result = useMemo(() => resolveWorkflowCapability(state.workflow, { environment, runtime: {
-    forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: supplyPath ? true : publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
+    forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: supplyPath || solanaPath ? true : publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
   } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady, publicTestnet.available, supplyPath]);
   return { environment, selectEnvironment, result };
 }

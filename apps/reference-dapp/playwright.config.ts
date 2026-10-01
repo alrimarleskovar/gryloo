@@ -42,6 +42,11 @@ const jupiterHarness = process.env.GRYLOO_JUPITER_E2E === 'MOCKED_LOOPBACK_ONLY'
 if (process.env.GRYLOO_JUPITER_E2E && !jupiterHarness) throw new Error('Jupiter E2E permits only the MOCKED loopback harness');
 const jupiterJournal = process.env.GRYLOO_JUPITER_JOURNAL ?? join(tmpdir(), 'gryloo-build014-' + Date.now() + '-' + process.pid);
 if (jupiterHarness) process.env.GRYLOO_JUPITER_JOURNAL = jupiterJournal;
+// BUILD-DEMO-001: Solana Devnet browser tests use only the MOCKED loopback harness; never public Devnet or a broadcast.
+const devnetHarness = process.env.GRYLOO_SOLANA_DEVNET_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_SOLANA_DEVNET_E2E && !devnetHarness) throw new Error('Solana Devnet E2E permits only the MOCKED loopback harness');
+const devnetJournal = process.env.GRYLOO_SOLANA_DEVNET_JOURNAL ?? join(tmpdir(), 'gryloo-demo001-' + Date.now() + '-' + process.pid);
+if (devnetHarness) process.env.GRYLOO_SOLANA_DEVNET_JOURNAL = devnetJournal;
 
 export default defineConfig({
   testDir: './e2e',
@@ -65,7 +70,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium' }],
   webServer: [...(supplyHarness ? [{ command: 'node e2e/supply-harness.mjs --serve', url: 'http://127.0.0.1:8549', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []), {
+    ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(devnetHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: 'http://127.0.0.1:8547',
     reuseExistingServer: false,
@@ -81,6 +87,7 @@ export default defineConfig({
     env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',
       ...(supplyHarness ? { GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: supplyJournal } : {}),
       ...(jupiterHarness ? { GRYLOO_JUPITER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_JUPITER_JOURNAL: jupiterJournal } : {}),
+      ...(devnetHarness ? { GRYLOO_SOLANA_DEVNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SOLANA_DEVNET_JOURNAL: devnetJournal } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });

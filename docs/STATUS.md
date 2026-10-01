@@ -4,6 +4,10 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
+## BUILD-DEMO-001 Solana Devnet real execution
+
+READY_FOR_OWNER_EXECUTION on branch `claude/build-demo-001-solana-devnet` from main `148f79c`. The same canonical `asset.swap.exact-input` intent now runs on Solana Devnet through Orca Whirlpools `swap_v2` against Orca's documented Devnet test pool (Devnet SOL / devUSDC, valueless). It reuses BUILD-014's wallet handoff, Review binding, recovery, reconciliation and evidence, now shared by both Solana runtimes. Jupiter is unchanged and remains mainnet-only. Public Devnet validation is PUBLIC_READ_ONLY: real pool state and exact-message simulation in both directions, no broadcast. No owner transaction exists yet, so there is no `DEVNET_EXECUTED` claim. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
+
 ## BUILD-014 Jupiter / Solana portability
 
 READY_FOR_OWNER_EXECUTION on branch `claude/build-014-jupiter` from main `7726970`. One canonical swap intent now compiles, simulates, reviews, executes (owner-signed), recovers, reconciles and produces evidence on Solana mainnet-beta through Jupiter. No mainnet transaction was signed or sent; there is no `PUBLIC_EXECUTED` or `MAINNET_EXECUTED` claim. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).
