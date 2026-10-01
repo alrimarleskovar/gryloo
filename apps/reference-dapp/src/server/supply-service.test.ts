@@ -75,7 +75,7 @@ describe('Supply service lifecycle',()=>{
    const fresh=await restarted.recoverReview(run.id);expect(fresh.recoveryOf).toBe(run.id);expect(fresh.attempts).toEqual([]);expect(fresh.ownerInitiated).toBe(false);expect(fresh.authorization).toBeNull();
    await expect(restarted.begin(fresh.id,SUPPLY_OWNER,workflow)).rejects.toThrow('REVIEW_REQUIRED');
    await restarted.review(fresh.id,fresh.review.commitment,workflow);const retry=await restarted.begin(fresh.id,SUPPLY_OWNER,workflow);
-   expect(retry.transaction).toEqual(original.transaction);expect(model.transactions).toHaveLength(0);
+   expect(retry.transaction).toEqual(original.transaction);await expect(restarted.handoff(fresh.id,'APPROVAL',true)).rejects.toThrow('RECOVERY_NOT_AVAILABLE');expect(model.transactions).toHaveLength(0);
    const lease=(await readFile(join(dir,SUPPLY_OWNER+'-0.intent'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));expect(lease.map(l=>l.id)).toEqual([run.id,fresh.id]);
    const hash=await model.rpc('MOCK_submit',[retry.transaction]) as string;await restarted.report(fresh.id,'APPROVAL',{kind:'HASH',hash});expect((await restarted.observe(fresh.id)).attempts[0]?.reconciled).toBe(true);expect(model.transactions).toHaveLength(1);
  }));
@@ -161,5 +161,20 @@ describe('Supply service lifecycle',()=>{
    try{const {supplySimulate}=await import('../app/supply-action');expect(await supplySimulate(workflow,SUPPLY_OWNER)).toEqual({ok:false,code:'SUPPLY_RPC_RATE_LIMITED'});expect(methods).toEqual(['eth_chainId','eth_chainId','eth_chainId']);}
    finally{vi.unstubAllGlobals();if(priorJournal===undefined)delete process.env.GRYLOO_SUPPLY_JOURNAL;else process.env.GRYLOO_SUPPLY_JOURNAL=priorJournal;if(priorHarness===undefined)delete process.env.GRYLOO_SUPPLY_HARNESS;else process.env.GRYLOO_SUPPLY_HARNESS=priorHarness;await rm(dir,{recursive:true,force:true});}
  });
+
+ it.each(['APPROVAL','SUPPLY'] as const)('wallet-managed nonce keeps uncertain %s observation-only after restart and bounded absence',async step=>fixture(async({model,dir,service})=>{
+   if(step==='SUPPLY')model.state.allowance=10000000n;
+   const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);await service.begin(run.id,SUPPLY_OWNER,workflow);
+   await service.handoff(run.id,step,true);await service.report(run.id,step,{kind:'UNKNOWN'});model.state.block=200;
+   const restarted=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});const observed=await restarted.observe(run.id);
+   expect(observed.walletManagedNonce).toBe(true);expect(observed.absence).toBeUndefined();expect(observed.attempts[0]?.state).toBe('SUBMISSION_RESULT_UNKNOWN');
+   await expect(restarted.recoverReview(run.id)).rejects.toThrow('NOT_AVAILABLE');await expect(restarted.begin(run.id,SUPPLY_OWNER,workflow)).rejects.toThrow('OBSERVE_ONLY');expect(model.transactions).toHaveLength(0);
+ }));
+ it('wallet-managed handoff preserves a confirmed hash and observes the actual nonce without duplicate approval',async()=>fixture(async({model,dir,service})=>{
+   model.state.nonce=3;const run=await service.simulate(workflow,SUPPLY_OWNER);await service.review(run.id,run.review.commitment,workflow);const begin=await service.begin(run.id,SUPPLY_OWNER,workflow);await service.handoff(run.id,'APPROVAL',true);
+   const hash=await model.rpc('MOCK_submit',[begin.transaction]) as string;await service.report(run.id,'APPROVAL',{kind:'HASH',hash});
+   const restarted=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});const observed=await restarted.observe(run.id);
+   expect(observed.attempts[0]?.reconciled).toBe(true);expect(observed.attempts[0]?.nonce).toBe('3');expect(model.transactions[0]?.nonce).toBe('0x3');expect(model.state.allowance).toBe(10000000n);expect(model.transactions).toHaveLength(1);
+ }));
 
 });

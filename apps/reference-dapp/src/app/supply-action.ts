@@ -51,4 +51,4 @@ export async function supplyRecoverReview(id:string){return run(service=>service
 export async function supplyWalletFailure(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletFailure(id,diagnostic));}
 export async function supplyWalletTrace(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletTrace(id,diagnostic));}
 
-export async function supplyHandoff(id:string,step:'APPROVAL'|'SUPPLY'){return run(service=>service.handoff(id,step));}
+export async function supplyHandoff(id:string,step:'APPROVAL'|'SUPPLY',walletManagedNonce=false){return run(service=>service.handoff(id,step,walletManagedNonce));}

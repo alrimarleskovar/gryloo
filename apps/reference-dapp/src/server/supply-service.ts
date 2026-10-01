@@ -11,7 +11,7 @@ import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts'
 export type SupplyWalletDiagnostic = { invoked:boolean; rejectionCode?:number; transaction:Record<string,string>|null; calls:{method:string;submission?:boolean;params:unknown[];result?:unknown;error?:unknown}[]; error:unknown; code:string };
 export type SupplyAbsence = { outcome:'NOT_FOUND'; block:number; latestNonce:string; pendingNonce:string; allowance:string; observedAt:string };
 export type SupplyRecord = SupplyRun & { observations: SupplyObservation[]; evidence: ReturnType<typeof buildSupplyEvidence> | null; error: string | null;
-  absence?:SupplyAbsence; recoveryOf?:string; submissionError?:string; walletDiagnostic?:SupplyWalletDiagnostic; notSubmitted?:boolean };
+  absence?:SupplyAbsence; recoveryOf?:string; submissionError?:string; walletDiagnostic?:SupplyWalletDiagnostic; notSubmitted?:boolean; walletManagedNonce?:true };
 export type SupplyBegin = { record:SupplyRecord; step:SupplyAttempt['step']; transaction:SupplyAttempt['transaction'] & {nonce:string;gas:string;gasPrice:string} };
 const idCheck=(id:string)=>{if(!/^supply-[a-f0-9]{32}$/.test(id))throw new Error('SUPPLY_ID_INVALID');return id;};
 export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;provenance:'PUBLIC_TESTNET'|'MOCKED'}) {
@@ -31,7 +31,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
         const prefix=(before:unknown[],after:unknown[])=>after.length>=before.length&&JSON.stringify(after.slice(0,before.length))===JSON.stringify(before);
         if(!prefix(prior.journal.entries,record.journal.entries)||!prefix(prior.observations,record.observations)||
             prior.ownerInitiated&&!record.ownerInitiated || prior.verdict!=='PENDING'&&record.verdict!==prior.verdict ||
-            prior.evidence&&JSON.stringify(record.evidence)!==JSON.stringify(prior.evidence))throw new Error('SUPPLY_STORE_CORRUPT');
+            prior.walletManagedNonce&&!record.walletManagedNonce || prior.evidence&&JSON.stringify(record.evidence)!==JSON.stringify(prior.evidence))throw new Error('SUPPLY_STORE_CORRUPT');
         for(const [index,before] of prior.attempts.entries()){
           const after=record.attempts[index]!;
           if(before.step!==after.step||before.nonce!==after.nonce||before.preparedAtBlock!==after.preparedAtBlock||
@@ -76,7 +76,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
     // The original unknown attempt remains observable; absence is never proof of non-broadcast.
     async recoverReview(id:string):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
       const record=await load(id),attempt=record.attempts[0];
-      if(!(record.notSubmitted||record.absence&&record.error==='SUPPLY_TRANSACTION_NOT_FOUND')||record.verdict!=='PENDING'||record.attempts.length!==1||
+      if(!(record.notSubmitted||!record.walletManagedNonce&&record.absence&&record.error==='SUPPLY_TRANSACTION_NOT_FOUND')||record.verdict!=='PENDING'||record.attempts.length!==1||
           attempt?.step!=='APPROVAL'||attempt.reconciled||attempt.transactionHash)throw new Error('SUPPLY_RECOVERY_NOT_AVAILABLE');
       const review=await simulateSupply(record.review.workflow,record.review.account,input.rpc);
       const latestNonce=await readSupplyLatestNonce(input.rpc,review.account);
@@ -113,7 +113,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
           if(!record.recoveryOf)throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
           const entries=prior.trimEnd().split('\n').map(line=>JSON.parse(line) as typeof entry),last=entries.at(-1)!;
           const source=await load(record.recoveryOf),original=source.attempts[0];
-          if(last.id!==source.id||last.step!=='APPROVAL'||!(source.notSubmitted||source.absence&&source.error==='SUPPLY_TRANSACTION_NOT_FOUND')||
+          if(last.id!==source.id||last.step!=='APPROVAL'||!(source.notSubmitted||!source.walletManagedNonce&&source.absence&&source.error==='SUPPLY_TRANSACTION_NOT_FOUND')||
               source.verdict!=='PENDING'||source.attempts.length!==1||original?.reconciled||original?.transactionHash||
               original?.nonce!==attempt.nonce||JSON.stringify(last.transaction)!==JSON.stringify(attempt.transaction)||
               JSON.stringify(source.review.workflow)!==JSON.stringify(review.workflow)||JSON.stringify(source.review.transactions)!==JSON.stringify(review.transactions))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
@@ -132,10 +132,11 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       await save(prepared); // Must complete BEFORE any uncertain wallet submission.
       return {record:prepared,step:attempt.step,transaction:{...attempt.transaction,nonce:supplyHex(attempt.nonce),gas:supplyHex(gas),gasPrice:supplyHex(review.gasPrice)}};
     });},
-    async handoff(id:string,step:'APPROVAL'|'SUPPLY'):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
+    async handoff(id:string,step:'APPROVAL'|'SUPPLY',walletManagedNonce=false):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
       const record=await load(id),attempt=record.attempts.find(a=>a.step===step);
       if(!attempt||attempt.state!=='PREPARED'||record.authorization!==record.review.commitment||Date.now()>=Date.parse(record.review.expiresAt))throw new Error('SUPPLY_WALLET_HANDOFF_NOT_AUTHORIZED');
-      const next={...record,...supplyTransition(record,attempt,'SUBMITTING')};await save(next);return next;
+      if(walletManagedNonce&&record.recoveryOf&&!(await load(record.recoveryOf)).notSubmitted)throw new Error('SUPPLY_RECOVERY_NOT_AVAILABLE');
+      const next={...record,...supplyTransition(record,attempt,'SUBMITTING'),...walletManagedNonce?{walletManagedNonce:true as const}:{}};await save(next);return next;
     });},
     // Diagnostics cannot authorize, send, or reconcile a transaction. An invoked send stays uncertain.
     async walletFailure(id:string,diagnostic:SupplyWalletDiagnostic):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
@@ -196,7 +197,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       if(found.mismatch){record={...record,verdict:'DIVERGENT',error:'SUPPLY_REPLACED_TRANSACTION_MISMATCH'};await save(record);return record;}
       if(!found.hash){
         record={...record,error:found.exhausted?'SUPPLY_OBSERVATION_BOUND_REACHED':'SUPPLY_TRANSACTION_NOT_OBSERVED'};
-        if(found.exhausted&&attempt.step==='APPROVAL'&&record.attempts.length===1){
+        if(!record.walletManagedNonce&&found.exhausted&&attempt.step==='APPROVAL'&&record.attempts.length===1){
           const state=await readSupplyState(input.rpc,record.review.account,record.review.beneficiary);
           const latestNonce=await readSupplyLatestNonce(input.rpc,state.account);
           if(latestNonce===attempt.nonce&&state.nonce===attempt.nonce&&state.allowance==='0'){

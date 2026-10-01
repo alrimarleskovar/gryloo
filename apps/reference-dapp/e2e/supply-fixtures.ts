@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
 import type { SupplyRpc } from '@defi-workflow-engine/reference-compiler';
 export const SUPPLY_OWNER='0x1111111111111111111111111111111111111111';
-type Model={state:{block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;revert:boolean;mismatch:boolean;ignoreOverride:boolean};
+type Model={state:{owner:string;block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;revert:boolean;mismatch:boolean;ignoreOverride:boolean};
   rpc:SupplyRpc;transactions:Record<string,unknown>[];receipts:Map<string,Record<string,unknown>>;history:Map<number,unknown>};
 export function supplyModel():Model{
   const module=createRequire(import.meta.url)('./supply-harness.mjs') as {createSupplyHarness:()=>Model};return module.createSupplyHarness();
@@ -32,7 +32,8 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
         if(options.pause===step)await new Promise<void>(resolve=>{w.releaseSupplyWalletRequest=resolve;});
         if(options.reject===step)throw Object.assign(new Error('Owner rejected test request'),{code:4001});
         if(options.notBroadcast===step)throw new Error('MOCK_NOT_BROADCAST');
-        const hash=await w.grylooSupplyTestRpc('MOCK_submit',input.params??[]);if(options.uncertain===step)throw new Error('MOCK_RESPONSE_LOST');return hash;
+        const assigned={...tx,nonce:await w.grylooSupplyTestRpc('eth_getTransactionCount',[state.account,'pending'])};
+        const hash=await w.grylooSupplyTestRpc('MOCK_submit',[assigned]);if(options.uncertain===step)throw new Error('MOCK_RESPONSE_LOST');return hash;
       }
       throw new Error('MOCK_WALLET_METHOD_DENIED');
     }};
@@ -43,10 +44,10 @@ export async function resetSupplyHarness(options:Record<string,unknown>={}){
   if(process.env.GRYLOO_SUPPLY_E2E!=='MOCKED_LOOPBACK_ONLY'||!process.env.GRYLOO_SUPPLY_JOURNAL?.startsWith('/tmp/gryloo-build012a-'))throw new Error('MOCK_RESET_DENIED');
   await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options]);
 }
-export async function authorSupply(page:Page){
+export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
   await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();
   const form=page.getByRole('form',{name:'Create Supply'});
-  await form.getByLabel('Supply amount (USDC)').fill('10');await form.getByLabel('Supply beneficiary').fill(SUPPLY_OWNER);
+  await form.getByLabel('Supply amount (USDC)').fill(amount);await form.getByLabel('Supply beneficiary').fill(beneficiary);
   await form.getByRole('button',{name:'Add Supply',exact:true}).click();
 }
 export async function reviewSupply(page:Page){

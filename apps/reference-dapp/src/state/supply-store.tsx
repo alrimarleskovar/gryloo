@@ -2,6 +2,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { supplyWalletNonce, supplyWalletTransaction } from '../domain/supply-authoring';
 import { useWorkflow } from './workflow-store';
 import { injected, useBuild009Wallet } from './build009-wallet-store';
 import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate, supplyRecoverReview, supplyWalletFailure, supplyWalletTrace, supplyHandoff } from '../app/supply-action';
@@ -66,7 +67,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
   async function observe(){await operation(async()=>{if(!record)throw new Error('SUPPLY_RUN_MISSING');const result=await supplyObserve(record.id);if(!result.ok)throw new Error(result.code);accept(result.value);});}
   async function recoverReview(){await operation(async()=>{
     if(!record)throw new Error('SUPPLY_RUN_MISSING');
-    const result=await supplyRecoverReview(record.id);if(!result.ok)throw new Error(result.code);accept(result.value);setRecovered(true);
+    const result=await supplyRecoverReview(!record.attempts.length&&record.recoveryOf?record.recoveryOf:record.id);if(!result.ok)throw new Error(result.code);accept(result.value);setRecovered(true);
   });}
   async function simulate(){await operation(async()=>{
     if(record?.attempts.some(a=>!a.reconciled))throw new Error('SUPPLY_EXISTING_ATTEMPT_OBSERVE_ONLY');
@@ -103,17 +104,16 @@ export function SupplyProvider({children}:{children:ReactNode}){
       if(injected()!==provider)throw new Error('SUPPLY_WALLET_PROVIDER_CHANGED');
       if(!Array.isArray(accounts)||typeof accounts[0]!=='string'||accounts[0].toLowerCase()!==session.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
       if(typeof chain!=='string'||chain.toLowerCase()!=='0x14a34')throw new Error('SUPPLY_WRONG_CHAIN');
-      if(typeof pendingNonce!=='string'||!/^0x[0-9a-f]+$/i.test(pendingNonce))throw new Error('SUPPLY_WALLET_NONCE_RESPONSE_INVALID');
-      if(BigInt(pendingNonce)!==BigInt(nonce))throw new Error('SUPPLY_WALLET_NONCE_MISMATCH');
+      if(supplyWalletNonce(pendingNonce)!==BigInt(nonce))throw new Error('SUPPLY_WALLET_NONCE_MISMATCH');
     };
     try{
       const expectedNonce=(BigInt(record.review.state.nonce)+(record.attempts.some(a=>a.step==='APPROVAL'&&a.reconciled)?1n:0n)).toString();
       await validateSession(expectedNonce); // Read-only provider failures never create an economic attempt.
       const begin=await supplyBegin(record.id,session.account,executionWorkflow);if(!begin.ok)throw new Error(begin.code);
       accept(begin.value.record);step=begin.value.step;
-      const transaction=begin.value.transaction;diagnostic.transaction=transaction;
-      await validateSession(transaction.nonce); // Fail closed if session changes during durable preparation.
-      const handoff=await supplyHandoff(record.id,step);if(!handoff.ok)throw new Error(handoff.code);
+      const transaction=supplyWalletTransaction(begin.value.transaction);diagnostic.transaction=transaction;
+      await validateSession(begin.value.record.attempts.at(-1)!.nonce); // Fail closed if session changes during durable preparation.
+      const handoff=await supplyHandoff(record.id,step,true);if(!handoff.ok)throw new Error(handoff.code);
       if(latestWallet.current.account!==session.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
       if(latestWallet.current.chainId!==session.chainId)throw new Error('SUPPLY_WRONG_CHAIN');
       if(JSON.stringify(latest.current)!==JSON.stringify(snapshot))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');

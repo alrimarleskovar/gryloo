@@ -16,3 +16,18 @@ export function supplyDetails(node:SemanticWorkflow['nodes'][number]):SupplyInpu
   const fields=readSupplyNode(node),amount=BigInt(fields.amount);
   return{network:'Base Sepolia',asset:'USDC',amount:`${amount/1_000_000n}${amount%1_000_000n?'.'+(amount%1_000_000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,beneficiary:fields.beneficiary};
 }
+
+// Some injected providers return a safe JS integer for this read instead of an RPC quantity.
+// Preserve the raw response in diagnostics; normalize only lossless, nonnegative values.
+export function supplyWalletNonce(value:unknown):bigint {
+  if(typeof value==='number'&&Number.isSafeInteger(value)&&value>=0)return BigInt(value);
+  if(typeof value==='string'&&/^0x(?:0|[1-9a-f][0-9a-f]*)$/i.test(value))return BigInt(value);
+  throw new Error('SUPPLY_WALLET_NONCE_RESPONSE_INVALID');
+}
+export function supplyWalletTransaction(prepared:Record<string,string>):Record<string,string> {
+  const transaction={...prepared};delete transaction.nonce;
+  for(const field of ['chainId','gas','gasPrice','maxFeePerGas','maxPriorityFeePerGas','value']){
+    if(transaction[field]!==undefined&&!/^0x(?:0|[1-9a-f][0-9a-f]*)$/i.test(transaction[field]))throw new Error('SUPPLY_WALLET_QUANTITY_INVALID');
+  }
+  return transaction;
+}
