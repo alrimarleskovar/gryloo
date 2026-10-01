@@ -1,4 +1,4 @@
-import { supplyDetails, borrowDetails } from './supply-authoring';
+import { supplyDetails, borrowDetails, repayDetails } from './supply-authoring';
 import { solanaSwapDetails, solanaSwapLabels, solanaTokenMint } from './jupiter-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
@@ -55,10 +55,10 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `Fee tier: ${newLiquidity.fee}; recipient: ${newLiquidity.recipient}`,
     'Pool state and position outcome are unobserved. Every liquidity wallet operation needs separate exact Mode A review.',
   ]);
-  const oldSupply = oldNode && (borrowDetails(oldNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(oldNode as Parameters<typeof supplyDetails>[0]));
-  const newSupply = newNode && (borrowDetails(newNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(newNode as Parameters<typeof supplyDetails>[0]));
+  const oldSupply = oldNode && (repayDetails(oldNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(oldNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(oldNode as Parameters<typeof supplyDetails>[0]));
+  const newSupply = newNode && (repayDetails(newNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(newNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(newNode as Parameters<typeof supplyDetails>[0]));
   if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
-    `${newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
+    `${newNode?.actionType==='repay'?'Repay to':newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
     `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
   const oldSolana = oldNode && solanaSwapDetails(oldNode), newSolana = newNode && solanaSwapDetails(newNode);
   if (newSolana) { const labels = solanaSwapLabels(newSolana.network); return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,

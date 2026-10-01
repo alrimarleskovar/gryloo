@@ -41,7 +41,7 @@ async function run<T>(action:(service:SupplyService)=>Promise<T>):Promise<{ok:tr
 export async function supplySimulate(workflow:SemanticWorkflow,account:string){return run(service=>service.simulate(workflow,account));}
 export async function supplyReview(id:string,commitment:string,workflow:SemanticWorkflow){return run(service=>service.review(id,commitment,workflow));}
 export async function supplyBegin(id:string,account:string,workflow:SemanticWorkflow){return run(service=>service.begin(id,account,workflow));}
-export async function supplyReport(id:string,step:'APPROVAL'|'SUPPLY'|'BORROW',result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'|'REJECTED';code?:string}){return run(service=>service.report(id,step,result));}
+export async function supplyReport(id:string,step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY',result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'|'REJECTED';code?:string}){return run(service=>service.report(id,step,result));}
 export async function supplyObserve(id:string){return run(service=>service.observe(id));}
 export async function supplyStatus(id:string){return run(service=>service.load(id));}
 
@@ -51,4 +51,4 @@ export async function supplyRecoverReview(id:string){return run(service=>service
 export async function supplyWalletFailure(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletFailure(id,diagnostic));}
 export async function supplyWalletTrace(id:string,diagnostic:SupplyWalletDiagnostic){return run(service=>service.walletTrace(id,diagnostic));}
 
-export async function supplyHandoff(id:string,step:'APPROVAL'|'SUPPLY'|'BORROW',walletManagedNonce=false){return run(service=>service.handoff(id,step,walletManagedNonce));}
+export async function supplyHandoff(id:string,step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY',walletManagedNonce=false){return run(service=>service.handoff(id,step,walletManagedNonce));}

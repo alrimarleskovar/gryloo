@@ -11,11 +11,13 @@ import type { BridgeSwapInput } from './bridge-swap-authoring';
 import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
-import { createAuthoredSupply, supplyDetails, createAuthoredBorrow, borrowDetails, type SupplyInput } from './supply-authoring';
+import { createAuthoredSupply, supplyDetails, createAuthoredBorrow, borrowDetails, createAuthoredRepay, repayDetails, type SupplyInput } from './supply-authoring';
 import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, solanaSwapLabels, type SolanaSwapInput } from './jupiter-authoring';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
+  | { readonly type: 'ADD_REPAY'; readonly input: SupplyInput }
+  | { readonly type: 'SET_REPAY'; readonly nodeId: string; readonly input: SupplyInput }
   | { readonly type: 'ADD_BORROW'; readonly input: SupplyInput }
   | { readonly type: 'SET_BORROW'; readonly nodeId: string; readonly input: SupplyInput }
   | { readonly type: 'ADD_SUPPLY'; readonly input: SupplyInput }
@@ -57,6 +59,14 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext, defaultBeneficiary?: string | null): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const repay = /^repay ([0-9]+(?:\.[0-9]+)?) USDC to Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  if (repay) {
+    const beneficiary=repay[2]??defaultBeneficiary;
+    if(!beneficiary)throw new Error('REPAY_BENEFICIARY_REQUIRED');
+    const fields:SupplyInput={network:'Base Sepolia',asset:'USDC',amount:repay[1]!,beneficiary};
+    createAuthoredRepay('node-preview',fields);
+    return {type:'ADD_REPAY',input:fields,source:'CHAT',baseRevision:workflow.revision};
+  }
   const borrow = /^borrow ([0-9]+(?:\.[0-9]+)?) USDC from Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if (borrow) {
     const beneficiary=borrow[2]??defaultBeneficiary;
@@ -86,9 +96,9 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
   const supplyEdit = /^set (node-\d+) amount (\S+)$/i.exec(input);
   if (supplyEdit) {
     const node = workflow.nodes.find(n => n.nodeId === supplyEdit[1]);
-    const fields = node && (borrowDetails(node as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(node as Parameters<typeof supplyDetails>[0]));
-    if (fields) { const updated = { ...fields, amount: supplyEdit[2]! }; (node!.actionType==='borrow'?createAuthoredBorrow:createAuthoredSupply)(node!.nodeId, updated);
-      return { type: node!.actionType==='borrow'?'SET_BORROW':'SET_SUPPLY', nodeId: node!.nodeId, input: updated, source: 'CHAT', baseRevision: workflow.revision }; }
+    const fields = node && (repayDetails(node as Parameters<typeof repayDetails>[0]) ?? borrowDetails(node as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(node as Parameters<typeof supplyDetails>[0]));
+    if (fields) { const updated = { ...fields, amount: supplyEdit[2]! }; (node!.actionType==='repay'?createAuthoredRepay:node!.actionType==='borrow'?createAuthoredBorrow:createAuthoredSupply)(node!.nodeId, updated);
+      return { type: node!.actionType==='repay'?'SET_REPAY':node!.actionType==='borrow'?'SET_BORROW':'SET_SUPPLY', nodeId: node!.nodeId, input: updated, source: 'CHAT', baseRevision: workflow.revision }; }
   }
   const crossChain = /^bridge ([0-9]+(?:\.[0-9]+)?) USDC from Base to Arbitrum via (LI\.FI|Across) and create Uniswap liquidity ticks (-?[0-9]+) to (-?[0-9]+) recipient (0x[0-9a-fA-F]{40})(?: without swap)?$/i.exec(input);
   if (crossChain) {
@@ -162,7 +172,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -170,16 +180,18 @@ export function commandIsValid(input: unknown): input is Command {
       || (keys as string[]).sort().join() !== ['type', 'source', 'baseRevision', ...fields[command.type]!].sort().join()) return false;
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
+    case 'ADD_REPAY':
+    case 'SET_REPAY':
     case 'ADD_BORROW':
     case 'SET_BORROW':
     case 'ADD_SUPPLY':
     case 'SET_SUPPLY': {
-      if ((command.type === 'SET_SUPPLY'||command.type==='SET_BORROW') && !id(command.nodeId)) return false;
+      if ((command.type === 'SET_SUPPLY'||command.type==='SET_BORROW'||command.type==='SET_REPAY') && !id(command.nodeId)) return false;
       const fields = command.input;
       if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.getPrototypeOf(fields) !== Object.prototype ||
           Reflect.ownKeys(fields).sort().join() !== ['network','asset','amount','beneficiary'].sort().join() ||
           !Object.values(fields).every(v => typeof v === 'string' && v.length <= 80)) return false;
-      try { (command.type==='ADD_BORROW'||command.type==='SET_BORROW'?createAuthoredBorrow:createAuthoredSupply)('node-preview', fields as SupplyInput); return true; } catch { return false; }
+      try { (command.type==='ADD_REPAY'||command.type==='SET_REPAY'?createAuthoredRepay:command.type==='ADD_BORROW'||command.type==='SET_BORROW'?createAuthoredBorrow:createAuthoredSupply)('node-preview', fields as SupplyInput); return true; } catch { return false; }
     }
     case 'ADD_SOLANA_SWAP':
     case 'SET_SOLANA_SWAP': {
@@ -261,6 +273,8 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const solana = solanaSwapDetails(node);
     if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;
+    const repaid=repayDetails(node as Parameters<typeof repayDetails>[0]);
+    if(repaid)return `${node.nodeId}: Repay ${repaid.amount} USDC to Aave V3 on ${repaid.network}, variable debt mode 2, onBehalfOf ${repaid.beneficiary}.`;
     const borrowed = borrowDetails(node as Parameters<typeof borrowDetails>[0]);
     if(borrowed)return `${node.nodeId}: Borrow ${borrowed.amount} USDC from Aave V3 on ${borrowed.network}, variable rate, borrower ${borrowed.beneficiary}.`;
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);

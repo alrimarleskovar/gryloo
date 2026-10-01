@@ -24,7 +24,7 @@ function walletValue(value:unknown,depth=0,seen=new Set<object>()):unknown{
   return result;
 }
 const key='gryloo:build012a:supply';
-type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY'|'BORROW';hash?:string};
+type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY';hash?:string};
 type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
 const Context=createContext<Store|null>(null);
 export function SupplyProvider({children}:{children:ReactNode}){
@@ -55,7 +55,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
     let mounted=true;
     try{const pointer=JSON.parse(window.localStorage.getItem(key)??'null') as {id?:unknown;step?:unknown;hash?:unknown}|null;
       if(pointer&&typeof pointer.id==='string'&&/^supply-[a-f0-9]{32}$/.test(pointer.id))(async()=>{
-        if(typeof pointer.hash==='string'&&/^0x[0-9a-f]{64}$/.test(pointer.hash)&&(pointer.step==='APPROVAL'||pointer.step==='SUPPLY'||pointer.step==='BORROW'))
+        if(typeof pointer.hash==='string'&&/^0x[0-9a-f]{64}$/.test(pointer.hash)&&(pointer.step==='APPROVAL'||pointer.step==='SUPPLY'||pointer.step==='BORROW'||pointer.step==='REPAY'))
           await supplyReport(pointer.id as string,pointer.step,{kind:'HASH',hash:pointer.hash}).catch(()=>undefined);
         return supplyStatus(pointer.id as string);
       })().then(result=>{if(mounted&&result.ok){setRecord(result.value);setRecovered(true);}}).catch(()=>undefined);
@@ -72,7 +72,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
   async function simulate(){await operation(async()=>{
     if(record?.attempts.some(a=>!a.reconciled))throw new Error('SUPPLY_EXISTING_ATTEMPT_OBSERVE_ONLY');
     const authored=pristineRecovery?record!.review.workflow:workflow;
-    const node=authored.nodes.find(n=>['supply','borrow'].includes(n.actionType)),beneficiary=node?.inputs.find(p=>p.name==='beneficiary');
+    const node=authored.nodes.find(n=>['supply','borrow','repay'].includes(n.actionType)),beneficiary=node?.inputs.find(p=>p.name==='beneficiary');
     if(beneficiary?.kind!=='ACCOUNT')throw new Error('SUPPLY_BENEFICIARY_REQUIRED');
     const snapshot=latest.current;
     const result=record?.recoveryOf&&!retired&&!record.attempts.length?await supplyRecoverReview(record.recoveryOf):await supplySimulate(authored,wallet.account??beneficiary.value.address);if(!result.ok)throw new Error(result.code);
@@ -92,7 +92,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
     const snapshot=latest.current,executionWorkflow=pristineRecovery?record.review.workflow:snapshot;
     if(!pristineRecovery&&JSON.stringify(executionWorkflow)!==JSON.stringify(record.review.workflow))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');
     const diagnostic:SupplyWalletDiagnostic={invoked:false,transaction:null,calls:[],error:null,code:'SUPPLY_WALLET_PREFLIGHT'};
-    let step:'APPROVAL'|'SUPPLY'|'BORROW'|null=null;
+    let step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|null=null;
     const request=async(method:string,params:unknown[]=[])=>{
       const call:SupplyWalletDiagnostic['calls'][number]={method,params,...method==='eth_sendTransaction'?{submission:true}:{}};diagnostic.calls.push(call);
       try{const result=await provider.request({method,...params.length?{params}:{}});call.result=walletValue(result);return result;}
@@ -132,7 +132,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
       const send=diagnostic.calls.find(c=>c.method==='eth_sendTransaction'),providerError=send?.error as {code?:unknown}|undefined;
       const refused=send&&send.result===undefined&&typeof providerError?.code==='number'&&[4001,4100,4200,-32600,-32601,-32602].includes(providerError.code);
       if(refused)diagnostic.rejectionCode=providerError.code as number;
-      diagnostic.code=!diagnostic.invoked?(cause instanceof Error&&/^(?:SUPPLY|BORROW)_[A-Z0-9_]+$/.test(cause.message)?cause.message:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'):'SUPPLY_WALLET_SUBMISSION_RESULT_UNKNOWN';
+      diagnostic.code=!diagnostic.invoked?(cause instanceof Error&&/^(?:SUPPLY|BORROW|REPAY)_[A-Z0-9_]+$/.test(cause.message)?cause.message:'SUPPLY_RPC_ERROR_BEFORE_WALLET_SUBMISSION'):'SUPPLY_WALLET_SUBMISSION_RESULT_UNKNOWN';
       console.error('[gryloo/supply/wallet]',diagnostic);
       if(!diagnostic.invoked||refused){
         if(refused)diagnostic.code=rejected?(step==='APPROVAL'?'SUPPLY_APPROVAL_REJECTED':'SUPPLY_REJECTED'):'SUPPLY_WALLET_REQUEST_REFUSED';

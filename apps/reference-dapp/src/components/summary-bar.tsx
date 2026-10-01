@@ -14,7 +14,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
   const supply = useSupply();
-  const supplyPath = state.workflow.nodes.some(n => ['supply','borrow'].includes(n.actionType)) || Boolean(supply.recovered && supply.record);
+  const supplyPath = state.workflow.nodes.some(n => ['supply','borrow','repay'].includes(n.actionType)) || Boolean(supply.recovered && supply.record);
   const jupiter = useJupiter();
   const solanaPath = !supplyPath && (state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId.startsWith('solana:')) || Boolean(jupiter.recovered && jupiter.record));
   const publicTestnet = usePublicTestnet();
@@ -24,7 +24,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
     <div><span className="eyebrow">WORKFLOW</span><strong>{state.workflow.nodes.length} steps</strong></div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Continue to Simulate</button>
-      : tab === 'Simulate' && supplyPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!supply.record || supply.retired}>{state.workflow.nodes.some(n=>n.actionType==='borrow')||supply.record?.review.borrow?'Review Borrow':'Review Supply'}</button>
+      : tab === 'Simulate' && supplyPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!supply.record || supply.retired}>{state.workflow.nodes.some(n=>n.actionType==='repay')||supply.record?.review.repay?'Review Repay':state.workflow.nodes.some(n=>n.actionType==='borrow')||supply.record?.review.borrow?'Review Borrow':'Review Supply'}</button>
       : tab === 'Simulate' && solanaPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!jupiter.record || jupiter.retired}>Review swap</button>
       : solanaPath ? <button type="button" onClick={() => setTab('Simulate')}>Back to simulation</button>
       : tab === 'Simulate' && publicPath ? <button type="button" className="primary" onClick={() => setTab('Execute')}

@@ -53,3 +53,7 @@ export * from './jupiter-mock.js';
 export * from './borrow.js';
 export * from './orca-whirlpool.js';
 export * from './orca-mock.js';
+
+export * from './repay.js';
+
+export type { RlpValue } from './rlp.js';

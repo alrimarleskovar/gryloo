@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { compileRepayCalls, estimateRepay, assertRepayFresh } from './repay.js';
 import { compileBorrowCalls, readBorrowState, estimateBorrow, assertBorrowFresh, type BorrowState } from './borrow.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
-import { readSupplyNode, readBorrowNode, supplyAddress, hashArtifactBytes, type SemanticWorkflow,
+import { readSupplyNode, readBorrowNode, readRepayNode, supplyAddress, hashArtifactBytes, type SemanticWorkflow,
   hashSupplyValue, type ArtifactSet, type SimulationBundle, type AuthorizationPolicy, type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
 export { AAVE_V3_BASE_SEPOLIA } from '@defi-workflow-engine/action-registry';
 export type SupplyRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
@@ -96,18 +97,19 @@ async function simulateSupplyWithAllowanceOverride(rpc: SupplyRpc, transactions:
   }
   const calls=transactions.map(tx=>({from:tx.from,to:tx.to,data:tx.data,value:tx.value}));
   const result=await rpc('eth_call',[calls.at(-1),tag,...override?[override]:[]]);
-  if(result!=='0x')throw new Error('SUPPLY_SIMULATION_UNEXPECTED_RETURN');
+  if(supply.data.startsWith(supplySelector('repay(address,uint256,uint256,address)')) ? rpcUint(result)!==BigInt(amount) : result!=='0x')throw new Error('SUPPLY_SIMULATION_UNEXPECTED_RETURN');
   const gasLimits:string[]=[];
   if(approval){const gas=rpcUint(await rpc('eth_estimateGas',[calls[0],tag]));gasLimits.push(((gas*150n+99n)/100n).toString());}
   const gas=rpcUint(await rpc('eth_estimateGas',[{from:supply.from,to:supply.to,data:supply.data,value:supply.value},tag,...override?[override]:[]]));
   if(gas<=0n||gas>1_000_000n)throw new Error('SUPPLY_GAS_INVALID');gasLimits.push(((gas*150n+99n)/100n).toString());
   return {gasLimits,observation:{method:'eth_call',approvalResult:approval?'true':null,allowanceOverride:override,supplyResult:result}};
 }
-export type SupplyReview = { borrow?: { interestRateMode:2; expectedPostHealthFactor:string; debtAfterBase:string }; format: 'gryloo.supply-review.v1'; workflow: SemanticWorkflow; account: string; beneficiary: string; amount: string;
+export type SupplyReview = { repay?: { interestRateMode:2; expectedPostHealthFactor:string; debtAfterBase:string; debtAfter:string }; borrow?: { interestRateMode:2; expectedPostHealthFactor:string; debtAfterBase:string }; format: 'gryloo.supply-review.v1'; workflow: SemanticWorkflow; account: string; beneficiary: string; amount: string;
   pool: string; asset: string; aToken: string; chain: string; approvalRequired: boolean; allowance: string; state: SupplyState;
   transactions: SupplyTransaction[]; gasLimits: string[]; gasPrice: string; expiresAt: string; commitment: string;
   artifactSet: ArtifactSet; simulation: SimulationBundle; policy: AuthorizationPolicy; manifest: StrategyManifest; plan: ExecutionPlan };
 export function compileSupplyCalls(workflow: SemanticWorkflow, accountInput: string, allowance: string): SupplyTransaction[] {
+  if(workflow.nodes.some(n=>n.actionType==='repay')) return compileRepayCalls(workflow,accountInput,allowance);
   if(workflow.nodes.some(n=>n.actionType==='borrow')) return compileBorrowCalls(workflow,accountInput);
   const nodes = workflow.nodes.filter(n => n.actionType === 'supply');
   if (nodes.length !== 1 || workflow.nodes.some(n => n.actionType !== 'supply' && !n.actionType.startsWith('mock-')) ||
@@ -125,12 +127,13 @@ export function compileSupplyCalls(workflow: SemanticWorkflow, accountInput: str
 export async function simulateSupply(workflow: SemanticWorkflow, accountInput: string, rpc: SupplyRpc, now = Date.now()): Promise<SupplyReview> {
   // Canonical hashing validates the frozen shared IR before protocol interpretation.
   const semanticHash = supplyArtifactHash('semantic-workflow',workflow);
-  const node = workflow.nodes.find(n => ['supply','borrow'].includes(n.actionType));
-  const borrowing = node?.actionType === 'borrow';
+  const node = workflow.nodes.find(n => ['supply','borrow','repay'].includes(n.actionType));
+  const borrowing = node?.actionType === 'borrow', repaying = node?.actionType === 'repay';
   if (!node) throw new Error('SUPPLY_REQUIRED');
-  const fields = borrowing ? readBorrowNode(node) : readSupplyNode(node), account = supplyAddress(accountInput);
-  const state = await (borrowing ? readBorrowState : readSupplyState)(rpc,account,fields.beneficiary);
+  const fields = repaying ? readRepayNode(node) : borrowing ? readBorrowNode(node) : readSupplyNode(node), account = supplyAddress(accountInput);
+  const state = await (borrowing || repaying ? readBorrowState : readSupplyState)(rpc,account,fields.beneficiary);
   const estimate = borrowing ? estimateBorrow(fields.amount,state.borrow!) : null;
+  const repayment = repaying ? estimateRepay(fields.amount,state.borrow!) : null;
   const transactions = compileSupplyCalls(workflow,account,state.allowance);
   if (!borrowing && BigInt(state.balance) < BigInt(fields.amount)) throw new Error('SUPPLY_INSUFFICIENT_USDC');
   // The public gateway rejects eth_simulateV1; the approved fallback proves a bounded
@@ -158,7 +161,7 @@ export async function simulateSupply(workflow: SemanticWorkflow, accountInput: s
     requiredAuthorizationClass:'MODE_A',allowlists:{owners:[owner],accounts:[owner],recipients:[{chainId:profile.chain,address:fields.beneficiary}],
       chains:[profile.chain],adapters:[{id:'aave-v3',version:'1.0.0'}],protocols:['aave-v3'],
       contracts:[{chainId:profile.chain,address:profile.pool,version:'aave-v3'},{chainId:profile.chain,address:profile.asset,version:'erc20'}],
-      functions:borrowing?[{chainId:profile.chain,contract:profile.pool,functionId:'borrow'}]:[{chainId:profile.chain,contract:profile.pool,functionId:'supply'},{chainId:profile.chain,contract:profile.asset,functionId:'approve'}]},
+      functions:borrowing?[{chainId:profile.chain,contract:profile.pool,functionId:'borrow'}]:repaying?[{chainId:profile.chain,contract:profile.pool,functionId:'repay'},...transactions.length===2?[{chainId:profile.chain,contract:profile.asset,functionId:'approve'}]:[]]:[{chainId:profile.chain,contract:profile.pool,functionId:'supply'},{chainId:profile.chain,contract:profile.asset,functionId:'approve'}]},
     budgetReservation:{rule:'RESERVE_BEFORE_SUBMISSION',concurrentConsumption:'CUMULATIVE_ACROSS_BRANCHES',implementation:'NOT_IMPLEMENTED'},
     spendLimits,maximumSlippageBps:0,gasBudgets,feeBudgets:[],oracleRules:[],accountRiskRules:borrowing?[{account:owner,minimumHealthFactorNumerator:'2',minimumHealthFactorDenominator:'1',maximumLtvBps:Number(state.borrow!.ltvBps),maximumExposure:[],oracleId:'aave-oracle',checkpointId:'borrow-risk'}]:[],checkpointRules:[],providers,
     nonce:state.nonce,deadline:expiresAt,revocationEpoch:workflow.revision,recovery,enforcement:'NOT_ENFORCED'};
@@ -168,18 +171,19 @@ export async function simulateSupply(workflow: SemanticWorkflow, accountInput: s
     spendLimits,maximumSlippageBps:0,gasBudgets,feeBudgets:[],providers,recovery,enforcement:'NOT_ENFORCED'};
   const manifestHash = supplyArtifactHash('strategy-manifest',manifest);
   const plan: ExecutionPlan = {schemaVersion:'1.0.0',executionPlanId:'supply-plan',semanticWorkflowHash:semanticHash,manifestHash,
-    segments:[{segmentId:'supply-segment',chainId:profile.chain,dependencies:[],steps:transactions.map((tx,i) => ({stepId:i===0&&transactions.length===2?'supply-approval':borrowing?'aave-borrow':'supply-deposit',
+    segments:[{segmentId:'supply-segment',chainId:profile.chain,dependencies:[],steps:transactions.map((tx,i) => ({stepId:i===0&&transactions.length===2?'supply-approval':repaying?'aave-repay':borrowing?'aave-borrow':'supply-deposit',
       nodeId:node.nodeId,chainId:profile.chain,adapter:{id:'aave-v3',version:'1.0.0'},dependencies:i===1?['supply-approval']:[],requiredAuthorizationClass:'MODE_A',
       executionKind:'DIRECT_TRANSACTION',payloadHash:hashSupplyValue(tx,'payload')}))}],checkpointIds:[],enforcement:'NOT_ENFORCED'};
   supplyArtifactHash('execution-plan',plan);
-  const review = {...estimate?{borrow:{interestRateMode:2 as const,expectedPostHealthFactor:estimate.healthFactorAfter,debtAfterBase:estimate.debtAfterBase}}:{},format:'gryloo.supply-review.v1' as const,workflow,account,beneficiary:fields.beneficiary,amount:quantity.amount,pool:profile.pool,asset:profile.asset,
+  const review = {...repayment?{repay:{interestRateMode:2 as const,expectedPostHealthFactor:repayment.healthFactorAfter,debtAfterBase:repayment.debtAfterBase,debtAfter:repayment.debtAfter}}:{},...estimate?{borrow:{interestRateMode:2 as const,expectedPostHealthFactor:estimate.healthFactorAfter,debtAfterBase:estimate.debtAfterBase}}:{},format:'gryloo.supply-review.v1' as const,workflow,account,beneficiary:fields.beneficiary,amount:quantity.amount,pool:profile.pool,asset:profile.asset,
     aToken:profile.aToken,chain:profile.chain,approvalRequired:transactions.length===2,allowance:state.allowance,state,transactions,gasLimits,gasPrice,expiresAt,
     artifactSet,simulation,policy,manifest,plan};
   return {...review,commitment:supplyHash(review)};
 }
 export function assertSupplyReview(review: SupplyReview, workflow: SemanticWorkflow, account: string, state: SupplyState, now = Date.now(), approvalConfirmed = false): void {
   const {commitment,...content} = review;
-  const borrowing=workflow.nodes.some(n=>n.actionType==='borrow');
+  const borrowing=workflow.nodes.some(n=>n.actionType==='borrow'),repaying=workflow.nodes.some(n=>n.actionType==='repay');
+  if(repaying!==Boolean(review.repay)||review.repay&&review.borrow)throw new Error('REPAY_AUTHORIZATION_INVALID');
   if(borrowing!==Boolean(review.borrow))throw new Error('BORROW_AUTHORIZATION_INVALID');
   if(borrowing){const fields=readBorrowNode(workflow.nodes.find(n=>n.actionType==='borrow')!);
     if(fields.amount!==review.amount||fields.beneficiary!==review.beneficiary||review.pool!==profile.pool||review.asset!==profile.asset||review.chain!==profile.chain||review.aToken!==profile.aToken)throw new Error('BORROW_AUTHORIZATION_INVALID');}
@@ -194,6 +198,13 @@ export function assertSupplyReview(review: SupplyReview, workflow: SemanticWorkf
     assertBorrowFresh(review.amount,review.state.borrow,state.borrow);
     const estimated=estimateBorrow(review.amount,review.state.borrow);
     if(estimated.healthFactorAfter!==review.borrow.expectedPostHealthFactor||estimated.debtAfterBase!==review.borrow.debtAfterBase)throw new Error('BORROW_AUTHORIZATION_INVALID');
+  }
+  if(review.repay){
+    const fields=readRepayNode(workflow.nodes.find(n=>n.actionType==='repay')!);
+    if(!state.borrow||!review.state.borrow||review.repay.interestRateMode!==2||review.beneficiary!==review.account||fields.amount!==review.amount||fields.beneficiary!==review.account||review.pool!==profile.pool||review.asset!==profile.asset||review.chain!==profile.chain||review.aToken!==profile.aToken)throw new Error('REPAY_AUTHORIZATION_INVALID');
+    assertRepayFresh(review.amount,review.state.borrow,state.borrow);
+    const estimate=estimateRepay(review.amount,review.state.borrow);
+    if(estimate.debtAfter!==review.repay.debtAfter||estimate.debtAfterBase!==review.repay.debtAfterBase||estimate.healthFactorAfter!==review.repay.expectedPostHealthFactor)throw new Error('REPAY_AUTHORIZATION_INVALID');
   }
   if (JSON.stringify(compileSupplyCalls(workflow,account,review.allowance)) !== JSON.stringify(review.transactions)) throw new Error('SUPPLY_AUTHORIZATION_INVALID');
 }
