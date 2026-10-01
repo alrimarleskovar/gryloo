@@ -14,6 +14,15 @@ export type SupplyRecord = SupplyRun & { observations: SupplyObservation[]; evid
   absence?:SupplyAbsence; recoveryOf?:string; submissionError?:string; walletDiagnostic?:SupplyWalletDiagnostic; notSubmitted?:boolean; walletManagedNonce?:true; approvalProof?:{hash:string;observation:SupplyObservation}; priorApproval?:{runId:string;hash:string} };
 export type SupplyBegin = { record:SupplyRecord; step:SupplyAttempt['step']; transaction:SupplyAttempt['transaction'] & {nonce:string;gas:string;gasPrice:string} };
 const idCheck=(id:string)=>{if(!/^supply-[a-f0-9]{32}$/.test(id))throw new Error('SUPPLY_ID_INVALID');return id;};
+// Only the historical null-blockHash parser failure may be re-observed from a terminal verdict.
+function repayApprovalBlockHashFailure(record:SupplyRecord,observation=record.observations.at(-1)):boolean {
+  const attempt=record.attempts[0];
+  return Boolean(record.review.repay&&record.verdict==='DIVERGENT'&&record.attempts.length===1&&attempt?.step==='APPROVAL'&&attempt.state==='RECONCILIATION_REQUIRED'&&!attempt.reconciled&&attempt.transactionHash&&observation?.verdict==='DIVERGENT'&&observation.reason==='SUPPLY_RPC_INVALID'&&observation.transaction?.blockHash===null&&observation.transaction.hash===attempt.transactionHash&&observation.receipt?.transactionHash===attempt.transactionHash);
+}
+function recoveredRepayApproval(record:SupplyRecord):boolean {
+  const proof=record.approvalProof;
+  return Boolean(proof&&repayApprovalBlockHashFailure(record,record.observations.at(-2))&&proof.hash===record.attempts[0]?.transactionHash&&proof.observation.verdict==='RECONCILED'&&proof.observation.reason==='EXACT_REPAY_APPROVAL_VERIFIED'&&proof.observation.walletEnvelope?.owner===record.review.account);
+}
 export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;provenance:'PUBLIC_TESTNET'|'MOCKED'}) {
   if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw new Error('SUPPLY_STORAGE_INVALID');
   const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
@@ -88,11 +97,12 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       const record=await load(id),attempt=record.attempts[0];
       if(record.review.repay){
         const last=record.attempts.at(-1);
-        const completedApproval=record.attempts.length===1&&last?.step==='APPROVAL'&&last.reconciled;
-        if(record.verdict!=='PENDING'||!last||!completedApproval&&(!record.notSubmitted||last.reconciled||last.transactionHash))throw new Error('REPAY_RECOVERY_OBSERVE_ONLY');
+        const verifiedRecovery=recoveredRepayApproval(record);
+        const completedApproval=record.attempts.length===1&&last?.step==='APPROVAL'&&(last.reconciled||verifiedRecovery);
+        if(record.verdict!=='PENDING'&&!verifiedRecovery||!last||!completedApproval&&(!record.notSubmitted||last.reconciled||last.transactionHash))throw new Error('REPAY_RECOVERY_OBSERVE_ONLY');
         const review=await simulateSupply(record.review.workflow,record.review.account,input.rpc);
         if(!completedApproval&&review.state.nonce!==last.nonce||JSON.stringify(review.transactions.at(-1))!==JSON.stringify(record.review.transactions.at(-1))||!completedApproval&&last.step==='APPROVAL'&&JSON.stringify(review.transactions)!==JSON.stringify(record.review.transactions))throw new Error('REPAY_RECOVERY_STATE_CHANGED');
-        const priorApproval=record.attempts.find(a=>a.step==='APPROVAL'&&a.reconciled);
+        const priorApproval=record.attempts.find(a=>a.step==='APPROVAL'&&(a.reconciled||verifiedRecovery));
         if(priorApproval&&review.approvalRequired)throw new Error('REPAY_APPROVAL_PROOF_STALE');
         const fresh:SupplyRecord={...createSupplyRun('supply-'+randomBytes(16).toString('hex'),review,input.provenance),observations:[],evidence:null,error:null,recoveryOf:id,...priorApproval?{priorApproval:{runId:id,hash:priorApproval.transactionHash!}}:record.priorApproval?{priorApproval:record.priorApproval}:{}};
         if(fresh.priorApproval)await verifyPriorApproval(fresh);
@@ -166,7 +176,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
               if(previous.id===id)return;
               if(!record.recoveryOf||previous.id!==record.recoveryOf)throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
               const source=await load(record.recoveryOf);
-              if(!source.notSubmitted&&!(record.priorApproval?.runId===source.id&&source.attempts.length===1&&source.attempts[0]?.step==='APPROVAL'&&source.attempts[0].reconciled))throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
+              if(!source.notSubmitted&&!(record.priorApproval?.runId===source.id&&source.attempts.length===1&&source.attempts[0]?.step==='APPROVAL'&&(source.attempts[0].reconciled||recoveredRepayApproval(source))))throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
               await writeExtendingFile(economicLease,new TextEncoder().encode(prior+JSON.stringify(entry)+'\n'),bytes=>{const history=new TextDecoder().decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line));if(history.some(item=>!/^supply-[a-f0-9]{32}$/.test(item.id)))throw new Error('SUPPLY_STORE_CORRUPT');});
             }else{const handle=await open(economicLease,'wx',0o600);try{await handle.writeFile(JSON.stringify(entry)+'\n');await handle.sync();}finally{await handle.close();}}
           });
@@ -179,7 +189,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
           if((review.borrow||review.repay)&&(!record.recoveryOf||review.repay&&last.step==='APPROVAL'&&record.priorApproval?.runId===last.id)){
             const priorRun=await load(last.id),priorAttempt=priorRun.attempts.find(a=>a.step===last.step);
             const continuingApproval=review.repay&&(last.id===id||record.priorApproval?.runId===last.id)&&last.step==='APPROVAL';
-            if(!continuingApproval&&priorRun.verdict!=='RECONCILED'||!priorAttempt?.reconciled||priorAttempt.nonce!==attempt.nonce||JSON.stringify(priorAttempt.transaction)!==JSON.stringify(last.transaction))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
+            if(!continuingApproval&&priorRun.verdict!=='RECONCILED'||!(priorAttempt?.reconciled||continuingApproval&&recoveredRepayApproval(priorRun))||priorAttempt?.nonce!==attempt.nonce||JSON.stringify(priorAttempt.transaction)!==JSON.stringify(last.transaction))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
             const proof=await reconcileSupplyAttempt(priorRun.review,priorAttempt,input.rpc);
             if(proof.verdict!=='RECONCILED'||proof.walletEnvelope?.owner!==review.account||proof.walletEnvelope.ownerNonceAfter!==attempt.nonce)throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
             await reserveBorrowIntent();await reserveRepayIntent();
@@ -261,6 +271,14 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
     });},
     async observe(id:string):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
       let record=await load(id);
+      if(!record.approvalProof&&repayApprovalBlockHashFailure(record)){
+        const attempt=record.attempts[0]!,proof=await reconcileSupplyAttempt(record.review,attempt,input.rpc);
+        if(proof.verdict!=='RECONCILED'||!proof.walletEnvelope||proof.reason!=='EXACT_REPAY_APPROVAL_VERIFIED'||proof.receipt?.transactionHash!==attempt.transactionHash)return record;
+        // Preserve the terminal journal and append independent proof of the SAME approval.
+        // A fresh explicitly reviewed run may consume this proof, never send approval again.
+        record={...record,approvalProof:{hash:attempt.transactionHash!,observation:proof},observations:[...record.observations,proof],authorization:null,error:null};
+        await save(record);return record;
+      }
       if(record.verdict==='DIVERGENT'&&!record.approvalProof&&record.attempts.length===1&&record.attempts[0]?.step==='APPROVAL'&&record.attempts[0].state==='RECONCILIATION_REQUIRED'&&record.error==='SUPPLY_TRANSACTION_MISMATCH'&&record.attempts[0].transactionHash){
         const proof=await reconcileSupplyAttempt(record.review,record.attempts[0],input.rpc);
         if(proof.verdict==='RECONCILED'&&proof.walletEnvelope){record={...record,approvalProof:{hash:record.attempts[0].transactionHash,observation:proof},observations:[...record.observations,proof],error:null};await save(record);}

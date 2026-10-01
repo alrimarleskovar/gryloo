@@ -59,13 +59,19 @@ export async function reconcileRepayAttempt(review:SupplyReview,attempt:SupplyCh
     const tx=rpcRecord(txValue),receipt=rpcRecord(receiptValue);base.transaction=tx;base.receipt=receipt;
     const approval=attempt.step==='APPROVAL',calls=compileRepayCalls(review.workflow,review.account,review.allowance),expected=approval?calls[0]!:calls.at(-1)!;
     if(!review.repay||review.borrow||!['APPROVAL','REPAY'].includes(attempt.step)||approval&&!review.approvalRequired||review.repay.interestRateMode!==2||review.pool!==p.pool||review.asset!==p.asset||review.chain!==p.chain||review.beneficiary!==review.account||JSON.stringify(expected)!==JSON.stringify(attempt.transaction))throw new Error('REPAY_SEMANTIC_MISMATCH');
-    if(rpcHash(tx.hash)!==attempt.transactionHash||rpcHash(receipt.transactionHash)!==attempt.transactionHash||typeof tx.from!=='string'||typeof tx.to!=='string'||receipt.from!==tx.from||receipt.to!==tx.to||rpcUint(tx.value)!==0n||rpcUint(tx.chainId)!==BigInt(p.chainId)||rpcHash(tx.blockHash)!==rpcHash(receipt.blockHash)||rpcUint(tx.blockNumber)!==rpcUint(receipt.blockNumber))throw new Error('REPAY_TRANSACTION_MISMATCH');
+    const receiptBlockHash=rpcHash(receipt.blockHash);
+    if(rpcHash(tx.hash)!==attempt.transactionHash||rpcHash(receipt.transactionHash)!==attempt.transactionHash||typeof tx.from!=='string'||typeof tx.to!=='string'||receipt.from!==tx.from||receipt.to!==tx.to||rpcUint(tx.value)!==0n||rpcUint(tx.chainId)!==BigInt(p.chainId)||(tx.blockHash!==null&&rpcHash(tx.blockHash)!==receiptBlockHash)||rpcUint(tx.blockNumber)!==rpcUint(receipt.blockNumber)||rpcUint(tx.transactionIndex)!==rpcUint(receipt.transactionIndex))throw new Error('REPAY_TRANSACTION_MISMATCH');
     const wrapped=tx.to===SUPPLY_METAMASK.manager;
     if(!wrapped&&(tx.from!==expected.from||tx.to!==expected.to||tx.input!==expected.data||rpcUint(tx.nonce)!==BigInt(attempt.nonce)))throw new Error('REPAY_TRANSACTION_MISMATCH');
     const gasIndex=approval?0:review.gasLimits.length-1;
     if(rpcUint(receipt.gasUsed)>rpcUint(tx.gas)||!wrapped&&(rpcUint(tx.gas)>BigInt(review.gasLimits[gasIndex]!)||rpcUint(receipt.effectiveGasPrice)>BigInt(review.gasPrice)||rpcUint(tx.maxFeePerGas??tx.gasPrice)>BigInt(review.gasPrice)))throw new Error('REPAY_GAS_MISMATCH');
     const block=Number(rpcUint(receipt.blockNumber));if(!Number.isSafeInteger(block)||block<attempt.preparedAtBlock)throw new Error('REPAY_BLOCK_MISMATCH');
-    const canonical=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(block),false]));if(rpcHash(canonical.hash)!==rpcHash(receipt.blockHash))throw new Error('REPAY_REORG');
+    const canonical=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(block),false]));
+    if(rpcHash(canonical.hash)!==receiptBlockHash||rpcUint(canonical.number)!==BigInt(block))throw new Error('REPAY_REORG');
+    // A null transaction block hash is only missing provider metadata. Independently
+    // bind inclusion to the canonical receipt block and its exact transaction slot.
+    const transactionIndex=Number(rpcUint(receipt.transactionIndex));
+    if(!Number.isSafeInteger(transactionIndex)||!Array.isArray(canonical.transactions)||canonical.transactions[transactionIndex]!==attempt.transactionHash)throw new Error('REPAY_TRANSACTION_INDEX_MISMATCH');
     if(rpcUint(await rpc('eth_blockNumber',[]))<BigInt(block+2))return {...base,reason:'AWAITING_CONFIRMATIONS'};
     if(rpcUint(receipt.status)!==1n)return {...base,verdict:'DIVERGENT',reason:approval?'APPROVAL_REVERTED':'REPAY_REVERTED'};
     if(wrapped)base.walletEnvelope=await verifySupplyWalletEnvelope(review,attempt,tx,receipt,rpc);else base.ownerAuthorization=verifyRepayOwnerSignature(tx,review.account);

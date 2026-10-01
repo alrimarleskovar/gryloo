@@ -36,6 +36,7 @@ export function RepayPanel({view}:{view:'simulate'|'execute'}){
   const node=state.workflow.nodes.find(n=>n.actionType==='repay'),fields=node?repayDetails(node as Parameters<typeof repayDetails>[0]):null;
   const pending=record?.notSubmitted?undefined:record?.attempts.find(a=>!a.reconciled),approval=record?.attempts.find(a=>a.step==='APPROVAL'&&a.reconciled);
   const info=run.error??record?.error,observation=record?.observations.at(-1) as RepayObservation|undefined;
+  const reobserveApproval=record?.verdict==='DIVERGENT'&&record.error==='SUPPLY_RPC_INVALID'&&record.attempts.length===1&&pending?.step==='APPROVAL'&&pending.state==='RECONCILIATION_REQUIRED'&&observation?.transaction?.blockHash===null;
   return <section className="panel" aria-label="Aave Repay"><h2>{view==='simulate'?'Simulate Repay':record?.evidence?'Repay result':'Review Repay'}</h2>
     <p>Repay {fields?.amount??(review?human(review.amount,6):'')} USDC to Aave V3 on Base Sepolia.</p>
     <p>Variable debt mode: 2. onBehalfOf is your owner wallet.</p>
@@ -52,10 +53,10 @@ export function RepayPanel({view}:{view:'simulate'|'execute'}){
     {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)} onClick={()=>void run.simulate()}>Simulate Repay</button>:<>
       {record&&!record.authorization&&!record.attempts.length&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.review()}>Accept Repay review</button>}
       {record?.authorization&&!run.retired&&!pending&&!record.notSubmitted&&record.verdict==='PENDING'&&<button type="button" className="primary" disabled={run.busy} onClick={()=>void run.execute()}>{review?.approvalRequired&&!approval?'Approve exactly '+review.amount+' raw USDC':'Execute'}</button>}
-      {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Repay'}: {a.reconciled?'Independently verified':record.notSubmitted?'not submitted':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
-      {pending&&record?.verdict==='PENDING'&&<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing transaction</button>}
+      {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Repay'}: {a.reconciled||a.step==='APPROVAL'&&record.approvalProof?'Independently verified':record.notSubmitted?'not submitted':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
+      {pending&&(record?.verdict==='PENDING'||reobserveApproval)&&<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing transaction</button>}
       {record?.notSubmitted&&<p>The wallet request was not submitted. Prepare a fresh explicit owner review for the same intent.</p>}
-      {(record?.notSubmitted||approval&&record?.attempts.length===1)&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.recoverReview()}>Prepare fresh review</button>}
+      {(record?.notSubmitted||approval&&record?.attempts.length===1||record?.approvalProof)&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.recoverReview()}>Prepare fresh review</button>}
       {record?.attempts.length&&!record.evidence?<a download="gryloo-aave-repay-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>:null}
       {record?.evidence&&observation?.postPosition?.borrow&&<><p>Repay independently reconciled. Wallet paid exactly {human(review!.amount,6)} USDC; variable debt is {human(observation.postPosition.borrow.debt,6)} USDC; health factor is {hf(observation.postPosition.borrow.healthFactor)}. Collateral is unchanged.</p><a download="gryloo-aave-repay-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
     </>}

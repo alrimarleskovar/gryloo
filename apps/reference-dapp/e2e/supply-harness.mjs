@@ -104,8 +104,8 @@ export function createSupplyHarness(){
             {address:p.asset,topics:[supplyTopic('Transfer(address,address,uint256)'),topicAddress(state.owner),topicAddress(p.aToken)],data:word(amount)});
         }
       }
-      const mined={...tx,...signed,hash:txHash,input:tx.data,blockNumber:supplyHex(block),blockHash:hash(block+1000),gas:tx.gas};transactions.push(mined);
-      receipts.set(txHash,{transactionHash:txHash,from:tx.from,to:tx.to,blockNumber:supplyHex(block),blockHash:hash(block+1000),status:state.revert?'0x0':'0x1',gasUsed:supplyHex(tx.to===p.pool?140_000:45_000),effectiveGasPrice:supplyHex(1_000_000),l1Fee:'0x0',logs});
+      const mined={...tx,...signed,hash:txHash,input:tx.data,transactionIndex:'0x0',blockNumber:supplyHex(block),blockHash:hash(block+1000),gas:tx.gas};transactions.push(mined);
+      receipts.set(txHash,{transactionHash:txHash,from:tx.from,to:tx.to,transactionIndex:'0x0',blockNumber:supplyHex(block),blockHash:hash(block+1000),status:state.revert?'0x0':'0x1',gasUsed:supplyHex(tx.to===p.pool?140_000:45_000),effectiveGasPrice:supplyHex(1_000_000),l1Fee:'0x0',logs});
       if(signed)state.nativeBalance-=BigInt(tx.to===p.pool?140_000:45_000)*1000000n;
       state.nonce++;state.block=block+2;history.set(block,snapshot());return txHash;
     }
