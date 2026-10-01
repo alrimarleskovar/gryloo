@@ -1,5 +1,9 @@
 # Authority matrix
 
+## Current repository authorization
+
+The human owner authorizes repository implementation through current instructions and PR review under [GOVERNANCE-LITE](SCOPE_GUARD.md). Historical exact-path approvals below do not constrain future repository edits. Financial authorization remains separate: AI cannot authorize wallet signing, public execution or real-funds submission. Owner merge remains required.
+
 
 ## Current BUILD-011D-1 capability authority
 

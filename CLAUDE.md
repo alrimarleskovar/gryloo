@@ -1,53 +1,32 @@
-# Working in this repository
+# Working in Gryloo
 
-This file tells coding agents how to work on Gryloo. It adds no authority of its own.
+The human owner authorizes repository work and decides whether to merge.
+Current owner instructions take precedence; [Scope guard](docs/SCOPE_GUARD.md)
+describes GOVERNANCE-LITE. Product specifications, ADRs and build plans remain
+useful design context. Historical exact-path lists do not authorize future work.
 
-## Authority hierarchy
+- Work on a named branch, never directly on main. Deliver a PR; never merge it
+  or enable automatic merging. Make focused changes and explain the diff.
+- Any legitimate repository path may change. No per-build path manifest,
+  governance amendment, historical baseline fetch, byte pin or phase is needed.
+- Never request, print or commit credentials, private keys or seed phrases.
+  Disposable local keys stay in mode-0600 files outside Git under /tmp.
+- Preserve dependency integrity, the pinned toolchain, license obligations,
+  tests and security gates. Do not delete or skip failing tests to make CI green.
+  Explain intentional safety/test changes explicitly for owner review.
+- Run focused checks during iteration and relevant browser tests for UI changes;
+  run the normal CI gates before delivery. `pnpm check` runs typecheck, lint,
+  build, schema drift and unit tests. `python3 scripts/governance_lite.py` and
+  its unittest suite check repository safety without history or network access.
+- AI proposals are never financial authority. Preserve explicit owner wallet
+  authorization, no private key custody, no automatic owner signing, fail-closed
+  execution, recovery, reconciliation and honest evidence levels.
+- Never autonomously submit real-money transactions or silently execute on
+  mainnet. Public execution using owner funds/signatures requires explicit human
+  action through the reviewed wallet flow; implementation approval is separate.
+- Fork/browser acceptance uses closed replay and loopback traffic. Do not turn
+  an offline test into a public provider or financial execution attempt.
+- Report meaningful blockers and validation results honestly. Skipped tests are
+  not passes; local/mock evidence does not prove public execution or certification.
 
-Follow the hierarchy in [Master Prompt §0](prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md), from highest to lowest:
-
-1. Explicit and current instructions from the human product owner.
-2. [`docs/specs/MASTER_SPEC_V3.2.md`](docs/specs/MASTER_SPEC_V3.2.md).
-3. The Master Prompt.
-4. Approved ADRs in [`docs/adr/`](docs/adr/).
-5. The current approved build plan in [`docs/builds/`](docs/builds/).
-6. Existing code and documentation.
-7. Your own suggestions.
-
-Approval exists only when it is recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md) and the build plan. An uncommitted working-tree edit, a chat summary or an earlier session's statement is not a record.
-
-## Conflict protocol
-
-When two sources conflict, or when the work would leave the approved path set, authority or evidence ceiling:
-
-- do not choose silently;
-- stop the affected work;
-- describe the conflict objectively;
-- recommend the narrowest and safest interpretation;
-- wait for the owner.
-
-Unaffected work may continue. Record the owner's answer as a plan amendment and a decision row before relying on it.
-
-## Build discipline
-
-- Current build status is in [`docs/STATUS.md`](docs/STATUS.md) and [`docs/NEXT_BUILD.md`](docs/NEXT_BUILD.md).
-- Change only the exact Create and Modify paths in the approved plan's §8. Every other tracked path is byte- and mode-protected; the governance workflow enforces this.
-- Never modify the Master Spec, the Master Prompt, accepted ADRs, frozen v1 schemas and fixtures, historical plans and reports, or the certified BUILD-003F transcript.
-- Report results faithfully:
-  - a skipped test is not a pass;
-  - a test run under a substitute configuration is not the real result;
-  - a snapshot written with `--update-snapshots` is not verification.
-- Never claim a merge, remote CI, owner wallet acceptance, certification or an evidence level that has not happened. Local evidence is capped at `FORK_REPRODUCED` on chain 31337.
-
-## Secrets and network
-
-- Never request, print or commit a phrase, private key or provider credential.
-- Disposable local keys live only in mode-0600 files under `/tmp`, outside Git.
-- Fork and browser acceptance runs offline. Run them inside a network namespace, for example `unshare -rn --pid --fork --mount-proc`, with loopback only.
-- The replay upstream serves only the certified transcript. It never synthesizes an answer.
-
-## Toolchain
-
-- Node 24.21.0, pnpm 11.22.0 and Foundry Anvil 1.8.3, exactly as pinned.
-- `pnpm check` runs typecheck, lint, build, the schema check and the unit tests.
-- Local-fork tests are opt-in and need a fork profile. BUILD-004 plan Amendment A-1 documents how to run the Mode B fork, browser and fork-test commands.
+Toolchain: Node 24.21.0, pnpm 11.22.0, Foundry Anvil 1.8.3, as currently pinned.

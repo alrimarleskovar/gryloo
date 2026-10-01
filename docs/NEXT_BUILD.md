@@ -1,5 +1,9 @@
 # Next build
 
+## Future implementation workflow
+
+Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.
+
 ## Current implementation: BUILD-012A
 
 DEC-0056 approves [BUILD-012A Supply](builds/BUILD-012A-PLAN.md) from main `64a0a46f45532d667e226193f29529d8938acf15`. Status: READY_FOR_OWNER_EXECUTION. One exact official Aave V3 USDC Supply profile on Base Sepolia is authorized, with owner execution through Gryloo required for TESTNET_EXECUTED. The wallet-handoff correction and deterministic checks pass; current CI is recorded on the PR. Draft PR #38 remains unmerged. The exact reserve is funded; a fresh owner Review and injected-wallet execution are next. BUILD-012B Borrow, 012C Repay and 012D Withdraw remain unstarted and unapproved. No merge is authorized.
