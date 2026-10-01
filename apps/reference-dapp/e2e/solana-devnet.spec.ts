@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
-import { signChains, signRequests } from './jupiter-fixtures';
+import { MOCKED_SOLANA_WALLET, chooseSolanaWallet, decoyWalletCalls, signChains, signRequests } from './jupiter-fixtures';
 import { authorDevnetSwap, devnetControl, devnetPanel as panel, installDevnetWallet, resetDevnetHarness, reviewDevnetSwap } from './solana-devnet-fixtures';
 
 // MOCKED Devnet loopback only: these runs prove the UX and fail-closed paths, never DEVNET_EXECUTED.
@@ -13,7 +13,7 @@ test('canvas Swap on Solana Devnet → Simulate → Review → Execute → Resul
   const card = page.locator('.react-flow__node[data-id="node-002"]');
   await expect(card).toContainText('SOL → devUSDC'); await expect(card).toContainText('SOLANA DEVNET · ORCA'); await expect(card).not.toContainText('JUPITER');
   await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-  await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
+  await chooseSolanaWallet(panel(page));
   await expect(panel(page)).toContainText('Wallet connected · Solana Devnet');
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await expect(panel(page).getByRole('definition').filter({ hasText: '→ expected' })).toContainText('0.1 Devnet SOL → expected');
@@ -47,7 +47,7 @@ test('chat “Swap 10 test USDC to test SOL on Solana Devnet” authors the same
   await authorDevnetSwap(page, 'chat');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('10 devUSDC · Solana Devnet · 50 bps');
   await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-  await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
+  await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await expect(panel(page).getByRole('definition').filter({ hasText: '→ expected' })).toContainText('10 devUSDC (test) → expected');
   expect(await signRequests(page)).toBe(0); expect(await devnetControl({ action: 'sent' })).toBe(0);
@@ -109,4 +109,30 @@ test('a dropped Devnet transaction survives reload and resolves as expired, neve
   await panel(page).getByRole('button', { name: 'Observe existing transaction' }).click();
   await expect(panel(page).getByRole('status')).toContainText('expired without landing. No swap happened');
   expect(await devnetControl({ action: 'sent' })).toBe(1); expect(await signRequests(page)).toBe(0);
+});
+test('Connect lists every compatible Wallet Standard provider and uses only the one the owner chooses', async ({ page }) => {
+  const wallet = await resetDevnetHarness({}, { devUsdc: '0' });
+  const SOLANA = ['solana:mainnet', 'solana:devnet'];
+  // MetaMask and Brave Wallet register first, as browser-injected wallets often do; an EVM-only and a mainnet-only provider are not offered on Devnet.
+  await installDevnetWallet(page, wallet, { decoys: [{ name: 'MetaMask', chains: SOLANA }, { name: 'Brave Wallet', chains: SOLANA },
+    { name: 'EVM Only', chains: ['eip155:1'] }, { name: 'Mainnet Only', chains: ['solana:mainnet'] }] });
+  await authorDevnetSwap(page);
+  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
+  await expect(panel(page).getByRole('status')).toContainText('Connect a Solana wallet first and choose which wallet to use.');
+  await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
+  const choices = panel(page).getByRole('group', { name: 'Choose a Solana wallet' });
+  await expect(choices.getByRole('button')).toHaveText(['MetaMask', 'Brave Wallet', MOCKED_SOLANA_WALLET, 'Cancel']);
+  await expect(panel(page)).not.toContainText('Wallet connected');
+  expect(await decoyWalletCalls(page)).toEqual([]);
+  await choices.getByRole('button', { name: MOCKED_SOLANA_WALLET, exact: true }).click();
+  await expect(panel(page)).toContainText(`Wallet connected · Solana Devnet: ${wallet.owner}`);
+  await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
+  await panel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();
+  await page.getByRole('button', { name: 'Review swap', exact: true }).click();
+  await panel(page).getByRole('button', { name: 'Accept swap review' }).click();
+  await panel(page).getByRole('button', { name: 'Execute swap' }).click();
+  await expect(panel(page).getByRole('region', { name: 'Swap result' }).getByRole('heading', { name: 'Success' })).toBeVisible();
+  expect(await signRequests(page)).toBe(1); expect(await signChains(page)).toEqual(['solana:devnet']);
+  expect(await decoyWalletCalls(page)).toEqual([]);
 });

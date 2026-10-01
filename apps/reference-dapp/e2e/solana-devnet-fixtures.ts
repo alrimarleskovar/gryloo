@@ -2,7 +2,7 @@
 import { rm } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { createMockedSolanaWallet } from '@defi-workflow-engine/reference-compiler';
-import { installSolanaWallet } from './jupiter-fixtures';
+import { chooseSolanaWallet, installSolanaWallet } from './jupiter-fixtures';
 
 /** MOCKED Solana Devnet loopback only. The wallet's disposable key lives only in this test process's memory. */
 export async function resetDevnetHarness(options: Record<string, unknown> = {}, funding: { lamports?: string; devUsdc?: string } = {}) {
@@ -37,7 +37,7 @@ export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'can
 }
 export async function reviewDevnetSwap(page: Page) {
   await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-  await devnetPanel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
+  await chooseSolanaWallet(devnetPanel(page));
   await devnetPanel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await devnetPanel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();
   await page.getByRole('button', { name: 'Review swap', exact: true }).click();

@@ -40,6 +40,8 @@ export function SolanaSwapForm({ nodeId, onDone, direct = false, network: initia
 /** Messages are keyed by the shared suffix; the runtime prefix (JUPITER_ or DEVNET_SWAP_) only names the runtime. */
 const shared: Record<string, string> = {
   SOLANA_WALLET_REQUIRED: 'Install or unlock a Solana wallet that supports Wallet Standard, then connect it.',
+  SOLANA_WALLET_SELECTION_REQUIRED: 'Connect a Solana wallet first and choose which wallet to use.',
+  SOLANA_WALLET_AMBIGUOUS: 'More than one installed wallet uses that name. Disable the duplicate wallet extension, then choose again.',
   WALLET_REJECTED: 'You declined the signature request. No transaction was sent.',
   WALLET_SIGN_FAILED: 'The wallet did not return a signed transaction. Nothing was sent.',
   WALLET_NOT_SUBMITTED: 'No signed transaction was returned. Nothing was sent; simulate again to retry.',
@@ -98,7 +100,10 @@ export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
     <p>Swap {fields ? `${fields.amount} ${fromLabel}` : amount(review?.amount, 'input')} to {toLabel ?? symbol('output')} on {labels.network} via {labels.provider}.</p>
     {devnet && <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>}
     {jupiter.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current swap again.</p>}
-    {!jupiter.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
+    {!jupiter.owner && !jupiter.walletChoices && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
+    {!jupiter.owner && jupiter.walletChoices && <div role="group" aria-label="Choose a Solana wallet"><p>Choose a Solana wallet{devnet ? ' for Solana Devnet' : ''}:</p>
+      {jupiter.walletChoices.map((name, i) => <button key={name + i} type="button" disabled={jupiter.busy} onClick={() => void jupiter.chooseWallet(name)}>{name}</button>)}
+      <button type="button" className="quiet" disabled={jupiter.busy} onClick={jupiter.cancelWalletChoice}>Cancel</button></div>}
     {jupiter.owner && <p>Wallet connected{devnet ? ' · Solana Devnet' : ''}: <span>{jupiter.owner}</span></p>}
     {view === 'simulate' ? <>
       <button type="button" disabled={jupiter.busy || pending} onClick={() => void jupiter.simulate()}>Simulate swap</button>

@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { ORCA_WHIRLPOOLS_DEVNET } from '@defi-workflow-engine/action-registry';
 import { useWorkflow } from './workflow-store';
-import { connectSolanaWallet, signWithSolanaWallet, type SolanaSession, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { connectSolanaWallet, signWithSolanaWallet, solanaWalletNames, type SolanaSession, type SolanaWalletChain } from '../wallet/solana-wallet';
 import { jupiterBegin, jupiterInfo, jupiterInvalidate, jupiterObserve, jupiterReview, jupiterSimulate, jupiterStatus, jupiterSubmit, jupiterWalletFailure } from '../app/jupiter-action';
 import { solanaDevnetBegin, solanaDevnetInfo, solanaDevnetInvalidate, solanaDevnetObserve, solanaDevnetReview, solanaDevnetSimulate, solanaDevnetStatus,
   solanaDevnetSubmit, solanaDevnetWalletFailure } from '../app/solana-devnet-action';
@@ -26,7 +26,8 @@ const runtimes = {
 const networkOfRecord = (record: JupiterRecord): SolanaNetwork => record.review.chain === ORCA_WHIRLPOOLS_DEVNET.chain ? 'Solana Devnet' : 'Solana';
 const networkOfId = (id: string): SolanaNetwork | null => /^jupiter-[a-f0-9]{32}$/.test(id) ? 'Solana' : /^orca-[a-f0-9]{32}$/.test(id) ? 'Solana Devnet' : null;
 type Store = { record: JupiterRecord | null; owner: string | null; network: SolanaNetwork; codePrefix: string; busy: boolean; error: string | null; retired: boolean; recovered: boolean;
-  executionEnabled: boolean; connect(): Promise<void>; simulate(): Promise<void>; review(): Promise<void>; execute(): Promise<void>; observe(): Promise<void> };
+  executionEnabled: boolean; walletChoices: string[] | null; connect(): Promise<void>; chooseWallet(name: string): Promise<void>; cancelWalletChoice(): void;
+  simulate(): Promise<void>; review(): Promise<void>; execute(): Promise<void>; observe(): Promise<void> };
 const Context = createContext<Store | null>(null);
 const unresolved = (record: JupiterRecord | null) => Boolean(record?.attempt && record.verdict === 'PENDING' && ['SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(record.attempt.state));
 function walletCode(cause: unknown, prefix: string): string {
@@ -39,6 +40,7 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
   const { state } = useWorkflow();
   const [record, setRecord] = useState<JupiterRecord | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [recovered, setRecovered] = useState(false), [signing, setSigning] = useState(false), [session, setSession] = useState<SolanaSession | null>(null);
+  const [walletChoices, setWalletChoices] = useState<string[] | null>(null);
   const [enabled, setEnabled] = useState<Record<SolanaNetwork, boolean>>({ Solana: false, 'Solana Devnet': false });
   const workflow = state.workflow as unknown as SemanticWorkflow;
   const latest = useRef(workflow); latest.current = workflow;
@@ -74,11 +76,22 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
     if (busyRef.current) return; busyRef.current = true; setBusy(true); setError(null);
     try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : `${runtime.prefix}_OPERATION_FAILED`); } finally { busyRef.current = false; setBusy(false); }
   }
+  // Only an owner-chosen wallet session on the current cluster is used; nothing connects implicitly.
   async function ensureSession(): Promise<SolanaSession> {
     if (session && session.chain === runtime.walletChain) return session;
-    const next = await connectSolanaWallet(undefined, runtime.walletChain, runtime.prefix); setSession(next); return next;
+    throw new Error(`${runtime.prefix}_SOLANA_WALLET_SELECTION_REQUIRED`);
   }
-  async function connect() { await operation(async () => { await ensureSession(); }); }
+  /** List the Wallet Standard wallets compatible with the current cluster; the owner picks one, even if it is the only one. */
+  async function connect() { await operation(async () => {
+    const names = solanaWalletNames(runtime.walletChain);
+    if (!names.length) throw new Error(`${runtime.prefix}_SOLANA_WALLET_REQUIRED`);
+    setWalletChoices(names);
+  }); }
+  async function chooseWallet(name: string) { await operation(async () => {
+    const next = await connectSolanaWallet(name, runtime.walletChain, runtime.prefix);
+    setSession(next); setWalletChoices(null);
+  }); }
+  function cancelWalletChoice() { setWalletChoices(null); }
   async function poll(id: string) {
     const api = runtimes[networkOfId(id) ?? network];
     for (let i = 0; i < 30; i++) {
@@ -129,7 +142,7 @@ export function JupiterProvider({ children }: { children: ReactNode }) {
   }); }
   async function observe() { await operation(async () => { if (!record) throw new Error(`${runtime.prefix}_RUN_MISSING`); await poll(record.id); }); }
   return <Context.Provider value={{ record, owner: session && session.chain === runtime.walletChain ? session.account.address : null, network, codePrefix: runtime.prefix,
-    busy, error, retired, recovered, executionEnabled: enabled[network], connect, simulate, review, execute, observe }}>
+    busy, error, retired, recovered, executionEnabled: enabled[network], walletChoices, connect, chooseWallet, cancelWalletChoice, simulate, review, execute, observe }}>
     {signing && <p role="status">Confirm or reject the pending request in your Solana wallet.</p>}
     <div inert={signing} data-jupiter-wallet-pending={signing ? 'true' : undefined}>{children}</div></Context.Provider>;
 }

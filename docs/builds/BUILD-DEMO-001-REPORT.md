@@ -76,6 +76,7 @@ BUILD-014's Solana execution core is now shared by both runtimes. It is not dupl
   - the `Traded` event, programs and inner programs;
   - verdict, `realFunds: false` and the `explorer.solana.com/tx/<sig>?cluster=devnet` link.
 - **Result UX.** A prominent "Success" heading with the transaction signature, a "View on Solana Explorer (Devnet)" link, and the amounts paid and received. Evidence class and download are below it; technical JSON stays collapsed.
+- **Explicit wallet selection.** Connect Solana wallet lists every registered Wallet Standard wallet that advertises the current cluster (`solana:devnet` or `solana:mainnet`) together with `standard:connect` and `solana:signTransaction`. The owner picks one by name, even when only one exists. `connectSolanaWallet` requires that exact name, with no first-registered fallback, and refuses ambiguous duplicate names. Simulate and Execute never connect implicitly.
 - **One wallet experience.** The panel shows "Wallet connected · Solana Devnet". The Solana session is per cluster and separate from EVM accounts. There is no new account abstraction.
 
 ## Intentional changes for owner review
@@ -129,4 +130,4 @@ Local runs, 2026-10-01. Fixtures and the loopback harness are `MOCKED`; they are
 
 1. Fund a Wallet Standard Solana wallet (for example Phantom with Testnet Mode → Solana Devnet, or Solflare on Devnet) with **1 Devnet SOL** from [faucet.solana.com](https://faucet.solana.com). Nothing else is needed. The demo swap needs 0.1 SOL plus ≈0.0021 SOL refundable account deposits plus a 0.000005 SOL fee. To try "test USDC → SOL" later, first swap SOL → devUSDC in Gryloo.
 2. From this branch: `pnpm build`, then `GRYLOO_SOLANA_DEVNET_JOURNAL=/absolute/dir/outside/git pnpm --filter @defi-workflow-engine/reference-dapp start`. Optionally set `GRYLOO_SOLANA_DEVNET_RPC_URL=https://…` for a Devnet RPC provider.
-3. In Gryloo: Swap, Network **Solana Devnet**, From Devnet SOL, To devUSDC (test), Amount 0.1, or chat "Swap 0.1 SOL to test USDC on Solana Devnet". Then Simulate → Review → Accept → Execute, sign the one transaction in the wallet, and wait for **Success**. Download the Evidence Bundle (class `DEVNET_EXECUTED`).
+3. In Gryloo: click Connect Solana wallet and choose your wallet by name (for example Solflare). Then Swap, Network **Solana Devnet**, From Devnet SOL, To devUSDC (test), Amount 0.1, or chat "Swap 0.1 SOL to test USDC on Solana Devnet". Then Simulate → Review → Accept → Execute, sign the one transaction in the wallet, and wait for **Success**. Download the Evidence Bundle (class `DEVNET_EXECUTED`).

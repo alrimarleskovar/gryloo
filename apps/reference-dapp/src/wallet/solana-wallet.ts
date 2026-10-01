@@ -33,10 +33,18 @@ export function solanaWallets(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): S
   return registered.filter(wallet => Array.isArray(wallet.chains) && wallet.chains.includes(chain) &&
     'standard:connect' in wallet.features && 'solana:signTransaction' in wallet.features);
 }
+/** Names of the registered wallets that advertise `chain` plus connect and signTransaction, in registration order. */
+export function solanaWalletNames(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): string[] {
+  return solanaWallets(chain).map(wallet => wallet.name);
+}
 /** One owner wallet session per cluster. `prefix` names the runtime in error codes (JUPITER on mainnet, DEVNET_SWAP on Devnet). */
 export type SolanaSession = { wallet: StandardWallet; account: SolanaWalletAccount; chain: SolanaWalletChain };
-export async function connectSolanaWallet(name?: string, chain: SolanaWalletChain = SOLANA_WALLET_CHAIN, prefix = 'JUPITER'): Promise<SolanaSession> {
-  const wallet = solanaWallets(chain).find(w => !name || w.name === name);
+/** Connects only the wallet the owner explicitly chose by name; there is no first-registered fallback. */
+export async function connectSolanaWallet(name: string, chain: SolanaWalletChain = SOLANA_WALLET_CHAIN, prefix = 'JUPITER'): Promise<SolanaSession> {
+  if (typeof name !== 'string' || !name) throw new Error(`${prefix}_SOLANA_WALLET_SELECTION_REQUIRED`);
+  const matches = solanaWallets(chain).filter(w => w.name === name);
+  if (matches.length > 1) throw new Error(`${prefix}_SOLANA_WALLET_AMBIGUOUS`);
+  const wallet = matches[0];
   if (!wallet) throw new Error(`${prefix}_SOLANA_WALLET_REQUIRED`);
   const { accounts } = await (wallet.features['standard:connect'] as ConnectFeature).connect();
   const account = accounts.find(a => a.chains.includes(chain) && a.features.includes('solana:signTransaction')) ?? accounts[0];
