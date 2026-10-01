@@ -1,5 +1,9 @@
 # Evidence levels
 
+## BUILD-DEMO-001 Solana Devnet evidence boundary
+
+Solana Devnet swap runs (Orca Whirlpools, valueless test tokens) are classified `MOCKED` (loopback harness and fixtures), `PUBLIC_READ_ONLY` (real Devnet pool reads and exact-message simulation without owner execution) or `DEVNET_EXECUTED`. `DEVNET_EXECUTED` is valid only for an owner-initiated Devnet transaction whose finalized bytes equal the owner-signed reviewed message and whose balance deltas and Orca `Traded` event reconcile. The frozen v1 Evidence Bundle enum has no Devnet member, so such a bundle records `environment: TESTNET_EXECUTED`, while its `publicExecution.environment` and evidence class are `DEVNET_EXECUTED`. Devnet evidence is never `MAINNET_EXECUTED` and never real funds. BUILD-DEMO-001 reached `DEVNET_EXECUTED` with owner-signed transaction `5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB` (slot 506,389,990). Its archived bundle (hash `0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9`) records `environment: TESTNET_EXECUTED` under the frozen schema. That is Devnet evidence with valueless tokens, not mainnet or real-funds evidence.
+
 ## BUILD-014 Jupiter / Solana evidence boundary
 
 Jupiter swap runs are classified `MOCKED` (loopback harness and fixtures), `PUBLIC_READ_ONLY` (real Jupiter quotes, chain-verified lookup tables and public RPC simulation without owner execution) or `PUBLIC_EXECUTED`. `PUBLIC_EXECUTED` is valid only for an owner-initiated mainnet-beta transaction whose finalized bytes equal the owner-signed reviewed message and whose balance deltas reconcile; its Evidence Bundle environment is `MAINNET_EXECUTED`. Current BUILD-014 evidence is `MOCKED` plus `PUBLIC_READ_ONLY` only.

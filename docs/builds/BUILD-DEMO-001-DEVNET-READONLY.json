@@ -1,0 +1,132 @@
+{
+  "evidence": "PUBLIC_READ_ONLY",
+  "broadcast": false,
+  "endpoint": "https://api.devnet.solana.com",
+  "checkedAt": "2026-10-01T18:05:24.029Z",
+  "checks": [
+    "cluster genesis EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG = Solana Devnet",
+    "Whirlpools program deployed on Devnet (last deploy slot 439560432)",
+    "SOL mint verified",
+    "devUSDC mint verified",
+    "WhirlpoolsConfig FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR owned by Whirlpools",
+    "pool 3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt matches config, mints, vaults and tick spacing 64; liquidity 811988777984",
+    "tick-array sequence derived for both directions"
+  ],
+  "program": {
+    "id": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "programData": "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD",
+    "lastDeploySlot": 439560432,
+    "upgradeAuthority": "8rHQUMS8qg4qrQriPpTbrZqk2yjLrUHSLpA6MzgMSiM"
+  },
+  "mints": {
+    "SOL": {
+      "mint": "So11111111111111111111111111111111111111112",
+      "decimals": 9,
+      "supply": "0",
+      "mintAuthority": null
+    },
+    "devUSDC": {
+      "mint": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+      "decimals": 6,
+      "supply": "20601167250268",
+      "mintAuthority": "3otH3AHWqkqgSVfKFkrxyDqd2vK6LcaqigHrFEmWcGuo"
+    }
+  },
+  "pool": {
+    "address": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+    "whirlpoolsConfig": "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR",
+    "tickSpacing": 64,
+    "feeRate": 2000,
+    "protocolFeeRate": 300,
+    "liquidity": "811988777984",
+    "sqrtPrice": "2758307443077535026",
+    "tickCurrentIndex": -38008,
+    "tokenMintA": "So11111111111111111111111111111111111111112",
+    "tokenVaultA": "C9zLV5zWF66j3rZj3uuhDqvfuA8esJyWnruGzDW9qEj2",
+    "tokenMintB": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+    "tokenVaultB": "7DM3RMz2yzUB8yPRQM3FMZgdFrwZGMsabsfsKopWktoX",
+    "slot": 506358693
+  },
+  "vaultBalances": {
+    "SOL": "357.238639671",
+    "devUSDC": "7143.611439"
+  },
+  "tickArrays": {
+    "aToB": [
+      "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE",
+      "3aBJJLAR3QxGcGsesNXeW3f64Rv3TckF7EQ6sXtAuvGM",
+      "A1vrG379E5ttoaWmyQBiunsMdyrpoUp7mSQwu8DgLcip"
+    ],
+    "bToA": [
+      "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE",
+      "CpoSFo3ajrizueggtJr2ZjvYgdtkgugXtvhqcwkyCkKP",
+      "9iGzy4mQtJadZDuH8seBFQGiqcb6wyp2KW4M6NKHvsAW"
+    ],
+    "initialized": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "simulations": [
+    {
+      "swap": "SOL → devUSDC",
+      "amountIn": "100000000",
+      "expectedOut": "2231353",
+      "minimumOut": "2220196",
+      "priceImpactPct": "0.201845",
+      "simulatedTrade": {
+        "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+        "aToB": true,
+        "preSqrtPrice": "2758307443077535026",
+        "postSqrtPrice": "2758256751226166499",
+        "inputAmount": "100000000",
+        "outputAmount": "2231353",
+        "inputTransferFee": "0",
+        "outputTransferFee": "0",
+        "lpFee": "194000",
+        "protocolFee": "6000"
+      },
+      "simulatedInputSpent": "100000000",
+      "simulatedOutputReceived": "2231353",
+      "feeLamports": "5000",
+      "computeUnitLimit": 91474,
+      "unitsConsumed": 67895,
+      "messageHash": "0x4025628ffb5624e9180c2f11a1e86e05e32255d6248eb9e92f4aef7abb219f04",
+      "messageBytes": 733,
+      "slot": 506358701,
+      "reviewGuard": "PASS"
+    },
+    {
+      "swap": "devUSDC → SOL",
+      "amountIn": "1000000",
+      "expectedOut": "44635568",
+      "minimumOut": "44412390",
+      "priceImpactPct": "0.200821",
+      "simulatedTrade": {
+        "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+        "aToB": false,
+        "preSqrtPrice": "2758307443077535026",
+        "postSqrtPrice": "2758330115620659661",
+        "inputAmount": "1000000",
+        "outputAmount": "44635568",
+        "inputTransferFee": "0",
+        "outputTransferFee": "0",
+        "lpFee": "1940",
+        "protocolFee": "60"
+      },
+      "simulatedInputSpent": "1000000",
+      "simulatedOutputReceived": "44635568",
+      "feeLamports": "5000",
+      "computeUnitLimit": 81368,
+      "unitsConsumed": 59473,
+      "messageHash": "0x5ec5502fc7c9a70d5b036588ca1f7cc5b1df9a8d88911267f99b5219beab6cfb",
+      "messageBytes": 701,
+      "slot": 506358713,
+      "reviewGuard": "PASS"
+    }
+  ]
+}

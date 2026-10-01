@@ -1,6 +1,5 @@
 import { supplyDetails, borrowDetails } from './supply-authoring';
-import { solanaSwapDetails } from './jupiter-authoring';
-import { SOLANA_MAINNET_TOKENS } from '@defi-workflow-engine/action-registry';
+import { solanaSwapDetails, solanaSwapLabels, solanaTokenMint } from './jupiter-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import type { EditorState } from './editor';
@@ -62,12 +61,13 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `${newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
     `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
   const oldSolana = oldNode && solanaSwapDetails(oldNode), newSolana = newNode && solanaSwapDetails(newNode);
-  if (newSolana) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
-    `Node ${newNode?.nodeId}: Swap ${newSolana.from} → ${newSolana.to} on Solana via Jupiter`,
+  if (newSolana) { const labels = solanaSwapLabels(newSolana.network); return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Node ${newNode?.nodeId}: Swap ${newSolana.from} → ${newSolana.to} on ${labels.network} via ${labels.provider}`,
     `Input: ${oldSolana ? `${oldSolana.amount} ${oldSolana.from}` : 'none'} → ${newSolana.amount} ${newSolana.from}`,
     `Slippage: ${oldSolana?.slippage ?? 'none'} → ${newSolana.slippage} bps`,
-    `Mints: ${SOLANA_MAINNET_TOKENS[newSolana.from].mint} → ${SOLANA_MAINNET_TOKENS[newSolana.to].mint}`,
-    'A fresh Jupiter quote, read-only simulation and exact transaction review are required. Real mainnet funds; nothing executes automatically.']);
+    `Mints: ${solanaTokenMint(newSolana.network, newSolana.from)} → ${solanaTokenMint(newSolana.network, newSolana.to)}`,
+    labels.testTokens ? 'A fresh Orca Devnet quote, read-only simulation and exact transaction review are required. Valueless Devnet test tokens; nothing executes automatically.'
+      : 'A fresh Jupiter quote, read-only simulation and exact transaction review are required. Real mainnet funds; nothing executes automatically.']); }
   const oldSwap = oldNode && swapDetails(oldNode, context);
   const newSwap = newNode && swapDetails(newNode, context);
   if (newSwap) return Object.freeze([

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
-import { authorSolanaSwap, installSolanaWallet, jupiterControl, resetJupiterHarness, reviewSolanaSwap, signRequests } from './jupiter-fixtures';
+import { authorSolanaSwap, chooseSolanaWallet, installSolanaWallet, jupiterControl, resetJupiterHarness, reviewSolanaSwap, signRequests } from './jupiter-fixtures';
 
 const panel = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Jupiter swap' });
 test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) console.error('Jupiter failure:', await panel(page).locator('pre').textContent().catch(() => 'no panel')); });
@@ -30,7 +30,7 @@ test('chat “Swap 10 USDC to SOL on Solana” authors the same swap and simulat
   await authorSolanaSwap(page, 'chat');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('10 USDC · Solana · 50 bps');
   await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-  await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
+  await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   const summary = page.getByRole('definition').filter({ hasText: '→ expected' });
   await expect(summary).toContainText('10 USDC → expected');

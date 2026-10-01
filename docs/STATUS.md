@@ -4,6 +4,10 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
+## BUILD-DEMO-001 Solana Devnet real execution
+
+**DEVNET_EXECUTED** on branch `claude/build-demo-001-solana-devnet` (PR #42, unmerged), from main `148f79c`. The canonical `asset.swap.exact-input` intent ran on Solana Devnet through Orca Whirlpools `swap_v2` on Orca's documented test pool. The owner signed with their own wallet. Transaction [`5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB`](https://explorer.solana.com/tx/5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB?cluster=devnet), finalized at slot 506,389,990, swapped 0.1 Devnet SOL for 2.231352 devUSDC (minimum 2.220195) with a 5,000-lamport fee. It was reconciled by Gryloo and independently verified (35/35 read-only checks). Evidence Bundle hash `0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9`. The frozen v1 bundle schema records `environment: TESTNET_EXECUTED`; the Gryloo evidence class is `DEVNET_EXECUTED`. The tokens are valueless; there is no real-funds, mainnet or `MAINNET_EXECUTED` claim. Jupiter mainnet (BUILD-014) remains unexecuted. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md) and [archived evidence](builds/BUILD-DEMO-001-EVIDENCE/).
+
 ## BUILD-014 Jupiter / Solana portability
 
 READY_FOR_OWNER_EXECUTION on branch `claude/build-014-jupiter` from main `7726970`. One canonical swap intent now compiles, simulates, reviews, executes (owner-signed), recovers, reconciles and produces evidence on Solana mainnet-beta through Jupiter. No mainnet transaction was signed or sent; there is no `PUBLIC_EXECUTED` or `MAINNET_EXECUTED` claim. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).

@@ -26,7 +26,7 @@ export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResu
     if (node.actionType === 'supply') { findings.push({ code: 'SUPPLY_SIMULATION_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'amount', message: 'Simulate the exact Aave Supply and review its allowance and beneficiary before execution.' }); continue; }
     if (node.actionType === BRIDGE_ACTION) { findings.push({ code: 'BRIDGE_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: node.adapterConstraints.adapters[0]?.id === 'across.direct' ? 'A fresh direct Across quote and fixed-provider review are required before the simulated bridge.' : 'A fresh LI.FI route and Manifest review are required before the mocked rehearsal.' }); continue; }
     if (node.actionType !== 'asset.swap.exact-input') continue;
-    if (node.chainId.startsWith('solana:')) { findings.push({ code: 'SOLANA_SWAP_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Simulate a fresh Jupiter quote and review the exact Solana transaction before execution.' }); continue; }
+    if (node.chainId.startsWith('solana:')) { findings.push({ code: 'SOLANA_SWAP_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Simulate a fresh quote and review the exact Solana transaction before execution.' }); continue; }
     const slippage = node.userConstraints.filter(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS');
     if (slippage.length !== 1) findings.push({ code: 'SLIPPAGE_REQUIRED_ONCE', severity: 'BLOCK', nodeId: node.nodeId, field: 'userConstraints', message: 'Set one explicit slippage limit.' });
     else if (slippage[0]?.kind === 'MAXIMUM_SLIPPAGE_BPS') {

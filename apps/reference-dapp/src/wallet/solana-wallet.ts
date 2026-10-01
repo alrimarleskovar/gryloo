@@ -10,6 +10,7 @@ export type StandardWallet = { readonly name: string; readonly chains: readonly 
 type ConnectFeature = { connect(input?: { silent?: boolean }): Promise<{ accounts: readonly SolanaWalletAccount[] }> };
 type SignFeature = { signTransaction(...inputs: { account: SolanaWalletAccount; transaction: Uint8Array; chain?: string }[]): Promise<readonly { signedTransaction: Uint8Array }[]> };
 export const SOLANA_WALLET_CHAIN = 'solana:mainnet';
+export type SolanaWalletChain = 'solana:mainnet' | 'solana:devnet';
 
 const registered: StandardWallet[] = [];
 let listening = false;
@@ -18,7 +19,7 @@ function register(...wallets: StandardWallet[]) {
   return () => undefined;
 }
 /** Wallet Standard app-ready / register-wallet handshake without an extra dependency. */
-export function solanaWallets(): StandardWallet[] {
+export function solanaWallets(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): StandardWallet[] {
   if (typeof window === 'undefined') return [];
   if (!listening) {
     listening = true;
@@ -29,27 +30,36 @@ export function solanaWallets(): StandardWallet[] {
     });
     window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api }));
   }
-  return registered.filter(wallet => Array.isArray(wallet.chains) && wallet.chains.includes(SOLANA_WALLET_CHAIN) &&
+  return registered.filter(wallet => Array.isArray(wallet.chains) && wallet.chains.includes(chain) &&
     'standard:connect' in wallet.features && 'solana:signTransaction' in wallet.features);
 }
-export type SolanaSession = { wallet: StandardWallet; account: SolanaWalletAccount };
-export async function connectSolanaWallet(name?: string): Promise<SolanaSession> {
-  const wallet = solanaWallets().find(w => !name || w.name === name);
-  if (!wallet) throw new Error('JUPITER_SOLANA_WALLET_REQUIRED');
+/** Names of the registered wallets that advertise `chain` plus connect and signTransaction, in registration order. */
+export function solanaWalletNames(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): string[] {
+  return solanaWallets(chain).map(wallet => wallet.name);
+}
+/** One owner wallet session per cluster. `prefix` names the runtime in error codes (JUPITER on mainnet, DEVNET_SWAP on Devnet). */
+export type SolanaSession = { wallet: StandardWallet; account: SolanaWalletAccount; chain: SolanaWalletChain };
+/** Connects only the wallet the owner explicitly chose by name; there is no first-registered fallback. */
+export async function connectSolanaWallet(name: string, chain: SolanaWalletChain = SOLANA_WALLET_CHAIN, prefix = 'JUPITER'): Promise<SolanaSession> {
+  if (typeof name !== 'string' || !name) throw new Error(`${prefix}_SOLANA_WALLET_SELECTION_REQUIRED`);
+  const matches = solanaWallets(chain).filter(w => w.name === name);
+  if (matches.length > 1) throw new Error(`${prefix}_SOLANA_WALLET_AMBIGUOUS`);
+  const wallet = matches[0];
+  if (!wallet) throw new Error(`${prefix}_SOLANA_WALLET_REQUIRED`);
   const { accounts } = await (wallet.features['standard:connect'] as ConnectFeature).connect();
-  const account = accounts.find(a => a.chains.includes(SOLANA_WALLET_CHAIN) && a.features.includes('solana:signTransaction')) ?? accounts[0];
-  if (!account || typeof account.address !== 'string') throw new Error('JUPITER_SOLANA_WALLET_REQUIRED');
-  return { wallet, account };
+  const account = accounts.find(a => a.chains.includes(chain) && a.features.includes('solana:signTransaction')) ?? accounts[0];
+  if (!account || typeof account.address !== 'string') throw new Error(`${prefix}_SOLANA_WALLET_REQUIRED`);
+  return { wallet, account, chain };
 }
 export const base64ToBytes = (text: string): Uint8Array => Uint8Array.from(atob(text), c => c.charCodeAt(0));
 export const bytesToBase64 = (bytes: Uint8Array): string => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
 /** Owner signature only. Any wallet error means no signed bytes exist in Gryloo and nothing was submitted. */
-export async function signWithSolanaWallet(session: SolanaSession, unsignedTransaction: string): Promise<string> {
+export async function signWithSolanaWallet(session: SolanaSession, unsignedTransaction: string, prefix = 'JUPITER'): Promise<string> {
   const feature = session.wallet.features['solana:signTransaction'] as SignFeature | undefined;
-  if (!feature) throw new Error('JUPITER_SOLANA_WALLET_REQUIRED');
-  const [result] = await feature.signTransaction({ account: session.account, transaction: base64ToBytes(unsignedTransaction), chain: SOLANA_WALLET_CHAIN });
+  if (!feature) throw new Error(`${prefix}_SOLANA_WALLET_REQUIRED`);
+  const [result] = await feature.signTransaction({ account: session.account, transaction: base64ToBytes(unsignedTransaction), chain: session.chain });
   // Extension wallets may return a typed array from another realm; copy the exact bytes.
   const signed = result?.signedTransaction as unknown;
-  if (!ArrayBuffer.isView(signed) || signed.byteLength > 1232) throw new Error('JUPITER_WALLET_RESPONSE_INVALID');
+  if (!ArrayBuffer.isView(signed) || signed.byteLength > 1232) throw new Error(`${prefix}_WALLET_RESPONSE_INVALID`);
   return bytesToBase64(new Uint8Array(signed.buffer, signed.byteOffset, signed.byteLength).slice());
 }

@@ -65,7 +65,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const compositionEnabled = composition.info?.available === true;
   const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
-  const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA' | 'SOLANA'>('BASE');
+  const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA' | 'SOLANA' | 'SOLANA_DEVNET'>('BASE');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
   const [allowCow, setAllowCow] = useState(false);
@@ -104,8 +104,8 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
-  const networkSelect = <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA' | 'SOLANA')}>
-    <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option>
+  const networkSelect = <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA' | 'SOLANA' | 'SOLANA_DEVNET')}>
+    <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option><option value="SOLANA_DEVNET">Solana Devnet</option>
   </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
     <BorrowAuthoringForm/><SupplyAuthoringForm/>
@@ -159,12 +159,13 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         {crossError && <p role="alert">{crossError}</p>}
       </form>
     </details>
-    {swapNetwork === 'SOLANA' ? <div className="swap-create" role="group" aria-label="Create swap proposal">
+    {swapNetwork === 'SOLANA' || swapNetwork === 'SOLANA_DEVNET' ? <div className="swap-create" role="group" aria-label="Create swap proposal">
       <strong>Swap</strong>
       <label htmlFor="swap-network">Network</label>
       {networkSelect}
-      <SolanaSwapForm/>
-      <small>Solana mainnet via Jupiter. Simulate for a live quote; execution needs your wallet signature.</small>
+      <SolanaSwapForm key={swapNetwork} network={swapNetwork === 'SOLANA' ? 'Solana' : 'Solana Devnet'}/>
+      <small>{swapNetwork === 'SOLANA' ? 'Solana mainnet via Jupiter. Simulate for a live quote; execution needs your wallet signature.'
+        : 'Solana Devnet via Orca Whirlpools with valueless test tokens. Simulate for a live Devnet quote; execution needs your wallet signature.'}</small>
     </div> : <form className="swap-create" onSubmit={submit} aria-label="Create swap proposal">
       <strong>Swap</strong>
       <label htmlFor="swap-network">Network</label>
