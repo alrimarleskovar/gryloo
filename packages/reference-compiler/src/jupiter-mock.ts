@@ -2,7 +2,7 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { JUPITER_SOLANA_MAINNET as profile, SOLANA_MAINNET_TOKENS, solanaTokenByMint } from '@defi-workflow-engine/action-registry';
-import { associatedTokenAddress, base58Encode, decompileMessageV0, findProgramAddress, fromBase64, parseMessageV0, parseTransaction, publicKeyBytes,
+import { associatedTokenAddress, serializeSignedTransaction, base58Encode, decompileMessageV0, findProgramAddress, fromBase64, parseMessageV0, parseTransaction, publicKeyBytes,
   readU64, serializeTransaction, toBase64, u32Bytes, u64Bytes, verifyEd25519, type SolanaInstruction } from './solana.js';
 import { decodeJupiterSwap } from './jupiter.js';
 
@@ -175,7 +175,9 @@ export function createMockedSolanaJupiter(options: MockedJupiterOptions = {}) {
 export function createMockedSolanaWallet(secretKey: Uint8Array = ed25519.utils.randomSecretKey()) {
   const owner = base58Encode(ed25519.getPublicKey(secretKey));
   return { owner, sign(unsignedBase64: string): string {
-    const { message } = parseTransaction(fromBase64(unsignedBase64, 2048));
-    return toBase64(serializeTransaction(ed25519.sign(message, secretKey), message));
+    const { signatures, message } = parseTransaction(fromBase64(unsignedBase64, 2048));
+    const signature = ed25519.sign(message, secretKey);
+    // Like a Wallet Standard wallet: the owner fills its own (first) slot and preserves any other signer slots.
+    return toBase64(signatures.length === 1 ? serializeTransaction(signature, message) : serializeSignedTransaction([signature, ...signatures.slice(1)], message));
   } };
 }
