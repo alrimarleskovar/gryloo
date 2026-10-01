@@ -17,6 +17,7 @@ import { createAcrossWorkflow } from '../domain/across-authoring';
 import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 
 import { SupplyAuthoringForm } from './supply-panel';
+import { SolanaSwapForm } from './jupiter-panel';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
@@ -63,7 +64,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const compositionEnabled = composition.info?.available === true;
   const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
-  const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA'>('BASE');
+  const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA' | 'SOLANA'>('BASE');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
   const [allowCow, setAllowCow] = useState(false);
@@ -102,6 +103,9 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         direction, amount, slippage, source: 'CANVAS', baseRevision: state.workflow.revision });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
+  const networkSelect = <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA' | 'SOLANA')}>
+    <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option>
+  </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
     <SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
@@ -154,12 +158,16 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
         {crossError && <p role="alert">{crossError}</p>}
       </form>
     </details>
-    <form className="swap-create" onSubmit={submit} aria-label="Create swap proposal">
+    {swapNetwork === 'SOLANA' ? <div className="swap-create" role="group" aria-label="Create swap proposal">
       <strong>Swap</strong>
       <label htmlFor="swap-network">Network</label>
-      <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA')}>
-        <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option>
-      </select>
+      {networkSelect}
+      <SolanaSwapForm/>
+      <small>Solana mainnet via Jupiter. Simulate for a live quote; execution needs your wallet signature.</small>
+    </div> : <form className="swap-create" onSubmit={submit} aria-label="Create swap proposal">
+      <strong>Swap</strong>
+      <label htmlFor="swap-network">Network</label>
+      {networkSelect}
       <label htmlFor="swap-direction">Direction</label>
       <select id="swap-direction" value={direction} onChange={event => setDirection(event.target.value as Direction)}>
         <option value="USDC_TO_WETH">USDC → WETH</option><option value="WETH_TO_USDC">WETH → USDC</option>
@@ -172,7 +180,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {error && <p id="swap-create-error" role="alert">{error}. Check the amount, asset cap and slippage.</p>}
       <button type="submit">Review swap proposal</button>
       <small>{swapNetwork === 'BASE_SEPOLIA' ? 'Use test USDC and WETH only. Simulate for a live quote before review.' : 'Base swaps use the existing local review path.'}</small>
-    </form>
+    </form>}
     {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
       <strong>Uniswap v3 position · Base</strong>
       <p className="muted">One isolated WETH/USDC position, fee tier 500. Wallet operations are reviewed separately on the local fork.</p>

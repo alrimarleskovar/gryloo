@@ -4,7 +4,11 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
-## BUILD-012A current implementation
+## BUILD-014 Jupiter / Solana portability
+
+READY_FOR_OWNER_EXECUTION on branch `claude/build-014-jupiter` from main `7726970`. One canonical swap intent now compiles, simulates, reviews, executes (owner-signed), recovers, reconciles and produces evidence on Solana mainnet-beta through Jupiter. No mainnet transaction was signed or sent; there is no `PUBLIC_EXECUTED` or `MAINNET_EXECUTED` claim. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).
+
+## BUILD-012A implementation
 
 READY_FOR_OWNER_EXECUTION under DEC-0056 and the [approved plan](builds/BUILD-012A-PLAN.md), baseline `64a0a46f45532d667e226193f29529d8938acf15`. Exact official Aave V3 Supply on Base Sepolia only. The wallet-handoff correction and deterministic validation pass; the current PR records CI for its latest revision. The prior pre-call failure is positively classified not submitted, with the existing journal and nonce lease retained. [Draft PR #38](https://github.com/alrimarleskovar/gryloo/pull/38) remains unmerged. The exact reserve is funded. Real owner injected-wallet execution through Gryloo remains. No public Supply transaction, owner signature, TESTNET_EXECUTED Supply evidence or merge is claimed. BUILD-012B/C/D remain unstarted. Prior public swap and historical certifications below remain unchanged.
 

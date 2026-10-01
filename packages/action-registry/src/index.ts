@@ -10,6 +10,8 @@ import { actionRegistrySchema, type ActionRegistry } from "./schemas.js";
 export { actionRegistrySchema } from "./schemas.js";
 export { referenceRegistry } from "./reference-registry.js";
 export { baseAssetRegistry } from "./base-assets.js";
+export { JUPITER_SOLANA_MAINNET, SOLANA_MAINNET_CHAIN, SOLANA_MAINNET_TOKENS, solanaTokenByMint } from "./jupiter-solana.js";
+export type { SolanaToken, SolanaTokenSymbol } from "./jupiter-solana.js";
 export { capabilityDeclares } from "./capabilities.js";
 export { executionCapabilityRegistry, executionEnvironments, capabilityDimensions,
   resolveNodeCapability, resolveWorkflowCapability } from "./execution-capabilities.js";

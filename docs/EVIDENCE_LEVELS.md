@@ -1,5 +1,9 @@
 # Evidence levels
 
+## BUILD-014 Jupiter / Solana evidence boundary
+
+Jupiter swap runs are classified `MOCKED` (loopback harness and fixtures), `PUBLIC_READ_ONLY` (real Jupiter quotes, chain-verified lookup tables and public RPC simulation without owner execution) or `PUBLIC_EXECUTED`. `PUBLIC_EXECUTED` is valid only for an owner-initiated mainnet-beta transaction whose finalized bytes equal the owner-signed reviewed message and whose balance deltas reconcile; its Evidence Bundle environment is `MAINNET_EXECUTED`. Current BUILD-014 evidence is `MOCKED` plus `PUBLIC_READ_ONLY` only.
+
 ## BUILD-008 evidence boundary
 
 DEC-0046 certifies BUILD-008 COMPLETE / CERTIFIED: MOCKED for the Base → Optimism USDC bridge. Live LI.FI token and quote/route data are real read-only provider evidence. Financial bridge execution, recovery and destination reconciliation remain deterministic MOCKED. The source and destination observations in the bridge Evidence Bundle are scripted local results, not public-chain financial execution or settlement. There is no `TESTNET_EXECUTED`, `MAINNET_EXECUTED` or real-funds claim. The BUILD-003/004/006/007 `FORK_REPRODUCED` and BUILD-005 `MOCKED` certifications are unchanged. BUILD-009 is planning only.
