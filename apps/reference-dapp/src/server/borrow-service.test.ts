@@ -35,6 +35,15 @@ describe('Borrow uses durable shared execution and recovery',()=>{
     await expect(s.begin(b.record.id,SUPPLY_OWNER,workflow())).rejects.toThrow('OBSERVE_ONLY');
     const fresh=await s.simulate(workflow(),SUPPLY_OWNER);await s.review(fresh.id,fresh.review.commitment,workflow());await expect(s.begin(fresh.id,SUPPLY_OWNER,workflow())).rejects.toThrow();
   });
+  it('workflow metadata and a changed owner nonce cannot bypass an uncertain economic intent',async()=>{
+    const {m,service:s}=await setup(),b=await prepare(s);await s.handoff(b.record.id,'BORROW',true);await s.report(b.record.id,'BORROW',{kind:'UNKNOWN'});
+    // Another owner transaction can advance the nonce while the Borrow remains unobserved.
+    m.state.nonce=1;
+    const changed={...workflow(),workflowId:'reauthored-borrow',revision:7};
+    const fresh=await s.simulate(changed,SUPPLY_OWNER);await s.review(fresh.id,fresh.review.commitment,changed);
+    await expect(s.begin(fresh.id,SUPPLY_OWNER,changed)).rejects.toThrow('BORROW_EXISTING_INTENT_OBSERVE_ONLY');
+    expect(m.transactions).toHaveLength(0);
+  });
   it.each(['collateral','price','capacity'])('fresh %s changes invalidate Review again at Execute',async kind=>{
     const {m,service:s}=await setup(),r=await s.simulate(workflow(),SUPPLY_OWNER);await s.review(r.id,r.review.commitment,workflow());
     if(kind==='price')m.state.price=110000000n;else m.state.scaled=7000000n;

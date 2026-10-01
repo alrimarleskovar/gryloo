@@ -136,7 +136,9 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       await locked(leaseKey,async()=>{
         const entry={id,step:attempt.step,transaction:attempt.transaction};
         async function reserveBorrowIntent(){if(review.borrow){
-          const economicLease=join(input.journalDir,'borrow-'+supplyHash({workflow:review.workflow,transactions:review.transactions}).slice(2)+'.intent');
+          // Workflow IDs/revisions and the provider nonce cannot create a new economic
+          // identity for the same owner, chain, Pool and exact Borrow calldata.
+          const economicLease=join(input.journalDir,'borrow-'+supplyHash({transactions:review.transactions}).slice(2)+'.intent');
           let previous:string|null=null;try{previous=await readFile(economicLease,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
           if(previous!==null){
             if(!record.recoveryOf||JSON.parse(previous.trimEnd().split('\n').at(-1)!).id!==record.recoveryOf||!(await load(record.recoveryOf)).notSubmitted)throw new Error('BORROW_EXISTING_INTENT_OBSERVE_ONLY');
