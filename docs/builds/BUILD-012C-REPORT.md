@@ -51,11 +51,13 @@ Focused tests cover canonical calldata, forbidden amounts/modes, shared Chat/Can
 
 - `pnpm check`: typecheck, lint, production build, all 11 schema exports and **863 passing unit tests**, with 2 existing optional skips.
 - Aave/Canvas/capability browser regression: 50 passed, including all 9 Repay, 9 Borrow and 18 Supply/recovery cases. Review/result screenshots were visually checked.
-- Default browser group and additional BUILD-014, BUILD-DEMO-001, Mode A, CoW and composition groups are required by unchanged normal CI. Three exact visual baselines are intentionally updated for the added Repay toolbar button and consequent header wrap; screenshot tolerance remains zero.
+- Additional browser regressions passed: BUILD-014 Jupiter 9, BUILD-DEMO-001 Solana Devnet 8, Mode A 13 and CoW 9. The default and composition browser groups are also required by normal CI. Three exact visual baselines are intentionally updated for the added Repay toolbar button and consequent header wrap; screenshot tolerance remains zero.
 - Governance-Lite and all 17 self-tests; screenshot-summary self-test; frozen install without lifecycle scripts; 247 registry dependency integrity/license/release-age checks; audit with no known vulnerabilities; current CycloneDX 1.6 validator passed.
 - Pinned Anvil compatibility: 4 passed, 10 existing owner-only skips. Normal fork suite: 31 passed, 29 existing environment/owner-dependent skips. Five fresh-process offline rehearsals passed with 50 provider-equivalent requests each. Base, liquidity and composition transcript structure/digest/identity checks passed.
 
-Mock/fork/browser results prove engineering behavior only. Existing skips do not count as passes or public execution proof. GitHub CI results for the delivery revision belong to the BUILD-012C PR.
+A final build ran concurrently with an initial Devnet browser group and interrupted its form test. The complete group passed after restarting against the completed build; no Solana source or assertion was changed.
+
+Mock/fork/browser results prove engineering behavior only. Existing skips do not count as passes or public execution proof. GitHub CI results for the delivery revision belong to [PR #43](https://github.com/alrimarleskovar/gryloo/pull/43). The PR is open and unmerged.
 
 ## Owner acceptance and independent verification
 

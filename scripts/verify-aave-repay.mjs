@@ -11,8 +11,8 @@ function rpc(method,params){
   if(!allowed.has(method))throw Error('READ_ONLY_METHOD_REQUIRED');
   const action=queue.then(async()=>{
     for(let attempt=0;attempt<4;attempt++){
-      await new Promise(resolve=>setTimeout(resolve,attempt?1000*attempt:150));
-      const response=await fetch(p.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:transcript.length+1,method,params}),signal:AbortSignal.timeout(30000)});
+      await new Promise(resolve=>globalThis.setTimeout(resolve,attempt?1000*attempt:150));
+      const response=await globalThis.fetch(p.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:transcript.length+1,method,params}),signal:globalThis.AbortSignal.timeout(30000)});
       const body=await response.json();transcript.push({method,params,response:body});
       if(response.status===429||body.error?.code===-32005){if(attempt<3)continue;throw Error('PUBLIC_RPC_RATE_LIMITED');}
       if(!response.ok||body.error)throw Error('PUBLIC_RPC_READ_FAILED');return body.result;
@@ -22,7 +22,7 @@ function rpc(method,params){
 const [mode,inputPath,outputPath]=process.argv.slice(2);
 if(!['--prestate','--evidence'].includes(mode)||!inputPath||mode==='--evidence'&&!outputPath)throw Error('Usage: node scripts/verify-aave-repay.mjs --prestate output.json | --evidence exported-evidence.json verification.json');
 const officialUrl='https://raw.githubusercontent.com/aave-dao/aave-address-book/main/src/AaveV3BaseSepolia.sol';
-const officialResponse=await fetch(officialUrl,{signal:AbortSignal.timeout(30000)});
+const officialResponse=await globalThis.fetch(officialUrl,{signal:globalThis.AbortSignal.timeout(30000)});
 if(!officialResponse.ok)throw Error('OFFICIAL_PROFILE_READ_FAILED');
 const official=await officialResponse.text();
 for(const field of ['pool','provider','oracle','asset','aToken','variableDebtToken'])if(!official.toLowerCase().includes(p[field]))throw Error('OFFICIAL_PROFILE_MISMATCH');
@@ -43,10 +43,10 @@ if(mode==='--prestate'){
   const {commitment,...reviewContent}=r;if(supplyHash(reviewContent)!==commitment)throw Error('REVIEW_COMMITMENT_MISMATCH');
   if(supplyArtifactHash('evidence-bundle',bundle)!==evidence.bundleHash)throw Error('EVIDENCE_HASH_MISMATCH');
   for(const [field,kind,value] of [['semanticWorkflowHash','semantic-workflow',r.workflow],['artifactSetHash','artifact-set',r.artifactSet],['simulationHash','simulation-bundle',r.simulation],['policyHash','authorization-policy',r.policy],['manifestHash','strategy-manifest',r.manifest],['executionPlanHash','execution-plan',r.plan]])if(supplyArtifactHash(kind,value)!==bundle[field])throw Error('ARTIFACT_HASH_MISMATCH');
-  if(hashJournalBytes(new TextEncoder().encode(JSON.stringify(journal))).at(-1)!==bundle.journalHeadHash)throw Error('JOURNAL_HASH_MISMATCH');
+  if(hashJournalBytes(new globalThis.TextEncoder().encode(JSON.stringify(journal))).at(-1)!==bundle.journalHeadHash)throw Error('JOURNAL_HASH_MISMATCH');
   if(supplyHash(publicExecution)!==bundle.evidence.find(item=>item.evidenceId==='repay-public-observations')?.contentHash)throw Error('OBSERVATION_HASH_MISMATCH');
   const observations=[];
-  const stablePosition=position=>{const {observedAt,gasPrice,nonce,...historical}=position;return historical;};
+  const stablePosition=position=>Object.fromEntries(Object.entries(position).filter(([key])=>!['observedAt','gasPrice','nonce'].includes(key)));
   for(const archived of [publicExecution.approvalObservation,...publicExecution.observations].filter(Boolean)){
     const approval=archived.reason==='EXACT_REPAY_APPROVAL_VERIFIED';
     if(!approval&&!archived.repayEvent)continue;
@@ -75,7 +75,7 @@ if(mode==='--prestate'){
   const floor=5000n*ray/index,nearest=(5000n*ray+index/2n)/index;
   if(burn!==floor&&burn!==nearest||BigInt(repayment.postPosition.balance)-BigInt(repayment.prePosition.balance)!==-5000n||BigInt(repayment.postPosition.borrow.debt)>=BigInt(repayment.prePosition.borrow.debt))throw Error('INDEPENDENT_DEBT_OR_WALLET_MISMATCH');
   const protocolSources=[];
-  for(const url of ['https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/libraries/logic/BorrowLogic.sol','https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/libraries/helpers/TokenMath.sol','https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/tokenization/VariableDebtToken.sol']){const response=await fetch(url,{signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('PROTOCOL_SOURCE_READ_FAILED');protocolSources.push({url,contentHash:supplyHash(await response.text())});}
+  for(const url of ['https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/libraries/logic/BorrowLogic.sol','https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/libraries/helpers/TokenMath.sol','https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/protocol/tokenization/VariableDebtToken.sol']){const response=await globalThis.fetch(url,{signal:globalThis.AbortSignal.timeout(30000)});if(!response.ok)throw Error('PROTOCOL_SOURCE_READ_FAILED');protocolSources.push({url,contentHash:supplyHash(await response.text())});}
   result={protocolSources,independentAbi:{function:'repay(address,uint256,uint256,address)',asset:p.asset,amount:'5000',interestRateMode:2,onBehalfOf:owner},independentDebt:{executionIndex:index.toString(),scaledBurn:burn.toString(),floorScaledBurn:floor.toString(),nearestScaledBurn:nearest.toString()},status:'TESTNET_EXECUTED',verdict:'INDEPENDENTLY_RECONCILED',owner,amount:'5000',rateMode:2,onBehalfOf:owner,readOnly:true,evidenceBundleHash:evidence.bundleHash,observations,effects};
 }
 result={...result,observedAt:new Date().toISOString(),officialSource:officialUrl,officialSourceHash:supplyHash(official),rpc:p.rpc,rpcTranscript:transcript};
