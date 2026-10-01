@@ -1,8 +1,112 @@
 # BUILD-015 — Solana liquidity / Orca Whirlpools report
 
-STATUS: READY_FOR_OWNER_EXECUTION
+STATUS: DEVNET_EXECUTED
 
-Work follows [GOVERNANCE-LITE](../SCOPE_GUARD.md): branch `claude/build-015-solana-liquidity` from main `f2b8afa`, one PR, owner merge. Nothing was signed or broadcast during implementation. All execution evidence so far is `MOCKED` (unit and loopback browser tests) or `PUBLIC_READ_ONLY` (Devnet reads and simulations). `DEVNET_EXECUTED` requires the owner to execute the lifecycle through Gryloo with their own wallet; see [Owner execution](#owner-execution-ready_for_owner_execution). Raydium, mainnet, rebalancing, compounding and composition are not implemented. See the [plan](BUILD-015-PLAN.md).
+Work follows [GOVERNANCE-LITE](../SCOPE_GUARD.md): branch `claude/build-015-solana-liquidity` from main `f2b8afa`, one PR (#44), owner merge. Claude signed and broadcast nothing.
+
+On 2026-10-01 the owner executed the complete bounded Orca liquidity lifecycle on **public Solana Devnet** through Gryloo, with their own wallet: open + add, partial removal with fee collection, and exit with close. Each of the three transactions was independently reconciled and produced an Evidence Bundle, and the read-only independent verifier passed **55/55** checks. The status is therefore **`DEVNET_EXECUTED`**.
+
+This was real public Devnet execution with **valueless Devnet test tokens** (Devnet SOL and Orca's devUSDC test token). It is not mainnet execution and involved no real funds; nothing here claims `MAINNET_EXECUTED`. Raydium, mainnet, rebalancing, compounding and composition are not implemented. See the [plan](BUILD-015-PLAN.md).
+
+## DEVNET_EXECUTED acceptance
+
+| Fact | Value |
+|---|---|
+| Network | Solana Devnet, genesis `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG` (valueless test tokens; `realFunds: false`) |
+| Provider / program | Orca Whirlpools `whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc` |
+| Pool | `3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt` (Devnet SOL / devUSDC, tick spacing 64, fee 0.20%) |
+| Owner and position authority | `6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR` |
+| Position mint | `DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv` (Token-2022, position account `F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB`, owner token account `CvMo3Bw7av9aNpJH8MzxCG53yTFfzXwDuJS29N7MBLeB`) |
+| Range | ticks −39104 to −36992 (20.036403–24.747889 devUSDC per SOL), in range throughout (pool tick −38008, price ≈ 22.3575) |
+| Authored maxima / slippage | 0.01 Devnet SOL and 0.30 devUSDC / 100 bps; never increased |
+
+### Transactions (each finalized; reconciled by Gryloo and by the independent verifier)
+
+| Step | Transaction | Slot · block time (UTC) | Signers · fee |
+|---|---|---|---|
+| OPEN (open + add) | [`4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ`](https://explorer.solana.com/tx/4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ?cluster=devnet) | 506,426,965 · 2026-10-01T22:32:04Z | owner + one-time position-mint key · 10,000 lamports |
+| DECREASE_PARTIAL (5,000 bps + collect) | [`5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa`](https://explorer.solana.com/tx/5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa?cluster=devnet) | 506,427,731 · 22:35:04Z | owner · 5,000 lamports |
+| EXIT (remove all + collect + close) | [`8MAvfVGXXo6mMcfkuikKnHmTfQ6S37Y5oPh6F7sdVJSNeNSgFZyFsGp1WpoonHHrAPLRWKzaQtq2zgCu1hzfZTV`](https://explorer.solana.com/tx/8MAvfVGXXo6mMcfkuikKnHmTfQ6S37Y5oPh6F7sdVJSNeNSgFZyFsGp1WpoonHHrAPLRWKzaQtq2zgCu1hzfZTV?cluster=devnet) | 506,428,344 · 22:37:28Z | owner · 5,000 lamports |
+
+### Amounts (finalized transaction metadata and Orca events)
+
+**OPEN**
+- **Liquidity and deposit:** liquidity 30,193,890. Deposited **0.010000000 Devnet SOL + 0.240772 devUSDC**, exactly equal to the reviewed expected amounts.
+- **Bounds:** at most 0.01 SOL and 0.243180 devUSDC, which is the 100 bps bound and below the authored maxima.
+- **Accounts and deposits:** created the position, position mint and position token account. Refundable account deposits were 6,075,680 lamports.
+- **Balances:**
+  - owner SOL 4,898,483,840 → 4,882,398,160 lamports;
+  - owner devUSDC 2,231,352 → 1,990,580;
+  - pool vaults +10,000,000 lamports and +240,772 devUSDC units.
+- **Events:** exactly one `PositionOpened` and one `LiquidityIncreased`. Position authority is the owner, holding the single Token-2022 position token.
+
+**DECREASE_PARTIAL (5,000 bps)**
+- **Liquidity:** removed 15,096,945 of 30,193,890; the same amount remained.
+- **Principal returned:** **4,999,916 lamports (0.004999916 SOL) + 120,387 devUSDC units (0.120387)**, from the `LiquidityDecreased` event. The reviewed minimums were 4,949,916 and 119,183.
+- **Fees collected:** **0 + 0**. The position's share of trading fees in that window rounded to zero, and principal is never counted as fees.
+- **Balances:** owner SOL 4,882,398,160 → 4,887,393,076 (+principal − 5,000 fee); devUSDC 1,990,580 → 2,110,967.
+
+**EXIT**
+- **Liquidity:** removed the remaining 15,096,945.
+- **Principal returned:** **4,999,916 lamports + 120,387 devUSDC units**; minimums 4,949,916 and 119,183.
+- **Fees collected:** **0 + 0**.
+- **Close:** the position, position mint and position token account were closed, and the full **6,075,680-lamport deposit was refunded**.
+- **Balances:** owner SOL 4,887,393,076 → 4,898,463,672; devUSDC 2,110,967 → 2,231,354.
+- **After close:** a finalized read at slot 506,429,131 found none of the three accounts.
+
+**Whole lifecycle**
+- **Owner SOL:** 4,898,483,840 → 4,898,463,672 lamports, a net change of −20,168. That is −20,000 network fees and −168 lamports of position composition: deposited 10,000,000, withdrawn 9,999,832.
+- **Owner devUSDC:** 2,231,352 → 2,231,354, a net change of +2 units: deposited 240,772, withdrawn 240,774.
+- **Why the small shift:** the pool price moved slightly upward between the steps (22.357483 → 22.357520), so the position held marginally less SOL and more devUSDC. This is plus Orca's integer rounding in the pool's favour; there is no unexplained movement.
+
+### Recovery and evidence
+
+- **Journals:** each step's journal shows `PREPARED → SUBMITTING → PENDING → CONFIRMED`. The attempt was durable before the wallet was asked, and the signature and signed bytes were durable before the single broadcast. There was no unknown submission and no resubmission.
+- **Position registry:** it recorded the position mint before the OPEN signature.
+- **Evidence Bundle hashes:**
+
+  | Step | Hash |
+  |---|---|
+  | OPEN | `0x56b6474742834cb9e4105eb376506512c13c49287ca3931ca6b45d23a8ed7e08` |
+  | DECREASE_PARTIAL | `0x7cd44c687d4c054e7ecd7886b932e825be7e3a163c0b31e65af46a8570172238` |
+  | EXIT | `0x56a343b0ee23d1b19a89ab9b20620c5e1cd07cdf00b7b9a39877000c407dc2ff` |
+
+  Each records `bundle.environment: TESTNET_EXECUTED`, `publicExecution.environment: DEVNET_EXECUTED`, evidence class `DEVNET_EXECUTED` and `realFunds: false`, and none says `MAINNET_EXECUTED`. This is the frozen v1 enum convention, unchanged from BUILD-DEMO-001.
+
+**Independent verification: VERIFIED (55/55 checks).** `scripts/solana-devnet-liquidity-execution-verification.mjs` is read-only; it refuses `sendTransaction`. The owner ran it on the live journals. For every operation it checks:
+- **Cluster and journal:** Devnet genesis; an owner-initiated `PUBLIC_DEVNET` run; the journal binds the ExecutionPlan; message hash = ExecutionPlan payload; durable attempt order.
+- **Transaction:** finalized and successful; on-chain bytes = journal signed bytes; on-chain message = reviewed message; transaction id = journal signature.
+- **Signatures:** valid Ed25519 signatures from exactly the reviewed signers (owner plus position-mint key for OPEN, owner only otherwise); owner is fee payer, with no lookup tables.
+- **Instructions and programs:** the exact instruction list; only allowlisted top-level and inner programs.
+- **Orca events:** on the verified pool, position and range, with the reviewed liquidity delta.
+- **Evidence:** bundle hash recomputes; honest `DEVNET_EXECUTED` / `realFunds: false` labelling; evidence bound to the signature and position.
+- **Second opinion:** Gryloo's reconciler re-run against public Devnet returns `RECONCILED`.
+
+The same 55 checks pass again against the archived copies. Claude re-ran them read-only from a scratch copy of the archive, and the owner's verification file was not modified.
+
+**Archived evidence** is in [`BUILD-015-EVIDENCE/`](BUILD-015-EVIDENCE/). The files are immutable copies listed in `SHA256SUMS` (`sha256sum -c SHA256SUMS` passes):
+
+| Kind | File | SHA-256 |
+|---|---|---|
+| Journal, OPEN | `execution-journal-open.jsonl` | `9a5be2776587b17b32c8acf6e435d8cc6daa1213c6a05f1748699dffeeae12ee` |
+| Journal, DECREASE_PARTIAL | `execution-journal-decrease-partial.jsonl` | `454859bb8850d8671e03c090e23fe92a1e42fbdfca10c0fd1e17d4477deccb1e` |
+| Journal, EXIT | `execution-journal-exit.jsonl` | `c6e85608357a8246cc9287dfe307c968ae83c3188347164c3cd8cf152d7b55bf` |
+| Position registry | `position-registry.orcalp-positions` | `064118d8e17289a2768dde603fa063490c7798ef083efe7e867145da9632c2aa` |
+| Owner lease history | `owner-lease.orcalp-lease` | `b7b71385509d5fe7face81090f7984b2d87905e6d4bdfcf842b70182c8ec962f` |
+| Finalized `getTransaction`, OPEN | `devnet-transaction-open.json` | `05e7c20ee92ceba4ae7aed96b2e27f690e8e92d4ecc992ae208ef82388055198` |
+| Finalized `getTransaction`, DECREASE_PARTIAL | `devnet-transaction-decrease-partial.json` | `4f597913fc10c4eb3a0c9be8c89fd1db40fd2ac6da9c27384f135c19d88b3b29` |
+| Finalized `getTransaction`, EXIT | `devnet-transaction-exit.json` | `2661f64207fc17ed1035e41afb6cecf97d2618d265b4ad834cd9fbc5b4b7b027` |
+| Evidence Bundle, OPEN | `evidence-bundle-open.json` | `9cf873dafc6b4d577ebaec9a5235b29d4923b2bac95b8c5172755a2589ebfe16` |
+| Evidence Bundle, DECREASE_PARTIAL | `evidence-bundle-decrease-partial.json` | `be3556a7533f2899fa06b03e1b0e57ee046410c7564bc2be86be91b22e7f2bd8` |
+| Evidence Bundle, EXIT | `evidence-bundle-exit.json` | `f089639d0635b2c8d8da787562930864ede4e0e4bc5ca70948583f0f321f3309` |
+| Independent verification | `independent-verification.json` | `77dd7d04d5d10907082aa518fd7a45c48c2b0cf5ee3d19dec873862910a94cda` |
+| Post-lifecycle state | `post-lifecycle-position-state.json` | `b56740e1a5a2bfe6d803a046f34a6b41bb839e8b0cdda6e72ff587fef09820ac` |
+
+Notes on the archive:
+- The owner's verifier output was preserved byte for byte.
+- The journals are byte copies of `~/.gryloo/build-015-devnet` and contain no key material.
+- Each Evidence Bundle file is the run's `evidence` record, serialized as the UI's "Download Evidence Bundle" link serializes it; its `bundleHash` recomputes.
+- The post-lifecycle state is a `PUBLIC_READ_ONLY` finalized read confirming the three position accounts are closed.
 
 ## Outcome
 
@@ -30,7 +134,7 @@ The canonical **`asset.liquidity.concentrated`** intent now runs Build → Simul
 
 The existing pool supports the full lifecycle. **No blocker.**
 
-## Owner execution profile (`PUBLIC_READ_ONLY` validation)
+## Pre-execution owner profile (`PUBLIC_READ_ONLY` validation)
 
 `node scripts/solana-devnet-liquidity-readonly-validation.mjs <owner>` uses a transport that refuses `sendTransaction`; its output is [BUILD-015-DEVNET-READONLY.json](BUILD-015-DEVNET-READONLY.json). It was run with the owner's public BUILD-DEMO-001 address as the hypothetical fee payer, with signature verification off. Nothing was signed or sent.
 
@@ -119,7 +223,7 @@ The Review commitment covers the exact compiled message and its hash, the signer
 
 ## Validation (local, 2026-10-01)
 
-Fixtures and the loopback harness are `MOCKED`; Devnet reads and simulations are `PUBLIC_READ_ONLY`. Neither is `DEVNET_EXECUTED`.
+Fixtures and the loopback harness are `MOCKED`, and the pre-execution Devnet reads and simulations are `PUBLIC_READ_ONLY`. Neither is `DEVNET_EXECUTED`; only the owner-executed lifecycle above is.
 
 - **`pnpm check`:** PASS. Typecheck, lint, production build, schema drift (no schema change) and **877 unit tests** passed; the 2 pre-existing opt-in skips are not counted as passes. BUILD-DEMO-001 recorded 747 on its baseline.
 - **New BUILD-015 unit tests (65):**
@@ -186,9 +290,9 @@ Fixtures and the loopback harness are `MOCKED`; Devnet reads and simulations are
   - `scripts/solana-devnet-liquidity-readonly-validation.mjs` (`PUBLIC_READ_ONLY`);
   - `scripts/solana-devnet-liquidity-execution-verification.mjs` (post-execution, read-only, refuses `sendTransaction`; exercised in unit tests on a MOCKED journal).
 
-## Owner execution (READY_FOR_OWNER_EXECUTION)
+## Owner execution (completed 2026-10-01; recorded above)
 
-Claude did not, and will not, sign or send any public transaction. To produce `DEVNET_EXECUTED`, the owner runs the lifecycle in Gryloo.
+Claude did not sign or send any public transaction. The owner ran the lifecycle in Gryloo with these steps.
 
 1. **Wallet.**
    - Use the BUILD-DEMO-001 Devnet wallet, or any Wallet Standard wallet on Solana Devnet. Solflare worked in BUILD-DEMO-001.
@@ -211,9 +315,9 @@ Claude did not, and will not, sign or send any public transaction. To produce `D
    5. Wait for **Success**, then download the Evidence Bundle.
 5. **Partial removal.** Back to simulation → Operation: Partially remove liquidity and collect fees (portion `5000` bps) → Simulate removal → Review position → Accept → **Execute removal** → sign → Success.
 6. **Exit.** Back to simulation → Operation: Remove all liquidity, collect fees and close the position → Simulate removal → Review position → Accept → **Execute removal** → sign → Success. The position list then shows the position as closed.
-7. **Hand back.** Tell Claude the journal directory and the owner address. Claude will then:
-   - run `node scripts/solana-devnet-liquidity-execution-verification.mjs <journalDir> <owner> docs/builds/BUILD-015-EVIDENCE/independent-verification.json` (read-only);
-   - archive the journals, the finalized transactions and the Evidence Bundles with `SHA256SUMS`;
-   - only then record `DEVNET_EXECUTED`.
+7. **Hand back (done).** The owner ran the read-only verifier (55/55), and Claude then:
+   - archived the journals, the finalized transactions and the Evidence Bundles with `SHA256SUMS`;
+   - re-verified the archived copies (55/55);
+   - recorded `DEVNET_EXECUTED` above.
 
-   If only part of the lifecycle executes, the report records exactly which operations were executed and reconciled.
+   All three operations executed and reconciled.

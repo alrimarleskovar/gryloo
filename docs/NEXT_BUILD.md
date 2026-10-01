@@ -6,7 +6,7 @@ Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR
 
 ## Current implementation: BUILD-015 — Solana liquidity / Orca Whirlpools
 
-READY_FOR_OWNER_EXECUTION. The canonical concentrated-liquidity intent runs on Solana Devnet through Orca Whirlpools (open + add, partial removal with fee collection, exit with close). Each step has exact-message Review binding, signature-first recovery, independent reconciliation and Evidence Bundles. The owner's execution of the lifecycle through Gryloo is the remaining step for `DEVNET_EXECUTED`. One PR awaits the owner's merge decision. BUILD-016 is not started. See the [BUILD-015 report](builds/BUILD-015-REPORT.md).
+DEVNET_EXECUTED. The owner executed the complete bounded Orca Whirlpools liquidity lifecycle (open + add, 5,000 bps partial removal with fee collection, exit with close) on public Solana Devnet through Gryloo with their own wallet. Valueless test tokens were used, not mainnet funds. All three transactions were independently reconciled and verified, and the evidence is archived. PR #44 awaits the owner's merge decision. BUILD-016 is not started. See the [BUILD-015 report](builds/BUILD-015-REPORT.md).
 
 ## Previous implementation: BUILD-DEMO-001 — Solana Devnet real execution
 

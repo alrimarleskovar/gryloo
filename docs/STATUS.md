@@ -6,7 +6,15 @@ Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline 
 
 ## BUILD-015 Solana liquidity / Orca Whirlpools
 
-**READY_FOR_OWNER_EXECUTION** on branch `claude/build-015-solana-liquidity` from main `f2b8afa`. The canonical, chain-neutral `asset.liquidity.concentrated` intent (BUILD-006's `asset.liquidity.uniswap-v3` stays byte-identical and is read by the same reader) runs on Solana Devnet through Orca Whirlpools on the BUILD-DEMO-001 SOL/devUSDC test pool. The bounded lifecycle is open + add, partial removal with fee collection, and exit with close, each one exact owner-signed transaction. OPEN also carries a non-extractable, browser-only position-mint key with no lasting authority. The work is validated as `MOCKED` (unit and loopback browser tests) and `PUBLIC_READ_ONLY` (Devnet simulation of the exact owner-profile messages). Nothing was signed or sent. `DEVNET_EXECUTED` requires the owner's execution. See the [BUILD-015 report](builds/BUILD-015-REPORT.md).
+**DEVNET_EXECUTED** on branch `claude/build-015-solana-liquidity` (PR #44, unmerged), from main `f2b8afa`.
+
+The canonical, chain-neutral `asset.liquidity.concentrated` intent ran on public Solana Devnet through Orca Whirlpools, on the BUILD-DEMO-001 SOL/devUSDC test pool. BUILD-006's `asset.liquidity.uniswap-v3` is byte-identical and read by the same reader. The owner `6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR` signed every step with their own wallet:
+
+- **Open + add:** [`4NmXs8NoB6KW…`](https://explorer.solana.com/tx/4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ?cluster=devnet), slot 506,426,965. Deposited 0.01 Devnet SOL + 0.240772 devUSDC as position `DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv`.
+- **Partial removal:** 5,000 bps with fee collection, [`5HQGjFbb1jbw…`](https://explorer.solana.com/tx/5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa?cluster=devnet), slot 506,427,731. Returned 0.004999916 SOL + 0.120387 devUSDC principal; 0 fees.
+- **Exit:** remove all, collect and close, [`8MAvfVGXXo6m…`](https://explorer.solana.com/tx/8MAvfVGXXo6mMcfkuikKnHmTfQ6S37Y5oPh6F7sdVJSNeNSgFZyFsGp1WpoonHHrAPLRWKzaQtq2zgCu1hzfZTV?cluster=devnet), slot 506,428,344. Returned the same principal again, closed the position and refunded every deposit.
+
+All three were reconciled by Gryloo and independently verified (55/55 read-only checks). Evidence Bundles `0x56b64747…7e08`, `0x7cd44c68…2238` and `0x56a343b0…c2ff` are archived with `SHA256SUMS`. The frozen v1 bundle schema records `TESTNET_EXECUTED`; the Gryloo evidence class is `DEVNET_EXECUTED`. These are valueless Devnet test tokens: there is no real-funds, mainnet or `MAINNET_EXECUTED` claim. See the [BUILD-015 report](builds/BUILD-015-REPORT.md) and [archived evidence](builds/BUILD-015-EVIDENCE/).
 
 ## BUILD-DEMO-001 Solana Devnet real execution
 
