@@ -11,7 +11,7 @@ import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts'
 export type SupplyWalletDiagnostic = { invoked:boolean; rejectionCode?:number; transaction:Record<string,string>|null; calls:{method:string;submission?:boolean;params:unknown[];result?:unknown;error?:unknown}[]; error:unknown; code:string };
 export type SupplyAbsence = { outcome:'NOT_FOUND'; block:number; latestNonce:string; pendingNonce:string; allowance:string; observedAt:string };
 export type SupplyRecord = SupplyRun & { observations: SupplyObservation[]; evidence: ReturnType<typeof buildSupplyEvidence> | null; error: string | null;
-  absence?:SupplyAbsence; recoveryOf?:string; submissionError?:string; walletDiagnostic?:SupplyWalletDiagnostic; notSubmitted?:boolean; walletManagedNonce?:true };
+  absence?:SupplyAbsence; recoveryOf?:string; submissionError?:string; walletDiagnostic?:SupplyWalletDiagnostic; notSubmitted?:boolean; walletManagedNonce?:true; approvalProof?:{hash:string;observation:SupplyObservation}; priorApproval?:{runId:string;hash:string} };
 export type SupplyBegin = { record:SupplyRecord; step:SupplyAttempt['step']; transaction:SupplyAttempt['transaction'] & {nonce:string;gas:string;gasPrice:string} };
 const idCheck=(id:string)=>{if(!/^supply-[a-f0-9]{32}$/.test(id))throw new Error('SUPPLY_ID_INVALID');return id;};
 export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;provenance:'PUBLIC_TESTNET'|'MOCKED'}) {
@@ -25,13 +25,15 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       const record=JSON.parse(line) as SupplyRecord;validateSupplyRun(record);
       if(record.recoveryOf&&(idCheck(record.recoveryOf)===record.id)||record.absence&&(record.absence.outcome!=='NOT_FOUND'||!Number.isSafeInteger(record.absence.block)||
           record.attempts[0]?.step!=='APPROVAL'||record.absence.block<=record.attempts[0].preparedAtBlock+128||record.absence.latestNonce!==record.attempts[0].nonce||record.absence.latestNonce!==record.absence.pendingNonce||!/^[0-9]+$/.test(record.absence.latestNonce)||record.absence.allowance!=='0'||!Number.isFinite(Date.parse(record.absence.observedAt))))throw new Error('SUPPLY_STORE_CORRUPT');
+      if(record.approvalProof&&(!record.attempts[0]||record.attempts[0].step!=='APPROVAL'||record.attempts[0].transactionHash!==record.approvalProof.hash||record.attempts[0].state!=='RECONCILIATION_REQUIRED'||record.verdict!=='DIVERGENT'||record.approvalProof.observation.verdict!=='RECONCILED'||!record.approvalProof.observation.walletEnvelope||JSON.stringify(record.observations.at(-1))!==JSON.stringify(record.approvalProof.observation)))throw new Error('SUPPLY_STORE_CORRUPT');
+      if(record.priorApproval&&(!/^supply-[a-f0-9]{32}$/.test(record.priorApproval.runId)||!/^0x[0-9a-f]{64}$/.test(record.priorApproval.hash)||record.review.approvalRequired))throw new Error('SUPPLY_STORE_CORRUPT');
       if(record.notSubmitted&&(!record.walletDiagnostic||record.attempts.some(a=>!a.reconciled&&(a.transactionHash||!['CANCELLED','NOT_FOUND'].includes(a.state)))))throw new Error('SUPPLY_STORE_CORRUPT');
       if(record.provenance!==input.provenance||prior&&(record.id!==prior.id||record.review.commitment!==prior.review.commitment||record.attempts.length<prior.attempts.length||record.recoveryOf!==prior.recoveryOf||prior.absence&&JSON.stringify(record.absence)!==JSON.stringify(prior.absence)))throw new Error('SUPPLY_STORE_CORRUPT');
       if(prior){
         const prefix=(before:unknown[],after:unknown[])=>after.length>=before.length&&JSON.stringify(after.slice(0,before.length))===JSON.stringify(before);
         if(!prefix(prior.journal.entries,record.journal.entries)||!prefix(prior.observations,record.observations)||
             prior.ownerInitiated&&!record.ownerInitiated || prior.verdict!=='PENDING'&&record.verdict!==prior.verdict ||
-            prior.walletManagedNonce&&!record.walletManagedNonce || prior.evidence&&JSON.stringify(record.evidence)!==JSON.stringify(prior.evidence))throw new Error('SUPPLY_STORE_CORRUPT');
+            prior.walletManagedNonce&&!record.walletManagedNonce || prior.approvalProof&&JSON.stringify(record.approvalProof)!==JSON.stringify(prior.approvalProof) || prior.priorApproval&&JSON.stringify(record.priorApproval)!==JSON.stringify(prior.priorApproval) || prior.evidence&&JSON.stringify(record.evidence)!==JSON.stringify(prior.evidence))throw new Error('SUPPLY_STORE_CORRUPT');
         for(const [index,before] of prior.attempts.entries()){
           const after=record.attempts[index]!;
           if(before.step!==after.step||before.nonce!==after.nonce||before.preparedAtBlock!==after.preparedAtBlock||
@@ -63,6 +65,14 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
     try{await handle.writeFile(String(process.pid));await handle.sync();}finally{await handle.close();}
     try{return await action();}finally{await unlink(join(directory,'pid'));await rmdir(directory);}
   }
+  async function verifyPriorApproval(record:SupplyRecord):Promise<SupplyObservation>{
+    const link=record.priorApproval;if(!link)throw new Error('SUPPLY_APPROVAL_PROOF_MISSING');
+    const source=await load(link.runId),attempt=source.attempts[0];
+    if(!source.approvalProof||source.approvalProof.hash!==link.hash||source.review.account!==record.review.account||source.review.asset!==record.review.asset||source.review.pool!==record.review.pool||source.review.amount!==record.review.amount||source.review.beneficiary!==record.review.beneficiary||!attempt)throw new Error('SUPPLY_APPROVAL_PROOF_STALE');
+    const proof=await reconcileSupplyAttempt(source.review,attempt,input.rpc);
+    if(proof.verdict!=='RECONCILED'||!proof.walletEnvelope||proof.receipt?.transactionHash!==link.hash)throw new Error('SUPPLY_APPROVAL_PROOF_STALE');
+    return proof;
+  }
   return {
     load,
     async simulate(workflowInput:unknown,account:string):Promise<SupplyRecord>{
@@ -76,6 +86,14 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
     // The original unknown attempt remains observable; absence is never proof of non-broadcast.
     async recoverReview(id:string):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
       const record=await load(id),attempt=record.attempts[0];
+      if(record.approvalProof){
+        const proof=await reconcileSupplyAttempt(record.review,attempt!,input.rpc);
+        if(proof.verdict!=='RECONCILED'||!proof.walletEnvelope||proof.receipt?.transactionHash!==record.approvalProof.hash)throw new Error('SUPPLY_APPROVAL_PROOF_STALE');
+        const review=await simulateSupply(record.review.workflow,record.review.account,input.rpc);
+        if(review.approvalRequired||review.account!==record.review.account||review.amount!==record.review.amount||review.pool!==record.review.pool||review.asset!==record.review.asset||review.beneficiary!==record.review.beneficiary||BigInt(review.allowance)<BigInt(review.amount))throw new Error('SUPPLY_APPROVAL_PROOF_STALE');
+        const fresh:SupplyRecord={...createSupplyRun('supply-'+randomBytes(16).toString('hex'),review,input.provenance),observations:[],evidence:null,error:null,priorApproval:{runId:id,hash:record.approvalProof.hash}};
+        await save(fresh);return fresh;
+      }
       if(!(record.notSubmitted||!record.walletManagedNonce&&record.absence&&record.error==='SUPPLY_TRANSACTION_NOT_FOUND')||record.verdict!=='PENDING'||record.attempts.length!==1||
           attempt?.step!=='APPROVAL'||attempt.reconciled||attempt.transactionHash)throw new Error('SUPPLY_RECOVERY_NOT_AVAILABLE');
       const review=await simulateSupply(record.review.workflow,record.review.account,input.rpc);
@@ -90,6 +108,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       if(record.attempts.length||record.review.commitment!==commitment)throw new Error('SUPPLY_AUTHORIZATION_REPLACED');
       const state=await readSupplyState(input.rpc,record.review.account,record.review.beneficiary);
       assertSupplyReview(record.review,workflow,record.review.account,state);
+      if(record.priorApproval)await verifyPriorApproval(record);
       const updated={...record,authorization:commitment};await save(updated);return updated;
     });},
     async invalidate(id:string):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{const record=await load(id);const next={...record,authorization:null,error:'SUPPLY_SEMANTIC_EDIT_REQUIRES_REVIEW'};await save(next);return next;});},
@@ -98,6 +117,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       if(record.authorization!==review.commitment)throw new Error('SUPPLY_REVIEW_REQUIRED');
       const approvalConfirmed=record.attempts.some(a=>a.step==='APPROVAL'&&a.reconciled);
       const state=await readSupplyState(input.rpc,account,review.beneficiary);
+      if(record.priorApproval)await verifyPriorApproval(record);
       assertSupplyReview(review,workflow,account,state,Date.now(),approvalConfirmed);
       const index=approvalConfirmed?review.transactions.length-1:0;
       const gas=review.gasLimits[index]!;
@@ -178,6 +198,10 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
     });},
     async observe(id:string):Promise<SupplyRecord>{return locked(idCheck(id),async()=>{
       let record=await load(id);
+      if(record.verdict==='DIVERGENT'&&!record.approvalProof&&record.attempts.length===1&&record.attempts[0]?.step==='APPROVAL'&&record.attempts[0].state==='RECONCILIATION_REQUIRED'&&record.error==='SUPPLY_TRANSACTION_MISMATCH'&&record.attempts[0].transactionHash){
+        const proof=await reconcileSupplyAttempt(record.review,record.attempts[0],input.rpc);
+        if(proof.verdict==='RECONCILED'&&proof.walletEnvelope){record={...record,approvalProof:{hash:record.attempts[0].transactionHash,observation:proof},observations:[...record.observations,proof],error:null};await save(record);}
+      }
       const attempt=record.attempts.find(a=>!a.reconciled);
       if(!attempt||record.verdict!=='PENDING')return record;
       if(attempt.state==='PREPARED'){
@@ -220,7 +244,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       record={...supplyTransition(record,updated,state),observations:[...record.observations,observation],evidence:record.evidence,error:observation.verdict==='RECONCILED'?null:observation.reason,
         attempts:record.attempts.map(a=>a.step===attempt.step?{...updated,state,reconciled:observation.verdict==='RECONCILED',receipt:observation.receipt}:a),
         verdict:observation.verdict==='DIVERGENT'?'DIVERGENT':attempt.step==='SUPPLY'?'RECONCILED':'PENDING'};
-      if(record.verdict==='RECONCILED')record={...record,evidence:buildSupplyEvidence({id:record.id,review:record.review,journal:record.journal,provenance:record.provenance,ownerInitiated:record.ownerInitiated,observations:record.observations})};
+      if(record.verdict==='RECONCILED'){const approval=record.priorApproval?await verifyPriorApproval(record):undefined;record={...record,evidence:buildSupplyEvidence({id:record.id,review:record.review,journal:record.journal,provenance:record.provenance,ownerInitiated:record.ownerInitiated,observations:record.observations,...approval?{approval}:{}})};}
       await save(record);return record;
     });},
   };

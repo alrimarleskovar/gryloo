@@ -2,8 +2,8 @@
 import {describe,it,expect} from 'vitest';
 import {createSupplyNode,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import {simulateSupply,AAVE_V3_BASE_SEPOLIA as p} from '@defi-workflow-engine/reference-compiler';
-import {createSupplyRun,prepareSupplyAttempt,persistSupplyPreparation,discoverSupplyTransaction} from '../src/supply.js';
-import {supplyModel,SUPPLY_OWNER} from '../../../apps/reference-dapp/e2e/supply-fixtures';
+import {createSupplyRun,prepareSupplyAttempt,persistSupplyPreparation,discoverSupplyTransaction,matchSupplyTransaction} from '../src/supply.js';
+import {supplyModel,SUPPLY_OWNER,realWrappedApprovalFixture} from '../../../apps/reference-dapp/e2e/supply-fixtures';
 const workflow:SemanticWorkflow={schemaVersion:'1.0.0',workflowId:'supply',revision:0,nodes:[createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'10000000',beneficiary:SUPPLY_OWNER})],resourceEdges:[]};
 const id='supply-'+'a'.repeat(32);
 describe('durable exactly-once Supply intent',()=>{
@@ -28,5 +28,18 @@ describe('durable exactly-once Supply intent',()=>{
     const m=supplyModel(),run=prepareSupplyAttempt(createSupplyRun(id,await simulateSupply(workflow,SUPPLY_OWNER,m.rpc),'MOCKED'),10,'0'),a=run.attempts[0]!;
     await m.rpc('MOCK_submit',[{...a.transaction,nonce:'0x0',gas:'0x493e0',gasPrice:'0x1e8480'}]);m.transactions[0]!.input='0xdeadbeef';
     expect((await discoverSupplyTransaction(a,m.rpc)).mismatch).toBe(true);
+  });
+  it('discovers the observed relayed approval by exact inner intent without confusing relay nonce with owner nonce',async()=>{
+    const fixture=realWrappedApprovalFixture,attempt={...fixture.attempt,transactionHash:null,state:'SUBMISSION_RESULT_UNKNOWN' as const,receipt:null,reconciled:false};
+    const tx=fixture.responses[JSON.stringify(['eth_getTransactionByHash',[fixture.attempt.transactionHash]])];
+    expect(matchSupplyTransaction(attempt,tx)).toBe(true);
+    const mined=Number(BigInt((tx as {blockNumber:string}).blockNumber));
+    const rpc=async(method:string,params:readonly unknown[])=>{
+      if(method==='eth_chainId')return p.chainHex;
+      if(method==='eth_blockNumber')return '0x'+mined.toString(16);
+      if(method==='eth_getBlockByNumber')return {transactions:Number(BigInt(params[0] as string))===mined?[tx]:[]};
+      throw new Error('UNEXPECTED_RPC');
+    };
+    expect(await discoverSupplyTransaction(attempt,rpc)).toEqual({hash:fixture.attempt.transactionHash,mismatch:false,exhausted:false});
   });
 });

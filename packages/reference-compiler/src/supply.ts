@@ -182,3 +182,47 @@ export function assertSupplyReview(review: SupplyReview, workflow: SemanticWorkf
       (approvalConfirmed && BigInt(state.allowance) < BigInt(review.amount)) || BigInt(state.balance) < BigInt(review.amount)) throw new Error('SUPPLY_AUTHORIZATION_STALE');
   if (JSON.stringify(compileSupplyCalls(workflow,account,review.allowance)) !== JSON.stringify(review.transactions)) throw new Error('SUPPLY_AUTHORIZATION_INVALID');
 }
+
+/** Narrow compatibility with the observed MetaMask DelegationManager 1.3.0 envelope.
+ * Exactly one root delegation, one default single call, and two known caveats.
+ * This decoder establishes candidate semantics only; the reconciler verifies signatures/code/state.
+ */
+export const SUPPLY_METAMASK = Object.freeze({
+  manager:'0xdb9b1e94b5b69df7e401ddbede43491141047db3',implementation:'0x63c0c19a282a1b52b07dd5a65b58948a07dae32b',
+  limited:'0x04658b29f6b82ed55274221a06fc97d318e25416',exact:'0x146713078d39ecc1f5338309c28405ccf85abfbb',
+  codeHashes:Object.freeze(['0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a','0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2','0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468','0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e'])
+});
+export type SupplyWalletEnvelope={owner:string;delegate:string;salt:string;signature:string;call:{to:string;value:string;data:string};
+  caveats:{enforcer:string;terms:string;args:string}[];delegationTuple:string};
+const abiBytes=(hex:string)=>supplyWord(BigInt((hex.length-2)/2))+hex.slice(2).padEnd(Math.ceil((hex.length-2)/64)*64,'0');
+const bytesArray=(hex:string)=>supplyWord(1n)+supplyWord(32n)+abiBytes(hex);
+export function encodeSupplyWalletEnvelope(input:Omit<SupplyWalletEnvelope,'delegationTuple'>):string {
+  const caveats=input.caveats.map(c=>{const terms=abiBytes(c.terms);return supplyWord(c.enforcer)+supplyWord(96n)+supplyWord(BigInt(96+terms.length/2))+terms+abiBytes(c.args);});
+  const caveatArray=supplyWord(2n)+supplyWord(64n)+supplyWord(BigInt(64+caveats[0]!.length/2))+caveats.join('');
+  const tuple=supplyWord(input.delegate)+supplyWord(input.owner)+'f'.repeat(64)+supplyWord(192n)+supplyWord(BigInt(input.salt))+supplyWord(BigInt(192+caveatArray.length/2))+caveatArray+abiBytes(input.signature);
+  const permissions=bytesArray('0x'+supplyWord(32n)+supplyWord(1n)+supplyWord(32n)+tuple),modes=supplyWord(1n)+supplyWord(0n);
+  const execution='0x'+input.call.to.slice(2)+supplyWord(BigInt(input.call.value))+input.call.data.slice(2);
+  return supplySelector('redeemDelegations(bytes[],bytes32[],bytes[])')+supplyWord(96n)+supplyWord(BigInt(96+permissions.length/2))+supplyWord(BigInt(96+permissions.length/2+modes.length/2))+permissions+modes+bytesArray(execution);
+}
+export function decodeSupplyWalletEnvelope(input:unknown):SupplyWalletEnvelope {
+  const fail=():never=>{throw new Error('SUPPLY_ENVELOPE_MISMATCH');};
+  if(typeof input!=='string'||!/^0x[0-9a-f]+$/i.test(input)||input.length>16386||input.length%2||input.slice(0,10).toLowerCase()!==supplySelector('redeemDelegations(bytes[],bytes32[],bytes[])'))fail();
+  const hex=(input as string).slice(10).toLowerCase();
+  const word=(body:string,at:number)=>{if(!Number.isSafeInteger(at)||at<0||at*2+64>body.length)fail();return body.slice(at*2,at*2+64);};
+  const offset=(body:string,at:number)=>{const n=BigInt('0x'+word(body,at));if(n>8192n||n%32n)fail();return Number(n);};
+  const address=(body:string,at:number)=>{const w=word(body,at);if(!/^0{24}[0-9a-f]{40}$/.test(w))fail();return '0x'+w.slice(24);};
+  const bytes=(body:string,at:number)=>{const n=Number(BigInt('0x'+word(body,at)));if(!Number.isSafeInteger(n)||n<0||n>8192||(at+32+n)*2>body.length)fail();return '0x'+body.slice((at+32)*2,(at+32+n)*2);};
+  const oneArray=(at:number)=>{if(BigInt('0x'+word(hex,at))!==1n)fail();return bytes(hex,at+32+offset(hex,at+32));};
+  const permissions=oneArray(offset(hex,0)).slice(2),array=offset(permissions,0);
+  if(BigInt('0x'+word(permissions,array))!==1n)fail();
+  const tuple=permissions.slice((array+32+offset(permissions,array+32))*2);
+  if(word(tuple,64)!=='f'.repeat(64))fail();
+  const caveatAt=offset(tuple,96);if(BigInt('0x'+word(tuple,caveatAt))!==2n)fail();
+  const caveats=[0,1].map(i=>{const c=tuple.slice((caveatAt+32+offset(tuple,caveatAt+32+i*32))*2);return{enforcer:address(c,0),terms:bytes(c,offset(c,32)),args:bytes(c,offset(c,64))};});
+  const mode=offset(hex,32);if(BigInt('0x'+word(hex,mode))!==1n||BigInt('0x'+word(hex,mode+32))!==0n)fail();
+  const execution=oneArray(offset(hex,64));if(execution.length<106)fail();
+  const result:SupplyWalletEnvelope={owner:address(tuple,32),delegate:address(tuple,0),salt:BigInt('0x'+word(tuple,128)).toString(),signature:bytes(tuple,offset(tuple,160)),caveats,
+    call:{to:'0x'+execution.slice(2,42),value:BigInt('0x'+execution.slice(42,106)).toString(),data:'0x'+execution.slice(106)},delegationTuple:'0x'+tuple};
+  if(result.delegate!=='0x0000000000000000000000000000000000000a11'||result.signature.length!==132||caveats[0]!.enforcer!==SUPPLY_METAMASK.limited||caveats[0]!.terms!=='0x'+supplyWord(1n)||caveats[1]!.enforcer!==SUPPLY_METAMASK.exact||caveats.some(c=>c.args!=='0x')||caveats[1]!.terms!==execution||encodeSupplyWalletEnvelope(result)!==(input as string).toLowerCase())fail();
+  return result;
+}

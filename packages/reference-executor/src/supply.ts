@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createJournal, appendJournalState } from './journal.js';
-import { supplyHash, supplyArtifactHash, rpcRecord, rpcUint, rpcHash, supplyHex, type SupplyReview, type SupplyRpc, type SupplyTransaction } from '@defi-workflow-engine/reference-compiler';
+import { supplyHash, supplyArtifactHash, SUPPLY_METAMASK, decodeSupplyWalletEnvelope, rpcRecord, rpcUint, rpcHash, supplyHex, type SupplyReview, type SupplyRpc, type SupplyTransaction } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 export type SupplyAttempt = { step: 'APPROVAL' | 'SUPPLY'; state: 'PREPARED' | 'CANCELLED' | 'NOT_FOUND' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'PENDING' | 'CONFIRMED' | 'REVERTED' | 'RECONCILIATION_REQUIRED';
   nonce: string; preparedAtBlock: number; transaction: SupplyTransaction; transactionHash: string | null; receipt: Record<string, unknown> | null; reconciled: boolean };
@@ -43,9 +43,12 @@ export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: strin
 }
 export function matchSupplyTransaction(attempt: SupplyAttempt, transaction: unknown): boolean {
   const tx = rpcRecord(transaction), expected = attempt.transaction;
-  return typeof tx.from==='string' && tx.from.toLowerCase()===expected.from && typeof tx.to==='string' && tx.to.toLowerCase()===expected.to &&
-    typeof tx.input==='string' && tx.input.toLowerCase()===expected.data && rpcUint(tx.value)===0n && rpcUint(tx.nonce)===BigInt(attempt.nonce) &&
-    rpcUint(tx.chainId)===BigInt(expected.chainId);
+  if(typeof tx.input!=='string'||typeof tx.to!=='string'||rpcUint(tx.value)!==0n||rpcUint(tx.chainId)!==BigInt(expected.chainId))return false;
+  if(typeof tx.from==='string'&&tx.from.toLowerCase()===expected.from&&tx.to.toLowerCase()===expected.to&&tx.input.toLowerCase()===expected.data&&rpcUint(tx.nonce)===BigInt(attempt.nonce))return true;
+  // Candidate only. Cryptographic authorization, pinned contracts and state are checked by the reconciler.
+  if(tx.to.toLowerCase()!==SUPPLY_METAMASK.manager)return false;
+  try{const e=decodeSupplyWalletEnvelope(tx.input);return e.owner===expected.from&&e.call.to===expected.to&&e.call.data===expected.data&&e.call.value==='0';}
+  catch{return false;}
 }
 /** Bounded discovery of the SAME account/nonce. No send function exists in recovery. */
 export async function discoverSupplyTransaction(attempt: SupplyAttempt, rpc: SupplyRpc): Promise<{ hash: string | null; mismatch: boolean; exhausted: boolean }> {
@@ -59,7 +62,7 @@ export async function discoverSupplyTransaction(attempt: SupplyAttempt, rpc: Sup
     if (!Array.isArray(block.transactions)) throw new Error('SUPPLY_RPC_INVALID');
     for (const value of block.transactions) {
       const tx=rpcRecord(value);
-      if (typeof tx.from==='string' && tx.from.toLowerCase()===attempt.transaction.from && rpcUint(tx.nonce)===BigInt(attempt.nonce))
+      if ((typeof tx.from==='string' && tx.from.toLowerCase()===attempt.transaction.from && rpcUint(tx.nonce)===BigInt(attempt.nonce))||typeof tx.to==='string'&&tx.to.toLowerCase()===SUPPLY_METAMASK.manager&&matchSupplyTransaction(attempt,tx))
         return {hash:rpcHash(tx.hash),mismatch:!matchSupplyTransaction(attempt,tx),exhausted:false};
     }
   }
@@ -69,7 +72,7 @@ export async function discoverSupplyTransaction(attempt: SupplyAttempt, rpc: Sup
     const block=rpcRecord(pending);
     if (Array.isArray(block.transactions)) for (const value of block.transactions) {
       const tx=rpcRecord(value);
-      if (typeof tx.from==='string'&&tx.from.toLowerCase()===attempt.transaction.from&&rpcUint(tx.nonce)===BigInt(attempt.nonce))
+      if ((typeof tx.from==='string'&&tx.from.toLowerCase()===attempt.transaction.from&&rpcUint(tx.nonce)===BigInt(attempt.nonce))||typeof tx.to==='string'&&tx.to.toLowerCase()===SUPPLY_METAMASK.manager&&matchSupplyTransaction(attempt,tx))
         return {hash:rpcHash(tx.hash),mismatch:!matchSupplyTransaction(attempt,tx),exhausted:false};
     }
   }

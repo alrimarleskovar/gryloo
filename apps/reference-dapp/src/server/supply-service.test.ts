@@ -4,9 +4,10 @@ import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createSupplyNode,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
+import {createSupplyRun,prepareSupplyAttempt,supplyTransition} from '@defi-workflow-engine/reference-executor';
 import {AAVE_V3_BASE_SEPOLIA as p} from '@defi-workflow-engine/action-registry';
 import {createSupplyService} from './supply-service';
-import {supplyModel,SUPPLY_OWNER} from '../../e2e/supply-fixtures';
+import {supplyModel,SUPPLY_OWNER,realWrappedApprovalFixture} from '../../e2e/supply-fixtures';
 const workflow:SemanticWorkflow={schemaVersion:'1.0.0',workflowId:'supply',revision:0,nodes:[createSupplyNode('supply',{chain:p.chain,asset:{chainId:p.chain,address:p.asset,decimals:6},amount:'10000000',beneficiary:SUPPLY_OWNER})],resourceEdges:[]};
 async function fixture(action:(f:{model:ReturnType<typeof supplyModel>;dir:string;service:ReturnType<typeof createSupplyService>})=>Promise<void>){
  const dir=await mkdtemp(join(tmpdir(),'build012a-service-')),model=supplyModel(),service=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
@@ -176,5 +177,40 @@ describe('Supply service lifecycle',()=>{
    const restarted=createSupplyService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});const observed=await restarted.observe(run.id);
    expect(observed.attempts[0]?.reconciled).toBe(true);expect(observed.attempts[0]?.nonce).toBe('3');expect(model.transactions[0]?.nonce).toBe('0x3');expect(model.state.allowance).toBe(10000000n);expect(model.transactions).toHaveLength(1);
  }));
+
+ it('records a supplemental real wrapped-approval proof, retains the old divergence, then prepares Supply only after restart',async()=>{
+   const dir=await mkdtemp(join(tmpdir(),'build012a-wrapped-'));
+   try{
+     const captured=realWrappedApprovalFixture,model=supplyModel(),owner=captured.review.account;
+     model.state.owner=owner;model.state.nonce=4;model.state.allowance=1_000_000n;model.history.set(10,{...model.state});
+     const rpc:typeof model.rpc=async(method,params)=>{
+       const response=captured.responses[JSON.stringify([method,params])];
+       return response===undefined?model.rpc(method,params):structuredClone(response);
+     };
+     const service=createSupplyService({rpc,journalDir:dir,provenance:'MOCKED'}),id='supply-'+'a'.repeat(32);
+     let source=createSupplyRun(id,captured.review,'MOCKED');
+     source=prepareSupplyAttempt(source,captured.review.state.block,captured.attempt.nonce,false);
+     source=supplyTransition(source,source.attempts[0]!,'SUBMITTING');
+     source={...source,attempts:source.attempts.map(a=>({...a,transactionHash:captured.attempt.transactionHash}))};
+     source=supplyTransition(source,source.attempts[0]!,'PENDING');
+     source=supplyTransition(source,source.attempts[0]!,'RECONCILIATION_REQUIRED');
+     const historical={...source,verdict:'DIVERGENT' as const,error:'SUPPLY_TRANSACTION_MISMATCH',observations:[{verdict:'DIVERGENT',reason:'SUPPLY_TRANSACTION_MISMATCH'}],evidence:null};
+     await writeFile(join(dir,id+'.jsonl'),JSON.stringify(historical)+'\n');
+     const verified=await service.observe(id);
+     expect(verified.verdict).toBe('DIVERGENT');expect(verified.attempts[0]?.state).toBe('RECONCILIATION_REQUIRED');
+     expect(verified.observations.map(o=>o.verdict)).toEqual(['DIVERGENT','RECONCILED']);
+     expect(verified.approvalProof?.observation).toMatchObject({verdict:'RECONCILED',reason:'EXACT_APPROVAL_VERIFIED'});
+     const restarted=createSupplyService({rpc,journalDir:dir,provenance:'MOCKED'});
+     expect((await restarted.load(id)).approvalProof?.hash).toBe(captured.attempt.transactionHash);
+     const fresh=await restarted.recoverReview(id);
+     expect(fresh.priorApproval).toEqual({runId:id,hash:captured.attempt.transactionHash});
+     expect(fresh.review.approvalRequired).toBe(false);expect(fresh.review.transactions).toHaveLength(1);
+     expect(fresh.review.transactions[0]?.to).toBe(p.pool);expect(fresh.attempts).toHaveLength(0);
+     await restarted.review(fresh.id,fresh.review.commitment,captured.review.workflow);
+     const begin=await restarted.begin(fresh.id,owner,captured.review.workflow);
+     expect(begin.step).toBe('SUPPLY');expect(begin.record.attempts).toHaveLength(1);
+     expect(model.transactions).toHaveLength(0);
+   }finally{await rm(dir,{recursive:true,force:true});}
+ });
 
 });
