@@ -55,10 +55,10 @@ describe('Robinhood decision gate in the capability registry', () => {
     expect(robinhoodDeploymentStatus('eip155:8453', 'uniswap.v3')).toBeNull();
     expect(robinhoodDeploymentStatus('eip155:46630', 'unknown.adapter')).toBeNull();
   });
-  it('adds exactly one Robinhood execution profile: the RH-DEMO-001 testnet self-transfer, with no demonstrated evidence', () => {
+  it('adds exactly one Robinhood execution profile: the RH-DEMO-001 testnet self-transfer, owner-executed and independently reconciled', () => {
     const rows = executionCapabilityRegistry.filter(row => robinhoodNetwork(row.chainId));
     expect(rows.map(row => [row.actionType, row.adapterId, row.chainId, row.environment, row.evidenceMaturity])).toEqual(
-      [['asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', null]]);
+      [['asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', 'TESTNET_EXECUTED']]);
     expect(rows[0]!.authorizationModes).toEqual(['A']);
     expect(rows[0]!.requirements).toEqual(['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS']);
     expect(ROBINHOOD_TESTNET_TRANSFER).toMatchObject({ chain: 'eip155:46630', chainHex: '0xb626', adapterId: 'evm.native-transfer', maximumValueWei: '1000000000000000' });
@@ -71,7 +71,7 @@ describe('Robinhood decision gate in the capability registry', () => {
     expect(resolveNodeCapability(transfer('eip155:84532'), { environment: 'PUBLIC_TESTNET' }).blockers[0]?.code).toBe('CHAIN_NOT_SUPPORTED');
     const ready = resolveWorkflowCapability({ nodes: [transfer('eip155:46630')] }, { environment: 'PUBLIC_TESTNET', runtime: {
       walletConnected: true, walletChainId: 'eip155:46630', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } });
-    expect(ready).toMatchObject({ executionSupported: true, executionReady: true, evidenceCeiling: null });
+    expect(ready).toMatchObject({ executionSupported: true, executionReady: true, evidenceCeiling: 'TESTNET_EXECUTED' });
     const wrongChain = resolveWorkflowCapability({ nodes: [transfer('eip155:46630')] }, { environment: 'PUBLIC_TESTNET', runtime: {
       walletConnected: true, walletChainId: 'eip155:4663', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } });
     expect(wrongChain.blockers.map(b => b.code)).toContain('WRONG_WALLET_CHAIN');

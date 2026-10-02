@@ -27,7 +27,7 @@ async function rpc(method, params) {
     if (response.status === 429 && attempt < 3) continue;
     const body = await response.json();
     transcript.push({ method, params, result: body.result ?? null, error: body.error ?? null });
-    if (!response.ok || body.error) throw Error('PUBLIC_RPC_READ_FAILED');
+    if (!response.ok || body.error) throw Error('PUBLIC_RPC_READ_FAILED ' + response.status + ' ' + method + ' ' + JSON.stringify(body.error ?? null).slice(0, 200));
     return body.result;
   }
   throw Error('PUBLIC_RPC_RATE_LIMITED');

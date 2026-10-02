@@ -65,8 +65,9 @@ add('asset.swap.exact-input', 'cow.protocol', 'eip155:8453', 'MOCK', mock, 'MOCK
 add('asset.liquidity.uniswap-v3', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', fork, 'FORK_REPRODUCED', 'DIRECT_TRANSACTION', ['FORK_RUNTIME', 'INJECTED_WALLET', 'REVIEWED_ARTIFACTS']);
 add('asset.liquidity.prepare', 'gryloo.calculated-split', 'eip155:42161', 'MOCK', preparation, 'MOCKED', null, [], ['A']);
 for (const kind of templateKinds) add(kind, 'gryloo.template', 'mock:local', 'MOCK', author, null, null, [], []);
-// RH-DEMO-001: a native test-ETH self-transfer on Robinhood Testnet. Owner execution is implemented; none is demonstrated yet.
-add('asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
+// RH-DEMO-001: a native test-ETH self-transfer on Robinhood Testnet, owner-executed in 0xdadc1fd5…f4a498 and independently
+// reconciled (docs/builds/RH-DEMO-001-VERIFICATION.json). A chain execution proof only; no DeFi capability on Robinhood.
+add('asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', fork, 'TESTNET_EXECUTED', 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 add('withdraw', 'aave-v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 add('repay', 'aave-v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 add('borrow', 'aave-v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);

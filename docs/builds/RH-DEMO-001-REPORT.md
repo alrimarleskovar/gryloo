@@ -1,14 +1,69 @@
 # RH-DEMO-001 — Robinhood Testnet owner-signed transaction proof (report)
 
-Status: **READY_FOR_OWNER_EXECUTION**. No transaction has been signed or sent.
-The registry row's `evidenceMaturity` is `null`. Owner steps:
-[RH-DEMO-001-OWNER-EXECUTION.md](RH-DEMO-001-OWNER-EXECUTION.md). Plan:
-[RH-DEMO-001-PLAN.md](RH-DEMO-001-PLAN.md).
+Status: **TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED**. The
+owner signed one native test-ETH self-transfer on Robinhood Chain Testnet in
+their own wallet. Gryloo reconciled it at runtime, and the strictly read-only
+independent verifier re-proved it from public chain state. Plan:
+[RH-DEMO-001-PLAN.md](RH-DEMO-001-PLAN.md). Owner steps:
+[RH-DEMO-001-OWNER-EXECUTION.md](RH-DEMO-001-OWNER-EXECUTION.md).
 
 This is a chain execution proof, not a DeFi capability. No Uniswap, Morpho,
 bridge, lending, swap or liquidity support was added for Robinhood. The
 BUILD-RH-001 gate result is unchanged: there is still no canonical testnet
 DeFi deployment.
+
+## Owner execution
+
+| Fact | Value |
+| --- | --- |
+| Transaction | [`0xdadc1fd5fd23e9bad85171cf2255c1e26df121ce3c8e2c35b121274436f4a498`](https://explorer.testnet.chain.robinhood.com/tx/0xdadc1fd5fd23e9bad85171cf2255c1e26df121ce3c8e2c35b121274436f4a498) |
+| Chain | Robinhood Chain Testnet, `eip155:46630` (`0xb626`) |
+| Owner = sender = recipient | `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`; signer recovered from the raw EIP-1559 signature |
+| Value / calldata | 1000000000000 wei (0.000001 test ETH) / `0x` |
+| Nonce | 0 → 1 (the account's first transaction) |
+| Block | 127567253, hash `0xa6c095fbf68bab1db83d232303f0cfde35b7975925f4e2b0703a6b44f207beaf` |
+| Wallet request | Exactly the reviewed one: type 0x2, gas 41222 (= the reviewed limit), `maxFeePerGas` 20000000, priority fee 0 |
+| Gas used / effective price | 25359 / 10000000 wei (Review estimate 27481; budget 824440000000 wei) |
+| Network cost | 253590000000 wei (0.00000025359 test ETH) |
+| Owner balance | 10000000000000000 → 9999746410000000 wei (delta = exactly the fee; the value leg nets to zero) |
+| Journal | one attempt, PREPARED → SUBMITTING → PENDING → CONFIRMED; one economic submission; no duplicate |
+| Runtime result | `TESTNET_EXECUTED` / `RECONCILED`, `PUBLIC_TESTNET` provenance, owner-initiated. Evidence Bundle hash `0x7b8bab9c732d5fc461ed9a6567a674c728c3132a64d804b7ee64d8732b34ce2f` |
+| Independent verifier | `INDEPENDENTLY_RECONCILED` at 2026-10-02T11:17:14Z from 12 allowlisted public RPC reads, over the same Evidence Bundle hash `0x7b8bab9c…ce2f` as the archive; finality at that moment: `L2_INCLUDED` |
+| L1 finality | `L1_FINALIZED`, confirmed by a separate read-only check at 2026-10-02T11:35:27Z: chain 46630, successful receipt, block 127567253 canonical with hash `0xa6c095fb…7beaf` containing the transaction, and the `finalized` head at 127567568 ≥ 127567253 |
+
+Archived files: [RH-DEMO-001-EVIDENCE.json](RH-DEMO-001-EVIDENCE.json) (the
+exported Evidence Bundle with workflow, artifacts, Review and journal) and
+[RH-DEMO-001-VERIFICATION.json](RH-DEMO-001-VERIFICATION.json). The
+verification file holds the authoritative verifier output with its full read
+transcript, plus a separate `finalityRecheck` section with its own
+transcript. The verifier command is:
+
+```sh
+pnpm build && node scripts/verify-robinhood-transfer.mjs docs/builds/RH-DEMO-001-EVIDENCE.json /tmp/rh-demo-001-verification.json
+```
+
+### Public RPC historical-state retention
+
+The public endpoint `https://rpc.testnet.chain.robinhood.com` prunes historical
+state. The full verifier reads the owner balance and nonce at blocks N−1 and N.
+Those reads succeeded at 11:17Z, about 4 minutes after inclusion; that is the
+authoritative verification. A complete re-run about 30 minutes later failed with
+`historical state … is not available` on `eth_getBalance`. That failure is a
+provider retention limit; it is not a mismatch, and it does not invalidate the
+earlier result. Everything that does not need historical state was re-confirmed
+read-only afterwards: chain ID, receipt, canonical block and L1 finality.
+
+To re-run the full verifier now, point it at an archival Robinhood Testnet node.
+The script currently pins the official public RPC. The balance and nonce deltas
+from the original run stay preserved in its transcript. Future builds should
+verify within the provider's retention window or use an archival endpoint.
+
+The run directory also holds one earlier Simulate-only run,
+`rhx-2b00bddd…`, with no attempt: it was never prepared, handed off or
+sent. The owner+nonce lease (`…-0.intent`) records exactly one run, the
+executed one. The registry row `asset.transfer` / `evm.native-transfer` /
+`eip155:46630` / `PUBLIC_TESTNET` now records `evidenceMaturity:
+TESTNET_EXECUTED`.
 
 ## Transaction selected
 
@@ -131,17 +186,18 @@ is not used for execution.
 | Dependency verification, `pnpm audit --audit-level low`, CycloneDX SBOM (CI script verbatim) | pass; lockfile and dependencies unchanged |
 | Browser regression (full CI list, loopback only) | Main 46 passed, 7 failed, 4 skipped. Harness groups all pass: Supply/Borrow/Repay/Withdraw 44, Jupiter 9, Solana Devnet 8, Orca liquidity 5, **Robinhood transfer 7**, CoW 9. Mode A 9 passed, 4 failed. All 11 failures are `toHaveScreenshot` mismatches (local fonts). The same 11 fail on an untouched `git archive` of `7003856`, and **all 11 actual images are byte-identical (SHA-256) between main and this branch**. Baselines were not changed. The composition fork group (official artifact downloads) was not run locally. |
 | Anvil gate / fork suite | Same as main: 4 passed, 10 skipped / 31 passed, 29 skipped (owner- or environment-gated) |
+| Closure (after owner execution) | Registry row raised to `TESTNET_EXECUTED` (one data value) and the two registry tests that pin it updated; `pnpm check`, unit suite (140 files, 1102 tests, 2 pre-existing Anvil-gated skips), Governance-Lite and `git diff --check` pass. Browser specs were **not re-run after this one-value change**, because the owner's live `next dev` held port 3000; they passed before it, and no browser assertion reads evidence maturity. |
 
 ## Evidence ceiling
 
 | State | Reached |
 | --- | --- |
-| READY_FOR_OWNER_EXECUTION | **Yes**: implementation, live read-only Simulate and Review against public Robinhood Testnet |
-| TESTNET_EXECUTED / RECONCILED | No. Requires the owner's one wallet confirmation |
-| TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED | No. Requires the verifier run after the owner transaction |
+| READY_FOR_OWNER_EXECUTION | Yes |
+| TESTNET_EXECUTED / RECONCILED | **Yes**: runtime reconciliation of the owner transaction |
+| TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED | **Yes**: `scripts/verify-robinhood-transfer.mjs` against public Robinhood Testnet |
 
-No Evidence Bundle was created from real execution. The MOCKED bundles exist
-only in automated tests.
+There is no `MAINNET_EXECUTED` claim and no DeFi claim. The MOCKED bundles
+exist only in automated tests.
 
 ## Files
 
@@ -169,7 +225,8 @@ only in automated tests.
 - **CI and package:** `.github/workflows/contracts.yml` (one harness-gated
   line) and `package.json` (lint list)
 - **Docs:** this report, the plan, the owner instructions,
-  `RH-DEMO-001-READONLY.json` and `docs/STATUS.md`
+  `RH-DEMO-001-READONLY.json`, `RH-DEMO-001-EVIDENCE.json`,
+  `RH-DEMO-001-VERIFICATION.json` and `docs/STATUS.md`
 
 No canvas toolbox button was added, so committed pixel baselines are
 unchanged. No Aave, BUILD-012D, Solana or Ethereum code changed, and nothing

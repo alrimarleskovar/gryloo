@@ -1,5 +1,10 @@
 # RH-DEMO-001 — owner execution (one wallet confirmation)
 
+**Completed 2026-10-02:** the owner executed transaction
+`0xdadc1fd5fd23e9bad85171cf2255c1e26df121ce3c8e2c35b121274436f4a498`, which is
+independently reconciled (see the [report](RH-DEMO-001-REPORT.md)). These
+instructions are kept for reference.
+
 Status before you act: **READY_FOR_OWNER_EXECUTION**. You send one native
 test-ETH self-transfer on Robinhood Chain Testnet (46630) from your own wallet
 to the same address. The value comes back to you; only the network fee (about
