@@ -7,6 +7,7 @@ import type { Command } from './commands';
 import { swapDetails } from './swap-authoring';
 import { bridgeDetails } from './bridge-authoring';
 import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
+import { solanaLiquidityDetails } from './solana-liquidity-authoring';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
@@ -60,6 +61,13 @@ export function describeProposal(before: EditorState, after: EditorState, comman
   if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `${newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
     `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
+  const oldPosition = oldNode && solanaLiquidityDetails(oldNode), newPosition = newNode && solanaLiquidityDetails(newNode);
+  if (newPosition) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Node ${newNode?.nodeId}: Concentrated liquidity on ${newPosition.network} via ${newPosition.provider} (Devnet SOL / devUSDC test pool)`,
+    `Maximum inputs: ${oldPosition ? `${oldPosition.maxSol} SOL + ${oldPosition.maxDevUsdc} devUSDC` : 'none'} → ${newPosition.maxSol} SOL + ${newPosition.maxDevUsdc} devUSDC`,
+    `Range: ${oldPosition ? `${oldPosition.lowerPrice}–${oldPosition.upperPrice}` : 'none'} → ${newPosition.lowerPrice}–${newPosition.upperPrice} devUSDC per SOL (ticks ${newPosition.tickLower} to ${newPosition.tickUpper}, aligned to spacing 64)`,
+    `Slippage: ${oldPosition?.slippage ?? 'none'} → ${newPosition.slippage} bps; position owner: your connected wallet`,
+    'Maxima are limits, not amounts to spend. A read-only simulation computes the actual deposit; every position transaction needs its own exact review and wallet signature. Valueless Devnet test tokens.']);
   const oldSolana = oldNode && solanaSwapDetails(oldNode), newSolana = newNode && solanaSwapDetails(newNode);
   if (newSolana) { const labels = solanaSwapLabels(newSolana.network); return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Node ${newNode?.nodeId}: Swap ${newSolana.from} → ${newSolana.to} on ${labels.network} via ${labels.provider}`,

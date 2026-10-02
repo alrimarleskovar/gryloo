@@ -25,3 +25,4 @@ export * from './cross-chain-liquidity.js';
 export * from './supply.js';
 
 export * from './solana-swap.js';
+export * from './solana-liquidity.js';

@@ -4,6 +4,18 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
+## BUILD-015 Solana liquidity / Orca Whirlpools
+
+**DEVNET_EXECUTED** on branch `claude/build-015-solana-liquidity` (PR #44, unmerged), from main `f2b8afa`.
+
+The canonical, chain-neutral `asset.liquidity.concentrated` intent ran on public Solana Devnet through Orca Whirlpools, on the BUILD-DEMO-001 SOL/devUSDC test pool. BUILD-006's `asset.liquidity.uniswap-v3` is byte-identical and read by the same reader. The owner `6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR` signed every step with their own wallet:
+
+- **Open + add:** [`4NmXs8NoB6KW…`](https://explorer.solana.com/tx/4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ?cluster=devnet), slot 506,426,965. Deposited 0.01 Devnet SOL + 0.240772 devUSDC as position `DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv`.
+- **Partial removal:** 5,000 bps with fee collection, [`5HQGjFbb1jbw…`](https://explorer.solana.com/tx/5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa?cluster=devnet), slot 506,427,731. Returned 0.004999916 SOL + 0.120387 devUSDC principal; 0 fees.
+- **Exit:** remove all, collect and close, [`8MAvfVGXXo6m…`](https://explorer.solana.com/tx/8MAvfVGXXo6mMcfkuikKnHmTfQ6S37Y5oPh6F7sdVJSNeNSgFZyFsGp1WpoonHHrAPLRWKzaQtq2zgCu1hzfZTV?cluster=devnet), slot 506,428,344. Returned the same principal again, closed the position and refunded every deposit.
+
+All three were reconciled by Gryloo and independently verified (55/55 read-only checks). Evidence Bundles `0x56b64747…7e08`, `0x7cd44c68…2238` and `0x56a343b0…c2ff` are archived with `SHA256SUMS`. The frozen v1 bundle schema records `TESTNET_EXECUTED`; the Gryloo evidence class is `DEVNET_EXECUTED`. These are valueless Devnet test tokens: there is no real-funds, mainnet or `MAINNET_EXECUTED` claim. See the [BUILD-015 report](builds/BUILD-015-REPORT.md) and [archived evidence](builds/BUILD-015-EVIDENCE/).
+
 ## BUILD-DEMO-001 Solana Devnet real execution
 
 **DEVNET_EXECUTED** on branch `claude/build-demo-001-solana-devnet` (PR #42, unmerged), from main `148f79c`. The canonical `asset.swap.exact-input` intent ran on Solana Devnet through Orca Whirlpools `swap_v2` on Orca's documented test pool. The owner signed with their own wallet. Transaction [`5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB`](https://explorer.solana.com/tx/5Aoo6QX3b7rh3wAX5fxY8ybx7R7k1VgrT95QhuAf5HNF2zNiaCVAoTZtus3HbdwtZthSY9BiMKWiJRVQc67dLCbB?cluster=devnet), finalized at slot 506,389,990, swapped 0.1 Devnet SOL for 2.231352 devUSDC (minimum 2.220195) with a 5,000-lamport fee. It was reconciled by Gryloo and independently verified (35/35 read-only checks). Evidence Bundle hash `0x621c869a0dbee6e0d827ed536d32230c1ef14e0281a84c92d2d0619e9716e6c9`. The frozen v1 bundle schema records `environment: TESTNET_EXECUTED`; the Gryloo evidence class is `DEVNET_EXECUTED`. The tokens are valueless; there is no real-funds, mainnet or `MAINNET_EXECUTED` claim. Jupiter mainnet (BUILD-014) remains unexecuted. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md) and [archived evidence](builds/BUILD-DEMO-001-EVIDENCE/).

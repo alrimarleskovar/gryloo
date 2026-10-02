@@ -43,6 +43,23 @@ export const referenceRegistry = Object.freeze({
     requiredCapability: Object.freeze({ id: 'liquidity.position-direct', version: '1.0.0' }),
     executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const), authorizationModes: Object.freeze(['A'] as const),
   }), Object.freeze({
+    // The chain-neutral spelling of the same position semantics; the protocol constraint selects the provider.
+    id: 'asset.liquidity.concentrated', version: '1.0.0', nodeClass: 'ACTION',
+    inputs: Object.freeze([
+      Object.freeze({ name: 'amount0-max', type: 'AMOUNT_UNITS', required: true }),
+      Object.freeze({ name: 'amount1-max', type: 'AMOUNT_UNITS', required: true }),
+      Object.freeze({ name: 'amount0-min', type: 'AMOUNT_UNITS', required: true }),
+      Object.freeze({ name: 'amount1-min', type: 'AMOUNT_UNITS', required: true }),
+      Object.freeze({ name: 'tick-lower', type: 'CONDITION', required: true }),
+      Object.freeze({ name: 'tick-upper', type: 'CONDITION', required: true }),
+      Object.freeze({ name: 'fee-tier', type: 'CONDITION', required: true }),
+    ]),
+    outputs: Object.freeze([Object.freeze({ name: 'position-nft', type: 'ASSET_REF', required: true })]),
+    constraints: Object.freeze({ arbitraryTargetsAllowed: false, financialAmountEncoding: 'NATIVE_UNIT_DECIMAL_STRINGS',
+      allowedChainRefs: Object.freeze(['solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1']) }),
+    requiredCapability: Object.freeze({ id: 'liquidity.position-direct', version: '1.0.0' }),
+    executionKinds: Object.freeze(['DIRECT_TRANSACTION'] as const), authorizationModes: Object.freeze(['A'] as const),
+  }), Object.freeze({
     id: 'asset.bridge', version: '1.0.0', nodeClass: 'ACTION',
     inputs: Object.freeze([Object.freeze({ name: 'amount-in', type: 'AMOUNT_UNITS', required: true }),
       Object.freeze({ name: 'asset-out', type: 'ASSET_REF', required: true })]),

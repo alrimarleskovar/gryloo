@@ -187,6 +187,13 @@ export function serializeTransaction(signature: Uint8Array | null, message: Uint
   if (signature && signature.length !== 64) throw new Error('SOLANA_SIGNATURE_INVALID');
   return Uint8Array.from([1, ...(signature ?? new Uint8Array(64)), ...message]);
 }
+/** Multi-signer wire transaction, signatures in static-key order. Missing signatures are zero placeholders. */
+export function serializeSignedTransaction(signatures: readonly (Uint8Array | null)[], message: Uint8Array): Uint8Array {
+  if (signatures.length < 1 || signatures.length > 8 || signatures.some(s => s && s.length !== 64)) throw new Error('SOLANA_SIGNATURE_INVALID');
+  const bytes = Uint8Array.from([signatures.length, ...signatures.flatMap(s => [...(s ?? new Uint8Array(64))]), ...message]);
+  if (bytes.length > 1_232) throw new Error('SOLANA_TRANSACTION_TOO_LARGE');
+  return bytes;
+}
 export function parseTransaction(bytes: Uint8Array): { signatures: Uint8Array[]; message: Uint8Array } {
   const r = new Reader(bytes);
   const count = r.compact();

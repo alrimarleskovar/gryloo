@@ -1,0 +1,15 @@
+{
+  "evidence": "PUBLIC_READ_ONLY",
+  "checkedAt": "2026-10-01T22:40:35.060Z",
+  "slot": 506429131,
+  "accounts": {
+    "position": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+    "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+    "positionTokenAccount": "CvMo3Bw7av9aNpJH8MzxCG53yTFfzXwDuJS29N7MBLeB"
+  },
+  "exists": [
+    false,
+    false,
+    false
+  ]
+}

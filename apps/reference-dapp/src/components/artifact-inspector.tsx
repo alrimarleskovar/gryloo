@@ -14,6 +14,8 @@ import { BorrowAuthoringForm } from './borrow-panel';
 import { SupplyAuthoringForm } from './supply-panel';
 import { SolanaSwapForm } from './jupiter-panel';
 import { solanaSwapDetails, solanaSwapLabels } from '../domain/jupiter-authoring';
+import { solanaLiquidityDetails } from '../domain/solana-liquidity-authoring';
+import { SolanaLiquidityForm } from './solana-liquidity-panel';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
@@ -80,12 +82,14 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
   }
   const supply = node?.actionType === 'supply';
   const solana = node ? solanaSwapDetails(node) : null;
-  const label = supply ? 'Supply' : solana ? 'Swap' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
+  const orcaPosition = node ? solanaLiquidityDetails(node) : null;
+  const label = supply ? 'Supply' : solana ? 'Swap' : orcaPosition ? 'Liquidity position' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
     {node ? <>
       {node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
       {solana && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
+      {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
       {swap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}

@@ -19,6 +19,7 @@ import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from
 import { BorrowAuthoringForm } from './borrow-panel';
 import { SupplyAuthoringForm } from './supply-panel';
 import { SolanaSwapForm } from './jupiter-panel';
+import { SolanaLiquidityForm } from './solana-liquidity-panel';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
@@ -66,6 +67,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const liquidityEnabled = useLiquidity().info?.available === true || compositionEnabled;
   const [direction, setDirection] = useState<Direction>('USDC_TO_WETH');
   const [swapNetwork, setSwapNetwork] = useState<'BASE' | 'BASE_SEPOLIA' | 'SOLANA' | 'SOLANA_DEVNET'>('BASE');
+  const [liquidityNetwork, setLiquidityNetwork] = useState<'SOLANA_DEVNET' | 'BASE'>('SOLANA_DEVNET');
   const [amount, setAmount] = useState('');
   const [slippage, setSlippage] = useState('');
   const [allowCow, setAllowCow] = useState(false);
@@ -183,6 +185,14 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       <button type="submit">Review swap proposal</button>
       <small>{swapNetwork === 'BASE_SEPOLIA' ? 'Use test USDC and WETH only. Simulate for a live quote before review.' : 'Base swaps use the existing local review path.'}</small>
     </form>}
+    <div className="swap-create" role="group" aria-label="Create liquidity position proposal">
+      <strong>Liquidity position</strong>
+      <label htmlFor="liquidity-network">Network</label>
+      <select id="liquidity-network" value={liquidityNetwork} onChange={event => setLiquidityNetwork(event.target.value as 'SOLANA_DEVNET' | 'BASE')}>
+        <option value="SOLANA_DEVNET">Solana Devnet</option>{liquidityEnabled && <option value="BASE">Base (local fork)</option>}
+      </select>
+      {liquidityNetwork === 'SOLANA_DEVNET' ? <SolanaLiquidityForm/> : <small>Use the Base Uniswap v3 position form below.</small>}
+    </div>
     {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
       <strong>Uniswap v3 position · Base</strong>
       <p className="muted">One isolated WETH/USDC position, fee tier 500. Wallet operations are reviewed separately on the local fork.</p>
