@@ -1,20 +1,24 @@
-# Gryloo
+# Flofi
 
-Gryloo is a non-custodial, conversational and visual compiler plus bounded
+Flofi is a non-custodial, conversational and visual compiler plus bounded
 executor for multichain DeFi workflows. Chat, canvas, and integrations will use
 one canonical Semantic Workflow IR; AI proposals never constitute financial
 authority.
 
+Flofi was previously named Gryloo. [BUILD-BRAND-001](docs/builds/BUILD-BRAND-001-PLAN.md)
+records the transition; historical evidence and runtime compatibility identifiers
+retain their original names. BUILD-013 remains OPEN on its separate branch and PR #48.
+
 ## Current status
 
-BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is COMPLETE / CERTIFIED: MOCKED under DEC-0035 after PR #15 merged and post-merge checks passed. Its CoW signed-intent journey in the reference app uses a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. BUILD-006 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0037, for its isolated Uniswap v3 Mode A liquidity lifecycle on local chain 31337 only. BUILD-007 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0043, for its finite Mode B swap-to-liquidity composition on local chain 31337 only. BUILD-008 is COMPLETE / CERTIFIED: MOCKED under DEC-0046 for the Base → Optimism USDC bridge. Its live LI.FI quote/route is read-only provider evidence; bridge execution, recovery and destination reconciliation are deterministic MOCKED. BUILD-009 and BUILD-010 are merged without separate certification claims; BUILD-011 canvas/product UX implementation is approved and remains unmerged. See the [current status](docs/STATUS.md), [BUILD-006 plan](docs/builds/BUILD-006-PLAN.md), [BUILD-006 report](docs/builds/BUILD-006-REPORT.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Gryloo remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
+BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is COMPLETE / CERTIFIED: MOCKED under DEC-0035 after PR #15 merged and post-merge checks passed. Its CoW signed-intent journey in the reference app uses a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. BUILD-006 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0037, for its isolated Uniswap v3 Mode A liquidity lifecycle on local chain 31337 only. BUILD-007 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0043, for its finite Mode B swap-to-liquidity composition on local chain 31337 only. BUILD-008 is COMPLETE / CERTIFIED: MOCKED under DEC-0046 for the Base → Optimism USDC bridge. Its live LI.FI quote/route is read-only provider evidence; bridge execution, recovery and destination reconciliation are deterministic MOCKED. BUILD-009 and BUILD-010 are merged without separate certification claims; BUILD-011 canvas/product UX implementation is approved and remains unmerged. See the [current status](docs/STATUS.md), [BUILD-006 plan](docs/builds/BUILD-006-PLAN.md), [BUILD-006 report](docs/builds/BUILD-006-REPORT.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Flofi remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
 
 ## Licensing
 
-Gryloo is multi-licensed. [LICENSE](LICENSE) routes to the official license
+Flofi is multi-licensed. [LICENSE](LICENSE) routes to the official license
 texts, and [the license map](docs/LICENSE_MAP.md) classifies each path.
 `docs/assets/**` is excluded as third-party reference material. The licenses
-grant no Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
+grant no Flofi or Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Repository workflow
 
@@ -51,7 +55,7 @@ exact pins and a frozen lockfile; install scripts are disabled. SBOM validation
 emits a digest; no retained SBOM artifact is claimed.
 
 BUILD-002's approved private [reference application](apps/reference-dapp)
-provides the local mocked Gryloo visual shell and shared revisioned workflow
+provides the local mocked visual shell (originally Gryloo, now Flofi) and shared revisioned workflow
 state. Its source is AGPL-3.0-only. The exact third-party license and
 attribution inventory is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);
 the current validation record is the

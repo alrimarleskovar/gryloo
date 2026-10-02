@@ -1,5 +1,12 @@
 # Next build
 
+Current product name: **Flofi** (formerly Gryloo); see the
+[branding transition](builds/BUILD-BRAND-001-PLAN.md). Historical entries below
+retain the name used at the time. Runtime identifiers remain compatible.
+BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
+`6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
+This separate branding build does not resume its execution work or start BUILD-CLOUD-001.
+
 ## Future implementation workflow
 
 Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.

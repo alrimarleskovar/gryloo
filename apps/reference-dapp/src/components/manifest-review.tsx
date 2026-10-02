@@ -43,7 +43,7 @@ export function ManifestReview() {
   return <section className="manifest-review panel" aria-label="Mode A Manifest review">
     <div className="simulate-head">
       <div><p className="eyebrow">EXECUTE / MODE A MANIFEST REVIEW</p><h2>Review two exact wallet authorizations</h2>
-        <p className="muted">Mode A binds exactly the bytes below. Your wallet signs each payload separately; Gryloo never signs, never broadcasts and never receives a key. Local fork only: chain 31337, source {prepared.environment === 'MOCKED' ? 'synthetic chain-8453' : 'recorded Base'} block {prepared.source.blockNumber}.</p></div>
+        <p className="muted">Mode A binds exactly the bytes below. Your wallet signs each payload separately; Flofi never signs, never broadcasts and never receives a key. Local fork only: chain 31337, source {prepared.environment === 'MOCKED' ? 'synthetic chain-8453' : 'recorded Base'} block {prepared.source.blockNumber}.</p></div>
       <div className="simulate-controls"><StatusBadge label={prepared.environment} tone={prepared.environment === 'MOCKED' ? 'info' : 'warning'}/><StatusBadge label="MODE_A"/><StatusBadge label="EXACT_SIGNED_PAYLOAD" tone="info"/></div>
     </div>
     <ol className="chain-strip" aria-label="Mode A artifact hashes">

@@ -1,4 +1,4 @@
-# Working in Gryloo
+# Working in Flofi
 
 The human owner authorizes repository work and decides whether to merge.
 Current owner instructions take precedence; [Scope guard](docs/SCOPE_GUARD.md)

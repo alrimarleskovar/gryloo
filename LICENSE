@@ -1,6 +1,6 @@
-# Gryloo licenses
+# Flofi licenses
 
-Gryloo is a multi-licensed repository. The exact classification of each path
+Flofi is a multi-licensed repository. The exact classification of each path
 is governed by [the license map](docs/LICENSE_MAP.md).
 
 - Eligible original governance, specification, prompt, repository-administration,
@@ -18,9 +18,9 @@ remain Apache-2.0, except their `LICENSE` copies of the official text, and
 patches and copied upstream legal files retain their upstream licenses. This
 factual correction changes no license grant, path classification, official
 license text or legal boundary. `docs/assets/**` and
-unverified third-party materials are excluded from these Gryloo license grants.
+unverified third-party materials are excluded from these Flofi license grants.
 Third-party materials remain subject to their own rights.
 
-These licenses grant no Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
+These licenses grant no Flofi or Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
 Private or proprietary managed-plane components are prohibited from this public
 repository.

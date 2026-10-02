@@ -54,7 +54,7 @@ test('Build → read-only Simulate → owner Review → one exact self-transfer 
 });
 test('a lost wallet response is recovered after refresh by observation, with no second submission', async ({ page }) => {
   await author(page, { uncertain: true }); await review(page); await execute(page);
-  await expect(region(page)).toContainText('The wallet result is uncertain. Gryloo will not submit again');
+  await expect(region(page)).toContainText('The wallet result is uncertain. Flofi will not submit again');
   await expect(region(page).getByRole('button', { name: 'Observe existing transaction' })).toBeVisible();
   expect(await chainBroadcasts()).toBe(1);
   await page.reload(); await stage(page, 'Execute');
@@ -65,10 +65,10 @@ test('a lost wallet response is recovered after refresh by observation, with no 
 });
 test('an unknown result that never reached the chain stays observation-only across refresh', async ({ page }) => {
   await author(page, { notBroadcast: true }); await review(page); await execute(page);
-  await expect(region(page)).toContainText('The wallet result is uncertain. Gryloo will not submit again');
+  await expect(region(page)).toContainText('The wallet result is uncertain. Flofi will not submit again');
   await page.reload(); await stage(page, 'Execute');
   await region(page).getByRole('button', { name: 'Observe existing transaction' }).click();
-  await expect(region(page)).toContainText('Gryloo will not submit again');
+  await expect(region(page)).toContainText('Flofi will not submit again');
   await expect(region(page).getByRole('button', { name: 'Execute', exact: true })).toHaveCount(0);
   await expect(region(page).getByRole('button', { name: 'Prepare fresh review' })).toHaveCount(0);
   expect(await chainBroadcasts()).toBe(0);

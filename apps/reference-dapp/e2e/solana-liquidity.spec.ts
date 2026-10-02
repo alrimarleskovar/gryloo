@@ -72,12 +72,12 @@ test('canvas liquidity on Solana Devnet → Simulate → Review → Execute → 
   const evidence = JSON.parse(decodeURIComponent(href!.split(',')[1]!)) as { bundle: { environment: string }; evidenceClass: string; publicExecution: { operation: string; realFunds: boolean } };
   expect(evidence).toMatchObject({ bundle: { environment: 'MOCKED' }, evidenceClass: 'MOCKED', publicExecution: { operation: 'OPEN', realFunds: false } });
   expect(await signRequests(page)).toBe(1); expect(await signChains(page)).toEqual(['solana:devnet']); expect(await devnetControl({ action: 'sent' })).toBe(1);
-  await expect(panel(page).getByRole('region', { name: 'Your Gryloo positions' })).toContainText('active');
+  await expect(panel(page).getByRole('region', { name: 'Your Flofi positions' })).toContainText('active');
   await step(page, 'DECREASE_PARTIAL', 'Execute removal');
   await expect(panel(page).getByRole('region', { name: 'Liquidity result' })).toContainText('fees collected 0.000001 Devnet SOL and 0.00002 devUSDC');
   await step(page, 'EXIT', 'Execute removal');
   await expect(panel(page).getByRole('region', { name: 'Liquidity result' })).toContainText('position closed');
-  await expect(panel(page).getByRole('region', { name: 'Your Gryloo positions' })).toContainText('closed');
+  await expect(panel(page).getByRole('region', { name: 'Your Flofi positions' })).toContainText('closed');
   expect(await signRequests(page)).toBe(3); expect(await devnetControl({ action: 'sent' })).toBe(3);
   expect(errors).toEqual([]);
 });

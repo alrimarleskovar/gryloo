@@ -24,7 +24,7 @@ export function CowPanel({ view }: { view: 'simulate' | 'execute' }) {
     <div className="simulate-head">
       <div><p className="eyebrow">{view.toUpperCase()} / COW SIGNED INTENT · LOOPBACK</p>
         <h2>CoW signed-intent swap</h2>
-        <p className="muted">MOCKED orderbook and settlement. A disposable injected local wallet signs EIP-712; Gryloo contacts no public provider or chain.</p></div>
+        <p className="muted">MOCKED orderbook and settlement. A disposable injected local wallet signs EIP-712; Flofi contacts no public provider or chain.</p></div>
       <StatusBadge label="MOCKED" tone="info"/>
     </div>
     {view === 'simulate' && <div className="cow-controls">

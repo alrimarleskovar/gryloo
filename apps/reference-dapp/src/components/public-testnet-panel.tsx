@@ -64,7 +64,7 @@ export function PublicTestnetPanel({ view }: { view: 'simulate' | 'execute' }) {
       <button type="button" onClick={flow.switchNetwork} disabled={Boolean(busy)}>Switch to Base Sepolia</button></div>}
     {last?.state === 'REVERTED' && <p role="alert">{last.step === 'approval' ? 'Token approval reverted.' : 'The swap reverted.'} <a href={`https://sepolia.basescan.org/tx/${last.txHash}`} target="_blank" rel="noopener noreferrer">View transaction</a></p>}
     {last?.state === 'REJECTED' && <p role="status">Wallet authorization was rejected. You can try again.</p>}
-    {last?.state === 'UNKNOWN' && <p role="alert">The wallet result is uncertain. Gryloo will not submit this transaction again.</p>}
+    {last?.state === 'UNKNOWN' && <p role="alert">The wallet result is uncertain. Flofi will not submit this transaction again.</p>}
     {last && ['HASH','PENDING','CONFIRMED'].includes(last.state) && !run.outcome && <div><p role="status">{last.step === 'approval' && last.state === 'CONFIRMED' ? 'Token approval confirmed. Continue to the swap.' :
       last.state === 'CONFIRMED' ? 'Transaction confirmed. Checking token balances.' : 'Transaction submitted. Waiting for a public receipt.'}</p>
       {last.txHash && <a href={`https://sepolia.basescan.org/tx/${last.txHash}`} target="_blank" rel="noopener noreferrer">View transaction</a>}
