@@ -123,6 +123,8 @@ jobs:
           GRYLOO_SOLANA_DEVNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test solana-devnet.spec.ts
           # BUILD-015: Solana Devnet / Orca liquidity on the same MOCKED loopback harness; never public Devnet or a broadcast.
           GRYLOO_SOLANA_DEVNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test solana-liquidity.spec.ts
+          # RH-DEMO-001: Robinhood Testnet self-transfer on a MOCKED loopback chain; never the public network or a broadcast.
+          GRYLOO_ROBINHOOD_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test robinhood-transfer.spec.ts
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mode-a-adversarial.spec.ts mode-a-fork.spec.ts mode-a-recovery.spec.ts
           # BUILD-005: a separate MOCKED CoW profile, never a public CoW or chain endpoint.
           export GRYLOO_COW=loopback

@@ -60,3 +60,4 @@ export type { RlpValue } from './rlp.js';
 export * from './orca-liquidity.js';
 
 export * from './withdraw.js';
+export * from './native-transfer.js';

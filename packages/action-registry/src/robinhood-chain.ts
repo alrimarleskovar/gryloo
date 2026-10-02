@@ -82,6 +82,18 @@ export const ROBINHOOD_PROTOCOL_AVAILABILITY: readonly RobinhoodProtocolAvailabi
     mainnet: 'NO_CANONICAL_DEPLOYMENT', testnet: 'NO_CANONICAL_DEPLOYMENT', mainnetContracts: Object.freeze([]) }),
 ]);
 
+/**
+ * RH-DEMO-001: the only executable Robinhood path, a native test-ETH self-transfer on Testnet. It needs no
+ * third-party contract, so its trust rests on the chain alone. This is a chain execution proof, not DeFi.
+ */
+export const ROBINHOOD_TESTNET_TRANSFER = Object.freeze({
+  network: ROBINHOOD_CHAIN_TESTNET.name, chain: ROBINHOOD_CHAIN_TESTNET.chain, chainId: ROBINHOOD_CHAIN_TESTNET.chainId,
+  chainHex: ROBINHOOD_CHAIN_TESTNET.chainHex, rpc: ROBINHOOD_CHAIN_TESTNET.rpc, explorer: ROBINHOOD_CHAIN_TESTNET.explorer,
+  officialSource: ROBINHOOD_CHAIN_TESTNET.officialSource, adapterId: 'evm.native-transfer', action: 'asset.transfer',
+  /** 0.001 test ETH. The value returns to the owner; only the network fee is spent. */
+  maximumValueWei: '1000000000000000', defaultValueWei: '1000000000000',
+  reviewTtlSeconds: 120, gasLimitMarginPercent: 150, maxFeeMultiplier: 2, minimumConfirmations: 2,
+});
 /** Accepts a CAIP-2 reference or an EIP-155 hex chain ID, in any case. */
 export function robinhoodNetwork(chain: string | null | undefined): RobinhoodNetwork | null {
   if (typeof chain !== 'string') return null;

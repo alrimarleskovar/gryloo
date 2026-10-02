@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { executionCapabilityRegistry, resolveNodeCapability, resolveWorkflowCapability } from '../src/execution-capabilities.js';
-import { ROBINHOOD_CHAIN_MAINNET, ROBINHOOD_CHAIN_TESTNET, ROBINHOOD_NETWORKS, ROBINHOOD_PROTOCOL_AVAILABILITY,
+import { ROBINHOOD_CHAIN_MAINNET, ROBINHOOD_CHAIN_TESTNET, ROBINHOOD_NETWORKS, ROBINHOOD_PROTOCOL_AVAILABILITY, ROBINHOOD_TESTNET_TRANSFER,
   robinhoodAddChainParameters, robinhoodDeploymentStatus, robinhoodNetwork } from '../src/robinhood-chain.js';
 
 type Node = SemanticWorkflow['nodes'][number];
@@ -55,8 +55,27 @@ describe('Robinhood decision gate in the capability registry', () => {
     expect(robinhoodDeploymentStatus('eip155:8453', 'uniswap.v3')).toBeNull();
     expect(robinhoodDeploymentStatus('eip155:46630', 'unknown.adapter')).toBeNull();
   });
-  it('adds no execution profile for either Robinhood chain', () => {
-    expect(executionCapabilityRegistry.filter(row => robinhoodNetwork(row.chainId))).toEqual([]);
+  it('adds exactly one Robinhood execution profile: the RH-DEMO-001 testnet self-transfer, with no demonstrated evidence', () => {
+    const rows = executionCapabilityRegistry.filter(row => robinhoodNetwork(row.chainId));
+    expect(rows.map(row => [row.actionType, row.adapterId, row.chainId, row.environment, row.evidenceMaturity])).toEqual(
+      [['asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', null]]);
+    expect(rows[0]!.authorizationModes).toEqual(['A']);
+    expect(rows[0]!.requirements).toEqual(['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS']);
+    expect(ROBINHOOD_TESTNET_TRANSFER).toMatchObject({ chain: 'eip155:46630', chainHex: '0xb626', adapterId: 'evm.native-transfer', maximumValueWei: '1000000000000000' });
+  });
+  it('resolves the self-transfer only on Robinhood Testnet and only in PUBLIC_TESTNET', () => {
+    const transfer = (chain: string) => ({ ...node('asset.transfer', chain, 'evm.native-transfer', ['native']), requiredAuthorizationClass: 'MODE_A' }) as Node;
+    expect(resolveNodeCapability(transfer('eip155:46630'), { environment: 'PUBLIC_TESTNET' }).profile?.adapterId).toBe('evm.native-transfer');
+    expect(resolveNodeCapability(transfer('eip155:46630'), { environment: 'MAINNET' }).blockers[0]?.code).toBe('MAINNET_EXECUTION_NOT_ENABLED');
+    expect(resolveNodeCapability(transfer('eip155:4663'), { environment: 'MAINNET' }).blockers[0]?.code).toBe('CHAIN_NOT_SUPPORTED');
+    expect(resolveNodeCapability(transfer('eip155:84532'), { environment: 'PUBLIC_TESTNET' }).blockers[0]?.code).toBe('CHAIN_NOT_SUPPORTED');
+    const ready = resolveWorkflowCapability({ nodes: [transfer('eip155:46630')] }, { environment: 'PUBLIC_TESTNET', runtime: {
+      walletConnected: true, walletChainId: 'eip155:46630', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } });
+    expect(ready).toMatchObject({ executionSupported: true, executionReady: true, evidenceCeiling: null });
+    const wrongChain = resolveWorkflowCapability({ nodes: [transfer('eip155:46630')] }, { environment: 'PUBLIC_TESTNET', runtime: {
+      walletConnected: true, walletChainId: 'eip155:4663', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } });
+    expect(wrongChain.blockers.map(b => b.code)).toContain('WRONG_WALLET_CHAIN');
+    expect(wrongChain.executionReady).toBe(false);
   });
   it('reports a missing testnet deployment precisely, in every environment', () => {
     for (const environment of ['MOCK', 'LOCAL_FORK', 'PUBLIC_TESTNET', 'MAINNET']) {

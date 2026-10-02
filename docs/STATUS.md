@@ -4,6 +4,10 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
+## RH-DEMO-001 — Robinhood Testnet owner-signed transaction proof
+
+**READY_FOR_OWNER_EXECUTION** on `claude/rh-demo-001` from canonical main `7003856` (including merged BUILD-RH-001). One native test-ETH self-transfer on Robinhood Chain Testnet (`eip155:46630`) runs through Build → Simulate → Review → Execute → Result, with a durable journal (PREPARED → SUBMITTING), observation-only recovery, runtime reconciliation and a strictly read-only independent verifier. This is a chain execution proof, not a DeFi capability. No transaction has been signed or sent; the live Simulate and Review path was exercised read-only against public Robinhood Testnet. See the [report](builds/RH-DEMO-001-REPORT.md) and [owner steps](builds/RH-DEMO-001-OWNER-EXECUTION.md).
+
 ## Completed BUILD-012D — Aave V3 Withdraw
 
 **TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED** on `codex/build-012d-aave-withdraw`, from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. The owner completed exactly **100000 raw = 0.1 USDC** on Base Sepolia (84532), with owner/recipient `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`, in [transaction `0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372`](https://sepolia.basescan.org/tx/0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372), block **47570537**.
