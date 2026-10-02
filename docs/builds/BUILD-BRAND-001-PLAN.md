@@ -308,3 +308,11 @@ cloud provisioning was used for this build. Browser assertions were updated for
 the changed copy but were not executed, and existing screenshot baselines remain
 untouched. This validation establishes repository compatibility, not new financial
 execution evidence or visual screenshot acceptance.
+
+Known CI limitation: the existing Playwright screenshot assertions use
+`maxDiffPixels: 0` and include the product header. Preserved Gryloo-era baselines
+are therefore expected to report visual differences for the Flofi text. Full
+browser/visual CI is not claimed green. The draft PR records this follow-up;
+future owner-authorized visual acceptance must preserve historical images and
+establish separately identified Flofi baselines. This build neither relaxes the
+pixel gate nor regenerates those historical artifacts.
