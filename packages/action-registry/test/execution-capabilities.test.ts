@@ -76,7 +76,7 @@ describe('execution capability registry', () => {
     expect(resolveNodeCapability(swap(), { environment: 'LOCAL_FORK', runtime: { forkAvailable: true } }).evidenceCeiling)
       .toBe('FORK_REPRODUCED');
   });
-  it('records public evidence only for the reconciled Base Sepolia Uniswap swap', () => {
+  it('records public evidence only for the reconciled Base Sepolia Uniswap swap and the RH-DEMO-001 Robinhood self-transfer', () => {
     const testnetSwap = node('asset.swap.exact-input', 'eip155:84532');
     const profile = resolveNodeCapability(testnetSwap, { environment: 'PUBLIC_TESTNET' });
     expect(profile.profile).toMatchObject({ adapterId: 'uniswap.v3', chainId: 'eip155:84532',
@@ -90,8 +90,10 @@ describe('execution capability registry', () => {
     } }).executionReady).toBe(true);
     expect(resolveNodeCapability(testnetSwap, { environment: 'MAINNET' }).capabilities.EXECUTE).toBe(false);
     expect(resolveNodeCapability(pool('eip155:84532'), { environment: 'PUBLIC_TESTNET' }).capabilities.EXECUTE).toBe(false);
+    // RH-DEMO-001 added exactly one more demonstrated public path: the independently reconciled Robinhood Testnet self-transfer.
+    const robinhoodTransfer = executionCapabilityRegistry.find(row => row.actionType === 'asset.transfer' && row.chainId === 'eip155:46630');
     expect(executionCapabilityRegistry.filter(row => row.environment === 'PUBLIC_TESTNET' && row.evidenceMaturity === 'TESTNET_EXECUTED'))
-      .toEqual([profile.profile]);
+      .toEqual([profile.profile, robinhoodTransfer]);
     expect(resolveWorkflowCapability(workflow(testnetSwap, bridge()), { environment: 'PUBLIC_TESTNET' }).executionSupported).toBe(false);
   });
   it('keeps isolated authoring templates out of financial execution and evidence', () => {
