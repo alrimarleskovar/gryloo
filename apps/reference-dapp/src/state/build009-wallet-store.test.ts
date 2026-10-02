@@ -36,7 +36,7 @@ describe('shared injected EVM provider selection', () => {
   });
   it('keeps discovery active for late MetaMask announcements and deduplicates reannouncements', () => {
     const brave = provider({ isBraveWallet: true }), metaMask = provider(), target = browser(brave);
-    expect(injected()).toBe(brave);
+    expect(injected()).toBeNull(); expect(brave.request).not.toHaveBeenCalled();
     announce(target, metaMask, 'io.metamask'); announce(target, metaMask, 'io.metamask');
     expect(injected()).toBe(metaMask); expect(injected()).toBe(metaMask);
   });
@@ -48,6 +48,15 @@ describe('shared injected EVM provider selection', () => {
   it('fails closed for multiple non-MetaMask providers instead of choosing the aggregate', () => {
     const brave = provider({ isMetaMask: true, isBraveWallet: true }), other = provider();
     browser({ ...brave, providers: [brave, other] });
+    expect(injected()).toBeNull(); expect(brave.request).not.toHaveBeenCalled();
+  });
+  it.each([false, true])('rejects a sole Brave provider even when it claims isMetaMask (claim=%s)', isMetaMask => {
+    const brave = provider({ isMetaMask, isBraveWallet: true }); browser(brave);
+    expect(injected()).toBeNull(); expect(brave.request).not.toHaveBeenCalled();
+  });
+  it('rejects the sole EIP-6963 Brave provider without making any wallet requests', () => {
+    const brave = provider({ isBraveWallet: true }), target = browser();
+    target.addEventListener('eip6963:requestProvider', () => announce(target, brave, 'com.brave.wallet'));
     expect(injected()).toBeNull(); expect(brave.request).not.toHaveBeenCalled();
   });
   it('fails closed for two distinct MetaMask providers', () => {

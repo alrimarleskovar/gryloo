@@ -14,6 +14,7 @@ type Provider = { request(input: { method: string; params?: unknown[] }): Promis
   on?(event: string, listener: (...args: unknown[]) => void): void;
   removeListener?(event: string, listener: (...args: unknown[]) => void): void };
 type Wallet = { readonly available: boolean; readonly account: string | null; readonly chainId: string | null;
+  readonly providerError: string | null;
   readonly error: string | null; readonly revision: number; readonly busy: boolean;
   session(): Promise<WalletSession | null>; connect(): Promise<WalletSession | null>; switchTo(chain: Chain): Promise<void>; reset(): void };
 const Context = createContext<Wallet | null>(null);
@@ -33,7 +34,8 @@ function selectProvider(target: Window, discovery: Discovery): Provider | null {
   }
   // An ambiguous fallback must never route an owner request through the aggregate window.ethereum.
   const providers = [...new Set([...discovery.announced.keys(), ...legacy])];
-  return providers.length === 1 ? providers[0]! : null;
+  if (providers.length !== 1 || providers[0]!.isBraveWallet === true) return null;
+  return providers[0]!;
 }
 function updateSelection(target: Window, discovery: Discovery): void {
   const next = selectProvider(target, discovery);
@@ -68,9 +70,17 @@ function subscribeProvider(listener: () => void): () => void {
   discovery.listeners.add(listener);
   return () => { discovery.listeners.delete(listener); };
 }
+function incompatibleWalletMessage(): string | null {
+  const discovery = discover(window);
+  const ethereum = (window as Window & { ethereum?: { providers?: unknown } }).ethereum;
+  const legacy = Array.isArray(ethereum?.providers) ? ethereum.providers : [ethereum];
+  return [...discovery.announced.keys(), ...legacy].some(provider => usable(provider) && provider.isBraveWallet === true)
+    ? 'No compatible wallet. Enable MetaMask for this site and refresh; Brave Wallet cannot be used.' : null;
+}
 export function chainName(id: string | null): string { return walletChainLabel(id); }
 export function Build009WalletProvider({ children }: { children: ReactNode }) {
   const [available, setAvailable] = useState(false);
+  const [providerError, setProviderError] = useState<string | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +99,7 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
       setAccount(null); setChainId(null); setBusy(false); invalidate();
       const provider = injected();
       setAvailable(Boolean(provider));
+      setProviderError(provider ? null : incompatibleWalletMessage());
       if (!provider) return;
       const op = generation.current;
       // Passive reuse never opens a wallet prompt. A future landing-page connection is visible here.
@@ -134,7 +145,7 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
   }, []);
   const connect = useCallback(async () => {
     const provider = injected();
-    if (!provider) { setError('No wallet found. Install or enable a browser wallet.'); setAvailable(false); return null; }
+    if (!provider) { setError(incompatibleWalletMessage() ?? 'No wallet found. Install or enable a browser wallet.'); setAvailable(false); return null; }
     setBusy(true); setError(null); const op = ++generation.current;
     try {
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -162,6 +173,6 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
   }, [chainId]);
   const reset = useCallback(() => { ++generation.current; connected.current = false; setAccount(null); setChainId(null);
     setError(null); setBusy(false); invalidate(); }, []);
-  return <Context.Provider value={{ available, account, chainId, error, revision, busy, session, connect, switchTo, reset }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ available, providerError, account, chainId, error, revision, busy, session, connect, switchTo, reset }}>{children}</Context.Provider>;
 }
 export function useBuild009Wallet(): Wallet { const value = useContext(Context); if (!value) throw new Error('BUILD009_WALLET_MISSING'); return value; }

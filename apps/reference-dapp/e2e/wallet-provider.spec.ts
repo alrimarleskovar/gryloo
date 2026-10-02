@@ -88,7 +88,9 @@ test('connect and network switching use the same EIP-6963 MetaMask provider', as
 });
 test('late MetaMask discovery rebinds listeners and ignores the old Brave wallet events', async ({ page }) => {
   await install(page, 'late'); await page.goto('/');
-  await expect(page.getByText(`Wallet: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Robinhood Chain Testnet (46630)`, { exact: true })).toBeVisible();
+  await expect(page.getByText('No compatible wallet. Enable MetaMask for this site and refresh; Brave Wallet cannot be used.', { exact: true })).toBeVisible();
+  await expect(page.locator('.build009-wallet-info')).toHaveCount(0);
+  expect(await controls(page)).toEqual([]);
   await page.evaluate(() => (window as unknown as { walletProviderTest: Controls }).walletProviderTest.announceMetaMask());
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { walletProviderTest: Controls }).walletProviderTest.listenerCount('Brave', 'accountsChanged'))).toBe(0);
