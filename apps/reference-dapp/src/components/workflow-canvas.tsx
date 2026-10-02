@@ -2,7 +2,8 @@
 'use client';
 import { WithdrawAuthoringForm } from './withdraw-panel';
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
-import {lendingDetails} from '../domain/lending-authoring';
+import {lendingDetails,lendingCanvasEdges} from '../domain/lending-authoring';
+import {useBuild009Wallet} from '../state/build009-wallet-store';
 import { transferDetails } from '../domain/robinhood-transfer-authoring';
 import { supplyDetails, borrowDetails, repayDetails, withdrawDetails } from '../domain/supply-authoring';
 import { RepayAuthoringForm } from './repay-panel';
@@ -34,10 +35,17 @@ export function setCrossChainCanvasRuntime(workflowId: string, revision: number,
   window.dispatchEvent(new CustomEvent('gryloo:cross-chain-runtime', { detail: key }));
 }
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
-type CardData = { title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
+type CardData = { lending?: boolean; title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
+  if(card.lending)return <div className={`flow-card ${card.selected?'active':''}`}>
+    <Handle type="target" position={Position.Top} isConnectable={false}/>
+    <span className="flow-card-kind">BASE SEPOLIA · {card.swap?'UNISWAP V3':'AAVE V3'}</span>
+    <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
+    <small>{card.swap?'Borrow → Swap · OUTPUT_REFERENCE':'Select to edit · fresh public simulation required'}</small>
+    <Handle type="source" position={Position.Bottom} isConnectable={false}/>
+  </div>;
   if (card.simulate !== undefined) {
     return <div className={`flow-card simulated ${card.swap ? 'swap' : ''}`}>
       {((card.bridgeSwap && card.swap) || (!card.swap && !card.bridge && (!card.liquidity || card.composition))) && <Handle type="target" position={Position.Left} isConnectable={false} />}
@@ -60,7 +68,7 @@ function WorkflowCard({ data }: NodeProps) {
 }
 const nodeTypes = { workflow: WorkflowCard };
 const actions = ['swap', 'bridge', 'pool', 'supply', 'lending', 'borrow', 'repay', 'withdraw'] as const;
-function actionLabel(action: typeof actions[number]) { return action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
+function actionLabel(action: typeof actions[number]) { return action === 'lending' ? 'Lending' : action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
 function ActionIcon({ action }: { action: typeof actions[number] }) {
   const paths = {
     swap: <><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4"/></>,
@@ -163,13 +171,13 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
       expected: `${formatHumanAmount(current.expected, current.symbol, context)} ${current.symbol}`,
       minimum: `${formatHumanAmount(current.minimum, current.symbol, context)} ${current.symbol}`,
     } : null;
-    return { id: node.nodeId, type: 'workflow', position: { x: 60 + index * 280, y: 70 + (index % 2) * 40 },
-      data: { title: node.actionType==='asset.transfer'?'Self-transfer test ETH':lending&&node.actionType==='asset.swap.exact-input'?'Borrowed Aave USDC → WETH':node.actionType==='withdraw'?'Withdraw from Aave V3':node.actionType==='repay'?'Repay to Aave V3':node.actionType==='borrow'?'Borrow from Aave V3':node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : orcaPosition ? 'SOL/devUSDC position' : solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType==='asset.transfer'?`${transferDetails(node as Parameters<typeof transferDetails>[0])?.amount} ETH · Robinhood Testnet`:lending?(node.actionType==='supply'?`${lending.supply} USDC collateral`:node.actionType==='borrow'?`${lending.borrow} USDC · HF checkpoint ≥ 2.0`:`Exactly ${lending.borrow} borrowed USDC`):node.actionType==='withdraw'?`${withdrawDetails(node as Parameters<typeof withdrawDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='repay'?`${repayDetails(node as Parameters<typeof repayDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='borrow'?`${borrowDetails(node as Parameters<typeof borrowDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : orcaPosition ? `${orcaPosition.lowerPrice}–${orcaPosition.upperPrice} devUSDC/SOL · ${orcaPosition.network}` : solana ? `${solana.amount} ${solana.from} · ${solana.network} · ${solana.slippage} bps` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, supply: ['supply','borrow','repay','withdraw'].includes(node.actionType), swap: node.actionType === SWAP_ACTION, solana: Boolean(solana || orcaPosition), solanaKind: solana ? solanaSwapLabels(solana.network).kind : orcaPosition ? 'SOLANA DEVNET · ORCA' : undefined, solanaProvider: solana ? solanaSwapLabels(solana.network).provider : orcaPosition ? orcaPosition.provider : undefined, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, simulate },
+    return { id: node.nodeId, type: 'workflow', position: lending?{x:180,y:35+index*230}:{ x: 60 + index * 280, y: 70 + (index % 2) * 40 },
+      data: { lending:Boolean(lending), title: lending?(node.nodeId==='lending-supply'?'Aave Supply':node.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap'):node.actionType==='asset.transfer'?'Self-transfer test ETH':lending&&node.actionType==='asset.swap.exact-input'?'Borrowed Aave USDC → WETH':node.actionType==='withdraw'?'Withdraw from Aave V3':node.actionType==='repay'?'Repay to Aave V3':node.actionType==='borrow'?'Borrow from Aave V3':node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : orcaPosition ? 'SOL/devUSDC position' : solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType==='asset.transfer'?`${transferDetails(node as Parameters<typeof transferDetails>[0])?.amount} ETH · Robinhood Testnet`:lending?(node.actionType==='supply'?`${lending.supply} USDC collateral`:node.actionType==='borrow'?`${lending.borrow} USDC · HF checkpoint ≥ 2.0`:`Exactly ${lending.borrow} borrowed USDC`):node.actionType==='withdraw'?`${withdrawDetails(node as Parameters<typeof withdrawDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='repay'?`${repayDetails(node as Parameters<typeof repayDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='borrow'?`${borrowDetails(node as Parameters<typeof borrowDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : orcaPosition ? `${orcaPosition.lowerPrice}–${orcaPosition.upperPrice} devUSDC/SOL · ${orcaPosition.network}` : solana ? `${solana.amount} ${solana.from} · ${solana.network} · ${solana.slippage} bps` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, supply: ['supply','borrow','repay','withdraw'].includes(node.actionType), swap: node.actionType === SWAP_ACTION, solana: Boolean(solana || orcaPosition), solanaKind: solana ? solanaSwapLabels(solana.network).kind : orcaPosition ? 'SOLANA DEVNET · ORCA' : undefined, solanaProvider: solana ? solanaSwapLabels(solana.network).provider : orcaPosition ? orcaPosition.provider : undefined, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, simulate },
     };
   }), [workflow, overlay, context]);
-  const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
+  const edges = useMemo(() => (lendingCanvasEdges(workflow)??workflow.resourceEdges.map(edge => ({
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId, label: edge.outputId === 'swap-input' ? 'Calculated swap USDC' : edge.outputId === 'liquidity-usdc' ? 'Reserved liquidity USDC' : edge.outputId === 'liquidity-weth' ? 'Existing WETH' : edge.outputId === 'amount-out' && edge.inputName === 'amount0-max' ? 'Reconciled WETH output' : edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap' ? 'WETH output reference' : edge.inputName === 'amount-in' ? 'Arbitrum USDC output' : 'sample units', animated: false,
-  })), [workflow]);
+  }))), [workflow]);
   const swaps = workflow.nodes.filter(n => n.actionType === SWAP_ACTION).length;
   const bridges = workflow.nodes.filter(n => n.actionType === 'asset.bridge').length;
   const [viewportState, setViewportState] = useState<ViewportState>('pending');
@@ -192,8 +200,9 @@ export function WorkflowCanvas(props: { selectedId: string | null; select: (id: 
 }
 
 function BuildCanvas({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
-  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes } = useWorkflow();
+  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose } = useWorkflow();
   const workflow: Workflow = state.workflow;
+  const wallet=useBuild009Wallet();
   const [selectedIds, setSelectedIds] = useState<readonly string[]>(() => selectedId ? [selectedId] : []);
   const selectedIdsRef = useRef<readonly string[]>(selectedId ? [selectedId] : []);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -288,8 +297,8 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     const lower = node.inputs.find(i => i.name === 'tick-lower');
     const upper = node.inputs.find(i => i.name === 'tick-upper');
     const range = lower?.kind === 'IDENTIFIER' && upper?.kind === 'IDENTIFIER' ? `${lower.value.slice(5)}–${upper.value.slice(5)}` : 'unreviewed';
-    return { id: node.nodeId, type: 'workflow', position: canvasPosition(canvasLayout, node, index), selected: selectedIds.includes(node.nodeId),
-      data: { title: node.actionType==='asset.transfer'?'Self-transfer test ETH':lending&&node.actionType==='asset.swap.exact-input'?'Borrowed Aave USDC → WETH':node.actionType==='withdraw'?'Withdraw from Aave V3':node.actionType==='repay'?'Repay to Aave V3':node.actionType==='borrow'?'Borrow from Aave V3':node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : orcaPosition ? 'SOL/devUSDC position' : solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType==='asset.transfer'?`${transferDetails(node as Parameters<typeof transferDetails>[0])?.amount} ETH · Robinhood Testnet`:lending?(node.actionType==='supply'?`${lending.supply} USDC collateral`:node.actionType==='borrow'?`${lending.borrow} USDC · HF checkpoint ≥ 2.0`:`Exactly ${lending.borrow} borrowed USDC`):node.actionType==='withdraw'?`${withdrawDetails(node as Parameters<typeof withdrawDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='repay'?`${repayDetails(node as Parameters<typeof repayDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='borrow'?`${borrowDetails(node as Parameters<typeof borrowDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : orcaPosition ? `${orcaPosition.lowerPrice}–${orcaPosition.upperPrice} devUSDC/SOL · ${orcaPosition.network}` : solana ? `${solana.amount} ${solana.from} · ${solana.network} · ${solana.slippage} bps` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedIds.includes(node.nodeId), supply: ['supply','borrow','repay','withdraw'].includes(node.actionType), swap: node.actionType === SWAP_ACTION, solana: Boolean(solana || orcaPosition), solanaKind: solana ? solanaSwapLabels(solana.network).kind : orcaPosition ? 'SOLANA DEVNET · ORCA' : undefined, solanaProvider: solana ? solanaSwapLabels(solana.network).provider : orcaPosition ? orcaPosition.provider : undefined, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined },
+    return { id: node.nodeId, type: 'workflow', position: canvasLayout[node.nodeId]?canvasPosition(canvasLayout,node,index):lending?{x:180,y:35+index*230}:canvasPosition(canvasLayout,node,index), selected: selectedIds.includes(node.nodeId),
+      data: { lending:Boolean(lending), title: lending?(node.nodeId==='lending-supply'?'Aave Supply':node.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap'):node.actionType==='asset.transfer'?'Self-transfer test ETH':lending&&node.actionType==='asset.swap.exact-input'?'Borrowed Aave USDC → WETH':node.actionType==='withdraw'?'Withdraw from Aave V3':node.actionType==='repay'?'Repay to Aave V3':node.actionType==='borrow'?'Borrow from Aave V3':node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : orcaPosition ? 'SOL/devUSDC position' : solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType==='asset.transfer'?`${transferDetails(node as Parameters<typeof transferDetails>[0])?.amount} ETH · Robinhood Testnet`:lending?(node.actionType==='supply'?`${lending.supply} USDC collateral`:node.actionType==='borrow'?`${lending.borrow} USDC · HF checkpoint ≥ 2.0`:`Exactly ${lending.borrow} borrowed USDC`):node.actionType==='withdraw'?`${withdrawDetails(node as Parameters<typeof withdrawDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='repay'?`${repayDetails(node as Parameters<typeof repayDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='borrow'?`${borrowDetails(node as Parameters<typeof borrowDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : orcaPosition ? `${orcaPosition.lowerPrice}–${orcaPosition.upperPrice} devUSDC/SOL · ${orcaPosition.network}` : solana ? `${solana.amount} ${solana.from} · ${solana.network} · ${solana.slippage} bps` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: selectedIds.includes(node.nodeId), supply: ['supply','borrow','repay','withdraw'].includes(node.actionType), swap: node.actionType === SWAP_ACTION, solana: Boolean(solana || orcaPosition), solanaKind: solana ? solanaSwapLabels(solana.network).kind : orcaPosition ? 'SOLANA DEVNET · ORCA' : undefined, solanaProvider: solana ? solanaSwapLabels(solana.network).provider : orcaPosition ? orcaPosition.provider : undefined, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, runtime: crossChain ? runtime[node.nodeId] : undefined },
     };
   }), [workflow, selectedIds, context, canvasLayout, runtime]);
   // Live pointer positions stay in React Flow state; layout is committed on release.
@@ -304,11 +313,15 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   const [repaySetup,setRepaySetup]=useState(false);
   const [borrowSetup,setBorrowSetup]=useState(false);
   const [supplySetup, setSupplySetup] = useState(false);
-  const edges = useMemo(() => workflow.resourceEdges.map(edge => ({
+  const edges = useMemo(() => (lendingCanvasEdges(workflow)??workflow.resourceEdges.map(edge => ({
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId,
     label: edge.outputId === 'swap-input' ? 'Calculated swap USDC' : edge.outputId === 'liquidity-usdc' ? 'Reserved liquidity USDC' : edge.outputId === 'liquidity-weth' ? 'Existing WETH' : edge.outputId === 'amount-out' && edge.inputName === 'amount0-max' ? 'Reconciled WETH output' : edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap' ? 'WETH output reference' : edge.inputName === 'amount-in' ? 'Arbitrum USDC output' : 'sample units', animated: false, selected: selectedEdge?.from === edge.fromNodeId && selectedEdge?.to === edge.toNodeId,
-  })), [workflow, selectedEdge]);
-  function addAction(action: 'swap' | 'supply' | 'repay' | 'withdraw' | ActionKind) {
+  }))).map(edge=>({...edge,selected:selectedEdge?.from===edge.source&&selectedEdge?.to===edge.target})), [workflow, selectedEdge]);
+  function addAction(action: 'swap' | 'supply' | 'repay' | 'withdraw' | 'lending' | ActionKind) {
+    if(action==='lending'){
+      if(!wallet.account){setFeedback('Connect your MetaMask owner wallet before adding the three steps.');return;}
+      propose({type:'AUTHOR_LENDING',input:{supply:'0.1',borrow:'0.01',slippage:'50',owner:wallet.account},source:'CANVAS',baseRevision:workflow.revision});return;
+    }
     if(action==='withdraw'){setWithdrawSetup(true);return;}
     if(action==='repay'){setRepaySetup(true);return;}
     if(action==='borrow'){setBorrowSetup(true);return;}
@@ -380,14 +393,14 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
   }
   const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Canvas tools">
     {actions.map(action => <button key={action} type="button"
-      title={action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add a ' + actionLabel(action) + ' template'}
-      aria-label={'Add ' + action} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
+      title={action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add a ' + actionLabel(action) + ' template'}
+      aria-label={action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
     <span className="toolbox-divider" aria-hidden="true"/>
     <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
     <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>Undo</span></button>
     <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
   </div>;
-  return <section className="canvas panel" aria-label="Workflow canvas">
+  return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label="Workflow canvas">
     <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{workflow.nodes.length} steps</span></div>
     {withdrawSetup&&<div role="dialog" aria-label="Configure Withdraw" className="panel"><WithdrawAuthoringForm direct onDone={()=>setWithdrawSetup(false)}/></div>}
     {repaySetup&&<div role="dialog" aria-label="Configure Repay" className="panel"><RepayAuthoringForm direct onDone={()=>setRepaySetup(false)}/></div>}
@@ -395,8 +408,8 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     {supplySetup && <div role="dialog" aria-label="Configure Supply" className="panel"><SupplyAuthoringForm direct onDone={() => setSupplySetup(false)}/></div>}
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView minZoom={0.35} maxZoom={1.4}
-        nodesDraggable nodesConnectable deleteKeyCode={null} selectNodesOnDrag={false} panOnDrag={[1, 2]}
+      <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView minZoom={0.35} maxZoom={1.4}
+        nodesDraggable nodesConnectable={!isLendingComposition(workflow)} deleteKeyCode={null} selectNodesOnDrag={false} panOnDrag={[1, 2]}
         onNodeClick={(event, node) => {
           if (ignorePaneClick.current) return;
           if (event.shiftKey) {
@@ -414,6 +427,6 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
       {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
     </div>
-    <div className="canvas-foot"><span>Drag steps to arrange your workflow.</span><span>Select a step or connection to edit.</span></div>
+    <div className="canvas-foot"><span>{isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Drag steps to arrange your workflow.'}</span><span>{isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Select a step or connection to edit.'}</span></div>
   </section>;
 }

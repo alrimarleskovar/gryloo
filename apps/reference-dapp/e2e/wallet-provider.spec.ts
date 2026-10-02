@@ -59,8 +59,7 @@ for (const mode of ['legacy', 'eip6963'] as const) {
   test(`${mode}: top bar and lending execution use MetaMask Base Sepolia instead of aggregate Brave`, async ({ page }) => {
     await install(page, mode); await page.goto('/');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
-    await page.getByText('Advanced action setup', { exact: true }).click();
-    await page.getByRole('form', { name: 'Compose lending' }).getByRole('button', { name: 'Review lending proposal' }).click();
+    await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
     await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
     await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
     await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();

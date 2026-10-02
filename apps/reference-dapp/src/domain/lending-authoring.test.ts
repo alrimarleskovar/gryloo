@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {describe,it,expect} from 'vitest';
-import {createAuthoredLending} from './lending-authoring';
+import {createAuthoredLending,lendingNodeInput,lendingCanvasEdges} from './lending-authoring';
 import {parseLocalCommand} from './commands';
 import {editorReducer,initialEditor} from './editor';
 import {describeProposal} from './proposal';
@@ -12,6 +12,25 @@ import {simulateLendingComposition,assertLendingReview,assertLendingFresh,readLe
 const context=createBaseSepoliaReviewContext(),input={supply:'0.1',borrow:'0.01',slippage:'50',owner:OWNER};
 const workflow=createAuthoredLending('lending',0,input);
 describe('BUILD-013 finite semantics, commitments, simulation and safety',()=>{
+  it.each([['lending-supply','0.2','supplyAmount','200000'],['lending-borrow','0.02','borrowAmount','20000'],['lending-swap','100','slippageBps',100]] as const)('edits %s independently and preserves canonical OUTPUT_REFERENCE and policy dependency',(nodeId,value,field,expected)=>{
+    const changed=createAuthoredLending(workflow.workflowId,1,lendingNodeInput(workflow,nodeId,value));
+    validateAuthoringWorkflow(changed,context);
+    const fields=readLendingComposition(changed);
+    expect(fields).toEqual({...readLendingComposition(workflow),[field]:expected});
+    expect(changed.nodes.map(n=>n.nodeId)).toEqual(['lending-supply','lending-borrow','lending-swap']);
+    expect(changed.nodes[2]!.inputs[0]).toEqual({name:'amount-in',kind:'OUTPUT_REFERENCE',value:{nodeId:'lending-borrow',outputId:'borrowed-amount'}});
+    expect(changed.resourceEdges).toEqual(workflow.resourceEdges);
+    expect(changed.nodes[1]!.dependencies).toEqual(['lending-supply']);
+    expect(changed.nodes[2]!.userConstraints[0]).toMatchObject({quantity:{amount:fields.borrowAmount}});
+  });
+  it('projects a Supply dependency/checkpoint and typed Borrow edge without adding semantic nodes',()=>{
+    expect(lendingCanvasEdges(workflow)).toEqual([
+      {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Policy checkpoint · HF ≥ 2'},
+      {id:'lending-borrow-lending-swap',source:'lending-borrow',target:'lending-swap',label:'Borrowed USDC · OUTPUT_REFERENCE'},
+    ]);
+    expect(()=>lendingNodeInput(workflow,'POOL_APPROVAL','1')).toThrow('LENDING_NODE_INVALID');
+    expect(()=>lendingNodeInput(workflow,'lending-swap','301')).toThrow();
+  });
   it('Chat and Canvas proposals produce identical IR only after explicit acceptance',()=>{
     const before=initialEditor(),chat=parseLocalCommand(`compose supply 0.1 USDC to Aave then borrow 0.01 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner ${OWNER}`,before.workflow,context);
     const canvas={type:'AUTHOR_LENDING' as const,input,source:'CANVAS' as const,baseRevision:0};

@@ -5,6 +5,7 @@ import { createReviewContext } from '@defi-workflow-engine/reference-linter';
 import { amountOf, type Command } from './commands';
 import { deletableCanvasNodes } from './canvas-keyboard';
 import { editorHistoryReducer, initialEditorHistory, planCanvasDuplicate, type EditorHistory } from './editor-history';
+import {createAuthoredLending} from './lending-authoring';
 
 const context = createReviewContext({ registryId: referenceRegistry.registryId,
   capabilityId: referenceRegistry.capabilities[0]?.id, actionId: referenceRegistry.actions[0]?.id, assets: baseAssetRegistry });
@@ -15,6 +16,14 @@ const add = (state: EditorHistory, kind: 'read' | 'transform' | 'condition' = 't
   edit(state, { type: 'ADD', kind, source: 'CANVAS' });
 
 describe('canvas edit history', () => {
+  it('restores the exact durable lending IR only into an untouched Canvas; edited Canvas cannot be overwritten',()=>{
+    const workflow=createAuthoredLending('workflow-local',3,{supply:'0.1',borrow:'0.01',slippage:'50',owner:'0x1111111111111111111111111111111111111111'});
+    const initial=initialEditorHistory(),restored=editorHistoryReducer(initial,{type:'RESTORE_LENDING_CANVAS',workflow});
+    expect(restored.editor.workflow).toEqual(workflow);expect(restored.past).toHaveLength(0);
+    const edited=add(initial);expect(editorHistoryReducer(edited,{type:'RESTORE_LENDING_CANVAS',workflow})).toBe(edited);
+    const invalid=structuredClone(workflow);invalid.nodes[2]!.inputs=[];
+    expect(editorHistoryReducer(initial,{type:'RESTORE_LENDING_CANVAS',workflow:invalid})).toBe(initial);
+  });
   it('duplicates one selected node with a new ID and one undoable offset', () => {
     let state = initialEditorHistory();
     const before = state.past.length;

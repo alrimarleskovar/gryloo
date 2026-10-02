@@ -18,3 +18,23 @@ export function lendingDetails(workflow:SemanticWorkflow|Workflow):LendingInput|
   if(!isLendingComposition(workflow))return null;
   const f=readLendingComposition(workflow as SemanticWorkflow);return {supply:lendingHuman(f.supplyAmount),borrow:lendingHuman(f.borrowAmount),slippage:String(f.slippageBps),owner:f.owner};
 }
+
+/** A Canvas edit changes one semantic parameter; the canonical constructor keeps the typed linkage. */
+export function lendingNodeInput(workflow:SemanticWorkflow|Workflow,nodeId:string,value:string):LendingInput {
+  const input=lendingDetails(workflow);
+  if(!input)throw Error('LENDING_WORKFLOW_REQUIRED');
+  const field=nodeId==='lending-supply'?'supply':nodeId==='lending-borrow'?'borrow':nodeId==='lending-swap'?'slippage':null;
+  if(!field)throw Error('LENDING_NODE_INVALID');
+  const next={...input,[field]:value};
+  createAuthoredLending(workflow.workflowId,workflow.revision+1,next);
+  return next;
+}
+
+/** Dependency/checkpoint projection only: never add an approval or checkpoint to the semantic IR. */
+export function lendingCanvasEdges(workflow:SemanticWorkflow|Workflow) {
+  if(!isLendingComposition(workflow))return null;
+  return [
+    {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Policy checkpoint · HF ≥ 2'},
+    ...workflow.resourceEdges.map(edge=>({id:`${edge.fromNodeId}-${edge.toNodeId}`,source:edge.fromNodeId,target:edge.toNodeId,label:'Borrowed USDC · OUTPUT_REFERENCE'})),
+  ];
+}

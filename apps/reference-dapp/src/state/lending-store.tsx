@@ -12,7 +12,7 @@ type State={record:LendingRecord|null;busy:boolean;error:string|null;retired:boo
   simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;refresh():Promise<void>;cancelPrepared():Promise<void>};
 const Context=createContext<State|null>(null),key='gryloo.lending-composition.v1';
 export function LendingProvider({children}:{children:ReactNode}){
-  const {state}=useWorkflow(),wallet=useBuild009Wallet(),workflow=state.workflow as SemanticWorkflow;
+  const {state,restoreLendingCanvas}=useWorkflow(),wallet=useBuild009Wallet(),workflow=state.workflow as SemanticWorkflow;
   const [record,setRecord]=useState<LendingRecord|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[recovered,setRecovered]=useState(false),[signing,setSigning]=useState(false);
   const latest=useRef(workflow);latest.current=workflow;const walletRef=useRef(wallet);walletRef.current=wallet;const busyRef=useRef(false);
   const pristine=recovered&&workflow.revision===0&&workflow.nodes.every(n=>n.actionType.startsWith('mock-'));
@@ -26,17 +26,19 @@ export function LendingProvider({children}:{children:ReactNode}){
       if(typeof pointer?.id==='string'&&/^lending-[a-f0-9]{32}$/.test(pointer.id))(async()=>{
         if(typeof pointer.attempt==='string'&&typeof pointer.hash==='string'&&/^0x[0-9a-f]{64}$/.test(pointer.hash))await lendingReport(pointer.id,pointer.attempt,{kind:'HASH',hash:pointer.hash}).catch(()=>undefined);
         return lendingStatus(pointer.id);
-      })().then(result=>{if(live&&result.ok){setRecord(result.value);setRecovered(true);}}).catch(()=>undefined);
+      })().then(result=>{if(live&&result.ok){setRecord(result.value);setRecovered(true);restoreLendingCanvas(result.value.reviews[0]!.workflow);}}).catch(()=>undefined);
     }catch{setError('LENDING_RECOVERY_POINTER_INVALID');}
     return()=>{live=false;};
-  },[]);
+  },[restoreLendingCanvas]);
   useEffect(()=>{if(record&&retired&&record.authorization)lendingInvalidate(record.id).then(r=>{if(r.ok)setRecord(r.value);}).catch(()=>setError('LENDING_INVALIDATION_FAILED'));},[record,retired]);
   async function operation(action:()=>Promise<void>){if(busyRef.current)return;busyRef.current=true;setBusy(true);setError(null);try{await action();}catch(cause){setError(cause instanceof Error?cause.message:'LENDING_OPERATION_FAILED');}finally{busyRef.current=false;setBusy(false);}}
   async function simulate(){return operation(async()=>{
     if(record?.attempts.some(a=>!a.reconciled&&!a.notSubmitted))throw Error('LENDING_EXISTING_ATTEMPT_OBSERVE_ONLY');
     const snapshot=latest.current,authored=pristine?record!.reviews[0]!.workflow:snapshot;
     if(!isLendingComposition(authored))throw Error('LENDING_WORKFLOW_REQUIRED');
-    const result=await lendingSimulate(authored,wallet.account??readLendingComposition(authored).owner);if(!result.ok)throw Error(result.code);
+    // Preserve durable nonce/economic reservations after a proved cancellation or completed checkpoint.
+    // The existing refresh path creates a fresh simulation/Review in the same run, with no retry or owner request.
+    const result=record?.attempts.length&&!retired?await lendingRefresh(record.id):await lendingSimulate(authored,wallet.account??readLendingComposition(authored).owner);if(!result.ok)throw Error(result.code);
     if(latest.current!==snapshot)throw Error('LENDING_SEMANTIC_EDIT_REQUIRES_REVIEW');accept(result.value);
   });}
   async function review(){return operation(async()=>{if(!record||retired)throw Error('LENDING_SIMULATION_REQUIRED');const r=record.reviews.at(-1)!;

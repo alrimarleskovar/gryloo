@@ -20,7 +20,7 @@ test('normal Build keeps capability details internal and authoring wallet-free',
 
 test('unsupported workflow stays out of public execution without permanent diagnostics', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Add lending' }).click();
+  await page.getByRole('button', { name: 'Add pool' }).click();
   await expect(page.getByRole('region', { name: 'Workflow readiness' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Execute unavailable' })).toBeVisible();

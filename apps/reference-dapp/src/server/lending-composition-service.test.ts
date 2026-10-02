@@ -77,6 +77,24 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     r=await service.cancelPrepared(r.id,b.attemptId);expect(r.attempts[0]!.notSubmitted).toBe(true);expect(model.transactions).toHaveLength(0);
     model.state.swapAvailable=true;r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);await step(service,model,r.id);
   }));
+  it('retains two historical cancellations through reload and fresh Review, then permits exactly one new POOL_APPROVAL preparation',()=>fixture(async({model,service,dir})=>{
+    let r=await authorized(service);
+    for(let i=0;i<2;i++){
+      const b=await service.begin(r.id,OWNER,workflow);r=await service.cancelPrepared(r.id,b.attemptId);
+      expect(r.attempts.at(-1)).toMatchObject({step:'POOL_APPROVAL',state:'CANCELLED',notSubmitted:true,hash:null});
+      r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    }
+    const before=await readFile(join(dir,r.id+'.jsonl'),'utf8'),oldAttempts=structuredClone(r.attempts);
+    const restarted=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+    r=await restarted.refreshReview(r.id);expect(r.authorization).toBeNull();
+    r=await restarted.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const b=await restarted.begin(r.id,OWNER,workflow);
+    expect(b.record.attempts.slice(0,2)).toEqual(oldAttempts);
+    expect(b.record.attempts.at(-1)).toMatchObject({step:'POOL_APPROVAL',state:'PREPARED'});expect(b.record.attempts.at(-1)!.notSubmitted).not.toBe(true);
+    expect((await readFile(join(dir,r.id+'.jsonl'),'utf8')).startsWith(before)).toBe(true);
+    await expect(restarted.begin(r.id,OWNER,workflow)).rejects.toThrow();
+    expect(model.transactions).toHaveLength(0);
+  }));
   it.each(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP'])('restart observes an unknown %s without a second submission',target=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);
     while(r.reviews[0]!.calls.find(c=>!r.attempts.some(a=>a.step===c.id&&a.reconciled))?.id!==target)r=await step(service,model,r.id);

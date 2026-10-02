@@ -17,8 +17,8 @@ export function LendingAuthoringForm(){
     propose({type:'AUTHOR_LENDING',input:fields,source:'CANVAS',baseRevision:state.workflow.revision});setError('');
   }catch{setError('Enter positive USDC amounts, slippage from 1 to 300 bps, and connect your owner wallet.');}}
   return <form className="inspector-fields" aria-label="Compose lending" onSubmit={submit}>
-    <strong>Aave lending → WETH · Base Sepolia</strong>
-    <p>Use collateral to borrow USDC and convert that borrowed exposure into WETH. Debt remains.</p>
+    <strong>Template: Aave Supply → Aave Borrow → Uniswap Swap</strong>
+    <p>Expands into the same three editable Canvas nodes on Base Sepolia. Debt remains.</p>
     <label>Supply collateral (USDC)<input aria-label="Composition supply USDC" value={input.supply} inputMode="decimal" maxLength={80} onChange={e=>set('supply',e.target.value)}/></label>
     <label>Borrow (USDC)<input aria-label="Composition borrow USDC" value={input.borrow} inputMode="decimal" maxLength={80} onChange={e=>set('borrow',e.target.value)}/></label>
     <label>Swap slippage (bps)<input aria-label="Composition slippage bps" value={input.slippage} inputMode="numeric" maxLength={3} onChange={e=>set('slippage',e.target.value)}/></label>
@@ -44,6 +44,8 @@ export function LendingPanel({view}:{view:'simulate'|'execute'}){
   const {state}=useWorkflow(),run=useLending(),record=run.record,review=record?.reviews.at(-1),fields=review?.fields;
   const authored=isLendingComposition(state.workflow)?lendingDetails(state.workflow as SemanticWorkflow):null;
   const pending=record?.attempts.find(a=>!a.reconciled&&!a.notSubmitted),hasBorrow=record?.attempts.some(a=>a.step==='BORROW'&&a.reconciled);
+  const historical=record?.attempts.filter(a=>a.state==='CANCELLED'&&a.notSubmitted&&!a.reconciled)??[];
+  const active=record?.attempts.filter(a=>!historical.includes(a))??[];
   const finished=record?.status==='COMPLETED',next=review?.calls.find(c=>!record?.attempts.some(a=>a.step===c.id&&a.reconciled));
   const info=run.error??record?.error,current=record?.currentPosition;
   const checkpoint=(step:'SUPPLY'|'BORROW'|'SWAP')=>record?.observations.filter(o=>o.step===step&&o.verdict==='RECONCILED').at(-1)?.post;
@@ -61,22 +63,23 @@ export function LendingPanel({view}:{view:'simulate'|'execute'}){
       <p>Resulting exposure: USDC collateral, USDC variable debt and WETH in the owner wallet. Borrowed-funds linkage is accounting provenance for fungible tokens.</p>
       <p>Owner / all recipients: {review.fields.owner}. Aave USDC: {p.asset}. Output WETH: {u.weth}. Compatible Uniswap pool: {review.route.pool}.</p>
       <p>Exact authorizations: {review.calls.some(c=>c.id==='POOL_APPROVAL')?`${lendingHuman(review.fields.supplyAmount)} USDC to Aave Pool ${p.pool}; `:'existing Aave allowance; '}{review.calls.some(c=>c.id==='ROUTER_APPROVAL')?`${lendingHuman(review.fields.borrowAmount)} USDC to Uniswap router ${u.router}`:'existing router allowance'}. Each listed transaction requires your wallet signature.</p>
-      <ol>{review.calls.map(c=>{const a=record?.attempts.filter(a=>a.step===c.id).at(-1);return <li key={c.id}>{c.id.replaceAll('_',' ')} · {a?a.reconciled?'reconciled':a.state:'PLANNED'}{c.id==='BORROW'?' · waits for reconciled Supply and fresh HF':c.id==='SWAP'?' · waits for reconciled Borrow and fresh route/HF':''}</li>;})}</ol>
+      <ol>{review.calls.map(c=>{const a=active.filter(a=>a.step===c.id).at(-1);return <li key={c.id}>{c.id.replaceAll('_',' ')} · {a?a.reconciled?'reconciled':a.state:next?.id===c.id?'NEXT EXECUTABLE STEP':'PLANNED'}{c.id==='BORROW'?' · waits for reconciled Supply and fresh HF':c.id==='SWAP'?' · waits for reconciled Borrow and fresh route/HF':''}</li>;})}</ol>
     </>}
+    {historical.length>0&&<details aria-label="Historical cancelled attempts"><summary>Historical cancelled attempts ({historical.length}) · not submitted</summary><p>These preparations were cancelled before wallet handoff. They remain in the durable journal and do not complete or block the current step. A fresh Review and your explicit execution click are required.</p><ul>{historical.map(a=><li key={a.id}>{a.step.replaceAll('_',' ')} · historical cancelled preparation · {a.id}</li>)}</ul></details>}
     {run.retired&&<p role="alert">The workflow changed. Previous authority is invalid. Observe any existing transaction before preparing a new workflow.</p>}
-    {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)||Boolean(record?.attempts.length&&!run.retired)} onClick={()=>void run.simulate()}>Simulate lending composition</button>:<>
+    {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)||Boolean(finished&&!run.retired)} onClick={()=>void run.simulate()}>Simulate lending composition</button>:<>
       {record&&!record.authorization&&!pending&&!finished&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.review()}>Accept composed Review</button>}
       {record?.authorization&&!pending&&!finished&&!run.retired&&next&&<button type="button" className="primary" disabled={run.busy} onClick={()=>void run.execute()}>Execute {next.id.replaceAll('_',' ').toLowerCase()}</button>}
-      {record?.attempts.map(a=><p key={a.id}>{a.step}: {a.reconciled?'reconciled':a.state}{a.hash&&<> · <a href={`https://sepolia.basescan.org/tx/${a.hash}`} target="_blank" rel="noreferrer">Transaction</a></>}</p>)}
+      {active.map(a=><p key={a.id}>{a.step}: {a.reconciled?'reconciled':a.state}{a.hash&&<> · <a href={`https://sepolia.basescan.org/tx/${a.hash}`} target="_blank" rel="noreferrer">Transaction</a></>}</p>)}
       {pending?.state==='PREPARED'&&<button type="button" disabled={run.busy} onClick={()=>void run.cancelPrepared()}>Cancel unsubmitted preparation</button>}
-      {record?.attempts.length?<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing execution</button>:null}
+      {active.length?<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing execution</button>:null}
       {record&&!pending&&!finished&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.refresh()}>Fresh Simulate and Review of remaining steps</button>}
       {hasBorrow&&!finished&&<p role="alert">Borrow has completed. Supply and Borrow will not repeat. Debt and remaining USDC stay explicit. Continuation needs fresh state and owner authority; no automatic second Swap attempt.</p>}
       {current&&<p>Observed at block {current.aave.block}. Current observed collateral: {lendingHuman(current.aave.position)} USDC · debt: {lendingHuman(current.aave.borrow!.debt)} USDC · HF: {health(current.aave.borrow!.healthFactor)} · wallet USDC: {lendingHuman(current.aave.balance)} · wallet WETH: {lendingHuman(current.wethBalance,18)} · residual allowances: Aave {lendingHuman(current.aave.allowance)} / router {lendingHuman(current.routerAllowance)} USDC.</p>}
       {record?.evidence&&<><p>{record.evidence.bundle.environment} / {record.evidence.bundle.outcome}. {finished?'Composed economic outcome reconciled. Independent public verification is a separate read-only step.':'Partial execution evidence; no completed composed outcome is claimed.'}</p><a download="gryloo-build013-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download composed Evidence Bundle</a></>}
       {record&&<a download="gryloo-build013-run.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>}
     </>}
-    {info&&<p role="status">{messages[info]??'The composed path needs attention. No new transaction is authorized; inspect details and observe existing execution.'}</p>}
+    {info&&info!=='LENDING_CANCELLED_BEFORE_HANDOFF'&&<p role="status">{messages[info]??'The composed path needs attention. No new transaction is authorized; inspect details and observe existing execution.'}</p>}
     <details><summary>Show composed technical details</summary><pre>{JSON.stringify({error:info,review,record},null,2)}</pre></details>
   </section>;
 }
