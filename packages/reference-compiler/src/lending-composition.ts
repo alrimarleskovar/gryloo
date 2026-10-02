@@ -20,11 +20,39 @@ export type LendingReview = { format: 'gryloo.lending-review.v1'; workflow: Sema
   plan: ExecutionPlan; commitment: string };
 const order: LendingStepId[] = ['POOL_APPROVAL', 'SUPPLY', 'BORROW', 'ROUTER_APPROVAL', 'SWAP'];
 export const lendingSteps = order;
+// Match the existing 2x fee-price headroom in Supply and this composition.
+// This is a finite owner-reviewed ceiling for the 120-second window, not a promise
+// that fees cannot double. An estimate above it still requires a new Review.
+export const LENDING_L1_FEE_CEILING_MULTIPLIER = 2n;
 const uint = (value: string) => { if (!/^(0|[1-9][0-9]{0,77})$/.test(value) || BigInt(value) >= 1n << 256n) throw Error('LENDING_VALUE_INVALID'); return BigInt(value); };
 const words = (value: unknown, count: number): bigint[] => {
   const data = rpcHex(value).slice(2); if (data.length !== count * 64) throw Error('LENDING_RPC_INVALID');
   return data.match(/.{64}/g)!.map(w => BigInt('0x' + w));
 };
+export async function readLendingL1FeeUpperBound(rpc: SupplyRpc, callCount: number, tag: string): Promise<string> {
+  if (!Number.isSafeInteger(callCount) || callCount < 1 || callCount > order.length) throw Error('LENDING_FEE_BUDGET_INVALID');
+  const fee = rpcUint(await rpc('eth_call', [{to:u.gasOracle,data:supplyCall('getL1FeeUpperBound(uint256)',8192n)},tag]));
+  return (fee * BigInt(callCount)).toString();
+}
+/** Existing Manifest budgets are authority; l1FeeUpperBound is the pinned estimate. */
+export function lendingFeeCeilings(review: LendingReview) {
+  const fee = review.manifest.feeBudgets, gas = review.manifest.gasBudgets;
+  const native = (asset: (typeof fee)[number]['asset']) => asset.chainId === p.chain && 'nativeId' in asset && asset.nativeId === 'ETH' && asset.decimals === 18;
+  if (fee.length !== 1 || gas.length !== 1 || !native(fee[0]!.asset) || !native(gas[0]!.asset) ||
+      supplyHash(fee) !== supplyHash(review.policy.feeBudgets) || supplyHash(gas) !== supplyHash(review.policy.gasBudgets)) throw Error('LENDING_COMMITMENT_INVALID');
+  const maximumL1Fee = uint(fee[0]!.maximumAmount), maximumNetworkFee = uint(gas[0]!.maximumAmount);
+  const executionMaximum = review.calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(review.gasPrice),0n);
+  if (maximumL1Fee < uint(review.l1FeeUpperBound) || maximumNetworkFee !== uint(review.gasBudget) ||
+      maximumNetworkFee !== executionMaximum + maximumL1Fee) throw Error('LENDING_COMMITMENT_INVALID');
+  return {maximumL1Fee,maximumNetworkFee};
+}
+/** Neither a live estimate nor a continuation can enlarge accepted/root authority. */
+export function assertLendingFeeBudgets(review: LendingReview, currentL1Fee: string, remainingNetworkMaximum: string,
+  rootReview = review, consumedNetworkCost = '0', consumedL1Fee = '0'): void {
+  const current = lendingFeeCeilings(review), root = lendingFeeCeilings(rootReview);
+  if (uint(currentL1Fee) > current.maximumL1Fee || uint(currentL1Fee) + uint(consumedL1Fee) > root.maximumL1Fee) throw Error('LENDING_FINAL_L1_FEE_BUDGET_CHANGED');
+  if (uint(remainingNetworkMaximum) > current.maximumNetworkFee || uint(remainingNetworkMaximum) + uint(consumedNetworkCost) > root.maximumNetworkFee) throw Error('LENDING_REVIEW_STALE');
+}
 export function assertLendingFields(workflow: SemanticWorkflow, account: string) {
   const f = readLendingComposition(workflow);
   if (f.chain !== p.chain || f.collateral.address !== p.asset || f.borrowed.address !== p.asset || f.output.address !== u.weth ||
@@ -110,7 +138,7 @@ function simulatedSnapshot(before: LendingSnapshot, responses: Record<string, un
 }
 /** Rejects unsupported simulation; no state override, replacement token, pool creation or send exists here. */
 export async function simulateLendingComposition(workflow: SemanticWorkflow, account: string, rpc: SupplyRpc,
-  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string } = {}): Promise<LendingReview> {
+  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string } = {}): Promise<LendingReview> {
   const now = options.now ?? Date.now(), f = assertLendingFields(workflow, account), completed = options.completed ?? [];
   const route = await readLendingRoute(rpc, f.borrowAmount, f.slippageBps, now, 'latest', options.minimumOut);
   const state = await readLendingSnapshot(rpc, account, supplyHex(route.block)), rootState = options.rootState ?? state;
@@ -165,9 +193,11 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
   if(afterBorrow.aave.scaledPosition!==projected.afterSwap.aave.scaledPosition||afterBorrow.aave.borrow!.scaledDebt!==projected.afterSwap.aave.borrow!.scaledDebt)throw Error('LENDING_SIMULATION_PRINCIPAL_MISMATCH');
   const expectedUsdc = uint(state.aave.balance) - (completed.includes('SUPPLY') ? 0n : uint(f.supplyAmount)) + (completed.includes('BORROW') ? 0n : uint(f.borrowAmount)) - uint(f.borrowAmount);
   if (uint(projected.afterSwap.aave.balance) !== expectedUsdc || uint(projected.afterSwap.wethBalance) - uint(state.wethBalance) < uint(route.minimumOut)) throw Error('LENDING_SIMULATION_EXPOSURE_MISMATCH');
-  const fee = rpcUint(await rpc('eth_call', [{ to: u.gasOracle, data: supplyCall('getL1FeeUpperBound(uint256)', 8192n) }, supplyHex(route.block)]));
-  const l1FeeUpperBound = (fee * BigInt(calls.length)).toString();
-  const gasBudget = (calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(gasPrice), 0n) + uint(l1FeeUpperBound)).toString();
+  const l1FeeUpperBound = await readLendingL1FeeUpperBound(rpc,calls.length,supplyHex(route.block));
+  // Rechecks reuse the accepted ceiling; only a new Simulate creates headroom.
+  const maximumL1Fee = options.maximumL1Fee === undefined ? uint(l1FeeUpperBound) * LENDING_L1_FEE_CEILING_MULTIPLIER : uint(options.maximumL1Fee);
+  if (uint(l1FeeUpperBound) > maximumL1Fee) throw Error('LENDING_FINAL_L1_FEE_BUDGET_CHANGED');
+  const gasBudget = (calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(gasPrice), 0n) + maximumL1Fee).toString();
   if (!uint(gasPrice) || uint(state.aave.nativeBalance) < uint(gasBudget)) throw Error('LENDING_GAS_FUNDING_INSUFFICIENT');
   if (rpcHash(rpcRecord(await rpc('eth_getBlockByNumber', [supplyHex(route.block), false])).hash) !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
   const expiresAt = new Date(now + 120_000).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
@@ -189,7 +219,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
     unsupportedAssumptions:[], freshness:{observedAt:new Date(now).toISOString(),expiresAt,maximumAgeSeconds:120} };
   const simulationHash = supplyArtifactHash('simulation-bundle', simulation), owner = {chainId:p.chain,address:account};
   const spend = (uint(f.supplyAmount)+uint(f.borrowAmount)).toString(), native = {chainId:p.chain,nativeId:'ETH',decimals:18};
-  const gasBudgets = [{asset:native,maximumAmount:gasBudget}], feeBudgets = [{asset:native,maximumAmount:l1FeeUpperBound}];
+  const gasBudgets = [{asset:native,maximumAmount:gasBudget}], feeBudgets = [{asset:native,maximumAmount:maximumL1Fee.toString()}];
   const spendLimits = [{asset,maximumAmount:spend,maximumPerStepAmount:(uint(f.supplyAmount)>uint(f.borrowAmount)?f.supplyAmount:f.borrowAmount),maximumCumulativeAmount:spend}];
   const recovery = {failurePolicy:'ABORT' as const,residualAssetRecipient:owner,maximumAttemptsPerStep:1,requiresHumanReview:true as const};
   const providers = {kind:'AUTHORIZED_SET' as const,providerIds:['aave-v3','uniswap.v3']};
@@ -226,6 +256,7 @@ export function assertLendingReview(review: LendingReview, workflow: SemanticWor
       now >= Date.parse(review.expiresAt) || now < Date.parse(review.simulation.freshness.observedAt)) throw Error('LENDING_REVIEW_STALE');
   if (review.manifest.policyHash !== supplyArtifactHash('authorization-policy',review.policy) || review.manifest.simulationHash !== supplyArtifactHash('simulation-bundle',review.simulation) ||
       review.manifest.artifactSetHash !== supplyArtifactHash('artifact-set',review.artifactSet) || review.plan.manifestHash !== supplyArtifactHash('strategy-manifest',review.manifest)) throw Error('LENDING_COMMITMENT_INVALID');
+  lendingFeeCeilings(review);
 }
 export function assertLendingPrincipalContinuity(before: LendingSnapshot, after: LendingSnapshot): void {
   if(after.aave.block<before.aave.block||after.aave.block===before.aave.block&&after.aave.blockHash!==before.aave.blockHash)throw Error('LENDING_RPC_INCONSISTENT');

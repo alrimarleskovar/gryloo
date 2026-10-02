@@ -98,7 +98,7 @@ export function verifyComposedLendingEffects(review:LendingReview,observations:L
   const f=review.fields, supply=observations.find(o=>o.step==='SUPPLY'),borrow=observations.find(o=>o.step==='BORROW'),swap=observations.find(o=>o.step==='SWAP');
   if(!supply?.post||!borrow?.post||!swap?.post||!swap.output||observations.some(o=>o.verdict!=='RECONCILED'))throw Error('LENDING_COMPOSED_PROOF_INCOMPLETE');
   if(supplyHash(observations.map(o=>o.step))!==supplyHash(review.calls.map(c=>c.id)))throw Error('LENDING_STEP_ORDER_MISMATCH');
-  if(observations.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n)>BigInt(review.gasBudget)||observations.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n)>BigInt(review.l1FeeUpperBound))throw Error('LENDING_AGGREGATE_FEE_MISMATCH');
+  if(observations.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n)>BigInt(review.manifest.gasBudgets[0]!.maximumAmount)||observations.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n)>BigInt(review.manifest.feeBudgets[0]!.maximumAmount))throw Error('LENDING_AGGREGATE_FEE_MISMATCH');
   if(new Set(observations.map(o=>o.receipt?.transactionHash)).size!==observations.length)throw Error('LENDING_DUPLICATE_RECEIPT_MISMATCH');
   for(let i=1;i<observations.length;i++){
     const a=observations[i-1]!,b=observations[i]!;

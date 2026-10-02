@@ -5,7 +5,7 @@ import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, simulateLendingComposition, readLendingSnapshot, supplyHash, supplyHex,
-  rpcHash, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
+  rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
   writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
 import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, verifyComposedLendingEffects, type LendingObservation } from '@defi-workflow-engine/reference-reconciler';
@@ -66,15 +66,24 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
   /** The entire remaining path is tested before releasing ANY owner transaction, again at handoff. */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
     const review=currentLendingReview(r);assertLendingReview(review,workflow,account);await verifyPredecessors(r);
+    const root=r.reviews[0]!,rootBudget=lendingFeeCeilings(root),acceptedBudget=lendingFeeCeilings(review);
+    const reconciled=proofs(r).filter(o=>o.verdict==='RECONCILED');
+    const consumedNetwork=reconciled.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n),consumedL1=reconciled.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n);
+    if(consumedL1>rootBudget.maximumL1Fee)throw Error('LENDING_FINAL_L1_FEE_BUDGET_CHANGED');
+    const remainingL1=rootBudget.maximumL1Fee-consumedL1,maximumL1Fee=(acceptedBudget.maximumL1Fee<remainingL1?acceptedBudget.maximumL1Fee:remainingL1).toString();
     const latest=await readLendingSnapshot(input.rpc,account), reference=proofs(r).filter(o=>o.verdict==='RECONCILED').at(-1)?.post??review.state;
     assertLendingFresh(reference,latest);
-    const fresh=await simulateLendingComposition(workflow,account,input.rpc,{completed:completed(r),rootState:review.rootState,minimumOut:review.route.minimumOut});
+    const fresh=await simulateLendingComposition(workflow,account,input.rpc,{completed:completed(r),rootState:review.rootState,minimumOut:review.route.minimumOut,maximumL1Fee});
     if(fresh.route.codeHash!==review.route.codeHash||fresh.route.pool!==review.route.pool||BigInt(fresh.gasPrice)>BigInt(review.gasPrice)||
-      BigInt(fresh.gasBudget)>BigInt(review.gasBudget)||BigInt(fresh.gasBudget)+proofs(r).reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n)>BigInt(r.reviews[0]!.gasBudget))throw Error('LENDING_REVIEW_STALE');
+      BigInt(fresh.gasBudget)>BigInt(review.gasBudget)||BigInt(fresh.gasBudget)+consumedNetwork>rootBudget.maximumNetworkFee)throw Error('LENDING_REVIEW_STALE');
+    assertLendingFeeBudgets(review,fresh.l1FeeUpperBound,fresh.gasBudget,root,consumedNetwork.toString(),consumedL1.toString());
     for(const call of fresh.calls){const approved=review.calls.find(c=>c.id===call.id);if(!approved||supplyHash(call.tx)!==supplyHash(approved.tx)||BigInt(call.gasLimit)>BigInt(approved.gasLimit))throw Error('LENDING_REVIEW_STALE');}
     // Reads can take long enough for state or the reviewed deadline to change. Recheck at release.
     const final=await readLendingSnapshot(input.rpc,account);
     assertLendingFresh(reference,fresh.state);assertLendingFresh(fresh.state,final);
+    const finalL1=await readLendingL1FeeUpperBound(input.rpc,fresh.calls.length,supplyHex(final.aave.block));
+    const finalNetworkMaximum=(BigInt(fresh.gasBudget)-BigInt(maximumL1Fee)+BigInt(finalL1)).toString();
+    assertLendingFeeBudgets(review,finalL1,finalNetworkMaximum,root,consumedNetwork.toString(),consumedL1.toString());
     assertLendingReview(review,workflow,account);
     if(final.aave.nonce!==fresh.state.aave.nonce||BigInt(final.aave.gasPrice)>BigInt(review.gasPrice)||BigInt(final.aave.nativeBalance)<BigInt(fresh.gasBudget))throw Error('LENDING_REVIEW_STALE');
     return final;

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use server';
-import { AAVE_V3_BASE_SEPOLIA as p } from '@defi-workflow-engine/action-registry';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createLendingCompositionService, type LendingCompositionService } from '../server/lending-composition-service';
 const methods=new Set(['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getCode','eth_call','eth_simulateV1','eth_getBalance','eth_getTransactionCount','eth_gasPrice','eth_getTransactionByHash','eth_getTransactionReceipt']);
@@ -9,12 +8,16 @@ function current(){
   if(service)return service;
   const harness=process.env.GRYLOO_LENDING_HARNESS==='MOCKED_LOOPBACK_ONLY', journalDir=process.env.GRYLOO_SUPPLY_JOURNAL;
   if(!journalDir)throw Error('LENDING_STORAGE_NOT_CONFIGURED');
+  const credential=process.env.GRYLOO_ALCHEMY_API_KEY;
+  if(!harness&&!credential?.trim())throw Error('LENDING_PUBLIC_CREDENTIAL_NOT_CONFIGURED');
   let queue:Promise<unknown>=Promise.resolve();
   service=createLendingCompositionService({journalDir,provenance:harness?'MOCKED':'PUBLIC_TESTNET',rpc:(method,params)=>{
     const read=async()=>{
       if(!methods.has(method))throw Error('LENDING_RPC_METHOD_DENIED');
       if(!harness)await new Promise<void>(resolve=>setTimeout(resolve,150));
-      const response=await fetch(harness?'http://127.0.0.1:8554':p.rpc,{method:'POST',cache:'no-store',signal:AbortSignal.timeout(15000),headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+      const headers:Record<string,string>={'content-type':'application/json'};
+      if(!harness)headers.authorization=`Bearer ${credential}`;
+      const response=await fetch(harness?'http://127.0.0.1:8554':'https://base-sepolia.g.alchemy.com/v2',{method:'POST',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000),headers,body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
       const text=await response.text();if(text.length>1048576)throw Error('LENDING_RPC_RESPONSE_TOO_LARGE');
       const value:unknown=JSON.parse(text);
       if(!response.ok||!value||typeof value!=='object'||!('result'in value)||'error'in value)throw Error(method==='eth_simulateV1'?'LENDING_SEQUENTIAL_SIMULATION_UNAVAILABLE':'LENDING_RPC_UNAVAILABLE');

@@ -17,6 +17,7 @@ test.beforeEach(async()=>{await resetLending();});
 test.setTimeout(120_000);
 test('Canvas composition, Review and five explicit owner calls prove the MOCKED economic outcome',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await author(page);await review(page);
+  await expect(panel(page)).toContainText('Current estimated L1 fee:');await expect(panel(page)).toContainText('Maximum owner-approved L1 fee:');await expect(panel(page)).toContainText('Maximum total network fee:');
   await expect(panel(page)).toContainText('Borrow / exact Swap input: 0.01 USDC');await expect(panel(page)).toContainText('Debt USDC');await expect(panel(page)).toContainText('Health factor');expect(await lendingSends(page)).toBe(0);
   for(const step of ['pool approval','supply','borrow','router approval','swap']){await execute(page,step);await expect(panel(page)).toContainText(`${step.toUpperCase().replaceAll(' ','_')}: reconciled`);}
   await expect(panel(page)).toContainText('MOCKED / RECONCILED');expect(await lendingSends(page)).toBe(5);
