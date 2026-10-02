@@ -44,3 +44,5 @@ export * from './borrow.js';
 
 export * from './repay.js';
 export * from './liquidity.js';
+
+export * from './withdraw.js';

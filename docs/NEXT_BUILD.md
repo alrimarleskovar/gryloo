@@ -4,25 +4,18 @@
 
 Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.
 
-## Current implementation: BUILD-015 — Solana liquidity / Orca Whirlpools
+## Current implementation: BUILD-012D — Aave V3 Withdraw
 
-DEVNET_EXECUTED. The owner executed the complete bounded Orca Whirlpools liquidity lifecycle (open + add, 5,000 bps partial removal with fee collection, exit with close) on public Solana Devnet through Gryloo with their own wallet. Valueless test tokens were used, not mainnet funds. All three transactions were independently reconciled and verified, and the evidence is archived. PR #44 awaits the owner's merge decision. BUILD-016 is not started. See the [BUILD-015 report](builds/BUILD-015-REPORT.md).
+Active implementation on `codex/build-012d-aave-withdraw`, from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. The [plan](builds/BUILD-012D-PLAN.md) implements exact partial owner withdrawal using the verified Base Sepolia Aave USDC profile. Maximum status before owner execution is **READY_FOR_OWNER_EXECUTION**. No public Withdraw transaction has been signed or sent; owner execution is pending. Delivery is one PR against main, without merging. BUILD-013 is not started.
 
-## Previous implementation: BUILD-DEMO-001 — Solana Devnet real execution
+## Merged baseline
 
-DEVNET_EXECUTED. The owner executed one real public Solana Devnet swap of the canonical intent through Gryloo (Orca Whirlpools, valueless test tokens, owner wallet signature). It was independently reconciled and verified, and its Evidence Bundle is archived. PR #42 awaits the owner's merge decision. No further build is started. See the [BUILD-DEMO-001 report](builds/BUILD-DEMO-001-REPORT.md).
+- [PR #44 / BUILD-015](https://github.com/alrimarleskovar/gryloo/pull/44) is merged; **DEVNET_EXECUTED**, with independently verified owner Orca liquidity execution and archived evidence. See the [preserved report](builds/BUILD-015-REPORT.md).
+- [PR #43 / BUILD-012C](https://github.com/alrimarleskovar/gryloo/pull/43) is merged; **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED**. The owner repaid exactly 5000 raw USDC through Gryloo. See the [preserved report](builds/BUILD-012C-REPORT.md).
+- BUILD-012A Supply and BUILD-012B Borrow are merged and **TESTNET_EXECUTED**; their historical reports/evidence remain unchanged. Withdraw completes the four basic primitive implementations; it has no public execution claim.
+- BUILD-DEMO-001 retains its recorded **DEVNET_EXECUTED** evidence. BUILD-014 Jupiter retains its recorded readiness and no mainnet execution claim.
 
-## Previous implementation: BUILD-014 — Jupiter / Solana portability
-
-READY_FOR_OWNER_EXECUTION. The canonical `asset.swap.exact-input` action executes on Solana mainnet-beta through Jupiter Swap V2 `/build` with owner Wallet Standard signing, exact-message Review binding, signature-first recovery, independent balance reconciliation and Evidence Bundles. Jupiter routing is mainnet-only, so validation is MOCKED plus PUBLIC_READ_ONLY. Owner-initiated execution is the remaining step for PUBLIC_EXECUTED. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).
-
-## Previous implementation: BUILD-012A
-
-DEC-0056 approves [BUILD-012A Supply](builds/BUILD-012A-PLAN.md) from main `64a0a46f45532d667e226193f29529d8938acf15`. Status: READY_FOR_OWNER_EXECUTION. One exact official Aave V3 USDC Supply profile on Base Sepolia is authorized, with owner execution through Gryloo required for TESTNET_EXECUTED. The wallet-handoff correction and deterministic checks pass; current CI is recorded on the PR. Draft PR #38 remains unmerged. The exact reserve is funded; a fresh owner Review and injected-wallet execution are next. BUILD-012B Borrow, 012C Repay and 012D Withdraw remain unstarted and unapproved. No merge is authorized.
-
-## Current next milestone: BUILD-012A owner public execution
-
-Only independently reconciled real injected-wallet execution initiated by the owner in Gryloo satisfies acceptance. MOCKED fixtures and fork tests are development evidence.
+The implementation/status paragraphs below are historical checkpoints, not current next-build authority. Their evidence claims remain as recorded.
 
 ## Historical implementation: BUILD-011D-2
 

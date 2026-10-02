@@ -1,0 +1,19 @@
+# BUILD-012D — Aave V3 Withdraw
+
+Implement from canonical main `70ce37efae08018c642ddcc912913c07cabcb770` on `codex/build-012d-aave-withdraw`. Deliver one unmerged PR. Maximum status is **READY_FOR_OWNER_EXECUTION**. The agent may inspect public RPC read-only; it must never sign, send or initiate a public transaction. No BUILD-013, advanced lending or Solana implementation work.
+
+Inspect and reuse merged Supply/Borrow/Repay contracts, profile, capability, compiler, linter, Review, wallet, durable journal and recovery, reconciliation and Evidence Bundles. BUILD-012C's preserved final evidence proves owner Repay 5000 raw, leaving wallet 5000, debt 5002 and supplied collateral 1000001 at its historical block. BUILD-015 / PR #44 and BUILD-012C / PR #43 are merged in the baseline.
+
+Canonical environment-independent `withdraw` authoring specifies chain, Aave profile through adapter constraints, USDC, a positive finite raw amount and recipient `CONNECTED_OWNER`. The wallet address belongs to app/session state and is bound during simulation/Review. Chat and Canvas use the shared reducer and identical IR. Only isolated partial self-withdrawal is supported. Exact runtime call is `Pool.withdraw(asset,amount,owner)` on verified Base Sepolia 84532, with no approval, maximum amount, permit or new delegation feature.
+
+Inspect the live position before selecting an exact amount. Preserve the snapshot, transcript and rationale in BUILD-012D-PRESTATE.json. Stop if safe partial withdrawal is impossible. Initial read-only block 47567291 proved 1000001 collateral, 5002 debt and HF 171.931394977807989123. Select 100000 raw (0.1 USDC), approximately 10% of supplied balance, leaving HF above 154. Preserve a separate real read-only compiler artifact.
+
+Simulation displays collateral/withdraw/post-collateral, variable debt, before/estimated-after HF, before/estimated-after wallet USDC, gas, recipient, exact call and calldata. It proves exact `eth_call` return and estimates gas at the pinned state block without mutation. Validate profile, configuration, balances, scaled representations, liquidity, risk and block identity; require HF at least 2.0 before and after.
+
+Review binds complete workflow, owner/recipient, chain/profile, finite amount, collateral/debt/index/risk, exact calldata, artifact chain, gas budget, block and 120-second expiry. Semantic edits revoke authorization. Fresh state is checked at Review, preparation and handoff. Match Repay's strict fixed principal/configuration with bounded 0.1% interest/price drift.
+
+Reuse durable PREPARED and SUBMITTING records before owner wallet handoff, permanent nonce and economic leases, one submission, unknown-result observation-only recovery, and known-not-submitted fresh explicit Review. Existing historical attempts cannot be replaced by re-authoring, refresh, restart, a new nonce, automatic retry or replacement.
+
+Independent reconciliation proves canonical receipt and inclusion, owner signature or existing pinned owner-wallet envelope, exact Pool/call/event, exact underlying credit, scaled collateral burn at execution index (legacy nearest/current ceil), unchanged scaled debt and configuration, normal debt interest, HF and network costs. Unexpected owner asset movement or inconsistent whole-block effects fail closed. Later exported public owner evidence is verified by a separate read-only CLI, with independent ABI/share arithmetic and archived commitment checks.
+
+Validate focused contract/compiler/linter/authoring/capability/simulation/Review/recovery/reconciliation negatives; regress Supply/Borrow/Repay, Canvas/capabilities, Jupiter and Orca. Run guarded browsers, pnpm check/production build, Governance-Lite and 17 self-tests, diff check, frozen install, dependency integrity/license/release-age, audit and CycloneDX 1.6 gates. Keep historical evidence untouched and update stale NEXT_BUILD/STATUS statements truthfully.

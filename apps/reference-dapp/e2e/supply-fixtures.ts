@@ -8,7 +8,7 @@ import type { SupplyRpc } from '@defi-workflow-engine/reference-compiler';
 export const REPAY_OWNER='0x5975c152fe58cdcb7e25586a3c9b994a16dbb615';
 export const repayOptions={owner:REPAY_OWNER,balance:'10000',scaledDebt:'8001',userConfig:'3'};
 export const SUPPLY_OWNER='0x1111111111111111111111111111111111111111';
-type Model={state:{owner:string;allowanceSlot:string;block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;scaledDebt:bigint;debtIndex:bigint;price:bigint;userConfig:bigint;reserveConfig:bigint;liquidity:bigint;revert:boolean;mismatch:boolean;ignoreOverride:boolean};
+type Model={state:{owner:string;allowanceSlot:string;block:number;nonce:number;allowance:bigint;balance:bigint;nativeBalance:bigint;scaled:bigint;index:bigint;chain:string;scaledDebt:bigint;debtIndex:bigint;price:bigint;userConfig:bigint;reserveConfig:bigint;liquidity:bigint;revert:boolean;mismatch:boolean;ignoreOverride:boolean;previousIndex:bigint};
   rpc:SupplyRpc;transactions:Record<string,unknown>[];receipts:Map<string,Record<string,unknown>>;history:Map<number,unknown>};
 export function supplyModel():Model{
   const module=createRequire(import.meta.url)('./supply-harness.mjs') as {createSupplyHarness:()=>Model};return module.createSupplyHarness();

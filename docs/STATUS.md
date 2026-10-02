@@ -4,9 +4,17 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
+## Current BUILD-012D — Aave V3 Withdraw
+
+Active implementation on `codex/build-012d-aave-withdraw` from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. Maximum pre-execution status: **READY_FOR_OWNER_EXECUTION**. Implements partial self-withdrawal on verified Base Sepolia Aave USDC using shared canonical IR, Review, durable wallet execution/recovery and independent verification. Live public work is read-only; no public Withdraw transaction was signed, sent or initiated. Owner execution and merge remain pending. BUILD-013 is not started. See the [plan](builds/BUILD-012D-PLAN.md), [prestate](builds/BUILD-012D-PRESTATE.json) and [report](builds/BUILD-012D-REPORT.md).
+
+## Merged BUILD-012C — Aave V3 Repay
+
+[PR #43](https://github.com/alrimarleskovar/gryloo/pull/43) is merged in the canonical baseline. **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED**: owner Repay of exactly 5000 raw USDC, independently verified with preserved public receipts, owner authority, scaled debt/index and balance proofs. The [historical report](builds/BUILD-012C-REPORT.md), exported Evidence Bundle and verification remain unchanged.
+
 ## BUILD-015 Solana liquidity / Orca Whirlpools
 
-**DEVNET_EXECUTED** on branch `claude/build-015-solana-liquidity` (PR #44, unmerged), from main `f2b8afa`.
+**DEVNET_EXECUTED**; [PR #44](https://github.com/alrimarleskovar/gryloo/pull/44) is merged in canonical main. The preserved implementation/evidence originated on `claude/build-015-solana-liquidity` from main `f2b8afa`.
 
 The canonical, chain-neutral `asset.liquidity.concentrated` intent ran on public Solana Devnet through Orca Whirlpools, on the BUILD-DEMO-001 SOL/devUSDC test pool. BUILD-006's `asset.liquidity.uniswap-v3` is byte-identical and read by the same reader. The owner `6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR` signed every step with their own wallet:
 
@@ -24,10 +32,11 @@ All three were reconciled by Gryloo and independently verified (55/55 read-only 
 
 READY_FOR_OWNER_EXECUTION on branch `claude/build-014-jupiter` from main `7726970`. One canonical swap intent now compiles, simulates, reviews, executes (owner-signed), recovers, reconciles and produces evidence on Solana mainnet-beta through Jupiter. No mainnet transaction was signed or sent; there is no `PUBLIC_EXECUTED` or `MAINNET_EXECUTED` claim. See the [BUILD-014 report](builds/BUILD-014-REPORT.md).
 
-## BUILD-012A implementation
+## Merged BUILD-012A / BUILD-012B
 
-READY_FOR_OWNER_EXECUTION under DEC-0056 and the [approved plan](builds/BUILD-012A-PLAN.md), baseline `64a0a46f45532d667e226193f29529d8938acf15`. Exact official Aave V3 Supply on Base Sepolia only. The wallet-handoff correction and deterministic validation pass; the current PR records CI for its latest revision. The prior pre-call failure is positively classified not submitted, with the existing journal and nonce lease retained. [Draft PR #38](https://github.com/alrimarleskovar/gryloo/pull/38) remains unmerged. The exact reserve is funded. Real owner injected-wallet execution through Gryloo remains. No public Supply transaction, owner signature, TESTNET_EXECUTED Supply evidence or merge is claimed. BUILD-012B/C/D remain unstarted. Prior public swap and historical certifications below remain unchanged.
+BUILD-012A Aave Supply and BUILD-012B Aave Borrow are merged and **TESTNET_EXECUTED** on their exact verified Base Sepolia profiles. The [Supply report](builds/BUILD-012A-REPORT.md) and [Borrow report](builds/BUILD-012B-REPORT.md) preserve the historical implementation checkpoints and completed owner public acceptance. BUILD-012C is merged as recorded above; BUILD-012D is the active implementation with public execution pending.
 
+The older entries below remain historical evidence/status checkpoints. They do not supersede the current canonical baseline or authorize another build.
 
 ## BUILD-011D-2 public recording gate (2026-09-29)
 
