@@ -2,7 +2,7 @@
 import { createJournal, appendJournalState } from './journal.js';
 import { supplyHash, supplyArtifactHash, SUPPLY_METAMASK, decodeSupplyWalletEnvelope, rpcRecord, rpcUint, rpcHash, supplyHex, type SupplyReview, type SupplyRpc, type SupplyTransaction } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
-export type SupplyAttempt = { step: 'APPROVAL' | 'SUPPLY' | 'BORROW' | 'REPAY'; state: 'PREPARED' | 'CANCELLED' | 'NOT_FOUND' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'PENDING' | 'CONFIRMED' | 'REVERTED' | 'RECONCILIATION_REQUIRED';
+export type SupplyAttempt = { step: 'APPROVAL' | 'SUPPLY' | 'BORROW' | 'REPAY' | 'WITHDRAW'; state: 'PREPARED' | 'CANCELLED' | 'NOT_FOUND' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'PENDING' | 'CONFIRMED' | 'REVERTED' | 'RECONCILIATION_REQUIRED';
   nonce: string; preparedAtBlock: number; transaction: SupplyTransaction; transactionHash: string | null; receipt: Record<string, unknown> | null; reconciled: boolean; ownerNonceAfter?:string };
 export type SupplyRun = { format: 'gryloo.supply-run.v1'; id: string; review: SupplyReview; provenance: 'PUBLIC_TESTNET' | 'MOCKED';
   authorization: string | null; attempts: SupplyAttempt[]; journal: ExecutionJournal; verdict: 'PENDING' | 'RECONCILED' | 'DIVERGENT' | 'INCONCLUSIVE'; ownerInitiated: boolean };
@@ -20,14 +20,14 @@ export function createSupplyRun(id: string, review: SupplyReview, provenance: Su
 }
 export function supplyTransition(run: SupplyRun, attempt: SupplyAttempt, state: SupplyAttempt['state']): SupplyRun {
   if (attempt.state === state && [...run.journal.entries].reverse().find(e => e.entityId === `${run.id}.${attempt.step}`)?.toState === state) return run;
-  const journal = appendJournalState(run.journal,{level:'attempt',entityId:`${run.id}.${attempt.step}`,segmentId:'supply-segment',stepId:attempt.step==='APPROVAL'?'supply-approval':attempt.step==='REPAY'?'aave-repay':attempt.step==='BORROW'?'aave-borrow':'supply-deposit',
+  const journal = appendJournalState(run.journal,{level:'attempt',entityId:`${run.id}.${attempt.step}`,segmentId:'supply-segment',stepId:attempt.step==='APPROVAL'?'supply-approval':attempt.step==='WITHDRAW'?'aave-withdraw':attempt.step==='REPAY'?'aave-repay':attempt.step==='BORROW'?'aave-borrow':'supply-deposit',
     executionAttemptId:`${run.id}.${attempt.step}`,toState:state,recordedAt:new Date().toISOString()}).journal;
   return {...run,journal,attempts:run.attempts.map(a => a.step===attempt.step?{...a,state}:a)};
 }
 /** Pure preparation is persisted by the coordinator BEFORE releasing a wallet request. */
 export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: string, submitting=true): SupplyRun {
   if (run.verdict !== 'PENDING') throw new Error('SUPPLY_RUN_TERMINAL');
-  const step = run.review.approvalRequired && !run.attempts.some(a => a.step==='APPROVAL'&&a.reconciled) ? 'APPROVAL' : run.review.repay ? 'REPAY' : run.review.borrow ? 'BORROW' : 'SUPPLY';
+  const step = run.review.approvalRequired && !run.attempts.some(a => a.step==='APPROVAL'&&a.reconciled) ? 'APPROVAL' : run.review.withdraw ? 'WITHDRAW' : run.review.repay ? 'REPAY' : run.review.borrow ? 'BORROW' : 'SUPPLY';
   // Every existing attempt, including unknown/missing/rejected, is observation-only.
   if (run.attempts.some(a => a.step===step)) throw new Error('SUPPLY_EXISTING_ATTEMPT_OBSERVE_ONLY');
   if ((step==='SUPPLY'||step==='REPAY') && run.review.approvalRequired && !run.attempts.some(a => a.step==='APPROVAL'&&a.reconciled)) throw new Error('SUPPLY_APPROVAL_NOT_RECONCILED');
@@ -38,7 +38,7 @@ export function prepareSupplyAttempt(run: SupplyRun, block: number, nonce: strin
   const attempt: SupplyAttempt = {step,state:submitting?'SUBMITTING':'PREPARED',nonce,preparedAtBlock:block,transaction:tx,transactionHash:null,receipt:null,reconciled:false};
   const prepared = {...run,ownerInitiated:true,attempts:[...run.attempts,attempt]};
   // The DApp persists PREPARED first; its handoff boundary separately persists SUBMITTING.
-  const journal = appendJournalState(prepared.journal,{level:'attempt',entityId:`${run.id}.${step}`,segmentId:'supply-segment',stepId:step==='APPROVAL'?'supply-approval':step==='REPAY'?'aave-repay':step==='BORROW'?'aave-borrow':'supply-deposit',
+  const journal = appendJournalState(prepared.journal,{level:'attempt',entityId:`${run.id}.${step}`,segmentId:'supply-segment',stepId:step==='APPROVAL'?'supply-approval':step==='WITHDRAW'?'aave-withdraw':step==='REPAY'?'aave-repay':step==='BORROW'?'aave-borrow':'supply-deposit',
     executionAttemptId:`${run.id}.${step}`,toState:'PREPARED',recordedAt:new Date().toISOString()}).journal;
   return submitting?supplyTransition({...prepared,journal},attempt,'SUBMITTING'):{...prepared,journal};
 }
@@ -96,7 +96,7 @@ export function validateSupplyRun(run: SupplyRun): void {
       !['PENDING','RECONCILED','DIVERGENT','INCONCLUSIVE'].includes(run.verdict)) throw new Error('SUPPLY_STORE_CORRUPT');
   hashJournalBytes(new TextEncoder().encode(JSON.stringify(run.journal)));
   for(const [index,attempt] of run.attempts.entries()){
-    const expectedStep=run.review.approvalRequired&&index===0?'APPROVAL':run.review.repay?'REPAY':run.review.borrow?'BORROW':'SUPPLY';
+    const expectedStep=run.review.approvalRequired&&index===0?'APPROVAL':run.review.withdraw?'WITHDRAW':run.review.repay?'REPAY':run.review.borrow?'BORROW':'SUPPLY';
     const expectedTx=run.review.transactions[attempt.step==='APPROVAL'?0:run.review.transactions.length-1];
     const entry=[...run.journal.entries].reverse().find(e=>e.entityId===`${run.id}.${attempt.step}`);
     if(attempt.ownerNonceAfter!==undefined&&(!run.review.repay||!attempt.reconciled||!/^(0|[1-9][0-9]*)$/.test(attempt.ownerNonceAfter)) || attempt.step!==expectedStep || JSON.stringify(attempt.transaction)!==JSON.stringify(expectedTx) ||
@@ -106,5 +106,5 @@ export function validateSupplyRun(run: SupplyRun): void {
         attempt.reconciled&&(attempt.state!=='CONFIRMED'||!attempt.receipt||!attempt.transactionHash) ||
         index>0&&!run.attempts[index-1]?.reconciled) throw new Error('SUPPLY_STORE_CORRUPT');
   }
-  if(run.verdict==='RECONCILED'&&!run.attempts.some(a=>(a.step==='SUPPLY'||a.step==='REPAY'||a.step==='BORROW')&&a.reconciled))throw new Error('SUPPLY_STORE_CORRUPT');
+  if(run.verdict==='RECONCILED'&&!run.attempts.some(a=>(a.step==='WITHDRAW'||a.step==='SUPPLY'||a.step==='REPAY'||a.step==='BORROW')&&a.reconciled))throw new Error('SUPPLY_STORE_CORRUPT');
 }
