@@ -255,6 +255,7 @@ BUILD003D_REFERENCE_PACKAGES = {
         "@noble/hashes": "2.4.0",
     }),
     "packages/reference-reconciler/package.json": ("@defi-workflow-engine/reference-reconciler", {
+        "@defi-workflow-engine/action-registry": "workspace:0.1.0",
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
         "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         "@noble/curves": "2.4.0",

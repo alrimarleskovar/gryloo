@@ -10,7 +10,7 @@ export const OWNER='0x1111111111111111111111111111111111111111';
 const fixtureKey=new Uint8Array(32).fill(0x43),fixturePublic=secp256k1.getPublicKey(fixtureKey,false);
 export function mockAllowanceSlot(owner){const h=v=>toHex(keccak_256(fromHex(v)));return h('0x'+supplyWord(p.pool)+h('0x'+supplyWord(owner)+supplyWord(1n)).slice(2));}
 export const REPAY_OWNER=toHex(keccak_256(fixturePublic.slice(1)).slice(12));
-function signMockTransaction(tx){
+export function signMockTransaction(tx){
   const fields=[rlpInteger(BigInt(tx.chainId)),rlpInteger(BigInt(tx.nonce)),rlpInteger(1000000n),rlpInteger(BigInt(tx.gasPrice)),rlpInteger(BigInt(tx.gas)),fromHex(tx.to),rlpInteger(0n),fromHex(tx.data),[]];
   const digest=keccak_256(fromHex('0x02'+toHex(rlpEncode(fields)).slice(2))),sig=secp256k1.sign(digest,fixtureKey,{prehash:false});
   const parity=[0,1].find(i=>toHex(secp256k1.Signature.fromBytes(sig).addRecoveryBit(i).recoverPublicKey(digest).toBytes(false))===toHex(fixturePublic));

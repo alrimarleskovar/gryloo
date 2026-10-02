@@ -10,6 +10,8 @@ import { validateBridgeSwapWorkflow } from './bridge-swap.js';
 import { validateCrossChainLiquidityWorkflow } from './cross-chain-liquidity.js';
 import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
+import { isLendingComposition } from '@defi-workflow-engine/workflow-contracts';
+import { validateLendingComposition } from './lending-composition.js';
 import { validateSupplyWorkflow } from './supply.js';
 import { isSolanaSwapNode, validateSolanaSwapWorkflow } from './solana-swap.js';
 import { isConcentratedLiquidityNode, validateSolanaLiquidityWorkflow } from './solana-liquidity.js';
@@ -80,6 +82,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   }
   if (!schemaValidator(input)) fail('INVALID_SEMANTIC_WORKFLOW');
   const workflow = input;
+  if (isLendingComposition(workflow)) { validateLendingComposition(workflow); return workflow; }
   if (workflow.nodes.some(node => node.actionType === 'asset.liquidity.prepare')) {
     validateCrossChainLiquidityWorkflow(workflow);
     return workflow;

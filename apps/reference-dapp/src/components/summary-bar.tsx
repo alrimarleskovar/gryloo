@@ -6,6 +6,8 @@ import { usePublicTestnet } from '../state/public-testnet-store';
 import { useWorkflow } from '../state/workflow-store';
 import type { Tab } from './top-bar';
 
+import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
+import {useLending} from '../state/lending-store';
 import { useSupply } from '../state/supply-store';
 import { useJupiter } from '../state/jupiter-store';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
@@ -14,7 +16,8 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const { state } = useWorkflow();
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
-  const supply = useSupply();
+  const supply = useSupply(),lending=useLending();
+  const lendingPath=isLendingComposition(state.workflow)||Boolean(lending.recovered&&lending.record&&!lending.retired);
   const supplyPath = state.workflow.nodes.some(n => ['supply','borrow','repay','withdraw'].includes(n.actionType)) || Boolean(supply.recovered && supply.record);
   const jupiter = useJupiter();
   const solanaLiquidity = useSolanaLiquidity();
@@ -27,6 +30,8 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
     <div><span className="eyebrow">WORKFLOW</span><strong>{state.workflow.nodes.length} steps</strong></div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Continue to Simulate</button>
+      : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={()=>setTab('Execute')} disabled={!lending.record||lending.retired}>Review lending composition</button>
+      : lendingPath ? <button type="button" onClick={()=>setTab('Simulate')}>Back to simulation</button>
       : tab === 'Simulate' && supplyPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!supply.record || supply.retired}>{state.workflow.nodes.some(n=>n.actionType==='withdraw')||supply.record?.review.withdraw?'Review Withdraw':state.workflow.nodes.some(n=>n.actionType==='repay')||supply.record?.review.repay?'Review Repay':state.workflow.nodes.some(n=>n.actionType==='borrow')||supply.record?.review.borrow?'Review Borrow':'Review Supply'}</button>
       : tab === 'Simulate' && solanaLiquidityPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!solanaLiquidity.record || solanaLiquidity.retired}>Review position</button>
       : solanaLiquidityPath ? <button type="button" onClick={() => setTab('Simulate')}>Back to simulation</button>

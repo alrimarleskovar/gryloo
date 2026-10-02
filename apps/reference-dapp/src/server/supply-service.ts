@@ -5,7 +5,7 @@ import { join, isAbsolute } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { simulateSupply, assertSupplyReview, readSupplyState, readBorrowState, readWithdrawState, readSupplyLatestNonce, rpcHash, supplyHex, supplyHash, type SupplyRpc, type SupplyReview } from '@defi-workflow-engine/reference-compiler';
 import { createSupplyRun, prepareSupplyAttempt, supplyTransition, discoverSupplyTransaction, validateSupplyRun, writeExtendingFile,
-  type SupplyRun, type SupplyAttempt } from '@defi-workflow-engine/reference-executor';
+  reserveEconomicIntent, type SupplyRun, type SupplyAttempt } from '@defi-workflow-engine/reference-executor';
 import { reconcileSupplyAttempt, buildSupplyEvidence, type SupplyObservation } from '@defi-workflow-engine/reference-reconciler';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 export type SupplyWalletDiagnostic = { invoked:boolean; rejectionCode?:number; transaction:Record<string,string>|null; calls:{method:string;submission?:boolean;params:unknown[];result?:unknown;error?:unknown}[]; error:unknown; code:string };
@@ -220,6 +220,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
           try{await handle.writeFile(JSON.stringify(entry)+'\n');await handle.sync();}finally{await handle.close();}
         }
       });
+      await reserveEconomicIntent(input.journalDir, attempt.transaction, id, record.recoveryOf);
       const dirHandle=await open(input.journalDir,'r');try{await dirHandle.sync();}finally{await dirHandle.close();}
       await save(prepared); // Must complete BEFORE any uncertain wallet submission.
       return {record:prepared,step:attempt.step,transaction:{...attempt.transaction,nonce:supplyHex(attempt.nonce),gas:supplyHex(gas),gasPrice:supplyHex(review.gasPrice)}};

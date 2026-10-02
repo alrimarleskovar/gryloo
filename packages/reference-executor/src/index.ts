@@ -27,3 +27,6 @@ export * from './supply.js';
 
 export * from './jupiter.js';
 export * from './orca-liquidity.js';
+
+export * from './economic-reservation.js';
+export * from './lending-composition.js';

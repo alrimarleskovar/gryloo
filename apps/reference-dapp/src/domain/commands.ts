@@ -1,3 +1,4 @@
+import {createAuthoredLending,lendingDetails,type LendingInput} from './lending-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createBaseSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { actionKinds, type ActionKind } from './mock-actions';
@@ -5,7 +6,7 @@ import type { Workflow } from './initial-workflow';
 import { SWAP_ACTION, directionLabel, parseHumanAmount, parseSlippage, swapDetails, type Direction } from './swap-authoring';
 import { type LiquidityInput } from './liquidity-authoring';
 import type { CompositionInput } from './composition-authoring';
-import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
+import { BRIDGE_ACTION, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { bridgeDetails, parseBridgeAmount, type BridgeInput } from './bridge-authoring';
 import type { BridgeSwapInput } from './bridge-swap-authoring';
 import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
@@ -17,6 +18,7 @@ import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDet
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
+  | {readonly type:'AUTHOR_LENDING';readonly input:LendingInput}
   | { readonly type: 'ADD_WITHDRAW'; readonly input: WithdrawInput }
   | { readonly type: 'SET_WITHDRAW'; readonly nodeId: string; readonly input: WithdrawInput }
   | { readonly type: 'ADD_REPAY'; readonly input: SupplyInput }
@@ -64,6 +66,8 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext, defaultBeneficiary?: string | null): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const lending=/^compose supply ([0-9]+(?:\.[0-9]+)?) USDC to Aave then borrow ([0-9]+(?:\.[0-9]+)?) USDC then swap borrowed USDC to WETH on Base Sepolia slippage ([0-9]+) bps(?: owner (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  if(lending){const owner=lending[4]??defaultBeneficiary;if(!owner)throw Error('LENDING_OWNER_REQUIRED');const fields={supply:lending[1]!,borrow:lending[2]!,slippage:lending[3]!,owner};createAuthoredLending(workflow.workflowId,workflow.revision+1,fields);return {type:'AUTHOR_LENDING',input:fields,source:'CHAT',baseRevision:workflow.revision};}
   const withdraw = /^withdraw ([0-9]+(?:\.[0-9]+)?) USDC from Aave on Base Sepolia$/i.exec(input);
   if(withdraw){const fields:WithdrawInput={network:'Base Sepolia',asset:'USDC',amount:withdraw[1]!,recipient:'CONNECTED_OWNER'};createAuthoredWithdraw('node-preview',fields);return {type:'ADD_WITHDRAW',input:fields,source:'CHAT',baseRevision:workflow.revision};}
   const repay = /^repay ([0-9]+(?:\.[0-9]+)?) USDC to Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
@@ -183,7 +187,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    AUTHOR_LENDING:['input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -191,6 +195,7 @@ export function commandIsValid(input: unknown): input is Command {
       || (keys as string[]).sort().join() !== ['type', 'source', 'baseRevision', ...fields[command.type]!].sort().join()) return false;
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
+    case 'AUTHOR_LENDING': {try{createAuthoredLending('lending-preview',0,command.input as LendingInput);return true;}catch{return false;}}
     case 'ADD_WITHDRAW':
     case 'SET_WITHDRAW': {
       if(command.type==='SET_WITHDRAW'&&!id(command.nodeId))return false;
@@ -297,6 +302,8 @@ export function amountOf(node: Workflow['nodes'][number]): string {
   return input?.kind === 'QUANTITY' ? input.value.amount : '';
 }
 export function summarize(workflow: Workflow, context?: ReviewContext): string {
+  const lending=lendingDetails(workflow as SemanticWorkflow);
+  if(lending)return `Revision ${workflow.revision}. Supply ${lending.supply} Aave USDC → HF ≥ 2.0 checkpoint → Borrow ${lending.borrow} Aave USDC → Swap exactly the borrowed Aave USDC to WETH on Base Sepolia; slippage ${lending.slippage} bps; owner ${lending.owner}. Debt remains after Swap.`;
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const solana = solanaSwapDetails(node);
     if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;

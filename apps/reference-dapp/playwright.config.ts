@@ -37,6 +37,10 @@ const supplyHarness = process.env.GRYLOO_SUPPLY_E2E === 'MOCKED_LOOPBACK_ONLY';
 if (process.env.GRYLOO_SUPPLY_E2E && !supplyHarness) throw new Error('Supply E2E permits only the MOCKED loopback harness');
 const supplyJournal = process.env.GRYLOO_SUPPLY_JOURNAL ?? join(tmpdir(), 'gryloo-build012a-' + Date.now() + '-' + process.pid);
 if (supplyHarness) process.env.GRYLOO_SUPPLY_JOURNAL = supplyJournal;
+const lendingHarness = process.env.GRYLOO_LENDING_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_LENDING_E2E && !lendingHarness) throw new Error('Lending E2E permits only the MOCKED loopback harness');
+const lendingJournal = process.env.GRYLOO_LENDING_JOURNAL ?? join(tmpdir(), 'gryloo-build013-' + Date.now() + '-' + process.pid);
+if (lendingHarness) process.env.GRYLOO_LENDING_JOURNAL = lendingJournal;
 // BUILD-014: Jupiter/Solana browser tests use only the MOCKED loopback harness; never a public provider or broadcast.
 const jupiterHarness = process.env.GRYLOO_JUPITER_E2E === 'MOCKED_LOOPBACK_ONLY';
 if (process.env.GRYLOO_JUPITER_E2E && !jupiterHarness) throw new Error('Jupiter E2E permits only the MOCKED loopback harness');
@@ -70,6 +74,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium' }],
   webServer: [...(supplyHarness ? [{ command: 'node e2e/supply-harness.mjs --serve', url: 'http://127.0.0.1:8549', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(lendingHarness ? [{ command: 'node e2e/lending-harness.mjs --serve', url: 'http://127.0.0.1:8554', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(devnetHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
@@ -86,6 +91,7 @@ export default defineConfig({
     timeout: 60_000,
     env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',
       ...(supplyHarness ? { GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: supplyJournal } : {}),
+      ...(lendingHarness ? { GRYLOO_LENDING_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: lendingJournal } : {}),
       ...(jupiterHarness ? { GRYLOO_JUPITER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_JUPITER_JOURNAL: jupiterJournal } : {}),
       ...(devnetHarness ? { GRYLOO_SOLANA_DEVNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SOLANA_DEVNET_JOURNAL: devnetJournal } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },

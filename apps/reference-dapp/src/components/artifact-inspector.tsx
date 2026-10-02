@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import {LendingAuthoringForm} from './lending-panel';
+import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import { WithdrawAuthoringForm } from './withdraw-panel';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { liquidityDetails, validateCrossChainLiquidityWorkflow } from '@defi-workflow-engine/reference-linter';
@@ -23,13 +25,14 @@ const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippag
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
 export function ArtifactInspector({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
   const { state, dispatch, context, propose } = useWorkflow();
+  const lending=isLendingComposition(state.workflow);
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId);
   const cross = useMemo(() => {
     if (!state.workflow.nodes.some(item => item.actionType === 'asset.liquidity.prepare')) return null;
     try { return validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]); } catch { return null; }
   }, [state.workflow]);
   const [crossInput, setCrossInput] = useState<CrossChainLiquidityInput>(emptyCrossChain);
-  const swap = useMemo(() => node && swapDetails(node, context), [node, context]);
+  const swap = useMemo(() => lending?null:node && swapDetails(node, context), [node, context,lending]);
   const bridge = useMemo(() => node && bridgeDetails(node), [node]);
   const liquidity = useMemo(() => node && liquidityDetails(node, context), [node, context]);
   const template = node?.actionType.startsWith('mock-') ?? false;
@@ -90,8 +93,9 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
     {node ? <>
       {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {node.actionType==='repay'&&<RepayAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
+      {lending&&<LendingAuthoringForm key={state.workflow.revision}/>}
+      {!lending&&node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
+      {!lending && supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
       {solana && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}

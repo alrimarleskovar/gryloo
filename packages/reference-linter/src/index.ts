@@ -26,3 +26,5 @@ export * from './supply.js';
 
 export * from './solana-swap.js';
 export * from './solana-liquidity.js';
+
+export * from './lending-composition.js';

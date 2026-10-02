@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import { randomBytes } from 'node:crypto';
+import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
+import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
+import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, simulateLendingComposition, readLendingSnapshot, supplyHash, supplyHex,
+  rpcHash, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
+import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
+  writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
+import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, verifyComposedLendingEffects, type LendingObservation } from '@defi-workflow-engine/reference-reconciler';
+import { createSupplyService } from './supply-service';
+import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+export type LendingRecord = LendingRun & {observations:LendingObservation[];currentPosition:LendingSnapshot|null;evidence:ReturnType<typeof buildLendingEvidence>|null};
+const idCheck=(id:string)=>{if(!/^lending-[a-f0-9]{32}$/.test(id))throw Error('LENDING_ID_INVALID');return id;};
+const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.step);
+const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
+export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET'}) {
+  if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw Error('LENDING_STORAGE_INVALID');
+  const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
+  const validate=(bytes:Uint8Array)=>{
+    const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!text.endsWith('\n'))throw Error('LENDING_STORE_CORRUPT');
+    let prior:LendingRecord|null=null;
+    for(const line of text.trimEnd().split('\n')){
+      const r=JSON.parse(line) as LendingRecord;validateLendingRun(r);
+      if(r.provenance!==input.provenance||prior&&(r.id!==prior.id||r.reviews.length<prior.reviews.length||r.attempts.length<prior.attempts.length||r.observations.length<prior.observations.length||
+        supplyHash(r.reviews.slice(0,prior.reviews.length))!==supplyHash(prior.reviews)||supplyHash(r.journal.entries.slice(0,prior.journal.entries.length))!==supplyHash(prior.journal.entries)||
+        supplyHash(r.observations.slice(0,prior.observations.length))!==supplyHash(prior.observations)))throw Error('LENDING_STORE_CORRUPT');
+      if(prior)for(const a of prior.attempts){const next=r.attempts.find(b=>b.id===a.id);if(!next||next.nonce!==a.nonce||next.reviewCommitment!==a.reviewCommitment||supplyHash(next.call)!==supplyHash(a.call)||
+        next.preparedAtBlock!==a.preparedAtBlock||a.hash&&next.hash!==a.hash||a.reconciled&&!next.reconciled||a.notSubmitted&&!next.notSubmitted)throw Error('LENDING_STORE_CORRUPT');}
+      if(r.status==='COMPLETED'&&(r.evidence?.bundle.outcome!=='RECONCILED'||!r.evidence.composedExecution.completed))throw Error('LENDING_STORE_CORRUPT');
+      prior=r;
+    }
+  };
+  const load=async(id:string):Promise<LendingRecord>=>{const bytes=await readFile(path(id));validate(bytes);return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!);};
+  const save=async(r:LendingRecord)=>{let previous='';try{previous=await readFile(path(r.id),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+    await writeExtendingFile(path(r.id),new TextEncoder().encode(previous+JSON.stringify(r)+'\n'),validate);return r;};
+  async function locked<T>(key:string,action:()=>Promise<T>):Promise<T>{
+    await mkdir(input.journalDir,{recursive:true,mode:0o700});const directory=join(input.journalDir,key+'.lock');
+    try{await mkdir(directory,{mode:0o700});}catch(e){if((e as NodeJS.ErrnoException).code!=='EEXIST')throw e;
+      const before=await stat(directory),pid=Number(await readFile(join(directory,'pid'),'utf8'));
+      if(!Number.isSafeInteger(pid)||pid<=0)throw Error('LENDING_BUSY',{cause:e});
+      try{process.kill(pid,0);throw Error('LENDING_BUSY',{cause:e});}catch(cause){if((cause as NodeJS.ErrnoException).code!=='ESRCH')throw cause;}
+      if((await stat(directory)).ino!==before.ino)throw Error('LENDING_BUSY',{cause:e});await unlink(join(directory,'pid'));await rmdir(directory);await mkdir(directory,{mode:0o700});}
+    const handle=await open(join(directory,'pid'),'wx',0o600);try{await handle.writeFile(String(process.pid));await handle.sync();}finally{await handle.close();}
+    try{return await action();}finally{await unlink(join(directory,'pid'));await rmdir(directory);}
+  }
+  async function verifyPredecessors(r:LendingRecord) {
+    for(const a of r.attempts.filter(a=>a.reconciled)){
+      const review=r.reviews.find(v=>v.commitment===a.reviewCommitment)!;
+      const proof=await reconcileLendingAttempt(review,a,input.rpc);if(proof.verdict!=='RECONCILED')throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
+      const old=r.observations.find(o=>o.attemptId===a.id&&o.verdict==='RECONCILED');
+      if(!old||supplyHash(old.receipt)!==supplyHash(proof.receipt)||old.output!==proof.output)throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
+    }
+  }
+  /** The entire remaining path is tested before releasing ANY owner transaction, again at handoff. */
+  async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
+    const review=currentLendingReview(r);assertLendingReview(review,workflow,account);await verifyPredecessors(r);
+    const latest=await readLendingSnapshot(input.rpc,account), reference=proofs(r).filter(o=>o.verdict==='RECONCILED').at(-1)?.post??review.state;
+    assertLendingFresh(reference,latest);
+    const fresh=await simulateLendingComposition(workflow,account,input.rpc,{completed:completed(r),rootState:review.rootState,minimumOut:review.route.minimumOut});
+    if(fresh.route.codeHash!==review.route.codeHash||fresh.route.pool!==review.route.pool||BigInt(fresh.gasPrice)>BigInt(review.gasPrice)||
+      BigInt(fresh.gasBudget)>BigInt(review.gasBudget)||BigInt(fresh.gasBudget)+proofs(r).reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n)>BigInt(r.reviews[0]!.gasBudget))throw Error('LENDING_REVIEW_STALE');
+    for(const call of fresh.calls){const approved=review.calls.find(c=>c.id===call.id);if(!approved||supplyHash(call.tx)!==supplyHash(approved.tx)||BigInt(call.gasLimit)>BigInt(approved.gasLimit))throw Error('LENDING_REVIEW_STALE');}
+    // Reads can take long enough for state or the reviewed deadline to change. Recheck at release.
+    const final=await readLendingSnapshot(input.rpc,account);
+    assertLendingFresh(reference,fresh.state);assertLendingFresh(fresh.state,final);
+    assertLendingReview(review,workflow,account);
+    if(final.aave.nonce!==fresh.state.aave.nonce||BigInt(final.aave.gasPrice)>BigInt(review.gasPrice)||BigInt(final.aave.nativeBalance)<BigInt(fresh.gasBudget))throw Error('LENDING_REVIEW_STALE');
+    return final;
+  }
+  return {
+    load,
+    async simulate(workflowInput:unknown,account:string):Promise<LendingRecord>{
+      const workflow=validateAuthoringWorkflow(workflowInput,createBaseSepoliaReviewContext());
+      const review=await simulateLendingComposition(workflow,account,input.rpc),id='lending-'+randomBytes(16).toString('hex');
+      return save({...createLendingRun(id,review,input.provenance),observations:[],currentPosition:review.state,evidence:null});
+    },
+    async review(id:string,commitment:string,workflow:SemanticWorkflow):Promise<LendingRecord>{return locked(idCheck(id),async()=>{
+      const r=await load(id),review=currentLendingReview(r);if(commitment!==review.commitment||r.attempts.some(a=>!a.reconciled&&!a.notSubmitted)||r.status==='COMPLETED'||r.status==='FAILED')throw Error('LENDING_REVIEW_NOT_AVAILABLE');
+      const currentPosition=await publicGate(r,workflow,review.fields.owner);return save({...r,authorization:commitment,status:'AUTHORIZED',error:null,currentPosition});
+    });},
+    async begin(id:string,account:string,workflow:SemanticWorkflow){return locked(idCheck(id),async()=>{
+      account=supplyAddress(account);
+      const r=await load(id),review=currentLendingReview(r);if(r.authorization!==review.commitment)throw Error('LENDING_REVIEW_REQUIRED');
+      const state=await publicGate(r,workflow,account),prepared=prepareLendingAttempt(r,workflow,account,state.aave.block,state.aave.nonce),attempt=prepared.attempts.at(-1)!;
+      await locked(account+'-'+attempt.nonce,async()=>{
+        const noncePath=join(input.journalDir,account+'-'+attempt.nonce+'.intent');
+        let previous:string|null=null;try{previous=await readFile(noncePath,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+        if(previous){const prior=JSON.parse(previous.trimEnd().split('\n').at(-1)!);
+          if(typeof prior.id==='string'&&/^supply-[a-f0-9]{32}$/.test(prior.id)){
+            // A previously completed BUILD-012 owner delegation can leave this nonce unchanged.
+            // Accept only fresh canonical proof, never an absent or ambiguous old transaction.
+            const priorRun=await createSupplyService(input).load(prior.id),a=priorRun.attempts.find(a=>a.step===prior.step);
+            if(priorRun.verdict!=='RECONCILED'||!a?.reconciled||a.nonce!==attempt.nonce||supplyHash(a.transaction)!==supplyHash(prior.transaction))throw Error('LENDING_NONCE_ALREADY_RESERVED');
+            const proof=await reconcileSupplyAttempt(priorRun.review,a,input.rpc);
+            if(proof.verdict!=='RECONCILED'||proof.walletEnvelope?.owner!==account||proof.walletEnvelope.ownerNonceAfter!==attempt.nonce)throw Error('LENDING_NONCE_ALREADY_RESERVED');
+          }else {const priorRun=await load(prior.id),a=priorRun.attempts.find(a=>a.id===prior.attemptId);
+          // EIP-7702 may keep the owner nonce unchanged; positive predecessor proof is mandatory.
+          if(prior.id!==id||!a?.reconciled&&!(a?.notSubmitted&&a.state==='CANCELLED'))throw Error('LENDING_NONCE_ALREADY_RESERVED');
+          if(a.reconciled)await verifyPredecessors(priorRun);
+          }
+        }
+        const nonceEntry=JSON.stringify({id,attemptId:attempt.id,step:attempt.step,transaction:attempt.call.tx})+'\n';
+        if(previous)await writeExtendingFile(noncePath,new TextEncoder().encode(previous+nonceEntry),()=>undefined);
+        else {const handle=await open(noncePath,'wx',0o600);try{await handle.writeFile(nonceEntry);await handle.sync();}finally{await handle.close();}}
+        // Reserve the whole remaining economic path BEFORE the first owner request.
+        // An unrelated run cannot supply again and only later discover a borrowed-intent conflict.
+        for(const call of review.calls)await reserveEconomicIntent(input.journalDir,call.tx,id);
+        const dirHandle=await open(input.journalDir,'r');try{await dirHandle.sync();}finally{await dirHandle.close();}
+        await save({...prepared,observations:r.observations,currentPosition:state,evidence:r.evidence});
+      });
+      return {record:await load(id),attemptId:attempt.id,transaction:{...attempt.call.tx,nonce:supplyHex(attempt.nonce),gas:supplyHex(attempt.call.gasLimit),gasPrice:supplyHex(review.gasPrice)}};
+    });},
+    async handoff(id:string,attemptId:string){return locked(idCheck(id),async()=>{
+      const r=await load(id),a=r.attempts.find(a=>a.id===attemptId),review=currentLendingReview(r);
+      if(!a||a.state!=='PREPARED'||r.authorization!==review.commitment||a.reviewCommitment!==review.commitment)throw Error('LENDING_HANDOFF_NOT_AUTHORIZED');
+      const state=await publicGate(r,review.workflow,review.fields.owner);
+      if(state.aave.nonce!==a.nonce)throw Error('LENDING_NONCE_CHANGED');
+      return save({...r,...lendingAttemptTransition(r,a.id,'SUBMITTING'),currentPosition:state});
+    });},
+    async report(id:string,attemptId:string,result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'}){return locked(idCheck(id),async()=>{
+      const r=await load(id),a=r.attempts.find(a=>a.id===attemptId);if(!a||!['SUBMITTING','SUBMISSION_RESULT_UNKNOWN','PENDING'].includes(a.state))throw Error('LENDING_REPORT_INVALID');
+      if(result.kind==='HASH') {const hash=rpcHash(result.hash);if(a.hash&&a.hash!==hash)throw Error('LENDING_HASH_MISMATCH');
+        const next={...r,attempts:r.attempts.map(v=>v.id===a.id?{...v,hash}:v)};return save({...next,...lendingAttemptTransition(next,a.id,'PENDING')});}
+      if(a.state==='PENDING')return r;
+      return save({...r,...lendingAttemptTransition(r,a.id,'SUBMISSION_RESULT_UNKNOWN'),status:'RECOVERY_REQUIRED',error:'LENDING_SUBMISSION_UNKNOWN'});
+    });},
+    async cancelPrepared(id:string,attemptId:string){return locked(idCheck(id),async()=>{
+      const r=await load(id),a=r.attempts.find(a=>a.id===attemptId);if(!a||a.state!=='PREPARED'||a.hash)throw Error('LENDING_CANCELLATION_OBSERVE_ONLY');
+      const next=lendingAttemptTransition(r,a.id,'CANCELLED');return save({...r,...next,authorization:null,status:'PAUSED',error:'LENDING_CANCELLED_BEFORE_HANDOFF',
+        attempts:next.attempts.map(v=>v.id===a.id?{...v,notSubmitted:true}:v)});
+    });},
+    async refreshReview(id:string){return locked(idCheck(id),async()=>{
+      const r=await load(id),review=currentLendingReview(r);
+      if(r.attempts.some(a=>!a.reconciled&&!a.notSubmitted)||['COMPLETED','FAILED'].includes(r.status))throw Error('LENDING_RECOVERY_OBSERVE_ONLY');
+      await verifyPredecessors(r);
+      const latest=await readLendingSnapshot(input.rpc,review.fields.owner);
+      assertLendingPrincipalContinuity(proofs(r).filter(o=>o.verdict==='RECONCILED').at(-1)?.post??review.state,latest);
+      const reviewNext=await simulateLendingComposition(review.workflow,review.fields.owner,input.rpc,{completed:completed(r),rootState:review.rootState});
+      return save({...r,reviews:[...r.reviews,reviewNext],authorization:null,status:'SIMULATED',error:null,currentPosition:reviewNext.state});
+    });},
+    async invalidate(id:string){return locked(idCheck(id),async()=>{const r=await load(id);return save({...r,authorization:null,status:r.status==='COMPLETED'?'COMPLETED':'PAUSED',error:'LENDING_SEMANTIC_EDIT_REQUIRES_REVIEW'});});},
+    async observe(id:string):Promise<LendingRecord>{return locked(idCheck(id),async()=>{
+      let r=await load(id),a=r.attempts.find(a=>!a.reconciled&&!a.notSubmitted);
+      if(!a){try{r={...r,currentPosition:await readLendingSnapshot(input.rpc,currentLendingReview(r).fields.owner,'latest',false)};}catch{r={...r,error:'LENDING_CURRENT_POSITION_UNAVAILABLE'};}return save(r);}
+      if(a.state==='PREPARED'||a.state==='CANCELLED')return r; // recovery never invokes handoff
+      if(!a.hash){
+        try{r={...r,currentPosition:await readLendingSnapshot(input.rpc,currentLendingReview(r).fields.owner,'latest',false)};}catch{r={...r,error:'LENDING_CURRENT_POSITION_UNAVAILABLE'};}
+        const found=await discoverSupplyTransaction({nonce:a.nonce,preparedAtBlock:a.preparedAtBlock,transaction:a.call.tx,transactionHash:null,step:'SUPPLY',state:'SUBMITTING',receipt:null,reconciled:false},input.rpc);
+        if(found.mismatch)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_NONCE_PAYLOAD_MISMATCH'});
+        if(!found.hash)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_UNKNOWN_OBSERVE_ONLY'});
+        r={...r,attempts:r.attempts.map(v=>v.id===a!.id?{...v,hash:found.hash}:v)};r=lendingAttemptTransition(r,a.id,'PENDING') as LendingRecord;a=r.attempts.find(v=>v.id===a!.id)!;
+      }
+      const review=r.reviews.find(v=>v.commitment===a!.reviewCommitment)!,o=await reconcileLendingAttempt(review,a,input.rpc);
+      r={...r,observations:[...r.observations,o]};
+      try{r.currentPosition=await readLendingSnapshot(input.rpc,review.fields.owner,'latest',false);}catch{r.currentPosition=o.post??r.currentPosition;}
+      if(o.verdict==='RECONCILED'){
+        if(a.state!=='CONFIRMED')r={...r,...lendingAttemptTransition(r,a.id,'CONFIRMED')};
+        r={...r,attempts:r.attempts.map(v=>v.id===a!.id?{...v,reconciled:true}:v),status:a.step==='SWAP'?'COMPLETED':'PARTIALLY_COMPLETED',error:null};
+        if(a.step==='SWAP')try{verifyComposedLendingEffects(r.reviews[0]!,proofs(r));}catch(cause){r={...r,status:'RECOVERY_REQUIRED',authorization:null,error:cause instanceof Error?cause.message:'LENDING_COMPOSED_PROOF_INCOMPLETE'};}
+      } else if(o.verdict==='DIVERGENT'){
+        const reverted=o.reason==='LENDING_TRANSACTION_REVERTED';r={...r,...lendingAttemptTransition(r,a.id,reverted?'REVERTED':'RECONCILIATION_REQUIRED'),
+          status:completed(r).includes('BORROW')?'PARTIALLY_COMPLETED':'FAILED',authorization:null,error:o.reason};
+      } else r={...r,status:'RECOVERY_REQUIRED',error:o.reason};
+      const observations=proofs(r);
+      if(r.provenance==='MOCKED'||observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))
+        r.evidence=buildLendingEvidence({id, reviews:r.reviews,journal:r.journal,observations,provenance:r.provenance,completed:r.status==='COMPLETED',previous:r.evidence});
+      return save(r);
+    });},
+  };
+}
+export type LendingCompositionService=ReturnType<typeof createLendingCompositionService>;

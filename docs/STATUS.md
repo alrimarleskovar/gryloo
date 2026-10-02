@@ -1,5 +1,9 @@
 # Repository status
 
+## BUILD-013 — Advanced lending composition
+
+**Implementation evidence: MOCKED; public execution gated.** Owner-approved single finite path: Supply Aave USDC → HF checkpoint ≥ 2.0 → Borrow Aave USDC → Swap exactly the borrowed output to WETH on Base Sepolia. Chat/Canvas authoring, composed Simulate/Review, exact owner calls, durable partial recovery, economic reconciliation and an independent read-only verifier are implemented with no Manifest schema change. The exact-token compatible route was discovered independently, but all three original bounded public sequential-simulation attempts were rate-limited. **PUBLIC_EXECUTION_BLOCKED** before Supply; no public owner transaction/signature and no public composed completion/certification claim. See the [plan](builds/BUILD-013-PLAN.md), [report](builds/BUILD-013-REPORT.md) and preserved [preflight](builds/BUILD-013-PREFLIGHT-READONLY.json). The branch preserves its `7003856` baseline without integrating the later RH-DEMO merge; Robinhood and historical BUILD-012 records remain unchanged.
+
 ## Governance-lite migration
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
