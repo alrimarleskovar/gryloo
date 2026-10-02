@@ -23,7 +23,7 @@ const hash=n=>'0x'+BigInt(n).toString(16).padStart(64,'0');
 const word=n=>'0x'+supplyWord(BigInt(n));
 const topicAddress=a=>'0x'+supplyWord(a);
 export function createSupplyHarness(){
-  const state={owner:OWNER,allowanceSlot:SLOT,block:10,nonce:0,allowance:0n,balance:100_000_000n,nativeBalance:10n**18n,scaled:8_000_000n,index:125n*10n**25n,chain:'0x14a34',scaledDebt:0n,debtIndex:125n*10n**25n,price:100000000n,userConfig:2n,reserveConfig:(1n<<56n)|(1n<<58n)|(6n<<48n)|8250n|(8600n<<16n),liquidity:1000000000000n,revert:false,mismatch:false,ignoreOverride:false};
+  const state={owner:OWNER,allowanceSlot:SLOT,block:10,nonce:0,allowance:0n,balance:100_000_000n,nativeBalance:10n**18n,scaled:8_000_000n,index:125n*10n**25n,chain:'0x14a34',scaledDebt:0n,debtIndex:125n*10n**25n,price:100000000n,userConfig:2n,reserveConfig:(1n<<56n)|(1n<<58n)|(6n<<48n)|8250n|(8600n<<16n),liquidity:1000000000000n,revert:false,mismatch:false,ignoreOverride:false,previousIndex:125n*10n**25n};
   const transactions=[],receipts=new Map(),history=new Map();
   const snapshot=()=>({...state});history.set(10,snapshot());
   const at=tag=>{const n=tag==='latest'||tag==='pending'?state.block:Number(BigInt(tag));if(n>=state.block)return snapshot();return [...history.entries()].filter(([b])=>b<=n).at(-1)?.[1]??snapshot();};
@@ -48,8 +48,10 @@ export function createSupplyHarness(){
     if(data===supplyCall('totalSupply()')&&to===p.variableDebtToken)return word(debt);
     if(data===supplyCall('getReserveNormalizedVariableDebt(address)',p.asset)&&to===p.pool)return word(s.debtIndex);
     if(data.startsWith(supplyCall('borrow(address,uint256,uint256,uint16,address)').slice(0,10))&&to===p.pool)return '0x';
+    if(data.startsWith(supplyCall('withdraw(address,uint256,address)').slice(0,10))&&to===p.pool){const amount=BigInt('0x'+data.slice(74,138));if(amount>=(s.scaled*s.index+10n**27n/2n)/10n**27n)throw Error('MOCK_WITHDRAW_REVERT');return word(amount);}
     if(data.startsWith(supplyCall('repay(address,uint256,uint256,address)').slice(0,10))&&to===p.pool){const amount=BigInt('0x'+data.slice(74,138));if(effectiveAllowance<amount||s.balance<amount||debt<=amount)throw new Error('MOCK_REPAY_REVERT');return word(amount);}
     if(data===supplyCall('decimals()')&&to===p.asset)return word(6);
+    if(data===supplyCall('getPreviousIndex(address)',state.owner)&&to===p.aToken)return word(s.previousIndex);
     if(data===supplyCall('POOL()')&&to===p.aToken)return word(p.pool);
     if(data===supplyCall('UNDERLYING_ASSET_ADDRESS()')&&to===p.aToken)return word(p.asset);
     if(data===supplyCall('allowance(address,address)',state.owner,p.pool)&&to===p.asset)return word(effectiveAllowance);
@@ -91,6 +93,15 @@ export function createSupplyHarness(){
           state.balance+=amount;state.userConfig|=1n;state.scaledDebt+=(amount*10n**27n+state.debtIndex/2n)/state.debtIndex+(state.mismatch?100n:0n);state.liquidity-=amount;
           logs.push({address:p.pool,topics:[supplyTopic('Borrow(address,address,address,uint256,uint8,uint256,uint16)'),topicAddress(p.asset),topicAddress(state.owner),word(0)],data:'0x'+supplyWord(state.owner)+supplyWord(amount)+supplyWord(2n)+supplyWord(100000000n)},
             {address:p.asset,topics:[supplyTopic('Transfer(address,address,uint256)'),topicAddress(p.aToken),topicAddress(state.owner)],data:word(amount)});
+        }else if(tx.data.startsWith(supplyCall('withdraw(address,uint256,address)').slice(0,10))){
+          call({to:p.pool,data:tx.data},'latest');
+          if(tx.data!==supplyCall('withdraw(address,uint256,address)',p.asset,amount,state.owner))throw Error('MOCK_WITHDRAW_DENIED');
+          const interest=(state.scaled*state.index+10n**27n/2n)/10n**27n-(state.scaled*state.previousIndex+10n**27n/2n)/10n**27n,net=amount>interest?amount-interest:interest-amount,mint=interest>amount;state.previousIndex=state.index;
+          state.balance+=amount;state.scaled-=(amount*10n**27n+state.index/2n)/state.index+(state.mismatch?100n:0n);state.liquidity-=amount;
+          logs.push({address:p.pool,topics:[supplyTopic('Withdraw(address,address,address,uint256)'),topicAddress(p.asset),topicAddress(state.owner),topicAddress(state.owner)],data:word(amount)},
+            {address:p.asset,topics:[supplyTopic('Transfer(address,address,uint256)'),topicAddress(p.aToken),topicAddress(state.owner)],data:word(amount)},
+            {address:p.aToken,topics:[supplyTopic('Transfer(address,address,uint256)'),mint?word(0):topicAddress(state.owner),mint?topicAddress(state.owner):word(0)],data:word(net)},
+            {address:p.aToken,topics:[supplyTopic(mint?'Mint(address,address,uint256,uint256,uint256)':'Burn(address,address,uint256,uint256,uint256)'),topicAddress(state.owner),topicAddress(state.owner)],data:'0x'+supplyWord(net)+supplyWord(interest)+supplyWord(state.index)});
         }else if(tx.data.startsWith(supplyCall('repay(address,uint256,uint256,address)').slice(0,10))){
           call({to:p.pool,data:tx.data},'latest');
           if(tx.data!==supplyCall('repay(address,uint256,uint256,address)',p.asset,amount,2n,state.owner))throw new Error('MOCK_REPAY_DENIED');
@@ -120,7 +131,7 @@ if(process.argv.includes('--serve')){
       if(req.method==='GET'&&req.url==='/'){res.end('MOCKED Supply harness');return;}
       let body='';for await(const chunk of req){body+=chunk.toString();if(Buffer.byteLength(body)>1_048_576)throw new Error('MOCK_INPUT_TOO_LARGE');}
       const value=JSON.parse(body);let result;
-      if(value.method==='MOCK_reset'){model=createSupplyHarness();const options=value.params?.[0]??{};for(const key of ['allowance','balance','nativeBalance','scaled','index','scaledDebt','debtIndex','price','userConfig','reserveConfig','liquidity'])if(options[key]!==undefined)options[key]=BigInt(options[key]);Object.assign(model.state,options);if(options.owner)model.state.allowanceSlot=mockAllowanceSlot(options.owner);model.history.set(model.state.block,{...model.state});result=true;}
+      if(value.method==='MOCK_reset'){model=createSupplyHarness();const options=value.params?.[0]??{};for(const key of ['allowance','balance','nativeBalance','scaled','index','scaledDebt','debtIndex','previousIndex','price','userConfig','reserveConfig','liquidity'])if(options[key]!==undefined)options[key]=BigInt(options[key]);Object.assign(model.state,options);if(options.owner)model.state.allowanceSlot=mockAllowanceSlot(options.owner);model.history.set(model.state.block,{...model.state});result=true;}
       else result=await model.rpc(value.method,value.params??[]);
       res.setHeader('content-type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:value.id,result},(_,v)=>typeof v==='bigint'?v.toString():v));
     }catch{res.statusCode=400;res.end(JSON.stringify({error:{code:-32000,message:'MOCK_RPC_DENIED'}}));}

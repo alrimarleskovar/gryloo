@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { reconcileWithdrawAttempt,buildWithdrawEvidence } from './withdraw.js';
 import { reconcileRepayAttempt, buildRepayEvidence } from './repay.js';
 import { reconcileBorrowAttempt, buildBorrowEvidence } from './borrow.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
@@ -6,7 +7,7 @@ import { keccak_256 } from '@noble/hashes/sha3.js';
 import { AAVE_V3_BASE_SEPOLIA as profile, readSupplyState, rpcRecord, rpcHash, rpcUint, rpcHex, supplyHex, supplyCall, supplyTopic,
   SUPPLY_METAMASK, decodeSupplyWalletEnvelope, supplySelector, rlpEncode, rlpInteger, fromHex, toHex, type SupplyWalletEnvelope, supplyWord, supplyHash, supplyArtifactHash, type SupplyRpc, type SupplyReview, type SupplyTransaction, type SupplyState } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type EvidenceBundle, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
-export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
+export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|'WITHDRAW'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
 export type SupplyObservation = { verdict:'RECONCILED'|'DIVERGENT'|'INCONCLUSIVE'; reason:string; transaction:Record<string,unknown>|null;
   receipt:Record<string,unknown>|null; prePosition:SupplyState|null; postPosition:SupplyState|null; delta:string|null; scaledDelta:string|null; cost:string|null; walletEnvelope?:SupplyWalletProof };
 export function logMatches(log: unknown, address: string, topics: string[], data: string): boolean {
@@ -76,6 +77,7 @@ export async function verifySupplyWalletEnvelope(review:Pick<SupplyReview,'accou
 }
 /** Independent public transaction, receipt, event and historical-state reads. */
 export async function reconcileSupplyAttempt(review: SupplyReview, attempt: SupplyChainAttempt, rpc: SupplyRpc): Promise<SupplyObservation> {
+  if(review.withdraw) return reconcileWithdrawAttempt(review,attempt,rpc);
   if(review.repay) return reconcileRepayAttempt(review,attempt,rpc);
   if(review.borrow) return reconcileBorrowAttempt(review,attempt,rpc);
   const base: SupplyObservation = {verdict:'INCONCLUSIVE',reason:'TRANSACTION_NOT_OBSERVED',transaction:null,receipt:null,prePosition:null,postPosition:null,delta:null,scaledDelta:null,cost:null};
@@ -131,6 +133,7 @@ export async function reconcileSupplyAttempt(review: SupplyReview, attempt: Supp
   }
 }
 export function buildSupplyEvidence(input:{id:string;review:SupplyReview;journal:ExecutionJournal;provenance:'PUBLIC_TESTNET'|'MOCKED';ownerInitiated:boolean;observations:SupplyObservation[];approval?:SupplyObservation}): {bundle:EvidenceBundle;bundleHash:string;publicExecution:unknown;artifacts:unknown} {
+  if(input.review.withdraw) return buildWithdrawEvidence(input);
   if(input.review.repay) return buildRepayEvidence(input);
   if(input.review.borrow) return buildBorrowEvidence(input);
   const supply=input.observations.at(-1), approval=input.approval??(input.review.approvalRequired?input.observations.find(o=>o.verdict==='RECONCILED'):null);

@@ -1,0 +1,1497 @@
+{
+  "bundle": {
+    "schemaVersion": "1.0.0",
+    "evidenceBundleId": "supply-dcb75bbc384a47eb704200b862e5d8e1",
+    "version": 1,
+    "supersedes": null,
+    "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+    "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+    "simulationHash": "0x8ce751ac6fa59f380270b3eef0814f11bfc49c84778d8c79faf160e0e104a2bf",
+    "policyHash": "0x042895cf79840af62b3a28bbe540ba07998c7949f1fb086d3933f88f2f723614",
+    "manifestHash": "0xbff635dfa1026b7b167dda871375604d3343533c3f37628fcf05747a24a00857",
+    "executionPlanHash": "0x385fcb1772603dbad05a4b0d9c8303f761b049efa3a25483e872fcea45fbcb03",
+    "journalHeadHash": "0x2ea8aa1cf80a1ea5f31461d0215958dc68f6427148fd87ecdd94e28c18fb4143",
+    "observedAt": "2026-10-02T02:49:59.851Z",
+    "environment": "TESTNET_EXECUTED",
+    "outcome": "RECONCILED",
+    "receipts": [
+      {
+        "receiptId": "withdraw-receipt",
+        "contentHash": "0x27a69089f5dcceb0630c912aa1c9b76c359e383b9c0ef0675c16dc3183dd188c"
+      }
+    ],
+    "differences": [],
+    "reconciliation": {
+      "balances": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "decimals": 6
+          },
+          "amount": "105000"
+        }
+      ],
+      "allowances": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "decimals": 6
+          },
+          "amount": "0"
+        }
+      ],
+      "debt": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "decimals": 6
+          },
+          "amount": "5002"
+        }
+      ],
+      "positions": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+            "decimals": 6
+          },
+          "amount": "900001"
+        }
+      ],
+      "fees": [],
+      "residualAssets": [],
+      "ownership": [
+        {
+          "chainId": "eip155:84532",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        }
+      ],
+      "limitations": [
+        "Exact canonical Withdraw event and wallet credit bind requested amount; scaled collateral burn is independently normalized at execution index.",
+        "Whole-block snapshots fail closed on inconsistent concurrent effects."
+      ]
+    },
+    "evidence": [
+      {
+        "evidenceId": "withdraw-public-observations",
+        "kind": "EXTERNAL_REFERENCE",
+        "contentHash": "0xf847885a88226e7f6684e6ba3dab34e799c768100cf849c49bb85f34686bbbc6"
+      }
+    ]
+  },
+  "bundleHash": "0xd7952acf36916a50665bb85a99f32a82a99fa71a36787e8cd330db6b170fb6fb",
+  "publicExecution": {
+    "network": "Base Sepolia",
+    "chainId": 84532,
+    "owner": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+    "recipient": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+    "pool": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+    "asset": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+    "aToken": "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+    "amount": "100000",
+    "withdrawTransactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+    "ownerAuthorization": {
+      "kind": "METAMASK_EIP7702",
+      "owner": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "outerSender": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+      "outerDestination": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "relayNonce": "119816",
+      "ownerAuthorizationNonce": null,
+      "ownerNonceBefore": "5",
+      "ownerNonceAfter": "5",
+      "implementation": "0x63c0c19a282a1b52b07dd5a65b58948a07dae32b",
+      "delegationHash": "0x7ef56a9242ea86beaf8db255561ce137bb065bb312fdc961222a1a2b7e041dba",
+      "signingDigest": "0x94792416ff84b9674e9f7fbd3dd13f315d46d30e9f0ed11568834916a1d21d8b",
+      "authorization": null,
+      "delegation": {
+        "owner": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+        "delegate": "0x0000000000000000000000000000000000000a11",
+        "salt": "45823182436908967142851117136643990808661025602670640664026931055846474101287",
+        "signature": "0x161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b",
+        "caveats": [
+          {
+            "enforcer": "0x04658b29f6b82ed55274221a06fc97d318e25416",
+            "terms": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "args": "0x"
+          },
+          {
+            "enforcer": "0x146713078d39ecc1f5338309c28405ccf85abfbb",
+            "terms": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+            "args": "0x"
+          }
+        ],
+        "call": {
+          "to": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+          "value": "0",
+          "data": "0x69328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "delegationTuple": "0x0000000000000000000000000000000000000000000000000000000000000a110000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3bffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000c0654f008d63facc794fda934f244652598053e65ceb8a7bc1e664ac72a24bb227000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000004658b29f6b82ed55274221a06fc97d318e25416000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000146713078d39ecc1f5338309c28405ccf85abfbb0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000988bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b00000000000000000000000000000000000000000000000000000000000000"
+      },
+      "codeHashes": [
+        "0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a",
+        "0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2",
+        "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468",
+        "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e"
+      ],
+      "callCountBefore": "0",
+      "callCountAfter": "1",
+      "feePayer": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+      "ownerNativeCost": "0"
+    },
+    "block": 47570537,
+    "transactionCost": "1873821573425",
+    "totalNetworkCost": "1873821573425",
+    "walletDelta": "100000",
+    "collateralDelta": "-100001",
+    "normalizedWithdrawal": "100001",
+    "roundingBound": "3",
+    "delta": "100001",
+    "scaledDelta": "80344",
+    "prePosition": {
+      "block": 47570536,
+      "blockHash": "0x0794d29f3f1abb40428a7b9d89be0b5751a66dde52a8668048a315adf8c4883f",
+      "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "allowance": "0",
+      "balance": "5000",
+      "nativeBalance": "96884768054543",
+      "nonce": "5",
+      "gasPrice": "6000000",
+      "scaledPosition": "803435",
+      "position": "1000002",
+      "index": "1244658775651916064668672195",
+      "deploymentHash": "0x7f9b0b40d61013f1e67833e9d572d5fd82b4a912041a03cb55844fd9abb12267",
+      "observedAt": "2026-10-02T02:49:46.281Z",
+      "borrow": {
+        "collateralBase": "99996199",
+        "debtBase": "500180",
+        "availableBorrowBase": "81996684",
+        "liquidationThresholdBps": "8600",
+        "ltvBps": "8250",
+        "healthFactor": "171931566915910272301",
+        "price": "99996000",
+        "baseCurrencyUnit": "100000000",
+        "reserveConfiguration": "7237005577332262213973186568751985011653213565835679148722714856698947313722",
+        "userConfiguration": "3",
+        "liquidity": "23905105968723",
+        "debt": "5002",
+        "scaledDebt": "3858",
+        "debtIndex": "1296364921009839612509392467",
+        "variableDebtToken": "0xfb3e85601b7feb3691bbb8779ef0e1069e347204",
+        "eMode": "0",
+        "debtTotalSupply": "6402323120873",
+        "codeHash": "0x3037b74e18b79318af19e0d5ac7996bd2858d321bb255410c3055de608446cef"
+      },
+      "withdrawState": {
+        "previousIndex": "1244655011699216482662530586"
+      }
+    },
+    "postPosition": {
+      "block": 47570537,
+      "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+      "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "allowance": "0",
+      "balance": "105000",
+      "nativeBalance": "96884768054543",
+      "nonce": "5",
+      "gasPrice": "6000000",
+      "scaledPosition": "723091",
+      "position": "900001",
+      "index": "1244658775820995817639892411",
+      "deploymentHash": "0x7f9b0b40d61013f1e67833e9d572d5fd82b4a912041a03cb55844fd9abb12267",
+      "observedAt": "2026-10-02T02:49:55.278Z",
+      "borrow": {
+        "collateralBase": "89996499",
+        "debtBase": "500180",
+        "availableBorrowBase": "73746931",
+        "liquidationThresholdBps": "8600",
+        "ltvBps": "8250",
+        "healthFactor": "154738272501899316246",
+        "price": "99996000",
+        "baseCurrencyUnit": "100000000",
+        "reserveConfiguration": "7237005577332262213973186568751985011653213565835679148722714856698947313722",
+        "userConfiguration": "3",
+        "liquidity": "23905105868723",
+        "debt": "5002",
+        "scaledDebt": "3858",
+        "debtIndex": "1296364921936109916073316126",
+        "variableDebtToken": "0xfb3e85601b7feb3691bbb8779ef0e1069e347204",
+        "eMode": "0",
+        "debtTotalSupply": "6402323125447",
+        "codeHash": "0x3037b74e18b79318af19e0d5ac7996bd2858d321bb255410c3055de608446cef"
+      },
+      "withdrawState": {
+        "previousIndex": "1244658775820995817639892411"
+      }
+    },
+    "observations": [
+      {
+        "verdict": "RECONCILED",
+        "reason": "WITHDRAW_TRANSACTION_COLLATERAL_WALLET_DEBT_AND_HEALTH_VERIFIED",
+        "transaction": {
+          "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+          "blockNumber": "0x2d5de69",
+          "transactionIndex": "0x1",
+          "hash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+          "from": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+          "to": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+          "input": "0xcef6d209000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000004c000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000a110000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3bffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000c0654f008d63facc794fda934f244652598053e65ceb8a7bc1e664ac72a24bb227000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000004658b29f6b82ed55274221a06fc97d318e25416000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000146713078d39ecc1f5338309c28405ccf85abfbb0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000988bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000988bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b0000000000000000",
+          "nonce": "0x1d408",
+          "value": "0x0",
+          "gas": "0x53bc6",
+          "gasPrice": "0x5b8d81",
+          "maxPriorityFeePerGas": "0xf4241",
+          "maxFeePerGas": "0x6516e9",
+          "accessList": [],
+          "chainId": "0x14a34",
+          "type": "0x2",
+          "v": "0x1",
+          "r": "0xdbde1e7157ed7685b6e7d3924de5d124124086dc5e9c0ae3dcbc944be9da6220",
+          "s": "0x67a6693a594439ede2425f4bec80b886d308ae8c83b96cfa387f4c4b7524344c",
+          "yParity": "0x1"
+        },
+        "receipt": {
+          "type": "0x2",
+          "status": "0x1",
+          "cumulativeGasUsed": "0x59427",
+          "logsBloom": "0x100000000000000000000000000010004080000000008000000000000000000000400000000000000000000000000000000100000080000000000012000000000000008080000000020004080208000000000000000000000002000000000000000000000200000004000000000008000000000000001200200000100000000000000000000000000000000200000000000020000000000820000000000000000000000000800000000000000c0001008000000004000000000000100000018200080002004000800004002000000000000000000000004000000000000220040000000000000000000000000400020000000000002000000000000000000000",
+          "logs": [
+            {
+              "address": "0x04658b29f6b82ed55274221a06fc97d318e25416",
+              "topics": [
+                "0x449da07f2c06c9d1a6b19d2454ffe749e8cf991d22f686e076a1a4844c5ff370",
+                "0x000000000000000000000000db9b1e94b5b69df7e401ddbede43491141047db3",
+                "0x000000000000000000000000c066ac5d385419b1a8c43a0e146fa439837a8b8c",
+                "0x7ef56a9242ea86beaf8db255561ce137bb065bb312fdc961222a1a2b7e041dba"
+              ],
+              "data": "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x0",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+              "topics": [
+                "0x804c9b842b2748a22bb64b345453a3de7ca54a6ca45ce00d415894979e22897a",
+                "0x000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f"
+              ],
+              "data": "0x00000000000000000000000000000000000000000001c595b860e919750d87f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000951c3a838c46b021c4468000000000000000000000000000000000000000004058ebf6ffa5688fb7dd5bb0000000000000000000000000000000000000000043053f33c1f8faf1c894f1e",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x1",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+              ],
+              "data": "0x000000000000000000000000000000000000000000000000000000000001869e",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x2",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+              "topics": [
+                "0x4cf25bc1d991c17529c25213d3cc0cda295eeaad5f13f361969b12ea48015f90",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+              ],
+              "data": "0x000000000000000000000000000000000000000000000000000000000001869e0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000004058ebf6ffa5688fb7dd5bb",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x3",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+              "topics": [
+                "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                "0x00000000000000000000000010f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+              ],
+              "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x4",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+              "topics": [
+                "0x3115d1449a7b732c986cba18244e897a450f61e1bb8d589cd2e69e6c8924f9f7",
+                "0x000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+              ],
+              "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x5",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            },
+            {
+              "address": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+              "topics": [
+                "0x40dadaa36c6c2e3d7317e24757451ffb2d603d875f0ad5e92c5dd156573b1873",
+                "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+                "0x000000000000000000000000c066ac5d385419b1a8c43a0e146fa439837a8b8c"
+              ],
+              "data": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000a110000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3bffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000c0654f008d63facc794fda934f244652598053e65ceb8a7bc1e664ac72a24bb227000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000004658b29f6b82ed55274221a06fc97d318e25416000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000146713078d39ecc1f5338309c28405ccf85abfbb0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000988bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b00000000000000000000000000000000000000000000000000000000000000",
+              "blockNumber": "0x2d5de69",
+              "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+              "transactionIndex": "0x1",
+              "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+              "logIndex": "0x6",
+              "blockTimestamp": "0x6abf1bb2",
+              "removed": false
+            }
+          ],
+          "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+          "from": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+          "to": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+          "contractAddress": null,
+          "gasUsed": "0x4b3dd",
+          "effectiveGasPrice": "0x5b8d81",
+          "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+          "blockNumber": "0x2d5de69",
+          "transactionIndex": "0x1",
+          "blobGasUsed": "0x2a5b6",
+          "l1Fee": "0x5bf79c5d4",
+          "l1GasPrice": "0x3bd3b544",
+          "l1GasUsed": "0x185e",
+          "l1BlobBaseFee": "0x41f5a39",
+          "l1BaseFeeScalar": "0x44d",
+          "l1BlobBaseFeeScalar": "0xa118b",
+          "daFootprintGasScalar": "0x1be"
+        },
+        "prePosition": {
+          "block": 47570536,
+          "blockHash": "0x0794d29f3f1abb40428a7b9d89be0b5751a66dde52a8668048a315adf8c4883f",
+          "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+          "allowance": "0",
+          "balance": "5000",
+          "nativeBalance": "96884768054543",
+          "nonce": "5",
+          "gasPrice": "6000000",
+          "scaledPosition": "803435",
+          "position": "1000002",
+          "index": "1244658775651916064668672195",
+          "deploymentHash": "0x7f9b0b40d61013f1e67833e9d572d5fd82b4a912041a03cb55844fd9abb12267",
+          "observedAt": "2026-10-02T02:49:46.281Z",
+          "borrow": {
+            "collateralBase": "99996199",
+            "debtBase": "500180",
+            "availableBorrowBase": "81996684",
+            "liquidationThresholdBps": "8600",
+            "ltvBps": "8250",
+            "healthFactor": "171931566915910272301",
+            "price": "99996000",
+            "baseCurrencyUnit": "100000000",
+            "reserveConfiguration": "7237005577332262213973186568751985011653213565835679148722714856698947313722",
+            "userConfiguration": "3",
+            "liquidity": "23905105968723",
+            "debt": "5002",
+            "scaledDebt": "3858",
+            "debtIndex": "1296364921009839612509392467",
+            "variableDebtToken": "0xfb3e85601b7feb3691bbb8779ef0e1069e347204",
+            "eMode": "0",
+            "debtTotalSupply": "6402323120873",
+            "codeHash": "0x3037b74e18b79318af19e0d5ac7996bd2858d321bb255410c3055de608446cef"
+          },
+          "withdrawState": {
+            "previousIndex": "1244655011699216482662530586"
+          }
+        },
+        "postPosition": {
+          "block": 47570537,
+          "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+          "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+          "allowance": "0",
+          "balance": "105000",
+          "nativeBalance": "96884768054543",
+          "nonce": "5",
+          "gasPrice": "6000000",
+          "scaledPosition": "723091",
+          "position": "900001",
+          "index": "1244658775820995817639892411",
+          "deploymentHash": "0x7f9b0b40d61013f1e67833e9d572d5fd82b4a912041a03cb55844fd9abb12267",
+          "observedAt": "2026-10-02T02:49:55.278Z",
+          "borrow": {
+            "collateralBase": "89996499",
+            "debtBase": "500180",
+            "availableBorrowBase": "73746931",
+            "liquidationThresholdBps": "8600",
+            "ltvBps": "8250",
+            "healthFactor": "154738272501899316246",
+            "price": "99996000",
+            "baseCurrencyUnit": "100000000",
+            "reserveConfiguration": "7237005577332262213973186568751985011653213565835679148722714856698947313722",
+            "userConfiguration": "3",
+            "liquidity": "23905105868723",
+            "debt": "5002",
+            "scaledDebt": "3858",
+            "debtIndex": "1296364921936109916073316126",
+            "variableDebtToken": "0xfb3e85601b7feb3691bbb8779ef0e1069e347204",
+            "eMode": "0",
+            "debtTotalSupply": "6402323125447",
+            "codeHash": "0x3037b74e18b79318af19e0d5ac7996bd2858d321bb255410c3055de608446cef"
+          },
+          "withdrawState": {
+            "previousIndex": "1244658775820995817639892411"
+          }
+        },
+        "delta": "100001",
+        "scaledDelta": "80344",
+        "cost": "1873821573425",
+        "walletEnvelope": {
+          "kind": "METAMASK_EIP7702",
+          "owner": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+          "outerSender": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+          "outerDestination": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+          "relayNonce": "119816",
+          "ownerAuthorizationNonce": null,
+          "ownerNonceBefore": "5",
+          "ownerNonceAfter": "5",
+          "implementation": "0x63c0c19a282a1b52b07dd5a65b58948a07dae32b",
+          "delegationHash": "0x7ef56a9242ea86beaf8db255561ce137bb065bb312fdc961222a1a2b7e041dba",
+          "signingDigest": "0x94792416ff84b9674e9f7fbd3dd13f315d46d30e9f0ed11568834916a1d21d8b",
+          "authorization": null,
+          "delegation": {
+            "owner": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+            "delegate": "0x0000000000000000000000000000000000000a11",
+            "salt": "45823182436908967142851117136643990808661025602670640664026931055846474101287",
+            "signature": "0x161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b",
+            "caveats": [
+              {
+                "enforcer": "0x04658b29f6b82ed55274221a06fc97d318e25416",
+                "terms": "0x0000000000000000000000000000000000000000000000000000000000000001",
+                "args": "0x"
+              },
+              {
+                "enforcer": "0x146713078d39ecc1f5338309c28405ccf85abfbb",
+                "terms": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+                "args": "0x"
+              }
+            ],
+            "call": {
+              "to": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+              "value": "0",
+              "data": "0x69328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            },
+            "delegationTuple": "0x0000000000000000000000000000000000000000000000000000000000000a110000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3bffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000c0654f008d63facc794fda934f244652598053e65ceb8a7bc1e664ac72a24bb227000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000010000000000000000000000000004658b29f6b82ed55274221a06fc97d318e25416000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000146713078d39ecc1f5338309c28405ccf85abfbb0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000988bab6d1b75f19e9ed9fce8b9bd338844ff79ae27000000000000000000000000000000000000000000000000000000000000000069328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041161a51f1f99d5253c910740a709416fdebec7cea6556cbd158446775f991e3954e537769d92d57061dd5c2251c5f74b3641ad9e2324f60e39e6c96b0c4289d6a1b00000000000000000000000000000000000000000000000000000000000000"
+          },
+          "codeHashes": [
+            "0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a",
+            "0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2",
+            "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468",
+            "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e"
+          ],
+          "callCountBefore": "0",
+          "callCountAfter": "1",
+          "feePayer": "0xc066ac5d385419b1a8c43a0e146fa439837a8b8c",
+          "ownerNativeCost": "0"
+        },
+        "walletDelta": "100000",
+        "collateralDelta": "-100001",
+        "normalizedWithdrawal": "100001",
+        "roundingBound": "3",
+        "withdrawEvent": {
+          "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+          "topics": [
+            "0x3115d1449a7b732c986cba18244e897a450f61e1bb8d589cd2e69e6c8924f9f7",
+            "0x000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+            "0x0000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          ],
+          "data": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+          "blockNumber": "0x2d5de69",
+          "transactionHash": "0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372",
+          "transactionIndex": "0x1",
+          "blockHash": "0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258",
+          "logIndex": "0x5",
+          "blockTimestamp": "0x6abf1bb2",
+          "removed": false
+        }
+      }
+    ],
+    "provenance": "PUBLIC_TESTNET",
+    "ownerInitiated": true
+  },
+  "artifacts": {
+    "workflow": {
+      "schemaVersion": "1.0.0",
+      "workflowId": "workflow-local",
+      "revision": 1,
+      "nodes": [
+        {
+          "nodeId": "node-001",
+          "actionType": "mock-read",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "mock:local",
+          "requiredCapabilities": [],
+          "adapterConstraints": {
+            "adapters": [],
+            "protocols": []
+          },
+          "inputs": [
+            {
+              "name": "amount",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "amount": "1000000"
+              }
+            }
+          ],
+          "expectedOutputs": [
+            {
+              "outputId": "result",
+              "asset": {
+                "chainId": "mock:local",
+                "nativeId": "sample",
+                "decimals": 6
+              },
+              "minimumAmount": "0"
+            }
+          ],
+          "dependencies": [],
+          "userConstraints": [],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "NONE",
+          "lockedParameters": [],
+          "editableBounds": []
+        },
+        {
+          "nodeId": "node-002",
+          "actionType": "withdraw",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "eip155:84532",
+          "requiredCapabilities": [
+            "aave-v3.withdraw"
+          ],
+          "adapterConstraints": {
+            "adapters": [
+              {
+                "id": "aave-v3",
+                "version": "1.0.0"
+              }
+            ],
+            "protocols": [
+              "aave-v3"
+            ]
+          },
+          "inputs": [
+            {
+              "name": "amount",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "eip155:84532",
+                  "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+                  "decimals": 6
+                },
+                "amount": "100000"
+              }
+            },
+            {
+              "name": "recipient",
+              "kind": "IDENTIFIER",
+              "value": "CONNECTED_OWNER"
+            }
+          ],
+          "expectedOutputs": [],
+          "dependencies": [],
+          "userConstraints": [
+            {
+              "kind": "MAXIMUM_INPUT",
+              "quantity": {
+                "asset": {
+                  "chainId": "eip155:84532",
+                  "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+                  "decimals": 6
+                },
+                "amount": "100000"
+              }
+            }
+          ],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "MODE_A",
+          "lockedParameters": [],
+          "editableBounds": []
+        }
+      ],
+      "resourceEdges": []
+    },
+    "artifactSet": {
+      "schemaVersion": "1.0.0",
+      "artifactSetId": "supply-artifacts",
+      "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+      "artifacts": [
+        {
+          "artifactId": "supply-state",
+          "nodeId": "node-002",
+          "artifactHash": "0x815826e19347d5be4fcc36f29b0a14a733efe9c389654328384557a820b8e2ca"
+        }
+      ]
+    },
+    "simulation": {
+      "schemaVersion": "1.0.0",
+      "simulationId": "supply-simulation",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+      "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+      "adapters": [
+        {
+          "id": "aave-v3",
+          "version": "1.0.0"
+        }
+      ],
+      "contracts": [
+        {
+          "chainId": "eip155:84532",
+          "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+          "version": "aave-v3"
+        },
+        {
+          "chainId": "eip155:84532",
+          "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+          "version": "erc20"
+        }
+      ],
+      "outputs": [],
+      "propagatedOutputs": [],
+      "failurePaths": [],
+      "uncertainty": [],
+      "unsupportedAssumptions": [],
+      "freshness": {
+        "observedAt": "2026-10-02T02:47:55.388Z",
+        "expiresAt": "2026-10-02T02:49:55.388Z",
+        "maximumAgeSeconds": 120
+      }
+    },
+    "policy": {
+      "schemaVersion": "1.0.0",
+      "policyId": "supply-policy",
+      "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+      "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+      "simulationHash": "0x8ce751ac6fa59f380270b3eef0814f11bfc49c84778d8c79faf160e0e104a2bf",
+      "requiredAuthorizationClass": "MODE_A",
+      "allowlists": {
+        "owners": [
+          {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "accounts": [
+          {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "recipients": [
+          {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "chains": [
+          "eip155:84532"
+        ],
+        "adapters": [
+          {
+            "id": "aave-v3",
+            "version": "1.0.0"
+          }
+        ],
+        "protocols": [
+          "aave-v3"
+        ],
+        "contracts": [
+          {
+            "chainId": "eip155:84532",
+            "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+            "version": "aave-v3"
+          },
+          {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "version": "erc20"
+          }
+        ],
+        "functions": [
+          {
+            "chainId": "eip155:84532",
+            "contract": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+            "functionId": "withdraw"
+          }
+        ]
+      },
+      "budgetReservation": {
+        "rule": "RESERVE_BEFORE_SUBMISSION",
+        "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+        "implementation": "NOT_IMPLEMENTED"
+      },
+      "spendLimits": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "decimals": 6
+          },
+          "maximumAmount": "100000",
+          "maximumPerStepAmount": "100000",
+          "maximumCumulativeAmount": "100000"
+        }
+      ],
+      "maximumSlippageBps": 0,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "13552828000000"
+        }
+      ],
+      "feeBudgets": [],
+      "oracleRules": [],
+      "accountRiskRules": [
+        {
+          "account": {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          },
+          "minimumHealthFactorNumerator": "2",
+          "minimumHealthFactorDenominator": "1",
+          "maximumLtvBps": 8250,
+          "maximumExposure": [],
+          "oracleId": "aave-oracle",
+          "checkpointId": "borrow-risk"
+        }
+      ],
+      "checkpointRules": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "aave-v3"
+      },
+      "nonce": "5",
+      "deadline": "2026-10-02T02:49:55.388Z",
+      "revocationEpoch": 1,
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "eip155:84532",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "manifest": {
+      "schemaVersion": "1.0.0",
+      "manifestId": "supply-manifest",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+      "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+      "simulationHash": "0x8ce751ac6fa59f380270b3eef0814f11bfc49c84778d8c79faf160e0e104a2bf",
+      "policyHash": "0x042895cf79840af62b3a28bbe540ba07998c7949f1fb086d3933f88f2f723614",
+      "authorizationMode": "MODE_A",
+      "owner": {
+        "chainId": "eip155:84532",
+        "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+      },
+      "executor": null,
+      "expiresAt": "2026-10-02T02:49:55.388Z",
+      "nonce": "5",
+      "revocationEpoch": 1,
+      "spendLimits": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "decimals": 6
+          },
+          "maximumAmount": "100000",
+          "maximumPerStepAmount": "100000",
+          "maximumCumulativeAmount": "100000"
+        }
+      ],
+      "maximumSlippageBps": 0,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "eip155:84532",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "13552828000000"
+        }
+      ],
+      "feeBudgets": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "aave-v3"
+      },
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "eip155:84532",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "plan": {
+      "schemaVersion": "1.0.0",
+      "executionPlanId": "supply-plan",
+      "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+      "manifestHash": "0xbff635dfa1026b7b167dda871375604d3343533c3f37628fcf05747a24a00857",
+      "segments": [
+        {
+          "segmentId": "supply-segment",
+          "chainId": "eip155:84532",
+          "dependencies": [],
+          "steps": [
+            {
+              "stepId": "aave-withdraw",
+              "nodeId": "node-002",
+              "chainId": "eip155:84532",
+              "adapter": {
+                "id": "aave-v3",
+                "version": "1.0.0"
+              },
+              "dependencies": [],
+              "requiredAuthorizationClass": "MODE_A",
+              "executionKind": "DIRECT_TRANSACTION",
+              "payloadHash": "0xea179e981e42b95f000f197c99a89f165a3390ed6ef24de2b2f75ee0d89841cb"
+            }
+          ]
+        }
+      ],
+      "checkpointIds": [],
+      "enforcement": "NOT_ENFORCED"
+    },
+    "journal": {
+      "schemaVersion": "1.0.0",
+      "journalId": "supply-dcb75bbc384a47eb704200b862e5d8e1",
+      "workflowId": "workflow-local",
+      "executionPlanHash": "0x385fcb1772603dbad05a4b0d9c8303f761b049efa3a25483e872fcea45fbcb03",
+      "manifestHash": "0xbff635dfa1026b7b167dda871375604d3343533c3f37628fcf05747a24a00857",
+      "entries": [
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-0",
+          "sequence": 0,
+          "previousEntryHash": null,
+          "recordedAt": "2026-10-02T02:48:05.457Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "DRAFT"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-1",
+          "sequence": 1,
+          "previousEntryHash": "0xa726edbace4475e1763122a00a15e0f8b45188e65483fd732ed2a2a1315f0e1a",
+          "recordedAt": "2026-10-02T02:48:05.458Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "segment",
+          "entityId": "supply-segment",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-2",
+          "sequence": 2,
+          "previousEntryHash": "0x2d20aac7270e1f1ccdb3e70b3881c7a2853d1b78a3a1a97ef378b5a597f57122",
+          "recordedAt": "2026-10-02T02:48:05.461Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "step",
+          "entityId": "aave-withdraw",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": "aave-withdraw",
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-3",
+          "sequence": 3,
+          "previousEntryHash": "0xa3e2ed18da1997a523f35ed99ddb78be90a83decb84b1895e52bc6a7b7cea0e5",
+          "recordedAt": "2026-10-02T02:48:05.462Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "DRAFT",
+          "toState": "REVIEWED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-4",
+          "sequence": 4,
+          "previousEntryHash": "0x65ca80d869b50aab3228a5e26afe142a231eba41432cc57541ac93a74b88a7c1",
+          "recordedAt": "2026-10-02T02:48:05.464Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "REVIEWED",
+          "toState": "SIMULATED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-5",
+          "sequence": 5,
+          "previousEntryHash": "0xec5147efbd0c00fa2188d4828f7924bbab61c17d88a011861e9ad6e2538bbd50",
+          "recordedAt": "2026-10-02T02:48:42.969Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": "aave-withdraw",
+          "executionAttemptId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "fromState": null,
+          "toState": "PREPARED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-6",
+          "sequence": 6,
+          "previousEntryHash": "0x63b67a5b639659cbad8f331c5c43793c3e15727e2250a78d8db08d8cfee37b23",
+          "recordedAt": "2026-10-02T02:49:14.313Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": "aave-withdraw",
+          "executionAttemptId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "fromState": "PREPARED",
+          "toState": "SUBMITTING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-7",
+          "sequence": 7,
+          "previousEntryHash": "0x51ddc31767c2f62a945bf8207fa55ce99863ba9946dca1dff17174b6aac7ac43",
+          "recordedAt": "2026-10-02T02:49:23.099Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": "aave-withdraw",
+          "executionAttemptId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "fromState": "SUBMITTING",
+          "toState": "PENDING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-8",
+          "sequence": 8,
+          "previousEntryHash": "0xb2d5da047c025c3364fffaf5d2ae11552cf135c0a41571573229ac800da9d5a6",
+          "recordedAt": "2026-10-02T02:49:59.840Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "workflowId": "workflow-local",
+          "segmentId": "supply-segment",
+          "stepId": "aave-withdraw",
+          "executionAttemptId": "supply-dcb75bbc384a47eb704200b862e5d8e1.WITHDRAW",
+          "fromState": "PENDING",
+          "toState": "CONFIRMED"
+        }
+      ]
+    },
+    "review": {
+      "withdraw": {
+        "expectedPostHealthFactor": "154738272501899316246",
+        "collateralAfter": "900001",
+        "collateralAfterBase": "89996499",
+        "walletAfter": "105000"
+      },
+      "format": "gryloo.supply-review.v1",
+      "workflow": {
+        "schemaVersion": "1.0.0",
+        "workflowId": "workflow-local",
+        "revision": 1,
+        "nodes": [
+          {
+            "nodeId": "node-001",
+            "actionType": "mock-read",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "mock:local",
+            "requiredCapabilities": [],
+            "adapterConstraints": {
+              "adapters": [],
+              "protocols": []
+            },
+            "inputs": [
+              {
+                "name": "amount",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "mock:local",
+                    "nativeId": "sample",
+                    "decimals": 6
+                  },
+                  "amount": "1000000"
+                }
+              }
+            ],
+            "expectedOutputs": [
+              {
+                "outputId": "result",
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "minimumAmount": "0"
+              }
+            ],
+            "dependencies": [],
+            "userConstraints": [],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "NONE",
+            "lockedParameters": [],
+            "editableBounds": []
+          },
+          {
+            "nodeId": "node-002",
+            "actionType": "withdraw",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "eip155:84532",
+            "requiredCapabilities": [
+              "aave-v3.withdraw"
+            ],
+            "adapterConstraints": {
+              "adapters": [
+                {
+                  "id": "aave-v3",
+                  "version": "1.0.0"
+                }
+              ],
+              "protocols": [
+                "aave-v3"
+              ]
+            },
+            "inputs": [
+              {
+                "name": "amount",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "eip155:84532",
+                    "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+                    "decimals": 6
+                  },
+                  "amount": "100000"
+                }
+              },
+              {
+                "name": "recipient",
+                "kind": "IDENTIFIER",
+                "value": "CONNECTED_OWNER"
+              }
+            ],
+            "expectedOutputs": [],
+            "dependencies": [],
+            "userConstraints": [
+              {
+                "kind": "MAXIMUM_INPUT",
+                "quantity": {
+                  "asset": {
+                    "chainId": "eip155:84532",
+                    "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+                    "decimals": 6
+                  },
+                  "amount": "100000"
+                }
+              }
+            ],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "MODE_A",
+            "lockedParameters": [],
+            "editableBounds": []
+          }
+        ],
+        "resourceEdges": []
+      },
+      "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "beneficiary": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "amount": "100000",
+      "pool": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+      "asset": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+      "aToken": "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
+      "chain": "eip155:84532",
+      "approvalRequired": false,
+      "allowance": "0",
+      "state": {
+        "block": 47570493,
+        "blockHash": "0xe58f2ecdd9129dc9a2b25f0e1e3bec9237a4972df4c86211f870ec0f7bc7fe3b",
+        "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+        "allowance": "0",
+        "balance": "5000",
+        "nativeBalance": "96884768054543",
+        "nonce": "5",
+        "gasPrice": "6000000",
+        "scaledPosition": "803435",
+        "position": "1000002",
+        "index": "1244658768381486686906202863",
+        "deploymentHash": "0x7f9b0b40d61013f1e67833e9d572d5fd82b4a912041a03cb55844fd9abb12267",
+        "observedAt": "2026-10-02T02:48:00.365Z",
+        "borrow": {
+          "collateralBase": "99996199",
+          "debtBase": "500180",
+          "availableBorrowBase": "81996684",
+          "liquidationThresholdBps": "8600",
+          "ltvBps": "8250",
+          "healthFactor": "171931566915910272301",
+          "price": "99996000",
+          "baseCurrencyUnit": "100000000",
+          "reserveConfiguration": "7237005577332262213973186568751985011653213565835679148722714856698947313722",
+          "userConfiguration": "3",
+          "liquidity": "23905105968723",
+          "debt": "5002",
+          "scaledDebt": "3858",
+          "debtIndex": "1296364881180217185354387649",
+          "variableDebtToken": "0xfb3e85601b7feb3691bbb8779ef0e1069e347204",
+          "eMode": "0",
+          "debtTotalSupply": "6402322924167",
+          "codeHash": "0x3037b74e18b79318af19e0d5ac7996bd2858d321bb255410c3055de608446cef"
+        },
+        "withdrawState": {
+          "previousIndex": "1244655011699216482662530586"
+        }
+      },
+      "transactions": [
+        {
+          "from": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+          "to": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+          "value": "0x0",
+          "chainId": "0x14a34",
+          "data": "0x69328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        }
+      ],
+      "gasLimits": [
+        "296069"
+      ],
+      "gasPrice": "12000000",
+      "expiresAt": "2026-10-02T02:49:55.388Z",
+      "artifactSet": {
+        "schemaVersion": "1.0.0",
+        "artifactSetId": "supply-artifacts",
+        "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+        "artifacts": [
+          {
+            "artifactId": "supply-state",
+            "nodeId": "node-002",
+            "artifactHash": "0x815826e19347d5be4fcc36f29b0a14a733efe9c389654328384557a820b8e2ca"
+          }
+        ]
+      },
+      "simulation": {
+        "schemaVersion": "1.0.0",
+        "simulationId": "supply-simulation",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+        "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+        "adapters": [
+          {
+            "id": "aave-v3",
+            "version": "1.0.0"
+          }
+        ],
+        "contracts": [
+          {
+            "chainId": "eip155:84532",
+            "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+            "version": "aave-v3"
+          },
+          {
+            "chainId": "eip155:84532",
+            "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+            "version": "erc20"
+          }
+        ],
+        "outputs": [],
+        "propagatedOutputs": [],
+        "failurePaths": [],
+        "uncertainty": [],
+        "unsupportedAssumptions": [],
+        "freshness": {
+          "observedAt": "2026-10-02T02:47:55.388Z",
+          "expiresAt": "2026-10-02T02:49:55.388Z",
+          "maximumAgeSeconds": 120
+        }
+      },
+      "policy": {
+        "schemaVersion": "1.0.0",
+        "policyId": "supply-policy",
+        "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+        "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+        "simulationHash": "0x8ce751ac6fa59f380270b3eef0814f11bfc49c84778d8c79faf160e0e104a2bf",
+        "requiredAuthorizationClass": "MODE_A",
+        "allowlists": {
+          "owners": [
+            {
+              "chainId": "eip155:84532",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "accounts": [
+            {
+              "chainId": "eip155:84532",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "recipients": [
+            {
+              "chainId": "eip155:84532",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "chains": [
+            "eip155:84532"
+          ],
+          "adapters": [
+            {
+              "id": "aave-v3",
+              "version": "1.0.0"
+            }
+          ],
+          "protocols": [
+            "aave-v3"
+          ],
+          "contracts": [
+            {
+              "chainId": "eip155:84532",
+              "address": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+              "version": "aave-v3"
+            },
+            {
+              "chainId": "eip155:84532",
+              "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+              "version": "erc20"
+            }
+          ],
+          "functions": [
+            {
+              "chainId": "eip155:84532",
+              "contract": "0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27",
+              "functionId": "withdraw"
+            }
+          ]
+        },
+        "budgetReservation": {
+          "rule": "RESERVE_BEFORE_SUBMISSION",
+          "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+          "implementation": "NOT_IMPLEMENTED"
+        },
+        "spendLimits": [
+          {
+            "asset": {
+              "chainId": "eip155:84532",
+              "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+              "decimals": 6
+            },
+            "maximumAmount": "100000",
+            "maximumPerStepAmount": "100000",
+            "maximumCumulativeAmount": "100000"
+          }
+        ],
+        "maximumSlippageBps": 0,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "eip155:84532",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "13552828000000"
+          }
+        ],
+        "feeBudgets": [],
+        "oracleRules": [],
+        "accountRiskRules": [
+          {
+            "account": {
+              "chainId": "eip155:84532",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            },
+            "minimumHealthFactorNumerator": "2",
+            "minimumHealthFactorDenominator": "1",
+            "maximumLtvBps": 8250,
+            "maximumExposure": [],
+            "oracleId": "aave-oracle",
+            "checkpointId": "borrow-risk"
+          }
+        ],
+        "checkpointRules": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "aave-v3"
+        },
+        "nonce": "5",
+        "deadline": "2026-10-02T02:49:55.388Z",
+        "revocationEpoch": 1,
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "manifest": {
+        "schemaVersion": "1.0.0",
+        "manifestId": "supply-manifest",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+        "artifactSetHash": "0x3124bbadc2530bb5eaaac21970cc9d0982a9571c9b509311d88643063d63e96d",
+        "simulationHash": "0x8ce751ac6fa59f380270b3eef0814f11bfc49c84778d8c79faf160e0e104a2bf",
+        "policyHash": "0x042895cf79840af62b3a28bbe540ba07998c7949f1fb086d3933f88f2f723614",
+        "authorizationMode": "MODE_A",
+        "owner": {
+          "chainId": "eip155:84532",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "executor": null,
+        "expiresAt": "2026-10-02T02:49:55.388Z",
+        "nonce": "5",
+        "revocationEpoch": 1,
+        "spendLimits": [
+          {
+            "asset": {
+              "chainId": "eip155:84532",
+              "address": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+              "decimals": 6
+            },
+            "maximumAmount": "100000",
+            "maximumPerStepAmount": "100000",
+            "maximumCumulativeAmount": "100000"
+          }
+        ],
+        "maximumSlippageBps": 0,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "eip155:84532",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "13552828000000"
+          }
+        ],
+        "feeBudgets": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "aave-v3"
+        },
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "eip155:84532",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "plan": {
+        "schemaVersion": "1.0.0",
+        "executionPlanId": "supply-plan",
+        "semanticWorkflowHash": "0xeb09acd74a2ef48972696130ff07ea2064d312cf76150daed6ebebd7a9695112",
+        "manifestHash": "0xbff635dfa1026b7b167dda871375604d3343533c3f37628fcf05747a24a00857",
+        "segments": [
+          {
+            "segmentId": "supply-segment",
+            "chainId": "eip155:84532",
+            "dependencies": [],
+            "steps": [
+              {
+                "stepId": "aave-withdraw",
+                "nodeId": "node-002",
+                "chainId": "eip155:84532",
+                "adapter": {
+                  "id": "aave-v3",
+                  "version": "1.0.0"
+                },
+                "dependencies": [],
+                "requiredAuthorizationClass": "MODE_A",
+                "executionKind": "DIRECT_TRANSACTION",
+                "payloadHash": "0xea179e981e42b95f000f197c99a89f165a3390ed6ef24de2b2f75ee0d89841cb"
+              }
+            ]
+          }
+        ],
+        "checkpointIds": [],
+        "enforcement": "NOT_ENFORCED"
+      },
+      "commitment": "0xc6be2cc48806fd73f666e3c6f3dcfba9216765e2425c90c240ca524092d2d6ea"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createSupplyNode, readSupplyNode, createBorrowNode, readBorrowNode, createRepayNode, readRepayNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { createSupplyNode, readSupplyNode, createBorrowNode, readBorrowNode, createRepayNode, readRepayNode, createWithdrawNode, readWithdrawNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
 export type SupplyInput={network:'Base Sepolia';asset:'USDC';amount:string;beneficiary:string};
 export function parseSupplyAmount(value:string):string {
@@ -50,4 +50,15 @@ export function repayDetails(node:SemanticWorkflow['nodes'][number]):SupplyInput
   if(node.actionType!=='repay')return null;
   const fields=readRepayNode(node),amount=BigInt(fields.amount);
   return {network:'Base Sepolia',asset:'USDC',amount:`${amount/1000000n}${amount%1000000n?'.'+(amount%1000000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,beneficiary:fields.beneficiary};
+}
+
+export type WithdrawInput={network:'Base Sepolia';asset:'USDC';amount:string;recipient:'CONNECTED_OWNER'};
+export function createAuthoredWithdraw(nodeId:string,input:WithdrawInput):SemanticWorkflow['nodes'][number]{
+  if(input.network!==profile.network||input.asset!=='USDC'||input.recipient!=='CONNECTED_OWNER')throw new Error('WITHDRAW_DEPLOYMENT_UNSUPPORTED');
+  return createWithdrawNode(nodeId,{chain:profile.chain,asset:{chainId:profile.chain,address:profile.asset,decimals:6},amount:parseSupplyAmount(input.amount),recipient:input.recipient});
+}
+export function withdrawDetails(node:SemanticWorkflow['nodes'][number]):WithdrawInput|null{
+  if(node.actionType!=='withdraw')return null;
+  const fields=readWithdrawNode(node),amount=BigInt(fields.amount);
+  return {network:'Base Sepolia',asset:'USDC',amount:`${amount/1000000n}${amount%1000000n?'.'+(amount%1000000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,recipient:fields.recipient};
 }

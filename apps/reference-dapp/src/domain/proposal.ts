@@ -1,4 +1,4 @@
-import { supplyDetails, borrowDetails, repayDetails } from './supply-authoring';
+import { supplyDetails, borrowDetails, repayDetails, withdrawDetails } from './supply-authoring';
 import { solanaSwapDetails, solanaSwapLabels, solanaTokenMint } from './jupiter-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
@@ -56,6 +56,8 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `Fee tier: ${newLiquidity.fee}; recipient: ${newLiquidity.recipient}`,
     'Pool state and position outcome are unobserved. Every liquidity wallet operation needs separate exact Mode A review.',
   ]);
+  const oldWithdraw=oldNode&&withdrawDetails(oldNode as Parameters<typeof withdrawDetails>[0]),newWithdraw=newNode&&withdrawDetails(newNode as Parameters<typeof withdrawDetails>[0]);
+  if(newWithdraw)return [`Withdraw from Aave V3 on ${newWithdraw.network}`,`Amount: ${oldWithdraw?.amount??'none'} → ${newWithdraw.amount} USDC`,'Recipient: connected owner bound at Review'];
   const oldSupply = oldNode && (repayDetails(oldNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(oldNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(oldNode as Parameters<typeof supplyDetails>[0]));
   const newSupply = newNode && (repayDetails(newNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(newNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(newNode as Parameters<typeof supplyDetails>[0]));
   if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
