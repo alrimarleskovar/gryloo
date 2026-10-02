@@ -13,6 +13,7 @@ import { PublicTestnetProvider } from '../state/public-testnet-store';
 
 import {LendingProvider} from '../state/lending-store';
 import { SupplyProvider } from '../state/supply-store';
+import { RobinhoodTransferProvider } from '../state/robinhood-transfer-store';
 import { JupiterProvider } from '../state/jupiter-store';
 import { SolanaLiquidityProvider } from '../state/solana-liquidity-store';
 
@@ -23,4 +24,4 @@ const initialContext = {
   assets: baseAssetRegistry,
 };
 // The local-fork Mode A boundary is a separate provider; the mocked chain and Base observation never reach it.
-export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><AppShell/></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }
+export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><AppShell/></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }

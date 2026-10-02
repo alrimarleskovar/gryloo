@@ -16,6 +16,7 @@ import { walletChainRef } from '../wallet/evm-networks';
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import {useLending} from './lending-store';
 import { useSupply } from './supply-store';
+import { useRobinhoodTransfer } from './robinhood-transfer-store';
 import { useJupiter } from './jupiter-store';
 import { useSolanaLiquidity } from './solana-liquidity-store';
 
@@ -31,7 +32,7 @@ export function useExecutionEnvironment() {
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
   const workflow = useWorkflow().state.workflow;
-  const testnetSwap = workflow.nodes.some(node => ['supply','borrow','repay','withdraw'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const testnetSwap = workflow.nodes.some(node => ['supply','borrow','repay','withdraw','asset.transfer'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const solanaSwap = workflow.nodes.find(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
   // The Solana runtime's environment: mainnet-beta (Jupiter) is MAINNET; Devnet (Orca, test tokens) is a public test network.
   const solanaPosition = workflow.nodes.some(node => node.actionType === 'asset.liquidity.concentrated' && node.chainId === ORCA_WHIRLPOOLS_DEVNET.chain);
@@ -45,6 +46,7 @@ export function useWorkflowCapability() {
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const lending=useLending(),lendingPath=isLendingComposition(state.workflow);
   const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => ['supply','borrow','repay','withdraw'].includes(n.actionType));
+  const transfer = useRobinhoodTransfer(), transferPath = state.workflow.nodes.some(n => n.actionType === 'asset.transfer');
   const jupiter = useJupiter(), orca = useSolanaLiquidity();
   const positionPath = state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.concentrated' && n.chainId === ORCA_WHIRLPOOLS_DEVNET.chain);
   const solanaPath = positionPath || state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId.startsWith('solana:'));
@@ -60,15 +62,15 @@ export function useWorkflowCapability() {
   const walletChainId = solanaPath ? jupiter.owner ? jupiter.network === 'Solana Devnet' ? ORCA_WHIRLPOOLS_DEVNET.chain : JUPITER_SOLANA_MAINNET.chain : null : environment === 'LOCAL_FORK' ? selectedForkWallet ? 'eip155:31337' : null :
     cow.wallet ? 'eip155:8453' : walletChainRef(wallet.chainId);
   const status = chainStatus(chain);
-  const artifacts = lendingPath ? lending.retired?'STALE':lending.record?'CURRENT':'MISSING' : solanaPath ? solanaRetired ? 'STALE' : solanaRecord ? 'CURRENT' : 'MISSING' : supplyPath ? supply.retired ? 'STALE' : supply.record ? 'CURRENT' : 'MISSING' : environment === 'PUBLIC_TESTNET' ? (publicTestnet.retired ? 'STALE' : publicTestnet.run ? 'CURRENT' : 'MISSING') :
+  const artifacts = transferPath ? transfer.retired ? 'STALE' : transfer.record ? 'CURRENT' : 'MISSING' : lendingPath ? lending.retired?'STALE':lending.record?'CURRENT':'MISSING' : solanaPath ? solanaRetired ? 'STALE' : solanaRecord ? 'CURRENT' : 'MISSING' : supplyPath ? supply.retired ? 'STALE' : supply.record ? 'CURRENT' : 'MISSING' : environment === 'PUBLIC_TESTNET' ? (publicTestnet.retired ? 'STALE' : publicTestnet.run ? 'CURRENT' : 'MISSING') :
     modeA.retired || liquidity.retired || modeB.retired || status === 'INVALIDATED' || status === 'EXPIRED'
     ? 'STALE' : modeA.prepared || liquidity.prepared || modeB.status?.prepared || status === 'CURRENT' ? 'CURRENT' : 'MISSING';
-  const simulationReady = lendingPath ? Boolean(lending.record&&!lending.retired) : solanaPath ? Boolean(solanaRecord && !solanaRetired) : supplyPath ? Boolean(supply.record && !supply.retired) : environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run && !publicTestnet.retired) :
+  const simulationReady = transferPath ? Boolean(transfer.record && !transfer.retired) : lendingPath ? Boolean(lending.record&&!lending.retired) : solanaPath ? Boolean(solanaRecord && !solanaRetired) : supplyPath ? Boolean(supply.record && !supply.retired) : environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run && !publicTestnet.retired) :
     Boolean(modeA.prepared || liquidity.prepared || modeB.status?.prepared || composition.status?.prepared || status === 'CURRENT');
-  const authorizationReady = lendingPath ? Boolean(lending.record?.authorization&&!lending.retired) : solanaPath ? Boolean(solanaRecord?.authorization && !solanaRetired) : supplyPath ? Boolean(supply.record?.authorization && !supply.retired) : environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run?.reviewedManifestHash) :
+  const authorizationReady = transferPath ? Boolean(transfer.record?.authorization && !transfer.retired) : lendingPath ? Boolean(lending.record?.authorization&&!lending.retired) : solanaPath ? Boolean(solanaRecord?.authorization && !solanaRetired) : supplyPath ? Boolean(supply.record?.authorization && !supply.retired) : environment === 'PUBLIC_TESTNET' ? Boolean(publicTestnet.run?.reviewedManifestHash) :
     Boolean(modeA.reviewAccepted || liquidity.reviewAccepted || modeB.reviewed);
   const result = useMemo(() => resolveWorkflowCapability(state.workflow, { environment, runtime: {
-    lendingCompositionViable:lendingPath&&Boolean(lending.record&&!lending.retired&&!lending.error),forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: supplyPath || solanaPath ? true : publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
-  } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady, publicTestnet.available, supplyPath,lendingPath,lending.record,lending.retired,lending.error]);
+    lendingCompositionViable:lendingPath&&Boolean(lending.record&&!lending.retired&&!lending.error),forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: transferPath || supplyPath || solanaPath ? true : publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
+  } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady, publicTestnet.available, supplyPath,transferPath,transfer.record,transfer.retired,lendingPath,lending.record,lending.retired,lending.error]);
   return { environment, selectEnvironment, result };
 }

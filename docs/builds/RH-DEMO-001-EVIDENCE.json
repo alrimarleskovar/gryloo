@@ -1,0 +1,946 @@
+{
+  "bundle": {
+    "schemaVersion": "1.0.0",
+    "evidenceBundleId": "rhx-e83e8d6936beaba2125cdda83514aa5b",
+    "version": 1,
+    "supersedes": null,
+    "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+    "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+    "simulationHash": "0xdc07e33b6c176f9c069dd6863c0e1012a1a158ab29a5bbc171e5a56a44a8d55e",
+    "policyHash": "0x3ce7512e566ab254ce4a1650e0681dd3359d78d5c85e45d18a574a9c25761b23",
+    "manifestHash": "0xc5ed20af7dc9ed85b615a873abf68baf7cec225bf407e566cd0b9e6be7ef09bc",
+    "executionPlanHash": "0x2b8708c74e39727d7f2643553ec371c010668a83e5d3eba32d0157fec7e14590",
+    "journalHeadHash": "0xf0ef4ea5755b3122f5e64ea5c34eb8861a2f196ede00bab9c4f34f177250a97a",
+    "observedAt": "2026-10-02T11:15:20.167Z",
+    "environment": "TESTNET_EXECUTED",
+    "outcome": "RECONCILED",
+    "receipts": [
+      {
+        "receiptId": "native-transfer-receipt",
+        "contentHash": "0x5bf141cc8f2fbd030e428b754d208264694ba032944596861c4edba60ced585d"
+      }
+    ],
+    "differences": [],
+    "reconciliation": {
+      "balances": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "amount": "9999746410000000"
+        }
+      ],
+      "allowances": [],
+      "debt": [],
+      "positions": [],
+      "fees": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "amount": "253590000000"
+        }
+      ],
+      "residualAssets": [],
+      "ownership": [
+        {
+          "chainId": "eip155:46630",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        }
+      ],
+      "limitations": [
+        "Inclusion is verified at Robinhood Chain (L2) sequencer level after confirmations; L1 finality is reported by the independent verifier.",
+        "Self-transfer: the value leg nets to zero; the fee is gasUsed \u00d7 effectiveGasPrice, which includes Arbitrum Nitro L1 data gas.",
+        "This is a chain execution proof, not a DeFi capability."
+      ]
+    },
+    "evidence": [
+      {
+        "evidenceId": "native-transfer-public-observations",
+        "kind": "EXTERNAL_REFERENCE",
+        "contentHash": "0xf740734716156cfc0a0a59f9b4703a0c81eb86961b499911a81fac86dc9cc8d7"
+      }
+    ]
+  },
+  "bundleHash": "0x7b8bab9c732d5fc461ed9a6567a674c728c3132a64d804b7ee64d8732b34ce2f",
+  "publicExecution": {
+    "network": "Robinhood Chain Testnet",
+    "chainId": 46630,
+    "explorer": "https://explorer.testnet.chain.robinhood.com",
+    "officialSource": "https://docs.robinhood.com/chain/connecting",
+    "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+    "recipient": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+    "value": "1000000000000",
+    "nonce": "0",
+    "transactionHash": "0xdadc1fd5fd23e9bad85171cf2255c1e26df121ce3c8e2c35b121274436f4a498",
+    "explorerUrl": "https://explorer.testnet.chain.robinhood.com/tx/0xdadc1fd5fd23e9bad85171cf2255c1e26df121ce3c8e2c35b121274436f4a498",
+    "blockNumber": 127567253,
+    "blockHash": "0xa6c095fbf68bab1db83d232303f0cfde35b7975925f4e2b0703a6b44f207beaf",
+    "gasUsed": "25359",
+    "effectiveGasPrice": "10000000",
+    "fee": "253590000000",
+    "balanceBefore": "10000000000000000",
+    "balanceAfter": "9999746410000000",
+    "nonceBefore": "0",
+    "nonceAfter": "1",
+    "transactionType": "0x2",
+    "provenance": "PUBLIC_TESTNET",
+    "ownerInitiated": true,
+    "submissions": 1,
+    "verdict": "RECONCILED"
+  },
+  "artifacts": {
+    "workflow": {
+      "schemaVersion": "1.0.0",
+      "workflowId": "workflow-local",
+      "revision": 1,
+      "nodes": [
+        {
+          "nodeId": "node-001",
+          "actionType": "mock-read",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "mock:local",
+          "requiredCapabilities": [],
+          "adapterConstraints": {
+            "adapters": [],
+            "protocols": []
+          },
+          "inputs": [
+            {
+              "name": "amount",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "amount": "1000000"
+              }
+            }
+          ],
+          "expectedOutputs": [
+            {
+              "outputId": "result",
+              "asset": {
+                "chainId": "mock:local",
+                "nativeId": "sample",
+                "decimals": 6
+              },
+              "minimumAmount": "0"
+            }
+          ],
+          "dependencies": [],
+          "userConstraints": [],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "NONE",
+          "lockedParameters": [],
+          "editableBounds": []
+        },
+        {
+          "nodeId": "node-002",
+          "actionType": "asset.transfer",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "eip155:46630",
+          "requiredCapabilities": [
+            "evm.native-transfer"
+          ],
+          "adapterConstraints": {
+            "adapters": [
+              {
+                "id": "evm.native-transfer",
+                "version": "1.0.0"
+              }
+            ],
+            "protocols": [
+              "native"
+            ]
+          },
+          "inputs": [
+            {
+              "name": "amount",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "eip155:46630",
+                  "nativeId": "ETH",
+                  "decimals": 18
+                },
+                "amount": "1000000000000"
+              }
+            },
+            {
+              "name": "recipient",
+              "kind": "IDENTIFIER",
+              "value": "CONNECTED_OWNER"
+            }
+          ],
+          "expectedOutputs": [],
+          "dependencies": [],
+          "userConstraints": [
+            {
+              "kind": "MAXIMUM_INPUT",
+              "quantity": {
+                "asset": {
+                  "chainId": "eip155:46630",
+                  "nativeId": "ETH",
+                  "decimals": 18
+                },
+                "amount": "1000000000000"
+              }
+            }
+          ],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "MODE_A",
+          "lockedParameters": [],
+          "editableBounds": []
+        }
+      ],
+      "resourceEdges": []
+    },
+    "artifactSet": {
+      "schemaVersion": "1.0.0",
+      "artifactSetId": "native-transfer-artifacts",
+      "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+      "artifacts": [
+        {
+          "artifactId": "native-transfer-state",
+          "nodeId": "node-002",
+          "artifactHash": "0xbdcaf0d9d76f82a855ea345bec44ddc5d54a8859eef6c0e13dbb9b5944fca1dc"
+        }
+      ]
+    },
+    "simulation": {
+      "schemaVersion": "1.0.0",
+      "simulationId": "native-transfer-simulation",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+      "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+      "adapters": [
+        {
+          "id": "evm.native-transfer",
+          "version": "1.0.0"
+        }
+      ],
+      "contracts": [],
+      "outputs": [],
+      "propagatedOutputs": [],
+      "failurePaths": [],
+      "uncertainty": [
+        {
+          "code": "L2_SOFT_CONFIRMATION",
+          "description": "Inclusion is first a Robinhood Chain sequencer confirmation; L1 finality follows later."
+        }
+      ],
+      "unsupportedAssumptions": [],
+      "freshness": {
+        "observedAt": "2026-10-02T11:14:44.916Z",
+        "expiresAt": "2026-10-02T11:16:44.916Z",
+        "maximumAgeSeconds": 120
+      }
+    },
+    "policy": {
+      "schemaVersion": "1.0.0",
+      "policyId": "native-transfer-policy",
+      "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+      "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+      "simulationHash": "0xdc07e33b6c176f9c069dd6863c0e1012a1a158ab29a5bbc171e5a56a44a8d55e",
+      "requiredAuthorizationClass": "MODE_A",
+      "allowlists": {
+        "owners": [
+          {
+            "chainId": "eip155:46630",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "accounts": [
+          {
+            "chainId": "eip155:46630",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "recipients": [
+          {
+            "chainId": "eip155:46630",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          }
+        ],
+        "chains": [
+          "eip155:46630"
+        ],
+        "adapters": [
+          {
+            "id": "evm.native-transfer",
+            "version": "1.0.0"
+          }
+        ],
+        "protocols": [
+          "native"
+        ],
+        "contracts": [],
+        "functions": []
+      },
+      "budgetReservation": {
+        "rule": "RESERVE_BEFORE_SUBMISSION",
+        "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+        "implementation": "NOT_IMPLEMENTED"
+      },
+      "spendLimits": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "1000000000000",
+          "maximumPerStepAmount": "1000000000000",
+          "maximumCumulativeAmount": "1000000000000"
+        }
+      ],
+      "maximumSlippageBps": 0,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "824440000000"
+        }
+      ],
+      "feeBudgets": [],
+      "oracleRules": [],
+      "accountRiskRules": [],
+      "checkpointRules": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "evm.native-transfer"
+      },
+      "nonce": "0",
+      "deadline": "2026-10-02T11:16:44.916Z",
+      "revocationEpoch": 1,
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "eip155:46630",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "manifest": {
+      "schemaVersion": "1.0.0",
+      "manifestId": "native-transfer-manifest",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+      "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+      "simulationHash": "0xdc07e33b6c176f9c069dd6863c0e1012a1a158ab29a5bbc171e5a56a44a8d55e",
+      "policyHash": "0x3ce7512e566ab254ce4a1650e0681dd3359d78d5c85e45d18a574a9c25761b23",
+      "authorizationMode": "MODE_A",
+      "owner": {
+        "chainId": "eip155:46630",
+        "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+      },
+      "executor": null,
+      "expiresAt": "2026-10-02T11:16:44.916Z",
+      "nonce": "0",
+      "revocationEpoch": 1,
+      "spendLimits": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "1000000000000",
+          "maximumPerStepAmount": "1000000000000",
+          "maximumCumulativeAmount": "1000000000000"
+        }
+      ],
+      "maximumSlippageBps": 0,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "eip155:46630",
+            "nativeId": "ETH",
+            "decimals": 18
+          },
+          "maximumAmount": "824440000000"
+        }
+      ],
+      "feeBudgets": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "evm.native-transfer"
+      },
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "eip155:46630",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "plan": {
+      "schemaVersion": "1.0.0",
+      "executionPlanId": "native-transfer-plan",
+      "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+      "manifestHash": "0xc5ed20af7dc9ed85b615a873abf68baf7cec225bf407e566cd0b9e6be7ef09bc",
+      "segments": [
+        {
+          "segmentId": "native-transfer-segment",
+          "chainId": "eip155:46630",
+          "dependencies": [],
+          "steps": [
+            {
+              "stepId": "native-transfer",
+              "nodeId": "node-002",
+              "chainId": "eip155:46630",
+              "adapter": {
+                "id": "evm.native-transfer",
+                "version": "1.0.0"
+              },
+              "dependencies": [],
+              "requiredAuthorizationClass": "MODE_A",
+              "executionKind": "DIRECT_TRANSACTION",
+              "payloadHash": "0xf7bd82a556fa78fa040bf23212decc6d7c4394aa686bd23eeba9468771e92f8f"
+            }
+          ]
+        }
+      ],
+      "checkpointIds": [],
+      "enforcement": "NOT_ENFORCED"
+    },
+    "journal": {
+      "schemaVersion": "1.0.0",
+      "journalId": "rhx-e83e8d6936beaba2125cdda83514aa5b",
+      "workflowId": "workflow-local",
+      "executionPlanHash": "0x2b8708c74e39727d7f2643553ec371c010668a83e5d3eba32d0157fec7e14590",
+      "manifestHash": "0xc5ed20af7dc9ed85b615a873abf68baf7cec225bf407e566cd0b9e6be7ef09bc",
+      "entries": [
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-0",
+          "sequence": 0,
+          "previousEntryHash": null,
+          "recordedAt": "2026-10-02T11:14:48.576Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "DRAFT"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-1",
+          "sequence": 1,
+          "previousEntryHash": "0x30334abdeee319c3ba60bf3b65da931eaff47a0fa01774a5eca3808672dd27c2",
+          "recordedAt": "2026-10-02T11:14:48.576Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "segment",
+          "entityId": "native-transfer-segment",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-2",
+          "sequence": 2,
+          "previousEntryHash": "0x6cd82d3b4d760ed7d022035fed6f065a5631a59547e3c06d0e4dff63f47ccc3d",
+          "recordedAt": "2026-10-02T11:14:48.576Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "step",
+          "entityId": "native-transfer",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": "native-transfer",
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-3",
+          "sequence": 3,
+          "previousEntryHash": "0xb1848475a0fadeba38c5993e29263a78b77c7bb7094a6a2c4a2220bf6338caba",
+          "recordedAt": "2026-10-02T11:14:48.576Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "DRAFT",
+          "toState": "REVIEWED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-4",
+          "sequence": 4,
+          "previousEntryHash": "0xacf27c857c6a881c14ca6bc21efc39d77454f8abe0e40e0ee57eee92f6813ade",
+          "recordedAt": "2026-10-02T11:14:48.576Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "REVIEWED",
+          "toState": "SIMULATED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-5",
+          "sequence": 5,
+          "previousEntryHash": "0xe27838051d7976839e8ae8215f4fda1cb6a38b1031e8caaf49af60215d5686ce",
+          "recordedAt": "2026-10-02T11:15:08.555Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": "native-transfer",
+          "executionAttemptId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "fromState": null,
+          "toState": "PREPARED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-6",
+          "sequence": 6,
+          "previousEntryHash": "0xde90f81c1eadce6581e29351b52e393b36c9e04875a546d5e40c331cea2dc2d2",
+          "recordedAt": "2026-10-02T11:15:11.226Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": "native-transfer",
+          "executionAttemptId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "fromState": "PREPARED",
+          "toState": "SUBMITTING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-7",
+          "sequence": 7,
+          "previousEntryHash": "0xc356955045cbbf487f151ead97d40e6e5c922ba0c66b297b28349b2248205cec",
+          "recordedAt": "2026-10-02T11:15:16.400Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": "native-transfer",
+          "executionAttemptId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "fromState": "SUBMITTING",
+          "toState": "PENDING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-8",
+          "sequence": 8,
+          "previousEntryHash": "0xddcb816fcd4ec613886ebf9fd965c7983da1ef2c0322c44e7dbfa6ceea5dc9e3",
+          "recordedAt": "2026-10-02T11:15:20.164Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "workflowId": "workflow-local",
+          "segmentId": "native-transfer-segment",
+          "stepId": "native-transfer",
+          "executionAttemptId": "rhx-e83e8d6936beaba2125cdda83514aa5b.TRANSFER",
+          "fromState": "PENDING",
+          "toState": "CONFIRMED"
+        }
+      ]
+    },
+    "review": {
+      "format": "gryloo.native-transfer-review.v1",
+      "workflow": {
+        "schemaVersion": "1.0.0",
+        "workflowId": "workflow-local",
+        "revision": 1,
+        "nodes": [
+          {
+            "nodeId": "node-001",
+            "actionType": "mock-read",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "mock:local",
+            "requiredCapabilities": [],
+            "adapterConstraints": {
+              "adapters": [],
+              "protocols": []
+            },
+            "inputs": [
+              {
+                "name": "amount",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "mock:local",
+                    "nativeId": "sample",
+                    "decimals": 6
+                  },
+                  "amount": "1000000"
+                }
+              }
+            ],
+            "expectedOutputs": [
+              {
+                "outputId": "result",
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "minimumAmount": "0"
+              }
+            ],
+            "dependencies": [],
+            "userConstraints": [],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "NONE",
+            "lockedParameters": [],
+            "editableBounds": []
+          },
+          {
+            "nodeId": "node-002",
+            "actionType": "asset.transfer",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "eip155:46630",
+            "requiredCapabilities": [
+              "evm.native-transfer"
+            ],
+            "adapterConstraints": {
+              "adapters": [
+                {
+                  "id": "evm.native-transfer",
+                  "version": "1.0.0"
+                }
+              ],
+              "protocols": [
+                "native"
+              ]
+            },
+            "inputs": [
+              {
+                "name": "amount",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "eip155:46630",
+                    "nativeId": "ETH",
+                    "decimals": 18
+                  },
+                  "amount": "1000000000000"
+                }
+              },
+              {
+                "name": "recipient",
+                "kind": "IDENTIFIER",
+                "value": "CONNECTED_OWNER"
+              }
+            ],
+            "expectedOutputs": [],
+            "dependencies": [],
+            "userConstraints": [
+              {
+                "kind": "MAXIMUM_INPUT",
+                "quantity": {
+                  "asset": {
+                    "chainId": "eip155:46630",
+                    "nativeId": "ETH",
+                    "decimals": 18
+                  },
+                  "amount": "1000000000000"
+                }
+              }
+            ],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "MODE_A",
+            "lockedParameters": [],
+            "editableBounds": []
+          }
+        ],
+        "resourceEdges": []
+      },
+      "chain": "eip155:46630",
+      "chainId": 46630,
+      "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "recipient": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+      "value": "1000000000000",
+      "nonce": "0",
+      "transaction": {
+        "from": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+        "to": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+        "value": "0xe8d4a51000",
+        "data": "0x",
+        "chainId": "0xb626",
+        "gas": "0xa106",
+        "maxFeePerGas": "0x1312d00",
+        "maxPriorityFeePerGas": "0x0"
+      },
+      "gasEstimate": "27481",
+      "gasLimit": "41222",
+      "gasPrice": "10000000",
+      "maxFeePerGas": "20000000",
+      "expectedFee": "274810000000",
+      "feeBudget": "824440000000",
+      "balanceBefore": "10000000000000000",
+      "expectedBalanceAfter": "9999725190000000",
+      "minimumBalanceAfter": "9999175560000000",
+      "simulationResult": "0x",
+      "state": {
+        "block": 127567024,
+        "blockHash": "0xa9d01cce3d88dc4174d556178b7e9a707b7939cb2c7666a48846d9db63161399",
+        "blockTimestamp": 1790939682,
+        "account": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b",
+        "balance": "10000000000000000",
+        "nonce": "0",
+        "pendingNonce": "0",
+        "gasPrice": "10000000",
+        "baseFee": "10000000",
+        "observedAt": "2026-10-02T11:14:44.916Z"
+      },
+      "expiresAt": "2026-10-02T11:16:44.916Z",
+      "artifactSet": {
+        "schemaVersion": "1.0.0",
+        "artifactSetId": "native-transfer-artifacts",
+        "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+        "artifacts": [
+          {
+            "artifactId": "native-transfer-state",
+            "nodeId": "node-002",
+            "artifactHash": "0xbdcaf0d9d76f82a855ea345bec44ddc5d54a8859eef6c0e13dbb9b5944fca1dc"
+          }
+        ]
+      },
+      "simulation": {
+        "schemaVersion": "1.0.0",
+        "simulationId": "native-transfer-simulation",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+        "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+        "adapters": [
+          {
+            "id": "evm.native-transfer",
+            "version": "1.0.0"
+          }
+        ],
+        "contracts": [],
+        "outputs": [],
+        "propagatedOutputs": [],
+        "failurePaths": [],
+        "uncertainty": [
+          {
+            "code": "L2_SOFT_CONFIRMATION",
+            "description": "Inclusion is first a Robinhood Chain sequencer confirmation; L1 finality follows later."
+          }
+        ],
+        "unsupportedAssumptions": [],
+        "freshness": {
+          "observedAt": "2026-10-02T11:14:44.916Z",
+          "expiresAt": "2026-10-02T11:16:44.916Z",
+          "maximumAgeSeconds": 120
+        }
+      },
+      "policy": {
+        "schemaVersion": "1.0.0",
+        "policyId": "native-transfer-policy",
+        "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+        "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+        "simulationHash": "0xdc07e33b6c176f9c069dd6863c0e1012a1a158ab29a5bbc171e5a56a44a8d55e",
+        "requiredAuthorizationClass": "MODE_A",
+        "allowlists": {
+          "owners": [
+            {
+              "chainId": "eip155:46630",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "accounts": [
+            {
+              "chainId": "eip155:46630",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "recipients": [
+            {
+              "chainId": "eip155:46630",
+              "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+            }
+          ],
+          "chains": [
+            "eip155:46630"
+          ],
+          "adapters": [
+            {
+              "id": "evm.native-transfer",
+              "version": "1.0.0"
+            }
+          ],
+          "protocols": [
+            "native"
+          ],
+          "contracts": [],
+          "functions": []
+        },
+        "budgetReservation": {
+          "rule": "RESERVE_BEFORE_SUBMISSION",
+          "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+          "implementation": "NOT_IMPLEMENTED"
+        },
+        "spendLimits": [
+          {
+            "asset": {
+              "chainId": "eip155:46630",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "1000000000000",
+            "maximumPerStepAmount": "1000000000000",
+            "maximumCumulativeAmount": "1000000000000"
+          }
+        ],
+        "maximumSlippageBps": 0,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "eip155:46630",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "824440000000"
+          }
+        ],
+        "feeBudgets": [],
+        "oracleRules": [],
+        "accountRiskRules": [],
+        "checkpointRules": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "evm.native-transfer"
+        },
+        "nonce": "0",
+        "deadline": "2026-10-02T11:16:44.916Z",
+        "revocationEpoch": 1,
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "eip155:46630",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "manifest": {
+        "schemaVersion": "1.0.0",
+        "manifestId": "native-transfer-manifest",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+        "artifactSetHash": "0xf4a548cd8e0166ebe52cfad9090d59d0e336d03553947e70af4bf9ebbcefa896",
+        "simulationHash": "0xdc07e33b6c176f9c069dd6863c0e1012a1a158ab29a5bbc171e5a56a44a8d55e",
+        "policyHash": "0x3ce7512e566ab254ce4a1650e0681dd3359d78d5c85e45d18a574a9c25761b23",
+        "authorizationMode": "MODE_A",
+        "owner": {
+          "chainId": "eip155:46630",
+          "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+        },
+        "executor": null,
+        "expiresAt": "2026-10-02T11:16:44.916Z",
+        "nonce": "0",
+        "revocationEpoch": 1,
+        "spendLimits": [
+          {
+            "asset": {
+              "chainId": "eip155:46630",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "1000000000000",
+            "maximumPerStepAmount": "1000000000000",
+            "maximumCumulativeAmount": "1000000000000"
+          }
+        ],
+        "maximumSlippageBps": 0,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "eip155:46630",
+              "nativeId": "ETH",
+              "decimals": 18
+            },
+            "maximumAmount": "824440000000"
+          }
+        ],
+        "feeBudgets": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "evm.native-transfer"
+        },
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "eip155:46630",
+            "address": "0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "plan": {
+        "schemaVersion": "1.0.0",
+        "executionPlanId": "native-transfer-plan",
+        "semanticWorkflowHash": "0xb3aa610c44f7e9b9118fdaab17bd7aba26b5ec61a26c694fd9e0e5ae5b919cf8",
+        "manifestHash": "0xc5ed20af7dc9ed85b615a873abf68baf7cec225bf407e566cd0b9e6be7ef09bc",
+        "segments": [
+          {
+            "segmentId": "native-transfer-segment",
+            "chainId": "eip155:46630",
+            "dependencies": [],
+            "steps": [
+              {
+                "stepId": "native-transfer",
+                "nodeId": "node-002",
+                "chainId": "eip155:46630",
+                "adapter": {
+                  "id": "evm.native-transfer",
+                  "version": "1.0.0"
+                },
+                "dependencies": [],
+                "requiredAuthorizationClass": "MODE_A",
+                "executionKind": "DIRECT_TRANSACTION",
+                "payloadHash": "0xf7bd82a556fa78fa040bf23212decc6d7c4394aa686bd23eeba9468771e92f8f"
+              }
+            ]
+          }
+        ],
+        "checkpointIds": [],
+        "enforcement": "NOT_ENFORCED"
+      },
+      "commitment": "0x575654a48083272600b290e2cee9cfb04bb97dd0d1590c9b4bf16c177c78b53a"
+    }
+  }
+}

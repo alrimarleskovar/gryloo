@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
@@ -17,10 +18,18 @@ const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.att
 export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET'}) {
   if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw Error('LENDING_STORAGE_INVALID');
   const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
+  // Cache only a fully validated, exact serialized prefix, never live authority or RPC proof.
+  // Every load still reads the file; changed/truncated history is validated from scratch.
+  // Keep the parsed predecessor private so callers cannot mutate the cached validation.
+  let validatedBytes=Buffer.alloc(0),validatedText='',validatedRecord:LendingRecord|null=null;
   const validate=(bytes:Uint8Array)=>{
     const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!text.endsWith('\n'))throw Error('LENDING_STORE_CORRUPT');
-    let prior:LendingRecord|null=null;
-    for(const line of text.trimEnd().split('\n')){
+    const raw=Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    const extendsValidated=validatedBytes.length>0&&raw.subarray(0,validatedBytes.length).equals(validatedBytes);
+    const remaining=extendsValidated?text.slice(validatedText.length):text;
+    if(!remaining&&extendsValidated)return;
+    let prior:LendingRecord|null=extendsValidated?validatedRecord:null;
+    for(const line of remaining.trimEnd().split('\n')){
       const r=JSON.parse(line) as LendingRecord;validateLendingRun(r);
       if(r.provenance!==input.provenance||prior&&(r.id!==prior.id||r.reviews.length<prior.reviews.length||r.attempts.length<prior.attempts.length||r.observations.length<prior.observations.length||
         supplyHash(r.reviews.slice(0,prior.reviews.length))!==supplyHash(prior.reviews)||supplyHash(r.journal.entries.slice(0,prior.journal.entries.length))!==supplyHash(prior.journal.entries)||
@@ -30,6 +39,8 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       if(r.status==='COMPLETED'&&(r.evidence?.bundle.outcome!=='RECONCILED'||!r.evidence.composedExecution.completed))throw Error('LENDING_STORE_CORRUPT');
       prior=r;
     }
+    // Publish only after the entire suffix and its predecessor links pass.
+    validatedBytes=Buffer.from(bytes);validatedText=text;validatedRecord=prior;
   };
   const load=async(id:string):Promise<LendingRecord>=>{const bytes=await readFile(path(id));validate(bytes);return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!);};
   const save=async(r:LendingRecord)=>{let previous='';try{previous=await readFile(path(r.id),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}

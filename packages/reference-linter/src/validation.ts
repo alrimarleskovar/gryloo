@@ -13,6 +13,7 @@ import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 import { isLendingComposition } from '@defi-workflow-engine/workflow-contracts';
 import { validateLendingComposition } from './lending-composition.js';
 import { validateSupplyWorkflow } from './supply.js';
+import { validateNativeTransferWorkflow } from './native-transfer.js';
 import { isSolanaSwapNode, validateSolanaSwapWorkflow } from './solana-swap.js';
 import { isConcentratedLiquidityNode, validateSolanaLiquidityWorkflow } from './solana-liquidity.js';
 
@@ -99,6 +100,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     return workflow;
   }
   if (workflow.nodes.some(node => ['supply','borrow','repay','withdraw'].includes(node.actionType))) validateSupplyWorkflow(workflow);
+  if (workflow.nodes.some(node => node.actionType === 'asset.transfer')) { validateNativeTransferWorkflow(workflow); return workflow; }
   // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
   if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }
   // The canonical concentrated-liquidity action; its only runtime today is Orca Whirlpools on Solana Devnet.

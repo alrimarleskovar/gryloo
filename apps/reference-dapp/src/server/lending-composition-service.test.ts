@@ -129,4 +129,24 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     const file=join(dir,r.id+'.jsonl'),lines=(await readFile(file,'utf8')).trimEnd().split('\n'),last=JSON.parse(lines.at(-1)!);last.reviews[0].fields.borrowAmount='999';last.reviews[0].commitment=supplyHash(last.reviews[0]);
     await writeFile(file,lines.slice(0,-1).join('\n')+'\n'+JSON.stringify(last)+'\n');await expect(service.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
   }));
+  it('validates changed historical bytes after a warm load and after restart, and keeps its cached predecessor private',()=>fixture(async({model,service,dir})=>{
+    let r=await authorized(service);r=await step(service,model,r.id);
+    const file=join(dir,r.id+'.jsonl'),original=await readFile(file,'utf8'),lines=original.trimEnd().split('\n');
+    const loaded=await service.load(r.id);loaded.reviews[0]!.fields.borrowAmount='999';loaded.attempts[0]!.nonce='99';
+    expect((await service.load(r.id)).reviews[0]!.fields.borrowAmount).toBe('10000');
+    const first=JSON.parse(lines[0]!);first.reviews[0].fields.borrowAmount='999';
+    await writeFile(file,JSON.stringify(first)+'\n'+lines.slice(1).join('\n')+'\n');
+    await expect(service.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+    const restarted=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+    await expect(restarted.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+    await writeFile(file,original);
+    // Rejected bytes never become a trusted prefix, and a valid append still works.
+    r=await step(service,model,r.id);expect(r.attempts.at(-1)?.step).toBe('SUPPLY');expect(r.attempts.at(-1)?.reconciled).toBe(true);
+    expect((await restarted.load(r.id)).attempts).toHaveLength(2);
+    // A newly appended, individually valid snapshot cannot alter a prior attempt.
+    const changed=structuredClone(r);changed.attempts[0]!.nonce='99';
+    await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify(changed)+'\n');
+    await expect(service.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+    await expect(restarted.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+  }));
 });

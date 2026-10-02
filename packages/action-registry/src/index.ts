@@ -18,7 +18,7 @@ export { SOLANA_SWAP_RUNTIMES, solanaSwapRuntime, solanaTokenOn } from "./solana
 export type { SolanaSwapRuntime, SolanaSwapToken } from "./solana-swap-runtimes.js";
 export { capabilityDeclares } from "./capabilities.js";
 export { ROBINHOOD_CHAIN_MAINNET, ROBINHOOD_CHAIN_TESTNET, ROBINHOOD_NETWORKS, ROBINHOOD_PROTOCOL_AVAILABILITY,
-  robinhoodNetwork, robinhoodDeploymentStatus, robinhoodAddChainParameters, robinhoodExpectedCode } from "./robinhood-chain.js";
+  robinhoodNetwork, robinhoodDeploymentStatus, robinhoodAddChainParameters, robinhoodExpectedCode, ROBINHOOD_TESTNET_TRANSFER } from "./robinhood-chain.js";
 export type { RobinhoodNetwork, RobinhoodNetworkKey, RobinhoodContract, RobinhoodDeploymentStatus,
   RobinhoodProtocolAvailability } from "./robinhood-chain.js";
 export { executionCapabilityRegistry, executionEnvironments, capabilityDimensions,

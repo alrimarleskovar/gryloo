@@ -15,6 +15,7 @@ import { createCrossChainLiquidityWorkflow } from './cross-chain-liquidity';
 import { canDeleteCanvasEdge, canDeleteCanvasNode, deletableCanvasNodes } from './canvas-keyboard';
 
 import { createAuthoredSupply, createAuthoredBorrow, createAuthoredRepay, createAuthoredWithdraw } from './supply-authoring';
+import { createAuthoredTransfer } from './robinhood-transfer-authoring';
 import { createSolanaSwapNode, solanaSwapDetails } from './jupiter-authoring';
 import { createSolanaLiquidityNode, solanaLiquidityDetails } from './solana-liquidity-authoring';
 
@@ -29,6 +30,19 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
   if(command.type==='AUTHOR_LENDING'){try{const workflow=createAuthoredLending(current.workflowId,current.revision+1,command.input);validateAuthoringWorkflow(workflow,createBaseSepoliaReviewContext());return{workflow:freeze(workflow),error:null};}catch(cause){return reject(cause instanceof Error?cause.message:'LENDING_INPUT_INVALID');}}
+  if (command.type === 'ADD_RH_TRANSFER' || command.type === 'SET_RH_TRANSFER') {
+    const editing = command.type === 'SET_RH_TRANSFER';
+    try {
+      if (editing && !current.nodes.some(n => n.nodeId === command.nodeId && n.actionType === 'asset.transfer')) return reject('UNKNOWN_TRANSFER_NODE');
+      if (!editing && current.nodes.some(n => !n.actionType.startsWith('mock-'))) return reject('TRANSFER_ISOLATED_ONLY');
+      const id = editing ? command.nodeId : `node-${String(current.revision + 2).padStart(3, '0')}`;
+      const replacement = createAuthoredTransfer(id, command.input);
+      if (editing && JSON.stringify(replacement) === JSON.stringify(current.nodes.find(n => n.nodeId === id))) return { workflow: current, error: null };
+      const workflow = { ...current, revision: current.revision + 1, nodes: !editing ? [...current.nodes, replacement] : current.nodes.map(n => n.nodeId === id ? replacement : n) };
+      if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+      validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'TRANSFER_INPUT_INVALID'); }
+  }
   if (command.type === 'ADD_WITHDRAW' || command.type === 'SET_WITHDRAW' || command.type === 'ADD_REPAY' || command.type === 'SET_REPAY' || command.type === 'ADD_SUPPLY' || command.type === 'SET_SUPPLY' || command.type === 'ADD_BORROW' || command.type === 'SET_BORROW') {
     const withdrawing=command.type==='ADD_WITHDRAW'||command.type==='SET_WITHDRAW';
     const repaying=command.type==='ADD_REPAY'||command.type==='SET_REPAY';
@@ -136,7 +150,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     if (command.from === command.to || !nodes.some(n => n.nodeId === command.from)
         || !nodes.some(n => n.nodeId === command.to)) return reject('INVALID_CONNECTION');
     if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && n.actionType === SWAP_ACTION)) return reject('SWAP_EDGE_UNSUPPORTED');
-    if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && [LIQUIDITY_ACTION, BRIDGE_ACTION, 'supply', 'borrow', 'repay', 'withdraw'].includes(n.actionType))) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
+    if (nodes.some(n => (n.nodeId === command.from || n.nodeId === command.to) && [LIQUIDITY_ACTION, BRIDGE_ACTION, 'supply', 'borrow', 'repay', 'withdraw', 'asset.transfer'].includes(n.actionType))) return reject('ISOLATED_ACTION_EDGE_UNSUPPORTED');
     const target = nodes.find(n => n.nodeId === command.to)!;
     if (target.dependencies.includes(command.from)) return { workflow: current, error: null };
     if (target.dependencies.length) return reject('INPUT_ALREADY_CONNECTED');
@@ -171,7 +185,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
       if (!canDeleteCanvasNode(current, node.nodeId)) return reject('PROTECTED_NODE: this node is required by the workflow.');
       nodes = nodes.filter(n => n.nodeId !== node.nodeId).map(n => ({ ...n, dependencies: n.dependencies.filter(id => id !== node.nodeId) }));
       resourceEdges = resourceEdges.filter(edge => edge.fromNodeId !== node.nodeId && edge.toNodeId !== node.nodeId);
-    } else if (['supply','borrow','repay','withdraw'].includes(node.actionType)) { return reject('SUPPLY_REVIEWED_EDIT_REQUIRED');
+    } else if (['supply','borrow','repay','withdraw','asset.transfer'].includes(node.actionType)) { return reject('SUPPLY_REVIEWED_EDIT_REQUIRED');
     } else if (node.actionType === LIQUIDITY_ACTION) {
       if (command.type !== 'SET_LIQUIDITY' || !context) return reject('INVALID_LIQUIDITY_COMMAND');
       try {

@@ -2,6 +2,7 @@
 'use client';
 import {LendingAuthoringForm} from './lending-panel';
 import { WithdrawAuthoringForm } from './withdraw-panel';
+import { RobinhoodTransferAuthoringForm } from './robinhood-transfer-panel';
 import { useState, type FormEvent } from 'react';
 import { mockActions, actionKinds } from '../domain/mock-actions';
 import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '../domain/swap-authoring';
@@ -113,7 +114,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option><option value="SOLANA_DEVNET">Solana Devnet</option>
   </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
-    <LendingAuthoringForm key={state.workflow.revision}/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
+    <LendingAuthoringForm key={state.workflow.revision}/><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">

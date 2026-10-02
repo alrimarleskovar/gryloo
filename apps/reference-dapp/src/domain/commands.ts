@@ -12,6 +12,7 @@ import type { BridgeSwapInput } from './bridge-swap-authoring';
 import type { CrossChainLiquidityInput } from './cross-chain-liquidity';
 import { liquidityDetails, parseTick } from '@defi-workflow-engine/reference-linter';
 
+import { createAuthoredTransfer, transferDetails, type RobinhoodTransferInput } from './robinhood-transfer-authoring';
 import { createAuthoredSupply, supplyDetails, createAuthoredBorrow, borrowDetails, createAuthoredRepay, repayDetails, createAuthoredWithdraw, withdrawDetails, type WithdrawInput, type SupplyInput } from './supply-authoring';
 import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, solanaSwapLabels, type SolanaSwapInput } from './jupiter-authoring';
 import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDetails, type SolanaLiquidityInput } from './solana-liquidity-authoring';
@@ -19,6 +20,8 @@ import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDet
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
   | {readonly type:'AUTHOR_LENDING';readonly input:LendingInput}
+  | { readonly type: 'ADD_RH_TRANSFER'; readonly input: RobinhoodTransferInput }
+  | { readonly type: 'SET_RH_TRANSFER'; readonly nodeId: string; readonly input: RobinhoodTransferInput }
   | { readonly type: 'ADD_WITHDRAW'; readonly input: WithdrawInput }
   | { readonly type: 'SET_WITHDRAW'; readonly nodeId: string; readonly input: WithdrawInput }
   | { readonly type: 'ADD_REPAY'; readonly input: SupplyInput }
@@ -187,7 +190,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    AUTHOR_LENDING:['input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -196,6 +199,13 @@ export function commandIsValid(input: unknown): input is Command {
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
     case 'AUTHOR_LENDING': {try{createAuthoredLending('lending-preview',0,command.input as LendingInput);return true;}catch{return false;}}
+    case 'ADD_RH_TRANSFER':
+    case 'SET_RH_TRANSFER': {
+      if(command.type==='SET_RH_TRANSFER'&&!id(command.nodeId))return false;
+      const fields=command.input;
+      if(!fields||typeof fields!=='object'||Array.isArray(fields)||Object.getPrototypeOf(fields)!==Object.prototype||Reflect.ownKeys(fields).sort().join()!==['network','asset','amount','recipient'].sort().join()||!Object.values(fields).every(v=>typeof v==='string'&&v.length<=40))return false;
+      try{createAuthoredTransfer('node-preview',fields as RobinhoodTransferInput);return true;}catch{return false;}
+    }
     case 'ADD_WITHDRAW':
     case 'SET_WITHDRAW': {
       if(command.type==='SET_WITHDRAW'&&!id(command.nodeId))return false;
@@ -307,6 +317,8 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const solana = solanaSwapDetails(node);
     if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;
+    const transfer=transferDetails(node as Parameters<typeof transferDetails>[0]);
+    if(transfer)return `${node.nodeId}: Self-transfer ${transfer.amount} test ETH on ${transfer.network} to the connected owner; chain execution proof, not DeFi.`;
     const withdrawn=withdrawDetails(node as Parameters<typeof withdrawDetails>[0]);
     if(withdrawn)return `${node.nodeId}: Withdraw ${withdrawn.amount} USDC from Aave V3 on ${withdrawn.network}, recipient connected owner at Review.`;
     const repaid=repayDetails(node as Parameters<typeof repayDetails>[0]);
