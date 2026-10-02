@@ -31,6 +31,10 @@ test('three separate Canvas editors preserve the typed Borrow input and approval
   for(const title of ['Aave Supply','Aave Borrow','Uniswap Swap'])await expect(nodes.getByText(title,{exact:true})).toBeVisible();
   const boxes=await nodes.evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y}}));
   expect(boxes[0]!.x).toBeCloseTo(boxes[1]!.x);expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
+  await page.setViewportSize({width:1180,height:900});
+  await expect.poll(()=>page.getByRole('region',{name:'Workflow graph'}).evaluate(graph=>{
+    const pane=graph.getBoundingClientRect();return [...graph.querySelectorAll('.react-flow__node')].every(n=>{const r=n.getBoundingClientRect();return r.top>=pane.top&&r.bottom<=pane.bottom&&r.left>=pane.left&&r.right<=pane.right;});
+  })).toBe(true);
   await expect(page.getByRole('form',{name:'Edit Uniswap Swap'})).toContainText('exactly 0.02 borrowed USDC');
   await expect(page.getByRole('combobox',{name:'Swap output asset'})).toHaveValue('WETH');
   await expect(page.locator('.react-flow__edge')).toHaveCount(2);

@@ -10,7 +10,7 @@ import { RepayAuthoringForm } from './repay-panel';
 import { BorrowAuthoringForm } from './borrow-panel';
 import { SupplyAuthoringForm } from './supply-panel';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Handle, Position, useNodesInitialized, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import type { ActionKind } from '../domain/mock-actions';
@@ -67,6 +67,13 @@ function WorkflowCard({ data }: NodeProps) {
   </div>;
 }
 const nodeTypes = { workflow: WorkflowCard };
+function LendingCanvasViewport() {
+  const initialized=useNodesInitialized(),size=useStore((state:ReactFlowState)=>`${state.width}:${state.height}`);
+  const {fitView}=useReactFlow();
+  // Refit after pane resize/measurement, never after a drag or a semantic edit alone.
+  useLayoutEffect(()=>{if(initialized)void fitView({padding:0.18,minZoom:0.35,maxZoom:1.1});},[initialized,size,fitView]);
+  return null;
+}
 const actions = ['swap', 'bridge', 'pool', 'supply', 'lending', 'borrow', 'repay', 'withdraw'] as const;
 function actionLabel(action: typeof actions[number]) { return action === 'lending' ? 'Lending' : action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
 function ActionIcon({ action }: { action: typeof actions[number] }) {
@@ -422,6 +429,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
         onNodeDragStop={(_event, node, draggedNodes) => commitDrag(node, draggedNodes)}
         onEdgeClick={(_event, edge) => { selectNodes([], null); setSelectedEdge({ from: edge.source, to: edge.target }); }}
         onPaneClick={() => { if (ignorePaneClick.current) return; selectNodes([], null); }} onConnect={({ source, target }) => connect(source, target)}>
+        {isLendingComposition(workflow)&&<LendingCanvasViewport/>}
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
