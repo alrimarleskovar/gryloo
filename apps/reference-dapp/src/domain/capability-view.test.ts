@@ -18,6 +18,13 @@ describe('capability explanations', () => {
     expect(capabilityBlockMessage(publicRun.blockers[0]!, publicRun.nodes[0])).toBe(
       'Swap · Public test execution is not available yet.');
   });
+  it('explains that a Robinhood Testnet swap has no canonical protocol deployment', () => {
+    const result = resolveWorkflowCapability({ nodes: [{ ...swap, chainId: 'eip155:46630' }] }, { environment: 'PUBLIC_TESTNET' });
+    expect(workflowExecutionLabel(result)).toBe('Testnet unavailable');
+    expect(nodeCapabilityLabel(result.nodes[0]!)).toBe('Unavailable here');
+    expect(capabilityBlockMessage(primaryExecutionBlocker(result)!, result.nodes[0])).toBe(
+      'Swap · The selected protocol has no canonical deployment on this network.');
+  });
   it('keeps a template blocker visible even when another node lacks public execution', () => {
     const borrow = { ...swap, nodeId: 'borrow-1', actionType: 'mock-borrow', chainId: 'mock:local',
       adapterConstraints: { adapters: [], protocols: [] }, requiredAuthorizationClass: 'NONE' } as typeof swap;

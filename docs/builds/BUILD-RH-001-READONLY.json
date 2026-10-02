@@ -1,0 +1,221 @@
+{
+  "evidence": "PUBLIC_READ_ONLY",
+  "broadcast": false,
+  "signed": false,
+  "evidenceMaturity": null,
+  "checkedAt": "2026-10-02T01:35:23.851Z",
+  "rpcRequests": 29,
+  "endpoints": {
+    "mainnet": "https://rpc.mainnet.chain.robinhood.com",
+    "testnet": "https://rpc.testnet.chain.robinhood.com"
+  },
+  "networks": {
+    "mainnet": {
+      "status": "VERIFIED",
+      "chainId": 4663,
+      "head": {
+        "number": 77843723,
+        "hash": "0xd94a154cdc132f0ecc6188cc3199d7920326c77332df8c0a6cbed05b520dc614",
+        "timestamp": 1790904897,
+        "ageSeconds": 3
+      },
+      "contracts": [
+        {
+          "name": "WETH",
+          "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 2202,
+          "codeHash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+        },
+        {
+          "name": "USDG",
+          "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 170,
+          "codeHash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+        },
+        {
+          "name": "L2 Gateway Router",
+          "address": "0x1e324b9316138ca9a73f960213621ad1aaf01b89",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 2202,
+          "codeHash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+        },
+        {
+          "name": "L2 Multicall",
+          "address": "0x2cac2d899ecc914d704feaae33ac1bf36277dad1",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 3339,
+          "codeHash": "0x8dd455899dfea1893e69eba203173bce248d6dd6b66e986e6dfce02181727796"
+        },
+        {
+          "name": "Permit2",
+          "address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 9152,
+          "codeHash": "0x5208783f52488f7d3493e5e38311ab707c1d75457fe472a19b0b4d57d66a7fca"
+        },
+        {
+          "name": "uniswap UniswapV3Factory",
+          "address": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 24535,
+          "codeHash": "0xec72b1abd1f2faee020cfea9c646bd8994f9fb389054f6e574f103a895091739"
+        },
+        {
+          "name": "uniswap SwapRouter02",
+          "address": "0xcaf681a66d020601342297493863e78c959e5cb2",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 24497,
+          "codeHash": "0x6f36c378e272c6324c48f045182bcb54bd8ad654cf9ebd42e8893d52c4cb25dc"
+        },
+        {
+          "name": "uniswap QuoterV2",
+          "address": "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 8273,
+          "codeHash": "0x3db0868d945e9304c9bc6a8b2181948109ea617647142f3c4083e14393496a28"
+        },
+        {
+          "name": "morpho Morpho Blue",
+          "address": "0x9d53d5e3bd5e8d4cbfa6db1ca238aea02e651010",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 15582,
+          "codeHash": "0x753b54fdb48c87c9c1ba1dcc3a330faac1a401a3bd23b43104b7b92409ecb424"
+        }
+      ],
+      "findings": []
+    },
+    "testnet": {
+      "status": "VERIFIED",
+      "chainId": 46630,
+      "head": {
+        "number": 127363783,
+        "hash": "0x8162ff3cfa9d3fac3da29f44366b0a8bdd49bbe7e05a1f0df797dbe4a7bf1191",
+        "timestamp": 1790904911,
+        "ageSeconds": 2
+      },
+      "contracts": [
+        {
+          "name": "WETH",
+          "address": "0x7943e237c7f95da44e0301572d358911207852fa",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 2202,
+          "codeHash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+        },
+        {
+          "name": "L2 Gateway Router",
+          "address": "0x77bf00a6a90c600f214b34bafbb7918c0cf113a8",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 2202,
+          "codeHash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+        },
+        {
+          "name": "L2 Multicall",
+          "address": "0xa432504b6f04cafe775b09d8aa92e8dbe41ec7a8",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 3339,
+          "codeHash": "0x8dd455899dfea1893e69eba203173bce248d6dd6b66e986e6dfce02181727796"
+        },
+        {
+          "name": "Permit2",
+          "address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+          "expect": "PRESENT",
+          "observed": "PRESENT",
+          "codeBytes": 9152,
+          "codeHash": "0x0117e0ed818bc3f2a8729ffc336c837e63e965f04b473047b39b35ad86aac259"
+        },
+        {
+          "name": "uniswap UniswapV3Factory",
+          "address": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+          "expect": "ABSENT",
+          "observed": "ABSENT",
+          "codeBytes": 0,
+          "codeHash": null
+        },
+        {
+          "name": "uniswap SwapRouter02",
+          "address": "0xcaf681a66d020601342297493863e78c959e5cb2",
+          "expect": "ABSENT",
+          "observed": "ABSENT",
+          "codeBytes": 0,
+          "codeHash": null
+        },
+        {
+          "name": "uniswap QuoterV2",
+          "address": "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7",
+          "expect": "ABSENT",
+          "observed": "ABSENT",
+          "codeBytes": 0,
+          "codeHash": null
+        },
+        {
+          "name": "morpho Morpho Blue",
+          "address": "0x9d53d5e3bd5e8d4cbfa6db1ca238aea02e651010",
+          "expect": "ABSENT",
+          "observed": "ABSENT",
+          "codeBytes": 0,
+          "codeHash": null
+        }
+      ],
+      "findings": []
+    }
+  },
+  "registries": {
+    "uniswap": {
+      "source": "https://developers.uniswap.org/deployments.json",
+      "generatedAt": "2026-09-22T20:38:17.000Z",
+      "sourceCommit": "a677c0d4b5fb6e3357cf6d0f0315bcb135a1e1ee",
+      "mainnetRecords": 49,
+      "testnetRecords": 0,
+      "pinnedMainnetContractsListed": true
+    },
+    "morpho": {
+      "source": "morpho-org/sdks@88e3383fb3a305afa8322a1eda792ca80f29f3ec packages/morpho-ts",
+      "mainnetChainDeclared": true,
+      "testnetChainDeclared": false,
+      "pinnedMorphoBlueListed": true
+    },
+    "across": {
+      "mainnetRoutesInto4663": 38,
+      "testnetRoutesInto46630": 0,
+      "testnetRoutesFrom46630": 0,
+      "baseUsdcArrivesAs": "USDG"
+    },
+    "lifi": {
+      "mainnet4663": true,
+      "testnet46630": false
+    }
+  },
+  "replayObservation": [
+    {
+      "name": "Uniswap v4 PoolManager (mainnet address)",
+      "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      "expect": "PRESENT",
+      "mainnetCodeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      "testnetCodeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      "identicalRuntimeCode": true
+    },
+    {
+      "name": "UniversalRouter (per-chain page address)",
+      "address": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "expect": "PRESENT",
+      "mainnetCodeHash": "0x2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde",
+      "testnetCodeHash": "0xfdd90802f39ce5fc8bac4c2f1b3ac7bac530fd17ff46b0630f1bd00f1e14082f",
+      "identicalRuntimeCode": false
+    }
+  ],
+  "decisionGate": "C: no canonical public-testnet DeFi deployment on Robinhood Chain Testnet"
+}

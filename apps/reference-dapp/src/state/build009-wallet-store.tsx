@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { switchWalletNetwork, walletChainLabel } from '../wallet/evm-networks';
 
 export const BASE_HEX = '0x2105';
 export const ARBITRUM_HEX = '0xa4b1';
 export const BASE_SEPOLIA_HEX = '0x14a34';
-type Chain = typeof BASE_HEX | typeof ARBITRUM_HEX | typeof BASE_SEPOLIA_HEX;
+export const ROBINHOOD_TESTNET_HEX = '0xb626';
+type Chain = typeof BASE_HEX | typeof ARBITRUM_HEX | typeof BASE_SEPOLIA_HEX | typeof ROBINHOOD_TESTNET_HEX;
 export type WalletSession = { readonly account: string; readonly chainId: string };
 type Provider = { request(input: { method: string; params?: unknown[] }): Promise<unknown>;
   on?(event: string, listener: (...args: unknown[]) => void): void;
@@ -20,13 +22,7 @@ export function injected(): Provider | null {
   const value = (window as Window & { ethereum?: unknown }).ethereum;
   return value && typeof (value as Provider).request === 'function' ? value as Provider : null;
 }
-export function chainName(id: string | null): string {
-  if (!id) return 'Unknown';
-  if (id.toLowerCase() === BASE_HEX) return 'Base (8453)';
-  if (id.toLowerCase() === ARBITRUM_HEX) return 'Arbitrum (42161)';
-  if (id.toLowerCase() === BASE_SEPOLIA_HEX) return 'Base Sepolia';
-  return `Other chain (${id})`;
-}
+export function chainName(id: string | null): string { return walletChainLabel(id); }
 export function Build009WalletProvider({ children }: { children: ReactNode }) {
   const [available, setAvailable] = useState(false);
   const [account, setAccount] = useState<string | null>(null);
@@ -101,16 +97,7 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
     if (chainId === chain) return;
     setBusy(true); setError(null); const op = ++generation.current;
     try {
-      try { await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chain }] }); }
-      catch (cause) {
-        if (chain !== BASE_SEPOLIA_HEX || !cause || typeof cause !== 'object' || !('code' in cause) || cause.code !== 4902) throw cause;
-        await provider.request({ method: 'wallet_addEthereumChain', params: [{ chainId: BASE_SEPOLIA_HEX,
-          chainName: 'Base Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-          rpcUrls: ['https://sepolia.base.org'], blockExplorerUrls: ['https://sepolia.basescan.org'] }] });
-        await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chain }] });
-      }
-      const actual = await provider.request({ method: 'eth_chainId' });
-      if (typeof actual !== 'string' || actual.toLowerCase() !== chain) throw new Error('Wallet did not switch to the required chain');
+      await switchWalletNetwork(provider, chain);
       if (op !== generation.current) return;
       setChainId(chain); invalidate();
     } catch { if (op === generation.current) setError('Could not switch networks. Check your wallet and try again.'); }
