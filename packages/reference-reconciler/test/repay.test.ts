@@ -64,6 +64,21 @@ async function confirmedApproval(){
   const hash=await f.rpc('MOCK_submit',[a.transaction]) as string;await f.s.report(r.id,'APPROVAL',{kind:'HASH',hash});
   return {...f,id:r.id,review:r.review,attempt:{...a.record.attempts[0]!,transactionHash:hash},hash,tx:f.m.transactions[0]!,receipt:f.m.receipts.get(hash)!};
 }
+it('historical wrapped approval reconciles with identical transaction fields in a different key order',async()=>{
+  const f=await confirmedApproval(),{from,to,value,chainId,data}=f.attempt.transaction;
+  const transaction={from,to,value,chainId,data};
+  expect(Object.keys(transaction)).not.toEqual(Object.keys(f.attempt.transaction));
+  const o=await reconcileRepayAttempt(f.review,{...f.attempt,transaction},f.rpc);
+  expect(o).toMatchObject({verdict:'RECONCILED',reason:'EXACT_REPAY_APPROVAL_VERIFIED',postPosition:{allowance:'5000'},walletEnvelope:{owner:REPAY_OWNER}});expect(f.m.transactions).toHaveLength(1);
+});
+it.each([
+  ['to',p.pool],['from','0x'+'2'.repeat(40)],['chainId','0x1'],['value','0x1'],['data',supplyCall('approve(address,uint256)',p.pool,4999n)],
+])('reordered historical approval rejects a different %s',async(field,value)=>{
+  const f=await confirmedApproval(),t=f.attempt.transaction,transaction={from:t.from,to:t.to,value:t.value,chainId:t.chainId,data:t.data};
+  Object.assign(transaction,{[field!]:value});
+  const o=await reconcileRepayAttempt(f.review,{...f.attempt,transaction},f.rpc);
+  expect(o).toMatchObject({verdict:'DIVERGENT',reason:'REPAY_SEMANTIC_MISMATCH'});expect(f.m.transactions).toHaveLength(1);
+});
 it('exact public provider shape: null tx blockHash, real block/index and canonical wrapped approval reconcile',async()=>{
   const f=await confirmedApproval();expect(f.tx).toMatchObject({blockHash:null,blockNumber:'0x2d5bdcf',transactionIndex:'0x6'});expect(f.receipt).toMatchObject({status:'0x1',blockNumber:'0x2d5bdcf',transactionIndex:'0x6',blockHash:'0x156b7a81ae71399bb85a94a9402a423b877845f8485c76ffbe3c07f4e61df489'});
   const o=await reconcileRepayAttempt(f.review,f.attempt,f.rpc);expect(o).toMatchObject({verdict:'RECONCILED',reason:'EXACT_REPAY_APPROVAL_VERIFIED',postPosition:{allowance:'5000'},walletEnvelope:{owner:REPAY_OWNER,delegation:{call:{to:p.asset,data:supplyCall('approve(address,uint256)',p.pool,5000n)}}}});expect(f.m.transactions).toHaveLength(1);

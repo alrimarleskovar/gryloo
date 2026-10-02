@@ -1,14 +1,14 @@
 # BUILD-012C — Aave V3 Repay
 
-Status: **READY_FOR_OWNER_EXECUTION**. Public acceptance has not occurred. The agent has made only public reads and closed-loop engineering tests; it has not signed, approved, repaid or merged anything.
+Status: **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED**. The owner completed the exact 5000-raw approval and Repay through Gryloo on Base Sepolia. The existing exported Evidence Bundle was independently verified using fresh public reads. The agent has not signed, submitted, repeated, replaced or initiated any public transaction, accessed or changed the owner journal, or merged the PR.
 
-Baseline is clean main `f2b8afa53d9d0d46346fbb0515b167f1045d3f1e`, containing merged BUILD-012B and BUILD-DEMO-001. Branch is `codex/build-012c-aave-repay`. Remote main was independently rechecked and remains this revision. Delivery uses Governance-Lite: one PR, CI, human owner merge. No BUILD-012D, advanced lending or Solana implementation work is included.
+Baseline is clean main `f2b8afa53d9d0d46346fbb0515b167f1045d3f1e`, containing merged BUILD-012B and BUILD-DEMO-001. Branch is `codex/build-012c-aave-repay`. This was the independently checked starting revision. Delivery uses Governance-Lite: one PR, CI, human owner merge. No BUILD-012D, advanced lending or Solana implementation work is included.
 
 ## Public prerequisites and read-only simulation
 
 [BUILD-012C-PRESTATE.json](BUILD-012C-PRESTATE.json) preserves the initial independent raw public RPC snapshot, canonical BUILD-012B Borrow receipt and official address-book verification before implementation. Its 30 RPC reads were taken at block 47560156. [BUILD-012C-READONLY.json](BUILD-012C-READONLY.json) preserves a subsequent real compiler simulation with 81 public read-only requests, observed at **2026-10-01T21:37:48.128Z**, state block **47561184**, hash `0x8aeb670707679506257c5c6c297ec905e1c90363664996253ba9c940eafb3599`.
 
-| Field | Current public observation |
+| Field | Historical pre-execution observation |
 | --- | --- |
 | Network / chain | Base Sepolia / 84532 |
 | Owner / onBehalfOf | `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b` |
@@ -25,7 +25,7 @@ Baseline is clean main `f2b8afa53d9d0d46346fbb0515b167f1045d3f1e`, containing me
 | Conservative estimated debt after | 5002 raw |
 | Maximum network budget | 13741480000000 wei = 0.00001374148 ETH |
 
-The existing Borrow debt remains present, debt exceeds 5000, wallet USDC covers 5000 and configured Pool/reserve/token addresses match deployment reads and the official address book. **The 0.005-USDC acceptance is feasible at this observation.** Simulation, Review, Execute and handoff re-read the relevant live state. If prerequisites fail, stop and report; never faucet, transfer, borrow more or alter the amount as a workaround.
+At this pre-execution observation, the existing Borrow debt remained present, debt exceeded 5000, wallet USDC covered 5000 and configured Pool/reserve/token addresses matched deployment reads and the official address book. **The 0.005-USDC acceptance was feasible at this observation.** Simulation, Review, Execute and handoff re-read the relevant live state. If prerequisites fail, stop and report; never faucet, transfer, borrow more or alter the amount as a workaround.
 
 The preview is conservative and uses scaled debt/index arithmetic. Actual post-debt must be observed: index accrual and protocol rounding prevent simple nominal subtraction. The acceptance amount remains exactly 5000 raw regardless of the estimated remaining debt.
 
@@ -61,9 +61,9 @@ Mock/fork/browser results prove engineering behavior only. Existing skips do not
 
 ## Owner acceptance and independent verification
 
-Only the owner may execute the two wallet requests through Gryloo on Base Sepolia. Recheck the public prerequisites first, author exactly 0.005 USDC, Simulate, Review, approve exactly 5000 raw if required, then explicitly Execute Repay. Preserve any uncertain execution record and observe it; do not submit another attempt.
+The owner completed the two wallet requests through Gryloo on Base Sepolia. Approval transaction `0x4c3455adbe6d5e391f5eea9ed5090e10ab77cbf5787fcf5f89d621e8e8232e88` and Repay transaction `0x426af294483363d23cd9363c24ac7941cc5661f5f2b5a4b55aa03b3750b5ee8f` are canonical successful receipts, with independently verified pinned wrapped-wallet owner authorization. The exact inner calls are `approve(Pool,5000)` and `repay(USDC,5000,2,owner)`. No additional transaction is required or authorized.
 
-After successful DApp reconciliation, download the exported Evidence Bundle without editing it. Save it as `docs/builds/BUILD-012C-EVIDENCE.json`, then run the read-only verifier:
+The owner exported [BUILD-012C-EVIDENCE.json](BUILD-012C-EVIDENCE.json), recording **TESTNET_EXECUTED / RECONCILED**. This artifact is preserved byte for byte. The read-only verifier generated [BUILD-012C-VERIFICATION.json](BUILD-012C-VERIFICATION.json), recording **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED** at `2026-10-02T00:05:32.656Z`, with **184** public RPC reads. Reproduce verification against this same bundle with:
 
 ```sh
 pnpm build
@@ -72,7 +72,26 @@ node scripts/verify-aave-repay.mjs --evidence docs/builds/BUILD-012C-EVIDENCE.js
 
 The verifier refuses MOCKED/non-owner/non-5000 evidence, recomputes Review, artifact, journal, observation, receipt and bundle commitments, obtains fresh canonical receipts/transactions and historical state, verifies owner authority and independently checks fixed canonical ABI and scaled-debt arithmetic. It records public RPC responses and official profile/protocol source digests. Its RPC allowlist contains no signing or submission method. A fresh read-only prestate can also be produced with `--prestate output.json`.
 
-Only after the owner’s DApp execution and successful independent verification may this report become **TESTNET_EXECUTED**. Final Evidence Bundle and independent execution-verification artifact are pending that owner action; neither has been fabricated. The prestate and read-only simulation artifacts are not execution evidence.
+The final status is supported by owner DApp execution and independent public verification; the prestate and engineering artifacts are separate historical checks. Both receipt commitments, owner/wallet authorization, exact ABI and events, historical economic snapshots, allowance consumption, scaled-debt/index arithmetic, improved health factor, unchanged collateral and network costs passed independent reconciliation.
+
+| Repay observation | Before | After |
+| --- | --- | --- |
+| Wallet USDC, raw | 10000 | 5000 |
+| Variable debt, raw | 10001 | 5002 |
+| Allowance to Pool, raw | 5000 | 0 |
+| aToken collateral, raw | 1000001 | 1000001 |
+| Scaled collateral | 803435 | 803435 |
+| Health factor, 18-decimal raw | 85991485650860948343 | 171931394977807989123 |
+
+The canonical Repay event and underlying wallet transfer both record exactly **5000 raw USDC**. At execution index `1296359957140857441194778393`, the observed scaled debt burn is **3856**, exactly `floor(5000 × 10^27 / index)`; the nearest alternative is 3857. Converting the actual floor burn back at that index gives normalized repayment **4999 raw**, a one-unit difference within the independently derived rounding bound of 3 raw. Thus debt decreased by 4999 (10001 → 5002), with protocol/index rounding independently justified rather than assuming subtraction of 5000. Collateral configuration and scaled collateral are unchanged; unexpected asset/recipient movement checks passed.
+
+Approval cost is **997820842064 wei**; Repay cost is **1635912175386 wei**, including reported L1 fees. Total network cost is **2633733017450 wei**. The transactions are included in canonical blocks `0x2d5bdcf` and `0x2d5c979`, respectively.
+
+Artifact commitments:
+
+- Existing Evidence Bundle file SHA-256: `ac9d4ee9080ae8d80b0e88dde7a45bf82a65c8e39a9b946b2c99e84110572592`, identical before and after verification.
+- Evidence Bundle semantic hash: `0xd5ee9a665ede25276b461ae99d6bdeb06a0eddc15b60d22a184b1f53c127eab4`.
+- Independent verification file SHA-256: `94ce2dbabc2535cc49431c9625e13e4f58a68662a69ef31a403d32a727afee1d`.
 
 ## Owner approval: public-RPC compatibility recovery
 
@@ -84,8 +103,18 @@ Recovery preserves the existing terminal attempt and journal. The specific histo
 
 Regression coverage reproduces the exact null-hash/block/index shape with a signed wrapped approval. Fifteen negative cases cover receipt number/hash, canonical hash, transaction/receipt hash, both indexes, canonical transaction slot, inner calldata, wrapper, owner, signature, Approval amount/spender and post allowance. Restart tests preserve the original journal bytes as an exact prefix, retain the same transaction hash, prepare only Repay after a fresh explicit Review without another approval, reject failed fresh proof, and refuse recovery for other failures or a non-null original hash.
 
-At 2026-10-01 22:24 UTC, an independent read-only pass against the existing public transaction completed **RECONCILED / EXACT_REPAY_APPROVAL_VERIFIED**, with owner `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b` and post allowance **5000**, using 94 public reads and the archived pre-approval Review profile. At that observation the provider had populated the transaction block hash; the exact earlier null shape is preserved in the regression fixture. No owner journal was accessed or modified by this verification. No public approval or repayment was sent, repeated, replaced or initiated; the acceptance remains **5000 raw**. Public Repay execution and final acceptance evidence remain pending owner action.
+At 2026-10-01 22:24 UTC, an independent read-only pass against the existing public transaction completed **RECONCILED / EXACT_REPAY_APPROVAL_VERIFIED**, with owner `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b` and post allowance **5000**, using 94 public reads and the archived pre-approval Review profile. At that observation the provider had populated the transaction block hash; the exact earlier null shape is preserved in the regression fixture. No owner journal was accessed or modified by this verification. No public approval or repayment was sent, repeated, replaced or initiated; the acceptance remains **5000 raw**. Repay was still pending at that historical approval-only observation; the completed owner execution and final verification are documented above.
 
 Validation results for this fix are recorded in PR #43. Focused Repay/compiler/reconciler/Supply service regression: **136 passed**. The active local dev app generated duplicate Next.js dev/production type declarations during the first full check, so **full `pnpm check` passed in an isolated tracked-source checkout: 883 tests passed, 2 existing optional tests skipped, typecheck, lint, production build and all 11 schema exports verified**, using frozen offline dependencies, leaving the active app, its generated files and its owner journal untouched.
 
-Guarded browser regression: **36 passed** across Repay, Borrow, Supply and Supply recovery. The isolated app used port 3013 and a separate MOCKED journal; only that temporary checkout's allowed application origin was substituted, with all external-network guards and assertions retained. Initial setup failures on the guard's fixed port and an interrupted mock server were corrected without touching the owner app or journal. Governance-Lite and all 17 self-tests passed. The pre-existing generated `next-env.d.ts` dev-path change is preserved and excluded from this fix.
+Guarded browser regression: **36 passed** across Repay, Borrow, Supply and Supply recovery. The isolated app used port 3013 and a separate MOCKED journal; only that temporary checkout's allowed application origin was substituted, with all external-network guards and assertions retained. Initial setup failures on the guard's fixed port and an interrupted mock server were corrected without touching the owner app or journal. Governance-Lite and all 17 self-tests passed. The pre-existing generated `next-env.d.ts` dev-path change was preserved and excluded from that fix.
+
+## Historical transaction semantic equality fix
+
+The first post-execution independent verification failed with `REPAY_SEMANTIC_MISMATCH` before receipt verification. Its reconstructed historical approval used `{ from, to, value, chainId, data }`, while `compileRepayCalls()` inserted `{ from, value, chainId, to, data }`. `JSON.stringify()` incorrectly treated those identical transaction semantics as different because their property order differed.
+
+The reconciler now compares the five canonical fields individually with exact equality and requires exactly those own fields. Serialization order has no effect; owner/from, chainId, destination, zero value and calldata remain strictly bound. Extra or missing fields are rejected. All existing profile/amount/Pool/asset/rate-mode/beneficiary, canonical receipt/block, signature/wallet-envelope, event and economic checks are retained. The verifier's reconstruction remains unchanged, proving that the core fix handles the real historical object shape.
+
+Six regression cases cover successful reconciliation of the reordered wrapped approval and strict `REPAY_SEMANTIC_MISMATCH` rejection for wrong `to`, `from`, `chainId`, `value` or calldata. They use the signed closed-loop fixture, including the public-provider null-blockHash compatibility shape. The real Evidence Bundle was neither regenerated nor rewritten; the owner journal was never accessed or changed. All public work in this fix was read-only.
+
+Final validation: focused compiler/Repay/reconciler/Supply service tests **142 passed**. Full `pnpm check` ran against an isolated copy of the current tracked source with frozen offline dependencies, preserving the active owner app and journal. Full `pnpm check` passed: typecheck, lint, production build, all **11** schema exports and **889 tests passed**, with **2 existing optional skips**. Governance-Lite passed (624 text files) and all **17** self-tests passed. The source and regression files matched the isolated full-check inputs byte for byte. PR #43 remains the sole delivery PR, with human owner merge required; no BUILD-012D work was started.

@@ -58,7 +58,10 @@ export async function reconcileRepayAttempt(review:SupplyReview,attempt:SupplyCh
     if(!txValue||!receiptValue)return base;
     const tx=rpcRecord(txValue),receipt=rpcRecord(receiptValue);base.transaction=tx;base.receipt=receipt;
     const approval=attempt.step==='APPROVAL',calls=compileRepayCalls(review.workflow,review.account,review.allowance),expected=approval?calls[0]!:calls.at(-1)!;
-    if(!review.repay||review.borrow||!['APPROVAL','REPAY'].includes(attempt.step)||approval&&!review.approvalRequired||review.repay.interestRateMode!==2||review.pool!==p.pool||review.asset!==p.asset||review.chain!==p.chain||review.beneficiary!==review.account||JSON.stringify(expected)!==JSON.stringify(attempt.transaction))throw new Error('REPAY_SEMANTIC_MISMATCH');
+    // Compare exact canonical fields, independent of serialized property order.
+    const transactionFields=['from','to','value','chainId','data'] as const;
+    const sameTransaction=Object.keys(attempt.transaction).length===transactionFields.length&&transactionFields.every(field=>Object.hasOwn(attempt.transaction,field)&&expected[field]===attempt.transaction[field]);
+    if(!review.repay||review.borrow||!['APPROVAL','REPAY'].includes(attempt.step)||approval&&!review.approvalRequired||review.repay.interestRateMode!==2||review.pool!==p.pool||review.asset!==p.asset||review.chain!==p.chain||review.beneficiary!==review.account||!sameTransaction)throw new Error('REPAY_SEMANTIC_MISMATCH');
     const receiptBlockHash=rpcHash(receipt.blockHash);
     if(rpcHash(tx.hash)!==attempt.transactionHash||rpcHash(receipt.transactionHash)!==attempt.transactionHash||typeof tx.from!=='string'||typeof tx.to!=='string'||receipt.from!==tx.from||receipt.to!==tx.to||rpcUint(tx.value)!==0n||rpcUint(tx.chainId)!==BigInt(p.chainId)||(tx.blockHash!==null&&rpcHash(tx.blockHash)!==receiptBlockHash)||rpcUint(tx.blockNumber)!==rpcUint(receipt.blockNumber)||rpcUint(tx.transactionIndex)!==rpcUint(receipt.transactionIndex))throw new Error('REPAY_TRANSACTION_MISMATCH');
     const wrapped=tx.to===SUPPLY_METAMASK.manager;
