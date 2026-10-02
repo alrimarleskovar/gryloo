@@ -1,0 +1,133 @@
+{
+  "evidence": "DEVNET_EXECUTED_VERIFICATION",
+  "broadcast": false,
+  "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+  "checkedAt": "2026-10-01T22:38:59.436Z",
+  "positions": [
+    {
+      "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+      "operations": [
+        "OPEN:RECONCILED",
+        "DECREASE_PARTIAL:RECONCILED",
+        "EXIT:RECONCILED"
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "id": "orcalp-3d730fb86f444ad249c1b8307eba595f",
+      "operation": "OPEN",
+      "verdict": "RECONCILED",
+      "verified": true,
+      "signature": "4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ",
+      "slot": 506426965,
+      "effects": {
+        "depositedA": "10000000",
+        "depositedB": "240772",
+        "withdrawnPrincipalA": "0",
+        "withdrawnPrincipalB": "0",
+        "collectedFeesA": "0",
+        "collectedFeesB": "0",
+        "rentPaidLamports": "6075680",
+        "rentRefundedLamports": "0"
+      },
+      "feeLamports": "10000"
+    },
+    {
+      "id": "orcalp-e29d186169150bd64fd09846a87f250f",
+      "operation": "DECREASE_PARTIAL",
+      "verdict": "RECONCILED",
+      "verified": true,
+      "signature": "5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa",
+      "slot": 506427731,
+      "effects": {
+        "depositedA": "0",
+        "depositedB": "0",
+        "withdrawnPrincipalA": "4999916",
+        "withdrawnPrincipalB": "120387",
+        "collectedFeesA": "0",
+        "collectedFeesB": "0",
+        "rentPaidLamports": "0",
+        "rentRefundedLamports": "0"
+      },
+      "feeLamports": "5000"
+    },
+    {
+      "id": "orcalp-e73f8d153fdace7cf03aef68a4ad128b",
+      "operation": "EXIT",
+      "verdict": "RECONCILED",
+      "verified": true,
+      "signature": "8MAvfVGXXo6mMcfkuikKnHmTfQ6S37Y5oPh6F7sdVJSNeNSgFZyFsGp1WpoonHHrAPLRWKzaQtq2zgCu1hzfZTV",
+      "slot": 506428344,
+      "effects": {
+        "depositedA": "0",
+        "depositedB": "0",
+        "withdrawnPrincipalA": "4999916",
+        "withdrawnPrincipalB": "120387",
+        "collectedFeesA": "0",
+        "collectedFeesB": "0",
+        "rentPaidLamports": "0",
+        "rentRefundedLamports": "6075680"
+      },
+      "feeLamports": "5000"
+    }
+  ],
+  "checks": [
+    "cluster is Solana Devnet",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: owner-initiated PUBLIC_DEVNET run",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: journal binds the ExecutionPlan",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: message hash = ExecutionPlan payload",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: durable before signing, signature before broadcast (PREPARED → SUBMITTING → PENDING → CONFIRMED)",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: finalized and successful",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: on-chain bytes = journal signed bytes",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: on-chain message = reviewed message",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: transaction id = journal signature",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: valid Ed25519 signatures from exactly the owner and the position-mint key",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: owner is fee payer; no lookup tables",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: instructions transfer, sync_native, open_position_with_token_extensions, increase_liquidity_v2, close_account",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: only allowlisted programs (top 5, inner 4)",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: Orca events on the verified pool, position and range",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: liquidity delta 30193890",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: Evidence Bundle hash recomputes",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: evidence labelled DEVNET_EXECUTED, realFunds false",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: evidence binds signature and position",
+    "OPEN orcalp-3d730fb86f444ad249c1b8307eba595f: Gryloo reconciler re-run → RECONCILED",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: owner-initiated PUBLIC_DEVNET run",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: journal binds the ExecutionPlan",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: message hash = ExecutionPlan payload",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: durable before signing, signature before broadcast (PREPARED → SUBMITTING → PENDING → CONFIRMED)",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: finalized and successful",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: on-chain bytes = journal signed bytes",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: on-chain message = reviewed message",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: transaction id = journal signature",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: valid Ed25519 signatures from exactly the owner",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: owner is fee payer; no lookup tables",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: instructions decrease_liquidity_v2, collect_fees_v2, close_account",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: only allowlisted programs (top 4, inner 2)",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: Orca events on the verified pool, position and range",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: liquidity delta 15096945",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: Evidence Bundle hash recomputes",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: evidence labelled DEVNET_EXECUTED, realFunds false",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: evidence binds signature and position",
+    "DECREASE_PARTIAL orcalp-e29d186169150bd64fd09846a87f250f: Gryloo reconciler re-run → RECONCILED",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: owner-initiated PUBLIC_DEVNET run",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: journal binds the ExecutionPlan",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: message hash = ExecutionPlan payload",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: durable before signing, signature before broadcast (PREPARED → SUBMITTING → PENDING → CONFIRMED)",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: finalized and successful",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: on-chain bytes = journal signed bytes",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: on-chain message = reviewed message",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: transaction id = journal signature",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: valid Ed25519 signatures from exactly the owner",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: owner is fee payer; no lookup tables",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: instructions decrease_liquidity_v2, collect_fees_v2, close_position_with_token_extensions, close_account",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: only allowlisted programs (top 4, inner 3)",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: Orca events on the verified pool, position and range",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: liquidity delta 15096945",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: Evidence Bundle hash recomputes",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: evidence labelled DEVNET_EXECUTED, realFunds false",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: evidence binds signature and position",
+    "EXIT orcalp-e73f8d153fdace7cf03aef68a4ad128b: Gryloo reconciler re-run → RECONCILED"
+  ],
+  "verified": 55
+}

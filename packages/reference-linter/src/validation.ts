@@ -12,6 +12,7 @@ import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
 
 import { validateSupplyWorkflow } from './supply.js';
 import { isSolanaSwapNode, validateSolanaSwapWorkflow } from './solana-swap.js';
+import { isConcentratedLiquidityNode, validateSolanaLiquidityWorkflow } from './solana-liquidity.js';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
@@ -97,6 +98,8 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   if (workflow.nodes.some(node => ['supply','borrow','repay'].includes(node.actionType))) validateSupplyWorkflow(workflow);
   // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
   if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }
+  // The canonical concentrated-liquidity action; its only runtime today is Orca Whirlpools on Solana Devnet.
+  if (workflow.nodes.some(isConcentratedLiquidityNode)) { validateSolanaLiquidityWorkflow(workflow); return workflow; }
   unique(workflow.nodes.map(node => node.nodeId), 'DUPLICATE_NODE');
   const nodes = new Map(workflow.nodes.map(node => [node.nodeId, node]));
   for (const node of workflow.nodes) {

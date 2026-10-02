@@ -1,0 +1,1554 @@
+{
+  "bundle": {
+    "schemaVersion": "1.0.0",
+    "evidenceBundleId": "orcalp-e29d186169150bd64fd09846a87f250f",
+    "version": 1,
+    "supersedes": null,
+    "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+    "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+    "simulationHash": "0xde532b70622485035a4eeed20ee4d5790c11e3a565f1c2ed6d1b414b4c42f472",
+    "policyHash": "0x3097f959c8cd3e1e80d0cbcd58fe9071cd2ec48f9a4436937a653c1b24618a48",
+    "manifestHash": "0xd5a500835940ef131fca14b370c55df9b943f17ee8573212ff24b3e82a207890",
+    "executionPlanHash": "0x5f0500d37783c692780a09a1cfe72986403cc63e90fb409ccac3f501c3d19d24",
+    "journalHeadHash": "0xb25d66032479dad43463d4ef031a46408ccb6619831192894909699b650c6fa5",
+    "observedAt": "2026-10-01T22:35:08.846Z",
+    "environment": "TESTNET_EXECUTED",
+    "outcome": "RECONCILED",
+    "receipts": [
+      {
+        "receiptId": "orca-liquidity-decrease_partial-transaction",
+        "contentHash": "0x9d7a25c3fccdbe1e841b7e1aaac1312c9d1b09bb8ef31cfd55664b27be984d3b"
+      }
+    ],
+    "differences": [],
+    "reconciliation": {
+      "balances": [
+        {
+          "asset": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+            "decimals": 6
+          },
+          "amount": "2110967"
+        }
+      ],
+      "allowances": [],
+      "debt": [],
+      "positions": [
+        {
+          "asset": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            "decimals": 0
+          },
+          "amount": "1"
+        }
+      ],
+      "fees": [
+        {
+          "asset": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "nativeId": "SOL",
+            "decimals": 9
+          },
+          "amount": "5000"
+        }
+      ],
+      "residualAssets": [],
+      "ownership": [
+        {
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+        }
+      ],
+      "limitations": [
+        "Balances are finalized transaction metadata for the exact fully signed reviewed bytes.",
+        "Withdrawn principal is taken from Orca LiquidityDecreased events; collected fees are the remaining vault outflow. Principal is never counted as fees.",
+        "Native SOL deltas exclude the network fee and refundable account deposits, which are reported separately.",
+        "Solana Devnet with valueless test tokens (Gryloo evidence class DEVNET_EXECUTED). Not mainnet execution and not real funds."
+      ]
+    },
+    "evidence": [
+      {
+        "evidenceId": "orca-liquidity-public-observations",
+        "kind": "EXTERNAL_REFERENCE",
+        "contentHash": "0xbf22ad760478f24c498ebf15bcd90417bacea391317b7346eeafe610acc3c1fb"
+      }
+    ]
+  },
+  "bundleHash": "0x7cd44c687d4c054e7ecd7886b932e825be7e3a163c0b31e65af46a8570172238",
+  "evidenceClass": "DEVNET_EXECUTED",
+  "publicExecution": {
+    "environment": "DEVNET_EXECUTED",
+    "network": "Solana Devnet",
+    "cluster": "devnet",
+    "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "provider": "Orca Whirlpools (Solana Devnet)",
+    "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "officialSource": "https://github.com/orca-so/whirlpools/tree/e5f089bc5c49b01f5c8abb43c78457ab6c440568/programs/whirlpool",
+    "explorer": "https://explorer.solana.com/tx/5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa?cluster=devnet",
+    "operation": "DECREASE_PARTIAL",
+    "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+    "pool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+    "whirlpoolsConfig": "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR",
+    "token0": {
+      "symbol": "SOL",
+      "mint": "So11111111111111111111111111111111111111112",
+      "decimals": 9
+    },
+    "token1": {
+      "symbol": "devUSDC",
+      "mint": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+      "decimals": 6
+    },
+    "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+    "position": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+    "positionTokenAccount": "CvMo3Bw7av9aNpJH8MzxCG53yTFfzXwDuJS29N7MBLeB",
+    "positionAuthority": {
+      "tokenAccount": "CvMo3Bw7av9aNpJH8MzxCG53yTFfzXwDuJS29N7MBLeB",
+      "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+      "amount": "1"
+    },
+    "tickLower": -39104,
+    "tickUpper": -36992,
+    "lowerPrice": "20.036403",
+    "upperPrice": "24.747889",
+    "reviewedPoolPrice": "22.357520",
+    "reviewedPoolTick": -38008,
+    "liquidityDelta": "15096945",
+    "tokenBounds": {
+      "a": "4949916",
+      "b": "119183"
+    },
+    "slippageBps": 100,
+    "deposited": {
+      "a": "0",
+      "b": "0"
+    },
+    "withdrawnPrincipal": {
+      "a": "4999916",
+      "b": "120387"
+    },
+    "collectedFees": {
+      "a": "0",
+      "b": "0"
+    },
+    "rentPaidLamports": "0",
+    "rentRefundedLamports": "0",
+    "createdAccounts": [],
+    "closedAccounts": [],
+    "events": [
+      {
+        "kind": "LiquidityDecreased",
+        "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+        "position": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+        "tickLower": -39104,
+        "tickUpper": -36992,
+        "liquidity": "15096945",
+        "tokenA": "4999916",
+        "tokenB": "120387",
+        "tokenATransferFee": "0",
+        "tokenBTransferFee": "0"
+      }
+    ],
+    "signature": "5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa",
+    "signers": [
+      "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+    ],
+    "slot": 506427731,
+    "blockTime": 1790894104,
+    "confirmation": "finalized",
+    "feeLamports": "5000",
+    "ownerBalances": {
+      "lamportsBefore": "4882398160",
+      "lamportsAfter": "4887393076",
+      "tokenBBefore": "1990580",
+      "tokenBAfter": "2110967"
+    },
+    "vaults": {
+      "aBefore": "357388294001",
+      "aAfter": "357383294085",
+      "bBefore": "7140743254",
+      "bAfter": "7140622867"
+    },
+    "instructions": [
+      "set_compute_unit_limit",
+      "create_idempotent",
+      "create_idempotent",
+      "decrease_liquidity_v2",
+      "collect_fees_v2",
+      "close_account"
+    ],
+    "programs": [
+      "ComputeBudget111111111111111111111111111111",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    ],
+    "innerPrograms": [
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "11111111111111111111111111111111"
+    ],
+    "messageHash": "0x7aae8a7401f323ff7d172bb2c0fd445887941b98c721f5d0b6aff37d35ae857e",
+    "lifecycle": {
+      "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+      "operations": [
+        {
+          "id": "orcalp-3d730fb86f444ad249c1b8307eba595f",
+          "operation": "OPEN",
+          "verdict": "RECONCILED",
+          "state": "CONFIRMED",
+          "signature": "4NmXs8NoB6KW8jzPesDRZqDcQ26QS4crkF13jN9kNkbPxUf4W8FDitGy3ywaNKBaVTUQM9HcLYLpvJQhvW8LaLJJ"
+        },
+        {
+          "id": "orcalp-e29d186169150bd64fd09846a87f250f",
+          "operation": "DECREASE_PARTIAL",
+          "verdict": "PENDING",
+          "state": "PENDING",
+          "signature": "5HQGjFbb1jbwNCEvm2fZM3oKZVQvqQ879Q1vDLumCGJF8RDX5t8KaEmFaXnRhNvvP73uiwzrEKwg88EA3r3oNHPa"
+        }
+      ]
+    },
+    "verdict": "RECONCILED",
+    "reason": "ORCA_LIQUIDITY_TRANSACTION_AND_BALANCES_VERIFIED",
+    "provenance": "PUBLIC_DEVNET",
+    "evidenceClass": "DEVNET_EXECUTED",
+    "ownerInitiated": true,
+    "realFunds": false
+  },
+  "artifacts": {
+    "workflow": {
+      "schemaVersion": "1.0.0",
+      "workflowId": "workflow-local",
+      "revision": 1,
+      "nodes": [
+        {
+          "nodeId": "node-001",
+          "actionType": "mock-read",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "mock:local",
+          "requiredCapabilities": [],
+          "adapterConstraints": {
+            "adapters": [],
+            "protocols": []
+          },
+          "inputs": [
+            {
+              "name": "amount",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "amount": "1000000"
+              }
+            }
+          ],
+          "expectedOutputs": [
+            {
+              "outputId": "result",
+              "asset": {
+                "chainId": "mock:local",
+                "nativeId": "sample",
+                "decimals": 6
+              },
+              "minimumAmount": "0"
+            }
+          ],
+          "dependencies": [],
+          "userConstraints": [],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "NONE",
+          "lockedParameters": [],
+          "editableBounds": []
+        },
+        {
+          "nodeId": "node-002",
+          "actionType": "asset.liquidity.concentrated",
+          "actionSchemaVersion": "1.0.0",
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "requiredCapabilities": [
+            "liquidity.position-direct"
+          ],
+          "adapterConstraints": {
+            "adapters": [],
+            "protocols": [
+              "orca-whirlpools"
+            ]
+          },
+          "inputs": [
+            {
+              "name": "amount0-max",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "So11111111111111111111111111111111111111112",
+                  "decimals": 9
+                },
+                "amount": "10000000"
+              }
+            },
+            {
+              "name": "amount1-max",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                  "decimals": 6
+                },
+                "amount": "300000"
+              }
+            },
+            {
+              "name": "amount0-min",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "So11111111111111111111111111111111111111112",
+                  "decimals": 9
+                },
+                "amount": "0"
+              }
+            },
+            {
+              "name": "amount1-min",
+              "kind": "QUANTITY",
+              "value": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                  "decimals": 6
+                },
+                "amount": "0"
+              }
+            },
+            {
+              "name": "tick-lower",
+              "kind": "IDENTIFIER",
+              "value": "tick:-39104"
+            },
+            {
+              "name": "tick-upper",
+              "kind": "IDENTIFIER",
+              "value": "tick:-36992"
+            },
+            {
+              "name": "fee-tier",
+              "kind": "INTEGER",
+              "value": 2000
+            }
+          ],
+          "expectedOutputs": [
+            {
+              "outputId": "position-nft",
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+                "decimals": 0
+              },
+              "minimumAmount": "1"
+            }
+          ],
+          "dependencies": [],
+          "userConstraints": [
+            {
+              "kind": "MAXIMUM_INPUT",
+              "quantity": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "So11111111111111111111111111111111111111112",
+                  "decimals": 9
+                },
+                "amount": "10000000"
+              }
+            },
+            {
+              "kind": "MAXIMUM_INPUT",
+              "quantity": {
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                  "decimals": 6
+                },
+                "amount": "300000"
+              }
+            },
+            {
+              "kind": "MAXIMUM_SLIPPAGE_BPS",
+              "maximumBps": 100
+            }
+          ],
+          "failurePolicy": "ABORT",
+          "requiredAuthorizationClass": "MODE_A",
+          "lockedParameters": [],
+          "editableBounds": []
+        }
+      ],
+      "resourceEdges": []
+    },
+    "artifactSet": {
+      "schemaVersion": "1.0.0",
+      "artifactSetId": "orca-liquidity-artifacts",
+      "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+      "artifacts": [
+        {
+          "artifactId": "orca-liquidity-pool-state",
+          "nodeId": "node-002",
+          "artifactHash": "0x28acce36e3f396e83e08d10f9d452c8af741656d68221f42f0618bd277e7c8d6"
+        }
+      ]
+    },
+    "simulation": {
+      "schemaVersion": "1.0.0",
+      "simulationId": "orca-liquidity-simulation",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+      "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+      "adapters": [
+        {
+          "id": "orca.whirlpools-devnet-liquidity",
+          "version": "1.0.0"
+        }
+      ],
+      "contracts": [
+        {
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+          "version": "orca-whirlpools-devnet"
+        }
+      ],
+      "outputs": [
+        {
+          "nodeId": "node-002",
+          "outputId": "withdrawn-token0",
+          "expected": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "So11111111111111111111111111111111111111112",
+              "decimals": 9
+            },
+            "amount": "4949916"
+          },
+          "minimum": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "So11111111111111111111111111111111111111112",
+              "decimals": 9
+            },
+            "amount": "4949916"
+          },
+          "adverse": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "So11111111111111111111111111111111111111112",
+              "decimals": 9
+            },
+            "amount": "4949916"
+          }
+        },
+        {
+          "nodeId": "node-002",
+          "outputId": "withdrawn-token1",
+          "expected": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+              "decimals": 6
+            },
+            "amount": "119183"
+          },
+          "minimum": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+              "decimals": 6
+            },
+            "amount": "119183"
+          },
+          "adverse": {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+              "decimals": 6
+            },
+            "amount": "119183"
+          }
+        }
+      ],
+      "propagatedOutputs": [],
+      "failurePaths": [],
+      "uncertainty": [],
+      "unsupportedAssumptions": [],
+      "freshness": {
+        "observedAt": "2026-10-01T22:34:46.022Z",
+        "expiresAt": "2026-10-01T22:35:46.022Z",
+        "maximumAgeSeconds": 60
+      }
+    },
+    "policy": {
+      "schemaVersion": "1.0.0",
+      "policyId": "orca-liquidity-policy",
+      "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+      "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+      "simulationHash": "0xde532b70622485035a4eeed20ee4d5790c11e3a565f1c2ed6d1b414b4c42f472",
+      "requiredAuthorizationClass": "MODE_A",
+      "allowlists": {
+        "owners": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          }
+        ],
+        "accounts": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          }
+        ],
+        "recipients": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          }
+        ],
+        "chains": [
+          "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+        ],
+        "adapters": [
+          {
+            "id": "orca.whirlpools-devnet-liquidity",
+            "version": "1.0.0"
+          }
+        ],
+        "protocols": [
+          "orca-whirlpools"
+        ],
+        "contracts": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            "version": "orca-whirlpools-devnet"
+          }
+        ],
+        "functions": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "contract": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            "functionId": "decrease-liquidity-v2"
+          },
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "contract": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            "functionId": "collect-fees-v2"
+          }
+        ]
+      },
+      "budgetReservation": {
+        "rule": "RESERVE_BEFORE_SUBMISSION",
+        "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+        "implementation": "NOT_IMPLEMENTED"
+      },
+      "spendLimits": [],
+      "maximumSlippageBps": 100,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "nativeId": "SOL",
+            "decimals": 9
+          },
+          "maximumAmount": "5000"
+        }
+      ],
+      "feeBudgets": [],
+      "oracleRules": [],
+      "accountRiskRules": [],
+      "checkpointRules": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "orca.whirlpools-devnet-liquidity"
+      },
+      "nonce": "493675322",
+      "deadline": "2026-10-01T22:35:46.022Z",
+      "revocationEpoch": 1,
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "manifest": {
+      "schemaVersion": "1.0.0",
+      "manifestId": "orca-liquidity-manifest",
+      "semanticWorkflowRevision": 1,
+      "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+      "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+      "simulationHash": "0xde532b70622485035a4eeed20ee4d5790c11e3a565f1c2ed6d1b414b4c42f472",
+      "policyHash": "0x3097f959c8cd3e1e80d0cbcd58fe9071cd2ec48f9a4436937a653c1b24618a48",
+      "authorizationMode": "MODE_A",
+      "owner": {
+        "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+        "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+      },
+      "executor": null,
+      "expiresAt": "2026-10-01T22:35:46.022Z",
+      "nonce": "493675322",
+      "revocationEpoch": 1,
+      "spendLimits": [],
+      "maximumSlippageBps": 100,
+      "gasBudgets": [
+        {
+          "asset": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "nativeId": "SOL",
+            "decimals": 9
+          },
+          "maximumAmount": "5000"
+        }
+      ],
+      "feeBudgets": [],
+      "providers": {
+        "kind": "FIXED",
+        "providerId": "orca.whirlpools-devnet-liquidity"
+      },
+      "recovery": {
+        "failurePolicy": "ABORT",
+        "residualAssetRecipient": {
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+        },
+        "maximumAttemptsPerStep": 1,
+        "requiresHumanReview": true
+      },
+      "enforcement": "NOT_ENFORCED"
+    },
+    "plan": {
+      "schemaVersion": "1.0.0",
+      "executionPlanId": "orca-liquidity-plan",
+      "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+      "manifestHash": "0xd5a500835940ef131fca14b370c55df9b943f17ee8573212ff24b3e82a207890",
+      "segments": [
+        {
+          "segmentId": "orca-liquidity-segment",
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "dependencies": [],
+          "steps": [
+            {
+              "stepId": "orca-liquidity-decrease-partial",
+              "nodeId": "node-002",
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "adapter": {
+                "id": "orca.whirlpools-devnet-liquidity",
+                "version": "1.0.0"
+              },
+              "dependencies": [],
+              "requiredAuthorizationClass": "MODE_A",
+              "executionKind": "DIRECT_TRANSACTION",
+              "payloadHash": "0x7aae8a7401f323ff7d172bb2c0fd445887941b98c721f5d0b6aff37d35ae857e"
+            }
+          ]
+        }
+      ],
+      "checkpointIds": [],
+      "enforcement": "NOT_ENFORCED"
+    },
+    "journal": {
+      "schemaVersion": "1.0.0",
+      "journalId": "orcalp-e29d186169150bd64fd09846a87f250f",
+      "workflowId": "workflow-local",
+      "executionPlanHash": "0x5f0500d37783c692780a09a1cfe72986403cc63e90fb409ccac3f501c3d19d24",
+      "manifestHash": "0xd5a500835940ef131fca14b370c55df9b943f17ee8573212ff24b3e82a207890",
+      "entries": [
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-0",
+          "sequence": 0,
+          "previousEntryHash": null,
+          "recordedAt": "2026-10-01T22:34:47.220Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "DRAFT"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-1",
+          "sequence": 1,
+          "previousEntryHash": "0xfc5fb21dfa14f29f8cd4dc58fef89a8e17709c046e7680e232220614c0893536",
+          "recordedAt": "2026-10-01T22:34:47.220Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "segment",
+          "entityId": "orca-liquidity-segment",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-2",
+          "sequence": 2,
+          "previousEntryHash": "0x1073b99c5e11ea06160546ca61aca712d46eb83ae253099fdbcb2a0602d38d34",
+          "recordedAt": "2026-10-01T22:34:47.221Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "step",
+          "entityId": "orca-liquidity-decrease-partial",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": "orca-liquidity-decrease-partial",
+          "executionAttemptId": null,
+          "fromState": null,
+          "toState": "PLANNED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-3",
+          "sequence": 3,
+          "previousEntryHash": "0x3df396acfaf13c7f2f87f735861fb634ee9f0a6763980a23feae1c376caef3a3",
+          "recordedAt": "2026-10-01T22:34:47.222Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "DRAFT",
+          "toState": "REVIEWED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-4",
+          "sequence": 4,
+          "previousEntryHash": "0x94895918f5298cb51eca2ed30ac754b9d314d98341b9f88f8a17c48567864aef",
+          "recordedAt": "2026-10-01T22:34:47.223Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "workflow",
+          "entityId": "workflow-local",
+          "workflowId": "workflow-local",
+          "segmentId": null,
+          "stepId": null,
+          "executionAttemptId": null,
+          "fromState": "REVIEWED",
+          "toState": "SIMULATED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-5",
+          "sequence": 5,
+          "previousEntryHash": "0x7d3125d7c250cccb6454b5694f513c800248995428816144e9b0e08b8d88b150",
+          "recordedAt": "2026-10-01T22:35:00.548Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": "orca-liquidity-decrease-partial",
+          "executionAttemptId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "fromState": null,
+          "toState": "PREPARED"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-6",
+          "sequence": 6,
+          "previousEntryHash": "0x193dbc21359f93755120287e36ddfc2d0cb4779332db132ac445dbef859c9c40",
+          "recordedAt": "2026-10-01T22:35:05.040Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": "orca-liquidity-decrease-partial",
+          "executionAttemptId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "fromState": "PREPARED",
+          "toState": "SUBMITTING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-7",
+          "sequence": 7,
+          "previousEntryHash": "0xb9476fc335d23e05366fec9933ed6e46cdc58aa407b6a87531aaf75dd84e8c9a",
+          "recordedAt": "2026-10-01T22:35:05.260Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": "orca-liquidity-decrease-partial",
+          "executionAttemptId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "fromState": "SUBMITTING",
+          "toState": "PENDING"
+        },
+        {
+          "schemaVersion": "1.0.0",
+          "entryId": "entry-8",
+          "sequence": 8,
+          "previousEntryHash": "0xd4f992fea4ca20319c9f02b282422a256109634fb248ce1bd7e59b92630feb45",
+          "recordedAt": "2026-10-01T22:35:08.821Z",
+          "eventType": "STATE_TRANSITION",
+          "level": "attempt",
+          "entityId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "workflowId": "workflow-local",
+          "segmentId": "orca-liquidity-segment",
+          "stepId": "orca-liquidity-decrease-partial",
+          "executionAttemptId": "orcalp-e29d186169150bd64fd09846a87f250f.decrease_partial",
+          "fromState": "PENDING",
+          "toState": "CONFIRMED"
+        }
+      ]
+    },
+    "review": {
+      "format": "gryloo.orca-liquidity-review.v1",
+      "operation": "DECREASE_PARTIAL",
+      "provider": "Orca Whirlpools",
+      "workflow": {
+        "schemaVersion": "1.0.0",
+        "workflowId": "workflow-local",
+        "revision": 1,
+        "nodes": [
+          {
+            "nodeId": "node-001",
+            "actionType": "mock-read",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "mock:local",
+            "requiredCapabilities": [],
+            "adapterConstraints": {
+              "adapters": [],
+              "protocols": []
+            },
+            "inputs": [
+              {
+                "name": "amount",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "mock:local",
+                    "nativeId": "sample",
+                    "decimals": 6
+                  },
+                  "amount": "1000000"
+                }
+              }
+            ],
+            "expectedOutputs": [
+              {
+                "outputId": "result",
+                "asset": {
+                  "chainId": "mock:local",
+                  "nativeId": "sample",
+                  "decimals": 6
+                },
+                "minimumAmount": "0"
+              }
+            ],
+            "dependencies": [],
+            "userConstraints": [],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "NONE",
+            "lockedParameters": [],
+            "editableBounds": []
+          },
+          {
+            "nodeId": "node-002",
+            "actionType": "asset.liquidity.concentrated",
+            "actionSchemaVersion": "1.0.0",
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "requiredCapabilities": [
+              "liquidity.position-direct"
+            ],
+            "adapterConstraints": {
+              "adapters": [],
+              "protocols": [
+                "orca-whirlpools"
+              ]
+            },
+            "inputs": [
+              {
+                "name": "amount0-max",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "So11111111111111111111111111111111111111112",
+                    "decimals": 9
+                  },
+                  "amount": "10000000"
+                }
+              },
+              {
+                "name": "amount1-max",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                    "decimals": 6
+                  },
+                  "amount": "300000"
+                }
+              },
+              {
+                "name": "amount0-min",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "So11111111111111111111111111111111111111112",
+                    "decimals": 9
+                  },
+                  "amount": "0"
+                }
+              },
+              {
+                "name": "amount1-min",
+                "kind": "QUANTITY",
+                "value": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                    "decimals": 6
+                  },
+                  "amount": "0"
+                }
+              },
+              {
+                "name": "tick-lower",
+                "kind": "IDENTIFIER",
+                "value": "tick:-39104"
+              },
+              {
+                "name": "tick-upper",
+                "kind": "IDENTIFIER",
+                "value": "tick:-36992"
+              },
+              {
+                "name": "fee-tier",
+                "kind": "INTEGER",
+                "value": 2000
+              }
+            ],
+            "expectedOutputs": [
+              {
+                "outputId": "position-nft",
+                "asset": {
+                  "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                  "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+                  "decimals": 0
+                },
+                "minimumAmount": "1"
+              }
+            ],
+            "dependencies": [],
+            "userConstraints": [
+              {
+                "kind": "MAXIMUM_INPUT",
+                "quantity": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "So11111111111111111111111111111111111111112",
+                    "decimals": 9
+                  },
+                  "amount": "10000000"
+                }
+              },
+              {
+                "kind": "MAXIMUM_INPUT",
+                "quantity": {
+                  "asset": {
+                    "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                    "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                    "decimals": 6
+                  },
+                  "amount": "300000"
+                }
+              },
+              {
+                "kind": "MAXIMUM_SLIPPAGE_BPS",
+                "maximumBps": 100
+              }
+            ],
+            "failurePolicy": "ABORT",
+            "requiredAuthorizationClass": "MODE_A",
+            "lockedParameters": [],
+            "editableBounds": []
+          }
+        ],
+        "resourceEdges": []
+      },
+      "nodeId": "node-002",
+      "chain": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "cluster": "devnet",
+      "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+      "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+      "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+      "whirlpoolsConfig": "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR",
+      "token0": {
+        "symbol": "SOL",
+        "mint": "So11111111111111111111111111111111111111112",
+        "decimals": 9
+      },
+      "token1": {
+        "symbol": "devUSDC",
+        "mint": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+        "decimals": 6
+      },
+      "intent": {
+        "nodeId": "node-002",
+        "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+        "amount0Max": "10000000",
+        "amount1Max": "300000",
+        "amount0Min": "0",
+        "amount1Min": "0",
+        "tickLower": -39104,
+        "tickUpper": -36992,
+        "slippageBps": 100,
+        "feeTier": 2000
+      },
+      "partBps": 5000,
+      "pool": {
+        "address": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+        "tickSpacing": 64,
+        "feeRate": 2000,
+        "liquidity": "812018971874",
+        "sqrtPrice": "2758236731765613935",
+        "tickCurrentIndex": -38008,
+        "slot": 506427647,
+        "price": "22.357520"
+      },
+      "range": {
+        "tickLower": -39104,
+        "tickUpper": -36992,
+        "lowerPrice": "20.036403",
+        "upperPrice": "24.747889",
+        "state": "IN_RANGE"
+      },
+      "operationPlan": {
+        "operation": "DECREASE_PARTIAL",
+        "liquidityDelta": "15096945",
+        "tokenA": "4949916",
+        "tokenB": "119183",
+        "wrapLamports": "0",
+        "tickLower": -39104,
+        "tickUpper": -36992,
+        "decrease": true,
+        "close": false
+      },
+      "expected": {
+        "liquidity": "15096945",
+        "amountA": "4999916",
+        "amountB": "120387",
+        "positionLiquidityAfter": "15096945"
+      },
+      "accounts": {
+        "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+        "ownerTokenA": "AbY1gsDPGYTS5cweNA3j9YNLefUMytU4uuCmrCdcR95i",
+        "ownerTokenB": "H2GQvRuH6yP1nESoAYNyuA8Py3sHgyFW8TpRqNPp6GzD",
+        "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+        "position": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+        "positionTokenAccount": "CvMo3Bw7av9aNpJH8MzxCG53yTFfzXwDuJS29N7MBLeB",
+        "tickArrayLower": "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE",
+        "tickArrayUpper": "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE",
+        "tokenProgramPosition": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "vaultA": "C9zLV5zWF66j3rZj3uuhDqvfuA8esJyWnruGzDW9qEj2",
+        "vaultB": "7DM3RMz2yzUB8yPRQM3FMZgdFrwZGMsabsfsKopWktoX",
+        "mayBeCreated": [
+          "AbY1gsDPGYTS5cweNA3j9YNLefUMytU4uuCmrCdcR95i"
+        ]
+      },
+      "signers": [
+        "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+      ],
+      "programs": [
+        "ComputeBudget111111111111111111111111111111",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      ],
+      "instructionSummary": [
+        {
+          "programId": "ComputeBudget111111111111111111111111111111",
+          "name": "set_compute_unit_limit",
+          "args": {
+            "units": 64177
+          }
+        },
+        {
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "name": "create_idempotent",
+          "args": {
+            "account": "AbY1gsDPGYTS5cweNA3j9YNLefUMytU4uuCmrCdcR95i",
+            "mint": "So11111111111111111111111111111111111111112"
+          }
+        },
+        {
+          "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "name": "create_idempotent",
+          "args": {
+            "account": "H2GQvRuH6yP1nESoAYNyuA8Py3sHgyFW8TpRqNPp6GzD",
+            "mint": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k"
+          }
+        },
+        {
+          "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+          "name": "decrease_liquidity_v2",
+          "args": {
+            "kind": "decrease",
+            "liquidity": "15096945",
+            "tokenA": "4949916",
+            "tokenB": "119183"
+          }
+        },
+        {
+          "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+          "name": "collect_fees_v2",
+          "args": {}
+        },
+        {
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "name": "close_account",
+          "args": {
+            "account": "AbY1gsDPGYTS5cweNA3j9YNLefUMytU4uuCmrCdcR95i",
+            "destination": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          }
+        }
+      ],
+      "blockhash": "BNsigDsfr3TnKocCEYsSAFWvdohtc9nDGGRSDBiYRgvU",
+      "lastValidBlockHeight": 493675322,
+      "computeUnitLimit": 64177,
+      "estimatedFeeLamports": "5000",
+      "estimatedRentLamports": "0",
+      "ownerBalances": {
+        "lamports": "4882398160",
+        "tokenA": null,
+        "tokenB": "1990580"
+      },
+      "message": "gAEACRFPkcGIzPqUZ8EP0ukmB5L7udlQ7lUDfYNSXH/mtQWOSo6R/rwP20hqPGMuJnKlozhgOkomY46JbnQuKVH2o4Lh7g3/n2PiFpZu//1ovR2z5GjK6H/SEo/2cFbAxosQf8oiX8XvGytnueCRqEvFlzBh81CGLjtUweoMbPw7LElWQ9JLMyN1t4nyCmt4hsPYJ3hyWPScONbm9cT+mbpLjhugpb4IWTOJbhi4wglsB+hvXAFLWW8HSCjoDtc7y0BMi/lcT8Ck+fwkrKsw8TYhd1+FIWj6092UxGsliROKNoezHmRdnNS2C0rI9qOXs0GkFKDXRshOwhwrdZxAr9fieniJAwZGb+UhFzL/7K26csOb57yM5bvF9xJrLEObOkAAAACMlyWPTiSJ8bs9ECkUjg2DC1oTmdr/EIQEjnvY2+n4WQabiFf+q4GE+2h/Y0YYwDXaxDncGus7VZig8AAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG3fbh12Whk9nL4UbO63msHLSF7V9bN5E6jPWFfv8AqZrrN+G09YtY/zby/OyDqYAI6xZ1+QDTpquQivi42FCHDgNoX46QkFPkWBIcZvWnau3HcGqhHIL4qpUqjyt4eakFSlNamSkhBk0k6HFg2jh8fDW13bySu4HkH6hAQQVEjbEb2cPFRKmI8yVn8rY8UeK1waVS/YdG7Up7m9S+1xTomi9p9eDQQn8K0+TyXMCg/DKCWXPOVlP1Y4O+ji4JBWkGCAAFArH6AAAJBgABAAoLDAEBCQYAAgANCwwBAQ4PAwwMDwAEEAoNAQIFBgcHKTp/vD5PUsRgcVzmAAAAAAAAAAAAAAAAAJyHSwAAAAAAj9EBAAAAAAAADg0DAAQQCg0BBQIGDAwPCc91X7/ltOIPAAwDAQAAAQkA",
+      "messageHash": "0x7aae8a7401f323ff7d172bb2c0fd445887941b98c721f5d0b6aff37d35ae857e",
+      "unsignedTransaction": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAQAJEU+RwYjM+pRnwQ/S6SYHkvu52VDuVQN9g1Jcf+a1BY5KjpH+vA/bSGo8Yy4mcqWjOGA6SiZjjoludC4pUfajguHuDf+fY+IWlm7//Wi9HbPkaMrof9ISj/ZwVsDGixB/yiJfxe8bK2e54JGoS8WXMGHzUIYuO1TB6gxs/DssSVZD0kszI3W3ifIKa3iGw9gneHJY9Jw41ub1xP6ZukuOG6ClvghZM4luGLjCCWwH6G9cAUtZbwdIKOgO1zvLQEyL+VxPwKT5/CSsqzDxNiF3X4UhaPrT3ZTEayWJE4o2h7MeZF2c1LYLSsj2o5ezQaQUoNdGyE7CHCt1nECv1+J6eIkDBkZv5SEXMv/srbpyw5vnvIzlu8X3EmssQ5s6QAAAAIyXJY9OJInxuz0QKRSODYMLWhOZ2v8QhASOe9jb6fhZBpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbd9uHXZaGT2cvhRs7reawctIXtX1s3kTqM9YV+/wCpmus34bT1i1j/NvL87IOpgAjrFnX5ANOmq5CK+LjYUIcOA2hfjpCQU+RYEhxm9adq7cdwaqEcgviqlSqPK3h5qQVKU1qZKSEGTSTocWDaOHx8NbXdvJK7geQfqEBBBUSNsRvZw8VEqYjzJWfytjxR4rXBpVL9h0btSnub1L7XFOiaL2n14NBCfwrT5PJcwKD8MoJZc85WU/Vjg76OLgkFaQYIAAUCsfoAAAkGAAEACgsMAQEJBgACAA0LDAEBDg8DDAwPAAQQCg0BAgUGBwcpOn+8Pk9SxGBxXOYAAAAAAAAAAAAAAAAAnIdLAAAAAACP0QEAAAAAAAAODQMABBAKDQEFAgYMDA8Jz3Vfv+W04g8ADAMBAAABCQA=",
+      "simulationResult": {
+        "slot": 506427648,
+        "unitsConsumed": 45147,
+        "logs": [
+          "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+          "Program ComputeBudget111111111111111111111111111111 success",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+          "Program log: CreateIdempotent",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 179 of 58676 compute units",
+          "Program return: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA pQAAAAAAAAA=",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program 11111111111111111111111111111111 invoke [2]",
+          "Program 11111111111111111111111111111111 success",
+          "Program log: Initialize the associated token account",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 37 of 53587 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 229 of 51126 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 13413 of 64027 compute units",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+          "Program log: CreateIdempotent",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 4338 of 50614 compute units",
+          "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc invoke [1]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 112 of 35884 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 105 of 34461 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program data: pgEkR3DKtasiX8XvGytnueCRqEvFlzBh81CGLjtUweoMbPw7LElWQ9JLMyN1t4nyCmt4hsPYJ3hyWPScONbm9cT+mbpLjhugQGf//4Bv//9xXOYAAAAAAAAAAAAAAAAA7EpMAAAAAABD1gEAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc consumed 12370 of 46276 compute units",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc success",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc invoke [1]",
+          "Program log: Instruction: CollectFeesV2",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 122 of 23456 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 122 of 20651 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc consumed 14758 of 33906 compute units",
+          "Program whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc success",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 118 of 19148 compute units",
+          "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success"
+        ],
+        "pre": {
+          "slot": 506427648,
+          "ownerLamports": "4882398160",
+          "tokenA": null,
+          "tokenB": "1990580",
+          "position": {
+            "address": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+            "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+            "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+            "liquidity": "30193890",
+            "tickLowerIndex": -39104,
+            "tickUpperIndex": -36992,
+            "feeOwedA": "0",
+            "feeOwedB": "0",
+            "rewardOwed": [
+              "0",
+              "0",
+              "0"
+            ]
+          },
+          "positionLamports": "2885440",
+          "positionMintLamports": "1676400",
+          "positionTokenLamports": "1513840",
+          "vaultA": "357388294001",
+          "vaultB": "7140743254"
+        },
+        "post": {
+          "slot": 506427648,
+          "ownerLamports": "4887393076",
+          "tokenA": null,
+          "tokenB": "2110967",
+          "position": {
+            "address": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+            "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+            "positionMint": "DscRyBK8SAH4F5KizzUpv9wd55QFk5cUbK9piNMXvgWv",
+            "liquidity": "15096945",
+            "tickLowerIndex": -39104,
+            "tickUpperIndex": -36992,
+            "feeOwedA": "0",
+            "feeOwedB": "0",
+            "rewardOwed": [
+              "0",
+              "0",
+              "0"
+            ]
+          },
+          "positionLamports": "2885440",
+          "positionMintLamports": "1676400",
+          "positionTokenLamports": "1513840",
+          "vaultA": "357383294085",
+          "vaultB": "7140622867"
+        },
+        "events": [
+          {
+            "kind": "LiquidityDecreased",
+            "whirlpool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+            "position": "F9u8AigVGsENekpd9B5SqF5FKfHspZo8J7jVGFwjV3tB",
+            "tickLower": -39104,
+            "tickUpper": -36992,
+            "liquidity": "15096945",
+            "tokenA": "4999916",
+            "tokenB": "120387",
+            "tokenATransferFee": "0",
+            "tokenBTransferFee": "0"
+          }
+        ],
+        "depositedA": "0",
+        "depositedB": "0",
+        "withdrawnPrincipalA": "4999916",
+        "withdrawnPrincipalB": "120387",
+        "collectedFeesA": "0",
+        "collectedFeesB": "0",
+        "rentPaidLamports": "0",
+        "rentRefundedLamports": "0",
+        "feeLamports": "5000",
+        "createdAccounts": [],
+        "closedAccounts": [],
+        "residualTokenA": "0",
+        "residualTokenB": "2110967"
+      },
+      "observedAt": "2026-10-01T22:34:46.022Z",
+      "expiresAt": "2026-10-01T22:35:46.022Z",
+      "artifactSet": {
+        "schemaVersion": "1.0.0",
+        "artifactSetId": "orca-liquidity-artifacts",
+        "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+        "artifacts": [
+          {
+            "artifactId": "orca-liquidity-pool-state",
+            "nodeId": "node-002",
+            "artifactHash": "0x28acce36e3f396e83e08d10f9d452c8af741656d68221f42f0618bd277e7c8d6"
+          }
+        ]
+      },
+      "simulation": {
+        "schemaVersion": "1.0.0",
+        "simulationId": "orca-liquidity-simulation",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+        "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+        "adapters": [
+          {
+            "id": "orca.whirlpools-devnet-liquidity",
+            "version": "1.0.0"
+          }
+        ],
+        "contracts": [
+          {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            "version": "orca-whirlpools-devnet"
+          }
+        ],
+        "outputs": [
+          {
+            "nodeId": "node-002",
+            "outputId": "withdrawn-token0",
+            "expected": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "So11111111111111111111111111111111111111112",
+                "decimals": 9
+              },
+              "amount": "4949916"
+            },
+            "minimum": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "So11111111111111111111111111111111111111112",
+                "decimals": 9
+              },
+              "amount": "4949916"
+            },
+            "adverse": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "So11111111111111111111111111111111111111112",
+                "decimals": 9
+              },
+              "amount": "4949916"
+            }
+          },
+          {
+            "nodeId": "node-002",
+            "outputId": "withdrawn-token1",
+            "expected": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                "decimals": 6
+              },
+              "amount": "119183"
+            },
+            "minimum": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                "decimals": 6
+              },
+              "amount": "119183"
+            },
+            "adverse": {
+              "asset": {
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "address": "BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k",
+                "decimals": 6
+              },
+              "amount": "119183"
+            }
+          }
+        ],
+        "propagatedOutputs": [],
+        "failurePaths": [],
+        "uncertainty": [],
+        "unsupportedAssumptions": [],
+        "freshness": {
+          "observedAt": "2026-10-01T22:34:46.022Z",
+          "expiresAt": "2026-10-01T22:35:46.022Z",
+          "maximumAgeSeconds": 60
+        }
+      },
+      "policy": {
+        "schemaVersion": "1.0.0",
+        "policyId": "orca-liquidity-policy",
+        "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+        "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+        "simulationHash": "0xde532b70622485035a4eeed20ee4d5790c11e3a565f1c2ed6d1b414b4c42f472",
+        "requiredAuthorizationClass": "MODE_A",
+        "allowlists": {
+          "owners": [
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+            }
+          ],
+          "accounts": [
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+            }
+          ],
+          "recipients": [
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+            }
+          ],
+          "chains": [
+            "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+          ],
+          "adapters": [
+            {
+              "id": "orca.whirlpools-devnet-liquidity",
+              "version": "1.0.0"
+            }
+          ],
+          "protocols": [
+            "orca-whirlpools"
+          ],
+          "contracts": [
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+              "version": "orca-whirlpools-devnet"
+            }
+          ],
+          "functions": [
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "contract": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+              "functionId": "decrease-liquidity-v2"
+            },
+            {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "contract": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+              "functionId": "collect-fees-v2"
+            }
+          ]
+        },
+        "budgetReservation": {
+          "rule": "RESERVE_BEFORE_SUBMISSION",
+          "concurrentConsumption": "CUMULATIVE_ACROSS_BRANCHES",
+          "implementation": "NOT_IMPLEMENTED"
+        },
+        "spendLimits": [],
+        "maximumSlippageBps": 100,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "nativeId": "SOL",
+              "decimals": 9
+            },
+            "maximumAmount": "5000"
+          }
+        ],
+        "feeBudgets": [],
+        "oracleRules": [],
+        "accountRiskRules": [],
+        "checkpointRules": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "orca.whirlpools-devnet-liquidity"
+        },
+        "nonce": "493675322",
+        "deadline": "2026-10-01T22:35:46.022Z",
+        "revocationEpoch": 1,
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "manifest": {
+        "schemaVersion": "1.0.0",
+        "manifestId": "orca-liquidity-manifest",
+        "semanticWorkflowRevision": 1,
+        "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+        "artifactSetHash": "0xa3b59865c1e7bd49070a7531862cf5170193df470d49b7e19b65e7c834ffd26c",
+        "simulationHash": "0xde532b70622485035a4eeed20ee4d5790c11e3a565f1c2ed6d1b414b4c42f472",
+        "policyHash": "0x3097f959c8cd3e1e80d0cbcd58fe9071cd2ec48f9a4436937a653c1b24618a48",
+        "authorizationMode": "MODE_A",
+        "owner": {
+          "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+          "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+        },
+        "executor": null,
+        "expiresAt": "2026-10-01T22:35:46.022Z",
+        "nonce": "493675322",
+        "revocationEpoch": 1,
+        "spendLimits": [],
+        "maximumSlippageBps": 100,
+        "gasBudgets": [
+          {
+            "asset": {
+              "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+              "nativeId": "SOL",
+              "decimals": 9
+            },
+            "maximumAmount": "5000"
+          }
+        ],
+        "feeBudgets": [],
+        "providers": {
+          "kind": "FIXED",
+          "providerId": "orca.whirlpools-devnet-liquidity"
+        },
+        "recovery": {
+          "failurePolicy": "ABORT",
+          "residualAssetRecipient": {
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "address": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR"
+          },
+          "maximumAttemptsPerStep": 1,
+          "requiresHumanReview": true
+        },
+        "enforcement": "NOT_ENFORCED"
+      },
+      "plan": {
+        "schemaVersion": "1.0.0",
+        "executionPlanId": "orca-liquidity-plan",
+        "semanticWorkflowHash": "0xd987671a1d1c246e5ef1528a59e05169721f51afef5ebbc1786730360a2dc487",
+        "manifestHash": "0xd5a500835940ef131fca14b370c55df9b943f17ee8573212ff24b3e82a207890",
+        "segments": [
+          {
+            "segmentId": "orca-liquidity-segment",
+            "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            "dependencies": [],
+            "steps": [
+              {
+                "stepId": "orca-liquidity-decrease-partial",
+                "nodeId": "node-002",
+                "chainId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+                "adapter": {
+                  "id": "orca.whirlpools-devnet-liquidity",
+                  "version": "1.0.0"
+                },
+                "dependencies": [],
+                "requiredAuthorizationClass": "MODE_A",
+                "executionKind": "DIRECT_TRANSACTION",
+                "payloadHash": "0x7aae8a7401f323ff7d172bb2c0fd445887941b98c721f5d0b6aff37d35ae857e"
+              }
+            ]
+          }
+        ],
+        "checkpointIds": [],
+        "enforcement": "NOT_ENFORCED"
+      },
+      "commitment": "0xc72b72787cd69fac026995075a5216ba70832ff0a3946cf093e12f358224fee9"
+    }
+  }
+}

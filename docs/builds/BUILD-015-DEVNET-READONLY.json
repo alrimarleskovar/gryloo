@@ -1,0 +1,140 @@
+{
+  "evidence": "PUBLIC_READ_ONLY",
+  "broadcast": false,
+  "signed": false,
+  "endpoint": "https://api.devnet.solana.com",
+  "checkedAt": "2026-10-01T22:04:20.035Z",
+  "checks": [
+    "cluster genesis EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG = Solana Devnet",
+    "Whirlpools program deployed on Devnet (last deploy slot 439560432)",
+    "pool 3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt matches config, mints, vaults, tick spacing 64, fee 2000; no reward emitters",
+    "±10% band 20.121668–24.593150 devUSDC/SOL aligned outward to ticks -39104..-36992",
+    "range tick arrays initialized (fixed-size)",
+    "exact OPEN message simulated: deposit 10000000 lamports + 240757 devUSDC units, liquidity 30192888; Review guard PASS",
+    "all five lifecycle instructions accepted by the deployed program in one read-only simulation; every deposit refunded"
+  ],
+  "program": {
+    "id": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "programData": "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD",
+    "lastDeploySlot": 439560432,
+    "sourceReviewed": "https://github.com/orca-so/whirlpools/tree/e5f089bc5c49b01f5c8abb43c78457ab6c440568/programs/whirlpool"
+  },
+  "pool": {
+    "address": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+    "config": "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR",
+    "tickSpacing": 64,
+    "feeRate": 2000,
+    "liquidity": "811988777984",
+    "sqrtPrice": "2758229930086981506",
+    "tickCurrentIndex": -38008,
+    "slot": 506419859,
+    "rewardEmitters": 0
+  },
+  "range": {
+    "pool": "3KBZiL2g8C7tiJ32hTv5v3KM7aK9htpqTw4cTXz1HvPt",
+    "slot": 506419863,
+    "tickCurrentIndex": -38008,
+    "tickSpacing": 64,
+    "price": "22.357409",
+    "lowerPrice": "20.121668",
+    "upperPrice": "24.593150",
+    "tickLower": -39104,
+    "tickUpper": -36992
+  },
+  "tickArrays": [
+    "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE",
+    "7knZZ461yySGbSEHeBUwEpg3VtAkQy8B9tp78RGgyUHE"
+  ],
+  "open": {
+    "owner": "6Mc7hRBcjoYukC7PNqKUbfS5pHeJwf41bogtUfKuMYQR",
+    "profile": {
+      "maxSol": "0.01",
+      "maxDevUsdc": "0.30",
+      "rangeBps": 1000,
+      "slippageBps": 100
+    },
+    "rangeState": "IN_RANGE",
+    "alignedRange": {
+      "tickLower": -39104,
+      "tickUpper": -36992,
+      "lowerPrice": "20.036403",
+      "upperPrice": "24.747889"
+    },
+    "expected": {
+      "liquidity": "30192888",
+      "amountA": "10000000",
+      "amountB": "240757",
+      "positionLiquidityAfter": "30192888"
+    },
+    "tokenBounds": {
+      "maxA": "10000000",
+      "maxB": "243165"
+    },
+    "simulatedDeposit": {
+      "a": "10000000",
+      "b": "240757"
+    },
+    "residual": {
+      "a": "0",
+      "b": "1990595"
+    },
+    "rentPaidLamports": "6075680",
+    "feeLamports": "10000",
+    "unitsConsumed": 85014,
+    "computeUnitLimit": 112017,
+    "messageBytes": 825,
+    "signers": 2,
+    "programs": [
+      "ComputeBudget111111111111111111111111111111",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "11111111111111111111111111111111",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+    ],
+    "instructions": [
+      "set_compute_unit_limit",
+      "create_idempotent",
+      "transfer",
+      "sync_native",
+      "create_idempotent",
+      "open_position_with_token_extensions",
+      "increase_liquidity_v2",
+      "close_account"
+    ],
+    "createdAccounts": 3,
+    "messageHash": "0x70cdc8df3556537632d37cda622f8b3bfa5c48c3bfde8d2e161cd70f10275fc7"
+  },
+  "lifecycle": {
+    "instructions": [
+      "open_position_with_token_extensions",
+      "increase_liquidity_v2",
+      "decrease_liquidity_v2",
+      "collect_fees_v2",
+      "close_position_with_token_extensions"
+    ],
+    "events": [
+      {
+        "kind": "PositionOpened",
+        "liquidity": null,
+        "tokenA": null,
+        "tokenB": null
+      },
+      {
+        "kind": "LiquidityIncreased",
+        "liquidity": "30192888",
+        "tokenA": "10000000",
+        "tokenB": "240757"
+      },
+      {
+        "kind": "LiquidityDecreased",
+        "liquidity": "30192888",
+        "tokenA": "9999999",
+        "tokenB": "240756"
+      }
+    ],
+    "unitsConsumed": 134937,
+    "messageBytes": 936,
+    "ownerLamportNetChange": "-10001",
+    "note": "All account deposits are refunded on close; the owner loses only the two-signature network fee and integer rounding."
+  }
+}
