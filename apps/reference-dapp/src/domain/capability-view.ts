@@ -19,6 +19,7 @@ const reasons: Record<CapabilityBlockerCode, string> = {
   SIMULATION_REQUIRED: 'Run the exact simulation before execution.',
   AUTHORIZATION_REQUIRED: 'Review and authorize the exact action before execution.',
   CAPABILITY_NOT_IMPLEMENTED: 'Execution is not implemented for this action here.',
+  PROTOCOL_NOT_DEPLOYED: 'The selected protocol has no canonical deployment on this network.',
 };
 export function primaryExecutionBlocker(result: WorkflowCapability, selectedNodeId?: string | null): CapabilityBlocker | undefined {
   const relevant = result.blockers.filter(item => item.dimension === 'EXECUTE' || item.dimension === 'AUTHORIZE')

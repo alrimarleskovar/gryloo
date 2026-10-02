@@ -11,6 +11,7 @@ import { useLiquidity } from './liquidity-store';
 import { useBuild009Wallet } from './build009-wallet-store';
 import { useCow } from './cow-store';
 import { usePublicTestnet } from './public-testnet-store';
+import { walletChainRef } from '../wallet/evm-networks';
 
 import { useSupply } from './supply-store';
 import { useJupiter } from './jupiter-store';
@@ -54,8 +55,7 @@ export function useWorkflowCapability() {
   const walletConnected = solanaPath ? Boolean(jupiter.owner) : environment === 'LOCAL_FORK' ? Boolean(selectedForkWallet) :
     state.workflow.nodes.some(node => node.adapterConstraints.protocols.includes('cow-protocol')) ? Boolean(cow.wallet) : Boolean(wallet.account);
   const walletChainId = solanaPath ? jupiter.owner ? jupiter.network === 'Solana Devnet' ? ORCA_WHIRLPOOLS_DEVNET.chain : JUPITER_SOLANA_MAINNET.chain : null : environment === 'LOCAL_FORK' ? selectedForkWallet ? 'eip155:31337' : null :
-    cow.wallet ? 'eip155:8453' : wallet.chainId === '0x2105' ? 'eip155:8453' :
-    wallet.chainId === '0xa4b1' ? 'eip155:42161' : wallet.chainId === '0x14a34' ? 'eip155:84532' : null;
+    cow.wallet ? 'eip155:8453' : walletChainRef(wallet.chainId);
   const status = chainStatus(chain);
   const artifacts = solanaPath ? solanaRetired ? 'STALE' : solanaRecord ? 'CURRENT' : 'MISSING' : supplyPath ? supply.retired ? 'STALE' : supply.record ? 'CURRENT' : 'MISSING' : environment === 'PUBLIC_TESTNET' ? (publicTestnet.retired ? 'STALE' : publicTestnet.run ? 'CURRENT' : 'MISSING') :
     modeA.retired || liquidity.retired || modeB.retired || status === 'INVALIDATED' || status === 'EXPIRED'

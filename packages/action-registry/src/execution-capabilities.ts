@@ -2,6 +2,7 @@
 /** BUILD-011D-1: execution support is distinct from declarative action compatibility. */
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import type { AuthorizationMode, ExecutionKind } from './capabilities.js';
+import { robinhoodDeploymentStatus } from './robinhood-chain.js';
 
 export const executionEnvironments = ['MOCK', 'LOCAL_FORK', 'PUBLIC_TESTNET', 'MAINNET'] as const;
 export type ExecutionEnvironment = typeof executionEnvironments[number];
@@ -12,7 +13,7 @@ export type CapabilityBlockerCode = 'UNKNOWN_ACTION' | 'ADAPTER_NOT_AVAILABLE' |
   'CHAIN_NOT_SUPPORTED' | 'ENVIRONMENT_NOT_SUPPORTED' | 'ACTION_TEMPLATE_ONLY' | 'PUBLIC_EXECUTION_NOT_ENABLED' |
   'MAINNET_EXECUTION_NOT_ENABLED' | 'RUNTIME_UNAVAILABLE' | 'AUTHORIZATION_MODE_UNSUPPORTED' |
   'WALLET_NOT_CONNECTED' | 'WRONG_WALLET_CHAIN' | 'ARTIFACTS_MISSING' | 'ARTIFACTS_STALE' |
-  'SIMULATION_REQUIRED' | 'AUTHORIZATION_REQUIRED' | 'CAPABILITY_NOT_IMPLEMENTED';
+  'SIMULATION_REQUIRED' | 'AUTHORIZATION_REQUIRED' | 'CAPABILITY_NOT_IMPLEMENTED' | 'PROTOCOL_NOT_DEPLOYED';
 export type CapabilityBlocker = { readonly nodeId: string; readonly dimension: CapabilityDimension; readonly code: CapabilityBlockerCode };
 export type CapabilityFlags = Readonly<Record<CapabilityDimension, boolean>>;
 export type CapabilityRequirement = 'FORK_RUNTIME' | 'INJECTED_WALLET' | 'QUOTE_PROVIDER' | 'REVIEWED_ARTIFACTS';
@@ -126,7 +127,9 @@ export function resolveNodeCapability(node: Node, request: CapabilityRequest): N
   if (templateKinds.has(node.actionType) && request.environment !== 'MOCK')
     return failure(node, adapter.id, 'ACTION_TEMPLATE_ONLY');
   const matching = executionCapabilityRegistry.filter(row => row.actionType === node.actionType && row.adapterId === adapter.id);
-  if (!matching.some(row => row.chainId === node.chainId)) return failure(node, adapter.id, 'CHAIN_NOT_SUPPORTED');
+  // A recognized network whose protocol has no canonical deployment says so rather than reporting a generic chain gap.
+  if (!matching.some(row => row.chainId === node.chainId)) return failure(node, adapter.id,
+    robinhoodDeploymentStatus(node.chainId, adapter.id) === 'NO_CANONICAL_DEPLOYMENT' ? 'PROTOCOL_NOT_DEPLOYED' : 'CHAIN_NOT_SUPPORTED');
   const profile = matching.find(row => row.chainId === node.chainId && row.environment === request.environment);
   if (!profile) return failure(node, adapter.id, request.environment === 'PUBLIC_TESTNET' ? 'PUBLIC_EXECUTION_NOT_ENABLED' :
     request.environment === 'MAINNET' ? 'MAINNET_EXECUTION_NOT_ENABLED' : 'ENVIRONMENT_NOT_SUPPORTED',
