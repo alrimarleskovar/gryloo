@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createSupplyNode, readSupplyNode, createBorrowNode, readBorrowNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { createSupplyNode, readSupplyNode, createBorrowNode, readBorrowNode, createRepayNode, readRepayNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
 export type SupplyInput={network:'Base Sepolia';asset:'USDC';amount:string;beneficiary:string};
 export function parseSupplyAmount(value:string):string {
@@ -39,5 +39,15 @@ export function createAuthoredBorrow(nodeId:string,input:SupplyInput):SemanticWo
 export function borrowDetails(node:SemanticWorkflow['nodes'][number]):SupplyInput|null{
   if(node.actionType!=='borrow')return null;
   const fields=readBorrowNode(node),amount=BigInt(fields.amount);
+  return {network:'Base Sepolia',asset:'USDC',amount:`${amount/1000000n}${amount%1000000n?'.'+(amount%1000000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,beneficiary:fields.beneficiary};
+}
+
+export function createAuthoredRepay(nodeId:string,input:SupplyInput):SemanticWorkflow['nodes'][number]{
+  if(input.network!==profile.network||input.asset!=='USDC')throw new Error('REPAY_DEPLOYMENT_UNSUPPORTED');
+  return createRepayNode(nodeId,{chain:profile.chain,asset:{chainId:profile.chain,address:profile.asset,decimals:profile.decimals},amount:parseSupplyAmount(input.amount),beneficiary:input.beneficiary,interestRateMode:2});
+}
+export function repayDetails(node:SemanticWorkflow['nodes'][number]):SupplyInput|null{
+  if(node.actionType!=='repay')return null;
+  const fields=readRepayNode(node),amount=BigInt(fields.amount);
   return {network:'Base Sepolia',asset:'USDC',amount:`${amount/1000000n}${amount%1000000n?'.'+(amount%1000000n).toString().padStart(6,'0').replace(/0+$/,''):''}`,beneficiary:fields.beneficiary};
 }

@@ -28,7 +28,7 @@ export function useExecutionEnvironment() {
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
   const workflow = useWorkflow().state.workflow;
-  const testnetSwap = workflow.nodes.some(node => ['supply','borrow'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const testnetSwap = workflow.nodes.some(node => ['supply','borrow','repay'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const solanaSwap = workflow.nodes.find(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
   // The Solana runtime's environment: mainnet-beta (Jupiter) is MAINNET; Devnet (Orca, test tokens) is a public test network.
   const solanaPosition = workflow.nodes.some(node => node.actionType === 'asset.liquidity.concentrated' && node.chainId === ORCA_WHIRLPOOLS_DEVNET.chain);
@@ -40,7 +40,7 @@ export function useWorkflowCapability() {
   const { state, chain } = useWorkflow();
   const { environment, selectEnvironment } = useExecutionEnvironment();
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
-  const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => ['supply','borrow'].includes(n.actionType));
+  const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => ['supply','borrow','repay'].includes(n.actionType));
   const jupiter = useJupiter(), orca = useSolanaLiquidity();
   const positionPath = state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.concentrated' && n.chainId === ORCA_WHIRLPOOLS_DEVNET.chain);
   const solanaPath = positionPath || state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId.startsWith('solana:'));

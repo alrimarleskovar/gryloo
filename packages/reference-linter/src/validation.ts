@@ -95,7 +95,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     validateCompositionWorkflow(workflow, trusted);
     return workflow;
   }
-  if (workflow.nodes.some(node => ['supply','borrow'].includes(node.actionType))) validateSupplyWorkflow(workflow);
+  if (workflow.nodes.some(node => ['supply','borrow','repay'].includes(node.actionType))) validateSupplyWorkflow(workflow);
   // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
   if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }
   // The canonical concentrated-liquidity action; its only runtime today is Orca Whirlpools on Solana Devnet.

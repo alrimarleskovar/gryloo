@@ -116,7 +116,7 @@ jobs:
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           # Visual/default-state specs run before local-fork execution writes a recovery journal.
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts public-testnet.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
-          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts
+          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts
           # BUILD-014: Jupiter/Solana swap on the MOCKED loopback harness; never a public provider or broadcast.
           GRYLOO_JUPITER_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test jupiter.spec.ts
           # BUILD-DEMO-001: Solana Devnet / Orca swap on the MOCKED loopback harness; never public Devnet or a broadcast.
