@@ -4,9 +4,13 @@
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.
 
-## Current BUILD-012D — Aave V3 Withdraw
+## Completed BUILD-012D — Aave V3 Withdraw
 
-Active implementation on `codex/build-012d-aave-withdraw` from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. Maximum pre-execution status: **READY_FOR_OWNER_EXECUTION**. Implements partial self-withdrawal on verified Base Sepolia Aave USDC using shared canonical IR, Review, durable wallet execution/recovery and independent verification. Live public work is read-only; no public Withdraw transaction was signed, sent or initiated. Owner execution and merge remain pending. BUILD-013 is not started. See the [plan](builds/BUILD-012D-PLAN.md), [prestate](builds/BUILD-012D-PRESTATE.json) and [report](builds/BUILD-012D-REPORT.md).
+**TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED** on `codex/build-012d-aave-withdraw`, from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. The owner completed exactly **100000 raw = 0.1 USDC** on Base Sepolia (84532), with owner/recipient `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`, in [transaction `0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372`](https://sepolia.basescan.org/tx/0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372), block **47570537**.
+
+The [Gryloo runtime Evidence Bundle](builds/BUILD-012D-EVIDENCE.json) records `TESTNET_EXECUTED / RECONCILED`, `PUBLIC_TESTNET` provenance and owner-initiated wallet execution. The separate [independent verifier result](builds/BUILD-012D-VERIFICATION.json), produced by `scripts/verify-aave-withdraw.mjs`, records `TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED` from **96 read-only RPC requests**. Wallet USDC rose from 5000 to 105000 raw (**+100000**); final supplied collateral is **900001** raw, variable debt **5002** raw and HF **154738272501899316246** (154.738272501899316246). Scaled-balance/index rounding explains the 100001-raw nominal collateral decrease.
+
+The execution record has one durable attempt and one transaction, with no duplicate submission. Final evidence closure submitted or signed no additional transaction. [PR #46](https://github.com/alrimarleskovar/gryloo/pull/46) remains unmerged for the owner, with auto-merge disabled. BUILD-013 is the existing roadmap successor and is not started. See the [report](builds/BUILD-012D-REPORT.md), [original plan](builds/BUILD-012D-PLAN.md) and [historical selection prestate](builds/BUILD-012D-PRESTATE.json).
 
 ## Merged BUILD-012C — Aave V3 Repay
 
@@ -34,7 +38,7 @@ READY_FOR_OWNER_EXECUTION on branch `claude/build-014-jupiter` from main `772697
 
 ## Merged BUILD-012A / BUILD-012B
 
-BUILD-012A Aave Supply and BUILD-012B Aave Borrow are merged and **TESTNET_EXECUTED** on their exact verified Base Sepolia profiles. The [Supply report](builds/BUILD-012A-REPORT.md) and [Borrow report](builds/BUILD-012B-REPORT.md) preserve the historical implementation checkpoints and completed owner public acceptance. BUILD-012C is merged as recorded above; BUILD-012D is the active implementation with public execution pending.
+BUILD-012A Aave Supply and BUILD-012B Aave Borrow are merged and **TESTNET_EXECUTED** on their exact verified Base Sepolia profiles. The [Supply report](builds/BUILD-012A-REPORT.md) and [Borrow report](builds/BUILD-012B-REPORT.md) preserve the historical implementation checkpoints and completed owner public acceptance. BUILD-012C is merged as recorded above; BUILD-012D public owner execution and independent reconciliation are completed, with PR #46 awaiting owner merge.
 
 The older entries below remain historical evidence/status checkpoints. They do not supersede the current canonical baseline or authorize another build.
 

@@ -1,10 +1,10 @@
 # BUILD-012D — Aave V3 Withdraw
 
-Status: **READY_FOR_OWNER_EXECUTION**. Implementation only; public owner execution remains pending. No public transaction was signed, sent or initiated by the agent. No BUILD-012D `TESTNET_EXECUTED` or public reconciliation claim is made. BUILD-013 is not started. Main is unchanged; delivery is one unmerged PR from `codex/build-012d-aave-withdraw`, based on `70ce37efae08018c642ddcc912913c07cabcb770`.
+Status: **TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED**. The owner completed the exact 0.1 USDC withdrawal on public Base Sepolia through their wallet. Gryloo runtime reconciliation and the separate read-only verifier both passed, as distinguished below. The existing transaction is final; this evidence/documentation closure performed no additional signing, submission, wallet request or execution. BUILD-013 is not started. Main is unchanged; [PR #46](https://github.com/alrimarleskovar/gryloo/pull/46) remains unmerged from `codex/build-012d-aave-withdraw`, based on `70ce37efae08018c642ddcc912913c07cabcb770`.
 
 ## Canonical baseline and live selection
 
-The merged BUILD-012A/B/C implementation and BUILD-012C Evidence Bundle, verification, report and read-only tools were inspected before implementation. PR #44 / BUILD-015 is merged and DEVNET_EXECUTED. PR #43 / BUILD-012C is merged and TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED. Historical evidence is preserved; NEXT_BUILD and STATUS now identify Withdraw as active.
+The merged BUILD-012A/B/C implementation and BUILD-012C Evidence Bundle, verification, report and read-only tools were inspected before implementation. PR #44 / BUILD-015 is merged and DEVNET_EXECUTED. PR #43 / BUILD-012C is merged and TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED. Historical evidence is preserved; STATUS records Withdraw as completed, and NEXT_BUILD identifies the existing roadmap successor, BUILD-013, for future planning only.
 
 [BUILD-012D-PRESTATE.json](BUILD-012D-PRESTATE.json) records the initial live read-only snapshot and exact selection rationale. Owner: `0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b`. Network: Base Sepolia, chain 84532. Pool: `0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27`. USDC: `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f`, six decimals.
 
@@ -34,15 +34,53 @@ Only after that snapshot was read, **100000 raw = 0.100000 USDC** was selected. 
 
 [BUILD-012D-READONLY.json](BUILD-012D-READONLY.json) preserves a second public read-only compiler validation: block **47568245**, hash `0xf518e5023f33c48de4a00f44878ec98d91884e71dc0adc71a4f5fabc85aa0e66`, observed UTC 2026-10-02T01:33:14.749Z. Normal interest increased supplied balance to **1000002** raw; scaled collateral remains 803435, debt 5002, wallet 5000 and HF **171931566915910272301**. It contains 77 read-only RPC responses, exact call/return, official address-book and protocol-source hashes, gas estimation and the complete canonical artifact chain. `eth_call` returned exactly 100000. Gas limit including 1.5× margin is 296069; reviewed gas-price ceiling is 12000000 wei; maximum network budget including fee margin is 13552828000000 wei (0.000013552828 ETH).
 
-These are historical live snapshots, not current execution authority. The archived Review expired at 2026-10-02T01:34:59.544Z. The owner must perform a fresh Simulate and Review in Gryloo; changed or unsafe state blocks execution.
+These initial snapshots are historical selection and validation records. The earlier archived Review expired at 2026-10-02T01:34:59.544Z. The completed owner execution used a fresh Review, with state observed at 2026-10-02T02:48:00.365Z and expiry 2026-10-02T02:49:55.388Z; its transaction was included at 2026-10-02T02:49:22Z. Its estimated post-collateral, wallet balance and HF match the final evidence. The transaction is final and must not be rerun.
+
+## Final public owner execution
+
+The [exact exported Evidence Bundle](BUILD-012D-EVIDENCE.json) records Gryloo runtime **TESTNET_EXECUTED / RECONCILED**, `PUBLIC_TESTNET` provenance and `ownerInitiated: true`, with no reconciliation differences. The separate [independent verification](BUILD-012D-VERIFICATION.json), produced by `scripts/verify-aave-withdraw.mjs`, records **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED**, `readOnly: true` and **96 read-only RPC requests**. These are separate runtime and independent acceptance records.
+
+| Canonical execution evidence | Exact value |
+| --- | --- |
+| Public transaction | [`0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372`](https://sepolia.basescan.org/tx/0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372) |
+| Network / chain ID | Base Sepolia / 84532 |
+| Owner / recipient | 0x8ef12e4e2fd397c227492019f626b5d1c5e41b3b |
+| Pool / USDC | 0x8bab6d1b75f19e9ed9fce8b9bd338844ff79ae27 / 0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f |
+| Withdrawal | 100000 raw = 0.100000 USDC |
+| Canonical prestate block / hash | 47570536 / 0x0794d29f3f1abb40428a7b9d89be0b5751a66dde52a8668048a315adf8c4883f |
+| Receipt/poststate block / hash | 47570537 / 0x58de57c4383a372bfe3ab6476ba09f0f3c1fa130937c3882c84c81aed9474258 |
+| Transaction index / receipt status | 1 / 1 (successful) |
+| Included UTC | 2026-10-02T02:49:22Z |
+| Runtime bundle observed UTC | 2026-10-02T02:49:59.851Z |
+| Independent verifier observed UTC | 2026-10-02T02:54:40.134Z |
+| Supplied collateral before → after, raw | 1000002 → 900001 (1.000002 → 0.900001 USDC) |
+| Wallet USDC before → after, raw | 5000 → 105000; delta **+100000** |
+| Variable debt before → after, raw | 5002 → 5002 (0.005002 USDC) |
+| Scaled variable debt before → after | 3858 → 3858; index advanced through normal interest accrual |
+| HF before → after, 18 decimals | 171931566915910272301 → **154738272501899316246** |
+| HF before → after, decimal | 171.931566915910272301 → **154.738272501899316246** |
+| Scaled collateral before → after | 803435 → 723091; burn **80344** |
+| Execution income index | 1244658775820995817639892411 |
+| Reserve / user configuration / eMode | Unchanged; reserve configuration as above / 3 / 0 |
+| Gas used / effective gas price | 308189 / 6000001 wei |
+| Base L1 fee | 24687265236 wei |
+| Total network cost | **1873821573425 wei** = 0.000001873821573425 ETH |
+| Owner native cost | 0 wei; sponsored by the wallet envelope fee payer |
+| Evidence Bundle hash | 0xd7952acf36916a50665bb85a99f32a82a99fa71a36787e8cd330db6b170fb6fb |
+
+The wallet used the existing pinned MetaMask EIP-7702 envelope: the outer fee payer/sender is `0xc066ac5d385419b1a8c43a0e146fa439837a8b8c`, and its outer destination is DelegationManager `0xdb9b1e94b5b69df7e401ddbede43491141047db3`. The independently verified owner signature authorizes the exact inner Pool call below, with owner and recipient identical. The owner nonce remains 5, the pinned wallet implementation remains unchanged and the one-call caveat counter advances from 0 to 1. This reuses existing wallet compatibility; it introduces no new lending delegation feature.
+
+The wallet received exactly 100000 raw USDC. Nominal collateral decreased by 100001 raw because the protocol burns **80344 scaled shares** at the execution income index; nearest rounding would yield 80343, whereas the verified current ceil burn is 80344. The normalized withdrawal is 100001 raw, within the explicit three-raw-unit representation bound. The verifier also validates the aToken interest checkpoint and Burn/Transfer events. This explains the collateral representation without assuming naive nominal subtraction. Debt principal, reserve configuration and owner configuration remain unchanged, and final HF remains comfortably above the 2.0 safety minimum.
+
+The bundle contains exactly one Withdraw observation, one receipt and one durable attempt: PREPARED at 02:48:42.969Z → SUBMITTING at 02:49:14.313Z → PENDING at 02:49:23.099Z → CONFIRMED at 02:49:59.840Z, all on 2026-10-02. There is no duplicate submission or second transaction in this execution record. The final evidence closure only inspects that existing execution and does not submit another transaction.
 
 ## Implementation and user flow
 
 Build → Simulate → Review → Execute → Result uses the existing Aave compiler, capability model, wallet session, durable journal and Evidence Bundle architecture. The new canonical `withdraw` reader contains chain, Aave adapter/profile constraints, asset, exact amount and `CONNECTED_OWNER` recipient semantics. Chat and Canvas call the same authoring reducer and produce identical IR; authored nodes contain no wallet address. The owner is bound from the session at simulation/Review.
 
-Only an isolated partial self-withdrawal on the existing verified reserve is executable. No approval, permit, withdraw-max, new delegation feature, advanced lending or Solana protocol change was added. Existing pinned MetaMask envelope compatibility is reused solely to verify real wallet behavior independently if the owner wallet uses it.
+Only an isolated partial self-withdrawal on the existing verified reserve is executable. No approval, permit, withdraw-max, new delegation feature, advanced lending or Solana protocol change was added. Existing pinned MetaMask envelope compatibility independently verifies the owner-wallet authorization used in this execution.
 
-The exact reviewed transaction has owner `from`, Pool `to`, zero value, chain `0x14a34`, and calldata:
+The canonical reviewed intent has owner `from`, Pool `to`, zero value, chain `0x14a34`, and the following calldata. In the completed sponsored wallet execution these fields bind the inner Pool call; the outer sender and destination are recorded above:
 
 ```text
 0x69328dec000000000000000000000000ba50cd2a20f6da35d788639e581bca8d0b5d4d5f00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000008ef12e4e2fd397c227492019f626b5d1c5e41b3b
@@ -64,18 +102,21 @@ The reconciler independently reads chain, transaction, receipt, canonical block/
 
 Underlying owner USDC must increase by exactly the requested amount. Scaled collateral must decrease by the legacy nearest or current ceil burn at the execution index; normalized principal must remain within its explicit index-derived rounding bound. Nominal balances are checked against the protocol representation instead of requiring naive exact subtraction. The owner's previous interest index, Burn/Mint event, accrued interest and net collateral Transfer are independently checked. Scaled debt and reserve/user configuration remain unchanged; debt changes are limited to normal bounded interest accrual. Post-HF must be consistent and at least 2.0. Extra owner asset movement, native-cost/nonce discrepancies for direct calls, unexpected events, wrong call or missing Base L1 fee fail closed. Network cost includes gas used × effective gas price plus the reported L1 fee.
 
-The separate CLI `scripts/verify-aave-withdraw.mjs` contains a strict read-only RPC allowlist and no wallet/signing/submission entry point. For later real owner execution it re-reads canonical public state and authorization, verifies archived commitments, journal/artifact/bundle hashes, receipt and state consistency, then independently reconstructs ABI bytes and scaled burn arithmetic. It rejects MOCKED evidence and any acceptance amount/recipient/profile mismatch. Whole-block historical snapshots deliberately fail closed if concurrent effects prevent unique reconciliation.
+The separate CLI `scripts/verify-aave-withdraw.mjs` contains a strict read-only RPC allowlist and no wallet/signing/submission entry point. Its evidence mode was run against the completed owner transaction. It re-read canonical public state and authorization, verified archived commitments, journal/artifact/bundle hashes, receipt and state consistency, then independently reconstructed ABI bytes and scaled burn arithmetic. It rejects MOCKED evidence and any acceptance amount/recipient/profile mismatch. Whole-block historical snapshots deliberately fail closed if concurrent effects prevent unique reconciliation.
+
+The completed read-only evidence-mode command was:
 
 ```sh
-# Read-only position/compiler validation, requiring built workspace packages:
-node scripts/verify-aave-withdraw.mjs --prestate /tmp/BUILD-012D-READONLY.json
-# Only after the owner executes and exports Gryloo's real Evidence Bundle:
-node scripts/verify-aave-withdraw.mjs --evidence OWNER-EXPORTED-EVIDENCE.json /tmp/BUILD-012D-VERIFICATION.json
+node scripts/verify-aave-withdraw.mjs \
+  --evidence docs/builds/BUILD-012D-EVIDENCE.json \
+  docs/builds/BUILD-012D-VERIFICATION.json
 ```
 
-The public evidence mode has not been run because no owner Withdraw exists. Its underlying direct/wrapped reconciliation paths are covered by offline adversarial tests. Owner public acceptance and real independent verification remain pending.
+It returned `{"status":"TESTNET_EXECUTED","readOnly":true,"rpcReadCount":96,"output":"docs/builds/BUILD-012D-VERIFICATION.json"}`. Its archived transcript contains only chain, transaction, receipt, block, code, balance, nonce, gas-price and historical `eth_call` reads; it contains no gas-estimation, signing or submission request. The independent result is `INDEPENDENTLY_RECONCILED`. The final closure preserved both supplied files byte for byte and replayed these existing 96 read-only responses through the current reconciler, with zero new network requests.
 
 ## Validation
+
+The implementation checks below passed before owner execution on implementation commit `34e9b8ea68fc6be8f097ce2b8be97dee4f8be282`. They are retained as historical implementation validation; transaction-capable harnesses were not rerun for this documentation/evidence closure.
 
 | Check | Result |
 | --- | --- |
@@ -99,7 +140,7 @@ The public evidence mode has not been run because no owner Withdraw exists. Its 
 | `pnpm audit --audit-level low` | No known vulnerabilities |
 | CycloneDX 1.6 SBOM gate | Passed exact lockfile/component/manifest/license validation; ephemeral SBOM removed after validation |
 | Screenshot-diff summary self-test | Passed |
-| Public Withdraw simulation | 77 read-only RPC responses; exact 100000 return; no public transaction |
+| Historical pre-execution Withdraw simulation | 77 read-only RPC responses; exact 100000 return; that validation submitted no transaction |
 
 The two default unit skips, ten Anvil skips and 29 fork skips are pre-existing optional owner/profile cases; they are not counted as passes. All new focused Withdraw tests run.
 
@@ -107,9 +148,17 @@ The host had another workspace using the standard loopback ports. Browser accept
 
 The unknown-result refresh test waits for the durable observation-only UI state before reloading, so it tests restart after submission rather than racing the handoff itself. The mock Withdraw display assertion was corrected to its index-derived 1000002 supplied / 5001 debt representation. The live snapshot retains its independently read protocol values. Three inspected snapshots were updated for the Withdraw toolbar and resulting Canvas header/centering: Build, proposal and blocked review. All other baselines remain unchanged; the zero-pixel visual threshold remains unchanged.
 
+## Final evidence/documentation closure checks
+
+- Both JSON files parse; the Evidence Bundle passes the existing contract reader. Review, workflow/artifact, journal, observation, receipt and bundle hashes match the current implementation.
+- Offline replay of all **96** archived read-only RPC responses through `reconcileWithdrawAttempt` returns `RECONCILED`, reproducing owner-envelope authorization, canonical receipt/block, exact inner calldata, protocol events, collateral/share rounding, wallet credit, debt, configuration, HF and network cost. This replay made **zero network requests** and invoked no wallet or submission path.
+- Exactly one durable attempt, one receipt and one transaction are recorded. Review inclusion predates expiry, and final balance projections agree with the bundle and independent verifier.
+- Governance-Lite and all **17** self-tests passed; `git diff --check` passed. Changed documentation links and final status statements were checked against the archived evidence and existing roadmap.
+- Supplied file SHA-256 values remain unchanged: Evidence `9f08a5b6963628bd249a79c9517ae9042da46bd41e749b2276d36432c3a88c40`; verification `a1ba4dcad5c7050872bb92f1802155bf686a9da2976e5e47d530f551c27c1eb2`.
+
 ## Changed files
 
-Historical BUILD-012A/B/C and BUILD-015 evidence was not changed. No dependency or lockfile change was needed. 49 files changed:
+Historical BUILD-012A/B/C and BUILD-015 evidence was not changed. No dependency or lockfile change was needed. The implementation changed 49 paths; the closure adds the two final JSON archives and updates the three existing status/report documents, bringing this PR to 51 changed paths:
 
 - `.github/workflows/contracts.yml`
 - `apps/reference-dapp/e2e/aave-wallet-fixtures.ts`
@@ -139,6 +188,8 @@ Historical BUILD-012A/B/C and BUILD-015 evidence was not changed. No dependency 
 - `apps/reference-dapp/src/state/supply-store.tsx`
 - `docs/NEXT_BUILD.md`
 - `docs/STATUS.md`
+- `docs/builds/BUILD-012D-EVIDENCE.json`
+- `docs/builds/BUILD-012D-VERIFICATION.json`
 - `docs/builds/BUILD-012D-PLAN.md`
 - `docs/builds/BUILD-012D-PRESTATE.json`
 - `docs/builds/BUILD-012D-READONLY.json`
@@ -163,4 +214,4 @@ Historical BUILD-012A/B/C and BUILD-015 evidence was not changed. No dependency 
 
 ## Delivery
 
-Branch: `codex/build-012d-aave-withdraw`; base: `main` at the exact canonical SHA above. One PR against main is authorized for delivery, without merging or enabling auto-merge. Public owner execution remains pending; the evidence ceiling is **READY_FOR_OWNER_EXECUTION**.
+Branch: `codex/build-012d-aave-withdraw`; base: `main` at the exact canonical SHA above. [PR #46](https://github.com/alrimarleskovar/gryloo/pull/46) remains open for owner merge, with auto-merge disabled. BUILD-012D is completed as **TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED**. Public owner execution is complete; no additional transaction was signed, sent or initiated during this closure. BUILD-013 remains a future roadmap build and was not started.

@@ -4,15 +4,21 @@
 
 Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR, CI and human owner merge. Future builds need no path manifest or governance amendment. The recorded milestones below remain product context; repository edit permission does not authorize public execution or owner wallet actions.
 
-## Current implementation: BUILD-012D — Aave V3 Withdraw
+## Next planned build: BUILD-013 — Advanced lending composition
 
-Active implementation on `codex/build-012d-aave-withdraw`, from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. The [plan](builds/BUILD-012D-PLAN.md) implements exact partial owner withdrawal using the verified Base Sepolia Aave USDC profile. Maximum status before owner execution is **READY_FOR_OWNER_EXECUTION**. No public Withdraw transaction has been signed or sent; owner execution is pending. Delivery is one PR against main, without merging. BUILD-013 is not started.
+The [existing Master Prompt roadmap](../prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md) defines BUILD-013 after the four BUILD-012 Aave primitives: compose supply → health check → borrow → swap or liquidity; propagate debt, collateral, fees and resulting exposure; require acceptance and a new Manifest for material AI-suggested corrections; separate execution-time checks, ongoing monitoring and any later Mode C defense. This records the already-defined next scope only. BUILD-013 has not been started; this closure implements no new build.
+
+## Completed BUILD-012D — Aave V3 Withdraw
+
+**TESTNET_EXECUTED / RECONCILED / INDEPENDENTLY_RECONCILED** on `codex/build-012d-aave-withdraw`, from canonical main `70ce37efae08018c642ddcc912913c07cabcb770`. The owner completed the exact **0.1 USDC (100000 raw)** partial withdrawal on verified Base Sepolia Aave USDC in [transaction `0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372`](https://sepolia.basescan.org/tx/0xd62dc935a1897f549a9cd7e131c8847953d97d7b8b8acdbf4d0d602adbeac372), block **47570537**. The [Gryloo runtime bundle](builds/BUILD-012D-EVIDENCE.json) records `TESTNET_EXECUTED / RECONCILED`, `PUBLIC_TESTNET` and owner-initiated wallet execution. The [separate independent verifier](builds/BUILD-012D-VERIFICATION.json) records `TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED` with **96 read-only RPC requests**.
+
+Final wallet USDC is **105000** raw (delta **+100000**), supplied collateral **900001** raw, debt **5002** raw and HF **154738272501899316246**. The evidence records one transaction and no duplicate submission; this closure initiated no additional transaction. [PR #46](https://github.com/alrimarleskovar/gryloo/pull/46) remains open, unmerged and without auto-merge for owner review. See the [completed report](builds/BUILD-012D-REPORT.md).
 
 ## Merged baseline
 
 - [PR #44 / BUILD-015](https://github.com/alrimarleskovar/gryloo/pull/44) is merged; **DEVNET_EXECUTED**, with independently verified owner Orca liquidity execution and archived evidence. See the [preserved report](builds/BUILD-015-REPORT.md).
 - [PR #43 / BUILD-012C](https://github.com/alrimarleskovar/gryloo/pull/43) is merged; **TESTNET_EXECUTED / INDEPENDENTLY_RECONCILED**. The owner repaid exactly 5000 raw USDC through Gryloo. See the [preserved report](builds/BUILD-012C-REPORT.md).
-- BUILD-012A Supply and BUILD-012B Borrow are merged and **TESTNET_EXECUTED**; their historical reports/evidence remain unchanged. Withdraw completes the four basic primitive implementations; it has no public execution claim.
+- BUILD-012A Supply and BUILD-012B Borrow are merged and **TESTNET_EXECUTED**; their historical reports/evidence remain unchanged. BUILD-012D Withdraw now completes public owner execution and independent reconciliation of the four basic primitives, with its PR still awaiting owner merge.
 - BUILD-DEMO-001 retains its recorded **DEVNET_EXECUTED** evidence. BUILD-014 Jupiter retains its recorded readiness and no mainnet execution claim.
 
 The implementation/status paragraphs below are historical checkpoints, not current next-build authority. Their evidence claims remain as recorded.
