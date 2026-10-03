@@ -15,8 +15,9 @@ createServer(async (request, response) => {
   const reply = (value: object) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: 1, ...value }));
   try {
     const { method, params = [] } = JSON.parse(body) as { method: string; params?: unknown[] };
-    if (method === 'MOCK_reset') { chain = createUniswapLiquidityChain(); reply({ result: true }); return; }
+    if (method === 'MOCK_reset') { chain = createUniswapLiquidityChain({ delegatedOwner: (params[0] as { delegatedOwner?: boolean } | undefined)?.delegatedOwner === true }); reply({ result: true }); return; }
     if (method === 'MOCK_send') { reply({ result: chain.wallet.send(params[0] as Parameters<typeof chain.wallet.send>[0], (params[1] ?? {}) as { hold?: boolean }) }); return; }
+    if (method === 'MOCK_sendDelegated') { reply({ result: chain.wallet.sendDelegated(params[0] as Parameters<typeof chain.wallet.sendDelegated>[0]) }); return; }
     if (method === 'MOCK_sends') { reply({ result: chain.counters.sends }); return; }
     reply({ result: await chain.rpc(method, params) });
   } catch (error) { reply({ error: { code: -32000, message: error instanceof Error ? error.message : 'MOCK_ERROR' } }); }

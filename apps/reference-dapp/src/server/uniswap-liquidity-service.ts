@@ -365,7 +365,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     return { ...record, attempts: record.attempts.map(a => a.attemptId === attempt.attemptId ? attempt : a) };
   }
 
-  /** Owner + nonce is a global economic identity: only an attempt proven never sent or no longer executable releases it. */
+  /** Owner + nonce is a global economic identity: while an attempt holding it is active, no other attempt may prepare it. */
   async function reserveNonce(record: UniswapLiquidityRecord, attemptId: string, nonce: bigint): Promise<void> {
     const key = `${record.owner}-${nonce}`, name = key + '.unilp-intent';
     await leases.hold(key, async () => {
@@ -375,8 +375,11 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       const prior = JSON.parse(utf8(existing).trimEnd().split('\n').at(-1)!) as { runId: string; attemptId: string };
       const holder = prior.runId === record.id ? record : await load(prior.runId);
       const attempt = holder.attempts.find(a => a.attemptId === prior.attemptId);
-      // CANCELLED was never broadcast; NOT_FOUND can no longer execute (nonce consumed elsewhere, or a mint past its deadline).
-      if (!attempt || !['CANCELLED', 'NOT_FOUND'].includes(attempt.state)) fail('UNISWAP_OWNER_NONCE_IN_USE');
+      // Only an attempt that may still be signed, broadcast or land holds the nonce. A terminal holder cannot execute
+      // again: CANCELLED was never broadcast, NOT_FOUND can no longer execute, and CONFIRMED / REVERTED /
+      // RECONCILIATION_REQUIRED are already included. A MetaMask delegated redemption is sent by a relayer, so the
+      // owner's nonce is unchanged after it and the run's next step legitimately prepares on the same nonce.
+      if (!attempt || ACTIVE.includes(attempt.state)) fail('UNISWAP_OWNER_NONCE_IN_USE');
       await log.extend(name, new TextEncoder().encode(utf8(existing) + entry), () => undefined);
     });
   }

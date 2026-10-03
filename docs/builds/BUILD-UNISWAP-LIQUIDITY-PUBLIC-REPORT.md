@@ -133,6 +133,52 @@ archived by the existing worker to the EvidenceStore with SHA-256 verification. 
 - per-transaction hash, block, block hash, status, fee, submission kind, Review commitment and explorer link;
 - residual allowances, balances after, and the bundle hash.
 
+## MetaMask delegated-redemption compatibility (owner E2E, 2026-10-03)
+
+**What happened.** Your first public approval,
+[`0x8248b684…5ccc`](https://sepolia.basescan.org/tx/0x8248b68421e381ce6971f5cd0ad3eb61abc8852ef15e9e64883617cbad8b5ccc),
+was fulfilled by MetaMask as a relayed Delegation Framework redemption:
+
+- type 2, sent to the canonical Delegation Manager `0xdb9b…47db3`;
+- `redeemDelegations` at depth 1, with no `authorizationList`;
+- your owner account was already EIP-7702-delegated to `0x63c0…e32b`;
+- the decoded inner call is exactly the reviewed `USDC.approve(Position Manager, 3000000)` with value 0.
+
+The shared verifier only accepted type 2 at depth 2, so it rejected a correct submission.
+
+**Fixes (narrow):**
+
+1. **Verifier.** An already-delegated type-2 redemption without an `authorizationList` is accepted at depth 1 as well as
+   depth 2. Every other check is unchanged:
+   - the exact inner target, data and value;
+   - the canonical manager address and non-empty manager code;
+   - your code equal to the expected delegator at the receipt block **and** at the prepared block;
+   - exactly `depth` `Redeemed` events naming you as delegator;
+   - the redeemer topology (depth 1: the redeemer is the sender).
+
+   Account code is now read with a reader that permits empty `0x`. An undelegated owner or a manager without code is
+   now a mismatch instead of an RPC error retried forever.
+2. **Owner-nonce reservation.** A relayed redemption does not consume your nonce. Previously the run's next step (WETH
+   approval or mint) would have failed with `UNISWAP_OWNER_NONCE_IN_USE` on the same nonce. A reservation is now held
+   only while its attempt is active. Terminal attempts (cancelled, not found, confirmed, reverted, frozen) cannot
+   execute again.
+
+**Regression coverage.**
+
+- The real transaction and receipt are a fixture (`src/server/testdata/`). The harness encoder reproduces the real
+  envelope byte-for-byte.
+- 14 adversarial variants are rejected.
+- A unit and a browser journey run approve → approve → mint entirely through relayed depth-1 redemptions.
+- With the old code, both regressions fail.
+
+**Your current run.** If the worker already observed the hash before this fix, that run is frozen as `DIVERGENT`.
+Frozen runs are terminal by design and are not rewritten. Start a fresh Simulate after redeploying. The 3 USDC
+allowance is already on chain, so a new Review will show "existing allowance is sufficient" for USDC maxima up to 3.
+
+**Known limit.** If a relayed submission's hash is lost before it reaches the server, nonce-based discovery cannot
+find it, because your nonce does not change. The saved local hash pointer and the duplicate-position guard still
+apply, and nothing is ever resent automatically.
+
 ## Swap → liquidity composition
 
 **Not made public in this build.** The blocker is explicit:

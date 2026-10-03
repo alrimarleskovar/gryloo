@@ -11,7 +11,7 @@ import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as profile } from '@defi-workflow-eng
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { editorReducer, initialEditor } from '../domain/editor';
 import { uniswapBandInput, type UniswapLiquidityInput } from '../domain/uniswap-liquidity-authoring';
-import { createUniswapLiquidityChain, UNI_MOCK_CODE_PINS, UNI_OWNER, type UniswapLiquidityChain } from '../../e2e/uniswap-liquidity-harness';
+import { createUniswapLiquidityChain, UNI_DELEGATION_MANAGER, UNI_MOCK_CODE_PINS, UNI_OWNER, UNI_RELAYER, type UniswapLiquidityChain } from '../../e2e/uniswap-liquidity-harness';
 import { createUniswapLiquidityService, uniswapNeedsObservation, validateUniswapLiquidityLog, type UniswapBegin, type UniswapLiquidityRecord } from './uniswap-liquidity-service';
 
 function workflow(patch: Partial<UniswapLiquidityInput> = {}): SemanticWorkflow {
@@ -237,6 +237,44 @@ describe('Base Sepolia Uniswap v3 liquidity: execution, recovery and reconciliat
     const a = await reviewed(other.service, w), b = await reviewed(other.service, w);
     await other.service.begin(a.id, UNI_OWNER, w);
     await expect(other.service.begin(b.id, UNI_OWNER, w)).rejects.toThrow('UNISWAP_OWNER_NONCE_IN_USE');
+  });
+  it('MetaMask relayed type-2 depth-1 redemptions (as on Base Sepolia 0x8248b684…5ccc) reconcile every step; the unchanged owner nonce does not block the next step', async () => {
+    const { service, chain } = await setup({ delegatedOwner: true }), w = workflow();
+    const run = await reviewed(service, w);
+    const nonces: string[] = [];
+    for (const step of ['APPROVE_TOKEN0', 'APPROVE_TOKEN1', 'MINT']) {
+      const begun = await service.begin(run.id, UNI_OWNER, w);
+      expect(begun.attempt.step).toBe(step);
+      nonces.push(begun.attempt.nonce);
+      await service.handoff(run.id);
+      await service.report(run.id, { kind: 'HASH', hash: chain.wallet.sendDelegated(begun.transaction) });
+      const observed = await service.observe(run.id);
+      expect(observed.attempts.at(-1)).toMatchObject({ step, state: 'CONFIRMED', reconciled: true,
+        receipt: { submissionKind: 'DELEGATED_SINGLE', from: UNI_RELAYER } });
+    }
+    // The relayer, not the owner, sent all three transactions: every step prepared on the same owner nonce.
+    expect(new Set(nonces).size).toBe(1);
+    const record = await service.load(run.id);
+    expect(record.verdict).toBe('RECONCILED');
+    expect(record.position).toMatchObject({ owner: UNI_OWNER });
+    expect(chain.snapshot.owners[record.position!.tokenId]).toBe(UNI_OWNER);
+    expect(record.evidence!.transactions.map(t => [t.step, t.submissionKind])).toEqual([['APPROVE_TOKEN0', 'DELEGATED_SINGLE'],
+      ['APPROVE_TOKEN1', 'DELEGATED_SINGLE'], ['MINT', 'DELEGATED_SINGLE']]);
+    expect([...chain.mined.values()].every(tx => tx.to === UNI_DELEGATION_MANAGER)).toBe(true);
+    expect(chain.counters.sends).toBe(3);
+    await expect(service.begin(run.id, UNI_OWNER, w)).rejects.toThrow('UNISWAP_POSITION_ALREADY_MINTED');
+  });
+  it('a relayed redemption whose decoded call differs from the reviewed one is never reconciled', async () => {
+    const { service, chain } = await setup({ delegatedOwner: true }), w = workflow();
+    const run = await reviewed(service, w);
+    const begun = await service.begin(run.id, UNI_OWNER, w);
+    await service.handoff(run.id);
+    // The wallet relays an approval for one more unit than reviewed.
+    const changed = { ...begun.transaction, data: begun.transaction.data.slice(0, -1) + (begun.transaction.data.endsWith('0') ? '1' : '0') };
+    await service.report(run.id, { kind: 'HASH', hash: chain.wallet.sendDelegated(changed) });
+    const record = await service.observe(run.id);
+    expect(record).toMatchObject({ verdict: 'DIVERGENT', error: 'UNISWAP_TRANSACTION_MISMATCH' });
+    expect(record.attempts[0]).toMatchObject({ state: 'RECONCILIATION_REQUIRED', reconciled: false });
   });
   it('execution can be disabled; tampered or malformed stored state fails closed', async () => {
     const disabled = await setup({}, { executionEnabled: false }), w = workflow();

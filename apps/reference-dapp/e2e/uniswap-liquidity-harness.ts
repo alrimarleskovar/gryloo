@@ -16,13 +16,32 @@ export { UNI_MOCK_CODE_PINS };
 
 type Snapshot = { balances: Record<string, Record<string, bigint>>; allowances: Record<string, bigint>; native: Record<string, bigint>; nonces: Record<string, bigint>;
   owners: Record<string, string>; positions: Record<string, { liquidity: bigint; tickLower: number; tickUpper: number }>; sqrtPriceX96: bigint; tick: number };
-type MinedTx = { hash: string; from: string; to: string; input: string; nonce: bigint; block: number; status: 0 | 1; logs: unknown[]; gasUsed: bigint };
+type Inner = { readonly to: string; readonly input: string };
+type MinedTx = { hash: string; from: string; to: string; input: string; nonce: bigint; block: number; status: 0 | 1; logs: unknown[]; gasUsed: bigint; inner?: Inner };
+/** MetaMask Delegation Framework v1.3.0 on Base Sepolia, as observed in 0x8248b684…5ccc. */
+export const UNI_DELEGATION_MANAGER = '0xdb9b1e94b5b69df7e401ddbede43491141047db3';
+export const UNI_DELEGATOR_IMPL = '0x63c0c19a282a1b52b07dd5a65b58948a07dae32b';
+export const UNI_RELAYER = '0xc066ac5d385419b1a8c43a0e146fa439837a8b8c';
+const REDEEMED_TOPIC = '0x40dadaa36c6c2e3d7317e24757451ffb2d603d875f0ad5e92c5dd156573b1873';
+/**
+ * redeemDelegations([context], [mode 0], [encodeSingle(target, 0, data)]) — the exact single-redemption layout MetaMask
+ * sends (verified byte-identical against the real Base Sepolia transaction in owner-submission.test.ts).
+ */
+export function encodeSingleRedemption(context: string, target: string, data: string): string {
+  const word = (n: bigint) => n.toString(16).padStart(64, '0');
+  const pad = (hex: string) => hex + '0'.repeat((64 - (hex.length % 64)) % 64);
+  const bytesArray = (hex: string) => word(1n) + word(32n) + word(BigInt(hex.length / 2)) + pad(hex);
+  const contexts = bytesArray(context.slice(2)), modeOffset = 96 + contexts.length / 2;
+  return '0xcef6d209' + word(96n) + word(BigInt(modeOffset)) + word(BigInt(modeOffset + 64)) + contexts + word(1n) + word(0n) +
+    bytesArray(target.slice(2) + word(0n) + data.slice(2));
+}
 const w = (n: bigint) => (n & ((1n << 256n) - 1n)).toString(16).padStart(64, '0');
 const aw = (a: string) => a.slice(2).padStart(64, '0');
 const hx = (n: number | bigint) => '0x' + n.toString(16);
 const clone = (s: Snapshot): Snapshot => structuredClone(s);
 
-export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bigint; weth?: bigint; eth?: bigint; tick?: number; nonce?: bigint; simulateV1?: boolean } = {}) {
+export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bigint; weth?: bigint; eth?: bigint; tick?: number; nonce?: bigint; simulateV1?: boolean;
+  /** The owner's EOA is already EIP-7702-delegated to the MetaMask delegator (code `0xef0100‖impl`). */ delegatedOwner?: boolean } = {}) {
   const owner = options.owner ?? UNI_OWNER;
   const tick = options.tick ?? 225_600;
   let head = 1_000;
@@ -32,7 +51,7 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     sqrtPriceX96: sqrtRatioAtTick(tick) + 123_456_789n, tick };
   const history = new Map<number, Snapshot>([[head, clone(state)]]);
   const mined = new Map<string, MinedTx>(), blocks = new Map<number, string[]>();
-  const pendingTxs: { hash: string; from: string; to: string; input: string; nonce: bigint }[] = [];
+  const pendingTxs: { hash: string; from: string; to: string; input: string; nonce: bigint; inner?: Inner }[] = [];
   let nextTokenId = 9_001n, hashSeq = 0;
   const gasPrice = 1_000_000n, baseFee = 500_000n;
   const counters = { simulate: 0, sends: 0 };
@@ -113,7 +132,11 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     head += 1; timestamp += 2;
     const hashes: string[] = [];
     for (const tx of txs) {
-      const result = options.revert ? { ok: false, ret: '0x', logs: [], gas: 50_000n } : execute(state, tx.from, tx.to, tx.input, timestamp);
+      // A delegated redemption executes the inner call as the owner; the relayer pays gas and consumes its own nonce.
+      const result = options.revert ? { ok: false, ret: '0x', logs: [], gas: 50_000n } : tx.inner
+        ? (() => { const r = execute(state, owner, tx.inner!.to, tx.inner!.input, timestamp);
+          return r.ok ? { ...r, logs: [...r.logs, { address: UNI_DELEGATION_MANAGER, topics: [REDEEMED_TOPIC, '0x' + aw(owner), '0x' + aw(tx.from)], data: '0x' + w(32n) }] } : r; })()
+        : execute(state, tx.from, tx.to, tx.input, timestamp);
       state.nonces[tx.from] = (state.nonces[tx.from] ?? 0n) + 1n;
       state.native[tx.from] = (state.native[tx.from] ?? 0n) - result.gas * gasPrice;
       const logs = result.ok ? result.logs.map((l, i) => ({ ...(l as object), logIndex: hx(i) })) : [];
@@ -129,7 +152,12 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
       case 'eth_chainId': return profile.chainHex;
       case 'eth_blockNumber': return hx(head);
       case 'eth_getBlockByNumber': { const n = params[0] === 'latest' ? head : Number(BigInt(params[0] as string)); return n > head ? null : blockOf(n, params[1] === true); }
-      case 'eth_getCode': { const s = params[0] as string; return CODE[s] ?? '0x'; }
+      case 'eth_getCode': {
+        const s = (params[0] as string).toLowerCase();
+        if (s === UNI_DELEGATION_MANAGER) return '0x60076007';
+        if (s === owner && options.delegatedOwner) return '0xef0100' + UNI_DELEGATOR_IMPL.slice(2);
+        return CODE[s] ?? '0x';
+      }
       case 'eth_getBalance': return hx(at(params[1]).native[(params[0] as string).toLowerCase()] ?? 0n);
       case 'eth_getTransactionCount': {
         const who = (params[0] as string).toLowerCase(), base = at(params[1]).nonces[who] ?? 0n;
@@ -165,6 +193,16 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
       const queued = { hash: newHash(), from: owner, to: tx.to.toLowerCase(), input: tx.data.toLowerCase(), nonce: (state.nonces[owner] ?? 0n) + BigInt(pendingTxs.length) };
       if (mode.hold) { pendingTxs.push(queued); return queued.hash; }
       mine([queued], mode); return queued.hash;
+    },
+    /** The same wallet request fulfilled by MetaMask as a relayed type-2, depth-1 redemption (owner nonce unchanged). */
+    sendDelegated(tx: { from: string; to: string; data: string; chainId: string }, mode: { hold?: boolean } = {}): string {
+      if (tx.from !== owner || tx.chainId !== profile.chainHex || !options.delegatedOwner) throw new Error('MOCK_WRONG_SIGNER');
+      counters.sends += 1;
+      const inner = { to: tx.to.toLowerCase(), input: tx.data.toLowerCase() };
+      const queued = { hash: newHash(), from: UNI_RELAYER, to: UNI_DELEGATION_MANAGER, input: encodeSingleRedemption('0x' + 'ab'.repeat(96), inner.to, inner.input),
+        nonce: (state.nonces[UNI_RELAYER] ?? 0n) + BigInt(pendingTxs.filter(p => p.from === UNI_RELAYER).length), inner };
+      if (mode.hold) { pendingTxs.push(queued); return queued.hash; }
+      mine([queued]); return queued.hash;
     },
     /** Mine every held transaction (optionally replacing one by a same-call speed-up or a cancellation). */
     release(change?: { kind: 'SPEED_UP' | 'CANCEL'; hash: string }): string | null {

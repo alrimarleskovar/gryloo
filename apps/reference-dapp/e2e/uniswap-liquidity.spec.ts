@@ -89,3 +89,17 @@ test('a wallet refusal is not sent and needs a refreshed simulation and a new Re
   await expect(transactions(page)).toContainText('Approve USDC (exact amount): confirmed');
   expect(await walletSends()).toBe(1);
 });
+test('MetaMask relayed type-2 depth-1 redemptions (as observed on Base Sepolia) reconcile approvals and the mint', async ({ page }) => {
+  await resetUniswapHarness({ delegatedOwner: true });
+  await author(page, { delegated: true }); await accept(page);
+  await execute(page, 'Approve USDC (exact amount)');
+  await expect(transactions(page)).toContainText('Approve USDC (exact amount): confirmed');
+  await execute(page, 'Approve WETH (exact amount)');
+  await expect(transactions(page)).toContainText('Approve WETH (exact amount): confirmed');
+  await execute(page, 'Mint the position NFT');
+  await expect(region(page).getByRole('region', { name: 'Liquidity result' })).toContainText(`is owned by your wallet ${owner}`);
+  const href = await page.getByRole('link', { name: 'Download Evidence Bundle' }).getAttribute('href');
+  const evidence = JSON.parse(decodeURIComponent(href!.split(',')[1]!));
+  expect(evidence.transactions.map((t: { submissionKind: string }) => t.submissionKind)).toEqual(['DELEGATED_SINGLE', 'DELEGATED_SINGLE', 'DELEGATED_SINGLE']);
+  expect(await walletSends()).toBe(3);
+});

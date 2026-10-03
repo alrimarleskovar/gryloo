@@ -12,14 +12,15 @@ export async function uniswapHarnessRpc(method: string, params: unknown[] = []):
   if (value.error) throw new Error('MOCK_HARNESS_ERROR');
   return value.result;
 }
-export async function resetUniswapHarness() {
+export async function resetUniswapHarness(options: { delegatedOwner?: boolean } = {}) {
   const journal = process.env.GRYLOO_UNISWAP_LIQUIDITY_JOURNAL;
   if (process.env.GRYLOO_UNISWAP_LIQUIDITY_E2E !== 'MOCKED_LOOPBACK_ONLY' || !journal?.startsWith(join(tmpdir(), 'gryloo-unilp-'))) throw new Error('MOCK_RESET_DENIED');
   await rm(journal, { recursive: true, force: true });
-  await uniswapHarnessRpc('MOCK_reset');
+  await uniswapHarnessRpc('MOCK_reset', [options]);
 }
 export const walletSends = async () => Number(await uniswapHarnessRpc('MOCK_sends'));
-export type UniswapWalletOptions = { rejectStep?: number; uncertainStep?: number };
+/** `delegated`: the wallet fulfils each request as a relayed MetaMask type-2, depth-1 redemption (owner already delegated). */
+export type UniswapWalletOptions = { rejectStep?: number; uncertainStep?: number; delegated?: boolean };
 export async function installUniswapWallet(page: Page, options: UniswapWalletOptions = {}) {
   await page.exposeFunction('flofiUniswapTestRpc', uniswapHarnessRpc);
   await page.addInitScript(({ owner, options }) => {
@@ -36,7 +37,7 @@ export async function installUniswapWallet(page: Page, options: UniswapWalletOpt
       if (input.method === 'eth_sendTransaction') {
         state.sends += 1;
         if (options.rejectStep === state.sends) throw Object.assign(new Error('Owner rejected test request'), { code: 4001 });
-        const hash = await w.flofiUniswapTestRpc('MOCK_send', [input.params?.[0]]);
+        const hash = await w.flofiUniswapTestRpc(options.delegated ? 'MOCK_sendDelegated' : 'MOCK_send', [input.params?.[0]]);
         if (options.uncertainStep === state.sends) throw new Error('MOCK_RESPONSE_LOST');
         return hash;
       }

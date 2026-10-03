@@ -169,7 +169,10 @@ export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash
   const newlyAuthorized = txType === '0x4' && delegationDepth === 1 &&
     Array.isArray(authorizations) && authorizations.length === 1 && isObject(authorizations[0]) &&
     quantity(authorizations[0].chainId) === 84532n && address(authorizations[0].address) === DELEGATOR_IMPL;
-  const alreadyDelegated = txType === '0x2' && delegationDepth === 2 &&
+  // Owner already EIP-7702-delegated before this transaction (re-checked below at the prepared block): a type-2
+  // redemption with no authorization list, redeemed directly (depth 1, as MetaMask sends on Base Sepolia, e.g.
+  // 0x8248b684…5ccc) or through one redelegation (depth 2). The decoded inner call is still exactly the reviewed one.
+  const alreadyDelegated = txType === '0x2' && (delegationDepth === 1 || delegationDepth === 2) &&
     !('authorizationList' in tx);
   const delegated = !direct && txFrom !== attempt.account && txTo === DELEGATION_MANAGER &&
     (newlyAuthorized || alreadyDelegated);
@@ -183,10 +186,12 @@ export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash
       address(raw.to) !== txTo || !HASH.test(hex(raw.blockHash))) fail('RECEIPT_INVALID');
   if (delegated) {
     const block = blockHex(blockNumber);
+    // Account code may legitimately be empty (`0x`); an empty or different code is a mismatch, not an RPC failure.
+    const code = (value: unknown) => typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/.test(value) ? value.toLowerCase() : fail('RPC_RESPONSE_INVALID');
     const [managerCode, ownerCode, previousOwnerCode] = await Promise.all([
-      rpc('eth_getCode', [DELEGATION_MANAGER, block]).then(hex),
-      rpc('eth_getCode', [attempt.account, block]).then(hex),
-      alreadyDelegated ? rpc('eth_getCode', [attempt.account, blockHex(attempt.preBlock)]).then(hex) : Promise.resolve(null),
+      rpc('eth_getCode', [DELEGATION_MANAGER, block]).then(code),
+      rpc('eth_getCode', [attempt.account, block]).then(code),
+      alreadyDelegated ? rpc('eth_getCode', [attempt.account, blockHex(attempt.preBlock)]).then(code) : Promise.resolve(null),
     ]);
     if (managerCode === '0x' || managerCode === '0x0' || ownerCode !== '0xef0100' + DELEGATOR_IMPL.slice(2))
       fail('TRANSACTION_MISMATCH');
