@@ -1,0 +1,14 @@
+# Keep the build context to source: no local state, secrets, journals or build output.
+.git
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/test-results
+**/playwright-report
+**/*.log
+**/.env*
+**/*.pem
+**/*.key
+docs/assets
+apps/reference-dapp/e2e/**/*-snapshots

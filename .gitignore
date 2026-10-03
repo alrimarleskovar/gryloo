@@ -156,3 +156,6 @@ alchemy-key*
 
 # BUILD-011D-2 durable local public-testnet attempt journal (never tracked)
 .public-testnet/
+
+# BUILD-CLOUD-001 Vercel install toolchain (verified at build time, never committed)
+.flofi-toolchain/
