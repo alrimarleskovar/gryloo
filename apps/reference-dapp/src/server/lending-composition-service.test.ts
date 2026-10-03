@@ -12,7 +12,7 @@ import {appendJournalState} from '@defi-workflow-engine/reference-executor';
 import {wrappedAaveSetup} from '../../e2e/aave-wallet-fixtures';
 import {repayModel} from '../../e2e/repay-fixtures';
 import {AAVE_V3_BASE_SEPOLIA as p} from '@defi-workflow-engine/action-registry';
-import {supplyHash,supplyArtifactHash,readLendingSnapshot} from '@defi-workflow-engine/reference-compiler';
+import {supplyHash,supplyArtifactHash,readLendingSnapshot,decodeSupplyWalletEnvelope,SUPPLY_METAMASK} from '@defi-workflow-engine/reference-compiler';
 import {verifyComposedLendingEffects,verifyLendingExport,buildLendingEvidence} from '@defi-workflow-engine/reference-reconciler';
 const workflow=createAuthoredLending('lending',0,{supply:'0.1',borrow:'0.01',slippage:'50',owner:OWNER});
 async function fixture(action:(f:{model:ReturnType<typeof createLendingHarness>;service:ReturnType<typeof createLendingCompositionService>;dir:string})=>Promise<void>){
@@ -39,6 +39,49 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
       expect(prior.verdict).toBe('RECONCILED');expect(model.state.nonce).toBe(0);
       const composed=createLendingCompositionService({...wrapped.input,rpc:wrapped.rpc});const r=await authorized(composed);
       expect((await composed.begin(r.id,OWNER,workflow)).record.attempts[0]!.state).toBe('PREPARED');expect(model.transactions).toHaveLength(1);
+    }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
+  }));
+  it.each(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP'])('reconciles all five steps relayed as MetaMask type-2 depth-1 redemptions with an unchanged owner nonce; a preconfirmed %s receipt stays observation-only',target=>fixture(async({model})=>{
+    const wrapped=await wrappedAaveSetup(model as unknown as ReturnType<typeof repayModel>,workflow),ZERO='0x'+'0'.repeat(64);
+    // Base Flashblocks: a receipt with an all-zero block hash for a block that is not sealed yet.
+    let preconfirmed:string|null=null,unsealed:string|null=null;
+    const rpc:typeof wrapped.rpc=async(method,params)=>{
+      const result=await wrapped.rpc(method,params);
+      if(preconfirmed&&['eth_getTransactionReceipt','eth_getTransactionByHash'].includes(method)&&params[0]===preconfirmed)return {...result as object,blockHash:ZERO};
+      return method==='eth_getBlockByNumber'&&params[0]===unsealed?null:result;
+    };
+    const service=createLendingCompositionService({...wrapped.input,rpc});
+    try{
+      let r=await authorized(service);const nonce=String(model.state.nonce);
+      for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){
+        const begin=await service.begin(r.id,OWNER,workflow);expect(begin.record.attempts.at(-1)).toMatchObject({step:expected,nonce});expect(begin.transaction.value).toBe('0x0');
+        await service.handoff(r.id,begin.attemptId);const hash=await rpc('MOCK_submit',[begin.transaction]) as string;
+        const relayed=await wrapped.rpc('eth_getTransactionByHash',[hash]) as Record<string,unknown>;
+        expect(relayed).toMatchObject({type:'0x2',to:SUPPLY_METAMASK.manager});expect(relayed.from).not.toBe(OWNER);expect(relayed.authorizationList).toBeUndefined();
+        expect(decodeSupplyWalletEnvelope(relayed.input).call).toEqual({to:begin.transaction.to,value:'0',data:begin.transaction.data});
+        await service.report(r.id,begin.attemptId,{kind:'HASH',hash});
+        if(expected===target){
+          preconfirmed=hash;unsealed=(await wrapped.rpc('eth_getTransactionReceipt',[hash]) as {blockNumber:string}).blockNumber;
+          for(let i=0;i<2;i++){
+            const sent=model.transactions.length;r=await service.observe(r.id);
+            expect(r.attempts.at(-1)).toMatchObject({step:expected,hash,reconciled:false});expect(r.status).toBe('RECOVERY_REQUIRED');
+            expect(r.observations.at(-1)).toMatchObject({verdict:'INCONCLUSIVE',reason:'LENDING_RECEIPT_NOT_CANONICAL',transaction:null,receipt:null,ownerProof:null});
+            await expect(service.begin(r.id,OWNER,workflow)).rejects.toThrow();await expect(service.refreshReview(r.id)).rejects.toThrow('LENDING_RECOVERY_OBSERVE_ONLY');
+            expect(model.transactions).toHaveLength(sent);
+          }
+          preconfirmed=null;unsealed=null;
+        }
+        const sent=model.transactions.length;r=await service.observe(r.id);
+        expect(r.attempts.at(-1)).toMatchObject({step:expected,reconciled:true});expect(model.transactions).toHaveLength(sent);
+        expect(r.observations.at(-1)!.ownerProof).toMatchObject({kind:'METAMASK_EIP7702',outerDestination:SUPPLY_METAMASK.manager,ownerAuthorizationNonce:null,ownerNonceBefore:nonce,ownerNonceAfter:nonce,callCountBefore:'0',callCountAfter:'1'});
+        expect(String(model.state.nonce)).toBe(nonce);
+      }
+      expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(model.transactions).toHaveLength(5);
+      for(const o of r.evidence!.composedExecution.observations){
+        const block=await rpc('eth_getBlockByNumber',[(o.receipt as {blockNumber:string}).blockNumber,false]) as {hash:string;transactions:string[]};
+        expect((o.receipt as {blockHash:string}).blockHash).not.toBe(ZERO);expect((o.receipt as {blockHash:string}).blockHash).toBe(block.hash);
+        expect(block.transactions).toContain((o.receipt as {transactionHash:string}).transactionHash);
+      }
     }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
   }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{

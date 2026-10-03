@@ -63,11 +63,16 @@ export async function reconcileLendingAttempt(review:LendingReview,attempt:Lendi
     if(rpcUint(await rpc('eth_chainId',[]))!==84532n)throw Error('LENDING_WRONG_CHAIN');
     const [tv,rv]=await Promise.all([rpc('eth_getTransactionByHash',[attempt.hash]),rpc('eth_getTransactionReceipt',[attempt.hash])]);
     if(!tv||!rv)return o;
-    const tx=rpcRecord(tv),r=rpcRecord(rv), expected=attempt.call.tx;o.transaction=tx;o.receipt=r;
-    if(rpcHash(tx.hash)!==attempt.hash||rpcHash(r.transactionHash)!==attempt.hash||rpcUint(tx.chainId)!==84532n||rpcUint(tx.value)!==0n||tx.from!==r.from||tx.to!==r.to||
-      tx.blockHash!==r.blockHash||tx.blockNumber!==r.blockNumber||tx.transactionIndex!==r.transactionIndex)throw Error('LENDING_TRANSACTION_MISMATCH');
-    const n=Number(rpcUint(r.blockNumber)),canonical=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(n),false]));
-    if(n<attempt.preparedAtBlock||canonical.hash!==r.blockHash||!Array.isArray(canonical.transactions)||!canonical.transactions.includes(attempt.hash))throw Error('LENDING_CANONICAL_INCLUSION_MISMATCH');
+    const tx=rpcRecord(tv),r=rpcRecord(rv), expected=attempt.call.tx;
+    if(rpcHash(tx.hash)!==attempt.hash||rpcHash(r.transactionHash)!==attempt.hash||rpcUint(tx.chainId)!==84532n||rpcUint(tx.value)!==0n||tx.from!==r.from||tx.to!==r.to)throw Error('LENDING_TRANSACTION_MISMATCH');
+    // Base Flashblocks serves preconfirmed receipts with an all-zero block hash before the block is sealed.
+    // Only a receipt in the canonical block at its height, consistent with the transaction readback, is final;
+    // anything else is observed again later: never a mismatch, never a resend and never evidence.
+    const n=Number(rpcUint(r.blockNumber)),sealed=await rpc('eth_getBlockByNumber',[supplyHex(n),false]),canonical=sealed?rpcRecord(sealed):null;
+    if(typeof r.blockHash!=='string'||/^0x0{64}$/.test(r.blockHash)||tx.blockHash!==r.blockHash||tx.blockNumber!==r.blockNumber||tx.transactionIndex!==r.transactionIndex||
+      !canonical||canonical.hash!==r.blockHash||!Array.isArray(canonical.transactions)||!canonical.transactions.includes(attempt.hash))return {...o,reason:'LENDING_RECEIPT_NOT_CANONICAL'};
+    o.transaction=tx;o.receipt=r;
+    if(n<attempt.preparedAtBlock)throw Error('LENDING_CANONICAL_INCLUSION_MISMATCH');
     if(rpcUint(await rpc('eth_blockNumber',[]))<BigInt(n+2))return {...o,reason:'AWAITING_CONFIRMATIONS'};
     const wrapped=tx.to!==expected.to;
     if(wrapped)o.ownerProof=await verifySupplyWalletEnvelope({account:review.fields.owner},{transaction:expected,nonce:attempt.nonce},tx,r,rpc);
