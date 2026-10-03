@@ -25,8 +25,12 @@ import { createSolanaRpc, solanaRpcOverride } from '../src/server/solana-rpc.ts'
 import { createJupiterHttp } from '../src/server/jupiter-http.ts';
 import { createJupiterService, createSolanaDevnetService, type JupiterRecord, type JupiterWalletDiagnostic } from '../src/server/jupiter-service.ts';
 import { createOrcaLiquidityService, type OrcaLiquidityRecord, type OrcaLiquidityWalletDiagnostic } from '../src/server/orca-liquidity-service.ts';
+import { createUniswapLiquidityService, UNISWAP_LIQUIDITY_RUN_ID, uniswapNeedsObservation, type UniswapLiquidityRecord,
+  type UniswapWalletDiagnostic } from '../src/server/uniswap-liquidity-service.ts';
+import { baseSepoliaRpcUrl, createBaseSepoliaReadRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../src/server/public-testnet-rpc.ts';
+import { UNI_MOCK_CODE_PINS, UNI_MOCK_RPC_URL } from '../src/server/uniswap-liquidity-mock.ts';
 
-export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap';
+export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap' | 'uniswap-liquidity';
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 /** Network transport for one flow. Built from configuration in production; replaced by MOCKED chains in tests. */
 export type FlowDeps = { readonly rpc: Rpc; readonly mode: 'live' | 'harness'; readonly env: Readonly<Record<string, string | undefined>>; readonly http?: JupiterHttp };
@@ -376,8 +380,71 @@ const orcaLiquidity: FlowDefinition = {
   evidence: record => evidenceOf(record as OrcaLiquidityRecord),
 };
 
+/**
+ * BUILD-UNISWAP-LIQUIDITY-PUBLIC: the canonical concentrated-liquidity action on Base Sepolia through Uniswap v3. Read-only
+ * public simulation and Review; the owner's browser wallet sends each exact approval and the mint. The API records the
+ * reported hash; workers only observe and reconcile (their transport cannot send) and never touch PREPARED attempts.
+ */
+const uniswapEvmResult = (value: unknown) => isObject(value) && (value.kind === 'HASH' ? typeof value.hash === 'string' && HASH.test(value.hash) && Object.keys(value).length === 2
+  : (value.kind === 'UNKNOWN' || value.kind === 'REJECTED') && (value.code === undefined || typeof value.code === 'string' && CODE.test(value.code)) &&
+    Object.keys(value).every(k => k === 'kind' || k === 'code'));
+const uniswapLiquidity: FlowDefinition = {
+  name: 'uniswap-liquidity', busyCode: 'UNISWAP_LIQUIDITY_BUSY', runId: UNISWAP_LIQUIDITY_RUN_ID, unavailableCode: 'UNISWAP_LIQUIDITY_SERVICE_UNAVAILABLE',
+  methods: {
+    info: { mutates: false, validate: shape() },
+    price: { mutates: false, validate: shape() },
+    simulate: { mutates: true, validate: shape(workflow, account) },
+    refresh: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
+    review: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), commitment, workflow) },
+    invalidate: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
+    begin: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), account, workflow) },
+    handoff: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
+    report: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), uniswapEvmResult) },
+    walletFailure: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), diagnostic) },
+    observe: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
+    status: { mutates: false, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
+  },
+  transport: (mode, env) => ({ rpc: createBaseSepoliaReadRpc(mode === 'harness' ? UNI_MOCK_RPC_URL : baseSepoliaRpcUrl(env.GRYLOO_BASE_SEPOLIA_RPC_URL),
+    UNISWAP_LIQUIDITY_RPC_METHODS) }),
+  create(storage, { rpc, mode, env }) {
+    const s = createUniswapLiquidityService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET',
+      executionEnabled: env.GRYLOO_UNISWAP_LIQUIDITY_EXECUTION !== 'DISABLED', ...mode === 'harness' ? { mockedCodePins: UNI_MOCK_CODE_PINS } : {} });
+    const table: Record<string, (args: Args) => Promise<unknown>> = {
+      info: async () => ({ executionEnabled: s.executionEnabled }),
+      price: () => s.price(),
+      simulate: ([w, a]) => s.simulate(w, a as string),
+      refresh: ([i]) => s.refresh(i as string),
+      review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),
+      invalidate: ([i]) => s.invalidate(i as string),
+      begin: ([i, a, w]) => s.begin(i as string, a as string, w as SemanticWorkflow),
+      handoff: ([i]) => s.handoff(i as string),
+      report: ([i, r]) => s.report(i as string, r as Parameters<typeof s.report>[1]),
+      walletFailure: ([i, d]) => s.walletFailure(i as string, d as UniswapWalletDiagnostic),
+      observe: ([i]) => s.observe(i as string),
+      status: ([i]) => s.load(i as string),
+    };
+    return { call: (method, args) => table[method]!(args), load: runId => s.load(runId), observe: runId => s.observe(runId) };
+  },
+  needsObservation: uniswapNeedsObservation,
+  projector(name, bytes): Projection | null {
+    if (!name.endsWith('.jsonl')) return null;
+    const record = lastRecord<UniswapLiquidityRecord>(bytes), observe = uniswapNeedsObservation(record), evidence = evidenceOf(record);
+    const open = record.attempts.find(a => ['PREPARED', 'SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(a.state));
+    return { run: { runId: record.id, workflowId: record.workflow.workflowId, flow: 'uniswap-liquidity',
+      status: record.verdict !== 'PENDING' ? record.verdict : open ? open.state : record.authorization ? 'AUTHORIZED' : 'SIMULATED',
+      provenance: record.provenance, ownerAccount: record.owner, recoveryOf: null, errorCode: errorCode(record.error), needsObservation: observe,
+      hasEvidence: evidence !== null,
+      attempts: record.attempts.map(a => ({ attemptId: a.attemptId, step: a.step, state: a.state, nonce: a.nonce, transactionHash: a.transactionHash,
+        preparedAtBlock: a.preparedAtBlock, reconciled: a.reconciled })),
+      journal: [] },
+    // SUBMITTING usually means the owner's wallet prompt is open: give the browser time to report first.
+    work: work('uniswap-liquidity', record.id, observe, open?.state === 'SUBMITTING' ? 60_000 : 5_000, evidence !== null) };
+  },
+  evidence: record => evidenceOf(record as UniswapLiquidityRecord),
+};
+
 export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap,
-  'solana-devnet-swap': solanaDevnetSwap, 'orca-liquidity': orcaLiquidity, 'jupiter-swap': jupiterSwap });
+  'solana-devnet-swap': solanaDevnetSwap, 'orca-liquidity': orcaLiquidity, 'jupiter-swap': jupiterSwap, 'uniswap-liquidity': uniswapLiquidity });
 export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FLOWS, value);
 
 /**
@@ -393,6 +460,9 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
     return env.GRYLOO_SOLANA_DEVNET_HARNESS === 'MOCKED_LOOPBACK_ONLY' ? 'harness' : env.GRYLOO_SOLANA_DEVNET === 'live' ? 'live' : 'off';
   // Jupiter mainnet-beta: `live` enables read-only Simulate/Review; real-funds execution additionally needs GRYLOO_JUPITER_OWNER_EXECUTION.
   if (flow === 'jupiter-swap') return env.GRYLOO_JUPITER_HARNESS === 'MOCKED_LOOPBACK_ONLY' ? 'harness' : env.GRYLOO_JUPITER === 'live' ? 'live' : 'off';
+  // Base Sepolia Uniswap v3 liquidity (test tokens): explicit backend enablement; the MOCKED loopback harness wins.
+  if (flow === 'uniswap-liquidity')
+    return env.GRYLOO_UNISWAP_LIQUIDITY_HARNESS === 'MOCKED_LOOPBACK_ONLY' ? 'harness' : env.GRYLOO_UNISWAP_LIQUIDITY_TESTNET === 'live' ? 'live' : 'off';
   if (flow === 'robinhood-transfer') {
     if (env.GRYLOO_ROBINHOOD_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
     return env.GRYLOO_ROBINHOOD_TESTNET === 'live' ? 'live' : 'off';
@@ -402,5 +472,5 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
 }
 const DISABLED: Readonly<Record<FlowName, string>> = { 'robinhood-transfer': 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED', 'aave-supply': 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED',
   'base-sepolia-swap': 'PUBLIC_RECORDING_OFF', 'solana-devnet-swap': 'DEVNET_SWAP_PUBLIC_DEVNET_NOT_ENABLED', 'orca-liquidity': 'ORCA_LIQUIDITY_PUBLIC_DEVNET_NOT_ENABLED',
-  'jupiter-swap': 'JUPITER_PUBLIC_MAINNET_NOT_ENABLED' };
+  'jupiter-swap': 'JUPITER_PUBLIC_MAINNET_NOT_ENABLED', 'uniswap-liquidity': 'UNISWAP_LIQUIDITY_PUBLIC_TESTNET_NOT_ENABLED' };
 export const disabledCode = (flow: FlowName) => DISABLED[flow];
