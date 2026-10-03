@@ -7,6 +7,18 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-016 — One bounded Mode C policy
+
+Implementation: one conditional USDC→WETH “Buy the dip” policy on local chain
+31337, under owner decision D-016-1. Existing Base observation remains
+non-authorizing. Independent read-only Roles condition, bound policy/Manifest,
+durable atomic reservation, restart/reconciliation, confirmed revocation and
+append-only evidence are implemented. Execution maturity is **MOCKED / RECONCILED**
+with synthetic pool/token/router and real pinned Safe/Roles; no public execution
+or new FORK_REPRODUCED financial certification. See [plan](builds/BUILD-016-PLAN.md),
+[report](builds/BUILD-016-REPORT.md) and [ADR-0007](adr/ADR-0007-mode-c-buy-dip-local.md).
+Owner retains review/acceptance and merge; broader certification is a separate gate.
+
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution
 
 **Status: IMPLEMENTATION COMPLETE — OWNER ACTION REQUIRED.** Stacked on BUILD-BRAND-001 (PR #49) in branch

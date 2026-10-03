@@ -317,3 +317,17 @@ DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) from `33a
 | B012A-EXECUTION-001 | Owner DApp Execute, exact finite approval if required, then real public Supply through injected wallet | Deterministic browser journey; owner public acceptance pending |
 | B012A-RECOVERY-001 | Durable attempt/account/nonce/calldata identity before wallet request; observe uncertainty after restart without duplicate intent | Executor, service and browser recovery tests |
 | B012A-EVIDENCE-001 | Independent canonical transaction/event/position delta verification before RECONCILED and exact-profile TESTNET_EXECUTED | Reconciler mismatch tests and honest MOCKED classification; public evidence pending |
+
+## BUILD-016 — One bounded conditional Mode C policy (D-016-1)
+
+All rows below are local BUILD-016 engineering evidence, MOCKED unless explicitly
+identified as PostgreSQL persistence checks. Historical certification is unchanged.
+
+| ID | Requirement | Implementation / verification |
+|---|---|---|
+| B016-AUTHORITY-001 | One chain-31337 USDC→WETH fee-500 swap; fixed source/reference/threshold, target/function/recipient/minimum, budgets and time bounds committed to policy/Manifest | workflow-contracts/src/mode-c.ts; reference-compiler/src/mode-c.ts; ADR-0007; mode-c.test.ts |
+| B016-TRIGGER-001 | Separate eligibility-only verifier; ≥5% exact rational comparison; invalid/stale/unavailable/wrong-source/pair/fee/pool/chain/reference fails closed; Base observation unchanged | BuyDipCondition.sol; collectModeCObservation; mode-c.test.ts; mode-c.fork.test.ts |
+| B016-RESERVATION-001 | Atomic reservation plus evidence; one action under concurrent workers; durable restart, crash and unknown-send protection | reference-executor/src/mode-c.ts; mode-c.test.ts; cloud-runtime/test/mode-c.pg.test.ts |
+| B016-REVOCATION-001 | Requested versus confirmed revocation; owner receipts/readback block later valid trigger; submitted transaction reconciles without new send | mode-c-service.ts; worker revocation/recovery; unit, PostgreSQL and direct local EVM tests |
+| B016-EVIDENCE-001 | Canonical Journal, immutable trigger/budget/submission/reconciliation history and superseding Evidence Bundle with truthful maturity | reference-reconciler/src/mode-c.ts; BUILD-016-EVIDENCE.json; BUILD-016-REPORT.md |
+| B016-BYPASS-001 | Existing Mode B exact-call controls preserved, direct executor bypass rejected; same-block competing calls yield one effect | mode-c.fork.test.ts; existing frozen compatibility/Mode B regression tests |

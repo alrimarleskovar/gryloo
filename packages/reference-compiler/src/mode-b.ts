@@ -57,12 +57,14 @@ export type ModeBCompiled = {
   readonly permission: Record<string, string | number>; readonly permissionHash: string;
   readonly swapCalldata: string; readonly roleKey: string; readonly allowanceKey: string;
   readonly installation: readonly { readonly label: string; readonly to: string; readonly data: string; readonly from: string }[];
+  readonly conditionalScope?: { readonly count: number; readonly runtime: string };
   readonly executorCall: { readonly to: string; readonly data: string; readonly value: '0x0' };
   readonly revocation: readonly { readonly label: string; readonly to: string; readonly data: string; readonly from: string }[];
 };
 const norm = (value: string): string => value.toLowerCase();
 export function compileModeB(profile: ModeBProfile, swap: SwapArguments, salt: string,
-  setup: { readonly rolesOwnerIsSafe?: boolean; readonly moduleEnabled?: boolean } = {}): ModeBCompiled {
+  setup: { readonly rolesOwnerIsSafe?: boolean; readonly moduleEnabled?: boolean;
+    readonly conditionalVerifier?: { readonly address: string; readonly tag: string } } = {}): ModeBCompiled {
   if (profile.chainId !== 31337 || norm(profile.owner) === norm(profile.executor) || swap.amountIn <= 0n || swap.deadline <= 0n) throw new Error('MODE_B_PROFILE_INVALID');
   const roleKey = key('gryloo/mode-b/role/1', salt);
   const allowanceKey = key('gryloo/mode-b/allowance/1', salt);
@@ -74,8 +76,12 @@ export function compileModeB(profile: ModeBProfile, swap: SwapArguments, salt: s
     condition(0, 1, 16, word(swap.deadline)), // exact protocol deadline
     condition(0, 4, 16, bytesArrayPreimage([inner])), // exact nested swap parameters
     condition(0, 0, 30, bytes32(allowanceKey)), // one non-refilling call
+    ...setup.conditionalVerifier ? [condition(0, 0, 22,
+      join(raw(norm(setup.conditionalVerifier.address)), raw(setup.conditionalVerifier.tag)))] : [],
     condition(2, 2, 0, new Uint8Array()), // dynamic bytes array element type
   ];
+  if (setup.conditionalVerifier && (!/^0x[0-9a-f]{40}$/.test(setup.conditionalVerifier.address) ||
+    !/^0x[0-9a-f]{24}$/.test(setup.conditionalVerifier.tag))) throw new Error('MODE_B_CONDITIONAL_VERIFIER_INVALID');
   const scopeTarget = call('scopeTarget(bytes32,address)', join(bytes32(roleKey), address(SWAP_ROUTER_02)));
   const scopeFunction = call('scopeFunction(bytes32,address,bytes4,(uint8,uint8,uint8,bytes)[],uint8)', join(
     bytes32(roleKey), address(SWAP_ROUTER_02), bytes4('0x5ae401dc'), word(160n), word(0n), conditionArray(conditions)));
@@ -108,6 +114,9 @@ export function compileModeB(profile: ModeBProfile, swap: SwapArguments, salt: s
       ownerTx('Set one-time non-refilling allowance through Safe', profile.safe, encodeSafeOwnerCall(profile.safe, profile.owner, profile.roles, setAllowance)),
       ownerTx('Assign executor role through Safe', profile.safe, encodeSafeOwnerCall(profile.safe, profile.owner, profile.roles, assignRoles)),
       ownerTx('Approve finite Router02 token allowance from Safe', profile.safe, encodeSafeOwnerCall(profile.safe, profile.owner, swap.tokenIn, hex(encodeApprove(SWAP_ROUTER_02, swap.amountIn))))],
+    ...setup.conditionalVerifier ? {conditionalScope:{count:conditions.length,runtime:hex(join(Uint8Array.of(0),
+      ...conditions.map(c=>Uint8Array.of(c.parent,(c.paramType<<5)|c.operator)),
+      ...conditions.filter(c=>c.operator>=16).map(c=>c.operator===16?keccak_256(c.paramType===4?c.compValue.slice(32):c.compValue):c.compValue)))}} : {},
     executorCall: { to: profile.roles, data: executorCall, value: '0x0' },
     revocation: [ownerTx('Remove executor role through Safe', profile.safe, encodeSafeOwnerCall(profile.safe, profile.owner, profile.roles, unassignRoles)),
       ownerTx('Disable executor module in Roles through Safe', profile.safe, encodeSafeOwnerCall(profile.safe, profile.owner, profile.roles,

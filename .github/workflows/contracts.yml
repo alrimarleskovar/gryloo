@@ -176,6 +176,10 @@ jobs:
           if init is None or len(init)!=340: raise SystemExit('BUILD-007 ERC-2470 initcode pin changed')
           (root/'erc2470-initcode.bin').write_bytes(init)
           PYCODE
+          # D-016-1: independent local EVM conditional-authority proof (MOCKED).
+          export GRYLOO_BUILD016_SOLC="$RUNNER_TEMP/build016-solc/solc"
+          python3 scripts/bootstrap-build016-solc.py "$GRYLOO_BUILD016_SOLC"
+          GRYLOO_BUILD016_LOCAL=1 GRYLOO_BUILD016_INPUTS="$GRYLOO_B007_INPUTS" GRYLOO_BUILD016_EVIDENCE="$RUNNER_TEMP/build016-evidence.json" pnpm exec vitest run packages/reference-executor/test/mode-c.fork.test.ts --maxWorkers=1 --testTimeout=30000
           export GRYLOO_MODE_B_RUNTIME="/tmp/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export GRYLOO_MODE_B_SAFE_PACKAGE="$GRYLOO_B007_INPUTS/safe/package"
           export GRYLOO_MODE_B_ROLES_MASTERCOPIES="$GRYLOO_B007_INPUTS/roles-mastercopies.json"
