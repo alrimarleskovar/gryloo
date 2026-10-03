@@ -72,10 +72,12 @@ export function createPostgresLogStore(input: { db: Database; tenantId: string; 
         owner_account, recovery_of, error_code, needs_observation, has_evidence, log_version)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (tenant_id, run_id) DO UPDATE SET status = EXCLUDED.status, error_code = EXCLUDED.error_code,
+        owner_account = COALESCE(execution_runs.owner_account, EXCLUDED.owner_account),
         needs_observation = EXCLUDED.needs_observation, has_evidence = EXCLUDED.has_evidence, log_version = EXCLUDED.log_version, updated_at = now()
       WHERE execution_runs.namespace = EXCLUDED.namespace AND execution_runs.log_name = EXCLUDED.log_name
         AND execution_runs.workflow_id = EXCLUDED.workflow_id AND execution_runs.flow = EXCLUDED.flow
         AND execution_runs.provenance = EXCLUDED.provenance AND execution_runs.recovery_of IS NOT DISTINCT FROM EXCLUDED.recovery_of
+        AND (execution_runs.owner_account IS NULL OR EXCLUDED.owner_account IS NULL OR execution_runs.owner_account = EXCLUDED.owner_account)
       RETURNING 1`, [tenantId, run.runId, namespace, name, run.workflowId, run.flow, run.status, run.provenance,
       run.ownerAccount, run.recoveryOf, run.errorCode, run.needsObservation, run.hasEvidence, version]);
     if (updated.rows.length !== 1) throw new Error('EXECUTION_PROJECTION_CONFLICT');

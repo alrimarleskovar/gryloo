@@ -11,11 +11,14 @@
  * Configuration is environment-only (see docs/deploy/CLOUD.md). The backend holds no key, signs nothing and
  * has no transaction submission path; API and worker refuse to start against an unmigrated schema.
  */
+import { readFile } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 import { assertSchemaCurrent, createDatabase, createHttpServer, createLogger, createPostgresWorkQueue, createWorker, migrate,
   readEvidenceStore, readRuntimeConfig, sweep } from '@defi-workflow-engine/cloud-runtime';
 import { createFileLogStore, utf8 } from '@defi-workflow-engine/reference-executor';
 import { createRobinhoodTransferService } from '../src/server/robinhood-transfer-service.ts';
 import { createSupplyService } from '../src/server/supply-service.ts';
+import { validatePublicRunLog } from '../src/server/public-testnet-service.ts';
 import { createBackend } from './app.ts';
 import { flowMode, FLOWS, isFlowName, type FlowName } from './flows.ts';
 
@@ -32,23 +35,32 @@ async function main(): Promise<void> {
   }
   if (command === 'import-journal') {
     const [flow, directory, runId] = rest;
-    if (!flow || !isFlowName(flow) || !directory || !runId || !FLOWS[flow].runId.test(runId)) throw new Error('IMPORT_ARGUMENTS_INVALID');
+    if (!flow || !isFlowName(flow) || !directory || !isAbsolute(directory) || !runId || !FLOWS[flow].runId.test(runId)) throw new Error('IMPORT_ARGUMENTS_INVALID');
     const config = readRuntimeConfig(process.env, 'worker');
-    // The full flow validator (append-only history rules, provenance) checks the local log before anything is copied.
+    // The full flow validator (append-only history rules, provenance) checks the local data before anything is copied.
     const provenance = flowMode(flow, process.env) === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET';
     const offline = () => Promise.reject(new Error('IMPORT_OFFLINE'));
-    await (flow === 'robinhood-transfer' ? createRobinhoodTransferService({ journalDir: directory, provenance, rpc: offline })
-      : createSupplyService({ journalDir: directory, provenance, rpc: offline })).load(runId);
-    const bytes = await createFileLogStore(directory).read(runId + '.jsonl');
+    let bytes: Uint8Array | null;
+    if (flow === 'base-sepolia-swap') {
+      // The local swap journal keeps one overwritten snapshot (`<id>.json`): it becomes the first line of the durable log.
+      const snapshot = await readFile(join(directory, runId + '.json'), 'utf8');
+      bytes = new TextEncoder().encode(JSON.stringify(JSON.parse(snapshot)) + '\n');
+      validatePublicRunLog(bytes);
+    } else {
+      await (flow === 'robinhood-transfer' ? createRobinhoodTransferService({ journalDir: directory, provenance, rpc: offline })
+        : createSupplyService({ journalDir: directory, provenance, rpc: offline })).load(runId);
+      bytes = await createFileLogStore(directory).read(runId + '.jsonl');
+    }
     if (!bytes) throw new Error('IMPORT_SOURCE_MISSING');
+    const source: Uint8Array = bytes;
     const db = createDatabase({ connectionString: config.databaseUrl, maxConnections: 2, applicationName: 'flofi-import' });
     try {
       await assertSchemaCurrent(db);
       const backend = createBackend({ db, env: process.env, logger, tenantId: config.tenantId, holderId: config.workerId, evidenceStore: null });
       const { log } = backend.storage(flow, config.tenantId);
       // Byte-identical copy; projections and required work are derived in the same transaction.
-      await log.extend(runId + '.jsonl', bytes, () => undefined);
-      logger.info('import.completed', { flow, run_id: runId, byte_length: bytes.length, lines: utf8(bytes).trimEnd().split('\n').length });
+      await log.extend(runId + '.jsonl', source, () => undefined);
+      logger.info('import.completed', { flow, run_id: runId, byte_length: source.length, lines: utf8(source).trimEnd().split('\n').length });
     } finally { await db.close(); }
     return;
   }

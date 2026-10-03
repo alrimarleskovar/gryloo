@@ -22,8 +22,10 @@ bearer token in production (constant-time comparison), returns only allowlisted 
 server-to-server by the Vercel BFF, so the browser keeps `connect-src 'self'`. Logs are structured and redacted
 (tokens, authorization headers, credential-bearing URLs, signatures). Secrets come only from the environment.
 Intentional control change for owner review: inside the separately deployed backend, Robinhood live reads are
-enabled by `GRYLOO_ROBINHOOD_TESTNET=live` alone instead of also requiring `NODE_ENV=development`, and Aave Supply
-public reads require the new explicit `GRYLOO_SUPPLY_TESTNET=live`. The in-process server action gates are unchanged.
+enabled by `GRYLOO_ROBINHOOD_TESTNET=live` alone instead of also requiring `NODE_ENV=development`, the Base Sepolia swap
+by `GRYLOO_PUBLIC_TESTNET=record` alone (same reason), and Aave Supply public reads require the new explicit
+`GRYLOO_SUPPLY_TESTNET=live`. In shared storage every swap mutation, including Review and wallet results, runs under
+the run lease, and swap snapshots are kept as append-only history instead of one overwritten file. The in-process server action gates are unchanged.
 Tenant attribution is configuration-based (`TENANT_ID`); per-user authentication remains future work and needs no
 schema change. Dependency control: `pg@8.23.0` and `@types/pg@8.23.1` (MIT) plus 13 MIT/ISC transitive packages
 were added to the reviewed inventory (247 → 262 registry packages) with no new license exception.

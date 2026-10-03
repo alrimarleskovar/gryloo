@@ -19,9 +19,13 @@ import { callCloudFlow } from '../src/server/cloud-api-client.ts';
 import type { TransferRecord } from '../src/server/robinhood-transfer-service.ts';
 import type { SupplyRecord } from '../src/server/supply-service.ts';
 import { createBackend, type FlowResult } from './app.ts';
+import { createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
+import { editorReducer, initialEditor } from '../src/domain/editor.ts';
+import { BASE_SEPOLIA } from '../src/domain/public-testnet-swap.ts';
+import type { PublicBegin, PublicRun } from '../src/server/public-testnet-service.ts';
 
 const quiet = createLogger({ service: 'test', sink: () => undefined });
-const env = { GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY' } as const;
+const env = { GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_PUBLIC_TESTNET: 'record' } as const;
 const transferWorkflow: SemanticWorkflow = { schemaVersion: '1.0.0', workflowId: 'rh-demo', revision: 1, resourceEdges: [],
   nodes: [createNativeTransferNode('node-002', { chain: 'eip155:46630', amount: '1000000000000', recipient: 'CONNECTED_OWNER' })] };
 const supplyWorkflow: SemanticWorkflow = { schemaVersion: '1.0.0', workflowId: 'supply', revision: 0, resourceEdges: [],
@@ -36,16 +40,17 @@ afterAll(async () => { await t?.drop(); });
 let nextNonce = 100;
 const freshChain = () => createRobinhoodTransferChain({ nonce: nextNonce++ });
 /** One "deployment": API backend + worker sharing a database; each call builds fresh processes' worth of state. */
-async function deployment(options: { db?: Database; chain?: ReturnType<typeof createRobinhoodTransferChain>; model?: ReturnType<typeof supplyModel>; tenantId?: string; evidenceDir?: string } = {}) {
+async function deployment(options: { db?: Database; chain?: ReturnType<typeof createRobinhoodTransferChain>; model?: ReturnType<typeof supplyModel>; swapChain?: SwapChain; tenantId?: string; evidenceDir?: string } = {}) {
   const chain = options.chain ?? freshChain(), model = options.model ?? supplyModel();
   const evidenceDir = options.evidenceDir ?? await mkdtemp(join(tmpdir(), 'flofi-cloud-evidence-'));
   const db = options.db ?? t.open(6), tenantId = options.tenantId ?? 'default', workerId = `worker-${Math.random().toString(16).slice(2, 8)}`;
   const backend = createBackend({ db, env, logger: quiet, tenantId, holderId: workerId, evidenceStore: createFilesystemEvidenceStore(evidenceDir),
-    rpc: { 'robinhood-transfer': chain.rpc, 'aave-supply': model.rpc }, busyRetries: 3 });
+    rpc: { 'robinhood-transfer': chain.rpc, 'aave-supply': model.rpc, ...options.swapChain ? { 'base-sepolia-swap': options.swapChain.rpc } : {} }, busyRetries: 3 });
   const worker = createWorker({ queue: createPostgresWorkQueue({ db, ownerId: workerId }), handlers: backend.handlers, logger: quiet, workerId, concurrency: 8 });
   const rh = (method: string, ...args: unknown[]) => backend.callFlow('robinhood-transfer', method, args);
   const sp = (method: string, ...args: unknown[]) => backend.callFlow('aave-supply', method, args);
-  return { chain, model, db, backend, worker, rh, sp, evidenceDir };
+  const sw = (method: string, ...args: unknown[]) => backend.callFlow('base-sepolia-swap', method, args);
+  return { chain, model, db, backend, worker, rh, sp, sw, evidenceDir };
 }
 /** Time travel for queued work: make every READY item due now. */
 const due = (db: Database) => db.query(`UPDATE work_items SET available_at = now() WHERE state = 'READY'`);
@@ -246,5 +251,116 @@ describe('BUILD-CLOUD-001 Aave Supply family on durable cloud state', () => {
     expect(evidence.rows).toEqual([{ environment: 'MOCKED', outcome: 'RECONCILED' }]);
     const attempts = await t.db.query(`SELECT step, state, reconciled FROM execution_attempts WHERE run_id = $1 ORDER BY step`, [run.id]);
     expect(attempts.rows).toEqual([{ step: 'APPROVAL', state: 'CONFIRMED', reconciled: true }, { step: 'SUPPLY', state: 'CONFIRMED', reconciled: true }]);
+  });
+});
+
+/**
+ * A MOCKED in-process Base Sepolia for the exact-profile Uniswap v3 swap: pinned contracts, pool and quoter
+ * reads, gas, and receipts for what the test's "wallet" submitted. No network; the owner's wallet is the only
+ * submitter, as in production.
+ */
+type SwapChain = ReturnType<typeof createSwapChain>;
+function createSwapChain(account: string) {
+  const word = (n: bigint) => '0x' + n.toString(16).padStart(64, '0'), addressWord = (a: string) => '0x' + a.slice(2).padStart(64, '0');
+  const state = { allowance: 0n, input: 4_000_000n, output: 0n, native: 10n ** 18n, block: 100 };
+  const sent = new Map<string, { to: string; data: string }>();
+  const quoted = 1_000_000_000_000_000n, gasUsed = 100_000n, price = 1_000_000_000n;
+  const rpc = async (method: string, params: readonly unknown[]): Promise<unknown> => {
+    const head = { number: '0x' + state.block.toString(16), hash: '0x' + 'b'.repeat(64), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+    if (method === 'eth_chainId') return BASE_SEPOLIA.chainHex;
+    if (method === 'eth_blockNumber') return head.number;
+    if (method === 'eth_getBlockByNumber') return head;
+    if (method === 'eth_getCode') return '0x6000';
+    if (method === 'eth_gasPrice') return '0x' + price.toString(16);
+    if (method === 'eth_getBalance') return '0x' + state.native.toString(16);
+    if (method === 'eth_estimateGas') return '0x' + gasUsed.toString(16);
+    if (method === 'eth_getTransactionReceipt') {
+      const tx = sent.get(params[0] as string);
+      return tx ? { transactionHash: params[0], status: '0x1', blockNumber: head.number, blockHash: head.hash, from: account, to: tx.to,
+        gasUsed: '0x' + gasUsed.toString(16), effectiveGasPrice: '0x' + price.toString(16), l1Fee: '0x0', logs: [] } : null;
+    }
+    if (method === 'eth_getTransactionByHash') {
+      const tx = sent.get(params[0] as string);
+      return tx ? { hash: params[0], from: account, to: tx.to, input: tx.data, chainId: BASE_SEPOLIA.chainHex, type: '0x2', nonce: '0x0', value: '0x0' } : null;
+    }
+    if (method === 'eth_call') {
+      const request = params[0] as { to: string; data: string }, selector = request.data.slice(0, 10);
+      if (selector === '0xc45a0155') return addressWord(BASE_SEPOLIA.factory);
+      if (selector === '0x4aa4a4fc') return addressWord(BASE_SEPOLIA.weth);
+      if (selector === '0x313ce567') return word(request.to === BASE_SEPOLIA.usdc ? 6n : 18n);
+      if (selector === '0x1698ee82') return addressWord(BASE_SEPOLIA.pool);
+      if (selector === '0x0dfe1681') return addressWord(BASE_SEPOLIA.usdc);
+      if (selector === '0xd21220a7') return addressWord(BASE_SEPOLIA.weth);
+      if (selector === '0xddca3f43') return word(500n);
+      if (selector === '0x1a686502') return word(1_000_000n);
+      if (selector === '0x3850c7bd') return word(1n);
+      if (selector === '0xc6a5026a') return word(quoted);
+      if (selector === '0xdd62ed3e') return word(state.allowance);
+      if (selector === '0x70a08231') return word(request.to === BASE_SEPOLIA.usdc ? state.input : state.output);
+    }
+    throw new Error('UNEXPECTED_RPC_' + method);
+  };
+  /** The owner's browser wallet: the ONLY place a transaction is sent. */
+  const walletSend = (tx: { to: string; data: string; from: string }) => {
+    if (tx.from !== account) throw new Error('MOCK_WRONG_SIGNER');
+    const hash = '0x' + (sent.size + 1).toString(16).padStart(64, 'c');
+    sent.set(hash, { to: tx.to, data: tx.data });
+    state.native -= gasUsed * price; state.block += 1;
+    if (tx.to === BASE_SEPOLIA.usdc) state.allowance = 2_000_000n; else { state.input -= 2_000_000n; state.output += quoted; state.allowance = 0n; }
+    return hash;
+  };
+  return { rpc, walletSend, sent, state };
+}
+function swapWorkflow(): SemanticWorkflow {
+  const result = editorReducer(initialEditor(), { type: 'ADD_TESTNET_SWAP', direction: 'USDC_TO_WETH', amount: '2', slippage: '50', source: 'CANVAS', baseRevision: 0 },
+    createBaseSepoliaReviewContext());
+  if (result.error) throw new Error(result.error);
+  return structuredClone(result.workflow) as unknown as SemanticWorkflow;
+}
+
+describe('BUILD-CLOUD-001 Base Sepolia public swap on durable cloud state (MOCKED chain)', () => {
+  it('approval and exact swap through the API; workers reconcile after browser loss; restarts lose nothing; evidence verified', async () => {
+    const swapOwner = '0x3333333333333333333333333333333333333333', chain = createSwapChain(swapOwner), w = swapWorkflow();
+    const first = await deployment({ swapChain: chain });
+    expect(ok<string>(await first.sw('mode'))).toBe('live');
+    let run = ok<PublicRun>(await first.sw('prepare', w));
+    run = ok<PublicRun>(await first.sw('review', run.quote.executionId, run.quote.manifestHash));
+    const id = run.quote.executionId;
+    const approval = ok<PublicBegin>(await first.sw('begin', id, swapOwner));
+    expect(approval.attempt.step).toBe('approval');
+    // A retried begin cannot create a second attempt while one is active.
+    expect(await first.sw('begin', id, swapOwner)).toEqual({ ok: false, code: 'ATTEMPT_ALREADY_ACTIVE' });
+    ok(await first.sw('report', id, approval.attempt.attemptId, { kind: 'HASH', txHash: chain.walletSend(approval.tx) }));
+    // Browser closed; a fresh worker process reconciles the approval from PostgreSQL alone.
+    const worker1 = await deployment({ swapChain: chain, evidenceDir: first.evidenceDir });
+    await due(worker1.db); await worker1.worker.drainOnce();
+    // A fresh API instance (backend restart / browser reload elsewhere) continues the same run.
+    const api2 = await deployment({ swapChain: chain, evidenceDir: first.evidenceDir });
+    expect(ok<PublicRun>(await api2.sw('status', id)).attempts.map(a => [a.step, a.state])).toEqual([['approval', 'CONFIRMED']]);
+    const refreshed = ok<PublicRun>(await api2.sw('refresh', id));
+    expect(ok<PublicRun>(await api2.sw('review', id, refreshed.quote.manifestHash)).reviewedManifestHash).toBe(refreshed.quote.manifestHash);
+    const swap = ok<PublicBegin>(await api2.sw('begin', id, swapOwner));
+    expect(swap.attempt.step).toBe('swap');
+    ok(await api2.sw('report', id, swap.attempt.attemptId, { kind: 'HASH', txHash: chain.walletSend(swap.tx) }));
+    const worker2 = await deployment({ swapChain: chain, evidenceDir: first.evidenceDir });
+    await due(worker2.db); await worker2.worker.drainOnce(); await worker2.worker.drainOnce();
+    const final = ok<PublicRun>(await (await deployment({ swapChain: chain, evidenceDir: first.evidenceDir })).sw('status', id));
+    expect(final.outcome).toMatchObject({ inputSpent: '2000000', outputReceived: '1000000000000000' });
+    expect(final.outcome?.evidence).toMatchObject({ environment: 'TESTNET_EXECUTED', outcome: 'RECONCILED' });
+    expect(chain.sent.size).toBe(2);                       // exactly one approval and one swap, both owner-sent
+    expect(await api2.sw('begin', id, swapOwner)).toMatchObject({ ok: false });
+    expect(chain.sent.size).toBe(2);
+    const projected = await t.db.query(`SELECT status, needs_observation, has_evidence, owner_account FROM execution_runs WHERE run_id = $1`, [id]);
+    expect(projected.rows[0]).toEqual({ status: 'RECONCILED', needs_observation: false, has_evidence: true, owner_account: swapOwner });
+    const attempts = await t.db.query(`SELECT step, state, reconciled FROM execution_attempts WHERE run_id = $1 ORDER BY step`, [id]);
+    expect(attempts.rows).toEqual([{ step: 'APPROVAL', state: 'CONFIRMED', reconciled: true }, { step: 'SWAP', state: 'CONFIRMED', reconciled: true }]);
+    // Every snapshot is retained (the local mode overwrote one file); the history is append-only.
+    const segments = await t.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM execution_log_segments WHERE name = $1`, [id + '.jsonl']);
+    expect(segments.rows[0]!.n).toBeGreaterThanOrEqual(8);
+    const route = api2.backend.routes.find(r => r.name === 'run.evidence')!;
+    const response = await route.handler({ method: 'GET', path: `/v1/runs/${id}/evidence`, query: new URLSearchParams(), headers: {}, body: null, requestId: 'x' },
+      route.pattern.exec(`/v1/runs/${id}/evidence`)!);
+    expect((response.body as { value: { verified: boolean; bundleHash: string; environment: string }[] }).value).toEqual([
+      expect.objectContaining({ verified: true, bundleHash: final.outcome!.evidenceBundleHash, environment: 'TESTNET_EXECUTED' })]);
   });
 });

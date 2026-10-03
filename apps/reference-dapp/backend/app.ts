@@ -11,6 +11,7 @@ import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor'
 import type { SupplyRpc, TransferRpc } from '@defi-workflow-engine/reference-compiler';
 import { createRobinhoodReadRpc } from '../src/server/robinhood-rpc.ts';
 import { createSupplyReadRpc } from '../src/server/supply-rpc.ts';
+import { publicTestnetRpc } from '../src/server/public-testnet-rpc.ts';
 import { disabledCode, flowMode, FLOWS, isFlowName, type FlowName, type FlowService } from './flows.ts';
 
 export type FlowResult = { ok: true; value: unknown } | { ok: false; code: string };
@@ -31,7 +32,7 @@ export function createBackend(options: BackendOptions) {
     let rpc = rpcs.get(flow);
     if (!rpc) {
       const mode = flowMode(flow, env) === 'harness' ? 'harness' : 'live';
-      rpc = flow === 'robinhood-transfer' ? createRobinhoodReadRpc(mode) : createSupplyReadRpc(mode === 'harness');
+      rpc = flow === 'robinhood-transfer' ? createRobinhoodReadRpc(mode) : flow === 'aave-supply' ? createSupplyReadRpc(mode === 'harness') : publicTestnetRpc;
       rpcs.set(flow, rpc);
     }
     return rpc;

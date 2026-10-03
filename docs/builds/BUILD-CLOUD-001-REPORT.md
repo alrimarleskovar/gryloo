@@ -9,6 +9,35 @@ architecture is implemented and validated locally against a disposable PostgreSQ
 chains. Nothing is deployed: no Railway, Vercel, Neon or object-storage credential exists in this environment.
 No public or testnet transaction was made; that requires the owner's wallet.
 
+## Public online swap acceptance gate
+
+Gate assessment when it was raised: the cloud architecture covered the Robinhood transfer and Aave Supply family, but
+the repository's only real-network swap — the exact-profile Base Sepolia Uniswap v3 USDC/WETH path
+(`public-testnet-service.ts`) — still persisted to one overwritten local file, locked in process memory and was
+reachable only with `NODE_ENV=development`. The public swap journey was therefore **not** possible (state C).
+
+Completed in this build:
+* The swap service's async logic became a shared core. The local service keeps its exact file format, lock file and
+  synchronous Review/report signatures (its 12 existing tests pass unchanged); `createDurablePublicTestnetService`
+  runs the same core on the storage ports with an append-only, identity-preserving snapshot validator, every
+  mutation under the fenced run lease.
+* The backend exposes `base-sepolia-swap` (`prepare`, `refresh`, `review`, `begin`, `report`, `observe`, `status`),
+  enabled by `GRYLOO_PUBLIC_TESTNET=record`; workers reconcile attempts that carry the owner's transaction hash and
+  archive the Evidence Bundle; migration `0002` widens the attempt-state domain for the swap's states.
+* The swap server actions forward to the API when `API_BASE_URL` is set; the UI is unchanged.
+* A plain-Node entry-point test was added after a real process run exposed an extensionless import that would have
+  crashed the deployed backend at startup (vitest and Next resolve such imports; Node does not).
+
+Validated: PostgreSQL end-to-end test of approval → worker reconciliation after browser loss → new API instance →
+refresh/Review → swap → worker reconciliation → verified evidence, exactly two owner-sent transactions, no duplicate
+attempt (MOCKED in-process chain); and a **live read-only preflight** through the real API process against public
+Base Sepolia (block 47,611,431, pinned pool verified, quote 2 USDC → 0.010393 WETH, run durable in PostgreSQL). No
+wallet was used and no transaction was sent.
+
+Not validated, because it needs the owner: a public frontend URL (the existing Vercel preview of this branch is behind
+Vercel Authentication and has no `API_BASE_URL`), the Railway API/worker and Neon database, and the owner-signed
+Base Sepolia swap with worker reconciliation and evidence from another computer.
+
 ## What changed
 
 | Area | Change |
@@ -47,12 +76,13 @@ a new API process returned `RECONCILED` with integrity-verified evidence and a p
 
 | Gate | Result |
 | --- | --- |
-| `pnpm check` (typecheck, lint, build, schemas, unit) | pass — 1189 passed, 2 skipped (pre-existing env-gated suites) |
-| `pnpm test:postgres` (PostgreSQL 18.6, loopback) | pass — 28 passed |
+| `pnpm check` (typecheck, lint, build, schemas, unit) | pass — 1191 passed, 2 skipped (pre-existing env-gated suites) |
+| `pnpm test:postgres` (PostgreSQL 18.6, loopback) | pass — 29 passed |
 | Browser: robinhood-transfer | 7 passed |
 | Browser: supply, supply-recovery, borrow, repay, withdraw | 44 passed |
 | Browser: lending-composition (shared economic-intent code) | 17 passed |
 | Browser: network-isolation, interface-honesty, robinhood-network | 7 passed |
+| Browser: public-testnet, build-roundtrip, swap-authoring | 7 passed; 1 swap-authoring screenshot differs locally (known font-rendering difference, also on untouched main; CI is authoritative) |
 | `bootstrap-ci.py --verify-dependencies` | pass — 262 verified, 16 reviewed exceptions (unchanged) |
 | CI SBOM step (local run) | pass — 262 components |
 | `pnpm audit --audit-level low` | no known vulnerabilities |
@@ -72,6 +102,6 @@ to differ locally because of fonts). CI runs them.
    reopen elsewhere → Result + Evidence Bundle).
 
 Until these are done the build must not be described as deployed. Remaining limitations: flows other than the
-Robinhood transfer and the Aave Supply family remain file/local-only; tenancy is configuration-based (no
+Base Sepolia swap, the Robinhood transfer and the Aave Supply family remain file/local-only; tenancy is configuration-based (no
 per-user authentication); Vercel's serverless runtime uses its Node 24.x, while the build and the backend use
 the pinned 24.21.0.

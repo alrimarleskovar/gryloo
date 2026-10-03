@@ -15,9 +15,10 @@ import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor'
 import type { Projection, Projector, WorkRequest } from '@defi-workflow-engine/cloud-runtime';
 import { createRobinhoodTransferService, type TransferRecord, type TransferWalletDiagnostic } from '../src/server/robinhood-transfer-service.ts';
 import { createSupplyService, type SupplyRecord, type SupplyWalletDiagnostic } from '../src/server/supply-service.ts';
+import { createDurablePublicTestnetService, type PublicRun } from '../src/server/public-testnet-service.ts';
 import type { TransferRpc, SupplyRpc } from '@defi-workflow-engine/reference-compiler';
 
-export type FlowName = 'robinhood-transfer' | 'aave-supply';
+export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap';
 export type FlowMode = 'live' | 'harness' | 'off';
 type Args = readonly unknown[];
 export type FlowService = { readonly call: (method: string, args: Args) => Promise<unknown>; readonly load: (runId: string) => Promise<unknown>;
@@ -176,7 +177,65 @@ const supply: FlowDefinition = {
   evidence: record => evidenceOf(record as SupplyRecord),
 };
 
-export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply });
+/**
+ * The existing exact-profile Base Sepolia Uniswap v3 swap (USDC <-> WETH). Read-only public preflight (pinned
+ * contracts, pool, quote, freshness, gas), explicit Review, then the owner's wallet sends the exact approval or
+ * swap. Workers only read receipts for attempts that already carry the owner's transaction hash.
+ */
+const SWAP_ID = /^pub-[0-9a-f]{24}$/;
+const swapNeedsObservation = (value: unknown) => {
+  const run = value as PublicRun, last = run.attempts.at(-1);
+  return !run.outcome && !!last?.txHash && (last.state === 'HASH' || last.state === 'PENDING');
+};
+const swapEvidence = (value: unknown) => {
+  const outcome = (value as PublicRun).outcome;
+  if (!outcome) return null;
+  return { bundleHash: outcome.evidenceBundleHash, environment: outcome.evidence.environment, outcome: outcome.evidence.outcome,
+    bytes: new TextEncoder().encode(JSON.stringify(outcome)) };
+};
+const swapResult = (value: unknown) => isObject(value) && (value.kind === 'HASH' ? typeof value.txHash === 'string' && HASH.test(value.txHash) &&
+  Object.keys(value).length === 2 : (value.kind === 'REJECTED' || value.kind === 'UNKNOWN') && Object.keys(value).length === 1);
+const swap: FlowDefinition = {
+  name: 'base-sepolia-swap', busyCode: 'EXECUTION_BUSY', runId: SWAP_ID, unavailableCode: 'PUBLIC_INTERNAL_ERROR',
+  methods: {
+    prepare: { mutates: true, validate: shape(workflow) },
+    refresh: { mutates: true, validate: shape(id(SWAP_ID)) },
+    review: { mutates: true, validate: shape(id(SWAP_ID), commitment) },
+    begin: { mutates: true, validate: shape(id(SWAP_ID), account) },
+    report: { mutates: true, validate: shape(id(SWAP_ID), v => typeof v === 'string' && /^pub-[0-9a-f]{24}\.(approval|swap)\.[1-8]$/.test(v), swapResult) },
+    observe: { mutates: true, validate: shape(id(SWAP_ID)) },
+    status: { mutates: false, validate: shape(id(SWAP_ID)) },
+  },
+  create(storage, rpc) {
+    const s = createDurablePublicTestnetService({ storage, rpc });
+    const table: Record<string, (args: Args) => Promise<unknown>> = {
+      prepare: ([w]) => s.prepare(w as SemanticWorkflow),
+      refresh: ([i]) => s.refresh(i as string),
+      review: ([i, h]) => s.review(i as string, h as string),
+      begin: ([i, a]) => s.begin(i as string, a as string),
+      report: ([i, attempt, r]) => s.report(i as string, attempt as string, r as Parameters<typeof s.report>[2]),
+      observe: ([i]) => s.observe(i as string),
+      status: ([i]) => s.load(i as string),
+    };
+    return { call: (method, args) => table[method]!(args), load: runId => s.load(runId), observe: runId => s.observe(runId) };
+  },
+  needsObservation: swapNeedsObservation,
+  projector(name, bytes): Projection | null {
+    if (!name.endsWith('.jsonl')) return null;
+    const run = lastRecord<PublicRun>(bytes), observe = swapNeedsObservation(run), evidence = swapEvidence(run), last = run.attempts.at(-1);
+    return { run: { runId: run.quote.executionId, workflowId: run.workflow.workflowId, flow: 'base-sepolia-swap',
+      status: run.outcome ? 'RECONCILED' : last ? last.state : run.reviewedManifestHash ? 'AUTHORIZED' : 'SIMULATED',
+      provenance: 'PUBLIC_TESTNET', ownerAccount: last?.account ?? null, recoveryOf: null, errorCode: null, needsObservation: observe,
+      hasEvidence: evidence !== null,
+      attempts: run.attempts.map(a => ({ attemptId: a.attemptId, step: a.step.toUpperCase(), state: a.state, nonce: null, transactionHash: a.txHash,
+        preparedAtBlock: a.preBlock, reconciled: a.state === 'CONFIRMED' && (a.step === 'approval' || run.outcome !== null) })),
+      journal: [] },
+    work: work('base-sepolia-swap', run.quote.executionId, observe, 5_000, evidence !== null) };
+  },
+  evidence: run => swapEvidence(run),
+};
+
+export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap });
 export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FLOWS, value);
 
 /**
@@ -185,6 +244,8 @@ export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FL
  * public network.
  */
 export function flowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
+  // The existing public-swap gate value; in the separately deployed backend it does not also require NODE_ENV=development.
+  if (flow === 'base-sepolia-swap') return env.GRYLOO_PUBLIC_TESTNET === 'record' ? 'live' : 'off';
   if (flow === 'robinhood-transfer') {
     if (env.GRYLOO_ROBINHOOD_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
     return env.GRYLOO_ROBINHOOD_TESTNET === 'live' ? 'live' : 'off';
@@ -192,4 +253,5 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
   if (env.GRYLOO_SUPPLY_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
   return env.GRYLOO_SUPPLY_TESTNET === 'live' ? 'live' : 'off';
 }
-export const disabledCode = (flow: FlowName) => flow === 'robinhood-transfer' ? 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED' : 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED';
+export const disabledCode = (flow: FlowName) => flow === 'robinhood-transfer' ? 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED'
+  : flow === 'aave-supply' ? 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED' : 'PUBLIC_RECORDING_OFF';

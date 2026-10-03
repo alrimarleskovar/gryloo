@@ -39,6 +39,7 @@ All values are secrets or configuration supplied by the hosting platform. Never 
 | `EVIDENCE_DIRECTORY` | dev only | Local filesystem evidence store instead of object storage. |
 | `GRYLOO_ROBINHOOD_TESTNET=live` | to enable | Robinhood Chain Testnet read-only RPC for the self-transfer flow. |
 | `GRYLOO_SUPPLY_TESTNET=live` | to enable | Base Sepolia read-only RPC for the Aave Supply/Borrow/Repay/Withdraw flow. |
+| `GRYLOO_PUBLIC_TESTNET=record` | to enable | Base Sepolia read-only RPC for the exact-profile Uniswap v3 USDC/WETH swap (the public online swap acceptance path). |
 
 A flow without its enablement variable answers `*_PUBLIC_TESTNET_NOT_ENABLED`. The `*_HARNESS=MOCKED_LOOPBACK_ONLY`
 variables exist only for tests and must never be set in a deployment.
@@ -47,7 +48,7 @@ variables exist only for tests and must never be set in a deployment.
 
 | Variable | Meaning |
 | --- | --- |
-| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches the Robinhood transfer and Aave Supply server actions to forward to the API. |
+| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches the Base Sepolia swap, Robinhood transfer and Aave Supply server actions to forward to the API. |
 | `API_AUTH_TOKEN` | Same value as the API's token. |
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
@@ -73,9 +74,17 @@ These steps need the owner's accounts. The repository already contains everythin
 5. **Verify** (no wallet needed): `curl https://<api>/healthz` → `{"ok":true}`; `curl https://<api>/readyz` →
    `{"ok":true}`; `curl -H "authorization: Bearer <token>" https://<api>/v1/runs` → `{"ok":true,...}`; open the
    Vercel URL from another computer.
-6. **Owner wallet acceptance** (explicit owner action, testnet only): in the deployed UI, Build → Simulate →
-   Review → Execute, approve in the wallet, close the tab, wait for the worker to reconcile, reopen the URL on
-   another browser, confirm the Result and download the Evidence Bundle. Agents never perform this step.
+6. **Make the frontend public** — Vercel previews of this project are behind Vercel Authentication (SSO). For a
+   public URL either promote/assign a Production domain or disable Deployment Protection for the chosen
+   environment (Vercel → Project → Settings → Deployment Protection).
+7. **Owner wallet acceptance — public online swap** (explicit owner action, Base Sepolia only), from a computer
+   that is not the development machine, with a wallet holding ≥ 2 test USDC and a little test ETH on Base
+   Sepolia: open the public URL → Build a Swap (2 USDC → WETH, 0.5 % slippage) → Simulate → Review → Execute;
+   approve the exact USDC approval in the wallet; close the tab; reopen the URL in another browser and confirm
+   the approval was reconciled by the worker; refresh the quote, Review again, Execute the swap and sign it;
+   close the tab again; after the worker reconciles, reopen and download the Evidence Bundle. Restart the
+   `flofi-api` and `flofi-worker` services in Railway at any point to confirm nothing is lost. Agents never
+   perform this step.
 
 ## Operations
 

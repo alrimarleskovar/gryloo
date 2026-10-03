@@ -387,8 +387,9 @@ wallet action and are reported separately.
 No UI redesign, new protocol/chain, adapter rewrite, Kubernetes, microservices,
 Redis, non-PostgreSQL source of truth, custody, relaxed tests/tolerances,
 historical evidence change, BUILD-013 work, or PR #48/#49 merge. Flows other
-than Robinhood transfer and the Aave Supply family (Supply/Borrow/Repay/
-Withdraw) remain file/local-only in this build and are not exposed by the
+than the Base Sepolia Uniswap v3 swap (added for the public online swap
+acceptance gate), Robinhood transfer and the Aave Supply family
+(Supply/Borrow/Repay/Withdraw) remain file/local-only in this build and are not exposed by the
 cloud API; the BFF does not forward them.
 
 ## 20. Future migration path

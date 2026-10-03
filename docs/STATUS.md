@@ -10,7 +10,7 @@ This separate branding build does not resume its execution work. BUILD-CLOUD-001
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution
 
 **Status: IMPLEMENTATION COMPLETE — OWNER ACTION REQUIRED.** Stacked on BUILD-BRAND-001 (PR #49) in branch
-`claude/build-cloud-001`. Execution state for the Robinhood Testnet self-transfer and the Aave Supply family can now
+`claude/build-cloud-001`. Execution state for the Base Sepolia Uniswap v3 swap, the Robinhood Testnet self-transfer and the Aave Supply family can now
 live in PostgreSQL behind explicit storage ports (fenced leases, append-only logs, transactional outbox), served
 by a stateless API and reconciled by horizontally scalable workers; evidence exports go to a content-addressed
 EvidenceStore. File/local mode, every `GRYLOO_*` variable and every persisted format are unchanged. Validation is
