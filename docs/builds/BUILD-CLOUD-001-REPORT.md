@@ -38,6 +38,28 @@ Not validated, because it needs the owner: a public frontend URL (the existing V
 Vercel Authentication and has no `API_BASE_URL`), the Railway API/worker and Neon database, and the owner-signed
 Base Sepolia swap with worker reconciliation and evidence from another computer.
 
+## Capability migration (scope correction)
+
+The full inventory and per-capability status are in [BUILD-CLOUD-001-CAPABILITIES.md](BUILD-CLOUD-001-CAPABILITIES.md).
+After the scope correction every capability with a legitimate real-network execution path was moved onto the same
+generic runtime (no per-protocol architecture), except BUILD-013's lending composition, which stays on its owner-open
+PR #48:
+
+* **Solana Devnet Orca swap and Jupiter mainnet-beta swap** (one shared service) and **Solana Devnet Orca liquidity**:
+  only their I/O primitives moved to the storage ports (their 84 existing tests pass unchanged). The backend exposes
+  `solana-devnet-swap`, `orca-liquidity` and `jupiter-swap`; the three server actions forward when `API_BASE_URL` is
+  set. Migration `0003` widens projection domains for base58 owners/signatures, Devnet/mainnet provenance and
+  `EXPIRED`. The storage port gained a bounded prefix `list` (Orca restart listing).
+* Worker processes now get observer transports that reject every submission method; a test proves it.
+* Validated: PostgreSQL end-to-end on the MOCKED Solana environments (lost submit response → worker reconciliation with
+  one broadcast; OPEN with owner + position-mint signatures and durable position registry; Jupiter durable with
+  real-funds execution off by default), and a live read-only Devnet check through the real API process (Devnet
+  simulate persisted as `PUBLIC_READ_ONLY`, Orca pool at slot 506,833,584).
+
+Final status by gate: **A. cloud platform — complete; B. capability migration — complete for all real-network
+capabilities except BUILD-013 (blocked by its open PR); C. public capability validated — none yet (no deployment);
+D. not yet public — all MOCKED/FORK_REPRODUCED capabilities, each with its missing step in the matrix.**
+
 ## What changed
 
 | Area | Change |
@@ -77,11 +99,12 @@ a new API process returned `RECONCILED` with integrity-verified evidence and a p
 | Gate | Result |
 | --- | --- |
 | `pnpm check` (typecheck, lint, build, schemas, unit) | pass — 1191 passed, 2 skipped (pre-existing env-gated suites) |
-| `pnpm test:postgres` (PostgreSQL 18.6, loopback) | pass — 29 passed |
+| `pnpm test:postgres` (PostgreSQL 18.6, loopback) | pass — 33 passed |
 | Browser: robinhood-transfer | 7 passed |
 | Browser: supply, supply-recovery, borrow, repay, withdraw | 44 passed |
 | Browser: lending-composition (shared economic-intent code) | 17 passed |
 | Browser: network-isolation, interface-honesty, robinhood-network | 7 passed |
+| Browser: jupiter, solana-devnet, solana-liquidity (MOCKED loopback) | 9 + 13 passed |
 | Browser: public-testnet, build-roundtrip, swap-authoring | 7 passed; 1 swap-authoring screenshot differs locally (known font-rendering difference, also on untouched main; CI is authoritative) |
 | `bootstrap-ci.py --verify-dependencies` | pass — 262 verified, 16 reviewed exceptions (unchanged) |
 | CI SBOM step (local run) | pass — 262 components |

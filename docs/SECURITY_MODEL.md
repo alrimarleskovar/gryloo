@@ -25,7 +25,11 @@ Intentional control change for owner review: inside the separately deployed back
 enabled by `GRYLOO_ROBINHOOD_TESTNET=live` alone instead of also requiring `NODE_ENV=development`, the Base Sepolia swap
 by `GRYLOO_PUBLIC_TESTNET=record` alone (same reason), and Aave Supply public reads require the new explicit
 `GRYLOO_SUPPLY_TESTNET=live`. In shared storage every swap mutation, including Review and wallet results, runs under
-the run lease, and swap snapshots are kept as append-only history instead of one overwritten file. The in-process server action gates are unchanged.
+the run lease, and swap snapshots are kept as append-only history instead of one overwritten file. Solana flows keep
+their reviewed model: the owner's wallet signs in the browser and the API verifies the exact reviewed bytes and signature,
+persists the signature, then relays those owner-signed bytes once, only on the browser's explicit submit. Worker
+processes use a transport that rejects `sendTransaction`, `eth_sendRawTransaction` and `eth_sendTransaction`
+unconditionally. Jupiter mainnet-beta execution stays off unless the owner sets `GRYLOO_JUPITER_OWNER_EXECUTION`. The in-process server action gates are unchanged.
 Tenant attribution is configuration-based (`TENANT_ID`); per-user authentication remains future work and needs no
 schema change. Dependency control: `pg@8.23.0` and `@types/pg@8.23.1` (MIT) plus 13 MIT/ISC transitive packages
 were added to the reviewed inventory (247 → 262 registry packages) with no new license exception.

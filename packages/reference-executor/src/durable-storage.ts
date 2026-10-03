@@ -9,7 +9,7 @@
  * lock directories. The file implementations below preserve the exact pre-existing paths and bytes.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { mkdir, open, readFile, rmdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rmdir, stat, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { writeExtendingFile } from './file-store.js';
 
@@ -24,6 +24,8 @@ export interface DurableLogStore {
   readonly extend: (name: string, next: Uint8Array, validate: LogValidator) => Promise<void>;
   /** Exclusive durable creation. Resolves false, writing nothing, when the log already exists. */
   readonly create: (name: string, bytes: Uint8Array) => Promise<boolean>;
+  /** Up to `limit` log names starting with `prefix`, sorted (restart recovery listings). */
+  readonly list: (prefix: string, limit: number) => Promise<readonly string[]>;
 }
 export interface LeaseStore {
   /**
@@ -80,6 +82,11 @@ export function createFileLogStore(directory: string): DurableLogStore {
       const directoryHandle = await open(root, 'r');
       try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
       return true;
+    },
+    async list(prefix, limit) {
+      let names: string[] = [];
+      try { names = await readdir(root); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      return names.filter(name => name.startsWith(prefix) && LOG_NAME.test(name)).sort().slice(0, limit);
     },
   };
 }

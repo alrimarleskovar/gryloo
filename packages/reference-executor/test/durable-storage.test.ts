@@ -18,8 +18,11 @@ describe('BUILD-CLOUD-001 file implementations of the storage ports keep the ori
       await log.extend('run.jsonl', encode('a\nb\n'), lines);
       expect(await readFile(join(dir, 'journal', 'run.jsonl'), 'utf8')).toBe('a\nb\n');
       await expect(log.extend('run.jsonl', encode('a\nc\n'), lines)).rejects.toThrow('JOURNAL_CORRUPT');
-      expect(await Promise.all([log.create('owner-7.intent', encode('x\n')), log.create('owner-7.intent', encode('y\n'))])).toEqual([true, false]);
-      expect(await readFile(join(dir, 'journal', 'owner-7.intent'), 'utf8')).toBe('x\n');
+      // Concurrent exclusive creation: exactly one caller wins (either may), and the file holds the winner's bytes.
+      const created = await Promise.all([log.create('owner-7.intent', encode('x\n')), log.create('owner-7.intent', encode('y\n'))]);
+      expect(created.filter(Boolean)).toHaveLength(1);
+      expect(await readFile(join(dir, 'journal', 'owner-7.intent'), 'utf8')).toBe(created[0] ? 'x\n' : 'y\n');
+      expect(await log.create('owner-7.intent', encode('z\n'))).toBe(false);
       expect((await stat(join(dir, 'journal', 'owner-7.intent'))).mode & 0o777).toBe(0o600);
       expect((await stat(join(dir, 'journal'))).mode & 0o777).toBe(0o700);
       await expect(log.read('../escape')).rejects.toThrow('STORAGE_NAME_INVALID');

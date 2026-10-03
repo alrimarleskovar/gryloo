@@ -8,34 +8,37 @@ import { archiveEvidence, backoffMs, createIdempotencyStore, createPostgresLease
   readVerifiedEvidence, requestHash, withSpan, type Database, type EvidenceStore, type HttpRequest, type HttpResponse, type Logger, type Route,
   type WorkHandler } from '@defi-workflow-engine/cloud-runtime';
 import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor';
-import type { SupplyRpc, TransferRpc } from '@defi-workflow-engine/reference-compiler';
-import { createRobinhoodReadRpc } from '../src/server/robinhood-rpc.ts';
-import { createSupplyReadRpc } from '../src/server/supply-rpc.ts';
-import { publicTestnetRpc } from '../src/server/public-testnet-rpc.ts';
-import { disabledCode, flowMode, FLOWS, isFlowName, type FlowName, type FlowService } from './flows.ts';
+import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
+import { disabledCode, flowMode, FLOWS, isFlowName, type FlowDeps, type FlowName, type FlowService, type Rpc } from './flows.ts';
+
+/** Methods that could put a transaction on any network. Observer (worker) transports reject them unconditionally. */
+const SUBMISSION_METHODS = new Set(['sendTransaction', 'eth_sendRawTransaction', 'eth_sendTransaction']);
+export function observeOnly(rpc: Rpc): Rpc {
+  return (method, params) => SUBMISSION_METHODS.has(method) ? Promise.reject(new Error('WORKER_SUBMISSION_FORBIDDEN')) : rpc(method, params);
+}
 
 export type FlowResult = { ok: true; value: unknown } | { ok: false; code: string };
 export type BackendOptions = {
   readonly db: Database; readonly env: Readonly<Record<string, string | undefined>>; readonly logger: Logger; readonly tenantId: string;
   readonly holderId: string; readonly evidenceStore: EvidenceStore | null;
   /** Test seam: loopback MOCKED chains replace the network clients. Never used by the deployed entry point. */
-  readonly rpc?: Partial<Record<FlowName, TransferRpc & SupplyRpc>>; readonly leaseTtlMs?: number; readonly busyRetries?: number;
+  readonly rpc?: Partial<Record<FlowName, Rpc>>; readonly http?: JupiterHttp; readonly leaseTtlMs?: number; readonly busyRetries?: number;
 };
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 
 export function createBackend(options: BackendOptions) {
   const { db, env, logger } = options;
-  const rpcs = new Map<FlowName, TransferRpc & SupplyRpc>(), services = new Map<string, FlowService>();
-  const rpcFor = (flow: FlowName) => {
-    const override = options.rpc?.[flow];
-    if (override) return override;
-    let rpc = rpcs.get(flow);
-    if (!rpc) {
-      const mode = flowMode(flow, env) === 'harness' ? 'harness' : 'live';
-      rpc = flow === 'robinhood-transfer' ? createRobinhoodReadRpc(mode) : flow === 'aave-supply' ? createSupplyReadRpc(mode === 'harness') : publicTestnetRpc;
-      rpcs.set(flow, rpc);
+  const transports = new Map<FlowName, Omit<FlowDeps, 'mode' | 'env'>>(), services = new Map<string, FlowService>();
+  /** One shared, paced transport per flow and process; tests substitute MOCKED chains. */
+  const depsFor = (flow: FlowName, readOnly: boolean): FlowDeps => {
+    const mode = flowMode(flow, env) === 'harness' ? 'harness' : 'live';
+    let transport = transports.get(flow);
+    if (!transport) {
+      const override = options.rpc?.[flow];
+      transport = override ? { rpc: override, ...options.http ? { http: options.http } : {} } : FLOWS[flow].transport(mode, env);
+      transports.set(flow, transport);
     }
-    return rpc;
+    return { ...transport, mode, env, rpc: readOnly ? observeOnly(transport.rpc) : transport.rpc };
   };
   function storage(flow: FlowName, tenantId: string): ExecutionStorage {
     const definition = FLOWS[flow];
@@ -43,11 +46,12 @@ export function createBackend(options: BackendOptions) {
       leases: createPostgresLeaseStore({ db, tenantId, namespace: flow, busyCode: definition.busyCode, holderId: options.holderId,
         ...options.leaseTtlMs ? { ttlMs: options.leaseTtlMs } : {} }) };
   }
-  function service(flow: FlowName, tenantId: string): FlowService {
-    const key = `${tenantId}\0${flow}`;
+  /** `observer` services (workers) get a transport that cannot submit anything, whatever a handler does. */
+  function service(flow: FlowName, tenantId: string, observer = false): FlowService {
+    const key = `${tenantId}\0${flow}\0${observer}`;
     let value = services.get(key);
     if (!value) {
-      value = FLOWS[flow].create(storage(flow, tenantId), rpcFor(flow), flowMode(flow, env) === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET');
+      value = FLOWS[flow].create(storage(flow, tenantId), depsFor(flow, observer));
       services.set(key, value);
     }
     return value;
@@ -147,7 +151,7 @@ export function createBackend(options: BackendOptions) {
     if (!target) { await settle({ outcome: 'DEAD', reason: 'WORK_PAYLOAD_INVALID' }); return; }
     const { flow, runId, definition } = target;
     if (flowMode(flow, env) === 'off') { await settle({ outcome: 'RETRY', delayMs: 300_000, reason: disabledCode(flow) }); return; }
-    const leases = storage(flow, item.tenantId).leases, svc = service(flow, item.tenantId);
+    const leases = storage(flow, item.tenantId).leases, svc = service(flow, item.tenantId, true);
     try {
       await leases.hold(runId, async () => {
         // Re-checked under the run lease: a stale item cannot act on an attempt created after it was queued.
@@ -172,7 +176,7 @@ export function createBackend(options: BackendOptions) {
     if (!target) { await settle({ outcome: 'DEAD', reason: 'WORK_PAYLOAD_INVALID' }); return; }
     const store = options.evidenceStore;
     if (!store) { await settle({ outcome: 'RETRY', delayMs: 600_000, reason: 'EVIDENCE_STORE_NOT_CONFIGURED' }); return; }
-    const record = await service(target.flow, item.tenantId).load(target.runId), evidence = target.definition.evidence(record);
+    const record = await service(target.flow, item.tenantId, true).load(target.runId), evidence = target.definition.evidence(record);
     if (!evidence) { await settle({ outcome: 'DONE' }); return; }
     const stored = await archiveEvidence(store, evidence.bytes);
     await queries(item.tenantId).recordEvidence(target.runId, { ...stored, bundleHash: evidence.bundleHash, storeId: store.id,

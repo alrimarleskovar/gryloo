@@ -10,14 +10,14 @@ This separate branding build does not resume its execution work. BUILD-CLOUD-001
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution
 
 **Status: IMPLEMENTATION COMPLETE — OWNER ACTION REQUIRED.** Stacked on BUILD-BRAND-001 (PR #49) in branch
-`claude/build-cloud-001`. Execution state for the Base Sepolia Uniswap v3 swap, the Robinhood Testnet self-transfer and the Aave Supply family can now
+`claude/build-cloud-001`. Execution state for every capability with a real-network path except BUILD-013 (Base Sepolia Uniswap swap, Aave Supply/Borrow/Repay/Withdraw, Robinhood transfer, Solana Devnet Orca swap and liquidity, Jupiter mainnet-beta Simulate/Review) can now
 live in PostgreSQL behind explicit storage ports (fenced leases, append-only logs, transactional outbox), served
 by a stateless API and reconciled by horizontally scalable workers; evidence exports go to a content-addressed
 EvidenceStore. File/local mode, every `GRYLOO_*` variable and every persisted format are unchanged. Validation is
 local and MOCKED (loopback PostgreSQL, in-process chains): no deployment exists yet and no public transaction was
 made. Deployment needs owner credentials (Neon, object storage, Railway, Vercel) and the testnet acceptance needs
 an explicit owner wallet action; see the [plan](builds/BUILD-CLOUD-001-PLAN.md),
-[report](builds/BUILD-CLOUD-001-REPORT.md) and [deployment runbook](deploy/CLOUD.md).
+[report](builds/BUILD-CLOUD-001-REPORT.md), [capability matrix](builds/BUILD-CLOUD-001-CAPABILITIES.md) and [deployment runbook](deploy/CLOUD.md).
 
 ## BUILD-013 — Advanced lending composition
 

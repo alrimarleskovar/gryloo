@@ -24,7 +24,7 @@ export type AttemptProjection = { readonly attemptId: string; readonly step: str
 export type JournalProjection = { readonly sequence: number; readonly entryHash: string; readonly level: string; readonly entityId: string;
   readonly attemptId: string | null; readonly fromState: string | null; readonly toState: string; readonly recordedAt: string };
 export type RunProjection = { readonly runId: string; readonly workflowId: string; readonly flow: string; readonly status: string;
-  readonly provenance: 'MOCKED' | 'PUBLIC_TESTNET'; readonly ownerAccount: string | null; readonly recoveryOf: string | null;
+  readonly provenance: 'MOCKED' | 'PUBLIC_TESTNET' | 'PUBLIC_DEVNET' | 'PUBLIC_MAINNET'; readonly ownerAccount: string | null; readonly recoveryOf: string | null;
   readonly errorCode: string | null; readonly needsObservation: boolean; readonly hasEvidence: boolean;
   readonly attempts: readonly AttemptProjection[]; readonly journal: readonly JournalProjection[] };
 export type WorkRequest = { readonly kind: string; readonly dedupeKey: string; readonly runId: string | null; readonly delayMs?: number;
@@ -170,5 +170,11 @@ export function createPostgresLogStore(input: { db: Database; tenantId: string; 
     extend: async (name, next, validate) => { await write(name, next, validate, null, false); },
     extendAt: async (name, expectedVersion, next, validate) => write(name, next, validate, expectedVersion, false) as Promise<number>,
     create: async (name, bytes) => (await write(name, bytes, null, null, true)) !== false,
+    async list(prefix, limit) {
+      if (!/^[A-Za-z0-9._-]{0,191}$/.test(prefix) || !Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) throw new Error('STORAGE_NAME_INVALID');
+      const { rows } = await db.query<{ name: string }>(`SELECT name FROM execution_logs WHERE tenant_id = $1 AND namespace = $2
+        AND left(name, length($3)) = $3 ORDER BY name LIMIT $4`, [tenantId, namespace, prefix, limit]);
+      return rows.map(row => row.name);
+    },
   };
 }

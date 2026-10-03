@@ -39,6 +39,8 @@ All values are secrets or configuration supplied by the hosting platform. Never 
 | `EVIDENCE_DIRECTORY` | dev only | Local filesystem evidence store instead of object storage. |
 | `GRYLOO_ROBINHOOD_TESTNET=live` | to enable | Robinhood Chain Testnet read-only RPC for the self-transfer flow. |
 | `GRYLOO_SUPPLY_TESTNET=live` | to enable | Base Sepolia read-only RPC for the Aave Supply/Borrow/Repay/Withdraw flow. |
+| `GRYLOO_SOLANA_DEVNET=live` | to enable | Solana Devnet read/relay transport for the Orca swap and Orca liquidity flows (valueless test tokens). `GRYLOO_SOLANA_DEVNET_RPC_URL` optionally names an HTTPS Devnet RPC; `GRYLOO_SOLANA_DEVNET_EXECUTION=DISABLED` keeps them Simulate/Review-only. |
+| `GRYLOO_JUPITER=live` | to enable | Jupiter mainnet-beta **Simulate/Review only**. `JUPITER_API_KEY` (secret) and `GRYLOO_SOLANA_RPC_URL` are optional. Real-funds execution additionally requires the owner's explicit `GRYLOO_JUPITER_OWNER_EXECUTION=MAINNET_OWNER_APPROVED`; never set it for a demo. |
 | `GRYLOO_PUBLIC_TESTNET=record` | to enable | Base Sepolia read-only RPC for the exact-profile Uniswap v3 USDC/WETH swap (the public online swap acceptance path). |
 
 A flow without its enablement variable answers `*_PUBLIC_TESTNET_NOT_ENABLED`. The `*_HARNESS=MOCKED_LOOPBACK_ONLY`
@@ -48,7 +50,7 @@ variables exist only for tests and must never be set in a deployment.
 
 | Variable | Meaning |
 | --- | --- |
-| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches the Base Sepolia swap, Robinhood transfer and Aave Supply server actions to forward to the API. |
+| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter) to forward to the API. |
 | `API_AUTH_TOKEN` | Same value as the API's token. |
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
