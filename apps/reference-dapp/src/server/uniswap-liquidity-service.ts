@@ -493,6 +493,9 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     let verified: Awaited<ReturnType<typeof verifyOwnerSubmission>>;
     try { verified = await verifyOwnerSubmission(rpc, { txHash: hash, account: record.owner, target: attempt.tx.to, data: attempt.tx.data, preBlock: attempt.preparedAtBlock }, tx, raw); }
     catch (cause) {
+      // Receipt not yet canonical (a preconfirmed receipt with a zero block hash, or a block not sealed or reorganized):
+      // stay PENDING and observation-only; nothing becomes evidence and nothing is resent.
+      if (cause instanceof Error && cause.message === 'RECEIPT_NOT_CANONICAL') return save({ ...record, error: 'UNISWAP_RECEIPT_NOT_CANONICAL' });
       if (cause instanceof Error && /^(TRANSACTION_MISMATCH|RECEIPT_INVALID)$/.test(cause.message)) {
         return save(replaceAttempt({ ...record, verdict: 'DIVERGENT', authorization: null, error: 'UNISWAP_TRANSACTION_MISMATCH' },
           { ...attempt, state: 'RECONCILIATION_REQUIRED', note: 'UNISWAP_TRANSACTION_MISMATCH' }));

@@ -106,6 +106,28 @@ describe('BUILD-UNISWAP-LIQUIDITY-PUBLIC Uniswap v3 liquidity on durable cloud s
       expect.objectContaining({ verified: true, bundleHash: final.evidence!.bundleHash, environment: 'MOCKED' })]);
   });
 
+  it('a worker keeps a preconfirmed zero-block-hash receipt observation-only, retries, then reconciles the canonical receipt once', async () => {
+    const chain = createUniswapLiquidityChain({ nonce: 120n, delegatedOwner: true }), w = workflow(), api = await deployment(chain);
+    const simulated = ok<UniswapLiquidityRecord>(await api.lp('simulate', w, UNI_OWNER)), id = simulated.id;
+    ok(await api.lp('review', id, simulated.review.commitment, w));
+    const begun = ok<UniswapBegin>(await api.lp('begin', id, UNI_OWNER, w));
+    ok(await api.lp('handoff', id));
+    ok(await api.lp('report', id, { kind: 'HASH', hash: chain.wallet.sendDelegated(begun.transaction, { preconfirmedReads: 1 }) }));
+    const worker = await deployment(chain, { evidenceDir: api.evidenceDir });
+    await due(worker.db); await worker.worker.drainOnce();
+    let record = ok<UniswapLiquidityRecord>(await api.lp('status', id));
+    expect(record.attempts[0]).toMatchObject({ state: 'PENDING', receipt: null, reconciled: false });
+    expect(record.error).toBe('UNISWAP_RECEIPT_NOT_CANONICAL');
+    const queued = await t.db.query(`SELECT state FROM work_items WHERE run_id = $1 AND kind = 'reconcile' ORDER BY id DESC LIMIT 1`, [id]);
+    expect(queued.rows[0]).toEqual({ state: 'READY' });
+    await due(worker.db); await worker.worker.drainOnce();
+    record = ok<UniswapLiquidityRecord>(await api.lp('status', id));
+    expect(record.attempts[0]).toMatchObject({ state: 'CONFIRMED', reconciled: true });
+    expect(record.attempts[0]!.receipt!.blockHash).not.toBe('0x' + '0'.repeat(64));
+    expect(chain.counters.sends).toBe(1);
+    expect(worker.methods.filter(m => SEND.includes(m))).toEqual([]);
+  });
+
   it('a stale work item never cancels a PREPARED attempt; idempotent HTTP replay; tenants are isolated; tampered state fails closed', async () => {
     const chain = createUniswapLiquidityChain({ nonce: 80n }), w = workflow(), d = await deployment(chain);
     const token = 'test-token-'.padEnd(40, 'x');

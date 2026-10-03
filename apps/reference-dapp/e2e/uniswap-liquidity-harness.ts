@@ -55,6 +55,9 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
   let nextTokenId = 9_001n, hashSeq = 0;
   const gasPrice = 1_000_000n, baseFee = 500_000n;
   const counters = { simulate: 0, sends: 0 };
+  /** Base Flashblocks-style preconfirmation: receipt reads left that return a zero block hash for a block not sealed yet. */
+  const preconfirmed = new Map<string, number>();
+  const unsealed = (n: number) => [...preconfirmed.entries()].some(([hash, left]) => left > 0 && mined.get(hash)?.block === n);
   const allowanceKey = (token: string, from: string, spender: string) => `${token}:${from}:${spender}`;
   const at = (blockTag: unknown): Snapshot => {
     if (blockTag === 'latest' || blockTag === 'pending' || blockTag === undefined) return state;
@@ -151,7 +154,7 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     switch (method) {
       case 'eth_chainId': return profile.chainHex;
       case 'eth_blockNumber': return hx(head);
-      case 'eth_getBlockByNumber': { const n = params[0] === 'latest' ? head : Number(BigInt(params[0] as string)); return n > head ? null : blockOf(n, params[1] === true); }
+      case 'eth_getBlockByNumber': { const n = params[0] === 'latest' ? head : Number(BigInt(params[0] as string)); return n > head || params[0] !== 'latest' && unsealed(n) ? null : blockOf(n, params[1] === true); }
       case 'eth_getCode': {
         const s = (params[0] as string).toLowerCase();
         if (s === UNI_DELEGATION_MANAGER) return '0x60076007';
@@ -176,8 +179,10 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
         }) }];
       }
       case 'eth_getTransactionReceipt': {
-        const tx = mined.get(params[0] as string);
-        return tx ? { transactionHash: tx.hash, status: hx(tx.status), blockNumber: hx(tx.block), blockHash: blockOf(tx.block, false).hash, from: tx.from, to: tx.to,
+        const tx = mined.get(params[0] as string), left = tx ? preconfirmed.get(tx.hash) ?? 0 : 0;
+        if (tx && left > 0) preconfirmed.set(tx.hash, left - 1);
+        return tx ? { transactionHash: tx.hash, status: hx(tx.status), blockNumber: hx(tx.block), blockHash: left > 0 ? '0x' + '0'.repeat(64) : blockOf(tx.block, false).hash,
+          from: tx.from, to: tx.to,
           gasUsed: hx(tx.gasUsed), effectiveGasPrice: hx(gasPrice), l1Fee: hx(1_000_000_000n), logs: tx.logs } : null;
       }
       case 'eth_getTransactionByHash': { const tx = mined.get(params[0] as string) ?? pendingTxs.find(p => p.hash === params[0]); return tx ? txView(tx) : null; }
@@ -195,14 +200,16 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
       mine([queued], mode); return queued.hash;
     },
     /** The same wallet request fulfilled by MetaMask as a relayed type-2, depth-1 redemption (owner nonce unchanged). */
-    sendDelegated(tx: { from: string; to: string; data: string; chainId: string }, mode: { hold?: boolean } = {}): string {
+    sendDelegated(tx: { from: string; to: string; data: string; chainId: string }, mode: { hold?: boolean; preconfirmedReads?: number } = {}): string {
       if (tx.from !== owner || tx.chainId !== profile.chainHex || !options.delegatedOwner) throw new Error('MOCK_WRONG_SIGNER');
       counters.sends += 1;
       const inner = { to: tx.to.toLowerCase(), input: tx.data.toLowerCase() };
       const queued = { hash: newHash(), from: UNI_RELAYER, to: UNI_DELEGATION_MANAGER, input: encodeSingleRedemption('0x' + 'ab'.repeat(96), inner.to, inner.input),
         nonce: (state.nonces[UNI_RELAYER] ?? 0n) + BigInt(pendingTxs.filter(p => p.from === UNI_RELAYER).length), inner };
       if (mode.hold) { pendingTxs.push(queued); return queued.hash; }
-      mine([queued]); return queued.hash;
+      mine([queued]);
+      if (mode.preconfirmedReads) preconfirmed.set(queued.hash, mode.preconfirmedReads);
+      return queued.hash;
     },
     /** Mine every held transaction (optionally replacing one by a same-call speed-up or a cancellation). */
     release(change?: { kind: 'SPEED_UP' | 'CANCEL'; hash: string }): string | null {

@@ -264,6 +264,38 @@ describe('Base Sepolia Uniswap v3 liquidity: execution, recovery and reconciliat
     expect(chain.counters.sends).toBe(3);
     await expect(service.begin(run.id, UNI_OWNER, w)).rejects.toThrow('UNISWAP_POSITION_ALREADY_MINTED');
   });
+  it('a preconfirmed receipt with a zero block hash (Base Flashblocks) never becomes evidence; the later canonical readback reconciles without a resend', async () => {
+    const { service, chain } = await setup({ delegatedOwner: true }), w = workflow();
+    const run = await reviewed(service, w);
+    const begun = await service.begin(run.id, UNI_OWNER, w);
+    await service.handoff(run.id);
+    const hash = chain.wallet.sendDelegated(begun.transaction, { preconfirmedReads: 2 });
+    await service.report(run.id, { kind: 'HASH', hash });
+    for (let read = 0; read < 2; read++) {
+      const pending = await service.observe(run.id);
+      expect(pending.attempts[0]).toMatchObject({ state: 'PENDING', reconciled: false, receipt: null });
+      expect(pending.error).toBe('UNISWAP_RECEIPT_NOT_CANONICAL');
+      expect(uniswapNeedsObservation(pending)).toBe(true);
+      await expect(service.begin(run.id, UNI_OWNER, w)).rejects.toThrow('UNISWAP_ATTEMPT_ACTIVE_OBSERVE_EXISTING');
+    }
+    let record = await service.observe(run.id);
+    const canonical = await chain.rpc('eth_getBlockByNumber', ['0x' + record.attempts[0]!.receipt!.blockNumber.toString(16), false]) as { hash: string };
+    expect(record.attempts[0]).toMatchObject({ state: 'CONFIRMED', reconciled: true, receipt: { blockHash: canonical.hash, submissionKind: 'DELEGATED_SINGLE' } });
+    expect(record.attempts[0]!.receipt!.blockHash).not.toBe('0x' + '0'.repeat(64));
+    for (const step of ['APPROVE_TOKEN1', 'MINT']) {
+      const next = await service.begin(run.id, UNI_OWNER, w);
+      expect(next.attempt.step).toBe(step);
+      await service.handoff(run.id);
+      await service.report(run.id, { kind: 'HASH', hash: chain.wallet.sendDelegated(next.transaction, { preconfirmedReads: 1 }) });
+      expect((await service.observe(run.id)).error).toBe('UNISWAP_RECEIPT_NOT_CANONICAL');
+      await service.observe(run.id);
+    }
+    record = await service.load(run.id);
+    expect(record.verdict).toBe('RECONCILED');
+    expect(record.evidence!.transactions.every(t => /^0x[0-9a-f]{64}$/.test(t.blockHash) && !/^0x0{64}$/.test(t.blockHash))).toBe(true);
+    expect(JSON.stringify(record.evidence)).not.toContain('0x' + '0'.repeat(64));
+    expect(chain.counters.sends).toBe(3);                // observation and retries never resend
+  });
   it('a relayed redemption whose decoded call differs from the reviewed one is never reconciled', async () => {
     const { service, chain } = await setup({ delegatedOwner: true }), w = workflow();
     const run = await reviewed(service, w);

@@ -14,11 +14,13 @@ const MANAGER = '0xdb9b1e94b5b69df7e401ddbede43491141047db3';
 const REDEEMED = '0x40dadaa36c6c2e3d7317e24757451ffb2d603d875f0ad5e92c5dd156573b1873';
 const owner = real.owner, relayer = real.transaction.from, receiptBlock = Number(BigInt(real.receipt.blockNumber)), preBlock = receiptBlock - 12;
 const word = (a: string) => '0x' + a.slice(2).padStart(64, '0');
-type Env = { tx: Record<string, unknown>; receipt: Record<string, unknown>; ownerCodeAtPre: string; ownerCodeAtReceipt: string; managerCode: string };
+type Env = { tx: Record<string, unknown>; receipt: Record<string, unknown>; ownerCodeAtPre: string; ownerCodeAtReceipt: string; managerCode: string;
+  block: Record<string, unknown> | null };
 const base = (): Env => ({ tx: structuredClone(real.transaction), receipt: structuredClone(real.receipt), ownerCodeAtPre: real.ownerCode,
-  ownerCodeAtReceipt: real.ownerCode, managerCode: '0x6080604052' });
+  ownerCodeAtReceipt: real.ownerCode, managerCode: '0x6080604052', block: structuredClone(real.canonicalBlock) });
 function rpcFor(env: Env): Rpc {
   return async (method, params) => {
+    if (method === 'eth_getBlockByNumber') return Number(BigInt(params[0] as string)) === receiptBlock ? env.block : null;
     if (method !== 'eth_getCode') throw new Error('UNEXPECTED_RPC_' + method);
     const [target, block] = params as [string, string];
     if (target === MANAGER) return env.managerCode;
@@ -42,6 +44,16 @@ describe('real MetaMask type-2 depth-1 delegated redemption (Base Sepolia 0x8248
   it('is accepted as DELEGATED depth 1, redeemed by the sender for the already-delegated owner', async () => {
     const result = await verify(base());
     expect(result).toMatchObject({ direct: false, delegated: true, delegationDepth: 1, txFrom: relayer, txTo: MANAGER, status: 1, blockNumber: receiptBlock });
+  });
+  it.each<[string, (env: Env) => void]>([
+    ['a preconfirmed receipt with an all-zero block hash', env => { env.receipt.blockHash = '0x' + '0'.repeat(64); }],
+    ['a block not sealed yet at the receipt height', env => { env.block = null; }],
+    ['a receipt block hash that is not the canonical block (reorg)', env => { env.receipt.blockHash = '0x' + '7'.repeat(64); }],
+    ['a canonical block that does not include the transaction', env => { env.block!.transactions = (env.block!.transactions as string[]).filter(h => h !== real.transaction.hash); }],
+    ['a transaction readback naming another block', env => { env.tx.blockHash = '0x' + '6'.repeat(64); }],
+  ])('keeps %s non-final (RECEIPT_NOT_CANONICAL, never a mismatch)', async (_name, mutate) => {
+    const env = base(); mutate(env);
+    await expect(verify(env)).rejects.toThrow(/^RECEIPT_NOT_CANONICAL$/);
   });
   it.each<[string, (env: Env) => void, typeof real.reviewedCall | undefined]>([
     ['a different approval amount than reviewed', () => undefined, { ...real.reviewedCall, data: real.reviewedCall.data.slice(0, -6) + '2dc6c1' }],

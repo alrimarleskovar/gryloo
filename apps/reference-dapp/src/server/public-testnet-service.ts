@@ -184,6 +184,16 @@ export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash
   if (![0, 1].includes(status) || !Number.isSafeInteger(blockNumber) || blockNumber < attempt.preBlock ||
       hex(raw.transactionHash) !== attempt.txHash || address(raw.from) !== txFrom ||
       address(raw.to) !== txTo || !HASH.test(hex(raw.blockHash))) fail('RECEIPT_INVALID');
+  // Canonical inclusion before a receipt can become evidence. A preconfirmed receipt (Base Flashblocks) carries an
+  // all-zero block hash for a block that is not sealed yet; it, or any hash that is not the canonical block at that
+  // height containing this transaction, is not final: callers keep observing (RECEIPT_NOT_CANONICAL is never a mismatch).
+  const receiptBlockHash = hex(raw.blockHash);
+  if (/^0x0{64}$/.test(receiptBlockHash)) fail('RECEIPT_NOT_CANONICAL');
+  const canonical = await rpc('eth_getBlockByNumber', [blockHex(blockNumber), false]);
+  if (!isObject(canonical) || typeof canonical.hash !== 'string' || canonical.hash.toLowerCase() !== receiptBlockHash ||
+      typeof canonical.number !== 'string' || Number(quantity(canonical.number)) !== blockNumber || !Array.isArray(canonical.transactions) ||
+      !canonical.transactions.some(entry => (isObject(entry) ? entry.hash : entry) === attempt.txHash) ||
+      typeof tx.blockHash === 'string' && tx.blockHash.toLowerCase() !== receiptBlockHash) fail('RECEIPT_NOT_CANONICAL');
   if (delegated) {
     const block = blockHex(blockNumber);
     // Account code may legitimately be empty (`0x`); an empty or different code is a mismatch, not an RPC failure.
@@ -468,8 +478,16 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
       if (raw === null) return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
       if (!isObject(raw)) fail('RECEIPT_INVALID');
       const tx = await rpc('eth_getTransactionByHash', [attempt.txHash]);
-      const { direct, delegated, delegationDepth, txFrom, txTo, txInput, status, blockNumber, gasUsed, effectiveGasPrice, l1Fee, nonce } = await verifyOwnerSubmission(rpc,
-        { txHash: attempt.txHash, account: attempt.account, target: attempt.tx.to, data: attempt.tx.data, preBlock: attempt.preBlock }, tx, raw);
+      let verified: Awaited<ReturnType<typeof verifyOwnerSubmission>>;
+      try { verified = await verifyOwnerSubmission(rpc, { txHash: attempt.txHash, account: attempt.account, target: attempt.tx.to, data: attempt.tx.data,
+        preBlock: attempt.preBlock }, tx, raw); }
+      catch (cause) {
+        // Not yet canonically included (e.g. a preconfirmed receipt): exactly like no receipt yet.
+        if (cause instanceof Error && cause.message === 'RECEIPT_NOT_CANONICAL')
+          return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
+        throw cause;
+      }
+      const { direct, delegated, delegationDepth, txFrom, txTo, txInput, status, blockNumber, gasUsed, effectiveGasPrice, l1Fee, nonce } = verified;
       if (delegated && status === 1) {
         if (!Array.isArray(raw.logs)) fail('RECEIPT_INVALID');
         if (attempt.step === 'approval') {

@@ -3,9 +3,9 @@
 Date: 2026-10-03. Branch `claude/build-uniswap-liquidity-public`, stacked on `claude/build-cloud-001`
 (`40ea29dd39e9aa487747d40e6bc99e196053b806`). Plan: [BUILD-UNISWAP-LIQUIDITY-PUBLIC-PLAN.md](BUILD-UNISWAP-LIQUIDITY-PUBLIC-PLAN.md).
 
-**Status: IMPLEMENTATION COMPLETE — READY FOR OWNER PUBLIC E2E.** The remaining steps are the owner's: deploy
-BUILD-CLOUD-001 with this flow enabled, then run the public acceptance below with your own wallet. No public
-transaction was sent by the agent, and no `TESTNET_EXECUTED` claim is made.
+**Status: owner public E2E completed (`TESTNET_EXECUTED`, run `unilp-ff982993…6369`); see the hardening section below. At implementation time the status was IMPLEMENTATION COMPLETE — READY FOR OWNER PUBLIC E2E.** The owner then ran the
+public acceptance with their own wallet. The agent sent no public transaction. The `TESTNET_EXECUTED` evidence comes
+from the owner's run.
 
 ## What was built
 
@@ -178,6 +178,66 @@ allowance is already on chain, so a new Review will show "existing allowance is 
 **Known limit.** If a relayed submission's hash is lost before it reaches the server, nonce-based discovery cannot
 find it, because your nonce does not change. The saved local hash pointer and the duplicate-position guard still
 apply, and nothing is ever resent automatically.
+
+## Owner public E2E and canonical-inclusion hardening (2026-10-03)
+
+**The owner E2E completed on public Base Sepolia.** Run `unilp-ff982993a669f8a4f86a8d7b4c6c6369` ended `RECONCILED` /
+`TESTNET_EXECUTED`, with Evidence Bundle `0xf3687b55…4da2`:
+
+- WETH approval
+  [`0x292f12ee…c35d`](https://sepolia.basescan.org/tx/0x292f12eea493fbcd20cd284a8bfdf74ec14a28dbfca8958a5e00f8dbf36fc35d);
+- mint
+  [`0x158e125d…83d2`](https://sepolia.basescan.org/tx/0x158e125d6bfb4df04a87d743e25d5c5ca4b2eef634cd27319439b1fae6f283d2);
+- position NFT #82559, owned by the owner.
+
+Both transactions were MetaMask relayed type-2, depth-1 redemptions.
+
+**Defect.** The bundle records the approval receipt with `blockHash = 0x00…00` (block 47,647,737).
+
+**Root cause.** The approval receipt was read while preconfirmed. Base Sepolia's RPC returns Flashblocks-preconfirmed
+receipts before the block is sealed, and those carry an all-zero block hash. The shared verifier only required
+`blockHash` to be 32 bytes of hex, so the zero hash passed and was persisted. The approval's allowance check still
+passed, so the effects were real. The mint was observed after sealing and has its canonical hash. The approval
+itself is canonically included in block 47,647,737 with hash `0xcc1a8873a496c4558abe9f1508ca623b850672db3c554a753ba5eb72bf8c3215`,
+at transaction index 9.
+
+**Fix.** Before any receipt can become evidence, the shared verifier (swap and liquidity) now requires:
+
+- a non-zero 32-byte block hash;
+- the canonical block at the receipt's height has that hash and that number;
+- that block lists the transaction;
+- any block hash on the transaction readback agrees.
+
+Otherwise it raises `RECEIPT_NOT_CANONICAL`, which is never treated as a mismatch:
+
+- **liquidity:** the attempt stays `PENDING` and observation-only (`UNISWAP_RECEIPT_NOT_CANONICAL`), and the worker
+  retries with backoff;
+- **swap:** handled exactly like "no receipt yet".
+
+Nothing is resent.
+
+**Regressions.**
+
+- On the real MetaMask depth-1 transaction: zero hash, unsealed block, reorganized hash, block without the
+  transaction, and a mismatching transaction readback all stay non-final. The real transaction still verifies.
+- Service: two preconfirmed reads leave the attempt `PENDING` with no receipt and no evidence. The canonical readback
+  then reconciles approvals and mint with real block hashes, with exactly 3 sends.
+- Swap: preconfirmed reads keep the attempt pending, and the canonical receipt then reconciles.
+- PostgreSQL: a worker sees the preconfirmed receipt, keeps the run observation-only, retries, then reconciles once.
+
+**Historical evidence is unchanged.** The completed `TESTNET_EXECUTED` run and bundle `0xf3687b55…4da2` are not
+rewritten. A read-only canonical re-observation
+(`scripts/uniswap-liquidity-canonical-reobservation.mjs`) produced the new supplemental artifact
+[BUILD-UNISWAP-LIQUIDITY-PUBLIC-OWNER-E2E-CANONICAL-SUPPLEMENT.json](BUILD-UNISWAP-LIQUIDITY-PUBLIC-OWNER-E2E-CANONICAL-SUPPLEMENT.json)
+(file SHA-256 `0x5d4499b0fb8553bbcc85300ef4eb93b06a24f760c49c5fadfae896baa43ba83a`). It references the historical
+bundle by hash and records:
+
+- the approval's canonical block hash;
+- both transactions re-verified through the hardened verifier;
+- the 0.001 WETH exact approval effective at its canonical block;
+- the mint's recipient, ticks and liquidity (270,633,039,423);
+- amounts: 0.175465 USDC and 0.000999999999998412 WETH;
+- NFT #82559 owned by the owner, at the mint block and at the observed head.
 
 ## Swap → liquidity composition
 
