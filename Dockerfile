@@ -11,6 +11,7 @@ RUN node -e "const c=require('node:crypto'),f=require('node:fs');fetch('https://
  && test "$(pnpm --version)" = "11.22.0"
 WORKDIR /app
 COPY --chown=node:node . .
+RUN chown node:node /app
 USER node
 # Frozen, integrity-checked install without lifecycle scripts; build only the packages the backend imports.
 RUN pnpm install --frozen-lockfile --ignore-scripts \
