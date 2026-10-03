@@ -1,8 +1,11 @@
 # BUILD-016 — Report
 
-Date: 2026-10-03. **IMPLEMENTATION COMPLETE; OWNER ACTION REQUIRED for acceptance/merge and the unachieved fork financial-certification target.**
-The authorized local implementation and required behavioral tests are complete.
-Evidence maturity is **MOCKED / RECONCILED**, chain 31337 only.
+Date: 2026-10-03. **BUILD-016 BLOCKED — genuine fork financial certification requires fresh owner-provided transport inputs.**
+The owner accepted the local behavioral implementation but requires the original
+FORK_REPRODUCED financial target before BUILD-016 acceptance. Only the missing
+certification was pursued in this continuation; no product functionality or
+policy semantics changed. Current financial evidence remains **MOCKED / RECONCILED**,
+chain 31337 only. The owner confirmed both fresh recording inputs are unavailable.
 D-016-1 is APPROVED; no renewed mechanism-selection decision is requested.
 No merge or public-chain transaction occurred.
 
@@ -73,6 +76,7 @@ No TESTNET_EXECUTED or MAINNET_EXECUTED claim is made.
 | Tests | executor Mode C unit/fixture/local EVM contracts and tests; cloud Mode C PostgreSQL tests; additive authority vector |
 | CI/tooling | contracts.yml adds local gate; bootstrap-build016-solc.py |
 | Documentation | ADR-0007; BUILD-016 plan/report/two immutable evidence snapshots; DECISIONS, REQUIREMENTS, STATUS |
+| Certification continuation | e2e/fork/build016-fork-preflight.mjs; executor/test/mode-c-fork-coverage.test.ts; new BUILD-016-FORK-PREFLIGHT.json; plan/report/status updates only |
 
 Existing base-observation implementation, Master Spec, historical vectors,
 persistent identifiers, BUILD-013 and both externally owned worktrees are unchanged.
@@ -81,13 +85,14 @@ persistent identifiers, BUILD-013 and both externally owned worktrees are unchan
 
 | Check | Result | Maturity / limitation |
 |---|---|---|
-| Full regression `pnpm test` | 1,238 PASS; 2 pre-existing gated skips | MOCKED engineering/compatibility tests |
+| Full regression `pnpm test` (continuation) | 1,243 PASS; 2 pre-existing gated skips | Engineering tests, including five new NOT_EXECUTION_EVIDENCE coverage checks |
 | Focused Mode C unit suite | 47 PASS | Integer threshold, authority, budget, crash/recovery and compatibility |
-| PostgreSQL `pnpm test:postgres` | 37 PASS, including 4 new Mode C cases | Real disposable local PostgreSQL; synthetic financial driver |
-| BUILD-016 local EVM suite | 11 PASS | MOCKED: real pinned Safe/Roles + verifier, synthetic market/contracts |
-| Typecheck, lint, production build | PASS | All workspace packages, including Next production build |
-| Frozen schema export check | PASS: 11 exports | Existing schemas and hashes unchanged |
-| Governance self-tests / scanner / whitespace | PASS: 17 self-tests | No secret/private-key artifact committed |
+| PostgreSQL `pnpm test:postgres` (prior delivery) | 37 PASS, including 4 Mode C cases | Preserved result; not rerun in this certification-only continuation |
+| BUILD-016 local EVM suite (prior delivery) | 11 PASS | Preserved MOCKED result; real pinned Safe/Roles + verifier, synthetic market/contracts |
+| Typecheck and lint (continuation) | PASS: 15 typecheck/build-dependency tasks; workspace lint | No production code change |
+| Production build / frozen schema exports (prior delivery) | PASS / 11 exports | Preserved result; not rerun in this continuation |
+| Governance self-tests / scanner / whitespace (continuation) | PASS: 17 self-tests | No secret/private-key artifact committed |
+| Genuine-fork read-only coverage probe (continuation) | BLOCKED: exit 3 twice; byte-identical output | NOT_EXECUTION_EVIDENCE; missing token/tick state, no financial submission |
 | Existing closed-fork Mode B smoke probe | FAIL CLOSED: MODE_B_NO_QUOTE | Existing composition replay does not provide this quote; no new financial effect |
 | Initial closed-fork source-pin probe | REJECTED: MODE_C_UNVERIFIABLE_STATE | Existing profile uses SHA-256 code pins; verifier uses explicitly bound EVM Keccak code hash. No silent reinterpretation |
 
@@ -115,6 +120,7 @@ installation and one consumed action, not retries of the same financial action.
 | 16–18: concurrency, replay, restart | Independent file/PG workers; exactly one reservation; same-block EVM success + revert; persisted state | PASS |
 | 19: uncertain execution result | Signed hash/raw/nonce persisted before send; read-only reconciliation; no blind resend or budget release | PASS |
 | 20: valid authority + trigger executes canonical swap | Autonomous monitor observes dip, dispatches once, reconciles, stops | PASS, MOCKED local EVM |
+| Required genuine financial fork gate | Cannot construct verified reference or drive ≥5% move from the incomplete closed state; fresh transport files unavailable | BLOCKED, no FORK_REPRODUCED financial evidence |
 
 Crash-before/after reservation and after SUBMITTING, stale/revoked dispatch recheck,
 monitor failure, requested/confirmed revocation, already-submitted recovery, storage
@@ -176,8 +182,10 @@ outside Git. Compiler/bootstrap adds no deployed third-party dependency.
 
 The plan's target was FORK_REPRODUCED financial acceptance. Delivery proves the
 approved local boundary at MOCKED maturity; the unchanged closed composition
-transcript lacks the smoke quote and is not edited or extended. Genuine fork
-proof remains an explicit next gate. No synthetic source is called Base market data.
+transcript lacks the smoke quote and is not edited or extended. The owner now
+requires this original fork target; it remains unmet. The certification
+continuation below establishes the exact missing source state and external
+transport blocker. No synthetic source is called Base market data.
 The authority ADR accompanies implementation delivery rather than preceding code;
 D-016-1 and the mandatory plan were recorded before implementation.
 No browser UI was added: the autonomous monitor test proves execution independently
@@ -188,9 +196,10 @@ of a browser, consistent with this narrow backend policy.
 Branch: `codex/build-016-mode-c-automation`.
 Worktree: `/home/asus/projects/gryloo/.turbo/build016`.
 Verified baseline: `40ea29dd39e9aa487747d40e6bc99e196053b806`.
-Delivery HEAD is the commit containing this report, recorded by Git and the final
-handoff. Plan, implementation, tests and report are delivered together. PR is
-unmerged if created; owner retains merge.
+Accepted local implementation HEAD: `0ecf063f58c2613f8dc1ce6b28dc1e6280dc407f`.
+Continuation HEAD is the commit containing this report, recorded by Git and the
+final handoff. PR [#52](https://github.com/alrimarleskovar/gryloo/pull/52) stays
+draft, open and unmerged; owner retains merge.
 
 ## 11. Technical debt created
 
@@ -206,14 +215,132 @@ Do not reuse this local maturity as authority for public execution.
 
 ## 13. Next-build options
 
-Next gate within BUILD-016 acceptance: review the local evidence and authority
-ADR, then obtain an explicitly approved complete fork recording/proof if the
-original FORK_REPRODUCED financial-certification target is required. Broader
-source/deployment choices and independent audit require their own authorization.
+Next gate within BUILD-016 acceptance: provide the fresh transport files in §14,
+complete the separately pinned recording/replay fixture, then run the genuine
+fork financial certification with all existing authority semantics. The owner
+has already authorized this work and requires FORK_REPRODUCED / RECONCILED.
+Broader source/deployment choices and independent audit require their own authorization.
 
 ## 14. Required human decision
 
-D-016-1 is resolved and approved. Owner acceptance/review and merge remain owner
-actions. The fork financial-certification target remains unmet; the owner may
-accept the bounded MOCKED local implementation or authorize the missing genuine
-fork proof separately. No fresh permission to implement BUILD-016 is needed.
+D-016-1 and fork certification implementation authorization are approved. The
+owner explicitly confirmed there is no fresh Alchemy credential or current
+Free-plan attestation and directed recording to remain blocked on this external
+requirement. No credential value is requested, read by the agent or committed.
+No paths are invented and no destroyed historical credential is reused.
+
+Exactly **two owner-provided files** are required, at owner-selected absolute
+paths outside all Git checkouts (actual paths have not been supplied):
+
+1. **Current Alchemy Free-plan billing attestation JSON**, owner-owned regular
+   file, mode `0600`. Use the existing recorder format
+   `gryloo.build-003f-provider-billing.v1`, `provider: "Alchemy"`, `plan: "Free"`,
+   `network: "Base Mainnet"`; `paymentMethod`, `paidAddOn`, `payAsYouGo`,
+   `overage`, `autoUpgrade` all `false`; `reportedOn` equal to the recording's
+   current UTC date. Supply actual integer `usedMonthlyCu`,
+   `monthlyAllowanceCu: 30000000`, and `remainingMonthlyCu`, with used + remaining
+   = allowance and remaining ≥ 39000. After the new credential-free preflight,
+   add truthful `credentialRotated: true`, `previousCredentialDeleted: true`, and
+   `rotatedOn` for that recording date. No credential belongs in this JSON.
+2. **Fresh rotated Alchemy Base Mainnet recording credential file**, owner-owned
+   nonsymlink regular file, mode `0600`, created/modified after that new preflight.
+   Its trimmed content must satisfy the existing recorder's 16–128-character
+   alphanumeric/underscore/hyphen validation. Only the recording proxy may read
+   it and place it in its fixed Alchemy Authorization header; never provide its
+   contents in chat, argv, logs, environment, artifacts or Git. The recorder
+   destroys the file at completion or stop.
+
+These preserve ADR-0004 and the existing recording contracts. A future BUILD-016
+recording needs its own fresh preflight manifest, journal and request/CU
+reservations, retaining limits of 1500 requests / 39000 listed CU / 30 minutes,
+400 ms single-flight spacing, 30 s provider timeout and permanent first-error
+stop. Historical attempt budgets are not available. Disposable local test
+signers and their mode-0600 files are generated locally, not additional owner
+wallet keys. The old BUILD-007 recorder must not be run against its spent root.
+The BUILD-016-specific scenario/recording entrypoint and complete closed fixture
+remain work for the authorized continuation after transport becomes available;
+the files alone do not constitute certification. No new implementation approval
+is needed to resume the already-authorized fork proof.
+
+### Certification continuation: exact blocker and immutable evidence
+
+New artifact: [BUILD-016-FORK-PREFLIGHT.json](BUILD-016-FORK-PREFLIGHT.json).
+It records 25 read-only local RPC calls, code commitments, raw failed responses,
+the unchanged collector's failure, exact reference/5% crossing requirements and
+all three existing recording inventories. It is explicitly
+**NOT_EXECUTION_EVIDENCE** with no financial transaction or execution Evidence
+Bundle. Probe exit `3` means `BLOCKED_MISSING_PINNED_STATE`; it is not a passing
+fork execution gate.
+
+Source provenance: unchanged BUILD-007 composition recording from the fixed
+Alchemy endpoint class, finalized Base chain 8453 block **51,906,032**, hash
+`0x53282db3770a2993f40791f5bbd81e7cdfcded69e5f699bfb0e1c036d635dd6d`;
+transcript SHA-256
+`337da42d5a89f504a37ea795703b52a340a27cfbac2ccbf6793de532c30a496d`.
+Pinned Anvil 1.8.3 ran a closed replay on local chain 31337 with no upstream
+fallback. Real protocol code/state used for the failed preflight:
+
+| Contract | Exact address | EVM runtime Keccak-256 |
+|---|---|---|
+| WETH | `0x4200000000000000000000000000000000000006` | `0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c` |
+| USDC proxy | `0x833589fcd6edb6e08f4c7c32d4f71b54bda02913` | `0xa6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab` |
+| V3 factory | `0x33128a8fc17869897dce68ed026d694621f6fdfd` | `0x95707a4ac71f20181a63ef7d180e3c625be5d20fc8f6f980befa966bad568132` |
+| SwapRouter02 | `0x2626664c2603336e57b271c5c0b26f421741e481` | `0x38bd640f47df62b2fd5a6755a63f4976ad847dc9b946ae0d145d21d16bb124e4` |
+| WETH/USDC fee-500 pool | `0xd0b53d9277642d899df5c87a3966a349a798f224` | `0xcd06f61c6db6a1d8317548aaaa0aa83254624aec741534c51815810e977587ae` |
+
+The existing profile's pool-code pin is a byte SHA-256. The probe verifies that
+pin and derives the required EVM Keccak commitment from the actual runtime
+bytes; it does not reinterpret the SHA pin as Keccak or alter the profile.
+Real factory/pool identity calls succeed. Reference `sqrtPriceX96` is
+`4106074326487655150519822`, tick `-197363`, liquidity `1368767480568985051`.
+The exact maximum eligible sqrt price is `4002106202477515253583342` (tick
+`-197876`), evaluated using squared integer arithmetic. These are source
+coverage facts, not an authorized fresh execution observation.
+
+The actual WETH `decimals()` call requires unrecorded slot **2**; USDC
+`decimals()` requires unrecorded slot **6**. The unchanged collector rejects
+the former with `FORK_STATE_UNRECORDED`. The actual bitmap word `-78` has all
+256 bits set. Reaching the 5% boundary requires crossing 51 initialized ticks
+from `-197370` through `-197870`, with **201 of 204 Tick.Info storage words
+missing**. Direct real `ticks(int24)` reads at both ends fail closed; the new
+artifact lists every missing word. These are necessary reads, not a complete
+new transaction's read set. Other recordings pin blocks 51,797,365 and
+51,880,679 with different hashes; their state cannot be spliced into this one.
+
+The minimal legitimate new fixture must pin one finalized N/H, record actual
+token metadata/proxy state and all cold protocol reads needed by the existing
+collector, simulation and real trades, then drive the pool down ≥5% via a
+real WETH→USDC trade on local chain 31337. It must perform the already-authorized
+USDC→WETH action through unchanged Mode B/Manifest/Mode C enforcement, reconcile
+receipts/balances, and prove the required negative/recovery cases in closed
+replay. Local ETH funding, disposable accounts and test clock must be explicit;
+no token/pool/router code substitution, pool storage setter, assumed decimals,
+zero-filled missing ticks or synthetic provider reply can stand in for source
+state. No new fixture recording started because the external inputs are absent.
+
+Artifact file SHA-256:
+`bfcda425a1c0c2e712ca5df1351ac7d6fe9d3893596465cba71312c9a041f25d`.
+Canonical document SHA-256 (excluding its own digest field):
+`a95877a803f260e6f58b3e2d404944c9925c107de0ccafe054c16684aa4f696f`.
+There are **no new financial transaction hashes or fork Execution Evidence
+Bundle hashes**. Existing MOCKED snapshots are byte-preserved:
+`BUILD-016-EVIDENCE.json` SHA-256
+`fb6a92a6d11b4dcb1e5b40b61b4d438798a97602e0cb3e64a27397de429b19e4`;
+`BUILD-016-MONITOR-EVIDENCE.json` SHA-256
+`ace404cc81bfe31222c0825f0108bb8440b23b1e2324b87f6f4ccce24f65a1f5`.
+
+Continuation checks: five credential-free coverage/integrity tests verify
+source-response pins, independent Keccak/SHA code commitments, failed closed
+reads, exact trigger boundary/missing slots and rejection of public/mismatched
+RPC profiles. These run under the existing unit CI gate. CI architecture and
+its MOCKED local EVM gate are unchanged; green engineering CI cannot certify
+the missing financial fork gate. Financial maturity stays **MOCKED / RECONCILED**;
+fork certification is **BLOCKED**, not COMPLETE. No TESTNET_EXECUTED or
+MAINNET_EXECUTED claim is made.
+
+The coverage probe was run twice against the unchanged closed node: both exit
+`3`, and the complete output files match byte-for-byte. Direct comparison with
+the accepted local implementation commit confirms both MOCKED evidence files
+and all three source transcripts are byte-preserved. The full regression suite,
+workspace lint/typecheck, 17 governance self-tests and scanner passed. No fresh
+provider attempt, public-chain transaction, merge, or evidence relabel occurred.

@@ -17,7 +17,11 @@ append-only evidence are implemented. Execution maturity is **MOCKED / RECONCILE
 with synthetic pool/token/router and real pinned Safe/Roles; no public execution
 or new FORK_REPRODUCED financial certification. See [plan](builds/BUILD-016-PLAN.md),
 [report](builds/BUILD-016-REPORT.md) and [ADR-0007](adr/ADR-0007-mode-c-buy-dip-local.md).
-Owner retains review/acceptance and merge; broader certification is a separate gate.
+BUILD-016 is **BLOCKED** on the required genuine fork financial-certification
+gate: the closed source recording lacks required token/tick state, and the owner
+confirmed no fresh Alchemy credential or current Free-plan attestation is
+available. The immutable preflight and exact required files are in the report.
+The owner has authorized fork certification; PR #52 stays draft and unmerged.
 
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution
 

@@ -300,3 +300,54 @@ Existing quote and liquidity observations can supply reusable read/artifact
 code, but do not themselves install an independently enforced signed trigger.
 Owner authorization for BUILD-016 is recorded and will not be requested again;
 D-016-1 selects the missing security-critical mechanism within that objective.
+
+### Certification continuation — owner-authorized genuine fork proof
+
+On 2026-10-03 the owner accepted the local behavioral implementation while
+requiring genuine FORK_REPRODUCED / RECONCILED evidence before BUILD-016 closes.
+Work is limited to this missing certification. No production functionality,
+policy semantics, source architecture or authority boundary may change.
+
+First verify the existing pinned closed Base recording's actual pool/code/storage
+coverage. Drive any dip through real protocol transactions on the local fork;
+never set pool price/tick/liquidity storage or substitute token/pool/router code.
+Keep LOCAL_SETUP funding, account declarations and local time distinct from
+observed Base state. Preserve the original recordings and MOCKED evidence bytes.
+
+If coverage is insufficient, record exact missing method/address/slot/response
+requirements and create a separate minimal reproducible recording only within
+available authorized source access. Pin block N/H, protocol code, tools, raw
+source responses and fixture inputs. Closed replay must have no live fallback.
+An unavailable source credential or provider restriction remains a concrete
+blocker; no exhausted historical recording budget or secret is reused.
+
+Fork evidence must be newly constructed from the new fork transaction, raw
+receipt, independent reconciliation, policy/Manifest and durable Journal. The
+current MOCKED-only evidence helper must never be used to relabel old evidence.
+Any certification-specific Evidence Bundle assembly belongs to the test/proof
+fixture, using the existing canonical schema and hash contract.
+
+Prove the same trigger, finite exact USDC→WETH call, one-use authority, temporal
+limits, owner-confirmed revocation, atomic reservation, concurrency/replay and
+restart/unknown-result semantics. Update this report, immutable fork artifacts
+and the certification CI gate as applicable. Keep PR #52 draft; do not merge.
+
+**Certification blocker confirmed (2026-10-03):** The closed composition source
+block 51,906,032 / `0x53282db3770a2993f40791f5bbd81e7cdfcded69e5f699bfb0e1c036d635dd6d`
+does not contain the WETH decimals word at slot `2` or USDC decimals word at slot
+`6`. The unchanged Mode C collector fails closed with `FORK_STATE_UNRECORDED`.
+At the actual pool reference sqrt price, the 5% boundary crosses 51 initialized
+ticks (-197370 through -197870). Of their 204 storage words, 201 are absent;
+real `ticks(int24)` reads at both ends fail closed. Other available transcripts
+pin different blocks and cannot fill these holes. The certification-only
+read-only probe and immutable `BUILD-016-FORK-PREFLIGHT.json` preserve these
+facts; they are NOT_EXECUTION_EVIDENCE, not a fork financial Evidence Bundle.
+
+The owner confirmed that neither a fresh Alchemy recording credential nor a
+current Free-plan attestation exists for BUILD-016 and directed this work to
+treat recording as blocked on that external requirement. No new recording
+attempt was started. ADR-0004's fixed provider transport is retained; no public
+RPC fallback, historical credential, exhausted budget or synthetic source
+response is substituted. See report §14 for the two owner-provided files needed
+to unblock recording. Their paths must be supplied by the owner; none are
+invented. Implementation authorization and D-016-1 remain approved.
