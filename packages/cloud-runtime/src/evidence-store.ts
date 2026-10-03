@@ -80,6 +80,8 @@ export function signS3Request(input: { method: string; url: URL; headers: Record
 }
 
 export function createS3EvidenceStore(config: S3Config, transport: typeof fetch = fetch): EvidenceStore {
+  // An unparseable endpoint (empty, no scheme, quoted) is a configuration error, not an unclassified TypeError.
+  if (!URL.canParse(config.endpoint)) throw new Error('OBJECT_STORE_ENDPOINT_INVALID');
   const endpoint = new URL(config.endpoint);
   if (endpoint.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname)) throw new Error('OBJECT_STORE_ENDPOINT_INSECURE');
   if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(config.bucket) || !config.accessKeyId || !config.secretAccessKey) throw new Error('OBJECT_STORE_CONFIGURATION_INVALID');
