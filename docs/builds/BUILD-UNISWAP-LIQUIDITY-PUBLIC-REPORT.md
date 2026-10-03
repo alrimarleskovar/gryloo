@@ -160,6 +160,14 @@ archived by the existing worker to the EvidenceStore with SHA-256 verification. 
 | `governance_lite.py` + self-tests, `git diff --check` | pass |
 | Not run locally | Anvil fork suites (`test:anvil`, `test:fork`), lending/Jupiter/CoW/Mode-A browser suites (untouched code paths), dependency audit (needs network). CI runs them. No dependency was added or changed. |
 
+## CI (draft PR #51, head `b409713`)
+
+All checks passed: Governance (push and PR runs), and the Contracts job (runs 37100728133 and 37100743231). The
+Contracts job covers registry integrity, licences and release age, typecheck, lint, build, schema drift, unit tests,
+the PostgreSQL suites, the Anvil compatibility gate and fork suite, the guarded browser suite (including the
+zero-pixel screenshot baselines and the new `uniswap-liquidity.spec.ts`), the dependency audit and the CycloneDX
+SBOM. The Vercel preview also passed.
+
 ## Real read-only public preflight
 
 Recorded in [BUILD-UNISWAP-LIQUIDITY-PUBLIC-READONLY.json](BUILD-UNISWAP-LIQUIDITY-PUBLIC-READONLY.json).
