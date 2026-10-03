@@ -17,7 +17,7 @@ export type LendingReview = { format: 'gryloo.lending-review.v1'; workflow: Sema
   calls: LendingCall[]; projected: { afterSupply: LendingSnapshot; afterBorrow: LendingSnapshot; afterSwap: LendingSnapshot };
   simulationResponse: unknown; gasPrice: string; l1FeeUpperBound: string; gasBudget: string; expiresAt: string;
   artifactSet: ArtifactSet; simulation: SimulationBundle; policy: AuthorizationPolicy; manifest: StrategyManifest;
-  plan: ExecutionPlan; commitment: string };
+  plan: ExecutionPlan; rerootOf?: string; commitment: string };
 const order: LendingStepId[] = ['POOL_APPROVAL', 'SUPPLY', 'BORROW', 'ROUTER_APPROVAL', 'SWAP'];
 export const lendingSteps = order;
 // Match the existing 2x fee-price headroom in Supply and this composition.
@@ -138,9 +138,10 @@ function simulatedSnapshot(before: LendingSnapshot, responses: Record<string, un
 }
 /** Rejects unsupported simulation; no state override, replacement token, pool creation or send exists here. */
 export async function simulateLendingComposition(workflow: SemanticWorkflow, account: string, rpc: SupplyRpc,
-  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string } = {}): Promise<LendingReview> {
+  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string; rerootOf?: string } = {}): Promise<LendingReview> {
   const now = options.now ?? Date.now(), f = assertLendingFields(workflow, account), completed = options.completed ?? [];
   const route = await readLendingRoute(rpc, f.borrowAmount, f.slippageBps, now, 'latest', options.minimumOut);
+  if (options.rerootOf !== undefined && (options.rootState || completed.length || !/^0x[0-9a-f]{64}$/.test(options.rerootOf))) throw Error('LENDING_REROOT_INVALID');
   const state = await readLendingSnapshot(rpc, account, supplyHex(route.block)), rootState = options.rootState ?? state;
   if (state.aave.blockHash !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
   if (!completed.includes('SUPPLY') && uint(state.aave.balance) < uint(f.supplyAmount) || completed.includes('BORROW') && uint(state.aave.balance) < uint(f.borrowAmount)) throw Error('LENDING_OWNER_FUNDING_INSUFFICIENT');
@@ -245,8 +246,26 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
       requiredAuthorizationClass:'MODE_A',executionKind:'DIRECT_TRANSACTION',payloadHash:hashSupplyValue(c.tx,'payload')}))}],
     checkpointIds:checkpoints.map(c=>c.checkpointId),enforcement:'NOT_ENFORCED'};
   supplyArtifactHash('execution-plan',plan);
-  const content = {format:'gryloo.lending-review.v1' as const,workflow,fields:f,state,rootState,route,completed,calls,projected,simulationResponse,gasPrice,l1FeeUpperBound,gasBudget,expiresAt,artifactSet,simulation,policy,manifest,plan};
+  const content = {format:'gryloo.lending-review.v1' as const,workflow,fields:f,state,rootState,route,completed,calls,projected,simulationResponse,gasPrice,l1FeeUpperBound,gasBudget,expiresAt,artifactSet,simulation,policy,manifest,plan,
+    ...(options.rerootOf === undefined ? {} : {rerootOf:options.rerootOf})};
   return {...content,commitment:supplyHash(content)};
+}
+/**
+ * The composed baseline of a run: its first Review, or the latest Review that re-rooted it. A re-root names the
+ * previous root's commitment, starts from its own fresh state and has no completed step; every other Review keeps
+ * the current root's starting state. Whether a re-root was permitted is validated against the run's attempts.
+ */
+export function lendingRootChain(reviews: readonly LendingReview[]): { root: LendingReview; index: number } {
+  if (!reviews.length || reviews[0]!.rerootOf !== undefined) throw Error('LENDING_ROOT_CHAIN_INVALID');
+  let index = 0;
+  reviews.forEach((r, i) => {
+    if (!i) return;
+    const root = reviews[index]!;
+    if (r.rerootOf === undefined) { if (supplyHash(r.rootState) !== supplyHash(root.rootState)) throw Error('LENDING_ROOT_CHAIN_INVALID'); return; }
+    if (r.rerootOf !== root.commitment || r.completed.length || supplyHash(r.rootState) !== supplyHash(r.state)) throw Error('LENDING_ROOT_CHAIN_INVALID');
+    index = i;
+  });
+  return { root: reviews[index]!, index };
 }
 /** Whole commitment and economic predicates, including unchanged approved calldata/minimum. */
 export function assertLendingReview(review: LendingReview, workflow: SemanticWorkflow, account: string, now = Date.now()): void {

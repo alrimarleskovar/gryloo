@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { hashJournalBytes, type ExecutionJournal, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import { assertLendingReview, supplyArtifactHash, supplyHash, rpcHash, lendingSteps,
+import { assertLendingReview, lendingRootChain, supplyArtifactHash, supplyHash, rpcHash, lendingSteps,
   type LendingReview, type LendingCall, type LendingStepId } from '@defi-workflow-engine/reference-compiler';
 import { createJournal, appendJournalState } from './journal.js';
 export type LendingAttempt = {id:string;step:LendingStepId;call:LendingCall;nonce:string;preparedAtBlock:number;
@@ -45,17 +45,21 @@ export function validateLendingRun(run:LendingRun):void {
       run.authorization!==null&&run.authorization!==currentLendingReview(run).commitment)throw Error('LENDING_STORE_CORRUPT');
   const first=run.reviews[0]!;
   if(run.journal.manifestHash!==supplyArtifactHash('strategy-manifest',first.manifest)||run.journal.executionPlanHash!==supplyArtifactHash('execution-plan',first.plan))throw Error('LENDING_STORE_CORRUPT');
-  for(const r of run.reviews){const {commitment,...value}=r;if(supplyHash(value)!==commitment||supplyHash(r.workflow)!==supplyHash(first.workflow)||supplyHash(r.rootState)!==supplyHash(first.rootState))throw Error('LENDING_STORE_CORRUPT');}
+  for(const r of run.reviews){const {commitment,...value}=r;if(supplyHash(value)!==commitment||supplyHash(r.workflow)!==supplyHash(first.workflow))throw Error('LENDING_STORE_CORRUPT');}
+  let rootIndex:number;try{rootIndex=lendingRootChain(run.reviews).index;}catch{throw Error('LENDING_STORE_CORRUPT');}
   hashJournalBytes(new TextEncoder().encode(JSON.stringify(run.journal)));
   const successful=new Set<LendingStepId>();
   for(const a of run.attempts){
-    const review=run.reviews.find(r=>r.commitment===a.reviewCommitment), call=review?.calls.find(c=>c.id===a.step);
+    const reviewIndex=run.reviews.findIndex(r=>r.commitment===a.reviewCommitment),review=run.reviews[reviewIndex], call=review?.calls.find(c=>c.id===a.step);
     const entry=[...run.journal.entries].reverse().find(e=>e.entityId===a.id);
     if(!call||supplyHash(call)!==supplyHash(a.call)||entry?.toState!==a.state||a.reconciled&&a.state!=='CONFIRMED'||a.hash!==null&&rpcHash(a.hash)!==a.hash||
         !a.ownerInitiated||!Number.isSafeInteger(a.preparedAtBlock)||!/^(0|[1-9][0-9]*)$/.test(a.nonce)||successful.has(a.step))throw Error('LENDING_STORE_CORRUPT');
     if(a.step==='BORROW'&&!successful.has('SUPPLY')||a.step==='SWAP'&&!successful.has('BORROW'))throw Error('LENDING_STORE_CORRUPT');
     if(a.reconciled)successful.add(a.step);
     if(a.notSubmitted&&(a.hash||a.reconciled||a.state!=='CANCELLED'))throw Error('LENDING_STORE_CORRUPT');
+    // Only attempts cancelled before wallet handoff may precede a re-rooted baseline.
+    if(reviewIndex<rootIndex&&(a.notSubmitted!==true||a.state!=='CANCELLED'||a.hash!==null||a.reconciled||
+      JSON.stringify(run.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState))!==JSON.stringify(['PREPARED','CANCELLED'])))throw Error('LENDING_STORE_CORRUPT');
   }
   const completed=run.attempts.filter(a=>a.reconciled).map(a=>a.step);
   if(completed.some((s,i)=>i>0&&lendingSteps.indexOf(s)<=lendingSteps.indexOf(completed[i-1]!))||run.status==='COMPLETED'&&!successful.has('SWAP'))throw Error('LENDING_STORE_CORRUPT');

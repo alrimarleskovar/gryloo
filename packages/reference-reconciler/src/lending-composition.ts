@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Independent canonical chain, owner-authority, and composed economic observations. */
 import { AAVE_V3_BASE_SEPOLIA as p, LENDING_BASE_SEPOLIA as u } from '@defi-workflow-engine/action-registry';
-import { readLendingSnapshot, assertLendingReview, compileLendingCalls, rpcRecord, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash, supplyTopic, supplyWord,
+import { readLendingSnapshot, assertLendingReview, compileLendingCalls, lendingRootChain, rpcRecord, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash, supplyTopic, supplyWord,
   type SupplyRpc, type LendingSnapshot, type LendingReview, type LendingCall } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal, type EvidenceBundle } from '@defi-workflow-engine/workflow-contracts';
 import { verifySupplyPosition, verifySupplyWalletEnvelope, addressTopic, logMatches, type SupplyWalletProof } from './supply.js';
@@ -123,7 +123,7 @@ export function verifyComposedLendingEffects(review:LendingReview,observations:L
 }
 export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null}) {
   if(input.provenance==='PUBLIC_TESTNET'&&!input.observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))throw Error('PUBLIC_OWNER_EXECUTION_NOT_PROVEN');
-  const root=input.reviews[0]!, post=input.observations.filter(o=>o.post).at(-1)?.post;
+  const root=lendingRootChain(input.reviews).root, post=input.observations.filter(o=>o.post).at(-1)?.post;
   const effects=input.completed?verifyComposedLendingEffects(root,input.observations):null;
   const observations={format:'gryloo.lending-observations.v1',provenance:input.provenance,ownerInitiated:true,
     completed:input.completed,reviews:input.reviews,observations:input.observations,effects};
@@ -153,7 +153,11 @@ export async function verifyLendingExport(exported:ReturnType<typeof buildLendin
   for(const [field,kind,value] of [['semanticWorkflowHash','semantic-workflow',artifacts.workflow],['artifactSetHash','artifact-set',artifacts.artifactSet],['simulationHash','simulation-bundle',artifacts.simulation],
     ['policyHash','authorization-policy',artifacts.policy],['manifestHash','strategy-manifest',artifacts.manifest],['executionPlanHash','execution-plan',artifacts.plan]] as const)
     if(supplyArtifactHash(kind,value)!==bundle[field])throw Error('LENDING_ARTIFACT_COMMITMENT_MISMATCH');
-  if(supplyHash(e.reviews)!==supplyHash(artifacts.reviews)||supplyHash(e.reviews[0])!==supplyHash(artifacts.review)||artifacts.journal.manifestHash!==bundle.manifestHash||artifacts.journal.executionPlanHash!==bundle.executionPlanHash)throw Error('LENDING_ARCHIVE_MISMATCH');
+  // The bundle binds to the composed baseline (first or re-rooted Review); the journal header to the run's first Review.
+  let chain:ReturnType<typeof lendingRootChain>;try{chain=lendingRootChain(e.reviews);}catch{throw Error('LENDING_ARCHIVE_MISMATCH');}
+  if(supplyHash(e.reviews)!==supplyHash(artifacts.reviews)||supplyHash(chain.root)!==supplyHash(artifacts.review)||
+    supplyArtifactHash('strategy-manifest',artifacts.review.manifest)!==bundle.manifestHash||supplyArtifactHash('execution-plan',artifacts.review.plan)!==bundle.executionPlanHash||
+    artifacts.journal.manifestHash!==supplyArtifactHash('strategy-manifest',e.reviews[0]!.manifest)||artifacts.journal.executionPlanHash!==supplyArtifactHash('execution-plan',e.reviews[0]!.plan))throw Error('LENDING_ARCHIVE_MISMATCH');
   const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING');
   if(submissions.length!==e.observations.length||submissions.some(j=>!e.observations.some(o=>o.attemptId===j.entityId)))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
   const attempts=new Set(artifacts.journal.entries.filter(j=>j.level==='attempt').map(j=>j.entityId));
@@ -163,13 +167,13 @@ export async function verifyLendingExport(exported:ReturnType<typeof buildLendin
   for(const review of e.reviews){
     assertLendingReview(review,review.workflow,review.fields.owner,Date.parse(review.simulation.freshness.observedAt));
     const compiled=compileLendingCalls(review.workflow,review.fields.owner,review.state,review.route.minimumOut,review.completed);
-    if(supplyHash(compiled.map(c=>({id:c.id,tx:c.tx})))!==supplyHash(review.calls.map(c=>({id:c.id,tx:c.tx})))||supplyHash(review.rootState)!==supplyHash(artifacts.review.rootState)||supplyHash(review.workflow)!==supplyHash(artifacts.workflow))throw Error('LENDING_ARCHIVE_MISMATCH');
+    if(supplyHash(compiled.map(c=>({id:c.id,tx:c.tx})))!==supplyHash(review.calls.map(c=>({id:c.id,tx:c.tx})))||supplyHash(review.workflow)!==supplyHash(artifacts.workflow))throw Error('LENDING_ARCHIVE_MISMATCH');
     if(review.policy.accountRiskRules.length!==2||review.policy.accountRiskRules.some(c=>c.minimumHealthFactorNumerator!=='2'||c.minimumHealthFactorDenominator!=='1')||review.manifest.spendLimits[0]?.maximumAmount!==(BigInt(review.fields.supplyAmount)+BigInt(review.fields.borrowAmount)).toString())throw Error('LENDING_POLICY_MISMATCH');
   }
   const observed:LendingObservation[]=[];
   for(const archived of e.observations){
     const review=e.reviews.find(r=>r.commitment===archived.reviewCommitment);
-    const call=review?.calls.find(c=>c.id===archived.step);if(!review||!call||!archived.receipt||!archived.transaction)throw Error('LENDING_ARCHIVE_MISMATCH');
+    const call=review?.calls.find(c=>c.id===archived.step);if(!review||!call||!archived.receipt||!archived.transaction||e.reviews.indexOf(review)<chain.index)throw Error('LENDING_ARCHIVE_MISMATCH');
     const entries=artifacts.journal.entries.filter(j=>j.entityId===archived.attemptId);
     if(entries[0]?.toState!=='PREPARED'||entries.at(-1)?.toState!=='CONFIRMED'||entries.filter(j=>j.toState==='SUBMITTING').length!==1||entries.some(j=>j.stepId!==call.id))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
     verifyIndependentLendingCalldata(review,call);

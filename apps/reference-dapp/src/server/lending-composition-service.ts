@@ -4,7 +4,7 @@ import { Buffer } from 'node:buffer';
 import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
-import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, simulateLendingComposition, readLendingSnapshot, supplyHash, supplyHex,
+import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
   writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
@@ -63,10 +63,27 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       if(!old||supplyHash(old.receipt)!==supplyHash(proof.receipt)||old.output!==proof.output)throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
     }
   }
+  const lastEntry=async(path:string):Promise<{id?:unknown}|null>=>{try{return JSON.parse((await readFile(path,'utf8')).trimEnd().split('\n').at(-1)!);}
+    catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return null;throw e;}};
+  /**
+   * A run may take a fresh starting state only while nothing ever reached a wallet: no completed step, no observation,
+   * every attempt cancelled from PREPARED with no hash, and every nonce/economic reservation still held by this run.
+   */
+  async function rerootable(r:LendingRecord):Promise<boolean> {
+    if(completed(r).length||!r.attempts.length||r.observations.length||!['PAUSED','SIMULATED','AUTHORIZED'].includes(r.status))return false;
+    for(const a of r.attempts)if(a.state!=='CANCELLED'||a.notSubmitted!==true||a.hash!==null||a.reconciled||
+      JSON.stringify(r.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState))!==JSON.stringify(['PREPARED','CANCELLED']))return false;
+    const owner=currentLendingReview(r).fields.owner;
+    for(const nonce of new Set(r.attempts.map(a=>a.nonce)))if((await lastEntry(join(input.journalDir,owner+'-'+nonce+'.intent')))?.id!==r.id)return false;
+    for(const review of r.reviews)for(const call of review.calls){
+      const last=await lastEntry(join(input.journalDir,'economic-'+supplyHash(call.tx).slice(2)+'.intent'));if(last&&last.id!==r.id)return false;
+    }
+    return true;
+  }
   /** The entire remaining path is tested before releasing ANY owner transaction, again at handoff. */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
     const review=currentLendingReview(r);assertLendingReview(review,workflow,account);await verifyPredecessors(r);
-    const root=r.reviews[0]!,rootBudget=lendingFeeCeilings(root),acceptedBudget=lendingFeeCeilings(review);
+    const root=lendingRootChain(r.reviews).root,rootBudget=lendingFeeCeilings(root),acceptedBudget=lendingFeeCeilings(review);
     const reconciled=proofs(r).filter(o=>o.verdict==='RECONCILED');
     const consumedNetwork=reconciled.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n),consumedL1=reconciled.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n);
     if(consumedL1>rootBudget.maximumL1Fee)throw Error('LENDING_FINAL_L1_FEE_BUDGET_CHANGED');
@@ -155,6 +172,12 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       if(r.attempts.some(a=>!a.reconciled&&!a.notSubmitted)||['COMPLETED','FAILED'].includes(r.status))throw Error('LENDING_RECOVERY_OBSERVE_ONLY');
       await verifyPredecessors(r);
       const latest=await readLendingSnapshot(input.rpc,review.fields.owner);
+      if(await rerootable(r)){
+        // New baseline from current canonical state; prior Reviews stay as history and the full path is simulated again.
+        if(latest.aave.block<review.state.aave.block)throw Error('LENDING_RPC_INCONSISTENT');
+        const reviewNext=await simulateLendingComposition(review.workflow,review.fields.owner,input.rpc,{rerootOf:lendingRootChain(r.reviews).root.commitment});
+        return save({...r,reviews:[...r.reviews,reviewNext],authorization:null,status:'SIMULATED',error:null,currentPosition:reviewNext.state});
+      }
       assertLendingPrincipalContinuity(proofs(r).filter(o=>o.verdict==='RECONCILED').at(-1)?.post??review.state,latest);
       const reviewNext=await simulateLendingComposition(review.workflow,review.fields.owner,input.rpc,{completed:completed(r),rootState:review.rootState});
       return save({...r,reviews:[...r.reviews,reviewNext],authorization:null,status:'SIMULATED',error:null,currentPosition:reviewNext.state});
@@ -177,7 +200,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       if(o.verdict==='RECONCILED'){
         if(a.state!=='CONFIRMED')r={...r,...lendingAttemptTransition(r,a.id,'CONFIRMED')};
         r={...r,attempts:r.attempts.map(v=>v.id===a!.id?{...v,reconciled:true}:v),status:a.step==='SWAP'?'COMPLETED':'PARTIALLY_COMPLETED',error:null};
-        if(a.step==='SWAP')try{verifyComposedLendingEffects(r.reviews[0]!,proofs(r));}catch(cause){r={...r,status:'RECOVERY_REQUIRED',authorization:null,error:cause instanceof Error?cause.message:'LENDING_COMPOSED_PROOF_INCOMPLETE'};}
+        if(a.step==='SWAP')try{verifyComposedLendingEffects(lendingRootChain(r.reviews).root,proofs(r));}catch(cause){r={...r,status:'RECOVERY_REQUIRED',authorization:null,error:cause instanceof Error?cause.message:'LENDING_COMPOSED_PROOF_INCOMPLETE'};}
       } else if(o.verdict==='DIVERGENT'){
         const reverted=o.reason==='LENDING_TRANSACTION_REVERTED';r={...r,...lendingAttemptTransition(r,a.id,reverted?'REVERTED':'RECONCILIATION_REQUIRED'),
           status:completed(r).includes('BORROW')?'PARTIALLY_COMPLETED':'FAILED',authorization:null,error:o.reason};
