@@ -102,7 +102,8 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
     if (session.chainId !== BASE_SEPOLIA_HEX) throw new Error('UNISWAP_WRONG_CHAIN');
     if (session.account !== record.owner) throw new Error('UNISWAP_WRONG_OWNER');
     const provider = injected(); if (!provider) throw new Error('UNISWAP_WALLET_REQUIRED');
-    const snapshot = record.workflow, id = record.id;
+    // The reviewed IR is the server-held run's (it survives reloads; `begin` re-validates it). The editor must not change mid-operation.
+    const snapshot = record.workflow, editing = latest.current, id = record.id;
     const diagnostic: UniswapWalletDiagnostic = { invoked: false, calls: [], code: 'UNISWAP_WALLET_PREFLIGHT' };
     const request = async (method: string, params: unknown[] = []) => {
       const call: UniswapWalletDiagnostic['calls'][number] = { method, ...method === 'eth_sendTransaction' ? { submission: true } : {} }; diagnostic.calls.push(call);
@@ -112,7 +113,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
     // Read-only session checks before and after the durable preparation; any change fails closed.
     const validateSession = async (nonce: string | null) => {
       const accounts = await request('eth_accounts'), chain = await request('eth_chainId');
-      if (JSON.stringify(latest.current) !== JSON.stringify(snapshot)) throw new Error('UNISWAP_SEMANTIC_REVISION_CHANGED');
+      if (latest.current !== editing) throw new Error('UNISWAP_SEMANTIC_REVISION_CHANGED');
       if (injected() !== provider) throw new Error('UNISWAP_WALLET_PROVIDER_CHANGED');
       if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== record.owner) throw new Error('UNISWAP_WRONG_OWNER');
       if (typeof chain !== 'string' || chain.toLowerCase() !== BASE_SEPOLIA_HEX) throw new Error('UNISWAP_WRONG_CHAIN');
