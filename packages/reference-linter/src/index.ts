@@ -27,5 +27,6 @@ export * from './native-transfer.js';
 
 export * from './solana-swap.js';
 export * from './solana-liquidity.js';
+export * from './uniswap-liquidity.js';
 
 export * from './lending-composition.js';

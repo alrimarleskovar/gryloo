@@ -16,6 +16,7 @@ import { validateSupplyWorkflow } from './supply.js';
 import { validateNativeTransferWorkflow } from './native-transfer.js';
 import { isSolanaSwapNode, validateSolanaSwapWorkflow } from './solana-swap.js';
 import { isConcentratedLiquidityNode, validateSolanaLiquidityWorkflow } from './solana-liquidity.js';
+import { isUniswapLiquidityNode, validateUniswapLiquidityWorkflow } from './uniswap-liquidity.js';
 
 const schemaValidator = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true }).compile<SemanticWorkflow>(workflowSchema);
 const SWAP = 'asset.swap.exact-input';
@@ -103,7 +104,9 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
   if (workflow.nodes.some(node => node.actionType === 'asset.transfer')) { validateNativeTransferWorkflow(workflow); return workflow; }
   // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
   if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }
-  // The canonical concentrated-liquidity action; its only runtime today is Orca Whirlpools on Solana Devnet.
+  // The canonical concentrated-liquidity action: Uniswap v3 on Base Sepolia (owner wallet) or Orca Whirlpools on Solana
+  // Devnet. Any other chain stays unsupported (the Solana validator rejects it as LIQUIDITY_RUNTIME_UNSUPPORTED).
+  if (workflow.nodes.some(isUniswapLiquidityNode)) { validateUniswapLiquidityWorkflow(workflow); return workflow; }
   if (workflow.nodes.some(isConcentratedLiquidityNode)) { validateSolanaLiquidityWorkflow(workflow); return workflow; }
   unique(workflow.nodes.map(node => node.nodeId), 'DUPLICATE_NODE');
   const nodes = new Map(workflow.nodes.map(node => [node.nodeId, node]));

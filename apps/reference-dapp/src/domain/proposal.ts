@@ -9,6 +9,7 @@ import { swapDetails } from './swap-authoring';
 import { bridgeDetails } from './bridge-authoring';
 import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import { solanaLiquidityDetails } from './solana-liquidity-authoring';
+import { uniswapLiquidityDetails } from './uniswap-liquidity-authoring';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
@@ -67,6 +68,13 @@ export function describeProposal(before: EditorState, after: EditorState, comman
   if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `${newNode?.actionType==='repay'?'Repay to':newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
     `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
+  const oldUni = oldNode && uniswapLiquidityDetails(oldNode), newUni = newNode && uniswapLiquidityDetails(newNode);
+  if (newUni) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Node ${newNode?.nodeId}: Concentrated liquidity on ${newUni.network} via ${newUni.provider} (test USDC / WETH pool, fee 0.05%)`,
+    `Maximum inputs: ${oldUni ? `${oldUni.maxUsdc} USDC + ${oldUni.maxWeth} WETH` : 'none'} → ${newUni.maxUsdc} USDC + ${newUni.maxWeth} WETH`,
+    `Range: ${oldUni ? `${oldUni.lowerPrice}–${oldUni.upperPrice}` : 'none'} → ${newUni.lowerPrice}–${newUni.upperPrice} USDC per WETH (ticks ${newUni.tickLower} to ${newUni.tickUpper}, aligned to spacing 10)`,
+    `Slippage: ${oldUni?.slippage ?? 'none'} → ${newUni.slippage} bps; position NFT owner: your connected wallet`,
+    'Maxima are limits, not amounts to spend. A read-only Base Sepolia simulation computes the actual deposit; each approval and the mint need their own wallet signature. Test tokens only.']);
   const oldPosition = oldNode && solanaLiquidityDetails(oldNode), newPosition = newNode && solanaLiquidityDetails(newNode);
   if (newPosition) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Node ${newNode?.nodeId}: Concentrated liquidity on ${newPosition.network} via ${newPosition.provider} (Devnet SOL / devUSDC test pool)`,
