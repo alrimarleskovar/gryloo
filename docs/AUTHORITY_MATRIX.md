@@ -5,6 +5,16 @@
 The human owner authorizes repository implementation through current instructions and PR review under [GOVERNANCE-LITE](SCOPE_GUARD.md). Historical exact-path approvals below do not constrain future repository edits. Financial authorization remains separate: AI cannot authorize wallet signing, public execution or real-funds submission. Owner merge remains required.
 
 
+## BUILD-UNISWAP-LIQUIDITY-PUBLIC owner-wallet liquidity authority
+
+Base Sepolia Uniswap v3 liquidity is Mode A only. The owner's browser wallet is the sole signer and sender of each
+exact finite approval (spender: the verified Position Manager, amount: the reviewed maximum) and of the mint (NFT
+recipient: the owner). Each wallet request needs the owner's Execute click on a current Review; a confirmed approval
+does not authorize the mint without a fresh simulation and Review once the Review has expired or been invalidated.
+The backend builds, simulates and records; workers only observe and reconcile through transports that reject every
+submission method. No server-held key, executor identity, delegation or batching is introduced. Mode B (BUILD-004/007
+Safe + Roles with a disposable executor key) remains local-fork only and is not a public authority model.
+
 ## Current BUILD-011D-1 capability authority
 
 DEC-0054 approves the [BUILD-011D-1 plan](builds/BUILD-011D-1-PLAN.md) for a typed capability registry, environment selection and Execute gating. Registry rows report separately demonstrated support and evidence; they do not grant signature or transaction authority. The existing Base Uniswap local-fork paths have `FORK_REPRODUCED` ceilings on chain 31337. CoW, LI.FI, Across and composed financial paths remain `MOCKED`; LI.FI live reads are data only. Supply, Lending and Borrow remain authoring templates. Public Testnet and Mainnet are disabled. One unmerged PR is authorized; owner merge is separate.

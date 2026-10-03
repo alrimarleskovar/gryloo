@@ -40,7 +40,15 @@ Legend: FS = depends on the local filesystem; LH = depends on localhost/Anvil/WS
 | 18 | Across bridge | Across (live quote when keyed) | Base → Arbitrum | MOCKED execution (BUILD-010) | yes (default on) | no | yes (`os.tmpdir()`; ephemeral on serverless) | no | no real send | no | storage port + flow once real execution exists | MOCKED demo only — **not** durable in the cloud | separate build for real execution |
 | 19 | Cross-chain liquidity + recovery | bridge + split + Uniswap v3 | Base → Arbitrum | MOCKED (BUILD-011C-1/2) | yes | no | server-side trace (in-process, MOCKED) | no | no | no | none until real | MOCKED demo only | separate build for real execution |
 | 20 | Canvas / chat authoring, Simulate, Review UI | linter/compiler | n/a | MOCKED artifact chain, recorded Base observation replay | yes | n/a (stateless; served by Vercel) | canvas layout prefs in localStorage (presentation only) | no | n/a | n/a | none | yes | — |
-| 21 | Recovery / reconciliation / Evidence Bundle | executor/reconciler | per flow | per flow | yes | **yes for #1–#9**: durable runs, worker reconciliation, append-only history, EvidenceStore archive with SHA-256 verification | — | — | — | — | done for cloud flows | with its flow | — |
+| 21 | Recovery / reconciliation / Evidence Bundle | executor/reconciler | per flow | per flow | yes | **yes for #1–#9 and #22**: durable runs, worker reconciliation, append-only history, EvidenceStore archive with SHA-256 verification | — | — | — | — | done for cloud flows | with its flow | — |
+| 22 | Uniswap v3 liquidity (public, BUILD-UNISWAP-LIQUIDITY-PUBLIC) | Uniswap v3 USDC/WETH 0.05% positions (exact approvals + owner-recipient mint) | Base Sepolia | `PUBLIC_READ_ONLY` preflight + MOCKED suites; **TESTNET_EXECUTED pending owner acceptance** (row #14's FORK_REPRODUCED is a separate, unchanged record) | yes | **yes** (`uniswap-liquidity`) | local mode only | no | yes (injected EIP-1193, one request per step) | yes | done | yes, once deployed (`GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live`) | owner deployment + owner wallet-signed public acceptance |
+
+## BUILD-UNISWAP-LIQUIDITY-PUBLIC update (2026-10-03)
+
+Row #22 adds the public Uniswap v3 liquidity path on the same runtime (one `FlowDefinition`, no migration, no new
+service). Row #14 (BUILD-006 Mode A on a local fork) and row #15 (BUILD-007 Mode B composition) keep their
+`FORK_REPRODUCED` records unchanged. Public swap → liquidity composition is **not** provided: see the
+[report](BUILD-UNISWAP-LIQUIDITY-PUBLIC-REPORT.md) for the blocker.
 
 ## What a user anywhere can use from the public deployment today
 
@@ -53,6 +61,7 @@ backend. Once the owner provisions Neon, a bucket, Railway (API + worker) and Ve
 - Robinhood Chain Testnet native self-transfer;
 - Solana Devnet Orca swap (SOL ↔ devUSDC);
 - Solana Devnet Orca concentrated liquidity (open, partial decrease, exit);
+- Base Sepolia Uniswap v3 concentrated liquidity (exact approvals, then a position NFT minted to the owner's wallet);
 - Jupiter mainnet-beta **Simulate and Review only** (execution only after the owner's explicit real-funds opt-in);
 
 each with durable cloud state, worker reconciliation after the browser closes, restart survival and an archived,
