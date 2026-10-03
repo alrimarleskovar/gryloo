@@ -22,6 +22,6 @@ describe('BUILD-CLOUD-001 backend entry point loads under plain Node', () => {
     const result = await promisify(execFile)(process.execPath, ['backend/main.ts', 'api'], { cwd, timeout: 60_000, env: { PATH: process.env.PATH ?? '', NODE_ENV: 'test' } })
       .then(() => ({ code: 0, stdout: '' }), (error: { code: number; stdout: string }) => ({ code: error.code, stdout: error.stdout }));
     expect(result.code).toBe(1);
-    expect(result.stdout).toContain('"error_code":"DATABASE_URL_REQUIRED"');
+    expect(result.stdout).toContain('"stage":"config","error_code":"DATABASE_URL_REQUIRED"');
   });
 });

@@ -24,10 +24,14 @@ import { flowMode, FLOWS, isFlowName, type FlowName } from './flows.ts';
 
 const [command, ...rest] = process.argv.slice(2);
 const logger = createLogger({ service: `flofi-${command ?? 'backend'}` });
+// Startup stage reported by `backend.failed`: a fixed label, never configuration or exception text.
+let stage = 'command';
 
 async function main(): Promise<void> {
   if (command === 'migrate') {
+    stage = 'config';
     const config = readRuntimeConfig(process.env, 'migrate');
+    stage = 'migrate';
     const db = createDatabase({ connectionString: config.migrationDatabaseUrl, maxConnections: 1, applicationName: 'flofi-migrate' });
     try { logger.info('migrate.applied', { versions: (await migrate(db)).join(',') || 'none', schema_version: await assertSchemaCurrent(db) }); }
     finally { await db.close(); }
@@ -65,14 +69,21 @@ async function main(): Promise<void> {
     return;
   }
   if (command !== 'api' && command !== 'worker') throw new Error('COMMAND_INVALID');
+  stage = 'config';
   const config = readRuntimeConfig(process.env, command);
+  stage = 'database';
   const db = createDatabase({ connectionString: config.databaseUrl, maxConnections: config.databasePoolMax, applicationName: `flofi-${command}` });
+  stage = 'schema';
   const schema = await assertSchemaCurrent(db);
+  stage = 'evidence_store';
   const evidenceStore = readEvidenceStore(process.env);
+  stage = 'backend';
   const backend = createBackend({ db, env: process.env, logger, tenantId: config.tenantId, holderId: config.workerId, evidenceStore });
+  stage = 'flow_modes';
   const modes = Object.fromEntries((Object.keys(FLOWS) as FlowName[]).map(flow => [flow, flowMode(flow, process.env)]));
   logger.info(`${command}.starting`, { schema_version: schema, tenant_id: config.tenantId, worker_id: config.workerId,
     evidence_store: evidenceStore?.id ?? 'none', flows: JSON.stringify(modes) });
+  stage = command;
 
   if (command === 'api') {
     const server = createHttpServer({ routes: backend.routes, logger, authToken: config.apiAuthToken,
@@ -95,8 +106,10 @@ async function main(): Promise<void> {
 main().catch(error => {
   // Only classified codes are logged: driver messages can embed connection details.
   const sqlState = (error as { code?: unknown; cause?: { code?: unknown } }).code ?? (error as { cause?: { code?: unknown } }).cause?.code;
-  logger.error('backend.failed', { command, error_code: error instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(error.message) ? error.message : 'UNCLASSIFIED_ERROR',
+  logger.error('backend.failed', { command, stage, error_code: error instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(error.message) ? error.message : 'UNCLASSIFIED_ERROR',
     sql_state: typeof sqlState === 'string' && /^[0-9A-Z]{5}$/.test(sqlState) ? sqlState : undefined,
-    system_error: typeof sqlState === 'string' && /^E[A-Z]{2,20}$/.test(sqlState) ? sqlState : undefined });
+    system_error: typeof sqlState === 'string' && /^E[A-Z]{2,20}$/.test(sqlState) ? sqlState : undefined,
+    node_error: typeof sqlState === 'string' && /^ERR_[A-Z0-9_]{1,60}$/.test(sqlState) ? sqlState : undefined,
+    error_type: error instanceof Error && /^[A-Za-z]{1,40}Error$/.test(error.name) ? error.name : undefined });
   process.exit(1);
 });

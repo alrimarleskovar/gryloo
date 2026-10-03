@@ -57,6 +57,9 @@ describe('BUILD-CLOUD-001 EvidenceStore', () => {
       await expect(readVerifiedEvidence(store, stored)).rejects.toThrow('EVIDENCE_INTEGRITY_FAILED');
       expect(() => createS3EvidenceStore({ endpoint: 'http://objects.example.com', bucket: 'b-1', region: 'r', accessKeyId: 'a', secretAccessKey: 's' }))
         .toThrow('OBJECT_STORE_ENDPOINT_INSECURE');
+      for (const endpoint of ['', 'objects.example.com', '"https://objects.example.com"'])
+        expect(() => createS3EvidenceStore({ endpoint, bucket: 'b-1', region: 'r', accessKeyId: 'a', secretAccessKey: 's' }))
+          .toThrow('OBJECT_STORE_ENDPOINT_INVALID');
     } finally { server.close(); }
   });
 });
