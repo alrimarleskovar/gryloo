@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
-import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
-import { join, isAbsolute } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { simulateSupply, assertSupplyReview, readSupplyState, readBorrowState, readWithdrawState, readSupplyLatestNonce, rpcHash, supplyHex, supplyHash, type SupplyRpc, type SupplyReview } from '@defi-workflow-engine/reference-compiler';
-import { createSupplyRun, prepareSupplyAttempt, supplyTransition, discoverSupplyTransaction, validateSupplyRun, writeExtendingFile,
-  reserveEconomicIntent, type SupplyRun, type SupplyAttempt } from '@defi-workflow-engine/reference-executor';
+import { createSupplyRun, prepareSupplyAttempt, supplyTransition, discoverSupplyTransaction, validateSupplyRun, createFileExecutionStorage,
+  reserveEconomicIntentIn, logMissing, utf8, type ExecutionStorage, type SupplyRun, type SupplyAttempt } from '@defi-workflow-engine/reference-executor';
 import { reconcileSupplyAttempt, buildSupplyEvidence, type SupplyObservation } from '@defi-workflow-engine/reference-reconciler';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 export type SupplyWalletDiagnostic = { invoked:boolean; rejectionCode?:number; transaction:Record<string,string>|null; calls:{method:string;submission?:boolean;params:unknown[];result?:unknown;error?:unknown}[]; error:unknown; code:string };
@@ -23,9 +22,12 @@ function recoveredRepayApproval(record:SupplyRecord):boolean {
   const proof=record.approvalProof;
   return Boolean(proof&&repayApprovalBlockHashFailure(record,record.observations.at(-2))&&proof.hash===record.attempts[0]?.transactionHash&&proof.observation.verdict==='RECONCILED'&&proof.observation.reason==='EXACT_REPAY_APPROVAL_VERIFIED'&&proof.observation.walletEnvelope?.owner===record.review.account);
 }
-export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;provenance:'PUBLIC_TESTNET'|'MOCKED'}) {
-  if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw new Error('SUPPLY_STORAGE_INVALID');
-  const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
+export function createSupplyService(input:{rpc:SupplyRpc;journalDir?:string;storage?:ExecutionStorage;provenance:'PUBLIC_TESTNET'|'MOCKED'}) {
+  // Local mode keeps the original journal directory; cloud mode supplies shared durable storage instead.
+  if(!input.storage&&(!input.journalDir||!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/')))throw new Error('SUPPLY_STORAGE_INVALID');
+  const {log,leases}=input.storage??createFileExecutionStorage(input.journalDir!,'SUPPLY_BUSY');
+  const path=(id:string)=>idCheck(id)+'.jsonl';
+  const text=async(name:string)=>{const bytes=await log.read(name);return bytes===null?null:utf8(bytes);};
   const validate=(bytes:Uint8Array)=>{
     const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
     if(!text.endsWith('\n')||bytes.length>16_777_216)throw new Error('SUPPLY_STORE_CORRUPT');
@@ -53,27 +55,13 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       prior=record;
     }
   };
-  const load=async(id:string):Promise<SupplyRecord>=>{const bytes=await readFile(path(id));validate(bytes);return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!) as SupplyRecord;};
+  const load=async(id:string):Promise<SupplyRecord>=>{const bytes=await log.read(path(id));if(!bytes)throw logMissing(path(id));validate(bytes);return JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as SupplyRecord;};
   const save=async(record:SupplyRecord)=>{
-    let prior='';try{prior=await readFile(path(record.id),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
-    await writeExtendingFile(path(record.id),new TextEncoder().encode(prior+JSON.stringify(record)+'\n'),validate);
+    const prior=utf8(await log.read(path(record.id)));
+    await log.extend(path(record.id),new TextEncoder().encode(prior+JSON.stringify(record)+'\n'),validate);
   };
-  async function locked<T>(key:string,action:()=>Promise<T>):Promise<T>{
-    await mkdir(input.journalDir,{recursive:true,mode:0o700});
-    const directory=join(input.journalDir,key+'.lock');
-    try{await mkdir(directory,{mode:0o700});}catch(e){
-      if((e as NodeJS.ErrnoException).code!=='EEXIST')throw e;
-      const before=await stat(directory);
-      let pid:number;try{pid=Number(await readFile(join(directory,'pid'),'utf8'));}catch(cause){throw new Error('SUPPLY_BUSY',{cause});}
-      if(!Number.isSafeInteger(pid)||pid<=0)throw new Error('SUPPLY_BUSY',{cause:e});
-      try{process.kill(pid,0);throw new Error('SUPPLY_BUSY',{cause:e});}catch(cause){if((cause as NodeJS.ErrnoException).code!=='ESRCH')throw cause;}
-      const after=await stat(directory);if(before.ino!==after.ino)throw new Error('SUPPLY_BUSY',{cause:e});
-      await unlink(join(directory,'pid'));await rmdir(directory);await mkdir(directory,{mode:0o700});
-    }
-    const handle=await open(join(directory,'pid'),'wx',0o600);
-    try{await handle.writeFile(String(process.pid));await handle.sync();}finally{await handle.close();}
-    try{return await action();}finally{await unlink(join(directory,'pid'));await rmdir(directory);}
-  }
+  // Cross-process exclusive section: the original PID lock directory locally, a fenced lease in shared storage.
+  const locked=<T,>(key:string,action:()=>Promise<T>):Promise<T>=>leases.hold(key,action);
   async function verifyPriorApproval(record:SupplyRecord):Promise<SupplyObservation>{
     const link=record.priorApproval;if(!link)throw new Error('SUPPLY_APPROVAL_PROOF_MISSING');
     const source=await load(link.runId),attempt=source.attempts[0];
@@ -154,34 +142,34 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
       const prepared={...prepareSupplyAttempt(record,state.block,state.nonce,false),observations:record.observations,evidence:record.evidence,error:null};
       const attempt=prepared.attempts.at(-1)!;
       // Permanent nonce lease across runs/processes. Uncertainty never releases economic intent.
-      const leaseKey=`${review.account}-${attempt.nonce}`,lease=join(input.journalDir,leaseKey+'.intent');
+      const leaseKey=`${review.account}-${attempt.nonce}`,lease=leaseKey+'.intent';
       await locked(leaseKey,async()=>{
         const entry={id,step:attempt.step,transaction:attempt.transaction};
         async function reserveBorrowIntent(){if(review.borrow||review.withdraw){
           // Workflow IDs/revisions and the provider nonce cannot create a new economic
           // identity for the same owner, chain, Pool and exact Borrow calldata.
-          const economicLease=join(input.journalDir,(review.withdraw?'withdraw-':'borrow-')+supplyHash({transactions:review.transactions}).slice(2)+'.intent');
-          let previous:string|null=null;try{previous=await readFile(economicLease,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+          const economicLease=(review.withdraw?'withdraw-':'borrow-')+supplyHash({transactions:review.transactions}).slice(2)+'.intent';
+          const previous=await text(economicLease);
           if(previous!==null){
             if(!record.recoveryOf||JSON.parse(previous.trimEnd().split('\n').at(-1)!).id!==record.recoveryOf||!(await load(record.recoveryOf)).notSubmitted)throw new Error('BORROW_EXISTING_INTENT_OBSERVE_ONLY');
-            await writeExtendingFile(economicLease,new TextEncoder().encode(previous+JSON.stringify(entry)+'\n'),bytes=>{const history=new TextDecoder().decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line));if(history.some(item=>JSON.stringify(item.transaction)!==JSON.stringify(entry.transaction)))throw new Error('SUPPLY_STORE_CORRUPT');});
-          }else{const handle=await open(economicLease,'wx',0o600);try{await handle.writeFile(JSON.stringify(entry)+'\n');await handle.sync();}finally{await handle.close();}}
+            await log.extend(economicLease,new TextEncoder().encode(previous+JSON.stringify(entry)+'\n'),bytes=>{const history=new TextDecoder().decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line));if(history.some(item=>JSON.stringify(item.transaction)!==JSON.stringify(entry.transaction)))throw new Error('SUPPLY_STORE_CORRUPT');});
+          }else if(!await log.create(economicLease,new TextEncoder().encode(JSON.stringify(entry)+'\n')))throw new Error('BORROW_EXISTING_INTENT_OBSERVE_ONLY');
         }}
         async function reserveRepayIntent(){if(!review.repay)return;
-          const economicLease=join(input.journalDir,'repay-'+supplyHash(review.transactions.at(-1)).slice(2)+'.intent');
+          const economicLease='repay-'+supplyHash(review.transactions.at(-1)).slice(2)+'.intent';
           await locked('repay-'+supplyHash(review.transactions.at(-1)).slice(2),async()=>{
-            let prior:string|null=null;try{prior=await readFile(economicLease,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+            const prior=await text(economicLease);
             if(prior!==null){
               const previous=JSON.parse(prior.trimEnd().split('\n').at(-1)!);
               if(previous.id===id)return;
               if(!record.recoveryOf||previous.id!==record.recoveryOf)throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
               const source=await load(record.recoveryOf);
               if(!source.notSubmitted&&!(record.priorApproval?.runId===source.id&&source.attempts.length===1&&source.attempts[0]?.step==='APPROVAL'&&(source.attempts[0].reconciled||recoveredRepayApproval(source))))throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
-              await writeExtendingFile(economicLease,new TextEncoder().encode(prior+JSON.stringify(entry)+'\n'),bytes=>{const history=new TextDecoder().decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line));if(history.some(item=>!/^supply-[a-f0-9]{32}$/.test(item.id)))throw new Error('SUPPLY_STORE_CORRUPT');});
-            }else{const handle=await open(economicLease,'wx',0o600);try{await handle.writeFile(JSON.stringify(entry)+'\n');await handle.sync();}finally{await handle.close();}}
+              await log.extend(economicLease,new TextEncoder().encode(prior+JSON.stringify(entry)+'\n'),bytes=>{const history=new TextDecoder().decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line));if(history.some(item=>!/^supply-[a-f0-9]{32}$/.test(item.id)))throw new Error('SUPPLY_STORE_CORRUPT');});
+            }else if(!await log.create(economicLease,new TextEncoder().encode(JSON.stringify(entry)+'\n')))throw new Error('REPAY_EXISTING_INTENT_OBSERVE_ONLY');
           });
         }
-        let prior:string|null=null;try{prior=await readFile(lease,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+        const prior=await text(lease);
         if(prior!==null){
           const entries=prior.trimEnd().split('\n').map(line=>JSON.parse(line) as typeof entry),last=entries.at(-1)!;
           // A completed EIP-7702 call can leave the owner nonce unchanged. Reuse it only
@@ -193,7 +181,7 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
             const proof=await reconcileSupplyAttempt(priorRun.review,priorAttempt,input.rpc);
             if(proof.verdict!=='RECONCILED'||proof.walletEnvelope?.owner!==review.account||proof.walletEnvelope.ownerNonceAfter!==attempt.nonce)throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
             await reserveBorrowIntent();await reserveRepayIntent();
-            await writeExtendingFile(lease,new TextEncoder().encode(prior+JSON.stringify(entry)+'\n'),bytes=>{
+            await log.extend(lease,new TextEncoder().encode(prior+JSON.stringify(entry)+'\n'),bytes=>{
               const history=new TextDecoder('utf-8',{fatal:true}).decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line) as typeof entry);
               const unchanged=JSON.stringify(history)===JSON.stringify(entries);
               const extended=history.length===entries.length+1&&JSON.stringify(history.slice(0,-1))===JSON.stringify(entries)&&JSON.stringify(history.at(-1))===JSON.stringify(entry);
@@ -209,19 +197,17 @@ export function createSupplyService(input:{rpc:SupplyRpc;journalDir:string;prove
               JSON.stringify(source.review.workflow)!==JSON.stringify(review.workflow)||JSON.stringify(review.repay?source.review.transactions.at(-1):source.review.transactions)!==JSON.stringify(review.repay?review.transactions.at(-1):review.transactions))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
           await reserveBorrowIntent();await reserveRepayIntent();
           // Append ownership of the SAME nonce; never delete its durable economic identity.
-          await writeExtendingFile(lease,new TextEncoder().encode(prior+(prior.endsWith('\n')?'':'\n')+JSON.stringify(entry)+'\n'),bytes=>{
+          await log.extend(lease,new TextEncoder().encode(prior+(prior.endsWith('\n')?'':'\n')+JSON.stringify(entry)+'\n'),bytes=>{
             const history=new TextDecoder('utf-8',{fatal:true}).decode(bytes).trimEnd().split('\n').map(line=>JSON.parse(line) as typeof entry);
             if(history.some(item=>!/^supply-[a-f0-9]{32}$/.test(item.id)||(!review.borrow&&!review.repay&&!review.withdraw&&(item.step!==entry.step||JSON.stringify(item.transaction)!==JSON.stringify(entry.transaction))))||new Set(history.map(item=>item.id)).size!==history.length)throw new Error('SUPPLY_STORE_CORRUPT');
           });
         }else{
           if(record.recoveryOf&&!(review.repay&&record.priorApproval))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
           await reserveBorrowIntent();await reserveRepayIntent();
-          const handle=await open(lease,'wx',0o600);
-          try{await handle.writeFile(JSON.stringify(entry)+'\n');await handle.sync();}finally{await handle.close();}
+          if(!await log.create(lease,new TextEncoder().encode(JSON.stringify(entry)+'\n')))throw new Error('SUPPLY_NONCE_ALREADY_RESERVED');
         }
       });
-      await reserveEconomicIntent(input.journalDir, attempt.transaction, id, record.recoveryOf);
-      const dirHandle=await open(input.journalDir,'r');try{await dirHandle.sync();}finally{await dirHandle.close();}
+      await reserveEconomicIntentIn(log, attempt.transaction, id, record.recoveryOf);
       await save(prepared); // Must complete BEFORE any uncertain wallet submission.
       return {record:prepared,step:attempt.step,transaction:{...attempt.transaction,nonce:supplyHex(attempt.nonce),gas:supplyHex(gas),gasPrice:supplyHex(review.gasPrice)}};
     });},
