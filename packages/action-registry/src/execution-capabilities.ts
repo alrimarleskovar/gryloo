@@ -46,6 +46,7 @@ const adapterVersions: Readonly<Record<string, string>> = Object.freeze({
   'aave-v3': '1.0.0', 'uniswap.v3': '1.0.0', 'cow.protocol': '1.0.0', 'lifi.rest': '1.0.0', 'across.direct': '1.0.0',
   'gryloo.calculated-split': '1.0.0', 'gryloo.template': '1.0.0', 'jupiter.swap-v2': '1.0.0',
   'orca.whirlpools-devnet': '1.0.0', 'orca.whirlpools-devnet-liquidity': '1.0.0', 'evm.native-transfer': '1.0.0',
+  'flofi.router': '1.0.0',
 });
 const rows: ExecutionCapabilityProfile[] = [];
 function add(actionType: string, adapterId: string, chainId: string, environment: ExecutionEnvironment,
@@ -85,6 +86,10 @@ add('asset.liquidity.concentrated', 'orca.whirlpools-devnet-liquidity', 'solana:
 // by the owner's browser wallet. Owner execution is implemented; none is demonstrated yet, so no evidence ceiling is
 // claimed. The BUILD-006 `asset.liquidity.uniswap-v3` LOCAL_FORK row keeps its FORK_REPRODUCED evidence unchanged.
 add('asset.liquidity.concentrated', 'uniswap.v3', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
+// BUILD-ROUTER-001: the canonical bridge through the Cross-chain Router, Base USDC → Arbitrum USDC (LI.FI or direct Across,
+// underlying Across), signed and sent only by the owner's browser wallet on Base mainnet. Owner execution is implemented and
+// gated by an explicit deployment opt-in; none is demonstrated yet, so no evidence ceiling is claimed.
+add('asset.bridge', 'flofi.router', 'eip155:8453', 'MAINNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 

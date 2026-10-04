@@ -43,6 +43,7 @@ All values are secrets or configuration supplied by the hosting platform. Never 
 | `GRYLOO_JUPITER=live` | to enable | Jupiter mainnet-beta **Simulate/Review only**. `JUPITER_API_KEY` (secret) and `GRYLOO_SOLANA_RPC_URL` are optional. Real-funds execution additionally requires the owner's explicit `GRYLOO_JUPITER_OWNER_EXECUTION=MAINNET_OWNER_APPROVED`; never set it for a demo. |
 | `GRYLOO_PUBLIC_TESTNET=record` | to enable | Base Sepolia read-only RPC for the exact-profile Uniswap v3 USDC/WETH swap (the public online swap acceptance path). |
 | `GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live` | to enable | Base Sepolia read-only RPC (`eth_simulateV1`, receipts, nonce discovery) for the Uniswap v3 USDC/WETH concentrated-liquidity flow (`uniswap-liquidity`; test tokens, owner wallet signs each approval and the mint). `GRYLOO_BASE_SEPOLIA_RPC_URL` optionally names an HTTPS Base Sepolia RPC that supports `eth_simulateV1`; `GRYLOO_UNISWAP_LIQUIDITY_EXECUTION=DISABLED` keeps it Simulate/Review-only. No new service, database migration or secret. |
+| `GRYLOO_ROUTER=live` | to enable | Cross-chain Router (`crosschain-router`, BUILD-ROUTER-001): Base mainnet → Arbitrum One USDC through LI.FI or direct Across, **quotes, simulation and Review only**. Read-only Base/Arbitrum RPC (`eth_simulateV1`, `eth_getLogs`, receipts) and server-side LI.FI/Across quote and status reads. The public Base RPC rate-limits `eth_call` bursts (HTTP 429), so set `GRYLOO_BASE_RPC_URL` (and optionally `GRYLOO_ARBITRUM_RPC_URL`) to keyed HTTPS endpoints that support `eth_simulateV1`. `ACROSS_API_KEY`, `ACROSS_INTEGRATOR_ID` (`0x` + 4 hex) and `LIFI_API_KEY` are optional secrets. Real-funds execution additionally requires the owner's explicit `GRYLOO_ROUTER_OWNER_EXECUTION=MAINNET_OWNER_APPROVED` on both API and worker; never set it for a demo. No new service, database migration or required secret. |
 
 A flow without its enablement variable answers `*_PUBLIC_TESTNET_NOT_ENABLED`. The `*_HARNESS=MOCKED_LOOPBACK_ONLY`
 variables exist only for tests and must never be set in a deployment.
@@ -51,7 +52,7 @@ variables exist only for tests and must never be set in a deployment.
 
 | Variable | Meaning |
 | --- | --- |
-| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Base Sepolia Uniswap liquidity, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter) to forward to the API. |
+| `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Base Sepolia Uniswap liquidity, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter, Cross-chain Router) to forward to the API. |
 | `API_AUTH_TOKEN` | Same value as the API's token. |
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled

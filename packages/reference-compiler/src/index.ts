@@ -64,3 +64,4 @@ export * from './withdraw.js';
 export * from './lending-composition.js';
 export * from './native-transfer.js';
 export * from './uniswap-public-liquidity.js';
+export * from './crosschain-router.js';

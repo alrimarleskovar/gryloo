@@ -152,15 +152,16 @@ function delegatedExecutionDepth(input: string, target: string, data: string): n
   return null;
 }
 /**
- * Verifies that a receipt belongs to the owner's exact reviewed call on Base Sepolia: sent directly by the owner, or as one
+ * Verifies that a receipt belongs to the owner's exact reviewed call on its chain (Base Sepolia by default): sent directly by the owner, or as one
  * canonical MetaMask Delegation Framework redemption of exactly that call (EIP-7702 delegator, Redeemed events naming the
  * owner). Read-only; shared by the public swap and the public Uniswap liquidity flow. Effects are checked by the caller.
  */
 export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash: string; readonly account: string; readonly target: string;
-  readonly data: string; readonly preBlock: number }, tx: unknown, raw: Record<string, unknown>) {
+  readonly data: string; readonly preBlock: number }, tx: unknown, raw: Record<string, unknown>,
+  /** EVM chain id of the reviewed call (Base Sepolia unless a flow names its chain, e.g. the Base mainnet router). */ chainId = 84532) {
   if (!isObject(tx)) fail('TRANSACTION_MISMATCH');
   const txFrom = address(tx.from), txTo = address(tx.to), txInput = hex(tx.input);
-  if (Number(quantity(tx.chainId)) !== 84532 || hex(tx.hash) !== attempt.txHash || quantity(tx.value) !== 0n)
+  if (Number(quantity(tx.chainId)) !== chainId || hex(tx.hash) !== attempt.txHash || quantity(tx.value) !== 0n)
     fail('TRANSACTION_MISMATCH');
   const direct = txFrom === attempt.account && txTo === attempt.target && txInput === attempt.data;
   const delegationDepth = delegatedExecutionDepth(txInput, attempt.target, attempt.data);
@@ -168,7 +169,7 @@ export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash
   const txType = direct ? null : hex(tx.type);
   const newlyAuthorized = txType === '0x4' && delegationDepth === 1 &&
     Array.isArray(authorizations) && authorizations.length === 1 && isObject(authorizations[0]) &&
-    quantity(authorizations[0].chainId) === 84532n && address(authorizations[0].address) === DELEGATOR_IMPL;
+    quantity(authorizations[0].chainId) === BigInt(chainId) && address(authorizations[0].address) === DELEGATOR_IMPL;
   // Owner already EIP-7702-delegated before this transaction (re-checked below at the prepared block): a type-2
   // redemption with no authorization list, redeemed directly (depth 1, as MetaMask sends on Base Sepolia, e.g.
   // 0x8248b684…5ccc) or through one redelegation (depth 2). The decoded inner call is still exactly the reviewed one.

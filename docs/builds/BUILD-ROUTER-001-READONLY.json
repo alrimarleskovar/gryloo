@@ -1,0 +1,505 @@
+{
+  "format": "flofi.build-router-001.readonly-preflight.v1",
+  "evidenceClass": "PUBLIC_READ_ONLY",
+  "startedAt": "2026-10-04T17:06:38.806Z",
+  "finishedAt": "2026-10-04T17:07:09.064Z",
+  "networks": {
+    "source": {
+      "chain": "eip155:8453",
+      "rpc": "https://mainnet.base.org"
+    },
+    "destination": {
+      "chain": "eip155:42161",
+      "rpc": "https://arb1.arbitrum.io/rpc"
+    }
+  },
+  "simulatedOwner": "0x1111111111111111111111111111111111111111",
+  "note": "Simulations ran from a public address without any authority over it. Nothing was signed or sent.",
+  "automatic": {
+    "runId": "xroute-334a0e7e84daf0da2918723e3d1ed89b",
+    "phase": "AUTHORIZED",
+    "provenance": "PUBLIC_MAINNET",
+    "owner": "0x1111111111111111111111111111111111111111",
+    "recipient": "0x1111111111111111111111111111111111111111",
+    "selection": {
+      "policy": "PREFERENCE_ORDER",
+      "selected": "lifi",
+      "considered": [
+        {
+          "provider": "lifi",
+          "outcome": "SELECTED",
+          "code": null,
+          "minimumOutput": "989674",
+          "feeTotal": "10326",
+          "routeCommitment": "0x7b2ce785163822e62fa2471d989ecf69de18e2e306e0870ba8c224528b456b06"
+        },
+        {
+          "provider": "across",
+          "outcome": "AVAILABLE",
+          "code": null,
+          "minimumOutput": "992169",
+          "feeTotal": "7831",
+          "routeCommitment": "0xd0fc732149efdabda82c6cc7ef275a2eaa0d6ebf16def7ccfb26f55ee715cc59"
+        }
+      ]
+    },
+    "routeCommitment": "0x7b2ce785163822e62fa2471d989ecf69de18e2e306e0870ba8c224528b456b06",
+    "manifestHash": "0xc311ee666985c105ec17f565fd2d5b13a018aa5155575420070f90d8e9e74667",
+    "manifestProvider": {
+      "kind": "FIXED",
+      "providerId": "lifi:across"
+    },
+    "route": {
+      "provider": "lifi",
+      "underlyingProtocol": "across",
+      "steps": [
+        {
+          "kind": "FEE_COLLECTION",
+          "protocol": "lifi-fee",
+          "fromChain": "eip155:8453",
+          "toChain": "eip155:8453",
+          "fromToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "toToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amountIn": "1000000",
+          "amountOut": "997500"
+        },
+        {
+          "kind": "BRIDGE",
+          "protocol": "across",
+          "fromChain": "eip155:8453",
+          "toChain": "eip155:42161",
+          "fromToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "toToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+          "amountIn": "997500",
+          "amountOut": "989674"
+        }
+      ],
+      "inputAmount": "1000000",
+      "expectedOutput": "989674",
+      "minimumOutput": "989674",
+      "fees": [
+        {
+          "kind": "INTEGRATOR",
+          "label": "LI.FI fee",
+          "chainId": "eip155:8453",
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amount": "2500",
+          "recipient": "0xc06ebbefd94032b85424d51906e2a335efae264b"
+        },
+        {
+          "kind": "BRIDGE_DESTINATION_GAS",
+          "label": "Relayer gas fee",
+          "chainId": "eip155:8453",
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amount": "7727",
+          "recipient": null
+        },
+        {
+          "kind": "BRIDGE_RELAYER_CAPITAL",
+          "label": "Relayer fee",
+          "chainId": "eip155:8453",
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amount": "99",
+          "recipient": null
+        }
+      ],
+      "feeTotal": "10326",
+      "approval": {
+        "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "spender": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+        "amount": "1000000"
+      },
+      "depositTarget": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+      "depositSelector": "0x1794958f",
+      "bridge": {
+        "protocol": "across",
+        "originSpokePool": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "destinationSpokePool": "0xe35e9842fceaca96570b734083f4a58e8f7c5f2a",
+        "depositor": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x1111111111111111111111111111111111111111",
+        "inputToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "outputToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "inputAmount": "997500",
+        "outputAmount": "989674",
+        "destinationChainId": 42161,
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000",
+        "quoteTimestamp": 1791133379,
+        "fillDeadline": 1791142601,
+        "exclusivityParameter": 0,
+        "message": "0x"
+      },
+      "quote": {
+        "id": "4d074dd0-5a0f-4fdd-86b0-d9cb29868551:0",
+        "rawHash": "0x7f8003145e639d29bb93a3a3f680d31acb97a140b42a97c582f65bbe64369f7d",
+        "quotedAt": "2026-10-04T17:06:43.632Z",
+        "expiresAt": "2026-10-04T17:57:59.000Z",
+        "estimatedDurationSeconds": 2,
+        "providerGasEstimate": "1196281750000"
+      }
+    },
+    "simulation": {
+      "provenance": "TRANSACTION_SIMULATION",
+      "method": "eth_simulateV1",
+      "chainId": 8453,
+      "block": 52172125,
+      "calls": [
+        {
+          "purpose": "APPROVAL",
+          "gasUsed": "55437"
+        },
+        {
+          "purpose": "BRIDGE_DEPOSIT",
+          "gasUsed": "170660"
+        }
+      ],
+      "deposit": {
+        "spokePool": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "depositId": "6292056",
+        "depositor": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x1111111111111111111111111111111111111111",
+        "inputToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "outputToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "inputAmount": "997500",
+        "outputAmount": "989674",
+        "destinationChainId": 42161,
+        "quoteTimestamp": 1791133379,
+        "fillDeadline": 1791142601,
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "ownerDebit": "1000000",
+      "notSimulated": [
+        "DESTINATION_FILL",
+        "RELAYER_BEHAVIOUR",
+        "ORIGIN_REFUND"
+      ]
+    },
+    "observation": {
+      "provenance": "CHAIN_OBSERVATION",
+      "source": {
+        "chainId": 8453,
+        "block": {
+          "number": 52172125,
+          "hash": "0x263537d51e7c643c21d614f723953af1b4f90c97646c332485c73f0c1f2178a1",
+          "timestamp": 1791133597
+        },
+        "usdcBalance": "276670639",
+        "nativeBalance": "353821732417477845",
+        "allowance": "0",
+        "nonce": "0",
+        "codeSha256": {
+          "baseSpokePool": "3cc5e539eb61133fec38655ae3f55d8e1f944fce2cbc02e151972cf9c9880545",
+          "baseLifiDiamond": "a5f481fb142b210db0011bacc8dafa949714aa3a56ab4377efc1a080f987a296",
+          "baseLifiFeeForwarder": "8e1f9e10378ce2648b2d1cb2c7a4a061058bf202b2e7b8d68a70a17082728981",
+          "baseUsdc": "98d785fcb1bf847f287adc2310759fd94cc13e754b974bc72131382e8266f607"
+        },
+        "implementations": {
+          "baseSpokePool": "0xf23c6c04a2b88e8651fe99bbdccbb5c9d306e6b0"
+        },
+        "depositQuoteTimeBuffer": 3600,
+        "fillDeadlineBuffer": 21600
+      },
+      "destination": {
+        "chainId": 42161,
+        "block": {
+          "number": 511672723,
+          "hash": "0x1dc7c1932b2539052cc18e17b0c0cab992f72c601ccc8920b32aefcc0c570dd6",
+          "timestamp": 1791133602
+        },
+        "recipientUsdcBalance": "109200158",
+        "recipientHasCode": false,
+        "codeSha256": {
+          "arbitrumSpokePool": "3cc5e539eb61133fec38655ae3f55d8e1f944fce2cbc02e151972cf9c9880545",
+          "arbitrumUsdc": "b46445c0c96a50cd0ae6245d2ceb5058fbbcd24afad9cb878974d8f17b4655c8"
+        },
+        "implementations": {
+          "arbitrumSpokePool": "0xcfcda84333431bcc9155f2368b8362f0d1dff8c9"
+        }
+      }
+    },
+    "approvals": [
+      {
+        "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "spender": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+        "amount": "1000000",
+        "currentAllowance": "0",
+        "required": true
+      }
+    ],
+    "calls": [
+      {
+        "purpose": "APPROVAL",
+        "to": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "selector": "0x095ea7b3",
+        "gasUsed": "55437",
+        "gasLimit": "97068"
+      },
+      {
+        "purpose": "BRIDGE_DEPOSIT",
+        "to": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+        "selector": "0x1794958f",
+        "gasUsed": "170660",
+        "gasLimit": "246858"
+      }
+    ],
+    "fees": {
+      "maxFeePerGas": "11000000",
+      "maxPriorityFeePerGas": "1000000",
+      "gasLimitTotal": "343926",
+      "executionFeeUpperBoundWei": "3783186000000",
+      "l1FeeUpperBoundWei": "19314949687",
+      "totalUpperBoundWei": "3802500949687"
+    },
+    "deadlines": {
+      "reviewExpiresAt": "2026-10-04T17:09:47.788Z",
+      "quoteExpiresAt": "2026-10-04T17:57:59.000Z",
+      "depositMustLandBy": 1791136979,
+      "fillDeadline": 1791142601
+    },
+    "reviewExpiresAt": "2026-10-04T17:09:47.788Z",
+    "commitment": "0x602fb032d0b4f8bdb893d54c48729ca84c3f9b62a30c43ccf94e084178a7edb6"
+  },
+  "reviewAccepted": true,
+  "beginWithoutOwnerExecution": "ROUTER_EXECUTION_NOT_ENABLED",
+  "acrossDirect": {
+    "runId": "xroute-e58ce79f1ddf8febd06ff831cc57b5d1",
+    "phase": "PREPARED",
+    "provenance": "PUBLIC_MAINNET",
+    "owner": "0x1111111111111111111111111111111111111111",
+    "recipient": "0x1111111111111111111111111111111111111111",
+    "selection": {
+      "policy": "PREFERENCE_ORDER",
+      "selected": "across",
+      "considered": [
+        {
+          "provider": "across",
+          "outcome": "SELECTED",
+          "code": null,
+          "minimumOutput": "992169",
+          "feeTotal": "7831",
+          "routeCommitment": "0x3e252709bc6e3715e71d5a8ee925b14367ed4c99dd52591abf35cc7f64f9bf9d"
+        }
+      ]
+    },
+    "routeCommitment": "0x3e252709bc6e3715e71d5a8ee925b14367ed4c99dd52591abf35cc7f64f9bf9d",
+    "manifestHash": "0x7518070491be069b344bb57a4d30dbc0a5a80c55572f4f991c45b359bb3848c4",
+    "manifestProvider": {
+      "kind": "FIXED",
+      "providerId": "across:across"
+    },
+    "route": {
+      "provider": "across",
+      "underlyingProtocol": "across",
+      "steps": [
+        {
+          "kind": "BRIDGE",
+          "protocol": "across",
+          "fromChain": "eip155:8453",
+          "toChain": "eip155:42161",
+          "fromToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "toToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+          "amountIn": "1000000",
+          "amountOut": "992169"
+        }
+      ],
+      "inputAmount": "1000000",
+      "expectedOutput": "992169",
+      "minimumOutput": "992169",
+      "fees": [
+        {
+          "kind": "BRIDGE_RELAYER_CAPITAL",
+          "label": "Across relayer capital fee",
+          "chainId": "eip155:8453",
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amount": "100",
+          "recipient": null
+        },
+        {
+          "kind": "BRIDGE_DESTINATION_GAS",
+          "label": "Across destination gas fee",
+          "chainId": "eip155:8453",
+          "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "amount": "7731",
+          "recipient": null
+        }
+      ],
+      "feeTotal": "7831",
+      "approval": {
+        "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "spender": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "amount": "1000000"
+      },
+      "depositTarget": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "depositSelector": "0xad5425c6",
+      "bridge": {
+        "protocol": "across",
+        "originSpokePool": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "destinationSpokePool": "0xe35e9842fceaca96570b734083f4a58e8f7c5f2a",
+        "depositor": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x1111111111111111111111111111111111111111",
+        "inputToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "outputToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "inputAmount": "1000000",
+        "outputAmount": "992169",
+        "destinationChainId": 42161,
+        "exclusiveRelayer": "0x394311a6aaa0d8e3411d8b62de4578d41322d1bd",
+        "quoteTimestamp": 1791133379,
+        "fillDeadline": 1791140579,
+        "exclusivityParameter": 3,
+        "message": "0x"
+      },
+      "quote": {
+        "id": "kjlx8-1791133614039-4e882f53277b",
+        "rawHash": "0x1b4f02bdc98b96e77327dfea81ad356a480a59f4453cd63fd844dfc9c7f893c6",
+        "quotedAt": "2026-10-04T17:06:55.997Z",
+        "expiresAt": "2026-10-04T17:57:59.000Z",
+        "estimatedDurationSeconds": 2,
+        "providerGasEstimate": null
+      }
+    },
+    "simulation": {
+      "provenance": "TRANSACTION_SIMULATION",
+      "method": "eth_simulateV1",
+      "chainId": 8453,
+      "block": 52172129,
+      "calls": [
+        {
+          "purpose": "APPROVAL",
+          "gasUsed": "55437"
+        },
+        {
+          "purpose": "BRIDGE_DEPOSIT",
+          "gasUsed": "73709"
+        }
+      ],
+      "deposit": {
+        "spokePool": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "depositId": "6292056",
+        "depositor": "0x1111111111111111111111111111111111111111",
+        "recipient": "0x1111111111111111111111111111111111111111",
+        "inputToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "outputToken": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "inputAmount": "1000000",
+        "outputAmount": "992169",
+        "destinationChainId": 42161,
+        "quoteTimestamp": 1791133379,
+        "fillDeadline": 1791140579,
+        "exclusiveRelayer": "0x394311a6aaa0d8e3411d8b62de4578d41322d1bd"
+      },
+      "ownerDebit": "1000000",
+      "notSimulated": [
+        "DESTINATION_FILL",
+        "RELAYER_BEHAVIOUR",
+        "ORIGIN_REFUND"
+      ]
+    },
+    "observation": {
+      "provenance": "CHAIN_OBSERVATION",
+      "source": {
+        "chainId": 8453,
+        "block": {
+          "number": 52172129,
+          "hash": "0x198f20dd7e23563b22cf1c9c53ce8bc3f2a99db3d27541a05cd3eae31425f776",
+          "timestamp": 1791133605
+        },
+        "usdcBalance": "276670639",
+        "nativeBalance": "353821732417477845",
+        "allowance": "0",
+        "nonce": "0",
+        "codeSha256": {
+          "baseSpokePool": "3cc5e539eb61133fec38655ae3f55d8e1f944fce2cbc02e151972cf9c9880545",
+          "baseLifiDiamond": "a5f481fb142b210db0011bacc8dafa949714aa3a56ab4377efc1a080f987a296",
+          "baseLifiFeeForwarder": "8e1f9e10378ce2648b2d1cb2c7a4a061058bf202b2e7b8d68a70a17082728981",
+          "baseUsdc": "98d785fcb1bf847f287adc2310759fd94cc13e754b974bc72131382e8266f607"
+        },
+        "implementations": {
+          "baseSpokePool": "0xf23c6c04a2b88e8651fe99bbdccbb5c9d306e6b0"
+        },
+        "depositQuoteTimeBuffer": 3600,
+        "fillDeadlineBuffer": 21600
+      },
+      "destination": {
+        "chainId": 42161,
+        "block": {
+          "number": 511672792,
+          "hash": "0x708f6fb60e4ed49e84ed6d5c066c8c960811ce8b443c8c1f06ef9cefcb551c64",
+          "timestamp": 1791133621
+        },
+        "recipientUsdcBalance": "109200158",
+        "recipientHasCode": false,
+        "codeSha256": {
+          "arbitrumSpokePool": "3cc5e539eb61133fec38655ae3f55d8e1f944fce2cbc02e151972cf9c9880545",
+          "arbitrumUsdc": "b46445c0c96a50cd0ae6245d2ceb5058fbbcd24afad9cb878974d8f17b4655c8"
+        },
+        "implementations": {
+          "arbitrumSpokePool": "0xcfcda84333431bcc9155f2368b8362f0d1dff8c9"
+        }
+      }
+    },
+    "approvals": [
+      {
+        "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "spender": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "amount": "1000000",
+        "currentAllowance": "0",
+        "required": true
+      }
+    ],
+    "calls": [
+      {
+        "purpose": "APPROVAL",
+        "to": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "selector": "0x095ea7b3",
+        "gasUsed": "55437",
+        "gasLimit": "97068"
+      },
+      {
+        "purpose": "BRIDGE_DEPOSIT",
+        "to": "0x09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+        "selector": "0xad5425c6",
+        "gasUsed": "73709",
+        "gasLimit": "120821"
+      }
+    ],
+    "fees": {
+      "maxFeePerGas": "11000000",
+      "maxPriorityFeePerGas": "1000000",
+      "gasLimitTotal": "217889",
+      "executionFeeUpperBoundWei": "2396779000000",
+      "l1FeeUpperBoundWei": "8552170277",
+      "totalUpperBoundWei": "2405331170277"
+    },
+    "deadlines": {
+      "reviewExpiresAt": "2026-10-04T17:10:07.781Z",
+      "quoteExpiresAt": "2026-10-04T17:57:59.000Z",
+      "depositMustLandBy": 1791136979,
+      "fillDeadline": 1791140579
+    },
+    "reviewExpiresAt": "2026-10-04T17:10:07.781Z",
+    "commitment": "0x8b6e12c7400b3b546d7b4c32ec868f6e9f93d8e0ce0ff0c6bd8ae46bd3b0e2ad"
+  },
+  "unrestrictedLifi": {
+    "tool": "layerswap",
+    "steps": [
+      "protocol:feeCollection",
+      "cross:layerswap"
+    ],
+    "routerOutcome": "LIFI_UNDERLYING_PROTOCOL_NOT_RECONCILABLE"
+  },
+  "rpcRequests": {
+    "base:eth_chainId": 2,
+    "base:eth_getBlockByNumber": 4,
+    "base:eth_getCode": 8,
+    "base:eth_getStorageAt": 2,
+    "base:eth_call": 18,
+    "base:eth_getBalance": 2,
+    "base:eth_getTransactionCount": 4,
+    "arbitrum:eth_chainId": 2,
+    "arbitrum:eth_getBlockByNumber": 2,
+    "arbitrum:eth_getCode": 6,
+    "arbitrum:eth_call": 6,
+    "arbitrum:eth_getStorageAt": 2,
+    "base:eth_simulateV1": 2,
+    "base:eth_maxPriorityFeePerGas": 2
+  },
+  "transactionsSubmitted": 0
+}

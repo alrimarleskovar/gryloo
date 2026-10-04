@@ -19,6 +19,7 @@ import {
 } from './execution-journal.js';
 import { EvidenceBundleSchema } from './evidence-bundle.js';
 import { BRIDGE_ACTION, BRIDGE_SOURCE, BRIDGE_DESTINATION } from './bridge.js';
+import { ROUTER_ADAPTER, ROUTING_PROVIDERS, ROUTER_PAIRS } from './router-pairs.js';
 import { EnforcementMatrixSchema, type EnforcementMatrix } from './enforcement-matrix.js';
 
 export {
@@ -134,7 +135,13 @@ function checkWorkflow(value: SemanticWorkflow): void {
       }
     }
     for (const output of node.expectedOutputs) {
-      if (output.asset.chainId !== node.chainId
+      // BUILD-ROUTER-001: a router bridge node delivers on the destination chain of one supported pair.
+      const routerOutput = node.actionType === BRIDGE_ACTION && node.adapterConstraints.adapters.length === 1
+        && node.adapterConstraints.adapters[0]?.id === ROUTER_ADAPTER.id && node.adapterConstraints.protocols.length >= 1
+        && node.adapterConstraints.protocols.every(p => (ROUTING_PROVIDERS as readonly string[]).includes(p))
+        && 'address' in output.asset && ROUTER_PAIRS.some(pair => pair.source.chainId === node.chainId
+          && pair.destination.chainId === output.asset.chainId && 'address' in output.asset && pair.destination.address === output.asset.address);
+      if (output.asset.chainId !== node.chainId && !routerOutput
         && !(node.actionType === BRIDGE_ACTION && node.chainId === BRIDGE_SOURCE
           && (output.asset.chainId === BRIDGE_DESTINATION
             || (output.asset.chainId === 'eip155:42161'

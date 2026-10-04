@@ -14,7 +14,8 @@ export function parseBridgeAmount(value: string): string {
   return units.toString();
 }
 export function bridgeDetails(node: Workflow['nodes'][number]): { amount: string; units: string; slippageBps: number } | null {
-  if (node.actionType !== BRIDGE_ACTION) return null;
+  // BUILD-ROUTER-001 router nodes have their own details (recipient, routing policy); this reader is for BUILD-008/009/010 bridges.
+  if (node.actionType !== BRIDGE_ACTION || node.adapterConstraints.adapters[0]?.id === 'flofi.router') return null;
   const input = node.inputs.find(p => p.name === 'amount-in');
   const slip = node.userConstraints.find(p => p.kind === 'MAXIMUM_SLIPPAGE_BPS');
   if (input?.kind !== 'QUANTITY' || slip?.kind !== 'MAXIMUM_SLIPPAGE_BPS') return null;

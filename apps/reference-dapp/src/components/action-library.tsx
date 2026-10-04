@@ -25,6 +25,7 @@ import { SupplyAuthoringForm } from './supply-panel';
 import { SolanaSwapForm } from './jupiter-panel';
 import { SolanaLiquidityForm } from './solana-liquidity-panel';
 import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
+import { RouterForm } from './router-panel';
 
 export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
   const { state, dispatch, context, propose } = useWorkflow();
@@ -139,6 +140,10 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {bridgeError && <p id="bridge-create-error" role="alert">{bridgeError}. Use 1–300 bps and up to 1,000,000 USDC.</p>}
       <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
     </form>}
+    <details className="swap-create router-create" aria-label="Create cross-chain bridge proposal">
+      <summary>Cross-chain bridge · Base → Arbitrum (Router)</summary>
+      <RouterForm/>
+    </details>
     <details className="swap-create build009-create" aria-label="Create Base to Arbitrum bridge swap proposal">
       <summary>Base → Arbitrum → WETH</summary>
       <p className="muted">Live read-only LI.FI quotes. Financial execution and reconciliation are MOCKED.</p>

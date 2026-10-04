@@ -17,6 +17,7 @@ import { createAuthoredSupply, supplyDetails, createAuthoredBorrow, borrowDetail
 import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, solanaSwapLabels, type SolanaSwapInput } from './jupiter-authoring';
 import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDetails, type SolanaLiquidityInput } from './solana-liquidity-authoring';
 import { createUniswapLiquidityNode, parseUniswapLiquidityChat, uniswapLiquidityDetails, type UniswapLiquidityInput } from './uniswap-liquidity-authoring';
+import { createRouterNode, parseRouterChat, routerDetails, ROUTER_ROUTING_LABEL, type RouterBridgeInput } from './router-authoring';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
@@ -36,6 +37,8 @@ export type Command = Base & (
   | { readonly type: 'SET_SOLANA_LIQUIDITY'; readonly nodeId: string; readonly input: SolanaLiquidityInput }
   | { readonly type: 'ADD_UNISWAP_LIQUIDITY'; readonly input: UniswapLiquidityInput }
   | { readonly type: 'SET_UNISWAP_LIQUIDITY'; readonly nodeId: string; readonly input: UniswapLiquidityInput }
+  | { readonly type: 'ADD_ROUTER_BRIDGE'; readonly input: RouterBridgeInput }
+  | { readonly type: 'SET_ROUTER_BRIDGE'; readonly nodeId: string; readonly input: RouterBridgeInput }
   | { readonly type: 'SET_SUPPLY'; readonly nodeId: string; readonly input: SupplyInput }
   | { readonly type: 'ADD'; readonly kind: ActionKind }
   | { readonly type: 'SET_AMOUNT'; readonly nodeId: string; readonly amount: string }
@@ -60,7 +63,7 @@ export type Command = Base & (
 );
 
 export const HELP = 'Try “swap 2 USDC to WETH on Base slippage 50 bps”, “set node-002 amount 3”, “set node-002 slippage 100 bps”, “add read”, or “explain”. No model or network service is connected.';
-export const BRIDGE_HELP = 'Try “bridge 1 USDC from Base to Optimism slippage 50 bps”, “swap 2 USDC to WETH on Base slippage 50 bps”, “set node-002 amount 3”, “set node-002 slippage 100 bps”, “add read”, or “explain”. No model or network service is connected.';
+export const BRIDGE_HELP = 'Try “bridge 5 USDC from Base to Arbitrum”, “bridge 1 USDC from Base to Optimism slippage 50 bps”, “swap 2 USDC to WETH on Base slippage 50 bps”, “set node-002 amount 3”, “set node-002 slippage 100 bps”, “add read”, or “explain”. No model or network service is connected.';
 export function parseMockCommand(text: string, baseRevision: number): Command {
   const input = text.trim();
   const add = /^add (read|transform|condition)$/.exec(input);
@@ -100,6 +103,8 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
     createAuthoredSupply('node-preview', fields);
     return { type: 'ADD_SUPPLY', input: fields, source: 'CHAT', baseRevision: workflow.revision };
   }
+  const router = parseRouterChat(input);
+  if (router) { createRouterNode('node-preview', router); return { type: 'ADD_ROUTER_BRIDGE', input: router, source: 'CHAT', baseRevision: workflow.revision }; }
   const uniswapLiquidity = parseUniswapLiquidityChat(input);
   if (uniswapLiquidity) { createUniswapLiquidityNode('node-preview', uniswapLiquidity); return { type: 'ADD_UNISWAP_LIQUIDITY', input: uniswapLiquidity, source: 'CHAT', baseRevision: workflow.revision }; }
   const solanaLiquidity = parseSolanaLiquidityChat(input);
@@ -195,7 +200,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD_UNISWAP_LIQUIDITY: ['input'], SET_UNISWAP_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD_UNISWAP_LIQUIDITY: ['input'], SET_UNISWAP_LIQUIDITY: ['nodeId','input'], ADD_ROUTER_BRIDGE: ['input'], SET_ROUTER_BRIDGE: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -257,6 +262,15 @@ export function commandIsValid(input: unknown): input is Command {
           Reflect.ownKeys(fields).sort().join() !== ['network','maxUsdc','maxWeth','rangeUnit','lower','upper','slippage'].sort().join() ||
           !Object.values(fields).every(v => typeof v === 'string' && v.length <= 40)) return false;
       try { createUniswapLiquidityNode('node-preview', fields as UniswapLiquidityInput); return true; } catch { return false; }
+    }
+    case 'ADD_ROUTER_BRIDGE':
+    case 'SET_ROUTER_BRIDGE': {
+      if (command.type === 'SET_ROUTER_BRIDGE' && !id(command.nodeId)) return false;
+      const fields = command.input;
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.getPrototypeOf(fields) !== Object.prototype ||
+          Reflect.ownKeys(fields).sort().join() !== ['source','destination','token','amount','recipient','slippage','routing'].sort().join() ||
+          !Object.values(fields).every(v => typeof v === 'string' && v.length <= 80)) return false;
+      try { createRouterNode('node-preview', fields as RouterBridgeInput); return true; } catch { return false; }
     }
     case 'ADD': return actionKinds.includes(command.kind as ActionKind);
     case 'SET_AMOUNT': return id(command.nodeId) && typeof command.amount === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(command.amount);
@@ -345,6 +359,8 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
     if(borrowed)return `${node.nodeId}: Borrow ${borrowed.amount} USDC from Aave V3 on ${borrowed.network}, variable rate, borrower ${borrowed.beneficiary}.`;
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);
     if (supply) return `${node.nodeId}: Supply ${supply.amount} USDC to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
+    const routed = routerDetails(node);
+    if (routed) return `${node.nodeId}: Cross-chain bridge ${routed.amount} USDC from Base to Arbitrum, recipient ${routed.recipientLabel}, ${routed.slippage} bps, routing ${ROUTER_ROUTING_LABEL[routed.routing]}; quote, simulation and route review required.`;
     const bridge = bridgeDetails(node);
     if (bridge) return `${node.nodeId}: Base to ${node.expectedOutputs[0]?.asset.chainId === 'eip155:42161' ? 'Arbitrum' : 'Optimism'} USDC bridge, ${bridge.amount} USDC, ${bridge.slippageBps} bps, unquoted.`;
     const position = context && liquidityDetails(node, context);
