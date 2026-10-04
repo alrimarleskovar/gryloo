@@ -7,6 +7,22 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-COPILOT-001 — AI natural-language interpretation for the Flofi Copilot
+
+**Status: IMPLEMENTATION COMPLETE — LIVE MODEL NOT YET EXERCISED.** Branch `claude/build-copilot-001` from main `1cf923f`.
+The AI is an untrusted natural-language interpreter with no financial authority. Text that the exact chat grammar does
+not recognize can be sent server-side to the OpenAI Responses API (`FLOFI_COPILOT=live`, owner-chosen
+`OPENAI_COPILOT_MODEL`, no default model), which may only return a strict, versioned `CopilotIntentV1`. Flofi validates
+it, grounds every amount, slippage, range bound, address, asset and mainnet in the user's own words, and renders an
+exact-grammar sentence for the existing `parseLocalCommand`. The AI therefore cannot author anything a user could not
+type. The result is an ordinary proposal that needs **Apply proposal**, then the unchanged Simulate, Review, wallet
+signature, execution, recovery, reconciliation and evidence path. V1 covers Base/Base Sepolia/Solana/Solana Devnet swaps, the
+Cross-chain Router bridge, Aave V3 Supply/Borrow/Repay/Withdraw, Uniswap v3 and Orca liquidity, and the existing
+Supply → Borrow → Swap composition, with clarifications instead of guesses. Default `off` keeps the panel unchanged.
+No new dependency. Evidence: MOCKED only (unit tests, mock transport, replay browser suite); no live OpenAI request
+and no transaction were made. See the [plan](builds/BUILD-COPILOT-001-PLAN.md) and
+[report](builds/BUILD-COPILOT-001-REPORT.md).
+
 ## BUILD-JOURNEY-001 — Permissionless external user journey
 
 **Status: IMPLEMENTATION COMPLETE — DEPLOYED JOURNEY NOT YET RUN (`PERMISSIONLESS_EXECUTED` not claimed).** Branch
