@@ -18,7 +18,6 @@ jobs:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      TMPDIR: ${{ runner.temp }}
     # BUILD-CLOUD-001: a disposable PostgreSQL bound to the runner's loopback interface, pinned by digest.
     # Test-only trust authentication; it holds no data beyond the suites' own throwaway databases.
     services:
@@ -35,6 +34,14 @@ jobs:
           --health-timeout 5s
           --health-retries 30
     steps:
+      - name: Configure self-hosted temp storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:-}"
+          mkdir -p "$RUNNER_TEMP"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
       - name: Fetch reviewed revision with runner-provided Git
         env:
           GH_TOKEN: ${{ github.token }}
@@ -181,7 +188,7 @@ jobs:
           if init is None or len(init)!=340: raise SystemExit('BUILD-007 ERC-2470 initcode pin changed')
           (root/'erc2470-initcode.bin').write_bytes(init)
           PYCODE
-          export GRYLOO_MODE_B_RUNTIME="/tmp/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export GRYLOO_MODE_B_RUNTIME="$RUNNER_TEMP/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export GRYLOO_MODE_B_SAFE_PACKAGE="$GRYLOO_B007_INPUTS/safe/package"
           export GRYLOO_MODE_B_ROLES_MASTERCOPIES="$GRYLOO_B007_INPUTS/roles-mastercopies.json"
           export GRYLOO_MODE_B_EIP2470_INITCODE="$GRYLOO_B007_INPUTS/erc2470-initcode.bin"
