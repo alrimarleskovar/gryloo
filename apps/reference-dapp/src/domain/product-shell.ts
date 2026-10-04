@@ -29,8 +29,9 @@ export function shellChainLabel(chain: string): string {
 
 /** A projection of the existing IR, never an authoring representation or authorization decision. */
 export function workflowShellContext(workflow: Workflow) {
+  const actions = workflow.nodes.filter(node => !node.actionType.startsWith('mock-'));
   const chains = new Set<string>();
-  for (const node of workflow.nodes) {
+  for (const node of actions) {
     chains.add(node.chainId);
     const router = routerDetails(node);
     if (router) chains.add(ROUTER_NETWORK_OPTIONS[router.network].pair.destination.chainId);
@@ -39,7 +40,7 @@ export function workflowShellContext(workflow: Workflow) {
   return {
     workflowId: workflow.workflowId,
     revision: workflow.revision,
-    actionCount: workflow.nodes.length,
+    actionCount: actions.length,
     chains: [...chains].map(shellChainLabel),
     mockExample: workflow.nodes.length > 0 && workflow.nodes.every(node => node.actionType.startsWith('mock-')),
     requiredChain: firstAction?.chainId ?? null,

@@ -60,7 +60,8 @@ describe('product shell rendering', () => {
       const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
       expect(html).toContain('data-workflow-id="workflow-local" data-workflow-revision="0"');
       expect(html).toContain('Draft · Untitled workflow');
-      expect(html).toContain('Mock example');
+      expect(html).not.toMatch(/Mock example|Local mock|Mock action|Template/i);
+      expect(html).toContain('0 actions');
       expect(html).toContain(`Current stage · ${stage}`);
       expect(html).not.toMatch(/Authorized|Confirmed|Completed/);
     }

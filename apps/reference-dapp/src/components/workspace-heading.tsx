@@ -13,7 +13,6 @@ export function WorkspaceHeading({ stage, description }: { stage: WorkflowStage;
       <span>{context.actionCount} {context.actionCount === 1 ? 'action' : 'actions'}</span>
       <span>Revision {context.revision}</span>
       <span className="workflow-chains">{context.chains.length ? context.chains.join(' · ') : 'No chain selected'}</span>
-      {context.mockExample && <span className="workspace-example">Mock example</span>}
     </div>
     <div className="page-heading"><div>
       <p className="eyebrow">{stage === 'Build' ? 'BUILD / WORKFLOW' : `${stage.toUpperCase()} / WORKFLOW`}</p>

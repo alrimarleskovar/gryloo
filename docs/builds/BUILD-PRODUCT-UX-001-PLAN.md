@@ -38,6 +38,16 @@ All parts stay on this branch; no separate A–D PRs. Record actual validation a
 
 Use a read-only shell view model for lifecycle copy and canonical chain/network display. A selected stage describes the current **view**, not runtime success or authorization. Add semantic landmarks, keyboard focus, persistent workflow facts and restrained layout styles. Keep financial status and actions in their existing panels. Keep existing wallet discovery, connection, reset and switch methods; any network-switch button remains explicitly user-driven. Retain mock/testnet/local-fork labels and technical diagnostics without presenting them as certification.
 
+## Owner direction correction before Part B
+
+The owner superseded Part A's visible mock-example labeling and the old inline lending setup direction. The primary workspace must have no internal/demo/mock wording. Legacy provenance, rehearsal controls and diagnostics may stay inside closed technical disclosures; they must not be relabeled as live financial evidence.
+
+The corrected authoring flow is **Add action → canonical canvas card → select card → edit in the external inspector**. Supply, Borrow, Repay and Withdraw use their existing ADD/SET commands and canonical constructors. The initial scaffold stays in the IR for compatibility but is excluded from the primary canvas/context projection. Primary action counts reflect visible canonical product actions.
+
+Supported connections retain existing semantics: standalone lending actions remain isolated; the existing Supply → Borrow → Swap composition retains its dependency, output reference and health-factor checkpoint. The UX must not invent arbitrary connections or promise that unsupported compositions execute.
+
+Create a separate focused correction commit, report back and stop before further Part B implementation. Part B continues from this corrected direction after owner instruction.
+
 ## Current status
 
-Part A complete with targeted validation passed. Stop after its focused commit and await owner instruction. Parts B–E have not started. Final integration/certification is reserved for Part E.
+Part A committed. The owner-requested Build direction correction is implemented and targeted validation passed; it is recorded as a separate correction commit. Further Parts B–E work has not started. Final integration/certification is reserved for Part E.

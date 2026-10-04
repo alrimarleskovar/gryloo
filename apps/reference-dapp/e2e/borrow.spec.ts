@@ -4,7 +4,7 @@ import type {Page} from '@playwright/test';
 import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc} from './supply-fixtures';
 async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1]={}){
   await installSupplyWallet(page,options);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();
-  const form=page.getByRole('form',{name:'Create Borrow'});await form.getByLabel('Borrow amount (USDC)').fill('0.01');await form.getByRole('button',{name:'Add Borrow',exact:true}).click();
+  const form=page.getByRole('form',{name:'Edit Borrow'});await form.getByLabel('Borrow amount (USDC)').fill('0.01');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Borrow from Aave V3');
   await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
   await expect(page.getByRole('button',{name:'Review Borrow',exact:true})).toBeEnabled();
@@ -57,7 +57,7 @@ test('semantic amount edits invalidate Borrow Review',async({page})=>{
   await expect(page.getByRole('region',{name:'Aave Borrow'}).getByRole('button',{name:'Execute',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });
 test('read-only simulation blocks unsafe Borrow before Review',async({page})=>{
-  await installSupplyWallet(page);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();const form=page.getByRole('form',{name:'Create Borrow'});
-  await form.getByLabel('Borrow amount (USDC)').fill('5');await form.getByRole('button',{name:'Add Borrow',exact:true}).click();await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
+  await installSupplyWallet(page);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();const form=page.getByRole('form',{name:'Edit Borrow'});
+  await form.getByLabel('Borrow amount (USDC)').fill('5');await form.getByRole('button',{name:'Review Borrow change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
   await expect(page.getByRole('region',{name:'Aave Borrow'})).toContainText('minimum of 2.0');await expect(page.getByRole('button',{name:'Review Borrow',exact:true})).toBeDisabled();expect(await supplySendCount(page)).toBe(0);
 });

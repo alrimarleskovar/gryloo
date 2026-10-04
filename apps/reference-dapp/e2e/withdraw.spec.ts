@@ -6,7 +6,7 @@ import {withdrawOptions,WITHDRAW_OWNER as owner} from './withdraw-fixtures';
 const region=(page:Page)=>page.getByRole('region',{name:'Aave Withdraw'});
 async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1]={}){
   await installSupplyWallet(page,{account:owner,...options});await page.goto('/');await page.getByRole('button',{name:'Add withdraw',exact:true}).click();
-  const form=page.getByRole('form',{name:'Create Withdraw'});await form.getByLabel('Withdraw amount (USDC)').fill('0.1');await form.getByRole('button',{name:'Add Withdraw',exact:true}).click();
+  const form=page.getByRole('form',{name:'Edit Withdraw'});await form.getByLabel('Withdraw amount (USDC)').fill('0.1');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Withdraw from Aave V3');
   await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Review Withdraw',exact:true})).toBeEnabled();
 }

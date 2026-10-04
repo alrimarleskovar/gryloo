@@ -52,9 +52,12 @@ export async function resetSupplyHarness(options:Record<string,unknown>={}){
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
   await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();
-  const form=page.getByRole('form',{name:'Create Supply'});
+  const form=page.getByRole('form',{name:'Edit Supply'});
+  const unchanged = await form.getByLabel('Supply amount (USDC)').inputValue() === amount && await form.getByLabel('Supply beneficiary').inputValue() === beneficiary;
   await form.getByLabel('Supply amount (USDC)').fill(amount);await form.getByLabel('Supply beneficiary').fill(beneficiary);
-  await form.getByRole('button',{name:'Add Supply',exact:true}).click();
+  if (unchanged) return;
+  await form.getByRole('button',{name:'Review Supply change',exact:true}).click();
+  await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
 }
 export async function reviewSupply(page:Page){
   await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();

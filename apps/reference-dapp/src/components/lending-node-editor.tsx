@@ -20,7 +20,7 @@ export function LendingNodeEditor({nodeId}:{nodeId:string}) {
   return <form className="inspector-fields" aria-label={`Edit ${title}`} onSubmit={submit}>
     <strong>{title} · Base Sepolia</strong>
     {supply?<p>Aave USDC collateral. Supply must reconcile before the HF ≥ 2 policy checkpoint permits Borrow.</p>:borrow?<p>Variable-rate USDC debt. The exact Borrow output feeds Swap; changing this amount updates its linked input.</p>:<>
-      <p>Input: exactly {input.borrow} borrowed USDC, bound to Aave Borrow through OUTPUT_REFERENCE. Edit the Borrow node to change this amount.</p>
+      <p>Input: exactly {input.borrow} borrowed USDC, linked to Aave Borrow. Edit the Borrow node to change this amount.</p>
       <label>Output asset<select aria-label="Swap output asset" value="WETH" disabled><option value="WETH">WETH · Base Sepolia</option></select></label>
       <p>The fresh quote and this slippage bound determine the reviewed minimum WETH output.</p>
     </>}

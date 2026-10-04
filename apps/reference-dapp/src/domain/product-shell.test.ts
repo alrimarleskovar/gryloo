@@ -9,7 +9,7 @@ describe('product shell canonical workflow projection', () => {
   it('distinguishes the starting mock example from a required wallet network', () => {
     const workflow = initialWorkflow();
     expect(workflowShellContext(workflow)).toEqual({ workflowId: workflow.workflowId, revision: 0,
-      actionCount: 1, chains: ['Local mock'], mockExample: true, requiredChain: null });
+      actionCount: 0, chains: [], mockExample: true, requiredChain: null });
   });
 
   it.each([

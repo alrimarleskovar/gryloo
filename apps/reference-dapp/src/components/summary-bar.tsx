@@ -5,6 +5,7 @@ import { useModeB } from '../state/mode-b-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
 import { useWorkflow } from '../state/workflow-store';
 import type { Tab } from './top-bar';
+import { workflowShellContext } from '../domain/product-shell';
 
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import {useLending} from '../state/lending-store';
@@ -29,8 +30,9 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
   const reviewable = Boolean(info?.available && prepared && !retired && !verifyError && verified['step-approve'] && verified['step-swap']);
+  const actionCount = workflowShellContext(state.workflow).actionCount;
   return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
-    <div><span className="eyebrow">WORKFLOW</span><strong>{state.workflow.nodes.length} steps</strong></div>
+    <div><span className="eyebrow">WORKFLOW</span><strong>{actionCount} {actionCount === 1 ? 'action' : 'actions'}</strong></div>
     {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Continue to Simulate</button>
       : tab === 'Simulate' && transferPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!transfer.record || transfer.retired}>Review transfer</button>
       : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={()=>setTab('Execute')} disabled={!lending.record||lending.retired}>Review lending composition</button>

@@ -8,7 +8,7 @@ import { useBridge } from '../state/bridge-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 
 type Message = { role: 'system' | 'you'; text: string };
-export function CopilotPanel() {
+export function CopilotPanel({ showProposal = true }: { showProposal?: boolean }) {
   const { state, context, pending, propose, applyProposal, dismissProposal } = useWorkflow();
   const wallet = useBuild009Wallet();
   const bridgeEnabled = useBridge().enabled;
@@ -45,7 +45,7 @@ export function CopilotPanel() {
     <div className="copilot-head"><div><p className="eyebrow">ASSISTANT</p><h2>Copilot</h2></div></div>
     <div className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">{messages.map((message, index) =>
       <div key={index} className={`message ${message.role}`}><small>{message.role === 'you' ? 'YOU' : 'GRYLOO'}</small><p>{message.text}</p></div>)}</div>
-    {pending && <div className="proposal" role="status"><div className="proposal-copy"><strong>Review proposed edit</strong>
+    {showProposal && pending && <div className="proposal" role="status"><div className="proposal-copy"><strong>Review proposed edit</strong>
       <p>{pending.command.type} · base revision {pending.command.baseRevision}</p>
       <ul>{pending.diff.map((line, index) => <li key={index}>{line}</li>)}</ul>
       {pending.review && <p>Review: {pending.review.findings.length} findings · execution unavailable</p>}</div>
