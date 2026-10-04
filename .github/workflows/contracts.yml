@@ -10,7 +10,8 @@ permissions:
 jobs:
   contracts:
     name: Contracts, reference app, dependencies and SBOM
-    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, flofi-wsl]
     env:
       TURBO_TELEMETRY_DISABLED: "1"
       DO_NOT_TRACK: "1"

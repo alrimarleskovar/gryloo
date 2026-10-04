@@ -9,7 +9,8 @@ permissions:
 
 jobs:
   governance:
-    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, flofi-wsl]
     timeout-minutes: 5
     env:
       PYTHONDONTWRITEBYTECODE: "1"
