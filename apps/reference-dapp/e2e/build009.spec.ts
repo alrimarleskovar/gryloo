@@ -71,7 +71,7 @@ test('BUILD-009 injected wallet, explicit chain switching, mocked partial comple
   await recovered.getByRole('button', { name: 'Reconcile MOCKED WETH balance' }).click();
   await expect(recovered.locator('[data-build009-state]')).toContainText('SWAP_RECONCILED');
   await expect(recovered.locator('[data-build009-weth]')).toBeVisible();
-  await page.getByRole('button', { name: 'Disconnect/Reset (app only)' }).click();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
 });
 

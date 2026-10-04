@@ -152,7 +152,7 @@ export { expect };
 /** Wait for the approved fixed viewport, loaded fonts and final graph layout before a visual baseline. */
 export async function readyForVisualCapture(page: Page): Promise<void> {
   expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
-  await expect(page.locator('.fork-badge')).toContainText(/^Local demo · (MOCKED|FORK_REPRODUCED)$/);
+  await expect(page.locator('.fork-badge')).toContainText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/);
   await page.evaluate(() => document.fonts.ready);
   const graph = page.getByRole('region', { name: 'Mocked outputs on the workflow graph' });
   if (await graph.isVisible()) await expect(graph).toHaveAttribute('data-viewport', 'fitted');

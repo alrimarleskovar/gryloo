@@ -5,7 +5,7 @@ import { product } from '../config/product';
 import '@xyflow/react/dist/style.css';
 import './globals.css';
 
-export const metadata: Metadata = { title: `${product.name} · workflow builder`, description: 'Build and review DeFi workflows. An explicitly enabled Base Sepolia path supports a wallet-confirmed Uniswap testnet swap; Mainnet execution is unavailable.' };
+export const metadata: Metadata = { title: `${product.name} · Build, Simulate, Execute`, description: 'Compose multichain DeFi workflows, simulate and review the Strategy Manifest, then authorize with your own wallet and follow execution, reconciliation and evidence.' };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return <html lang="en"><body>{children}</body></html>;
 }
