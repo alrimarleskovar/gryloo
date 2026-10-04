@@ -132,4 +132,3 @@ MetaMask's address scan (Blockaid) classifies two official Base Sepolia contract
 - **External wallet compatibility:** a real owner test with a non-MetaMask EIP-6963 wallet (for example Rabby) for ROUTER_APPROVAL and SWAP on the existing run, or a decision to close the open position.
 - Lending UI: classify explicit wallet refusals (EIP-1193 4001 and similar) as known non-submission, as the BUILD-012 stores do.
 - Run journal: a compact format that does not repeat every Review in each line and its evidence.
-
