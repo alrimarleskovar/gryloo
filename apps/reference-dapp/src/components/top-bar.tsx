@@ -41,7 +41,7 @@ export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void
   const solanaActive = requiredChain?.startsWith('solana:') || Boolean(jupiter.recovered && jupiter.record && context.mockExample);
   const fork = info?.available ? info : null;
   return <header className="top-bar">
-    <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1672} height={941} unoptimized/></span><span>{product.name}</span><small>Workflow workspace</small></div>
+    <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1062} height={299} unoptimized/></span><small>Workflow workspace</small></div>
     <nav aria-label="Workflow stages" className="tabs">{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
