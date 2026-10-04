@@ -4,7 +4,7 @@ import { Buffer } from 'node:buffer';
 import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
-import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, supplyHash, supplyHex,
+import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
   writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
@@ -83,7 +83,48 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     }
     return true;
   }
-  /** The entire remaining path is tested before releasing ANY owner transaction, again at handoff. */
+  /**
+   * Fast release gate immediately before the wallet request. begin() ran the complete public gate for this exact attempt
+   * moments earlier; this rechecks, without a new simulation, everything that could have changed since. Any difference
+   * fails closed and needs a fresh Simulate; the Review is never updated here.
+   */
+  async function handoffGate(r:LendingRecord,a:LendingRecord['attempts'][number]):Promise<LendingSnapshot> {
+    const review=currentLendingReview(r),owner=review.fields.owner;assertLendingReview(review,review.workflow,owner);
+    if(rpcUint(await input.rpc('eth_chainId',[]))!==84532n)throw Error('LENDING_WRONG_CHAIN');
+    if(a.call.tx.from!==owner)throw Error('LENDING_WRONG_ACCOUNT');
+    const next=review.calls.find(c=>!r.attempts.some(x=>x.step===c.id&&x.reconciled));
+    if(!next||next.id!==a.step||supplyHash(next.tx)!==supplyHash(a.call.tx)||r.attempts.some(x=>x.id!==a.id&&!x.reconciled&&!x.notSubmitted))throw Error('LENDING_EXISTING_ATTEMPT_OBSERVE_ONLY');
+    for(const done of r.attempts.filter(x=>x.reconciled)){
+      const old=r.observations.find(o=>o.attemptId===done.id&&o.verdict==='RECONCILED'),value=await input.rpc('eth_getTransactionReceipt',[done.hash]);
+      if(!old?.receipt||!value)throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
+      const receipt=rpcRecord(value),block=await input.rpc('eth_getBlockByNumber',[receipt.blockNumber,false]),canonical=block?rpcRecord(block):null;
+      if(!canonical||rpcUint(receipt.status)!==1n||receipt.blockHash!==old.receipt.blockHash||canonical.hash!==old.receipt.blockHash||
+        !Array.isArray(canonical.transactions)||!canonical.transactions.includes(done.hash))throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
+    }
+    const latest=await readLendingSnapshot(input.rpc,owner),reference=proofs(r).filter(o=>o.verdict==='RECONCILED').at(-1)?.post??review.state;
+    assertLendingFresh(reference,latest);
+    const f=review.fields,need=(ok:boolean)=>{if(!ok)throw Error('LENDING_STEP_PRECONDITION_CHANGED');};
+    if(a.step==='POOL_APPROVAL'||a.step==='SUPPLY')need(BigInt(latest.aave.balance)>=BigInt(f.supplyAmount));
+    if(a.step==='SUPPLY')need(BigInt(latest.aave.allowance)>=BigInt(f.supplyAmount));
+    if(a.step==='ROUTER_APPROVAL'||a.step==='SWAP')need(BigInt(latest.aave.balance)>=BigInt(f.borrowAmount));
+    if(a.step==='SWAP')need(BigInt(latest.routerAllowance)>=BigInt(f.borrowAmount));
+    // While the Swap is still ahead, its reviewed route must still exist and still quote at least the reviewed minimum.
+    if(!completed(r).includes('SWAP')){const route=await readLendingRoute(input.rpc,f.borrowAmount,f.slippageBps,Date.now(),'latest',review.route.minimumOut);
+      if(route.codeHash!==review.route.codeHash||route.pool!==review.route.pool)throw Error('LENDING_REVIEW_STALE');}
+    if(latest.aave.nonce!==a.nonce)throw Error('LENDING_NONCE_CHANGED');
+    const lease=await lastEntry(join(input.journalDir,owner+'-'+a.nonce+'.intent')) as {id?:unknown;attemptId?:unknown}|null;
+    if(lease?.id!==r.id||lease.attemptId!==a.id)throw Error('LENDING_NONCE_ALREADY_RESERVED');
+    if((await lastEntry(join(input.journalDir,'economic-'+supplyHash(a.call.tx).slice(2)+'.intent')))?.id!==r.id)throw Error('ECONOMIC_EXISTING_INTENT_OBSERVE_ONLY');
+    const root=lendingRootChain(r.reviews).root,reconciled=proofs(r).filter(o=>o.verdict==='RECONCILED');
+    const consumedNetwork=reconciled.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n),consumedL1=reconciled.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n);
+    const remaining=review.calls.filter(c=>!completed(r).includes(c.id)),execution=remaining.reduce((sum,c)=>sum+BigInt(c.gasLimit)*BigInt(review.gasPrice),0n);
+    const l1=await readLendingL1FeeUpperBound(input.rpc,remaining.length,supplyHex(latest.aave.block));
+    if(BigInt(latest.aave.gasPrice)>BigInt(review.gasPrice)||BigInt(latest.aave.nativeBalance)<execution+BigInt(l1))throw Error('LENDING_REVIEW_STALE');
+    assertLendingFeeBudgets(review,l1,(execution+BigInt(l1)).toString(),root,consumedNetwork.toString(),consumedL1.toString());
+    assertLendingReview(review,review.workflow,owner);
+    return latest;
+  }
+  /** The entire remaining path is tested before releasing ANY owner transaction (at Review and preparation). */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
     const review=currentLendingReview(r);assertLendingReview(review,workflow,account);await verifyPredecessors(r);
     const root=lendingRootChain(r.reviews).root,rootBudget=lendingFeeCeilings(root),acceptedBudget=lendingFeeCeilings(review);
@@ -156,8 +197,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     async handoff(id:string,attemptId:string){return locked(idCheck(id),async()=>{
       const r=await load(id),a=r.attempts.find(a=>a.id===attemptId),review=currentLendingReview(r);
       if(!a||a.state!=='PREPARED'||r.authorization!==review.commitment||a.reviewCommitment!==review.commitment)throw Error('LENDING_HANDOFF_NOT_AUTHORIZED');
-      const state=await publicGate(r,review.workflow,review.fields.owner);
-      if(state.aave.nonce!==a.nonce)throw Error('LENDING_NONCE_CHANGED');
+      const state=await handoffGate(r,a);
       return save({...r,...lendingAttemptTransition(r,a.id,'SUBMITTING'),currentPosition:state});
     });},
     async report(id:string,attemptId:string,result:{kind:'HASH';hash:string}|{kind:'UNKNOWN'}){return locked(idCheck(id),async()=>{

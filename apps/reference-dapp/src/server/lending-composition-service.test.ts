@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi} from 'vitest';
 import {mkdtemp,rm,readFile,writeFile,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -189,6 +189,58 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     const intents=(await readdir(dir)).sort();
     await expect(tight.begin(r.id,OWNER,workflow)).rejects.toThrow('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
     expect((await tight.load(r.id)).attempts).toHaveLength(7);expect((await readdir(dir)).sort()).toEqual(intents);expect(model.transactions).toHaveLength(1);
+  }));
+  // Owner-interaction lifetime: a continuation Review lives 600 s; the wallet release gate rechecks fresh state without a new simulation.
+  async function continuationReview(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);r=await step(service,model,r.id);r=await service.refreshReview(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL']);return r;
+  }
+  const travel=(model:ReturnType<typeof createLendingHarness>,at:number)=>{vi.setSystemTime(at);model.state.timestamp=Math.floor(at/1000);model.history.set(model.state.block,{...model.state});};
+  function counted(rpc:ReturnType<typeof createLendingHarness>['rpc'],patch:(method:string,params:unknown[],result:unknown)=>unknown=(_m,_p,r)=>r){
+    const calls:string[]=[];return {calls,rpc:(async(method:string,params:unknown[])=>{calls.push(method);return patch(method,params,await rpc(method,params));}) as typeof rpc};
+  }
+  it('keeps a continuation Review usable past 120 s and releases SUPPLY through the fast gate without another POOL_APPROVAL',()=>fixture(async({model,service,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      let r=await authorized(service);const first=r.reviews[0]!;
+      expect(Date.parse(first.expiresAt)-Date.parse(first.simulation.freshness.observedAt)).toBe(120_000);
+      r=await step(service,model,r.id);r=await service.refreshReview(r.id);const fresh=r.reviews.at(-1)!,observed=Date.parse(fresh.simulation.freshness.observedAt);
+      expect(fresh.completed).toEqual(['POOL_APPROVAL']);expect(Date.parse(fresh.expiresAt)-observed).toBe(600_000);
+      travel(model,observed+180_000);r=await service.review(r.id,fresh.commitment,workflow);
+      travel(model,observed+300_000);const begin=await service.begin(r.id,OWNER,workflow);
+      expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});
+      const gate=counted(model.rpc),release=createLendingCompositionService({rpc:gate.rpc,journalDir:dir,provenance:'MOCKED'});
+      travel(model,observed+420_000);const handed=await release.handoff(r.id,begin.attemptId);
+      expect(handed.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'SUBMITTING'});expect(gate.calls).not.toContain('eth_simulateV1');
+      expect(handed.attempts.filter(a=>a.step==='POOL_APPROVAL')).toHaveLength(1);expect(model.transactions).toHaveLength(1);
+    }finally{vi.useRealTimers();}
+  }));
+  it('fails closed at the wallet release gate once the 600 s continuation lifetime has passed',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+      const begin=await service.begin(r.id,OWNER,workflow);travel(model,Date.parse(r.reviews.at(-1)!.expiresAt)+1_000);
+      await expect(service.handoff(r.id,begin.attemptId)).rejects.toThrow('LENDING_REVIEW_STALE');
+      expect((await service.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
+    }finally{vi.useRealTimers();}
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>)=>void,string,((method:string,params:unknown[],result:unknown)=>unknown)|undefined]>([
+    ['principal changed (wallet WETH)',m=>{m.state.weth+=1n;},'LENDING_PRINCIPAL_CHANGED',undefined],
+    ['principal changed (wallet USDC)',m=>{m.state.balance-=1n;},'LENDING_PRINCIPAL_CHANGED',undefined],
+    ['gas price above the reviewed ceiling',()=>undefined,'LENDING_REVIEW_STALE',(method,_p,result)=>method==='eth_gasPrice'?'0x'+(10n**12n).toString(16):result],
+    ['L1 fee above the reviewed ceiling',()=>undefined,'LENDING_FINAL_L1_FEE_BUDGET_CHANGED',(method,params,result)=>method==='eth_call'&&(params[0] as {to:string}).to.toLowerCase()==='0x420000000000000000000000000000000000000f'?'0x'+(10n**15n).toString(16).padStart(64,'0'):result],
+  ])('fails closed at the wallet release gate when %s',(_,mutate,code,patch)=>fixture(async({model,service,dir})=>{
+    let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);mutate(model);model.history.set(model.state.block,{...model.state});
+    const gate=createLendingCompositionService({rpc:counted(model.rpc,patch).rpc,journalDir:dir,provenance:'MOCKED'});
+    await expect(gate.handoff(r.id,begin.attemptId)).rejects.toThrow(code);
+    expect((await gate.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
+  }));
+  it('fails closed at the wallet release gate when the completed POOL_APPROVAL proof is missing',()=>fixture(async({model,service})=>{
+    let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);model.receipts.delete(r.attempts[0]!.hash!);
+    await expect(service.handoff(r.id,begin.attemptId)).rejects.toThrow('LENDING_PREDECESSOR_PROOF_CHANGED');
+    expect((await service.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
   }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);

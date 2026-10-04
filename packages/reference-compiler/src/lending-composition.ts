@@ -136,6 +136,12 @@ function simulatedSnapshot(before: LendingSnapshot, responses: Record<string, un
       liquidationThresholdBps: a[3]!.toString(), ltvBps: a[4]!.toString(), healthFactor: a[5]!.toString(),
       userConfiguration: n[0]!, debt: n[5]!, scaledDebt: n[6]!, debtIndex: n[10]!,liquidity:n[11]!,debtTotalSupply:n[12]! } } };
 }
+/**
+ * Owner-interaction lifetime of a Review, measured from its simulation. A continuation (at least one completed step)
+ * needs Accept, the full public gate at preparation and a fast release gate before the wallet; 120 s was not enough
+ * for that sequence. Every wallet handoff is still gated on fresh state, so a longer lifetime grants no stale authority.
+ */
+export const LENDING_REVIEW_TTL_MS = 120_000, LENDING_CONTINUATION_REVIEW_TTL_MS = 600_000;
 /** Rejects unsupported simulation; no state override, replacement token, pool creation or send exists here. */
 export async function simulateLendingComposition(workflow: SemanticWorkflow, account: string, rpc: SupplyRpc,
   options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string; rerootOf?: string } = {}): Promise<LendingReview> {
@@ -201,7 +207,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
   const gasBudget = (calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(gasPrice), 0n) + maximumL1Fee).toString();
   if (!uint(gasPrice) || uint(state.aave.nativeBalance) < uint(gasBudget)) throw Error('LENDING_GAS_FUNDING_INSUFFICIENT');
   if (rpcHash(rpcRecord(await rpc('eth_getBlockByNumber', [supplyHex(route.block), false])).hash) !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
-  const expiresAt = new Date(now + 120_000).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
+  const expiresAt = new Date(now + (completed.length ? LENDING_CONTINUATION_REVIEW_TTL_MS : LENDING_REVIEW_TTL_MS)).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
   const artifactSet: ArtifactSet = { schemaVersion:'1.0.0', artifactSetId:'lending-artifacts', semanticWorkflowHash:semanticHash,
     artifacts: workflow.nodes.map(n => ({ artifactId:n.nodeId + '-state', nodeId:n.nodeId,
       artifactHash:supplyHash({ nodeId:n.nodeId, state, rootState, route, calls, completed, projected, gasPrice, l1FeeUpperBound, simulationResponse }) })) };
