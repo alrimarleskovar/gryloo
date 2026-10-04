@@ -44,6 +44,7 @@ All values are secrets or configuration supplied by the hosting platform. Never 
 | `GRYLOO_PUBLIC_TESTNET=record` | to enable | Base Sepolia read-only RPC for the exact-profile Uniswap v3 USDC/WETH swap (the public online swap acceptance path). |
 | `GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live` | to enable | Base Sepolia read-only RPC (`eth_simulateV1`, receipts, nonce discovery) for the Uniswap v3 USDC/WETH concentrated-liquidity flow (`uniswap-liquidity`; test tokens, owner wallet signs each approval and the mint). `GRYLOO_BASE_SEPOLIA_RPC_URL` optionally names an HTTPS Base Sepolia RPC that supports `eth_simulateV1`; `GRYLOO_UNISWAP_LIQUIDITY_EXECUTION=DISABLED` keeps it Simulate/Review-only. No new service, database migration or secret. |
 | `GRYLOO_ROUTER=live` | to enable | Cross-chain Router (`crosschain-router`, BUILD-ROUTER-001): Base mainnet → Arbitrum One USDC through LI.FI or direct Across, **quotes, simulation and Review only**. Read-only Base/Arbitrum RPC (`eth_simulateV1`, `eth_getLogs`, receipts) and server-side LI.FI/Across quote and status reads. The public Base RPC rate-limits `eth_call` bursts (HTTP 429), so set `GRYLOO_BASE_RPC_URL` (and optionally `GRYLOO_ARBITRUM_RPC_URL`) to keyed HTTPS endpoints that support `eth_simulateV1`. `ACROSS_API_KEY`, `ACROSS_INTEGRATOR_ID` (`0x` + 4 hex) and `LIFI_API_KEY` are optional secrets. Real-funds execution additionally requires the owner's explicit `GRYLOO_ROUTER_OWNER_EXECUTION=MAINNET_OWNER_APPROVED` on both API and worker; never set it for a demo. No new service, database migration or required secret. |
+| `GRYLOO_ROUTER_TESTNET=live` | to enable | BUILD-JOURNEY-001 permissionless journey: the same Cross-chain Router on public testnets (`crosschain-router-testnet`), Base Sepolia → Arbitrum Sepolia **test USDC**, quotes, simulation, Review and owner-wallet execution for **any** signed-in wallet (no allowlist, no operator step). Public read-only RPCs by default (`https://sepolia.base.org`, `https://sepolia-rollup.arbitrum.io/rpc`); `GRYLOO_BASE_SEPOLIA_RPC_URL` / `GRYLOO_ARBITRUM_SEPOLIA_RPC_URL` optionally name keyed HTTPS endpoints (the Base Sepolia one must support `eth_simulateV1`). LI.FI and the Across **testnet** API are queried server-side; `LIFI_API_KEY` is optional. `GRYLOO_ROUTER_TESTNET_EXECUTION=DISABLED` keeps it Simulate/Review-only. Set it on **both** API and worker. Migration `0004` (an index) runs in the normal pre-deploy `migrate`. No new service or required secret. |
 
 A flow without its enablement variable answers `*_PUBLIC_TESTNET_NOT_ENABLED`. The `*_HARNESS=MOCKED_LOOPBACK_ONLY`
 variables exist only for tests and must never be set in a deployment.
@@ -53,7 +54,15 @@ variables exist only for tests and must never be set in a deployment.
 | Variable | Meaning |
 | --- | --- |
 | `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Base Sepolia Uniswap liquidity, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter, Cross-chain Router) to forward to the API. |
-| `API_AUTH_TOKEN` | Same value as the API's token. |
+| `API_AUTH_TOKEN` | Same value as the API's token. It also keys the wallet-session cookies (HKDF, separate label) unless `FLOFI_SESSION_SECRET` is set. |
+| `FLOFI_SESSION_SECRET` | Optional, ≥ 32 characters (`openssl rand -hex 32`): a key for the wallet-session cookies separate from `API_AUTH_TOKEN`. Rotating it signs every wallet out (no funds or runs are affected). |
+
+**Wallet sessions (BUILD-JOURNEY-001).** A user signs one EIP-4361 message with their own wallet (`personal_sign`); the BFF
+verifies the signer and sets HttpOnly, SameSite=Strict, Secure cookies (8 h session, 5 min challenge). The verified address
+is forwarded to the API in the server-to-server `x-flofi-wallet-principal` header; Router runs are bound to it, so a wallet
+only sees and operates its own runs (`/v1/runs*` are filtered to it). Requests made with the bearer token but no principal
+(operators) keep tenant-wide read access. The session never authorizes a transaction: every wallet request still needs the
+user's Review, Manifest acceptance, Execute click and signature.
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
 keep their existing `GRYLOO_*` gates; leave those unset on Vercel so they stay disabled (their journals would
@@ -89,6 +98,16 @@ These steps need the owner's accounts. The repository already contains everythin
    close the tab again; after the worker reconciles, reopen and download the Evidence Bundle. Restart the
    `flofi-api` and `flofi-worker` services in Railway at any point to confirm nothing is lost. Agents never
    perform this step.
+
+8. **Permissionless testnet journey (BUILD-JOURNEY-001)** — deploy this revision to `flofi-api` and `flofi-worker` with
+   `GRYLOO_ROUTER_TESTNET=live` on both (migration `0004` applies in pre-deploy), keep `API_BASE_URL`/`API_AUTH_TOKEN` on Vercel,
+   and make the frontend URL public (step 6). Verify without a wallet: the Build stage shows "Permissionless testnet journey";
+   `curl -H "authorization: Bearer <token>" https://<api>/v1/runs?flow=crosschain-router-testnet` → `{"ok":true,...}`.
+   Acceptance is performed by an **external user** with their own wallet (never an agent, never a team key): Base Sepolia ETH
+   from a public faucet and 0.5–5 test USDC from Circle's faucet (https://faucet.circle.com); open the public URL → Connect →
+   Sign in → "Bridge 1 USDC from Base Sepolia to Arbitrum Sepolia" → Simulate → Review → Accept → Execute the approval and the
+   deposit in the wallet → close the tab / restart `flofi-api` and `flofi-worker` → reopen (any browser), sign in, open the run
+   from "Your runs" → wait for `RECONCILED` (Across testnet relayer fill at both safe heads) → download the Evidence Bundle.
 
 ## Operations
 
