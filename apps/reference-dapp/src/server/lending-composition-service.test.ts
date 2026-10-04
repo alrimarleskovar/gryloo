@@ -352,6 +352,29 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     expect(r).toMatchObject({status:'RECOVERY_REQUIRED'});expect(r.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'SUBMISSION_RESULT_UNKNOWN'});
     expect(r.attempts.at(-1)!.nonSubmission).toBeUndefined();
   }));
+  // The real ROUTER_APPROVAL.10: handed off, still SUBMITTING, no hash reported; the wallet may confirm long after handoff.
+  it('reconciles a direct ROUTER_APPROVAL confirmed after the discovery window without a reported hash',()=>fixture(async({model,service})=>{
+    const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);
+    advance(model,200);await model.rpc('MOCK_submit',[begin.transaction]);
+    const observed=await service.observe(r.id);
+    expect(observed.attempts.at(-1)).toMatchObject({id:begin.attemptId,step:'ROUTER_APPROVAL',state:'CONFIRMED',reconciled:true});
+    expect(observed.observations.at(-1)).toMatchObject({verdict:'RECONCILED'});expect(observed.attempts).toHaveLength(4);expect(model.transactions).toHaveLength(4);
+  }));
+  it('reconciles a relayed ROUTER_APPROVAL confirmed after the discovery window from the allowance it set',()=>fixture(async({model})=>{
+    const wrapped=await wrappedAaveSetup(model as unknown as ReturnType<typeof repayModel>,workflow);
+    try{
+      const service=createLendingCompositionService({...wrapped.input,rpc:wrapped.rpc});
+      let r=await authorized(service);
+      for(let i=0;i<3;i++){const b=await service.begin(r.id,OWNER,workflow);await service.handoff(r.id,b.attemptId);
+        await service.report(r.id,b.attemptId,{kind:'HASH',hash:await wrapped.rpc('MOCK_submit',[b.transaction]) as string});r=await service.observe(r.id);}
+      r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+      const b=await service.begin(r.id,OWNER,workflow);expect(b.record.attempts.at(-1)!.step).toBe('ROUTER_APPROVAL');await service.handoff(r.id,b.attemptId);
+      const nonce=model.state.nonce;advance(model,200);await wrapped.rpc('MOCK_submit',[b.transaction]);expect(model.state.nonce).toBe(nonce);
+      r=await service.observe(r.id);
+      expect(r.attempts.at(-1)).toMatchObject({id:b.attemptId,state:'CONFIRMED',reconciled:true});expect(r.observations.at(-1)!.ownerProof).toMatchObject({kind:'METAMASK_EIP7702'});
+      expect(r.attempts).toHaveLength(4);
+    }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
+  }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){

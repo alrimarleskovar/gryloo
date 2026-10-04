@@ -4,7 +4,7 @@ import { Buffer } from 'node:buffer';
 import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
-import { assertLendingReview, assertLendingReviewLifetime, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
+import { SUPPLY_METAMASK, supplyCall, assertLendingReview, assertLendingReviewLifetime, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
   writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun, type LendingNonSubmissionProof } from '@defi-workflow-engine/reference-executor';
@@ -143,6 +143,27 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     if(latest.aave.block<=window[1]||atBlock!==BigInt(a.nonce)||pending!==BigInt(a.nonce)||allowance!==reviewed||BigInt(reviewed)===target)return null;
     return {kind:'APPROVAL_NOT_SUBMITTED',provenAtBlock:latest.aave.block,blockHash:latest.aave.blockHash,ownerNonce:a.nonce,allowance,discoveryWindow:window};
   }
+  /**
+   * Finds a submission that landed after the bounded discovery window (e.g. a wallet confirmed long after handoff and the
+   * page could not report the hash): the first block where the owner nonce passed the attempt nonce (direct) or, for an
+   * approval, where the allowance became the approved amount (relayed). Only a transaction in that block from the owner at
+   * the attempt nonce, or a relayed call carrying the exact calldata, is returned; reconciliation then verifies it fully.
+   */
+  async function lateSubmission(r:LendingRecord,a:LendingRecord['attempts'][number]):Promise<{hash:string;mismatch:boolean}|null> {
+    const owner=r.reviews.find(v=>v.commitment===a.reviewCommitment)!.fields.owner,latest=Number(rpcUint(await input.rpc('eth_blockNumber',[])));
+    const nonceAfter=async(b:number)=>rpcUint(await input.rpc('eth_getTransactionCount',[owner,supplyHex(b)]))>BigInt(a.nonce);
+    const approval=a.step==='POOL_APPROVAL'||a.step==='ROUTER_APPROVAL',target=BigInt('0x'+a.call.tx.data.slice(-64)),spender='0x'+a.call.tx.data.slice(34,74);
+    const allowanceSet=async(b:number)=>rpcUint(await input.rpc('eth_call',[{to:a.call.tx.to,data:supplyCall('allowance(address,address)',owner,spender)},supplyHex(b)]))===target;
+    const effect=await nonceAfter(latest)?nonceAfter:approval&&await allowanceSet(latest)?allowanceSet:null;
+    if(!effect||await effect(a.preparedAtBlock))return null;
+    let lo=a.preparedAtBlock,hi=latest;while(hi-lo>1){const mid=Math.floor((lo+hi)/2);if(await effect(mid))hi=mid;else lo=mid;}
+    const block=rpcRecord(await input.rpc('eth_getBlockByNumber',[supplyHex(hi),true]));if(!Array.isArray(block.transactions))return null;
+    for(const value of block.transactions){const tx=rpcRecord(value);
+      if(typeof tx.from==='string'&&tx.from.toLowerCase()===owner&&rpcUint(tx.nonce)===BigInt(a.nonce))
+        return {hash:rpcHash(tx.hash),mismatch:tx.to!==SUPPLY_METAMASK.manager&&(String(tx.to).toLowerCase()!==a.call.tx.to||String(tx.input).toLowerCase()!==a.call.tx.data)};
+      if(typeof tx.to==='string'&&tx.to.toLowerCase()===SUPPLY_METAMASK.manager&&String(tx.input).toLowerCase().includes(a.call.tx.data.slice(2).toLowerCase()))return {hash:rpcHash(tx.hash),mismatch:false};}
+    return null;
+  }
   /** The entire remaining path is tested before releasing ANY owner transaction (at Review and preparation). */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
     const review=currentLendingReview(r);assertLendingReview(review,workflow,account);assertLendingReviewLifetime(review);await verifyPredecessors(r);
@@ -255,6 +276,9 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
         try{r={...r,currentPosition:await readLendingSnapshot(input.rpc,currentLendingReview(r).fields.owner,'latest',false)};}catch{r={...r,error:'LENDING_CURRENT_POSITION_UNAVAILABLE'};}
         const found=await discoverSupplyTransaction({nonce:a.nonce,preparedAtBlock:a.preparedAtBlock,transaction:a.call.tx,transactionHash:null,step:'SUPPLY',state:'SUBMITTING',receipt:null,reconciled:false},input.rpc);
         if(found.mismatch)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_NONCE_PAYLOAD_MISMATCH'});
+        const late=!found.hash&&found.exhausted?await lateSubmission(r,a):null;
+        if(late?.mismatch)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_NONCE_PAYLOAD_MISMATCH'});
+        if(late)found.hash=late.hash;
         if(!found.hash){
           const proof=found.exhausted?await nonSubmissionProof(r,a):null;
           if(!proof)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_UNKNOWN_OBSERVE_ONLY'});
