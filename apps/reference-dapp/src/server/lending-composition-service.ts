@@ -12,10 +12,13 @@ import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, 
 import { createSupplyService } from './supply-service';
 import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 export type LendingRecord = LendingRun & {observations:LendingObservation[];currentPosition:LendingSnapshot|null;evidence:ReturnType<typeof buildLendingEvidence>|null};
+// Every run line is a full snapshot (Reviews plus evidence), so long runs outgrow the shared 16 MiB default.
+const LENDING_RUN_MAX_BYTES=134_217_728,LENDING_HANDOFF_HEADROOM_LINES=16;
 const idCheck=(id:string)=>{if(!/^lending-[a-f0-9]{32}$/.test(id))throw Error('LENDING_ID_INVALID');return id;};
 const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.step);
 const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
-export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET'}) {
+export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET';maxRunBytes?:number}) {
+  const maxRunBytes=input.maxRunBytes??LENDING_RUN_MAX_BYTES;
   if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw Error('LENDING_STORAGE_INVALID');
   const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
   // Cache only a fully validated, exact serialized prefix, never live authority or RPC proof.
@@ -44,7 +47,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
   };
   const load=async(id:string):Promise<LendingRecord>=>{const bytes=await readFile(path(id));validate(bytes);return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!);};
   const save=async(r:LendingRecord)=>{let previous='';try{previous=await readFile(path(r.id),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
-    await writeExtendingFile(path(r.id),new TextEncoder().encode(previous+JSON.stringify(r)+'\n'),validate);return r;};
+    await writeExtendingFile(path(r.id),new TextEncoder().encode(previous+JSON.stringify(r)+'\n'),validate,undefined,maxRunBytes);return r;};
   async function locked<T>(key:string,action:()=>Promise<T>):Promise<T>{
     await mkdir(input.journalDir,{recursive:true,mode:0o700});const directory=join(input.journalDir,key+'.lock');
     try{await mkdir(directory,{mode:0o700});}catch(e){if((e as NodeJS.ErrnoException).code!=='EEXIST')throw e;
@@ -119,6 +122,8 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     async begin(id:string,account:string,workflow:SemanticWorkflow){return locked(idCheck(id),async()=>{
       account=supplyAddress(account);
       const r=await load(id),review=currentLendingReview(r);if(r.authorization!==review.commitment)throw Error('LENDING_REVIEW_REQUIRED');
+      // Never hand a step to the wallet unless the run journal can still record its submission and reconciliation.
+      if((await stat(path(id))).size+LENDING_HANDOFF_HEADROOM_LINES*(JSON.stringify(r).length+1)>maxRunBytes)throw Error('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
       const state=await publicGate(r,workflow,account),prepared=prepareLendingAttempt(r,workflow,account,state.aave.block,state.aave.nonce),attempt=prepared.attempts.at(-1)!;
       await locked(account+'-'+attempt.nonce,async()=>{
         const noncePath=join(input.journalDir,account+'-'+attempt.nonce+'.intent');

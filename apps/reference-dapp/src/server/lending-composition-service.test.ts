@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {describe,it,expect} from 'vitest';
-import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,writeFile,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createLendingHarness,OWNER} from '../../e2e/lending-harness.mjs';
@@ -143,6 +143,52 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     const file=join(dir,r.id+'.jsonl');await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify(last)+'\n');
     const restarted=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
     await expect(restarted.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+  }));
+  // The real pilot after its first owner step: six POOL_APPROVAL preparations cancelled before handoff, then POOL_APPROVAL.6 reconciled.
+  async function poolApprovedAfterSixCancellations(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);
+    for(let i=0;i<6;i++){const b=await service.begin(r.id,OWNER,workflow);r=await service.cancelPrepared(r.id,b.attemptId);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);}
+    r=await step(service,model,r.id);
+    expect(r.attempts.map(a=>a.state)).toEqual([...Array(6).fill('CANCELLED'),'CONFIRMED']);expect(r.attempts.at(-1)).toMatchObject({id:r.id+'.POOL_APPROVAL.6',reconciled:true});
+    return r;
+  }
+  it('continues after a reconciled POOL_APPROVAL once the run journal outgrows the shared 16 MiB default',()=>fixture(async({model,service,dir})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    // Identical snapshots are valid history; they stand in for the real run's 15.9 MB of events.
+    const file=join(dir,r.id+'.jsonl'),bytes=await readFile(file,'utf8'),last=bytes.trimEnd().split('\n').at(-1)!+'\n';
+    await writeFile(file,bytes+last.repeat(Math.ceil((16_777_216-Buffer.byteLength(bytes))/Buffer.byteLength(last))+1));
+    const history=await readFile(file,'utf8'),before=structuredClone(r);expect(Buffer.byteLength(history)).toBeGreaterThan(16_777_216);
+    r=await service.refreshReview(r.id);
+    const continuation=r.reviews.at(-1)!;
+    expect(continuation.rerootOf).toBeUndefined();expect(continuation.completed).toEqual(['POOL_APPROVAL']);
+    expect(continuation.calls.map(c=>c.id)).toEqual(['SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']);expect(continuation.rootState).toEqual(before.reviews.at(-1)!.rootState);
+    expect(r.reviews.slice(0,-1)).toEqual(before.reviews);expect(r.attempts).toEqual(before.attempts);expect(r.observations).toEqual(before.observations);
+    expect((await readFile(file,'utf8')).startsWith(history)).toBe(true);
+    r=await service.review(r.id,continuation.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);
+    expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED',reviewCommitment:continuation.commitment});
+    expect(begin.record.attempts.filter(a=>a.step==='POOL_APPROVAL')).toHaveLength(7);expect(model.transactions).toHaveLength(1);
+    expect((await readFile(file,'utf8')).startsWith(history)).toBe(true);
+  }),120_000);
+  it('six pre-handoff cancellations do not consume the submitted-attempt bound needed to reach SWAP',()=>fixture(async({model,service})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    for(const expected of ['SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){r=await step(service,model,r.id);expect(r.attempts.at(-1)).toMatchObject({step:expected,reconciled:true});}
+    expect(r.status).toBe('COMPLETED');expect(r.attempts).toHaveLength(11);expect(model.transactions).toHaveLength(5);
+    expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(r.evidence!.composedExecution.reviews.some(v=>v.completed.join()==='POOL_APPROVAL')).toBe(true);
+  }),120_000);
+  it('fails closed when the reconciled step cannot be independently reconciled again',()=>fixture(async({model,service})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    model.receipts.delete(r.attempts.at(-1)!.hash!);
+    await expect(service.refreshReview(r.id)).rejects.toThrow(/PREDECESSOR/);r=await service.load(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual([]);expect(r.attempts).toHaveLength(7);expect(model.transactions).toHaveLength(1);
+  }));
+  it('refuses the next wallet handoff when the run journal could not record its outcome',()=>fixture(async({model,service,dir})=>{
+    const r=await poolApprovedAfterSixCancellations(model,service),file=join(dir,r.id+'.jsonl'),size=Buffer.byteLength(await readFile(file,'utf8'));
+    const tight=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED',maxRunBytes:size+4*(JSON.stringify(r).length+1)});
+    const intents=(await readdir(dir)).sort();
+    await expect(tight.begin(r.id,OWNER,workflow)).rejects.toThrow('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
+    expect((await tight.load(r.id)).attempts).toHaveLength(7);expect((await readdir(dir)).sort()).toEqual(intents);expect(model.transactions).toHaveLength(1);
   }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);

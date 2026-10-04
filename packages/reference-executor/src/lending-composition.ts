@@ -41,7 +41,7 @@ export function prepareLendingAttempt(run:LendingRun,workflow:SemanticWorkflow,a
 }
 export function validateLendingRun(run:LendingRun):void {
   if(run.format!=='gryloo.lending-run.v1'||!/^lending-[a-f0-9]{32}$/.test(run.id)||!run.reviews.length||run.reviews.length>64||
-      !['SIMULATED','AUTHORIZED','EXECUTING','PAUSED','PARTIALLY_COMPLETED','RECOVERY_REQUIRED','COMPLETED','FAILED'].includes(run.status)||new Set(run.attempts.map(a=>a.id)).size!==run.attempts.length||!['MOCKED','PUBLIC_TESTNET'].includes(run.provenance)||run.attempts.length>10||run.journal.journalId!==run.id||
+      !['SIMULATED','AUTHORIZED','EXECUTING','PAUSED','PARTIALLY_COMPLETED','RECOVERY_REQUIRED','COMPLETED','FAILED'].includes(run.status)||new Set(run.attempts.map(a=>a.id)).size!==run.attempts.length||!['MOCKED','PUBLIC_TESTNET'].includes(run.provenance)||run.attempts.filter(a=>!a.notSubmitted).length>10||run.attempts.length>64||run.journal.journalId!==run.id||
       run.authorization!==null&&run.authorization!==currentLendingReview(run).commitment)throw Error('LENDING_STORE_CORRUPT');
   const first=run.reviews[0]!;
   if(run.journal.manifestHash!==supplyArtifactHash('strategy-manifest',first.manifest)||run.journal.executionPlanHash!==supplyArtifactHash('execution-plan',first.plan))throw Error('LENDING_STORE_CORRUPT');
