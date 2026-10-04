@@ -4,8 +4,11 @@ import { assertLendingReview, lendingRootChain, supplyArtifactHash, supplyHash, 
   type LendingReview, type LendingCall, type LendingStepId } from '@defi-workflow-engine/reference-compiler';
 import { createJournal, appendJournalState } from './journal.js';
 export type LendingAttempt = {id:string;step:LendingStepId;call:LendingCall;nonce:string;preparedAtBlock:number;
-  state:'PREPARED'|'SUBMITTING'|'SUBMISSION_RESULT_UNKNOWN'|'PENDING'|'CONFIRMED'|'REVERTED'|'CANCELLED'|'RECONCILIATION_REQUIRED';
-  hash:string|null;reconciled:boolean;ownerInitiated:boolean;notSubmitted?:boolean;reviewCommitment:string};
+  state:'PREPARED'|'SUBMITTING'|'SUBMISSION_RESULT_UNKNOWN'|'PENDING'|'CONFIRMED'|'REVERTED'|'CANCELLED'|'NOT_FOUND'|'RECONCILIATION_REQUIRED';
+  hash:string|null;reconciled:boolean;ownerInitiated:boolean;notSubmitted?:boolean;reviewCommitment:string;nonSubmission?:LendingNonSubmissionProof};
+/** On-chain proof that an approval whose wallet result was unknown never reached the chain (see lending observe). */
+export type LendingNonSubmissionProof = {kind:'APPROVAL_NOT_SUBMITTED';provenAtBlock:number;blockHash:string;ownerNonce:string;allowance:string;discoveryWindow:[number,number]};
+const PRE_HANDOFF_CANCELLATION=JSON.stringify(['PREPARED','CANCELLED']),PROVEN_UNKNOWN_NOT_SUBMITTED=JSON.stringify(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND']);
 export type LendingRun = {format:'gryloo.lending-run.v1';id:string;reviews:LendingReview[];authorization:string|null;
   attempts:LendingAttempt[];journal:ExecutionJournal;provenance:'MOCKED'|'PUBLIC_TESTNET';
   status:'SIMULATED'|'AUTHORIZED'|'EXECUTING'|'PAUSED'|'PARTIALLY_COMPLETED'|'RECOVERY_REQUIRED'|'COMPLETED'|'FAILED';
@@ -56,7 +59,12 @@ export function validateLendingRun(run:LendingRun):void {
         !a.ownerInitiated||!Number.isSafeInteger(a.preparedAtBlock)||!/^(0|[1-9][0-9]*)$/.test(a.nonce)||successful.has(a.step))throw Error('LENDING_STORE_CORRUPT');
     if(a.step==='BORROW'&&!successful.has('SUPPLY')||a.step==='SWAP'&&!successful.has('BORROW'))throw Error('LENDING_STORE_CORRUPT');
     if(a.reconciled)successful.add(a.step);
-    if(a.notSubmitted&&(a.hash||a.reconciled||a.state!=='CANCELLED'))throw Error('LENDING_STORE_CORRUPT');
+    if(a.notSubmitted&&(a.hash||a.reconciled||a.state!==(a.nonSubmission?'NOT_FOUND':'CANCELLED')))throw Error('LENDING_STORE_CORRUPT');
+    // Not submitted means cancelled before handoff, or an unknown approval later proven absent from chain.
+    if(a.notSubmitted){const states=JSON.stringify(run.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState));
+      if(a.nonSubmission?states!==PROVEN_UNKNOWN_NOT_SUBMITTED||!['POOL_APPROVAL','ROUTER_APPROVAL'].includes(a.step)||a.nonSubmission.kind!=='APPROVAL_NOT_SUBMITTED'||a.nonSubmission.ownerNonce!==a.nonce
+        :states!==PRE_HANDOFF_CANCELLATION)throw Error('LENDING_STORE_CORRUPT');}
+    else if(a.nonSubmission)throw Error('LENDING_STORE_CORRUPT');
     // Only attempts cancelled before wallet handoff may precede a re-rooted baseline.
     if(reviewIndex<rootIndex&&(a.notSubmitted!==true||a.state!=='CANCELLED'||a.hash!==null||a.reconciled||
       JSON.stringify(run.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState))!==JSON.stringify(['PREPARED','CANCELLED'])))throw Error('LENDING_STORE_CORRUPT');

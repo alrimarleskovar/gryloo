@@ -7,7 +7,7 @@ import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi
 import { assertLendingReview, assertLendingReviewLifetime, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
-  writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
+  writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun, type LendingNonSubmissionProof } from '@defi-workflow-engine/reference-executor';
 import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, verifyComposedLendingEffects, type LendingObservation } from '@defi-workflow-engine/reference-reconciler';
 import { createSupplyService } from './supply-service';
 import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
@@ -127,6 +127,22 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     assertLendingReview(review,review.workflow,owner);
     return latest;
   }
+  /**
+   * Proves an approval whose wallet result was unknown never reached the chain: discovery covered its whole window, the
+   * owner nonce (latest and pending) is still the attempt's, and the allowance it would set still has its reviewed value.
+   * An approval sets rather than adds, so even a late broadcast of the same request cannot double an economic effect.
+   * Every other step stays observe-only.
+   */
+  async function nonSubmissionProof(r:LendingRecord,a:LendingRecord['attempts'][number]):Promise<LendingNonSubmissionProof|null> {
+    if(a.state!=='SUBMISSION_RESULT_UNKNOWN'||a.hash!==null||(a.step!=='POOL_APPROVAL'&&a.step!=='ROUTER_APPROVAL'))return null;
+    const review=r.reviews.find(v=>v.commitment===a.reviewCommitment)!,owner=review.fields.owner,window:[number,number]=[a.preparedAtBlock,a.preparedAtBlock+128];
+    const reviewed=a.step==='POOL_APPROVAL'?review.state.aave.allowance:review.state.routerAllowance,target=BigInt('0x'+a.call.tx.data.slice(-64));
+    // Snapshots read the nonce at 'pending'; the proof also needs it exactly at the proof block.
+    const latest=await readLendingSnapshot(input.rpc,owner,'latest',false),pending=rpcUint(await input.rpc('eth_getTransactionCount',[owner,'pending']));
+    const atBlock=rpcUint(await input.rpc('eth_getTransactionCount',[owner,supplyHex(latest.aave.block)])),allowance=a.step==='POOL_APPROVAL'?latest.aave.allowance:latest.routerAllowance;
+    if(latest.aave.block<=window[1]||atBlock!==BigInt(a.nonce)||pending!==BigInt(a.nonce)||allowance!==reviewed||BigInt(reviewed)===target)return null;
+    return {kind:'APPROVAL_NOT_SUBMITTED',provenAtBlock:latest.aave.block,blockHash:latest.aave.blockHash,ownerNonce:a.nonce,allowance,discoveryWindow:window};
+  }
   /** The entire remaining path is tested before releasing ANY owner transaction (at Review and preparation). */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
     const review=currentLendingReview(r);assertLendingReview(review,workflow,account);assertLendingReviewLifetime(review);await verifyPredecessors(r);
@@ -182,7 +198,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
             if(proof.verdict!=='RECONCILED'||proof.walletEnvelope?.owner!==account||proof.walletEnvelope.ownerNonceAfter!==attempt.nonce)throw Error('LENDING_NONCE_ALREADY_RESERVED');
           }else {const priorRun=await load(prior.id),a=priorRun.attempts.find(a=>a.id===prior.attemptId);
           // EIP-7702 may keep the owner nonce unchanged; positive predecessor proof is mandatory.
-          if(prior.id!==id||!a?.reconciled&&!(a?.notSubmitted&&a.state==='CANCELLED'))throw Error('LENDING_NONCE_ALREADY_RESERVED');
+          if(prior.id!==id||!a?.reconciled&&!(a?.notSubmitted&&(a.state==='CANCELLED'||a.state==='NOT_FOUND'&&a.nonSubmission)))throw Error('LENDING_NONCE_ALREADY_RESERVED');
           if(a.reconciled)await verifyPredecessors(priorRun);
           }
         }
@@ -239,7 +255,13 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
         try{r={...r,currentPosition:await readLendingSnapshot(input.rpc,currentLendingReview(r).fields.owner,'latest',false)};}catch{r={...r,error:'LENDING_CURRENT_POSITION_UNAVAILABLE'};}
         const found=await discoverSupplyTransaction({nonce:a.nonce,preparedAtBlock:a.preparedAtBlock,transaction:a.call.tx,transactionHash:null,step:'SUPPLY',state:'SUBMITTING',receipt:null,reconciled:false},input.rpc);
         if(found.mismatch)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_NONCE_PAYLOAD_MISMATCH'});
-        if(!found.hash)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_UNKNOWN_OBSERVE_ONLY'});
+        if(!found.hash){
+          const proof=found.exhausted?await nonSubmissionProof(r,a):null;
+          if(!proof)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_UNKNOWN_OBSERVE_ONLY'});
+          // Durable, never resent: the attempt is closed as NOT_FOUND on chain; a fresh Review is required to continue.
+          const next=lendingAttemptTransition(r,a.id,'NOT_FOUND');
+          return save({...r,...next,attempts:next.attempts.map(v=>v.id===a!.id?{...v,notSubmitted:true,nonSubmission:proof}:v),authorization:null,status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT'});
+        }
         r={...r,attempts:r.attempts.map(v=>v.id===a!.id?{...v,hash:found.hash}:v)};r=lendingAttemptTransition(r,a.id,'PENDING') as LendingRecord;a=r.attempts.find(v=>v.id===a!.id)!;
       }
       const review=r.reviews.find(v=>v.commitment===a!.reviewCommitment)!,o=await reconcileLendingAttempt(review,a,input.rpc);
@@ -255,7 +277,8 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       } else r={...r,status:'RECOVERY_REQUIRED',error:o.reason};
       const observations=proofs(r);
       if(r.provenance==='MOCKED'||observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))
-        r.evidence=buildLendingEvidence({id, reviews:r.reviews,journal:r.journal,observations,provenance:r.provenance,completed:r.status==='COMPLETED',previous:r.evidence});
+        r.evidence=buildLendingEvidence({id, reviews:r.reviews,journal:r.journal,observations,provenance:r.provenance,completed:r.status==='COMPLETED',previous:r.evidence,
+          resolvedNotSubmitted:r.attempts.filter(v=>v.nonSubmission).map(v=>({attemptId:v.id,step:v.step,nonSubmission:v.nonSubmission!}))});
       return save(r);
     });},
   };

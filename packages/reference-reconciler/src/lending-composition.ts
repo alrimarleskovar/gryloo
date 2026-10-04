@@ -2,7 +2,7 @@
 /** Independent canonical chain, owner-authority, and composed economic observations. */
 import { AAVE_V3_BASE_SEPOLIA as p, LENDING_BASE_SEPOLIA as u } from '@defi-workflow-engine/action-registry';
 import { readLendingSnapshot, assertLendingReview, compileLendingCalls, lendingRootChain, rpcRecord, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash, supplyTopic, supplyWord,
-  type SupplyRpc, type LendingSnapshot, type LendingReview, type LendingCall } from '@defi-workflow-engine/reference-compiler';
+  type SupplyRpc, type LendingSnapshot, type LendingReview, type LendingCall, type LendingStepId } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal, type EvidenceBundle } from '@defi-workflow-engine/workflow-contracts';
 import { verifySupplyPosition, verifySupplyWalletEnvelope, addressTopic, logMatches, type SupplyWalletProof } from './supply.js';
 import { verifyBorrowEffects } from './borrow.js';
@@ -128,12 +128,14 @@ export function verifyComposedLendingEffects(review:LendingReview,observations:L
 export function lendingObservationsDigest(observations:{reviews:readonly LendingReview[]}&Record<string,unknown>):string {
   return supplyHash({...observations,reviews:observations.reviews.map(r=>r.commitment)});
 }
-export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null}) {
+export type LendingResolvedNotSubmitted={attemptId:string;step:LendingStepId;nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED';provenAtBlock:number;blockHash:string;ownerNonce:string;allowance:string;discoveryWindow:[number,number]}};
+export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null;
+  resolvedNotSubmitted?:LendingResolvedNotSubmitted[]}) {
   if(input.provenance==='PUBLIC_TESTNET'&&!input.observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))throw Error('PUBLIC_OWNER_EXECUTION_NOT_PROVEN');
   const root=lendingRootChain(input.reviews).root, post=input.observations.filter(o=>o.post).at(-1)?.post;
   const effects=input.completed?verifyComposedLendingEffects(root,input.observations):null;
   const observations={format:'gryloo.lending-observations.v1',provenance:input.provenance,ownerInitiated:true,
-    completed:input.completed,reviews:input.reviews,observations:input.observations,effects};
+    completed:input.completed,reviews:input.reviews,observations:input.observations,effects,resolvedNotSubmitted:input.resolvedNotSubmitted??[]};
   const asset=root.fields.borrowed,weth=root.fields.output;
   const bundle:EvidenceBundle={schemaVersion:'1.0.0',evidenceBundleId:input.id,version:(input.previous?.bundle.version??0)+1,supersedes:input.previous?.bundleHash??null,
     semanticWorkflowHash:root.manifest.semanticWorkflowHash,artifactSetHash:root.manifest.artifactSetHash,simulationHash:root.manifest.simulationHash,policyHash:root.manifest.policyHash,
@@ -165,10 +167,23 @@ export async function verifyLendingExport(exported:ReturnType<typeof buildLendin
   if(e.reviews.length!==artifacts.reviews.length||e.reviews.some((r,i)=>supplyHash(r)!==supplyHash(artifacts.reviews[i]))||supplyHash(chain.root)!==supplyHash(artifacts.review)||
     supplyArtifactHash('strategy-manifest',artifacts.review.manifest)!==bundle.manifestHash||supplyArtifactHash('execution-plan',artifacts.review.plan)!==bundle.executionPlanHash||
     artifacts.journal.manifestHash!==supplyArtifactHash('strategy-manifest',e.reviews[0]!.manifest)||artifacts.journal.executionPlanHash!==supplyArtifactHash('execution-plan',e.reviews[0]!.plan))throw Error('LENDING_ARCHIVE_MISMATCH');
-  const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING');
+  // Approvals whose wallet result was unknown and that were proven absent from chain carry no observation.
+  const resolved=new Map((e.resolvedNotSubmitted??[]).map(x=>[x.attemptId,x]));
+  const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING'&&!resolved.has(j.entityId));
   if(submissions.length!==e.observations.length||submissions.some(j=>!e.observations.some(o=>o.attemptId===j.entityId)))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
   const attempts=new Set(artifacts.journal.entries.filter(j=>j.level==='attempt').map(j=>j.entityId));
-  for(const id of attempts){const rows=artifacts.journal.entries.filter(j=>j.entityId===id);
+  if([...resolved.keys()].some(id=>!attempts.has(id)))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
+  for(const id of attempts){const rows=artifacts.journal.entries.filter(j=>j.entityId===id),proven=resolved.get(id);
+    if(proven){
+      if(e.observations.some(o=>o.attemptId===id)||JSON.stringify(rows.map(j=>j.toState))!==JSON.stringify(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND'])||
+        (proven.step!=='POOL_APPROVAL'&&proven.step!=='ROUTER_APPROVAL')||rows.some(j=>j.stepId!==proven.step))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
+      // Re-proved independently at the recorded block: same block, owner nonce unchanged, allowance never set.
+      const p=proven.nonSubmission,owner=e.reviews[0]!.fields.owner,at=await readLendingSnapshot(rpc,owner,supplyHex(p.provenAtBlock),false);
+      const nonceAtBlock=rpcUint(await rpc('eth_getTransactionCount',[owner,supplyHex(p.provenAtBlock)])).toString();
+      if(p.kind!=='APPROVAL_NOT_SUBMITTED'||p.provenAtBlock<=p.discoveryWindow[1]||at.aave.blockHash!==p.blockHash||nonceAtBlock!==p.ownerNonce||
+        (proven.step==='POOL_APPROVAL'?at.aave.allowance:at.routerAllowance)!==p.allowance)throw Error('LENDING_NON_SUBMISSION_PROOF_MISMATCH');
+      continue;
+    }
     if(!e.observations.some(o=>o.attemptId===id)&&(rows.at(-1)?.toState!=='CANCELLED'||rows.some(j=>j.toState==='SUBMITTING')))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
   }
   for(const review of e.reviews){

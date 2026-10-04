@@ -310,6 +310,48 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
       const after=await gate.load(ctx.r.id);expect(after.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'PREPARED'});expect(after.attempts).toHaveLength(4);expect(model.transactions).toHaveLength(3);
     }finally{vi.useRealTimers();}
   }));
+  // The real ROUTER_APPROVAL.9: handed to MetaMask, never confirmable, reported SUBMISSION_RESULT_UNKNOWN; nothing on chain.
+  async function unknownRouterApproval(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    const ctx=await routerApprovalPrepared(model,service);await service.handoff(ctx.r.id,ctx.begin.attemptId);
+    const r=await service.report(ctx.r.id,ctx.begin.attemptId,{kind:'UNKNOWN'});expect(r.attempts.at(-1)!.state).toBe('SUBMISSION_RESULT_UNKNOWN');return {...ctx,r};
+  }
+  const advance=(model:ReturnType<typeof createLendingHarness>,blocks:number)=>{model.state.block+=blocks;model.history.set(model.state.block,{...model.state});};
+  it('proves an unknown ROUTER_APPROVAL never reached the chain, then continues with a fresh ROUTER_APPROVAL and a verifiable export',()=>fixture(async({model,service})=>{
+    const {r:unknown}=await unknownRouterApproval(model,service),id=unknown.id;
+    let r=await service.observe(id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(r.attempts.at(-1)!.state).toBe('SUBMISSION_RESULT_UNKNOWN');
+    advance(model,130);r=await service.observe(id);
+    const resolved=r.attempts.at(-1)!;
+    expect(resolved).toMatchObject({step:'ROUTER_APPROVAL',state:'NOT_FOUND',notSubmitted:true,hash:null,nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED',ownerNonce:resolved.nonce,allowance:'0'}});
+    expect(r).toMatchObject({status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT',authorization:null});expect(r.observations).toHaveLength(3);
+    r=await service.refreshReview(id);expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(r.reviews.at(-1)!.calls.map(c=>c.id)).toEqual(['ROUTER_APPROVAL','SWAP']);
+    r=await service.review(id,r.reviews.at(-1)!.commitment,workflow);r=await step(service,model,id);
+    expect(r.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',reconciled:true});r=await step(service,model,id);
+    expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(model.transactions).toHaveLength(5);
+    expect(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP'].map(s=>r.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1,2,1]);
+    expect(r.evidence!.composedExecution.resolvedNotSubmitted).toEqual([{attemptId:resolved.id,step:'ROUTER_APPROVAL',nonSubmission:resolved.nonSubmission}]);
+    const publish=(e:typeof r.evidence)=>{const a=structuredClone(e!);a.bundle.environment='TESTNET_EXECUTED';a.composedExecution.provenance='PUBLIC_TESTNET';
+      a.bundle.evidence[0]!.contentHash=lendingObservationsDigest(a.composedExecution);a.bundleHash=supplyArtifactHash('evidence-bundle',a.bundle);return a;};
+    expect((await verifyLendingExport(publish(r.evidence),model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
+    const forged=structuredClone(r.evidence!);forged.composedExecution.resolvedNotSubmitted[0]!.nonSubmission.allowance='10000';
+    await expect(verifyLendingExport(publish(forged),model.rpc)).rejects.toThrow('LENDING_NON_SUBMISSION_PROOF_MISMATCH');
+  }),120_000);
+  it('keeps an unknown SUPPLY observe-only even after its discovery window',()=>fixture(async({model,service})=>{
+    let r=await authorized(service);r=await step(service,model,r.id);
+    const b=await service.begin(r.id,OWNER,workflow);await service.handoff(r.id,b.attemptId);await service.report(r.id,b.attemptId,{kind:'UNKNOWN'});
+    advance(model,130);r=await service.observe(r.id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(r.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'SUBMISSION_RESULT_UNKNOWN'});
+    expect(r.attempts.at(-1)!.notSubmitted).toBeUndefined();
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>)=>void]>([
+    ['the router allowance changed',m=>{m.state.routerAllowance=10000n;}],
+    ['the owner nonce advanced',m=>{m.state.nonce+=1;}],
+  ])('does not prove non-submission of an unknown ROUTER_APPROVAL when %s',(_,mutate)=>fixture(async({model,service})=>{
+    const {r:unknown}=await unknownRouterApproval(model,service);mutate(model);advance(model,130);
+    const r=await service.observe(unknown.id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED'});expect(r.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'SUBMISSION_RESULT_UNKNOWN'});
+    expect(r.attempts.at(-1)!.nonSubmission).toBeUndefined();
+  }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){
