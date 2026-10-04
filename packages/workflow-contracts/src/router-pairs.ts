@@ -24,4 +24,3 @@ export function routerPair(sourceChain: string, sourceToken: string, destination
   return ROUTER_PAIRS.find(p => p.source.chainId === sourceChain && p.source.address === sourceToken &&
     p.destination.chainId === destinationChain && p.destination.address === destinationToken) ?? null;
 }
-
