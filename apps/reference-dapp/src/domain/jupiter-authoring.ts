@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createExactInputSwapNode, readExactInputSwap, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { createExactInputSwapNode, readExactInputSwap, privacyRequirement, CLOAK_ADAPTER, CLOAK_PRIVACY_CAPABILITY,
+  CLOAK_CHANGE_CAPABILITY, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, SOLANA_MAINNET_TOKENS, solanaSwapRuntime, solanaTokenOn, type SolanaDevnetTokenSymbol,
   type SolanaSwapRuntime, type SolanaTokenSymbol } from '@defi-workflow-engine/action-registry';
 
@@ -9,7 +10,7 @@ import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, SOLANA_MAINNET_TOKENS, 
  */
 export type SolanaNetwork = 'Solana' | 'Solana Devnet';
 export type SolanaSwapSymbol = SolanaTokenSymbol | SolanaDevnetTokenSymbol;
-export type SolanaSwapInput = { network: SolanaNetwork; from: SolanaSwapSymbol; to: SolanaSwapSymbol; amount: string; slippage: string };
+export type SolanaSwapInput = { network: SolanaNetwork; from: SolanaSwapSymbol; to: SolanaSwapSymbol; amount: string; slippage: string; privacy?: 'cloak' };
 export const solanaTokens = Object.keys(SOLANA_MAINNET_TOKENS) as SolanaTokenSymbol[];
 const runtimeFor = (network: SolanaNetwork): SolanaSwapRuntime | null =>
   solanaSwapRuntime(network === 'Solana' ? JUPITER_SOLANA_MAINNET.chain : network === 'Solana Devnet' ? ORCA_WHIRLPOOLS_DEVNET.chain : '');
@@ -42,10 +43,15 @@ export function createSolanaSwapNode(nodeId: string, input: SolanaSwapInput): Se
   if (from === to) throw new Error('INVALID_ASSET_PAIR');
   if (!/^[1-9][0-9]{0,3}$/.test(input.slippage) || Number(input.slippage) > runtime.maximumSlippageBps) throw new Error('SOLANA_SLIPPAGE_OUT_OF_RANGE');
   const amount = parseTokenAmount(input.amount, from.decimals);
+  if (input.privacy !== undefined && input.privacy !== 'cloak') throw new Error('PRIVACY_REQUIREMENT_INVALID');
+  if (input.privacy && (input.network !== 'Solana' || input.from !== 'SOL' || input.to !== 'USDC')) throw new Error('CLOAK_SWAP_UNSUPPORTED');
+  if (input.privacy && BigInt(amount) > 50_000_000n) throw new Error('CLOAK_AMOUNT_OUT_OF_RANGE');
   if (BigInt(amount) > BigInt(from.maximumAmount)) throw new Error('AMOUNT_OUT_OF_RANGE');
-  return createExactInputSwapNode(nodeId, { chain: runtime.chain, input: { chainId: runtime.chain, address: from.mint, decimals: from.decimals },
+  const node = createExactInputSwapNode(nodeId, { chain: runtime.chain, input: { chainId: runtime.chain, address: from.mint, decimals: from.decimals },
     output: { chainId: runtime.chain, address: to.mint, decimals: to.decimals }, amount, slippageBps: Number(input.slippage),
-    protocols: [runtime.protocol], maximumAmount: from.maximumAmount });
+    protocols: [input.privacy ? 'cloak' : runtime.protocol], maximumAmount: from.maximumAmount });
+  if (input.privacy) { node.requiredCapabilities.push(CLOAK_PRIVACY_CAPABILITY, CLOAK_CHANGE_CAPABILITY); node.adapterConstraints.adapters = [{ ...CLOAK_ADAPTER }]; }
+  return node;
 }
 export function solanaSwapDetails(node: SemanticWorkflow['nodes'][number] | { readonly actionType: string; readonly chainId: string }): SolanaSwapInput | null {
   if (node.actionType !== 'asset.swap.exact-input' || !node.chainId.startsWith('solana:')) return null;
@@ -53,12 +59,16 @@ export function solanaSwapDetails(node: SemanticWorkflow['nodes'][number] | { re
     const fields = readExactInputSwap(node as SemanticWorkflow['nodes'][number]);
     const runtime = solanaSwapRuntime(fields.chain), from = solanaTokenOn(fields.chain, fields.input.address), to = solanaTokenOn(fields.chain, fields.output.address);
     if (!runtime || !from || !to) return null;
-    return { network: runtime.network, from: from.symbol as SolanaSwapSymbol, to: to.symbol as SolanaSwapSymbol, amount: formatTokenAmount(fields.amount, from.decimals), slippage: String(fields.slippageBps) };
+    return { network: runtime.network, from: from.symbol as SolanaSwapSymbol, to: to.symbol as SolanaSwapSymbol, amount: formatTokenAmount(fields.amount, from.decimals), slippage: String(fields.slippageBps),
+      ...(privacyRequirement(node as SemanticWorkflow['nodes'][number]) ? { privacy: 'cloak' as const } : {}) };
   } catch { return null; }
 }
 export const SOLANA_SWAP_PATTERN = /^swap ([0-9]+(?:\.[0-9]+)?) (test )?(SOL|USDC|USDT|devUSDC) (?:to|for) (test )?(SOL|USDC|USDT|devUSDC) on Solana( Devnet)?(?: (?:with )?slippage ([0-9]+) bps)?$/i;
 /** "test"/devUSDC tokens exist only on Devnet; on mainnet they resolve to an unsupported token rather than to a real asset. */
 export function parseSolanaSwapChat(text: string): SolanaSwapInput | null {
+  const privateSwap = /^swap ([0-9]+(?:\.[0-9]+)?) (SOL|USDC) (?:to|for) (SOL|USDC)(?: on Solana)? privately(?: (?:with )?slippage ([0-9]+) bps)?$/i.exec(text.trim());
+  if (privateSwap) return { network: 'Solana', from: privateSwap[2]!.toUpperCase() as SolanaSwapSymbol,
+    to: privateSwap[3]!.toUpperCase() as SolanaSwapSymbol, amount: privateSwap[1]!, slippage: privateSwap[4] ?? '50', privacy: 'cloak' };
   const match = SOLANA_SWAP_PATTERN.exec(text.trim());
   if (!match) return null;
   const devnet = Boolean(match[6]);

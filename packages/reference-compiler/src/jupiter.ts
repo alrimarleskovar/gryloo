@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { JUPITER_SOLANA_MAINNET as profile, solanaTokenByMint, type SolanaToken } from '@defi-workflow-engine/action-registry';
-import { readExactInputSwap, EXACT_INPUT_SWAP_ACTION, type SemanticWorkflow,
+import { readExactInputSwap, EXACT_INPUT_SWAP_ACTION, assertPublicWorkflow, type SemanticWorkflow,
   type ArtifactSet, type SimulationBundle, type AuthorizationPolicy, type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
 import { associatedTokenAddress, findProgramAddress, compileMessageV0, decodeLookupTable, fromBase64,
   readU16, readU64, serializeMessageV0, serializeTransaction, sha256Hex, solanaAddress, toBase64,
@@ -40,6 +40,7 @@ export const jupiterArtifactHash = solanaSwapArtifactHash;
 
 /** Read the canonical swap and resolve it against the exact Jupiter Solana profile. */
 export function jupiterIntent(workflow: SemanticWorkflow, owner: string): JupiterIntent & { nodeId: string } {
+  assertPublicWorkflow(workflow);
   const nodes = workflow.nodes.filter(n => n.actionType === EXACT_INPUT_SWAP_ACTION && n.chainId.startsWith('solana:'));
   if (nodes.length !== 1 || workflow.nodes.some(n => n !== nodes[0] && !n.actionType.startsWith('mock-'))) fail('SOLANA_SWAP_ISOLATED_ONLY');
   const fields = readExactInputSwap(nodes[0]!);

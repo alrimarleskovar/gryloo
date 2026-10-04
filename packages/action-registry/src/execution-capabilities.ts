@@ -3,7 +3,7 @@ import {isLendingComposition,readLendingComposition} from '@defi-workflow-engine
 import {AAVE_V3_BASE_SEPOLIA as lendingAave} from './aave-v3-testnet.js';
 import {LENDING_BASE_SEPOLIA as lendingUni} from './lending-base-sepolia.js';
 /** BUILD-011D-1: execution support is distinct from declarative action compatibility. */
-import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { privacyRequirement, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import type { AuthorizationMode, ExecutionKind } from './capabilities.js';
 import { robinhoodDeploymentStatus } from './robinhood-chain.js';
 
@@ -133,6 +133,9 @@ function lower(a: EvidenceMaturity | null, b: EvidenceMaturity | null): Evidence
   return a && b ? rank(a) <= rank(b) ? a : b : null;
 }
 export function resolveNodeCapability(node: Node, request: CapabilityRequest): NodeCapability {
+  try {
+    if (privacyRequirement({ ...node, requiredCapabilities: node.requiredCapabilities ?? [] })) return failure(node, 'cloak.solana', 'CAPABILITY_NOT_IMPLEMENTED', flags(['AUTHOR', 'REVIEW']));
+  } catch { return failure(node, 'cloak.solana', 'ADAPTER_NOT_AVAILABLE'); }
   if (!definedActions.has(node.actionType)) return failure(node, null, 'UNKNOWN_ACTION');
   const adapter = selectedAdapter(node);
   if (!adapter || !(adapter.id in adapterVersions)) return failure(node, adapter?.id ?? null, 'ADAPTER_NOT_AVAILABLE');

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { solanaSwapRuntime, type SolanaSwapRuntime, type SolanaSwapToken } from '@defi-workflow-engine/action-registry';
-import { hashArtifactBytes, hashSupplyValue, type SemanticWorkflow, type ArtifactSet, type SimulationBundle, type AuthorizationPolicy,
+import { hashArtifactBytes, hashSupplyValue, assertPublicWorkflow, type SemanticWorkflow, type ArtifactSet, type SimulationBundle, type AuthorizationPolicy,
   type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
 import { base58Encode, decodeTokenAccount, decompileMessageV0, fromBase64, parseMessageV0, parseTransaction, serializeTransaction, sha256Hex, solanaAddress, toBase64, u32Bytes, verifyEd25519,
   type LookupTables, type SolanaInstruction } from './solana.js';
@@ -108,6 +108,7 @@ export function buildSolanaSwapArtifacts(input: { runtime: SolanaSwapRuntime; wo
   quote: SolanaSwapQuote; quoteArtifact: unknown; messageHash: string; contract: { address: string; version: string }; functionId: string;
   maximumNetworkCostLamports: bigint; lastValidBlockHeight: number; expiresAt: string; reviewTtlSeconds: number }): SolanaSwapArtifacts {
   const { runtime, workflow, intent, quote } = input, prefix = runtime.idPrefix, chain = runtime.chain;
+  assertPublicWorkflow(workflow);
   const semanticHash = solanaSwapArtifactHash('semantic-workflow', workflow);
   const inputAsset = { chainId: chain, address: intent.input.mint, decimals: intent.input.decimals };
   const outputAsset = { chainId: chain, address: intent.output.mint, decimals: intent.output.decimals };

@@ -1,0 +1,21 @@
+{
+  "format": "flofi.cloak-feasibility.v1",
+  "execution": "NOT_EXECUTED",
+  "financialSimulation": "NOT_PERFORMED",
+  "semanticWorkflowHash": "0x74fe543e681094a6198dee680c23d26522f6af8f06ab104529427704c3f82943",
+  "revision": 1,
+  "privacy": {
+    "mode": "required",
+    "provider": "cloak",
+    "output": "public-with-private-change"
+  },
+  "acceptance": "BLOCKED",
+  "findings": [
+    "CLOAK_EXECUTION_GATES_REQUIRED"
+  ],
+  "blockers": [
+    "CLOAK_EXACT_PROOF_SIMULATION_UNAVAILABLE",
+    "CLOAK_BROWSER_NETWORK_POLICY_UNCONFIGURED",
+    "CLOAK_SETTLEMENT_VERIFIER_UNAVAILABLE"
+  ]
+}

@@ -30,6 +30,11 @@ export function SolanaSwapForm({ nodeId, onDone, direct = false, network: initia
     <label>{label} to token<select aria-label="To token" value={input.to} onChange={e => set({ to: e.target.value as SolanaSwapSymbol })}>{tokens.map(t => <option key={t} value={t}>{solanaTokenLabel(input.network, t)}</option>)}</select></label>
     <label>{label} amount<input aria-label="Amount" inputMode="decimal" autoComplete="off" maxLength={40} value={input.amount} onChange={e => set({ amount: e.target.value })}/></label>
     <label>{label} slippage (bps)<input aria-label="Slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
+    {!devnet && <label>Privacy<select aria-label="Privacy" value={input.privacy ?? 'public'} disabled={Boolean(existing?.privacy)} onChange={e => setInput(value => {
+      if (e.target.value === 'cloak') return { ...value, from: 'SOL', to: 'USDC', privacy: 'cloak' };
+      const publicInput = { ...value }; delete publicInput.privacy; return publicInput;
+    })}><option value="public">Public / Jupiter</option><option value="cloak">Required / Cloak</option></select></label>}
+    {input.privacy && <p>Privacy REQUIRED / Cloak. USDC output is public; SOL change is private. Live execution requires verified simulation and recovery. Remove this node to create a public workflow.</p>}
     {devnet && <p className="muted">Devnet test tokens have no value.</p>}
     {error && <p role="alert">{error}</p>}
     <button type="submit">{nodeId ? 'Review swap change' : direct ? 'Add swap' : 'Review swap proposal'}</button>

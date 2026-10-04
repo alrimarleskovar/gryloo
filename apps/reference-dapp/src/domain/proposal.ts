@@ -84,11 +84,13 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     'Maxima are limits, not amounts to spend. A read-only simulation computes the actual deposit; every position transaction needs its own exact review and wallet signature. Valueless Devnet test tokens.']);
   const oldSolana = oldNode && solanaSwapDetails(oldNode), newSolana = newNode && solanaSwapDetails(newNode);
   if (newSolana) { const labels = solanaSwapLabels(newSolana.network); return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
-    `Node ${newNode?.nodeId}: Swap ${newSolana.from} → ${newSolana.to} on ${labels.network} via ${labels.provider}`,
+    `Node ${newNode?.nodeId}: Swap ${newSolana.from} → ${newSolana.to} on ${labels.network} via ${newSolana.privacy ? 'Cloak' : labels.provider}`,
+    ...(newSolana.privacy ? ['Privacy: REQUIRED / Cloak. USDC proceeds are public. Remaining SOL change stays private.',
+      'Execution is blocked until proof simulation, private-state persistence and settlement reconciliation are verified. No public fallback.'] : []),
     `Input: ${oldSolana ? `${oldSolana.amount} ${oldSolana.from}` : 'none'} → ${newSolana.amount} ${newSolana.from}`,
     `Slippage: ${oldSolana?.slippage ?? 'none'} → ${newSolana.slippage} bps`,
     `Mints: ${solanaTokenMint(newSolana.network, newSolana.from)} → ${solanaTokenMint(newSolana.network, newSolana.to)}`,
-    labels.testTokens ? 'A fresh Orca Devnet quote, read-only simulation and exact transaction review are required. Valueless Devnet test tokens; nothing executes automatically.'
+    newSolana.privacy ? 'A Cloak quote, verified proof simulation, durable recovery and exact owner review are required. Mainnet only; execution is currently blocked.' : labels.testTokens ? 'A fresh Orca Devnet quote, read-only simulation and exact transaction review are required. Valueless Devnet test tokens; nothing executes automatically.'
       : 'A fresh Jupiter quote, read-only simulation and exact transaction review are required. Real mainnet funds; nothing executes automatically.']); }
   const oldSwap = oldNode && swapDetails(oldNode, context);
   const newSwap = newNode && swapDetails(newNode, context);
