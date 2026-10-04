@@ -1,3 +1,4 @@
+import { validateTempoWorkflow } from './tempo.js';
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Ajv } from 'ajv';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
@@ -100,6 +101,7 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     return workflow;
   }
   if (workflow.nodes.some(node => ['supply','borrow','repay','withdraw'].includes(node.actionType))) validateSupplyWorkflow(workflow);
+  if (workflow.nodes.some(node => node.adapterConstraints.adapters.some(a => a.id === 'tempo.tip20'))) { validateTempoWorkflow(workflow); return workflow; }
   if (workflow.nodes.some(node => node.actionType === 'asset.transfer')) { validateNativeTransferWorkflow(workflow); return workflow; }
   // The canonical swap on Solana: same action and ports, chain-specific asset and provider profile.
   if (workflow.nodes.some(isSolanaSwapNode)) { validateSolanaSwapWorkflow(workflow); return workflow; }

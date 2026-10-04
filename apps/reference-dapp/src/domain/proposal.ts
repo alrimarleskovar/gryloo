@@ -58,6 +58,7 @@ export function describeProposal(before: EditorState, after: EditorState, comman
     `Fee tier: ${newLiquidity.fee}; recipient: ${newLiquidity.recipient}`,
     'Pool state and position outcome are unobserved. Every liquidity wallet operation needs separate exact Mode A review.',
   ]);
+  if (command.type === 'AUTHOR_TEMPO_PAYMENT') return [`Pay ${command.input.amount} test pathUSD on Tempo Moderato`, `Recipient: ${command.input.recipient}`, `Memo: ${command.input.memo}`, `Maximum fee: ${command.input.maximumFee} pathUSD`, 'Fresh simulation and Review required.'];
   const oldTransfer=oldNode&&transferDetails(oldNode as Parameters<typeof transferDetails>[0]),newTransfer=newNode&&transferDetails(newNode as Parameters<typeof transferDetails>[0]);
   if(newTransfer)return [`Self-transfer test ETH on ${newTransfer.network}`,`Amount: ${oldTransfer?.amount??'none'} → ${newTransfer.amount} ETH`,'Recipient: connected owner bound at Review','Chain execution proof, not a DeFi action'];
   const oldWithdraw=oldNode&&withdrawDetails(oldNode as Parameters<typeof withdrawDetails>[0]),newWithdraw=newNode&&withdrawDetails(newNode as Parameters<typeof withdrawDetails>[0]);

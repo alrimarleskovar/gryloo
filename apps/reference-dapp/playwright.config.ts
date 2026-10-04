@@ -5,6 +5,9 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const cache = process.env.BUILD002_BROWSER_CACHE;
+const appPort = Number(process.env.GRYLOO_E2E_PORT ?? '3000');
+if (!Number.isInteger(appPort) || appPort < 1024 || appPort > 65535) throw new Error('GRYLOO_E2E_PORT_INVALID');
+const appOrigin = `http://127.0.0.1:${appPort}`;
 if (!cache || basename(cache) !== 'chromium_headless_shell-1243') {
   throw new Error('BUILD002_BROWSER_CACHE must name the verified headless-shell revision 1243');
 }
@@ -67,7 +70,7 @@ export default defineConfig({
   expect: { timeout: 10_000, toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0 } },
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: appOrigin,
     browserName: 'chromium',
     headless: true,
     launchOptions: { executablePath },
@@ -92,8 +95,8 @@ export default defineConfig({
       ...(modeA === 'replay' && process.env.GRYLOO_MODE_A_TRANSCRIPT ? { GRYLOO_MODE_A_TRANSCRIPT: process.env.GRYLOO_MODE_A_TRANSCRIPT } : {}),
       ...(modeA === 'replay' && process.env.GRYLOO_MODE_A_SYNTHETIC_PINS ? { GRYLOO_MODE_A_SYNTHETIC_PINS: process.env.GRYLOO_MODE_A_SYNTHETIC_PINS } : {}) },
   }, {
-    command: 'pnpm --filter @defi-workflow-engine/reference-dapp start',
-    url: 'http://127.0.0.1:3000',
+    command: `pnpm --filter @defi-workflow-engine/reference-dapp start --port ${appPort}`,
+    url: appOrigin,
     reuseExistingServer: false,
     timeout: 60_000,
     env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',

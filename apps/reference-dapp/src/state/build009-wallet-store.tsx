@@ -7,7 +7,7 @@ export const BASE_HEX = '0x2105';
 export const ARBITRUM_HEX = '0xa4b1';
 export const BASE_SEPOLIA_HEX = '0x14a34';
 export const ROBINHOOD_TESTNET_HEX = '0xb626';
-type Chain = typeof BASE_HEX | typeof ARBITRUM_HEX | typeof BASE_SEPOLIA_HEX | typeof ROBINHOOD_TESTNET_HEX;
+type Chain = '0xa5bf' | typeof BASE_HEX | typeof ARBITRUM_HEX | typeof BASE_SEPOLIA_HEX | typeof ROBINHOOD_TESTNET_HEX;
 export type WalletSession = { readonly account: string; readonly chainId: string };
 type Provider = { request(input: { method: string; params?: unknown[] }): Promise<unknown>;
   readonly isMetaMask?: boolean; readonly isBraveWallet?: boolean;

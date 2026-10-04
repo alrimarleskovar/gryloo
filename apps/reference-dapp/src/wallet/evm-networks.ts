@@ -15,6 +15,7 @@ export type EvmWalletNetwork = { readonly hex: string; readonly chain: string; r
 type Provider = { request(input: { method: string; params?: unknown[] }): Promise<unknown> };
 
 export const EVM_WALLET_NETWORKS: readonly EvmWalletNetwork[] = Object.freeze([
+  { hex: '0xa5bf', chain: 'eip155:42431', label: 'Tempo Moderato (42431)', switchable: true, add: { chainId: '0xa5bf', chainName: 'Tempo Moderato', nativeCurrency: { name: 'USD', symbol: 'USD', decimals: 18 }, rpcUrls: ['https://rpc.moderato.tempo.xyz'], blockExplorerUrls: ['https://explore.testnet.tempo.xyz'] } },
   { hex: '0x2105', chain: 'eip155:8453', label: 'Base (8453)', switchable: true, add: null },
   { hex: '0xa4b1', chain: 'eip155:42161', label: 'Arbitrum (42161)', switchable: true, add: null },
   { hex: '0x14a34', chain: 'eip155:84532', label: 'Base Sepolia', switchable: true, add: { chainId: '0x14a34',

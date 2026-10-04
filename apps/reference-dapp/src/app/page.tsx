@@ -1,3 +1,4 @@
+import { TempoProvider } from '../state/tempo-store';
 // SPDX-License-Identifier: AGPL-3.0-only
 import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
 import { AppShell } from '../components/app-shell';
@@ -26,4 +27,4 @@ const initialContext = {
 // Serverless deployments (BUILD-CLOUD-001): forwarded server actions may wait on paced public RPC reads in the API.
 export const maxDuration = 300;
 // The local-fork Mode A boundary is a separate provider; the mocked chain and Base observation never reach it.
-export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><AppShell/></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }
+export default function Page() { return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><TempoProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><AppShell/></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></TempoProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>; }

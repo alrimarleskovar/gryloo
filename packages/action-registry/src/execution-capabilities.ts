@@ -45,7 +45,7 @@ const definedActions = new Set(['asset.transfer', 'withdraw', 'repay', 'borrow',
 const adapterVersions: Readonly<Record<string, string>> = Object.freeze({
   'aave-v3': '1.0.0', 'uniswap.v3': '1.0.0', 'cow.protocol': '1.0.0', 'lifi.rest': '1.0.0', 'across.direct': '1.0.0',
   'gryloo.calculated-split': '1.0.0', 'gryloo.template': '1.0.0', 'jupiter.swap-v2': '1.0.0',
-  'orca.whirlpools-devnet': '1.0.0', 'orca.whirlpools-devnet-liquidity': '1.0.0', 'evm.native-transfer': '1.0.0',
+  'orca.whirlpools-devnet': '1.0.0', 'orca.whirlpools-devnet-liquidity': '1.0.0', 'evm.native-transfer': '1.0.0', 'tempo.tip20': '1.0.0',
 });
 const rows: ExecutionCapabilityProfile[] = [];
 function add(actionType: string, adapterId: string, chainId: string, environment: ExecutionEnvironment,
@@ -68,6 +68,8 @@ add('asset.swap.exact-input', 'cow.protocol', 'eip155:8453', 'MOCK', mock, 'MOCK
 add('asset.liquidity.uniswap-v3', 'uniswap.v3', 'eip155:8453', 'LOCAL_FORK', fork, 'FORK_REPRODUCED', 'DIRECT_TRANSACTION', ['FORK_RUNTIME', 'INJECTED_WALLET', 'REVIEWED_ARTIFACTS']);
 add('asset.liquidity.prepare', 'gryloo.calculated-split', 'eip155:42161', 'MOCK', preparation, 'MOCKED', null, [], ['A']);
 for (const kind of templateKinds) add(kind, 'gryloo.template', 'mock:local', 'MOCK', author, null, null, [], []);
+// Tempo: implementation support is separate from demonstrated public execution (none yet).
+add('asset.transfer', 'tempo.tip20', 'eip155:42431', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // RH-DEMO-001: a native test-ETH self-transfer on Robinhood Testnet, owner-executed in 0xdadc1fd5…f4a498 and independently
 // reconciled (docs/builds/RH-DEMO-001-VERIFICATION.json). A chain execution proof only; no DeFi capability on Robinhood.
 add('asset.transfer', 'evm.native-transfer', 'eip155:46630', 'PUBLIC_TESTNET', fork, 'TESTNET_EXECUTED', 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
