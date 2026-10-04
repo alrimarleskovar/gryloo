@@ -211,3 +211,5 @@ export * from './aave-v3-testnet.js';
 export * from './orca-liquidity-devnet.js';
 
 export * from './lending-base-sepolia.js';
+
+export * from './tempo.js';

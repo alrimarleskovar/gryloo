@@ -1,3 +1,4 @@
+import { createAuthoredTempo, type TempoInput } from './tempo-authoring';
 import {createAuthoredLending,lendingDetails,type LendingInput} from './lending-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createBaseSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
@@ -20,6 +21,7 @@ import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDet
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 export type Command = Base & (
   | {readonly type:'AUTHOR_LENDING';readonly input:LendingInput}
+  | { readonly type: 'AUTHOR_TEMPO_PAYMENT'; readonly input: TempoInput }
   | { readonly type: 'ADD_RH_TRANSFER'; readonly input: RobinhoodTransferInput }
   | { readonly type: 'SET_RH_TRANSFER'; readonly nodeId: string; readonly input: RobinhoodTransferInput }
   | { readonly type: 'ADD_WITHDRAW'; readonly input: WithdrawInput }
@@ -69,6 +71,9 @@ export function parseMockCommand(text: string, baseRevision: number): Command {
 export function parseLocalCommand(text: string, workflow: Workflow, context: ReviewContext, defaultBeneficiary?: string | null): Command {
   if (typeof text !== 'string' || text.length > 1024) throw new Error('INPUT_TOO_LARGE');
   const input = text.trim();
+  const tempo = /^pay ([0-9]+(?:\.[0-9]+)?) pathUSD to (0x[0-9a-f]{40}) on Tempo Moderato memo (0x[0-9a-f]{64}) fee ([0-9]+(?:\.[0-9]+)?)$/i.exec(input);
+  if (tempo) { const fields = { amount: tempo[1]!, recipient: tempo[2]!, memo: tempo[3]!, maximumFee: tempo[4]! }; createAuthoredTempo('node-preview', fields);
+    return { type: 'AUTHOR_TEMPO_PAYMENT', input: fields, source: 'CHAT', baseRevision: workflow.revision }; }
   const lending=/^compose supply ([0-9]+(?:\.[0-9]+)?) USDC to Aave then borrow ([0-9]+(?:\.[0-9]+)?) USDC then swap borrowed USDC to WETH on Base Sepolia slippage ([0-9]+) bps(?: owner (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if(lending){const owner=lending[4]??defaultBeneficiary;if(!owner)throw Error('LENDING_OWNER_REQUIRED');const fields={supply:lending[1]!,borrow:lending[2]!,slippage:lending[3]!,owner};createAuthoredLending(workflow.workflowId,workflow.revision+1,fields);return {type:'AUTHOR_LENDING',input:fields,source:'CHAT',baseRevision:workflow.revision};}
   const withdraw = /^withdraw ([0-9]+(?:\.[0-9]+)?) USDC from Aave on Base Sepolia$/i.exec(input);
@@ -190,7 +195,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
-    AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
+    AUTHOR_TEMPO_PAYMENT:['input'], AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
@@ -199,6 +204,11 @@ export function commandIsValid(input: unknown): input is Command {
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
     case 'AUTHOR_LENDING': {try{createAuthoredLending('lending-preview',0,command.input as LendingInput);return true;}catch{return false;}}
+    case 'AUTHOR_TEMPO_PAYMENT': {
+      const v = command.input;
+      if (!v || typeof v !== 'object' || Object.keys(v).sort().join() !== ['amount','recipient','memo','maximumFee'].sort().join() || !Object.values(v).every(x => typeof x === 'string' && x.length <= 80)) return false;
+      try { createAuthoredTempo('node-preview', v as TempoInput); return true; } catch { return false; }
+    }
     case 'ADD_RH_TRANSFER':
     case 'SET_RH_TRANSFER': {
       if(command.type==='SET_RH_TRANSFER'&&!id(command.nodeId))return false;

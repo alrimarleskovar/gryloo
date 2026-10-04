@@ -29,3 +29,5 @@ export * from './solana-swap.js';
 export * from './solana-liquidity.js';
 
 export * from './lending-composition.js';
+
+export * from './tempo.js';

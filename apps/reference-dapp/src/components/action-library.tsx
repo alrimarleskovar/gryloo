@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { TempoAuthoringForm } from './tempo-panel';
 import {LendingAuthoringForm} from './lending-panel';
 import { WithdrawAuthoringForm } from './withdraw-panel';
 import { RobinhoodTransferAuthoringForm } from './robinhood-transfer-panel';
@@ -114,7 +115,7 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option><option value="SOLANA_DEVNET">Solana Devnet</option>
   </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
-    <details><summary>Compatibility template · Supply → Borrow → Swap</summary><LendingAuthoringForm key={state.workflow.revision}/></details><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
+    <details><summary>Compatibility template · Supply → Borrow → Swap</summary><LendingAuthoringForm key={state.workflow.revision}/></details><TempoAuthoringForm/><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
     <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">

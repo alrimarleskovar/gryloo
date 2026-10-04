@@ -11,6 +11,8 @@
  *    PREPARED attempt cancels it and the owner's browser may be between `begin` and `handoff`.
  */
 import { hashJournalBytes, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { createTempoService, type TempoRecord } from '../src/server/tempo-service.ts';
+import { createTempoReadRpc } from '../src/server/tempo-rpc.ts';
 import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import type { Projection, Projector, WorkRequest } from '@defi-workflow-engine/cloud-runtime';
 import { createRobinhoodTransferService, type TransferRecord, type TransferWalletDiagnostic } from '../src/server/robinhood-transfer-service.ts';
@@ -26,7 +28,7 @@ import { createJupiterHttp } from '../src/server/jupiter-http.ts';
 import { createJupiterService, createSolanaDevnetService, type JupiterRecord, type JupiterWalletDiagnostic } from '../src/server/jupiter-service.ts';
 import { createOrcaLiquidityService, type OrcaLiquidityRecord, type OrcaLiquidityWalletDiagnostic } from '../src/server/orca-liquidity-service.ts';
 
-export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap';
+export type FlowName = 'tempo-payment' | 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap';
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 /** Network transport for one flow. Built from configuration in production; replaced by MOCKED chains in tests. */
 export type FlowDeps = { readonly rpc: Rpc; readonly mode: 'live' | 'harness'; readonly env: Readonly<Record<string, string | undefined>>; readonly http?: JupiterHttp };
@@ -376,7 +378,49 @@ const orcaLiquidity: FlowDefinition = {
   evidence: record => evidenceOf(record as OrcaLiquidityRecord),
 };
 
-export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap,
+const TEMPO_ID = /^tempo-[a-f0-9]{32}$/;
+const tempoNeedsObservation = (value: unknown) => { const r = value as TempoRecord; return r.verdict === 'PENDING' && !!r.attempt && OBSERVABLE.includes(r.attempt.state); };
+const tempo: FlowDefinition = {
+  name: 'tempo-payment', busyCode: 'TEMPO_BUSY', runId: TEMPO_ID, unavailableCode: 'TEMPO_SERVICE_UNAVAILABLE',
+  methods: {
+    simulate: { mutates: true, validate: shape(workflow, account) },
+    review: { mutates: true, validate: shape(id(TEMPO_ID), commitment, workflow) },
+    begin: { mutates: true, validate: shape(id(TEMPO_ID), account, workflow) },
+    handoff: { mutates: true, validate: shape(id(TEMPO_ID), commitment, workflow) },
+    report: { mutates: true, validate: shape(id(TEMPO_ID)) },
+    invalidate: { mutates: true, validate: shape(id(TEMPO_ID)) },
+    observe: { mutates: true, validate: shape(id(TEMPO_ID)) },
+    status: { mutates: false, validate: shape(id(TEMPO_ID)) },
+    recoverReview: { mutates: true, validate: shape(id(TEMPO_ID), workflow) },
+  },
+  transport: mode => { if (mode === 'harness') throw new Error('TEMPO_MOCK_RPC_REQUIRED'); return { rpc: createTempoReadRpc() }; },
+  create(storage, { rpc, mode }) {
+    const service = createTempoService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET' });
+    const table: Record<string, (a: Args) => Promise<unknown>> = {
+      simulate: ([w, a]) => service.simulate(w, a as string),
+      review: ([i, c, w]) => service.review(i as string, c as string, w as SemanticWorkflow),
+      begin: ([i, a, w]) => service.begin(i as string, a as string, w as SemanticWorkflow),
+      handoff: ([i, h, w]) => service.handoff(i as string, h as string, w as SemanticWorkflow),
+      report: ([i]) => service.report(i as string), invalidate: ([i]) => service.invalidate(i as string),
+      recoverReview: ([i, w]) => service.recoverReview(i as string, w),
+      observe: ([i]) => service.observe(i as string), status: ([i]) => service.load(i as string),
+    };
+    return { call: (method, args) => table[method]!(args), load: service.load, observe: service.observe };
+  },
+  needsObservation: tempoNeedsObservation,
+  projector(name, bytes) {
+    if (!name.endsWith('.jsonl')) return null;
+    const r = lastRecord<TempoRecord>(bytes), a = r.attempt, observe = tempoNeedsObservation(r), evidence = evidenceOf(r);
+    return { run: { runId: r.id, workflowId: r.review.workflow.workflowId, flow: 'tempo-payment',
+      status: r.verdict !== 'PENDING' ? r.verdict : a?.state ?? (r.authorization ? 'AUTHORIZED' : 'SIMULATED'),
+      provenance: r.provenance, ownerAccount: r.review.account, recoveryOf: r.recoveryOf ?? null, errorCode: errorCode(r.error), needsObservation: observe, hasEvidence: !!evidence,
+      attempts: a ? [{ attemptId: `${r.id}.TRANSFER`, step: 'TRANSFER', state: a.state, nonce: a.nonce,
+        transactionHash: a.transactionHash, preparedAtBlock: a.preparedAtBlock, reconciled: a.reconciled }] : [], journal: journalRows(r.journal) },
+      work: work('tempo-payment', r.id, observe, a?.state === 'SUBMITTING' ? 60_000 : 5_000, !!evidence) };
+  }, evidence: value => evidenceOf(value as TempoRecord),
+};
+
+export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'tempo-payment': tempo, 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap,
   'solana-devnet-swap': solanaDevnetSwap, 'orca-liquidity': orcaLiquidity, 'jupiter-swap': jupiterSwap });
 export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FLOWS, value);
 
@@ -386,6 +430,7 @@ export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FL
  * public network.
  */
 export function flowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
+  if (flow === 'tempo-payment') return env.NODE_ENV === 'test' && env.GRYLOO_TEMPO_HARNESS === 'MOCKED_IN_PROCESS_ONLY' ? 'harness' : env.GRYLOO_TEMPO_TESTNET === 'live' ? 'live' : 'off';
   // The existing public-swap gate value; in the separately deployed backend it does not also require NODE_ENV=development.
   if (flow === 'base-sepolia-swap') return env.GRYLOO_PUBLIC_TESTNET === 'record' ? 'live' : 'off';
   // Solana Devnet (valueless test tokens): explicit backend enablement; the MOCKED loopback harness wins.
@@ -400,7 +445,7 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
   if (env.GRYLOO_SUPPLY_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
   return env.GRYLOO_SUPPLY_TESTNET === 'live' ? 'live' : 'off';
 }
-const DISABLED: Readonly<Record<FlowName, string>> = { 'robinhood-transfer': 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED', 'aave-supply': 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED',
+const DISABLED: Readonly<Record<FlowName, string>> = { 'tempo-payment': 'TEMPO_PUBLIC_TESTNET_NOT_ENABLED', 'robinhood-transfer': 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED', 'aave-supply': 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED',
   'base-sepolia-swap': 'PUBLIC_RECORDING_OFF', 'solana-devnet-swap': 'DEVNET_SWAP_PUBLIC_DEVNET_NOT_ENABLED', 'orca-liquidity': 'ORCA_LIQUIDITY_PUBLIC_DEVNET_NOT_ENABLED',
   'jupiter-swap': 'JUPITER_PUBLIC_MAINNET_NOT_ENABLED' };
 export const disabledCode = (flow: FlowName) => DISABLED[flow];

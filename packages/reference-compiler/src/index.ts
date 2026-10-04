@@ -63,3 +63,5 @@ export * from './withdraw.js';
 
 export * from './lending-composition.js';
 export * from './native-transfer.js';
+export * from './tempo.js';
+export * from './tempo-envelope.js';

@@ -159,3 +159,6 @@ alchemy-key*
 
 # BUILD-CLOUD-001 Vercel install toolchain (verified at build time, never committed)
 .flofi-toolchain/
+
+# BUILD-TEMPO-001 disposable local verification data (never execution evidence)
+.tempo-verification/
