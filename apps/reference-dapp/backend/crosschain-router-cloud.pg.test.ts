@@ -41,7 +41,9 @@ async function deployment(h: RouterHarness, options: { tenantId?: string; eviden
   const backend = createBackend({ db, env, logger: quiet, tenantId: options.tenantId ?? 'default', holderId: workerId, evidenceStore: createFilesystemEvidenceStore(evidenceDir),
     rpc: { 'crosschain-router': source }, router: { destinationRpc: destination, providers: h.providers }, busyRetries: 3 });
   const worker = createWorker({ queue: createPostgresWorkQueue({ db, ownerId: workerId }), handlers: backend.handlers, logger: quiet, workerId, concurrency: 8 });
-  return { db, backend, worker, evidenceDir, methods, call: (method: string, ...args: unknown[]) => backend.callFlow('crosschain-router', method, args) };
+  // BUILD-JOURNEY-001: calls carry the owner's wallet session principal, as the BFF forwards it.
+  return { db, backend, worker, evidenceDir, methods, call: (method: string, ...args: unknown[]) => backend.callFlow('crosschain-router', method, args,
+    options.tenantId ?? 'default', ROUTER_OWNER) };
 }
 const due = (db: Database) => db.query(`UPDATE work_items SET available_at = now() WHERE state = 'READY'`);
 async function drain(h: RouterHarness, d: Awaited<ReturnType<typeof deployment>>, id: string, until: RouterRecord['phase'], rounds = 12) {

@@ -4,14 +4,16 @@
  * forwarder, a scripted owner wallet, an Across relayer, and loopback LI.FI / Across API responses shaped like the real
  * recorded ones (so the real normalizers run). No network and no key; the only transaction path is `wallet.send` (the
  * owner's browser wallet in a real deployment) and the relayer's fill on Arbitrum.
+ * BUILD-JOURNEY-001: `profile` selects the network (default Base → Arbitrum One; the testnet profile runs the identical
+ * chains at Base Sepolia / Arbitrum Sepolia ids and addresses). `owner` may be any address, e.g. a random test wallet.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { CROSSCHAIN_ROUTER_BASE_ARBITRUM as profile } from '@defi-workflow-engine/action-registry';
+import { CROSSCHAIN_ROUTER_BASE_ARBITRUM as MAINNET, type RouterProfile } from '@defi-workflow-engine/action-registry';
 import { decodeAcrossDeposit, decodeLifiAcrossV4, decodeLifiFeeForward, decodeRouterApprove, encodeAcrossDeposit, encodeErc20ApprovalLog, encodeErc20TransferLog,
   encodeFilledRelayLog, encodeFundsDepositedLog, encodeLifiAcrossV4, encodeLifiFeeForward, lifiAcrossOutput, EIP1967_IMPLEMENTATION_SLOT, ROUTER_SELECTORS as SEL,
   type RouterLog } from '@defi-workflow-engine/reference-compiler';
 import { createRouteProviders, type RouterHttp } from '../src/server/router-providers.ts';
-import { ROUTER_MOCK_ACROSS_API, ROUTER_MOCK_CODE, ROUTER_MOCK_CODE_PINS, ROUTER_MOCK_LIFI_API } from '../src/server/router-mock.ts';
+import { ROUTER_MOCK_ACROSS_API, ROUTER_MOCK_CODE_PINS, ROUTER_MOCK_LIFI_API, ROUTER_TESTNET_MOCK, routerMockCode, routerMockCodePins } from '../src/server/router-mock.ts';
 import { encodeSingleRedemption, UNI_DELEGATION_MANAGER, UNI_DELEGATOR_IMPL } from './uniswap-liquidity-harness.ts';
 
 export { ROUTER_MOCK_CODE_PINS };
@@ -19,7 +21,7 @@ export const ROUTER_OWNER = '0x5555555555555555555555555555555555555555';
 export const ROUTER_RECIPIENT = '0x6666666666666666666666666666666666666666';
 export const ROUTER_RELAYER = '0x7777777777777777777777777777777777777777';
 export const LIFI_FEE_RECIPIENT = '0xc06ebbefd94032b85424d51906e2a335efae264b';
-const SRC = profile.source, DST = profile.destination, ZERO = '0x0000000000000000000000000000000000000000';
+const ZERO = '0x0000000000000000000000000000000000000000';
 const REDEEMED_TOPIC = '0x40dadaa36c6c2e3d7317e24757451ffb2d603d875f0ad5e92c5dd156573b1873';
 const w = (n: bigint) => n.toString(16).padStart(64, '0');
 const aw = (a: string) => a.slice(2).padStart(64, '0');
@@ -32,10 +34,13 @@ type Deposit = { depositId: bigint; sourceHash: string; depositor: string; recip
 export type FillMode = 'normal' | 'wrongRecipient' | 'belowMinimum' | 'duplicate';
 export type RouterHarnessOptions = { owner?: string; usdc?: bigint; eth?: bigint; nonce?: bigint; simulateV1?: boolean; autoFillSeconds?: number | null;
   baseSafeLagBlocks?: number; arbitrumSafeLagBlocks?: number; startMs?: number;
-  /** The owner's EOA is EIP-7702-delegated to the MetaMask delegator, so its wallet may relay requests (`wallet.sendRelayed`). */ delegatedOwner?: boolean };
+  /** The owner's EOA is EIP-7702-delegated to the MetaMask delegator, so its wallet may relay requests (`wallet.sendRelayed`). */ delegatedOwner?: boolean;
+  /** BUILD-JOURNEY-001: the router profile (network) these chains impersonate. */ profile?: RouterProfile;
+  /** Further funded wallets on the source chain (other external users). */ wallets?: readonly string[] };
 
 export function createRouterHarness(options: RouterHarnessOptions = {}) {
-  const owner = options.owner ?? ROUTER_OWNER;
+  const profile = options.profile ?? MAINNET, SRC = profile.source, DST = profile.destination, MOCK_CODE = routerMockCode(profile);
+  const owner = (options.owner ?? ROUTER_OWNER).toLowerCase();
   let offset = 0;
   const origin = options.startMs ?? Date.now();
   const started = Date.now();
@@ -47,8 +52,10 @@ export function createRouterHarness(options: RouterHarnessOptions = {}) {
   const baseTime = (n: number) => Math.floor((origin + (n - BASE_GENESIS) * 2000) / 1000);
   const arbTime = (n: number) => Math.floor((origin + (n - ARB_GENESIS) * 250) / 1000);
   const advance = (seconds: number) => { offset += seconds * 1000; processFills(); };
-  const state: Snapshot = { usdc: { [owner]: options.usdc ?? 50_000_000n, [SRC.spokePool]: 900_000_000n }, allowances: {},
-    native: { [owner]: options.eth ?? 10n ** 16n, [ROUTER_RELAYER]: 10n ** 18n }, nonces: { [owner]: options.nonce ?? 3n } };
+  const others = (options.wallets ?? []).map(w => w.toLowerCase());
+  const state: Snapshot = { usdc: { [owner]: options.usdc ?? 50_000_000n, [SRC.spokePool]: 900_000_000n, ...Object.fromEntries(others.map(w => [w, 50_000_000n])) },
+    allowances: {}, native: { [owner]: options.eth ?? 10n ** 16n, [ROUTER_RELAYER]: 10n ** 18n, ...Object.fromEntries(others.map(w => [w, 10n ** 16n])) },
+    nonces: { [owner]: options.nonce ?? 3n, ...Object.fromEntries(others.map(w => [w, 0n])) } };
   const arbUsdc: Record<string, bigint> = { [ROUTER_RELAYER]: 10_000_000_000n };
   const history: [number, Snapshot][] = [[0, structuredClone(state)]];
   const arbHistory: [number, Record<string, bigint>][] = [[0, { ...arbUsdc }]];
@@ -144,11 +151,12 @@ export function createRouterHarness(options: RouterHarnessOptions = {}) {
   const wallet = {
     /** The owner's wallet sends the exact request (`hold` keeps it unmined). */
     send(tx: { from: string; to: string; data: string; value: string; chainId: string }, mode: { hold?: boolean } = {}): string {
-      if (tx.chainId !== SRC.chainHex || tx.value !== '0x0' || tx.from !== owner) throw new Error('MOCK_WALLET_REQUEST_INVALID');
+      const from = String(tx.from).toLowerCase();
+      if (tx.chainId !== SRC.chainHex || tx.value !== '0x0' || (from !== owner && !others.includes(from))) throw new Error('MOCK_WALLET_REQUEST_INVALID');
       counters.sends++;
-      const nonce = state.nonces[owner] ?? 0n;
-      if (mode.hold) { const hash = '0x' + randomBytes(32).toString('hex'); pending.push({ hash, from: owner, to: tx.to, input: tx.data, nonce }); return hash; }
-      return mineBase(owner, tx.to, tx.data, nonce).hash;
+      const nonce = state.nonces[from] ?? 0n;
+      if (mode.hold) { const hash = '0x' + randomBytes(32).toString('hex'); pending.push({ hash, from, to: tx.to, input: tx.data, nonce }); return hash; }
+      return mineBase(from, tx.to, tx.data, nonce).hash;
     },
     /** MetaMask delegated redemption: a relayer sends it; the owner's nonce does not change. */
     sendRelayed(tx: { from: string; to: string; data: string; chainId: string }): string {
@@ -213,7 +221,7 @@ export function createRouterHarness(options: RouterHarnessOptions = {}) {
   const code = (target: string, chain: 'base' | 'arbitrum') => {
     if (chain === 'base' && target === UNI_DELEGATION_MANAGER) return '0x60306030';
     if (chain === 'base' && target === owner && options.delegatedOwner) return '0xef0100' + UNI_DELEGATOR_IMPL.slice(2);
-    return ROUTER_MOCK_CODE[(chain === 'arbitrum' ? 'dst:' : '') + target] ?? '0x';
+    return MOCK_CODE[(chain === 'arbitrum' ? 'dst:' : '') + target] ?? '0x';
   };
   const logsIn = (chain: 'base' | 'arbitrum', f: { address: string; fromBlock: string; toBlock: string; topics: (string | null)[] }, head: number) => {
     const from = Number(BigInt(f.fromBlock)), to = Number(BigInt(f.toBlock));
@@ -362,8 +370,9 @@ export function createRouterHarness(options: RouterHarnessOptions = {}) {
     }
     throw new Error('ROUTER_PROVIDER_HTTP_404');
   };
-  const providers = createRouteProviders({ http, lifiApi: ROUTER_MOCK_LIFI_API, acrossApi: ROUTER_MOCK_ACROSS_API });
-  return { owner, clock, advance, wallet, relayer, controls, counters, providers, http, baseRpc, arbitrumRpc, state, arbUsdc,
+  const providers = profile === MAINNET ? createRouteProviders({ http, lifiApi: ROUTER_MOCK_LIFI_API, acrossApi: ROUTER_MOCK_ACROSS_API })
+    : createRouteProviders({ http, profile, lifiApi: ROUTER_TESTNET_MOCK.lifiApi, acrossApi: ROUTER_TESTNET_MOCK.acrossApi });
+  return { owner, profile, codePins: routerMockCodePins(profile), clock, advance, wallet, relayer, controls, counters, providers, http, baseRpc, arbitrumRpc, state, arbUsdc,
     mined, baseHead, arbHead, nowMs };
 }
 export type RouterHarness = ReturnType<typeof createRouterHarness>;

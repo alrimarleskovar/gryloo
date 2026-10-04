@@ -168,6 +168,8 @@ jobs:
           GRYLOO_UNISWAP_LIQUIDITY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test uniswap-liquidity.spec.ts
           # BUILD-ROUTER-001: Cross-chain Router on MOCKED loopback Base/Arbitrum chains and providers; never a public network or a broadcast.
           GRYLOO_ROUTER_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test router.spec.ts
+          # BUILD-JOURNEY-001: permissionless testnet journey (random wallets, real sign-in signatures) on MOCKED loopback Base Sepolia/Arbitrum Sepolia; never a public network or a broadcast.
+          GRYLOO_ROUTER_TESTNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test journey.spec.ts
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mode-a-adversarial.spec.ts mode-a-fork.spec.ts mode-a-recovery.spec.ts
           # BUILD-005: a separate MOCKED CoW profile, never a public CoW or chain endpoint.
           export GRYLOO_COW=loopback

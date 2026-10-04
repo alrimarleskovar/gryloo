@@ -10,6 +10,7 @@ import { archiveEvidence, backoffMs, createIdempotencyStore, createPostgresLease
 import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
 import { disabledCode, flowMode, FLOWS, isFlowName, type FlowDeps, type FlowName, type FlowService, type Rpc } from './flows.ts';
+import { assertRunOwnership, normalizePrincipal, WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
 
 /** Methods that could put a transaction on any network. Observer (worker) transports reject them unconditionally. */
 const SUBMISSION_METHODS = new Set(['sendTransaction', 'eth_sendRawTransaction', 'eth_sendTransaction']);
@@ -25,6 +26,8 @@ export type BackendOptions = {
   readonly rpc?: Partial<Record<FlowName, Rpc>>; readonly http?: JupiterHttp; readonly leaseTtlMs?: number; readonly busyRetries?: number;
   /** Test seam (BUILD-ROUTER-001): the MOCKED destination chain and providers used with `rpc['crosschain-router']`. */
   readonly router?: FlowDeps['router'];
+  /** Test seam (BUILD-JOURNEY-001): per-flow MOCKED destination chains when both Router networks run in one test. */
+  readonly routers?: Partial<Record<FlowName, FlowDeps['router']>>;
 };
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 
@@ -37,7 +40,8 @@ export function createBackend(options: BackendOptions) {
     let transport = transports.get(flow);
     if (!transport) {
       const override = options.rpc?.[flow];
-      transport = override ? { rpc: override, ...options.http ? { http: options.http } : {}, ...options.router ? { router: options.router } : {} } : FLOWS[flow].transport(mode, env);
+      const router = options.routers?.[flow] ?? options.router;
+      transport = override ? { rpc: override, ...options.http ? { http: options.http } : {}, ...router ? { router } : {} } : FLOWS[flow].transport(mode, env);
       transports.set(flow, transport);
     }
     const router = transport.router && readOnly ? { router: { ...transport.router, destinationRpc: observeOnly(transport.router.destinationRpc) } } : {};
@@ -60,14 +64,27 @@ export function createBackend(options: BackendOptions) {
     return value;
   }
 
-  /** The server-action contract over HTTP. A BUSY run (another request or a worker observing it) is retried briefly. */
-  async function callFlow(flow: FlowName, method: string, args: readonly unknown[], tenantId = options.tenantId): Promise<FlowResult> {
+  /**
+   * The server-action contract over HTTP. A BUSY run (another request or a worker observing it) is retried briefly.
+   * BUILD-JOURNEY-001: `principal` is the wallet session the BFF verified; flows with an ownership policy refuse any call whose
+   * principal is not the durable run's owner (or claims another owner) before the service is touched.
+   */
+  async function callFlow(flow: FlowName, method: string, args: readonly unknown[], tenantId = options.tenantId, principal: string | null = null): Promise<FlowResult> {
     const definition = FLOWS[flow], mode = flowMode(flow, env);
     if (method === 'mode') return { ok: true, value: mode };
     const spec = Object.hasOwn(definition.methods, method) ? definition.methods[method] : undefined;
     if (!spec || !spec.validate(args)) throw new HttpError(400, 'ARGUMENTS_INVALID');
     if (mode === 'off') return { ok: false, code: disabledCode(flow) };
     const runId = typeof args[0] === 'string' && definition.runId.test(args[0]) ? args[0] : undefined;
+    const ownership = definition.ownership;
+    if (ownership) {
+      try { await assertRunOwnership(ownership.policy, method, args, principal, async id => ownership.ownerOf(await service(flow, tenantId).load(id))); }
+      catch (error) {
+        const code = error instanceof Error && CODE.test(error.message) ? error.message : definition.unavailableCode;
+        if (code === 'RUN_OWNER_MISMATCH') logger.warn('flow.ownership_refused', { flow, action: method, run_id: runId });
+        return { ok: false, code };
+      }
+    }
     return withSpan(logger, 'flow.call', { tenant_id: tenantId, flow, action: method, run_id: runId }, async () => {
       for (let attempt = 0; ; attempt++) {
         try { return { ok: true, value: await service(flow, tenantId).call(method, args) } as const; }
@@ -84,6 +101,20 @@ export function createBackend(options: BackendOptions) {
   const idempotency = (tenantId: string) => createIdempotencyStore({ db, tenantId });
   const queries = (tenantId: string) => createRunQueries(db, tenantId);
   const runIdOf = (value: string | undefined) => { if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)) throw new HttpError(400, 'RUN_ID_INVALID'); return value; };
+  /** BUILD-JOURNEY-001: the wallet session principal the BFF verified (absent for operator calls made with the bearer token alone). */
+  const principalOf = (request: HttpRequest) => {
+    const raw = request.headers[WALLET_PRINCIPAL_HEADER];
+    if (raw === undefined) return null;
+    const principal = normalizePrincipal(raw);
+    if (!principal) throw new HttpError(400, 'WALLET_PRINCIPAL_INVALID');
+    return principal;
+  };
+  /** A run is visible to a principal only when it is that wallet's run; operator calls (no principal) see the tenant. */
+  const visibleRun = async (request: HttpRequest, runId: string) => {
+    const run = await queries(options.tenantId).getRun(runId), principal = principalOf(request);
+    if (!run || principal !== null && run.ownerAccount !== principal) throw new HttpError(404, 'RUN_NOT_FOUND');
+    return run;
+  };
   const integerParam = (value: string | null) => value === null ? null : /^-?\d{1,9}$/.test(value) ? Number(value) : NaN;
   const wrap = (handler: (request: HttpRequest, match: RegExpExecArray) => Promise<HttpResponse>) => async (request: HttpRequest, match: RegExpExecArray) => {
     try { return await handler(request, match); }
@@ -100,37 +131,38 @@ export function createBackend(options: BackendOptions) {
       if (!isFlowName(flow)) throw new HttpError(404, 'FLOW_NOT_FOUND');
       const body = request.body as { args?: unknown } | null;
       if (!body || typeof body !== 'object' || !Array.isArray(body.args) || Object.keys(body).length !== 1) throw new HttpError(400, 'ARGUMENTS_INVALID');
-      const args = body.args, tenantId = options.tenantId, key = request.headers['idempotency-key'];
+      const args = body.args, tenantId = options.tenantId, key = request.headers['idempotency-key'], principal = principalOf(request);
       const mutates = method !== 'mode' && FLOWS[flow].methods[method]?.mutates === true;
-      if (typeof key !== 'string' || !mutates) return { status: 200, body: await callFlow(flow, method, args, tenantId) };
-      const scope = `flows/${flow}/${method.toLowerCase()}`, hash = requestHash(scope, args), store = idempotency(tenantId);
+      if (typeof key !== 'string' || !mutates) return { status: 200, body: await callFlow(flow, method, args, tenantId, principal) };
+      // The principal is part of the request identity: a key replayed under another wallet session is a conflict, never a replay.
+      const scope = `flows/${flow}/${method.toLowerCase()}`, hash = requestHash(scope, principal === null ? args : [{ principal }, ...args]), store = idempotency(tenantId);
       let claim;
       try { claim = await store.begin(scope, key, hash); } catch (error) { if ((error as Error).message === 'IDEMPOTENCY_KEY_INVALID') throw new HttpError(400, 'IDEMPOTENCY_KEY_INVALID'); throw error; }
       if (claim.kind === 'REPLAY') return { status: 200, body: claim.response };
       if (claim.kind === 'CONFLICT') throw new HttpError(409, 'IDEMPOTENCY_KEY_REUSED');
       if (claim.kind === 'IN_PROGRESS') throw new HttpError(409, 'IDEMPOTENCY_IN_PROGRESS');
       let result: FlowResult;
-      try { result = await callFlow(flow, method, args, tenantId); } catch (error) { await store.release(scope, key, hash).catch(() => undefined); throw error; }
+      try { result = await callFlow(flow, method, args, tenantId, principal); } catch (error) { await store.release(scope, key, hash).catch(() => undefined); throw error; }
       if (result.ok) await store.complete(scope, key, hash, result); else await store.release(scope, key, hash);
       return { status: 200, body: result };
     }) },
     { method: 'GET', name: 'runs', pattern: /^\/v1\/runs$/, handler: wrap(async request => {
-      const limit = integerParam(request.query.get('limit'));
-      return { status: 200, body: { ok: true, value: await queries(options.tenantId).listRuns(request.query.get('cursor'), limit) } };
+      const limit = integerParam(request.query.get('limit')), flow = request.query.get('flow');
+      if (flow !== null && !isFlowName(flow)) throw new HttpError(400, 'FLOW_INVALID');
+      // A wallet session sees only its own runs.
+      return { status: 200, body: { ok: true, value: await queries(options.tenantId).listRuns(request.query.get('cursor'), limit, { owner: principalOf(request), flow }) } };
     }) },
-    { method: 'GET', name: 'run', pattern: /^\/v1\/runs\/([^/]+)$/, handler: wrap(async (_request, match) => {
-      const run = await queries(options.tenantId).getRun(runIdOf(match[1]));
-      if (!run) throw new HttpError(404, 'RUN_NOT_FOUND');
-      return { status: 200, body: { ok: true, value: run } };
+    { method: 'GET', name: 'run', pattern: /^\/v1\/runs\/([^/]+)$/, handler: wrap(async (request, match) => {
+      return { status: 200, body: { ok: true, value: await visibleRun(request, runIdOf(match[1])) } };
     }) },
     { method: 'GET', name: 'run.journal', pattern: /^\/v1\/runs\/([^/]+)\/journal$/, handler: wrap(async (request, match) => {
       const runId = runIdOf(match[1]), q = queries(options.tenantId);
-      if (!await q.getRun(runId)) throw new HttpError(404, 'RUN_NOT_FOUND');
+      await visibleRun(request, runId);
       return { status: 200, body: { ok: true, value: await q.journal(runId, integerParam(request.query.get('after')), integerParam(request.query.get('limit'))) } };
     }) },
-    { method: 'GET', name: 'run.evidence', pattern: /^\/v1\/runs\/([^/]+)\/evidence$/, handler: wrap(async (_request, match) => {
+    { method: 'GET', name: 'run.evidence', pattern: /^\/v1\/runs\/([^/]+)\/evidence$/, handler: wrap(async (request, match) => {
       const runId = runIdOf(match[1]), q = queries(options.tenantId);
-      if (!await q.getRun(runId)) throw new HttpError(404, 'RUN_NOT_FOUND');
+      await visibleRun(request, runId);
       const items = await q.evidence(runId), store = options.evidenceStore;
       const value = await Promise.all(items.map(async item => {
         if (!store || store.id !== item.storeId) return { ...item, verified: false, content: null };

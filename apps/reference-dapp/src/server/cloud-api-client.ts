@@ -5,8 +5,11 @@
  * services in this process. The browser still talks only to its own origin (CSP `connect-src 'self'`); the
  * API token is server-only. Each invocation carries one idempotency key reused across bounded transport
  * retries, so a lost response cannot apply a mutation twice.
+ * BUILD-JOURNEY-001: the wallet session principal (verified from the HttpOnly session cookie by the caller) travels in a
+ * server-to-server header; the API binds runs to it. The browser never talks to the API, so it can never set that header.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import { WALLET_PRINCIPAL_HEADER } from './run-ownership.ts';
 
 export type FlowResult<T> = { ok: true; value: T } | { ok: false; code: string };
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
@@ -22,7 +25,7 @@ export function cloudApiBaseUrl(env: Readonly<Record<string, string | undefined>
 }
 
 export async function callCloudFlow<T>(flow: string, method: string, args: readonly unknown[], options: {
-  env?: Readonly<Record<string, string | undefined>>; transport?: typeof fetch; sleep?: (ms: number) => Promise<void> } = {}): Promise<FlowResult<T>> {
+  env?: Readonly<Record<string, string | undefined>>; transport?: typeof fetch; sleep?: (ms: number) => Promise<void>; principal?: string | null } = {}): Promise<FlowResult<T>> {
   const env = options.env ?? process.env, transport = options.transport ?? fetch;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
   let base: URL | null;
@@ -36,7 +39,7 @@ export async function callCloudFlow<T>(flow: string, method: string, args: reado
     try {
       response = await transport(target, { method: 'POST', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(240_000),
         headers: { 'content-type': 'application/json', traceparent, ...env.API_AUTH_TOKEN ? { authorization: `Bearer ${env.API_AUTH_TOKEN}` } : {},
-          ...key ? { 'idempotency-key': key } : {} }, body: JSON.stringify({ args }) });
+          ...key ? { 'idempotency-key': key } : {}, ...options.principal ? { [WALLET_PRINCIPAL_HEADER]: options.principal } : {} }, body: JSON.stringify({ args }) });
     } catch {
       // The request may or may not have arrived; the same idempotency key makes the retry safe.
       if (attempt < 3) { await sleep(500 * 2 ** attempt); continue; }
@@ -52,4 +55,23 @@ export async function callCloudFlow<T>(flow: string, method: string, args: reado
     return { ok: false, code: 'CLOUD_API_UNAVAILABLE' };
   }
   return { ok: false, code: 'CLOUD_API_UNAVAILABLE' };
+}
+
+export type CloudRunSummary = { runId: string; flow: string; status: string; ownerAccount: string | null; hasEvidence: boolean; updatedAt: string };
+/** BUILD-JOURNEY-001: the signed-in wallet's most recent runs of one flow (the API filters by the principal header). */
+export async function listCloudRuns(flow: string, principal: string, options: { env?: Readonly<Record<string, string | undefined>>; transport?: typeof fetch } = {}):
+  Promise<FlowResult<CloudRunSummary[]>> {
+  const env = options.env ?? process.env, transport = options.transport ?? fetch;
+  let base: URL | null;
+  try { base = cloudApiBaseUrl(env); } catch (error) { return { ok: false, code: (error as Error).message }; }
+  if (!base) return { ok: false, code: 'CLOUD_API_NOT_CONFIGURED' };
+  const target = new URL(`v1/runs?${new URLSearchParams({ flow, limit: '25' })}`, base.href.endsWith('/') ? base : new URL(base.href + '/'));
+  try {
+    const response = await transport(target, { method: 'GET', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000),
+      headers: { ...env.API_AUTH_TOKEN ? { authorization: `Bearer ${env.API_AUTH_TOKEN}` } : {}, [WALLET_PRINCIPAL_HEADER]: principal } });
+    const body = await response.json() as { ok?: unknown; value?: { items?: unknown } };
+    if (!response.ok || body.ok !== true || !Array.isArray(body.value?.items)) return { ok: false, code: 'CLOUD_API_UNAVAILABLE' };
+    return { ok: true, value: (body.value.items as CloudRunSummary[]).filter(r => r.ownerAccount === principal && r.flow === flow)
+      .map(r => ({ runId: r.runId, flow: r.flow, status: r.status, ownerAccount: r.ownerAccount, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })) };
+  } catch { return { ok: false, code: 'CLOUD_API_UNAVAILABLE' }; }
 }

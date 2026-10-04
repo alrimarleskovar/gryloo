@@ -12,7 +12,7 @@
  * validated when the log is extended, and terminal phases never change.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { CROSSCHAIN_ROUTER_BASE_ARBITRUM as profile, resolveWorkflowCapability } from '@defi-workflow-engine/action-registry';
+import { CROSSCHAIN_ROUTER_BASE_ARBITRUM as MAINNET, resolveWorkflowCapability, type RouterProfile } from '@defi-workflow-engine/action-registry';
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, validateRouterBridgeWorkflow } from '@defi-workflow-engine/reference-linter';
 import { compileRouterArtifacts, decodeErc20Approval, decodeErc20Transfer, decodeFilledRelay, decodeFundsDeposited, decodeRouterApprove, encodeRouterApprove,
   EIP1967_IMPLEMENTATION_SLOT, ROUTER_SELECTORS as SEL, ROUTER_TOPICS as TOPIC, type FilledRelay, type FundsDeposited, type RouterArtifacts,
@@ -24,12 +24,11 @@ import { utf8, type ExecutionStorage } from '@defi-workflow-engine/reference-exe
 import { verifyOwnerSubmission, type Rpc } from './public-testnet-service.ts';
 import type { RouteProvider, RouteRequest, TransferHint } from './router-providers.ts';
 
-const SRC = profile.source, DST = profile.destination;
 export const ROUTER_RUN_ID = /^xroute-[a-f0-9]{32}$/;
 export type RouterStep = 'APPROVAL' | 'DEPOSIT';
 export type RouterAttemptState = 'PREPARED' | 'CANCELLED' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'NOT_FOUND' | 'PENDING' | 'CONFIRMED' | 'REVERTED' |
   'RECONCILIATION_REQUIRED';
-export type RouterTx = { readonly chainId: '0x2105'; readonly from: string; readonly to: string; readonly data: string; readonly value: '0x0'; readonly gas: string;
+export type RouterTx = { readonly chainId: string; readonly from: string; readonly to: string; readonly data: string; readonly value: '0x0'; readonly gas: string;
   readonly maxFeePerGas: string; readonly maxPriorityFeePerGas: string };
 export type RouterCall = { readonly purpose: 'APPROVAL' | 'BRIDGE_DEPOSIT'; readonly to: string; readonly data: string; readonly gasUsed: string; readonly gasLimit: string };
 export type ProviderConsideration = { readonly provider: RoutingProvider; readonly outcome: 'SELECTED' | 'AVAILABLE' | 'REFUSED' | 'UNAVAILABLE';
@@ -83,13 +82,14 @@ export type DestinationFill = { readonly transactionHash: string; readonly block
   readonly spokePool: string; readonly relayer: string; readonly recipient: string; readonly outputToken: string; readonly outputAmount: string;
   readonly transferAmount: string; readonly fillType: number; readonly discoveredBy: 'PROVIDER_HINT' | 'LOG_SCAN'; readonly contentHash: string; readonly safe: boolean };
 export type RefundRecord = { readonly transactionHash: string; readonly blockNumber: number; readonly blockHash: string; readonly amount: string; readonly recipient: string };
-export type RouterEvidence = { readonly bundle: EvidenceBundle; readonly bundleHash: string; readonly evidenceClass: 'MAINNET_EXECUTED' | 'MOCKED';
+export type RouterEvidence = { readonly bundle: EvidenceBundle; readonly bundleHash: string; readonly evidenceClass: 'MAINNET_EXECUTED' | 'TESTNET_EXECUTED' | 'MOCKED';
   readonly route: { readonly provider: RoutingProvider; readonly underlyingProtocol: string; readonly routeCommitment: string; readonly manifestHash: string };
   readonly source: SourceSettlement; readonly destination: DestinationFill; readonly recipient: string; readonly minimumOutput: string;
   readonly transactions: readonly { readonly chain: string; readonly step: string; readonly transactionHash: string; readonly blockNumber: number; readonly blockHash: string;
     readonly explorer: string }[];
   readonly reconciliation: 'RECONCILED'; readonly observedAt: string };
-export type RouterRecord = { readonly format: 'flofi.router-run.v1'; readonly id: string; readonly provenance: 'PUBLIC_MAINNET' | 'MOCKED';
+export type RouterProvenance = 'PUBLIC_MAINNET' | 'PUBLIC_TESTNET' | 'MOCKED';
+export type RouterRecord = { readonly format: 'flofi.router-run.v1'; readonly id: string; readonly provenance: RouterProvenance;
   readonly workflow: SemanticWorkflow; readonly owner: string; readonly review: RouterReview; readonly authorization: string | null; readonly phase: RouterPhase;
   readonly attempts: readonly RouterAttempt[]; readonly source: SourceSettlement | null; readonly destination: DestinationFill | null; readonly refund: RefundRecord | null;
   /** Next Arbitrum block to scan for the fill (durable cursor). */ readonly scanFrom: number;
@@ -99,7 +99,7 @@ export type RouterRecord = { readonly format: 'flofi.router-run.v1'; readonly id
   readonly verdict: 'PENDING' | 'RECONCILED' | 'DIVERGENT' | 'FAILED' | 'REFUNDED'; readonly error: string | null };
 export type RouterBegin = { readonly record: RouterRecord; readonly attempt: RouterAttempt; readonly transaction: RouterTx };
 export type RouterWalletDiagnostic = { invoked: boolean; calls: { method: string; submission?: boolean; result?: string | null; error?: unknown }[]; code: string; rejectionCode?: number };
-export type RouterCodePins = Readonly<Record<keyof typeof profile.codeSha256, string>>;
+export type RouterCodePins = Readonly<Record<keyof RouterProfile['codeSha256'], string>>;
 
 const ADDRESS = /^0x[0-9a-f]{40}$/, HASH = /^0x[0-9a-f]{64}$/;
 const ACTIVE: readonly RouterAttemptState[] = ['PREPARED', 'SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'];
@@ -137,10 +137,20 @@ export function canonical(value: unknown): string {
 }
 const digest = (value: unknown) => '0x' + sha256Hex(typeof value === 'string' ? value : canonical(value));
 export function routerReviewCommitment(review: RouterReview): string { const rest: Record<string, unknown> = { ...review }; delete rest.commitment; return digest(rest); }
-export const routerExplorerTx = (chain: 'source' | 'destination', hash: string) => (chain === 'source' ? SRC.explorer : DST.explorer) + 'tx/' + hash;
+export const routerExplorerTx = (chain: 'source' | 'destination', hash: string, profile: RouterProfile = MAINNET) =>
+  (chain === 'source' ? profile.source.explorer : profile.destination.explorer) + 'tx/' + hash;
+/** The evidence class a run's provenance can produce: never more than what actually executed. */
+export const routerEvidenceClass = (provenance: RouterProvenance): RouterEvidence['evidenceClass'] =>
+  provenance === 'PUBLIC_MAINNET' ? 'MAINNET_EXECUTED' : provenance === 'PUBLIC_TESTNET' ? 'TESTNET_EXECUTED' : 'MOCKED';
+/** The public provenance a profile's runs record (MOCKED is the loopback harness on either network). */
+export const routerPublicProvenance = (profile: RouterProfile): RouterProvenance => profile.network === 'MAINNET' ? 'PUBLIC_MAINNET' : 'PUBLIC_TESTNET';
 
-/** Append-only run history: identity, reviewed calls, hashes, terminal states, settlements and evidence never change; phases only move forward. */
-export function validateRouterLog(bytes: Uint8Array): void {
+/**
+ * Append-only run history: identity, reviewed calls, hashes, terminal states, settlements and evidence never change; phases only move forward.
+ * A log belongs to exactly one profile (its reviewed chains and its public provenance), so a run can never be read by another network's service.
+ */
+export function validateRouterLog(bytes: Uint8Array, profile: RouterProfile = MAINNET): void {
+  const SRC = profile.source, DST = profile.destination, provenances = ['MOCKED', routerPublicProvenance(profile)];
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   if (!text.endsWith('\n') || bytes.length > 16_777_216) fail('ROUTER_STORE_CORRUPT');
   let prior: RouterRecord | null = null;
@@ -148,8 +158,9 @@ export function validateRouterLog(bytes: Uint8Array): void {
   for (const line of text.trimEnd().split('\n')) {
     let run: RouterRecord;
     try { run = JSON.parse(line) as RouterRecord; } catch { fail('ROUTER_STORE_CORRUPT'); }
-    if (!isObject(run) || run.format !== 'flofi.router-run.v1' || !ROUTER_RUN_ID.test(String(run.id)) || !['PUBLIC_MAINNET', 'MOCKED'].includes(run.provenance) ||
+    if (!isObject(run) || run.format !== 'flofi.router-run.v1' || !ROUTER_RUN_ID.test(String(run.id)) || !provenances.includes(run.provenance) ||
         !ADDRESS.test(String(run.owner)) || !isObject(run.workflow) || !isObject(run.review) || run.review.owner !== run.owner ||
+        run.review.intent?.sourceChain !== SRC.chain || run.review.intent?.destinationChain !== DST.chain || run.review.route.sourceChain !== SRC.chain ||
         run.review.commitment !== routerReviewCommitment(run.review) || run.review.routeCommitment !== routeCommitment(run.review.route) ||
         run.review.route.depositor !== run.owner || run.review.route.recipient !== run.review.recipient ||
         (run.authorization !== null && run.authorization !== run.review.commitment) || !(ROUTER_PHASES as readonly string[]).includes(run.phase) ||
@@ -160,6 +171,7 @@ export function validateRouterLog(bytes: Uint8Array): void {
           (a.reconciled && (a.state !== 'CONFIRMED' || a.transactionHash === null))) ||
         run.attempts.filter(a => ACTIVE.includes(a.state)).length > 1 || run.attempts.filter(a => a.step === 'DEPOSIT' && a.state === 'CONFIRMED').length > 1 ||
         (run.verdict === 'RECONCILED') !== (run.evidence !== null) || (run.verdict === 'RECONCILED') !== (run.phase === 'RECONCILED') ||
+        (run.evidence !== null && (run.evidence.evidenceClass !== routerEvidenceClass(run.provenance) || run.evidence.bundle?.environment !== run.evidence.evidenceClass)) ||
         (run.evidence !== null && (run.destination === null || run.source === null)) || (run.destination !== null && run.source === null) ||
         (run.phase !== 'RECONCILIATION_REQUIRED' && (SETTLING.includes(run.phase) || run.phase === 'RECONCILED' || run.phase === 'REFUNDED') !== (run.source !== null)) ||
         (run.phase === 'REFUNDED') !== (run.refund !== null) || ((run.phase === 'REFUNDED') !== (run.verdict === 'REFUNDED')) ||
@@ -205,9 +217,12 @@ type DestinationState = { block: Block; codeSha256: Record<string, string>; impl
 type Simulated = { purpose: RouterCall['purpose']; gasUsed: bigint; logs: RouterLog[] };
 
 export function createRouterService(input: { readonly storage: ExecutionStorage; readonly sourceRpc: Rpc; readonly destinationRpc: Rpc;
-  readonly providers: Readonly<Record<RoutingProvider, RouteProvider>>; readonly provenance: 'PUBLIC_MAINNET' | 'MOCKED'; readonly executionEnabled?: boolean;
-  readonly now?: () => Date; /** MOCKED harness only: the synthetic chains' code pins. A public run always uses the profile's verified pins. */ readonly mockedCodePins?: RouterCodePins }) {
+  readonly providers: Readonly<Record<RoutingProvider, RouteProvider>>; readonly provenance: RouterProvenance; readonly executionEnabled?: boolean;
+  readonly now?: () => Date; /** MOCKED harness only: the synthetic chains' code pins. A public run always uses the profile's verified pins. */ readonly mockedCodePins?: RouterCodePins;
+  /** BUILD-JOURNEY-001: the pair/network this service serves (default: Base → Arbitrum One mainnet). */ readonly profile?: RouterProfile }) {
   const { sourceRpc: rpc, destinationRpc: drpc, providers, provenance } = input, { log, leases } = input.storage;
+  const profile = input.profile ?? MAINNET, SRC = profile.source, DST = profile.destination;
+  if (provenance !== 'MOCKED' && provenance !== routerPublicProvenance(profile)) fail('ROUTER_PROVENANCE_INVALID');
   if (input.mockedCodePins && provenance !== 'MOCKED') fail('ROUTER_CODE_PINS_MOCKED_ONLY');
   const pins: RouterCodePins = input.mockedCodePins ?? profile.codeSha256;
   const now = input.now ?? (() => new Date());
@@ -216,7 +231,7 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
   async function load(id: string): Promise<RouterRecord> {
     const bytes = await log.read(runName(id));
     if (!bytes) fail('ROUTER_RUN_NOT_FOUND');
-    try { validateRouterLog(bytes); } catch { fail('ROUTER_STORE_CORRUPT'); }
+    try { validateRouterLog(bytes, profile); } catch { fail('ROUTER_STORE_CORRUPT'); }
     const record = JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as RouterRecord;
     if (record.id !== id) fail('ROUTER_STORE_CORRUPT');
     return record;
@@ -225,7 +240,7 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
     const name = runName(record.id), prior = await log.read(name);
     // Observation repeats often while a bridge is in flight: an unchanged snapshot is not appended again.
     if (prior && canonical(JSON.parse(utf8(prior).trimEnd().split('\n').at(-1)!)) === canonical(record)) return record;
-    await log.extend(name, new TextEncoder().encode(utf8(prior) + JSON.stringify(record) + '\n'), validateRouterLog);
+    await log.extend(name, new TextEncoder().encode(utf8(prior) + JSON.stringify(record) + '\n'), bytes => validateRouterLog(bytes, profile));
     return record;
   }
   const locked = <T,>(id: string, action: () => Promise<T>): Promise<T> => leases.hold(runName(id).slice(0, -6), action);
@@ -324,7 +339,9 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
   function intentOf(workflow: SemanticWorkflow) {
     const checked = validateAuthoringWorkflow(workflow, createBaseSepoliaReviewContext()) as SemanticWorkflow;
     const fields = validateRouterBridgeWorkflow(checked);
-    const capability = resolveWorkflowCapability(checked, { environment: 'MAINNET' });
+    // A service serves exactly one pair/network: a workflow for another network is never quoted, reviewed or executed here.
+    if (fields.sourceChain !== SRC.chain || fields.destinationChain !== DST.chain) fail('ROUTER_NETWORK_MISMATCH');
+    const capability = resolveWorkflowCapability(checked, { environment: profile.environment });
     if (!capability.executionSupported || capability.nodes[0]?.adapterId !== profile.adapterId) fail('ROUTER_CAPABILITY_UNAVAILABLE');
     return fields;
   }
@@ -720,6 +737,7 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
   async function buildEvidence(record: RouterRecord): Promise<RouterEvidence> {
     const source = record.source!, destination = record.destination!, route = record.review.route, a = record.review.artifacts;
     const confirmed = record.attempts.filter(x => x.state === 'CONFIRMED' && x.receipt);
+    const evidenceClass = routerEvidenceClass(provenance);
     const [ownerUsdc, allowance, recipientUsdc] = await Promise.all([
       call(rpc, SRC.usdc, SEL.balanceOf + addrWord(record.owner), tag(source.blockNumber)).then(d => wordAt(d, 0)),
       call(rpc, SRC.usdc, SEL.allowance + addrWord(record.owner) + addrWord(route.approval.spender), tag(source.blockNumber)).then(d => wordAt(d, 0)),
@@ -730,15 +748,16 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
       allowances: [{ asset: src, amount: allowance.toString() }], debt: [], positions: [],
       fees: [{ asset: { chainId: SRC.chain, nativeId: 'ETH', decimals: 18 }, amount: gas.toString() }, { asset: src, amount: route.feeTotal }],
       residualAssets: [{ asset: src, amount: ownerUsdc.toString() }], ownership: [{ chainId: SRC.chain, address: record.owner }, { chainId: DST.chain, address: route.recipient }],
-      limitations: [provenance === 'PUBLIC_MAINNET' ? 'PUBLIC_MAINNET_OWNER_EXECUTED' : 'MOCKED_CHAINS_ONLY', 'SAFE_HEAD_FINALITY'] };
+      limitations: [provenance === 'PUBLIC_MAINNET' ? 'PUBLIC_MAINNET_OWNER_EXECUTED' : provenance === 'PUBLIC_TESTNET' ? 'PUBLIC_TESTNET_OWNER_EXECUTED' : 'MOCKED_CHAINS_ONLY',
+        'SAFE_HEAD_FINALITY'] };
     const transactions = [...confirmed.map(x => ({ chain: SRC.chain, step: x.step, transactionHash: x.receipt!.transactionHash, blockNumber: x.receipt!.blockNumber,
-      blockHash: x.receipt!.blockHash, explorer: routerExplorerTx('source', x.receipt!.transactionHash) })),
+      blockHash: x.receipt!.blockHash, explorer: routerExplorerTx('source', x.receipt!.transactionHash, profile) })),
       { chain: DST.chain, step: 'FILL', transactionHash: destination.transactionHash, blockNumber: destination.blockNumber, blockHash: destination.blockHash,
-        explorer: routerExplorerTx('destination', destination.transactionHash) }];
+        explorer: routerExplorerTx('destination', destination.transactionHash, profile) }];
     const bundle = validateArtifact('evidence-bundle', { schemaVersion: '1.0.0', evidenceBundleId: record.id + '.evidence', version: 1, supersedes: null,
       semanticWorkflowHash: a.hashes.workflow, artifactSetHash: a.hashes.artifactSet, simulationHash: a.hashes.simulation, policyHash: a.hashes.policy,
       manifestHash: a.hashes.manifest, executionPlanHash: a.hashes.plan, journalHeadHash: digest(record), observedAt: now().toISOString(),
-      environment: provenance === 'PUBLIC_MAINNET' ? 'MAINNET_EXECUTED' : 'MOCKED', outcome: 'RECONCILED',
+      environment: evidenceClass, outcome: 'RECONCILED',
       receipts: [...confirmed.map(x => ({ receiptId: x.receipt!.transactionHash, contentHash: x.receipt!.contentHash })),
         { receiptId: destination.transactionHash, contentHash: destination.contentHash }], differences: [], reconciliation,
       evidence: [{ evidenceId: 'route-commitment', kind: 'EXTERNAL_REFERENCE', contentHash: record.review.routeCommitment },
@@ -746,13 +765,13 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
         { evidenceId: 'destination-fill', kind: 'EXTERNAL_REFERENCE', contentHash: digest(destination) },
         { evidenceId: 'public-explorer', kind: 'EXTERNAL_REFERENCE', contentHash: digest(transactions.map(t => t.explorer).join('\n')) }] }) as EvidenceBundle;
     return { bundle, bundleHash: hashArtifactBytes('evidence-bundle', new TextEncoder().encode(JSON.stringify(bundle))),
-      evidenceClass: provenance === 'PUBLIC_MAINNET' ? 'MAINNET_EXECUTED' : 'MOCKED',
+      evidenceClass,
       route: { provider: route.routingProvider, underlyingProtocol: route.underlyingProtocol, routeCommitment: record.review.routeCommitment, manifestHash: a.hashes.manifest },
       source, destination, recipient: route.recipient, minimumOutput: route.minimumOutput, transactions, reconciliation: 'RECONCILED', observedAt: now().toISOString() };
   }
 
   return {
-    executionEnabled,
+    executionEnabled, profile,
     /** Read-only: a new run with fresh quotes, a fresh simulation and a route-bound Manifest for this owner. */
     async simulate(workflowInput: unknown, ownerInput: string): Promise<RouterRecord> {
       const workflow = workflowInput as SemanticWorkflow, owner = address(ownerInput, 'ROUTER_OWNER_INVALID');
@@ -780,9 +799,15 @@ export function createRouterService(input: { readonly storage: ExecutionStorage;
       if (now().getTime() >= Date.parse(record.review.expiresAt)) fail('ROUTER_REVIEW_EXPIRED');
       return save({ ...record, phase: 'AUTHORIZED', authorization: commitment, error: null });
     }); },
-    async invalidate(id: string): Promise<RouterRecord> { return locked(id, async () => {
+    /**
+     * Retires an unused authorization: a workflow edit (default) or, BUILD-JOURNEY-001, a wallet account change in the owner's browser after
+     * Review. Either way a fresh Review is required before any wallet request.
+     */
+    async invalidate(id: string, reason: 'SEMANTIC_EDIT' | 'WALLET_CHANGED' = 'SEMANTIC_EDIT'): Promise<RouterRecord> { return locked(id, async () => {
       const record = await load(id);
-      return record.authorization && record.phase === 'AUTHORIZED' && !active(record) ? save(deauthorized(record, 'ROUTER_SEMANTIC_EDIT_REQUIRES_REVIEW')) : record;
+      if (reason !== 'SEMANTIC_EDIT' && reason !== 'WALLET_CHANGED') fail('ROUTER_INVALIDATION_REASON_INVALID');
+      return record.authorization && record.phase === 'AUTHORIZED' && !active(record)
+        ? save(deauthorized(record, reason === 'WALLET_CHANGED' ? 'ROUTER_WALLET_CHANGED_REVIEW_REQUIRED' : 'ROUTER_SEMANTIC_EDIT_REQUIRES_REVIEW')) : record;
     }); },
     /**
      * Re-verifies the Review against fresh chain state, re-quotes the SAME provider and compares (no fallback of any kind),

@@ -90,6 +90,9 @@ add('asset.liquidity.concentrated', 'uniswap.v3', 'eip155:84532', 'PUBLIC_TESTNE
 // underlying Across), signed and sent only by the owner's browser wallet on Base mainnet. Owner execution is implemented and
 // gated by an explicit deployment opt-in; none is demonstrated yet, so no evidence ceiling is claimed.
 add('asset.bridge', 'flofi.router', 'eip155:8453', 'MAINNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
+// BUILD-JOURNEY-001: the same router on public testnets (Base Sepolia → Arbitrum Sepolia, test USDC) for the permissionless
+// external-user journey. Owner execution is implemented; none is demonstrated yet, so no evidence ceiling is claimed.
+add('asset.bridge', 'flofi.router', 'eip155:84532', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 

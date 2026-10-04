@@ -1,5 +1,21 @@
 # Evidence levels
 
+## BUILD-JOURNEY-001 permissionless testnet journey evidence boundary
+
+Testnet Router runs (Base Sepolia USDC → Arbitrum Sepolia USDC, LI.FI or direct Across, underlying Across, test USDC) use the
+BUILD-ROUTER-001 rules with testnet chains: `MOCKED` (in-process and loopback chains and providers), `PUBLIC_READ_ONLY` (live
+provider quotes, real Base Sepolia/Arbitrum Sepolia reads and a real `eth_simulateV1`, without execution) or `TESTNET_EXECUTED`
+(an owner-signed run whose Base Sepolia receipt carries the reviewed `FundsDeposited` and whose Arbitrum Sepolia `FilledRelay`
+delivers at least the reviewed minimum to the reviewed recipient, both at `safe` heads). A run's log is bound to its
+profile; its evidence class can never exceed its provenance (`PUBLIC_TESTNET` → `TESTNET_EXECUTED`, `MOCKED` → `MOCKED`).
+
+`PERMISSIONLESS_EXECUTED` is a journey status, not a new bundle class: it requires a `TESTNET_EXECUTED` run completed from the
+**deployed** application by a fresh external wallet that the team neither hard-coded nor prepared (Connect → Create →
+Simulate → Review → Manifest → Sign → Execute → Recover/Reconcile → Evidence). A wallet session (EIP-4361 sign-in) proves
+only who may operate a run; it is never execution evidence. Current BUILD-JOURNEY-001 evidence is `MOCKED` plus
+`PUBLIC_READ_ONLY` ([BUILD-JOURNEY-001-READONLY.json](builds/BUILD-JOURNEY-001-READONLY.json)); no `TESTNET_EXECUTED` or
+`PERMISSIONLESS_EXECUTED` claim exists.
+
 ## BUILD-ROUTER-001 Cross-chain Router evidence boundary
 
 Router runs (Base mainnet USDC → Arbitrum One USDC, via LI.FI or direct Across, underlying Across) are classified `MOCKED`
