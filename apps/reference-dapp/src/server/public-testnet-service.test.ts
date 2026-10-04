@@ -38,19 +38,21 @@ function workflow() {
   return structuredClone(result.workflow) as unknown as SemanticWorkflow;
 }
 function fixture(options: { pool?: string; balance?: bigint; gas?: bigint; output?: bigint; receiptStatus?: string;
-  delegated?: boolean; delegatedType?: '0x2' | '0x4'; delegatedTarget?: string } = {}) {
+  delegated?: boolean; delegatedType?: '0x2' | '0x4'; delegatedTarget?: string; preconfirmedReads?: number } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'gryloo-public-test-')); dirs.push(dir);
   let allowance = 2_000_000n;
   let input = options.balance ?? 4_000_000n;
   let output = options.output ?? 0n;
   let native = options.gas ?? 10n ** 18n;
   let submitted = false;
+  let preconfirmed = options.preconfirmedReads ?? 0;
   let clock = 1701839100000;
   let quotedOutput = 1_000_000_000_000_000n;
   const rpc: Rpc = async (method, params) => {
     if (method === 'eth_chainId') return BASE_SEPOLIA.chainHex;
     if (method === 'eth_blockNumber') return '0x64';
-    if (method === 'eth_getBlockByNumber') return { number: '0x64', hash: blockHash, timestamp: '0x' + (1701839100).toString(16) };
+    if (method === 'eth_getBlockByNumber') return params[0] === '0x65' ? { number: '0x65', hash: blockHash, timestamp: '0x' + (1701839102).toString(16), transactions: [txHash] }
+      : { number: '0x64', hash: blockHash, timestamp: '0x' + (1701839100).toString(16) };
     if (method === 'eth_getCode') return options.delegated && params[0] === account ? '0xef0100' + delegatorImpl.slice(2) : '0x6000';
     if (method === 'eth_gasPrice') return '0x3b9aca00';
     if (method === 'eth_getBalance') return '0x' + native.toString(16);
@@ -60,7 +62,9 @@ function fixture(options: { pool?: string; balance?: bigint; gas?: bigint; outpu
       const saved = JSON.parse(readFileSync(join(dir, serviceRunId + '.json'), 'utf8'));
       const attempt = saved.attempts.at(-1);
       const nested = options.delegatedType === '0x2';
-      return { transactionHash: txHash, status: options.receiptStatus ?? '0x1', blockNumber: '0x65', blockHash,
+      // A Base Flashblocks preconfirmation: the block is not sealed yet and the receipt's block hash is all zero.
+      const zero = preconfirmed > 0; if (zero) preconfirmed -= 1;
+      return { transactionHash: txHash, status: options.receiptStatus ?? '0x1', blockNumber: '0x65', blockHash: zero ? '0x' + '0'.repeat(64) : blockHash,
         from: options.delegated ? sponsor : account, to: options.delegated ? delegationManager : attempt.tx.to,
         gasUsed: nested ? '0x7358d' : options.delegated ? '0x2c189' : '0x186a0',
         effectiveGasPrice: options.delegated ? '0x5b8d81' : '0x3b9aca00',
@@ -178,6 +182,23 @@ describe('public testnet execution boundary', () => {
     expect(completed.outcome?.gasCostWei).toBe('100000000000000');
     expect(completed.outcome?.evidence.environment).toBe('TESTNET_EXECUTED');
     await expect(f.service.begin(run.quote.executionId, account)).rejects.toThrow('ATTEMPT_ALREADY_ACTIVE');
+  });
+  it('keeps a preconfirmed zero-block-hash receipt pending and reconciles only the later canonical receipt', async () => {
+    const f = fixture({ delegated: true, delegatedType: '0x2', preconfirmedReads: 2 });
+    const run = await f.service.prepare(workflow()); f.setRunId(run.quote.executionId);
+    f.service.review(run.quote.executionId, run.quote.manifestHash);
+    const begun = await f.service.begin(run.quote.executionId, account);
+    f.service.report(run.quote.executionId, begun.attempt.attemptId, { kind: 'HASH', txHash });
+    f.confirm();
+    for (let read = 0; read < 2; read++) {
+      const pending = await f.service.observe(run.quote.executionId);
+      expect(pending.attempts[0]).toMatchObject({ state: 'PENDING', receipt: null });
+      expect(pending.outcome).toBeNull();
+    }
+    const completed = await f.service.observe(run.quote.executionId);
+    expect(completed.attempts[0]?.receipt?.blockHash).toBe(blockHash);
+    expect(completed.outcome?.evidence.environment).toBe('TESTNET_EXECUTED');
+    expect(JSON.stringify(completed)).not.toContain('0x' + '0'.repeat(64));
   });
   it('records an approval receipt separately and does not promote it as swap evidence', async () => {
     const f = fixture(); f.setAllowance(0n);

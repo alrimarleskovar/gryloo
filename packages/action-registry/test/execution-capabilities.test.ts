@@ -130,4 +130,28 @@ describe('execution capability registry', () => {
       artifacts: 'CURRENT', simulationReady: true, authorizationReady: true,
     } })).toMatchObject({ executionReady: true, evidenceCeiling: 'MOCKED' });
   });
+  it('routes the canonical concentrated-liquidity action on Base Sepolia to the public Uniswap v3 runtime without changing fork evidence', () => {
+    const concentrated = (chain: string, protocols: string[]) => node('asset.liquidity.concentrated', chain, null, protocols);
+    const publicLp = resolveNodeCapability(concentrated('eip155:84532', ['uniswap-v3']), { environment: 'PUBLIC_TESTNET' });
+    expect(publicLp.profile).toMatchObject({ adapterId: 'uniswap.v3', chainId: 'eip155:84532', environment: 'PUBLIC_TESTNET',
+      authorizationModes: ['A'], executionKind: 'DIRECT_TRANSACTION' });
+    // No public evidence is claimed before the owner's wallet-signed acceptance.
+    expect(publicLp.evidenceCeiling).toBeNull();
+    expect(publicLp.capabilities.EXECUTE).toBe(true);
+    // The historical BUILD-006 fork row is unchanged.
+    expect(resolveNodeCapability(pool(), { environment: 'LOCAL_FORK', runtime: { forkAvailable: true } }).profile?.evidenceMaturity).toBe('FORK_REPRODUCED');
+    // Wrong network, environment, protocol mix or Mode B fails closed.
+    expect(resolveNodeCapability(concentrated('eip155:8453', ['uniswap-v3']), { environment: 'PUBLIC_TESTNET' }).blockers[0]?.code).toBe('CHAIN_NOT_SUPPORTED');
+    expect(resolveNodeCapability(concentrated('eip155:84532', ['uniswap-v3']), { environment: 'MAINNET' }).blockers[0]?.code).toBe('MAINNET_EXECUTION_NOT_ENABLED');
+    expect(resolveNodeCapability(concentrated('eip155:84532', ['uniswap-v3', 'orca-whirlpools']), { environment: 'PUBLIC_TESTNET' }).blockers[0]?.code).toBe('ADAPTER_NOT_AVAILABLE');
+    expect(resolveNodeCapability(concentrated('eip155:84532', ['sushiswap']), { environment: 'PUBLIC_TESTNET' }).blockers[0]?.code).toBe('ADAPTER_NOT_AVAILABLE');
+    const modeB = { ...concentrated('eip155:84532', ['uniswap-v3']), requiredAuthorizationClass: 'MODE_B' } as Node;
+    expect(resolveNodeCapability(modeB, { environment: 'PUBLIC_TESTNET' }).blockers.map(b => b.code)).toContain('AUTHORIZATION_MODE_UNSUPPORTED');
+    const ready = resolveWorkflowCapability(workflow(concentrated('eip155:84532', ['uniswap-v3'])), { environment: 'PUBLIC_TESTNET', runtime: {
+      quoteProviderAvailable: true, walletConnected: true, walletChainId: 'eip155:84532', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } });
+    expect(ready.executionReady).toBe(true);
+    expect(resolveWorkflowCapability(workflow(concentrated('eip155:84532', ['uniswap-v3'])), { environment: 'PUBLIC_TESTNET', runtime: {
+      quoteProviderAvailable: true, walletConnected: true, walletChainId: 'eip155:8453', artifacts: 'CURRENT', simulationReady: true, authorizationReady: true } })
+      .blockers.map(b => b.code)).toContain('WRONG_WALLET_CHAIN');
+  });
 });

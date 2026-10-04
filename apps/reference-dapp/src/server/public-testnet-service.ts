@@ -151,6 +151,77 @@ function delegatedExecutionDepth(input: string, target: string, data: string): n
   }
   return null;
 }
+/**
+ * Verifies that a receipt belongs to the owner's exact reviewed call on Base Sepolia: sent directly by the owner, or as one
+ * canonical MetaMask Delegation Framework redemption of exactly that call (EIP-7702 delegator, Redeemed events naming the
+ * owner). Read-only; shared by the public swap and the public Uniswap liquidity flow. Effects are checked by the caller.
+ */
+export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash: string; readonly account: string; readonly target: string;
+  readonly data: string; readonly preBlock: number }, tx: unknown, raw: Record<string, unknown>) {
+  if (!isObject(tx)) fail('TRANSACTION_MISMATCH');
+  const txFrom = address(tx.from), txTo = address(tx.to), txInput = hex(tx.input);
+  if (Number(quantity(tx.chainId)) !== 84532 || hex(tx.hash) !== attempt.txHash || quantity(tx.value) !== 0n)
+    fail('TRANSACTION_MISMATCH');
+  const direct = txFrom === attempt.account && txTo === attempt.target && txInput === attempt.data;
+  const delegationDepth = delegatedExecutionDepth(txInput, attempt.target, attempt.data);
+  const authorizations = tx.authorizationList;
+  const txType = direct ? null : hex(tx.type);
+  const newlyAuthorized = txType === '0x4' && delegationDepth === 1 &&
+    Array.isArray(authorizations) && authorizations.length === 1 && isObject(authorizations[0]) &&
+    quantity(authorizations[0].chainId) === 84532n && address(authorizations[0].address) === DELEGATOR_IMPL;
+  // Owner already EIP-7702-delegated before this transaction (re-checked below at the prepared block): a type-2
+  // redemption with no authorization list, redeemed directly (depth 1, as MetaMask sends on Base Sepolia, e.g.
+  // 0x8248b684…5ccc) or through one redelegation (depth 2). The decoded inner call is still exactly the reviewed one.
+  const alreadyDelegated = txType === '0x2' && (delegationDepth === 1 || delegationDepth === 2) &&
+    !('authorizationList' in tx);
+  const delegated = !direct && txFrom !== attempt.account && txTo === DELEGATION_MANAGER &&
+    (newlyAuthorized || alreadyDelegated);
+  if (!direct && !delegated) fail('TRANSACTION_MISMATCH');
+  const status = Number(quantity(raw.status));
+  const blockNumber = Number(quantity(raw.blockNumber));
+  const gasUsed = quantity(raw.gasUsed), effectiveGasPrice = quantity(raw.effectiveGasPrice);
+  const l1Fee = quantity(raw.l1Fee);
+  if (![0, 1].includes(status) || !Number.isSafeInteger(blockNumber) || blockNumber < attempt.preBlock ||
+      hex(raw.transactionHash) !== attempt.txHash || address(raw.from) !== txFrom ||
+      address(raw.to) !== txTo || !HASH.test(hex(raw.blockHash))) fail('RECEIPT_INVALID');
+  // Canonical inclusion before a receipt can become evidence. A preconfirmed receipt (Base Flashblocks) carries an
+  // all-zero block hash for a block that is not sealed yet; it, or any hash that is not the canonical block at that
+  // height containing this transaction, is not final: callers keep observing (RECEIPT_NOT_CANONICAL is never a mismatch).
+  const receiptBlockHash = hex(raw.blockHash);
+  if (/^0x0{64}$/.test(receiptBlockHash)) fail('RECEIPT_NOT_CANONICAL');
+  const canonical = await rpc('eth_getBlockByNumber', [blockHex(blockNumber), false]);
+  if (!isObject(canonical) || typeof canonical.hash !== 'string' || canonical.hash.toLowerCase() !== receiptBlockHash ||
+      typeof canonical.number !== 'string' || Number(quantity(canonical.number)) !== blockNumber || !Array.isArray(canonical.transactions) ||
+      !canonical.transactions.some(entry => (isObject(entry) ? entry.hash : entry) === attempt.txHash) ||
+      typeof tx.blockHash === 'string' && tx.blockHash.toLowerCase() !== receiptBlockHash) fail('RECEIPT_NOT_CANONICAL');
+  if (delegated) {
+    const block = blockHex(blockNumber);
+    // Account code may legitimately be empty (`0x`); an empty or different code is a mismatch, not an RPC failure.
+    const code = (value: unknown) => typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/.test(value) ? value.toLowerCase() : fail('RPC_RESPONSE_INVALID');
+    const [managerCode, ownerCode, previousOwnerCode] = await Promise.all([
+      rpc('eth_getCode', [DELEGATION_MANAGER, block]).then(code),
+      rpc('eth_getCode', [attempt.account, block]).then(code),
+      alreadyDelegated ? rpc('eth_getCode', [attempt.account, blockHex(attempt.preBlock)]).then(code) : Promise.resolve(null),
+    ]);
+    if (managerCode === '0x' || managerCode === '0x0' || ownerCode !== '0xef0100' + DELEGATOR_IMPL.slice(2))
+      fail('TRANSACTION_MISMATCH');
+    if (alreadyDelegated && previousOwnerCode !== ownerCode) fail('TRANSACTION_MISMATCH');
+    if (status === 1) {
+      if (!Array.isArray(raw.logs)) fail('RECEIPT_INVALID');
+      const redeemed = raw.logs.filter(log => isObject(log) && address(log.address) === DELEGATION_MANAGER &&
+        Array.isArray(log.topics) && log.topics[0] === REDEEMED_TOPIC);
+      if (redeemed.length !== delegationDepth || redeemed.some(log => !isObject(log) ||
+          !Array.isArray(log.topics) || topicAddress(log.topics[1]) !== attempt.account))
+        fail('TRANSACTION_MISMATCH');
+      const redeemers = redeemed.map(log => topicAddress((log as { topics: unknown[] }).topics[2]));
+      if (delegationDepth === 1 ? redeemers[0] !== txFrom :
+          redeemers.filter(value => value === attempt.account).length !== 1 ||
+          redeemers.filter(value => value === txFrom).length !== 1) fail('TRANSACTION_MISMATCH');
+    }
+  }
+  return { direct, delegated, delegationDepth: delegated ? delegationDepth! : 0, txFrom, txTo, txInput, status: status as 0 | 1, blockNumber,
+    gasUsed, effectiveGasPrice, l1Fee, nonce: quantity(tx.nonce) };
+}
 function signed(value: bigint): bigint { return value >= 1n << 255n ? value - (1n << 256n) : value; }
 export function publicRecordingEnabled(env: NodeJS.ProcessEnv): boolean {
   return env.GRYLOO_PUBLIC_TESTNET === 'record' && env.NODE_ENV === 'development' &&
@@ -407,80 +478,47 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
       if (raw === null) return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
       if (!isObject(raw)) fail('RECEIPT_INVALID');
       const tx = await rpc('eth_getTransactionByHash', [attempt.txHash]);
-      if (!isObject(tx)) fail('TRANSACTION_MISMATCH');
-      const txFrom = address(tx.from), txTo = address(tx.to), txInput = hex(tx.input);
-      if (Number(quantity(tx.chainId)) !== 84532 || hex(tx.hash) !== attempt.txHash || quantity(tx.value) !== 0n)
-        fail('TRANSACTION_MISMATCH');
-      const direct = txFrom === attempt.account && txTo === attempt.tx.to && txInput === attempt.tx.data;
-      const delegationDepth = delegatedExecutionDepth(txInput, attempt.tx.to, attempt.tx.data);
-      const authorizations = tx.authorizationList;
-      const txType = direct ? null : hex(tx.type);
-      const newlyAuthorized = txType === '0x4' && delegationDepth === 1 &&
-        Array.isArray(authorizations) && authorizations.length === 1 && isObject(authorizations[0]) &&
-        quantity(authorizations[0].chainId) === 84532n && address(authorizations[0].address) === DELEGATOR_IMPL;
-      const alreadyDelegated = txType === '0x2' && delegationDepth === 2 &&
-        !('authorizationList' in tx);
-      const delegated = !direct && txFrom !== attempt.account && txTo === DELEGATION_MANAGER &&
-        (newlyAuthorized || alreadyDelegated);
-      if (!direct && !delegated) fail('TRANSACTION_MISMATCH');
-      const status = Number(quantity(raw.status));
-      const blockNumber = Number(quantity(raw.blockNumber));
-      const gasUsed = quantity(raw.gasUsed), effectiveGasPrice = quantity(raw.effectiveGasPrice);
-      const l1Fee = quantity(raw.l1Fee);
-      if (![0, 1].includes(status) || !Number.isSafeInteger(blockNumber) || blockNumber < attempt.preBlock ||
-          hex(raw.transactionHash) !== attempt.txHash || address(raw.from) !== txFrom ||
-          address(raw.to) !== txTo || !HASH.test(hex(raw.blockHash))) fail('RECEIPT_INVALID');
-      if (delegated) {
-        const block = blockHex(blockNumber);
-        const [managerCode, ownerCode, previousOwnerCode] = await Promise.all([
-          rpc('eth_getCode', [DELEGATION_MANAGER, block]).then(hex),
-          rpc('eth_getCode', [attempt.account, block]).then(hex),
-          alreadyDelegated ? rpc('eth_getCode', [attempt.account, blockHex(attempt.preBlock)]).then(hex) : Promise.resolve(null),
-        ]);
-        if (managerCode === '0x' || managerCode === '0x0' || ownerCode !== '0xef0100' + DELEGATOR_IMPL.slice(2))
-          fail('TRANSACTION_MISMATCH');
-        if (alreadyDelegated && previousOwnerCode !== ownerCode) fail('TRANSACTION_MISMATCH');
-        if (status === 1) {
-          if (!Array.isArray(raw.logs)) fail('RECEIPT_INVALID');
-          const redeemed = raw.logs.filter(log => isObject(log) && address(log.address) === DELEGATION_MANAGER &&
-            Array.isArray(log.topics) && log.topics[0] === REDEEMED_TOPIC);
-          if (redeemed.length !== delegationDepth || redeemed.some(log => !isObject(log) ||
-              !Array.isArray(log.topics) || topicAddress(log.topics[1]) !== attempt.account))
+      let verified: Awaited<ReturnType<typeof verifyOwnerSubmission>>;
+      try { verified = await verifyOwnerSubmission(rpc, { txHash: attempt.txHash, account: attempt.account, target: attempt.tx.to, data: attempt.tx.data,
+        preBlock: attempt.preBlock }, tx, raw); }
+      catch (cause) {
+        // Not yet canonically included (e.g. a preconfirmed receipt): exactly like no receipt yet.
+        if (cause instanceof Error && cause.message === 'RECEIPT_NOT_CANONICAL')
+          return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
+        throw cause;
+      }
+      const { direct, delegated, delegationDepth, txFrom, txTo, txInput, status, blockNumber, gasUsed, effectiveGasPrice, l1Fee, nonce } = verified;
+      if (delegated && status === 1) {
+        if (!Array.isArray(raw.logs)) fail('RECEIPT_INVALID');
+        if (attempt.step === 'approval') {
+          const tokenLogs = raw.logs.filter(log => isObject(log) &&
+            [run.quote.inputToken, run.quote.outputToken].includes(address(log.address)));
+          if (tokenLogs.length !== 1 || !isObject(tokenLogs[0]) ||
+              address(tokenLogs[0].address) !== run.quote.inputToken || !Array.isArray(tokenLogs[0].topics) ||
+              tokenLogs[0].topics[0] !== APPROVAL_TOPIC ||
+              topicAddress(tokenLogs[0].topics[1]) !== attempt.account ||
+              topicAddress(tokenLogs[0].topics[2]) !== BASE_SEPOLIA.router ||
+              quantity(tokenLogs[0].data) !== BigInt(attempt.authorizedInput)) fail('TRANSACTION_MISMATCH');
+        } else {
+          const tokenLogs = raw.logs.filter(log => isObject(log) &&
+            [run.quote.inputToken, run.quote.outputToken].includes(address(log.address)));
+          const poolLogs = raw.logs.filter(log => isObject(log) && address(log.address) === run.quote.pool);
+          if (tokenLogs.length !== 2 || poolLogs.length !== 1) fail('TRANSACTION_MISMATCH');
+          const inputLog = tokenLogs.find(log => isObject(log) && address(log.address) === run.quote.inputToken);
+          const outputLog = tokenLogs.find(log => isObject(log) && address(log.address) === run.quote.outputToken);
+          const poolLog = poolLogs[0];
+          if (!isObject(inputLog) || !Array.isArray(inputLog.topics) || inputLog.topics[0] !== TRANSFER_TOPIC ||
+              topicAddress(inputLog.topics[1]) !== attempt.account || topicAddress(inputLog.topics[2]) !== run.quote.pool ||
+              quantity(inputLog.data) !== BigInt(attempt.authorizedInput) ||
+              !isObject(outputLog) || !Array.isArray(outputLog.topics) || outputLog.topics[0] !== TRANSFER_TOPIC ||
+              topicAddress(outputLog.topics[1]) !== run.quote.pool || topicAddress(outputLog.topics[2]) !== attempt.account ||
+              !isObject(poolLog) || !Array.isArray(poolLog.topics) || poolLog.topics[0] !== SWAP_TOPIC ||
+              topicAddress(poolLog.topics[1]) !== BASE_SEPOLIA.router || topicAddress(poolLog.topics[2]) !== attempt.account)
             fail('TRANSACTION_MISMATCH');
-          const redeemers = redeemed.map(log => topicAddress((log as { topics: unknown[] }).topics[2]));
-          if (delegationDepth === 1 ? redeemers[0] !== txFrom :
-              redeemers.filter(value => value === attempt.account).length !== 1 ||
-              redeemers.filter(value => value === txFrom).length !== 1) fail('TRANSACTION_MISMATCH');
-          if (attempt.step === 'approval') {
-            const tokenLogs = raw.logs.filter(log => isObject(log) &&
-              [run.quote.inputToken, run.quote.outputToken].includes(address(log.address)));
-            if (tokenLogs.length !== 1 || !isObject(tokenLogs[0]) ||
-                address(tokenLogs[0].address) !== run.quote.inputToken || !Array.isArray(tokenLogs[0].topics) ||
-                tokenLogs[0].topics[0] !== APPROVAL_TOPIC ||
-                topicAddress(tokenLogs[0].topics[1]) !== attempt.account ||
-                topicAddress(tokenLogs[0].topics[2]) !== BASE_SEPOLIA.router ||
-                quantity(tokenLogs[0].data) !== BigInt(attempt.authorizedInput)) fail('TRANSACTION_MISMATCH');
-          } else {
-            const tokenLogs = raw.logs.filter(log => isObject(log) &&
-              [run.quote.inputToken, run.quote.outputToken].includes(address(log.address)));
-            const poolLogs = raw.logs.filter(log => isObject(log) && address(log.address) === run.quote.pool);
-            if (tokenLogs.length !== 2 || poolLogs.length !== 1) fail('TRANSACTION_MISMATCH');
-            const inputLog = tokenLogs.find(log => isObject(log) && address(log.address) === run.quote.inputToken);
-            const outputLog = tokenLogs.find(log => isObject(log) && address(log.address) === run.quote.outputToken);
-            const poolLog = poolLogs[0];
-            if (!isObject(inputLog) || !Array.isArray(inputLog.topics) || inputLog.topics[0] !== TRANSFER_TOPIC ||
-                topicAddress(inputLog.topics[1]) !== attempt.account || topicAddress(inputLog.topics[2]) !== run.quote.pool ||
-                quantity(inputLog.data) !== BigInt(attempt.authorizedInput) ||
-                !isObject(outputLog) || !Array.isArray(outputLog.topics) || outputLog.topics[0] !== TRANSFER_TOPIC ||
-                topicAddress(outputLog.topics[1]) !== run.quote.pool || topicAddress(outputLog.topics[2]) !== attempt.account ||
-                !isObject(poolLog) || !Array.isArray(poolLog.topics) || poolLog.topics[0] !== SWAP_TOPIC ||
-                topicAddress(poolLog.topics[1]) !== BASE_SEPOLIA.router || topicAddress(poolLog.topics[2]) !== attempt.account)
-              fail('TRANSACTION_MISMATCH');
-            const poolData = hex(poolLog.data);
-            if (poolData.length < 130 || BigInt('0x' + poolData.slice(2, 66)) !== BigInt(attempt.authorizedInput) ||
-                signed(BigInt('0x' + poolData.slice(66, 130))) !== -quantity(outputLog.data))
-              fail('TRANSACTION_MISMATCH');
-          }
+          const poolData = hex(poolLog.data);
+          if (poolData.length < 130 || BigInt('0x' + poolData.slice(2, 66)) !== BigInt(attempt.authorizedInput) ||
+              signed(BigInt('0x' + poolData.slice(66, 130))) !== -quantity(outputLog.data))
+            fail('TRANSACTION_MISMATCH');
         }
       }
       const executionGasCost = gasUsed * effectiveGasPrice;
@@ -489,9 +527,9 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
         gasUsed: gasUsed.toString(), effectiveGasPrice: effectiveGasPrice.toString(),
         executionGasCostWei: executionGasCost.toString(), l1FeeWei: l1Fee.toString(),
         gasCostWei: (executionGasCost + l1Fee).toString(), gasPayer: txFrom,
-        nonce: quantity(tx.nonce).toString(), value: quantity(tx.value).toString(),
+        nonce: nonce.toString(), value: '0',
         submissionKind: delegated ? 'DELEGATED_SINGLE' : 'DIRECT', executionTarget: attempt.tx.to,
-        delegationDepth: delegated ? delegationDepth! : 0,
+        delegationDepth,
         outerCalldataDigest: digest(txInput), executionCalldataDigest: attempt.calldataDigest };
       const changed: PublicAttempt = { ...attempt, state: status === 1 ? 'CONFIRMED' : 'REVERTED', receipt };
       run = await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? changed : a) });
