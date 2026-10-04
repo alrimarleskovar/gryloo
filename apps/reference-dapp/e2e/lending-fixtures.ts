@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 export const LENDING_OWNER='0x5975c152fe58cdcb7e25586a3c9b994a16dbb615';
 export async function lendingRpc(method:string,params:unknown[]=[]):Promise<unknown>{
@@ -8,7 +10,7 @@ export async function lendingRpc(method:string,params:unknown[]=[]):Promise<unkn
 }
 export async function resetLending(options:Record<string,unknown>={}){
   const directory=process.env.GRYLOO_LENDING_JOURNAL;
-  if(process.env.GRYLOO_LENDING_E2E!=='MOCKED_LOOPBACK_ONLY'||!directory?.startsWith('/tmp/gryloo-build013-'))throw Error('MOCK_LENDING_RESET_DENIED');
+  if(process.env.GRYLOO_LENDING_E2E!=='MOCKED_LOOPBACK_ONLY'||!directory?.startsWith(join(tmpdir(),'gryloo-build013-')))throw Error('MOCK_LENDING_RESET_DENIED');
   await rm(directory,{recursive:true,force:true});await lendingRpc('MOCK_reset',[options]);
 }
 export async function installLendingWallet(page:Page,options:{chain?:string;uncertainAt?:number;disconnectedAt?:number;revertAt?:number;nonceMismatchOnce?:boolean}={}){

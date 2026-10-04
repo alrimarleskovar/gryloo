@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import type { SupplyReview } from '@defi-workflow-engine/reference-compiler';
 import { createRequire } from 'node:module';
@@ -45,7 +47,7 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
 }
 
 export async function resetSupplyHarness(options:Record<string,unknown>={}){
-  if(process.env.GRYLOO_SUPPLY_E2E!=='MOCKED_LOOPBACK_ONLY'||!process.env.GRYLOO_SUPPLY_JOURNAL?.startsWith('/tmp/gryloo-build012a-'))throw new Error('MOCK_RESET_DENIED');
+  if(process.env.GRYLOO_SUPPLY_E2E!=='MOCKED_LOOPBACK_ONLY'||!process.env.GRYLOO_SUPPLY_JOURNAL?.startsWith(join(tmpdir(),'gryloo-build012a-')))throw new Error('MOCK_RESET_DENIED');
   await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options]);
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){

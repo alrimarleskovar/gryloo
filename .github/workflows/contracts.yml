@@ -188,7 +188,9 @@ jobs:
           if init is None or len(init)!=340: raise SystemExit('BUILD-007 ERC-2470 initcode pin changed')
           (root/'erc2470-initcode.bin').write_bytes(init)
           PYCODE
-          export GRYLOO_MODE_B_RUNTIME="$RUNNER_TEMP/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          # The disposable executor key must stay under /tmp/ (enforced by the harness and the composition service);
+          # it is a few small files and is removed when this step exits so the persistent runner's tmpfs does not fill.
+          export GRYLOO_MODE_B_RUNTIME="/tmp/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export GRYLOO_MODE_B_SAFE_PACKAGE="$GRYLOO_B007_INPUTS/safe/package"
           export GRYLOO_MODE_B_ROLES_MASTERCOPIES="$GRYLOO_B007_INPUTS/roles-mastercopies.json"
           export GRYLOO_MODE_B_EIP2470_INITCODE="$GRYLOO_B007_INPUTS/erc2470-initcode.bin"
@@ -196,7 +198,7 @@ jobs:
           export GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_SHA256="$(sha256sum "$GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_PATH" | cut -d' ' -f1)"
           node apps/reference-dapp/e2e/fork/composition-harness.mjs serve > "$RUNNER_TEMP/gryloo-b007-harness.log" 2>&1 &
           b007_pid=$!
-          trap 'kill "$b007_pid" 2>/dev/null || true' EXIT
+          trap 'kill "$b007_pid" 2>/dev/null || true; rm -rf "$GRYLOO_MODE_B_RUNTIME"' EXIT
           for attempt in $(seq 1 120); do
             if [ -s "$GRYLOO_MODE_B_RUNTIME/profile.json" ] && [ -s "$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json" ]; then break; fi
             if ! kill -0 "$b007_pid" 2>/dev/null; then cat "$RUNNER_TEMP/gryloo-b007-harness.log"; exit 1; fi

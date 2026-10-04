@@ -2,6 +2,7 @@
 /** Disposable Node-side signer exposed as an injected EIP-1193 test wallet; no browser key or public RPC. */
 import { randomBytes } from 'node:crypto';
 import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { cowCancellationDigest, cowOrderDigest, type CowOrder } from '@defi-workflow-engine/reference-compiler';
@@ -61,7 +62,7 @@ export async function installCowWallet(page: Page): Promise<CowWallet> {
 const runtime = process.env.GRYLOO_COW_RUNTIME;
 export const test = guarded.extend<{ cowWallet: CowWallet }>({
   cowWallet: async ({ page }, use) => {
-    if (!runtime?.startsWith('/tmp/') && !runtime?.startsWith('/home/runner/work/_temp/'))
+    if (!runtime?.startsWith('/tmp/') && !runtime?.startsWith('/home/runner/work/_temp/') && !runtime?.startsWith(join(tmpdir(), '/')))
       throw new Error('GRYLOO_COW_RUNTIME must be a disposable test directory');
     rmSync(join(runtime, 'cow'), { recursive: true, force: true });
     const wallet = await installCowWallet(page);
