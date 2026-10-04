@@ -41,6 +41,9 @@ jobs:
           test -n "${RUNNER_TEMP:-}"
           mkdir -p "$RUNNER_TEMP"
           printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          # Diagnostics only: the persistent runner shares RAM with the RAM-backed /tmp tmpfs.
+          free -h
+          df -h "$RUNNER_TEMP" /tmp
 
       - name: Fetch reviewed revision with runner-provided Git
         env:
@@ -95,6 +98,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # turbo.json caps task concurrency at 2: the default (10 parallel tsc/next tasks) peaked at ~3.4 GB
+          # and triggered the OOM killer on the 8 GB self-hosted runner. Same tasks, same gates.
           pnpm typecheck
           pnpm lint
           pnpm build
