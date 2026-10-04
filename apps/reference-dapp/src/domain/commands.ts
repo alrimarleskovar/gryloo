@@ -360,7 +360,7 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);
     if (supply) return `${node.nodeId}: Supply ${supply.amount} USDC to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
     const routed = routerDetails(node);
-    if (routed) return `${node.nodeId}: Cross-chain bridge ${routed.amount} USDC from Base to Arbitrum, recipient ${routed.recipientLabel}, ${routed.slippage} bps, routing ${ROUTER_ROUTING_LABEL[routed.routing]}; quote, simulation and route review required.`;
+    if (routed) return `${node.nodeId}: Cross-chain bridge ${routed.amount} USDC from ${routed.source} to ${routed.destination}, recipient ${routed.recipientLabel}, ${routed.slippage} bps, routing ${ROUTER_ROUTING_LABEL[routed.routing]}; quote, simulation and route review required.`;
     const bridge = bridgeDetails(node);
     if (bridge) return `${node.nodeId}: Base to ${node.expectedOutputs[0]?.asset.chainId === 'eip155:42161' ? 'Arbitrum' : 'Optimism'} USDC bridge, ${bridge.amount} USDC, ${bridge.slippageBps} bps, unquoted.`;
     const position = context && liquidityDetails(node, context);

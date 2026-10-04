@@ -2,7 +2,7 @@
 /** BUILD-ROUTER-001 browser journey on MOCKED loopback Base/Arbitrum chains and providers (never public, never a broadcast). */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { installRouterWallet, resetRouterHarness, routerControl, routerSendRequests, routerWalletSends, ROUTER_E2E_OWNER as owner } from './router-fixtures';
+import { installRouterWallet, resetRouterHarness, routerControl, routerSendRequests, routerWalletSends } from './router-fixtures';
 
 const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', DIAMOND = '0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae';
 const region = (page: Page) => page.getByRole('region', { name: 'Cross-chain bridge' });
@@ -27,7 +27,9 @@ async function bridgeToReconciled(page: Page) {
     await expect(region(page).getByText('Working…')).toHaveCount(0);
   }
 }
-test.beforeEach(async () => { await resetRouterHarness(); });
+// BUILD-JOURNEY-001: each test is a fresh random wallet (signs in with a real signature; nothing is hard-coded).
+let owner = '';
+test.beforeEach(async () => { owner = await resetRouterHarness(); });
 
 test('Guided Chat → route → simulation → Review → exact approval → deposit → in flight → destination fill → reconciled with evidence', async ({ page, networkGuard }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));

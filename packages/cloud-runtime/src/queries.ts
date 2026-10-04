@@ -5,8 +5,10 @@
  */
 import type { Database } from './db.js';
 
-export type RunSummary = { runId: string; workflowId: string; flow: string; status: string; provenance: string; errorCode: string | null;
+export type RunSummary = { runId: string; workflowId: string; flow: string; status: string; provenance: string; ownerAccount: string | null; errorCode: string | null;
   needsObservation: boolean; attentionRequired: boolean; hasEvidence: boolean; version: number; createdAt: string; updatedAt: string };
+/** BUILD-JOURNEY-001: optional narrowing of the history to one wallet and/or one flow. */
+export type RunFilter = { readonly owner?: string | null; readonly flow?: string | null };
 export type Page<T> = { items: T[]; next: string | null };
 const CURSOR = /^[A-Za-z0-9_-]{1,400}$/;
 const encodeCursor = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -18,22 +20,23 @@ function decodeCursor<T>(cursor: string | null, check: (value: unknown) => value
   return value;
 }
 const limitOf = (limit: number | null) => { const n = limit ?? 25; if (!Number.isSafeInteger(n) || n < 1 || n > 100) throw new Error('LIMIT_INVALID'); return n; };
-type RunRow = { run_id: string; workflow_id: string; flow: string; status: string; provenance: string; error_code: string | null; needs_observation: boolean;
+type RunRow = { run_id: string; workflow_id: string; flow: string; status: string; provenance: string; owner_account: string | null; error_code: string | null; needs_observation: boolean;
   attention_required: boolean; has_evidence: boolean; log_version: string; created_at: Date; updated_at: Date; updated_cursor: string; namespace: string; log_name: string };
 const summary = (row: RunRow): RunSummary => ({ runId: row.run_id, workflowId: row.workflow_id, flow: row.flow, status: row.status, provenance: row.provenance,
-  errorCode: row.error_code, needsObservation: row.needs_observation, attentionRequired: row.attention_required, hasEvidence: row.has_evidence,
+  ownerAccount: row.owner_account, errorCode: row.error_code, needsObservation: row.needs_observation, attentionRequired: row.attention_required, hasEvidence: row.has_evidence,
   version: Number(row.log_version), createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
-const RUN_COLUMNS = `run_id, workflow_id, flow, status, provenance, error_code, needs_observation, attention_required, has_evidence,
+const RUN_COLUMNS = `run_id, workflow_id, flow, status, provenance, owner_account, error_code, needs_observation, attention_required, has_evidence,
   log_version::text AS log_version, created_at, updated_at, updated_at::text AS updated_cursor, namespace, log_name`;
 
 export function createRunQueries(db: Database, tenantId: string) {
   return {
-    async listRuns(cursor: string | null, limit: number | null): Promise<Page<RunSummary>> {
+    async listRuns(cursor: string | null, limit: number | null, filter: RunFilter = {}): Promise<Page<RunSummary>> {
       const n = limitOf(limit);
       const after = decodeCursor(cursor, (v): v is [string, string] => Array.isArray(v) && v.length === 2 && typeof v[0] === 'string' && typeof v[1] === 'string');
       const { rows } = await db.query<RunRow>(`SELECT ${RUN_COLUMNS} FROM execution_runs WHERE tenant_id = $1
         AND ($2::timestamptz IS NULL OR (updated_at, run_id) < ($2::timestamptz, $3::text))
-        ORDER BY updated_at DESC, run_id DESC LIMIT $4`, [tenantId, after?.[0] ?? null, after?.[1] ?? null, n + 1]);
+        AND ($5::text IS NULL OR owner_account = $5) AND ($6::text IS NULL OR flow = $6)
+        ORDER BY updated_at DESC, run_id DESC LIMIT $4`, [tenantId, after?.[0] ?? null, after?.[1] ?? null, n + 1, filter.owner ?? null, filter.flow ?? null]);
       const items = rows.slice(0, n), last = rows.length > n ? rows[n - 1] : undefined;
       return { items: items.map(summary), next: last ? encodeCursor([last.updated_cursor, last.run_id]) : null };
     },

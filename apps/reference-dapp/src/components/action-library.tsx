@@ -140,6 +140,10 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {bridgeError && <p id="bridge-create-error" role="alert">{bridgeError}. Use 1–300 bps and up to 1,000,000 USDC.</p>}
       <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
     </form>}
+    <details className="swap-create router-create" aria-label="Create testnet cross-chain bridge proposal">
+      <summary>Cross-chain bridge · Base Sepolia → Arbitrum Sepolia (testnet, any wallet)</summary>
+      <RouterForm network="testnet"/>
+    </details>
     <details className="swap-create router-create" aria-label="Create cross-chain bridge proposal">
       <summary>Cross-chain bridge · Base → Arbitrum (Router)</summary>
       <RouterForm/>

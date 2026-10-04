@@ -17,8 +17,8 @@ export type { SolanaDevnetToken, SolanaDevnetTokenSymbol } from "./solana-devnet
 export { SOLANA_SWAP_RUNTIMES, solanaSwapRuntime, solanaTokenOn } from "./solana-swap-runtimes.js";
 export type { SolanaSwapRuntime, SolanaSwapToken } from "./solana-swap-runtimes.js";
 export { capabilityDeclares } from "./capabilities.js";
-export { CROSSCHAIN_ROUTER_BASE_ARBITRUM } from "./crosschain-router.js";
-export type { CrossChainRouterProfile } from "./crosschain-router.js";
+export { CROSSCHAIN_ROUTER_BASE_ARBITRUM, CROSSCHAIN_ROUTER_BASE_SEPOLIA_ARBITRUM_SEPOLIA, CROSSCHAIN_ROUTER_PROFILES, routerProfileFor } from "./crosschain-router.js";
+export type { CrossChainRouterProfile, RouterProfile } from "./crosschain-router.js";
 export { ROBINHOOD_CHAIN_MAINNET, ROBINHOOD_CHAIN_TESTNET, ROBINHOOD_NETWORKS, ROBINHOOD_PROTOCOL_AVAILABILITY,
   robinhoodNetwork, robinhoodDeploymentStatus, robinhoodAddChainParameters, robinhoodExpectedCode, ROBINHOOD_TESTNET_TRANSFER } from "./robinhood-chain.js";
 export type { RobinhoodNetwork, RobinhoodNetworkKey, RobinhoodContract, RobinhoodDeploymentStatus,

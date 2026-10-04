@@ -60,6 +60,12 @@ importers:
       '@defi-workflow-engine/workflow-contracts':
         specifier: workspace:0.3.0
         version: link:../../packages/workflow-contracts
+      '@noble/curves':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
       '@xyflow/react':
         specifier: 12.11.6
         version: 12.11.6(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
