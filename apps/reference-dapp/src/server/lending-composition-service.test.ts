@@ -13,7 +13,7 @@ import {wrappedAaveSetup} from '../../e2e/aave-wallet-fixtures';
 import {repayModel} from '../../e2e/repay-fixtures';
 import {AAVE_V3_BASE_SEPOLIA as p} from '@defi-workflow-engine/action-registry';
 import {supplyHash,supplyArtifactHash,readLendingSnapshot,decodeSupplyWalletEnvelope,SUPPLY_METAMASK} from '@defi-workflow-engine/reference-compiler';
-import {verifyComposedLendingEffects,verifyLendingExport,buildLendingEvidence} from '@defi-workflow-engine/reference-reconciler';
+import {verifyComposedLendingEffects,verifyLendingExport,buildLendingEvidence,lendingObservationsDigest} from '@defi-workflow-engine/reference-reconciler';
 const workflow=createAuthoredLending('lending',0,{supply:'0.1',borrow:'0.01',slippage:'50',owner:OWNER});
 async function fixture(action:(f:{model:ReturnType<typeof createLendingHarness>;service:ReturnType<typeof createLendingCompositionService>;dir:string})=>Promise<void>){
   const dir=await mkdtemp(join(tmpdir(),'build013-')),model=createLendingHarness(),service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
@@ -113,7 +113,7 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     expect(r.evidence!.composedExecution.effects!.walletWeth).toBe((WETH_AFTER_UNISWAP+10000000000000n).toString());
     expect(r.evidence!.artifacts.review.commitment).toBe(fresh.commitment);expect(r.evidence!.bundle.manifestHash).toBe(supplyArtifactHash('strategy-manifest',fresh.manifest));
     const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
-    archive.bundle.evidence[0]!.contentHash=supplyHash(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
     expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
     const stale=structuredClone(archive);stale.artifacts.review=stale.artifacts.reviews[0]!;
     await expect(verifyLendingExport(stale,model.rpc)).rejects.toThrow('LENDING_ARCHIVE_MISMATCH');
@@ -242,6 +242,29 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     await expect(service.handoff(r.id,begin.attemptId)).rejects.toThrow('LENDING_PREDECESSOR_PROOF_CHANGED');
     expect((await service.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
   }));
+  it('reconciles SUPPLY and continues to BORROW after Fresh Simulates push the Reviews past the 1 MiB hash bound',()=>fixture(async({model,service,dir})=>{
+    // The real run reached 21 Reviews (1,034,314 bytes); Observe then threw "Hash input size" before saving and SUPPLY stayed PENDING.
+    let r=await authorized(service);r=await step(service,model,r.id);r=await service.refreshReview(r.id);
+    // One valid snapshot repeating the latest committed Review stands in for the many Fresh Simulates of the real run.
+    const latest=r.reviews.at(-1)!,copies=Math.ceil(1_100_000/Buffer.byteLength(JSON.stringify(latest)));
+    const file=join(dir,r.id+'.jsonl');await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify({...r,reviews:[...r.reviews,...Array(copies).fill(latest)]})+'\n');
+    r=await service.load(r.id);expect(Buffer.byteLength(JSON.stringify(r.reviews))).toBeGreaterThan(1_048_576);
+    r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});
+    await service.handoff(r.id,begin.attemptId);await service.report(r.id,begin.attemptId,{kind:'HASH',hash:await model.rpc('MOCK_submit',[begin.transaction]) as string});
+    r=await service.observe(r.id);
+    expect(r.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'CONFIRMED',reconciled:true});expect(r.observations.at(-1)).toMatchObject({verdict:'RECONCILED'});
+    r=await service.refreshReview(r.id);r=await service.refreshReview(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY']);expect(r.reviews.at(-1)!.calls.map(c=>c.id)).toEqual(['BORROW','ROUTER_APPROVAL','SWAP']);
+    expect(r.attempts.filter(a=>a.step==='SUPPLY')).toHaveLength(1);expect((await service.load(r.id)).attempts).toHaveLength(2);
+    r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);for(let i=0;i<3;i++)r=await step(service,model,r.id);
+    expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(Buffer.byteLength(JSON.stringify(r.reviews))).toBeGreaterThan(1_048_576);
+    const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
+    const tampered=structuredClone(archive);tampered.composedExecution.reviews[3]!.fields.borrowAmount='999';
+    await expect(verifyLendingExport(tampered,model.rpc)).rejects.toThrow();
+  }),180_000);
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){
@@ -255,7 +278,7 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     // Exercise public archive validation with SYNTHETIC test data and the closed mock RPC only.
     // No public-shaped fixture is written to disk or claimed as public execution evidence.
     const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
-    archive.bundle.evidence[0]!.contentHash=supplyHash(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
     expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
     const forged=structuredClone(archive);forged.bundle.reconciliation.debt[0]!.amount='0';forged.bundleHash=supplyArtifactHash('evidence-bundle',forged.bundle);
     await expect(verifyLendingExport(forged,model.rpc)).rejects.toThrow('LENDING_EVIDENCE_EXPOSURE_MISMATCH');

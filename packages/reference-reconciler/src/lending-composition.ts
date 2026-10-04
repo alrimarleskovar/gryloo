@@ -121,6 +121,13 @@ export function verifyComposedLendingEffects(review:LendingReview,observations:L
     residualPoolAllowance:final.aave.allowance,residualRouterAllowance:final.routerAllowance,
     totalNetworkCost:observations.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n).toString()};
 }
+/**
+ * Content digest of composed observations. Reviews enter by commitment (each binds its full content and is re-verified
+ * on export), so the hashed preimage stays bounded however many Fresh Simulates a long run accumulated.
+ */
+export function lendingObservationsDigest(observations:{reviews:readonly LendingReview[]}&Record<string,unknown>):string {
+  return supplyHash({...observations,reviews:observations.reviews.map(r=>r.commitment)});
+}
 export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null}) {
   if(input.provenance==='PUBLIC_TESTNET'&&!input.observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))throw Error('PUBLIC_OWNER_EXECUTION_NOT_PROVEN');
   const root=lendingRootChain(input.reviews).root, post=input.observations.filter(o=>o.post).at(-1)?.post;
@@ -141,21 +148,21 @@ export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];jo
       residualAssets:post?[{asset,amount:post.aave.balance},{asset:weth,amount:post.wethBalance}]:[],ownership:[{chainId:p.chain,address:root.fields.owner}],
       limitations:['HF is observed at named checkpoints, not continuing liquidation protection.','Borrowed-token provenance is fungible accounting linkage.',
         'Historical block snapshots include all block transactions; inconsistent effects fail closed.','Submission guarantees cover durable Gryloo attempts, not all external wallet activity.']},
-    evidence:[{evidenceId:'lending-composed-observations',kind:'EXTERNAL_REFERENCE',contentHash:supplyHash(observations)}]};
+    evidence:[{evidenceId:'lending-composed-observations',kind:'EXTERNAL_REFERENCE',contentHash:lendingObservationsDigest(observations)}]};
   return {bundle,bundleHash:supplyArtifactHash('evidence-bundle',bundle),composedExecution:observations,
     artifacts:{review:root,reviews:input.reviews,workflow:root.workflow,artifactSet:root.artifactSet,simulation:root.simulation,policy:root.policy,manifest:root.manifest,plan:root.plan,journal:input.journal}};
 }
 export async function verifyLendingExport(exported:ReturnType<typeof buildLendingEvidence>,rpc:SupplyRpc) {
   const {bundle,artifacts,composedExecution:e}=exported;
   if(bundle.environment!=='TESTNET_EXECUTED'||bundle.outcome!=='RECONCILED'||e.provenance!=='PUBLIC_TESTNET'||!e.ownerInitiated||!e.completed)throw Error('PUBLIC_COMPOSED_OWNER_EVIDENCE_REQUIRED');
-  if(supplyArtifactHash('evidence-bundle',bundle)!==exported.bundleHash||supplyHash(e)!==bundle.evidence[0]?.contentHash||
+  if(supplyArtifactHash('evidence-bundle',bundle)!==exported.bundleHash||lendingObservationsDigest(e)!==bundle.evidence[0]?.contentHash||
     hashJournalBytes(new TextEncoder().encode(JSON.stringify(artifacts.journal))).at(-1)!==bundle.journalHeadHash)throw Error('LENDING_EVIDENCE_COMMITMENT_MISMATCH');
   for(const [field,kind,value] of [['semanticWorkflowHash','semantic-workflow',artifacts.workflow],['artifactSetHash','artifact-set',artifacts.artifactSet],['simulationHash','simulation-bundle',artifacts.simulation],
     ['policyHash','authorization-policy',artifacts.policy],['manifestHash','strategy-manifest',artifacts.manifest],['executionPlanHash','execution-plan',artifacts.plan]] as const)
     if(supplyArtifactHash(kind,value)!==bundle[field])throw Error('LENDING_ARTIFACT_COMMITMENT_MISMATCH');
   // The bundle binds to the composed baseline (first or re-rooted Review); the journal header to the run's first Review.
   let chain:ReturnType<typeof lendingRootChain>;try{chain=lendingRootChain(e.reviews);}catch{throw Error('LENDING_ARCHIVE_MISMATCH');}
-  if(supplyHash(e.reviews)!==supplyHash(artifacts.reviews)||supplyHash(chain.root)!==supplyHash(artifacts.review)||
+  if(e.reviews.length!==artifacts.reviews.length||e.reviews.some((r,i)=>supplyHash(r)!==supplyHash(artifacts.reviews[i]))||supplyHash(chain.root)!==supplyHash(artifacts.review)||
     supplyArtifactHash('strategy-manifest',artifacts.review.manifest)!==bundle.manifestHash||supplyArtifactHash('execution-plan',artifacts.review.plan)!==bundle.executionPlanHash||
     artifacts.journal.manifestHash!==supplyArtifactHash('strategy-manifest',e.reviews[0]!.manifest)||artifacts.journal.executionPlanHash!==supplyArtifactHash('execution-plan',e.reviews[0]!.plan))throw Error('LENDING_ARCHIVE_MISMATCH');
   const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING');

@@ -17,6 +17,8 @@ const LENDING_RUN_MAX_BYTES=134_217_728,LENDING_HANDOFF_HEADROOM_LINES=16;
 const idCheck=(id:string)=>{if(!/^lending-[a-f0-9]{32}$/.test(id))throw Error('LENDING_ID_INVALID');return id;};
 const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.step);
 const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
+// Append-only prefix check, element by element: one preimage per item stays far below the canonical 1 MiB hash bound.
+const samePrefix=(next:readonly unknown[],prior:readonly unknown[])=>prior.every((item,i)=>supplyHash(next[i])===supplyHash(item));
 export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET';maxRunBytes?:number}) {
   const maxRunBytes=input.maxRunBytes??LENDING_RUN_MAX_BYTES;
   if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw Error('LENDING_STORAGE_INVALID');
@@ -35,8 +37,8 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     for(const line of remaining.trimEnd().split('\n')){
       const r=JSON.parse(line) as LendingRecord;validateLendingRun(r);
       if(r.provenance!==input.provenance||prior&&(r.id!==prior.id||r.reviews.length<prior.reviews.length||r.attempts.length<prior.attempts.length||r.observations.length<prior.observations.length||
-        supplyHash(r.reviews.slice(0,prior.reviews.length))!==supplyHash(prior.reviews)||supplyHash(r.journal.entries.slice(0,prior.journal.entries.length))!==supplyHash(prior.journal.entries)||
-        supplyHash(r.observations.slice(0,prior.observations.length))!==supplyHash(prior.observations)))throw Error('LENDING_STORE_CORRUPT');
+        !samePrefix(r.reviews,prior.reviews)||!samePrefix(r.journal.entries,prior.journal.entries)||
+        !samePrefix(r.observations,prior.observations)))throw Error('LENDING_STORE_CORRUPT');
       if(prior)for(const a of prior.attempts){const next=r.attempts.find(b=>b.id===a.id);if(!next||next.nonce!==a.nonce||next.reviewCommitment!==a.reviewCommitment||supplyHash(next.call)!==supplyHash(a.call)||
         next.preparedAtBlock!==a.preparedAtBlock||a.hash&&next.hash!==a.hash||a.reconciled&&!next.reconciled||a.notSubmitted&&!next.notSubmitted)throw Error('LENDING_STORE_CORRUPT');}
       if(r.status==='COMPLETED'&&(r.evidence?.bundle.outcome!=='RECONCILED'||!r.evidence.composedExecution.completed))throw Error('LENDING_STORE_CORRUPT');
