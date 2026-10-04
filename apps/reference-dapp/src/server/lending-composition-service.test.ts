@@ -265,6 +265,51 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     const tampered=structuredClone(archive);tampered.composedExecution.reviews[3]!.fields.borrowAmount='999';
     await expect(verifyLendingExport(tampered,model.rpc)).rejects.toThrow();
   }),180_000);
+  // ROUTER_APPROVAL after POOL_APPROVAL, SUPPLY and BORROW reconciled: one lifetime rule across every gate.
+  async function routerApprovalPrepared(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);for(let i=0;i<3;i++)r=await step(service,model,r.id);
+    r=await service.refreshReview(r.id);const v=r.reviews.at(-1)!;
+    expect(v.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(v.calls.map(c=>c.id)).toEqual(['ROUTER_APPROVAL','SWAP']);
+    r=await service.review(r.id,v.commitment,workflow);const begin=await service.begin(r.id,OWNER,workflow);
+    expect(begin.record.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'PREPARED'});
+    return {r:begin.record,begin,review:v};
+  }
+  it('derives expiresAt and maximumAgeSeconds from one lifetime rule: 120 s initially, 600 s for a continuation',()=>fixture(async({model,service})=>{
+    let r=await authorized(service);const first=r.reviews[0]!;
+    expect([Date.parse(first.expiresAt)-Date.parse(first.simulation.freshness.observedAt),first.simulation.freshness.maximumAgeSeconds*1000,Date.parse(first.simulation.freshness.expiresAt)-Date.parse(first.simulation.freshness.observedAt)]).toEqual([120_000,120_000,120_000]);
+    for(let i=0;i<3;i++)r=await step(service,model,r.id);r=await service.refreshReview(r.id);const next=r.reviews.at(-1)!;
+    expect([Date.parse(next.expiresAt)-Date.parse(next.simulation.freshness.observedAt),next.simulation.freshness.maximumAgeSeconds*1000,Date.parse(next.simulation.freshness.expiresAt)-Date.parse(next.simulation.freshness.observedAt)]).toEqual([600_000,600_000,600_000]);
+  }));
+  it('releases ROUTER_APPROVAL past 120 s through the fast gate; no completed step repeats and SWAP stays planned',()=>fixture(async({model,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+      const {r,begin,review}=await routerApprovalPrepared(model,service),observed=Date.parse(review.simulation.freshness.observedAt);
+      travel(model,observed+420_000);const gate=counted(model.rpc),release=createLendingCompositionService({rpc:gate.rpc,journalDir:dir,provenance:'MOCKED'});
+      const handed=await release.handoff(r.id,begin.attemptId);
+      expect(handed.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'SUBMITTING'});expect(gate.calls).not.toContain('eth_simulateV1');
+      expect(['POOL_APPROVAL','SUPPLY','BORROW'].map(s=>handed.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1]);
+      expect(handed.attempts.some(a=>a.step==='SWAP')).toBe(false);expect(model.transactions).toHaveLength(3);
+    }finally{vi.useRealTimers();}
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>,ctx:{r:Awaited<ReturnType<typeof routerApprovalPrepared>>['r']})=>void,string]>([
+    ['the 600 s continuation lifetime has passed',()=>undefined,'LENDING_REVIEW_STALE'],
+    ['principal drifted (wallet WETH)',m=>{m.state.weth+=1n;},'LENDING_PRINCIPAL_CHANGED'],
+    ['the route no longer quotes the reviewed minimum',m=>{m.state.quoteBps=9000n;},'LENDING_SWAP_MINIMUM_UNAVAILABLE'],
+    ['the BORROW predecessor proof is missing',(m,{r})=>{m.receipts.delete(r.attempts.find(a=>a.step==='BORROW')!.hash!);},'LENDING_PREDECESSOR_PROOF_CHANGED'],
+    ['gas price exceeds the reviewed ceiling',()=>undefined,'LENDING_REVIEW_STALE'],
+  ])('fails closed before the ROUTER_APPROVAL wallet request when %s',(name,mutate,code)=>fixture(async({model,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+      const ctx=await routerApprovalPrepared(model,service);mutate(model,ctx);model.history.set(model.state.block,{...model.state});
+      if(name.includes('600 s'))travel(model,Date.parse(ctx.review.expiresAt)+1_000);
+      const patch=name.includes('gas price')?(method:string,_p:unknown[],result:unknown)=>method==='eth_gasPrice'?'0x'+(10n**12n).toString(16):result:undefined;
+      const gate=createLendingCompositionService({rpc:counted(model.rpc,patch).rpc,journalDir:dir,provenance:'MOCKED'});
+      await expect(gate.handoff(ctx.r.id,ctx.begin.attemptId)).rejects.toThrow(code);
+      const after=await gate.load(ctx.r.id);expect(after.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'PREPARED'});expect(after.attempts).toHaveLength(4);expect(model.transactions).toHaveLength(3);
+    }finally{vi.useRealTimers();}
+  }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){

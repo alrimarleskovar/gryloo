@@ -4,7 +4,7 @@ import { Buffer } from 'node:buffer';
 import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
-import { assertLendingReview, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
+import { assertLendingReview, assertLendingReviewLifetime, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
   writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun } from '@defi-workflow-engine/reference-executor';
@@ -12,8 +12,9 @@ import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, 
 import { createSupplyService } from './supply-service';
 import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 export type LendingRecord = LendingRun & {observations:LendingObservation[];currentPosition:LendingSnapshot|null;evidence:ReturnType<typeof buildLendingEvidence>|null};
-// Every run line is a full snapshot (Reviews plus evidence), so long runs outgrow the shared 16 MiB default.
-const LENDING_RUN_MAX_BYTES=134_217_728,LENDING_HANDOFF_HEADROOM_LINES=16;
+// Every run line is a full snapshot whose evidence repeats every Review, so a run grows with each Fresh Simulate;
+// the real pilot passed 100 MB by ROUTER_APPROVAL. Lending run files therefore get a much larger bound than the shared 16 MiB.
+const LENDING_RUN_MAX_BYTES=536_870_912,LENDING_HANDOFF_HEADROOM_LINES=16;
 const idCheck=(id:string)=>{if(!/^lending-[a-f0-9]{32}$/.test(id))throw Error('LENDING_ID_INVALID');return id;};
 const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.step);
 const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
@@ -91,7 +92,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
    * fails closed and needs a fresh Simulate; the Review is never updated here.
    */
   async function handoffGate(r:LendingRecord,a:LendingRecord['attempts'][number]):Promise<LendingSnapshot> {
-    const review=currentLendingReview(r),owner=review.fields.owner;assertLendingReview(review,review.workflow,owner);
+    const review=currentLendingReview(r),owner=review.fields.owner;assertLendingReview(review,review.workflow,owner);assertLendingReviewLifetime(review);
     if(rpcUint(await input.rpc('eth_chainId',[]))!==84532n)throw Error('LENDING_WRONG_CHAIN');
     if(a.call.tx.from!==owner)throw Error('LENDING_WRONG_ACCOUNT');
     const next=review.calls.find(c=>!r.attempts.some(x=>x.step===c.id&&x.reconciled));
@@ -128,7 +129,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
   }
   /** The entire remaining path is tested before releasing ANY owner transaction (at Review and preparation). */
   async function publicGate(r:LendingRecord,workflow:SemanticWorkflow,account:string) {
-    const review=currentLendingReview(r);assertLendingReview(review,workflow,account);await verifyPredecessors(r);
+    const review=currentLendingReview(r);assertLendingReview(review,workflow,account);assertLendingReviewLifetime(review);await verifyPredecessors(r);
     const root=lendingRootChain(r.reviews).root,rootBudget=lendingFeeCeilings(root),acceptedBudget=lendingFeeCeilings(review);
     const reconciled=proofs(r).filter(o=>o.verdict==='RECONCILED');
     const consumedNetwork=reconciled.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n),consumedL1=reconciled.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n);

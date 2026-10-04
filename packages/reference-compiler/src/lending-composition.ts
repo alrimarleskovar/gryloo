@@ -142,6 +142,13 @@ function simulatedSnapshot(before: LendingSnapshot, responses: Record<string, un
  * for that sequence. Every wallet handoff is still gated on fresh state, so a longer lifetime grants no stale authority.
  */
 export const LENDING_REVIEW_TTL_MS = 120_000, LENDING_CONTINUATION_REVIEW_TTL_MS = 600_000;
+/** The one lifetime rule: expiresAt and simulation.freshness.maximumAgeSeconds both derive from it. */
+export const lendingReviewLifetimeMs = (completed: readonly LendingStepId[]) => completed.length ? LENDING_CONTINUATION_REVIEW_TTL_MS : LENDING_REVIEW_TTL_MS;
+/** Gates accept only a Review whose committed expiry, declared maximum age and lifetime rule agree. */
+export function assertLendingReviewLifetime(review: LendingReview): void {
+  const lifetime = lendingReviewLifetimeMs(review.completed), f = review.simulation.freshness;
+  if (Date.parse(review.expiresAt) - Date.parse(f.observedAt) !== lifetime || f.expiresAt !== review.expiresAt || f.maximumAgeSeconds * 1000 !== lifetime) throw Error('LENDING_REVIEW_STALE');
+}
 /** Rejects unsupported simulation; no state override, replacement token, pool creation or send exists here. */
 export async function simulateLendingComposition(workflow: SemanticWorkflow, account: string, rpc: SupplyRpc,
   options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string; rerootOf?: string } = {}): Promise<LendingReview> {
@@ -207,7 +214,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
   const gasBudget = (calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(gasPrice), 0n) + maximumL1Fee).toString();
   if (!uint(gasPrice) || uint(state.aave.nativeBalance) < uint(gasBudget)) throw Error('LENDING_GAS_FUNDING_INSUFFICIENT');
   if (rpcHash(rpcRecord(await rpc('eth_getBlockByNumber', [supplyHex(route.block), false])).hash) !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
-  const expiresAt = new Date(now + (completed.length ? LENDING_CONTINUATION_REVIEW_TTL_MS : LENDING_REVIEW_TTL_MS)).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
+  const expiresAt = new Date(now + lendingReviewLifetimeMs(completed)).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
   const artifactSet: ArtifactSet = { schemaVersion:'1.0.0', artifactSetId:'lending-artifacts', semanticWorkflowHash:semanticHash,
     artifacts: workflow.nodes.map(n => ({ artifactId:n.nodeId + '-state', nodeId:n.nodeId,
       artifactHash:supplyHash({ nodeId:n.nodeId, state, rootState, route, calls, completed, projected, gasPrice, l1FeeUpperBound, simulationResponse }) })) };
@@ -223,7 +230,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
     uncertainty:[{code:'NON_ATOMIC_LENDING',description:'Debt remains if Swap fails. Checkpoint health factor does not protect against future liquidation.'},
       {code:'MODE_A_APPLICATION_CHECKS',description:'The wallet signs exact calls. HF 2.0, route readiness, expiry and aggregate budgets are application checks.'},
       {code:'VARIABLE_INTEREST_AND_L1_FEES',description:'Future variable interest is not capped. Base L1 fees and wallet envelopes may differ from estimates.'}],
-    unsupportedAssumptions:[], freshness:{observedAt:new Date(now).toISOString(),expiresAt,maximumAgeSeconds:120} };
+    unsupportedAssumptions:[], freshness:{observedAt:new Date(now).toISOString(),expiresAt,maximumAgeSeconds:lendingReviewLifetimeMs(completed)/1000} };
   const simulationHash = supplyArtifactHash('simulation-bundle', simulation), owner = {chainId:p.chain,address:account};
   const spend = (uint(f.supplyAmount)+uint(f.borrowAmount)).toString(), native = {chainId:p.chain,nativeId:'ETH',decimals:18};
   const gasBudgets = [{asset:native,maximumAmount:gasBudget}], feeBudgets = [{asset:native,maximumAmount:maximumL1Fee.toString()}];
