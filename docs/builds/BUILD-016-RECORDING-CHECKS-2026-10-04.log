@@ -1,0 +1,126 @@
+CHECK 0
+$ turbo run typecheck --cache-dir=/tmp/gryloo-b016-recording-47TAof/turbo
+• turbo 2.10.12
+
+   • Packages in scope: @defi-workflow-engine/action-registry, @defi-workflow-engine/cloud-runtime, @defi-workflow-engine/reference-compiler, @defi-workflow-engine/reference-dapp, @defi-workflow-engine/reference-executor, @defi-workflow-engine/reference-linter, @defi-workflow-engine/reference-reconciler, @defi-workflow-engine/workflow-contracts
+   • Running typecheck in 8 packages
+   • Remote caching disabled
+
+@defi-workflow-engine/workflow-contracts:build: cache miss, executing 00e70a5c6a8e57e1
+@defi-workflow-engine/workflow-contracts:typecheck: cache miss, executing 83816618ced0aee4
+@defi-workflow-engine/workflow-contracts:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/workflow-contracts:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/action-registry:typecheck: cache miss, executing 0348306bdd613a03
+@defi-workflow-engine/action-registry:build: cache miss, executing 74f1a97204506848
+@defi-workflow-engine/action-registry:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/action-registry:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-linter:typecheck: cache miss, executing 2815a4e51ecabc78
+@defi-workflow-engine/reference-compiler:typecheck: cache miss, executing a09013a060f0a2f0
+@defi-workflow-engine/reference-linter:build: cache miss, executing 4a3ca9d79cd82a3b
+@defi-workflow-engine/reference-compiler:build: cache miss, executing 58cd89bbbeb2417b
+@defi-workflow-engine/reference-compiler:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/reference-linter:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-linter:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/reference-compiler:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-reconciler:typecheck: cache miss, executing ca8a3356eca74bc7
+@defi-workflow-engine/reference-reconciler:build: cache miss, executing ec0e6450ad851b43
+@defi-workflow-engine/reference-executor:typecheck: cache miss, executing 0afd17e32816ae8e
+@defi-workflow-engine/reference-executor:build: cache miss, executing bbf423ffcd04a5c9
+@defi-workflow-engine/reference-reconciler:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/reference-reconciler:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-executor:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-executor:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/cloud-runtime:build: cache miss, executing 03d20dcebfa360cb
+@defi-workflow-engine/cloud-runtime:typecheck: cache miss, executing 2538707588131e5d
+@defi-workflow-engine/cloud-runtime:typecheck: $ tsc -p tsconfig.json --noEmit
+@defi-workflow-engine/cloud-runtime:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-dapp:typecheck: cache miss, executing 6afb0469523fd425
+@defi-workflow-engine/reference-dapp:typecheck: $ tsc --noEmit
+
+ Tasks:    15 successful, 15 total
+Cached:    0 cached, 15 total
+  Time:    28.886s 
+
+
+CHECK 1
+$ eslint packages apps/reference-dapp/src apps/reference-dapp/backend apps/reference-dapp/e2e apps/reference-dapp/next.config.ts apps/reference-dapp/playwright.config.ts scripts/export-schemas.mjs scripts/verify-aave-repay.mjs scripts/verify-aave-withdraw.mjs scripts/verify-lending-composition.mjs scripts/verify-robinhood-network.mjs scripts/verify-robinhood-transfer.mjs eslint.config.mjs
+
+CHECK 2
+$ turbo run build --cache-dir=/tmp/gryloo-b016-recording-47TAof/turbo
+• turbo 2.10.12
+
+   • Packages in scope: @defi-workflow-engine/action-registry, @defi-workflow-engine/cloud-runtime, @defi-workflow-engine/reference-compiler, @defi-workflow-engine/reference-dapp, @defi-workflow-engine/reference-executor, @defi-workflow-engine/reference-linter, @defi-workflow-engine/reference-reconciler, @defi-workflow-engine/workflow-contracts
+   • Running build in 8 packages
+   • Remote caching disabled
+
+@defi-workflow-engine/workflow-contracts:build: cache hit, replaying logs 00e70a5c6a8e57e1
+@defi-workflow-engine/workflow-contracts:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/action-registry:build: cache hit, replaying logs 74f1a97204506848
+@defi-workflow-engine/action-registry:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-linter:build: cache hit, replaying logs 4a3ca9d79cd82a3b
+@defi-workflow-engine/reference-linter:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-compiler:build: cache hit, replaying logs 58cd89bbbeb2417b
+@defi-workflow-engine/reference-compiler:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-executor:build: cache hit, replaying logs bbf423ffcd04a5c9
+@defi-workflow-engine/reference-executor:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-reconciler:build: cache hit, replaying logs ec0e6450ad851b43
+@defi-workflow-engine/reference-reconciler:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/cloud-runtime:build: cache hit, replaying logs 03d20dcebfa360cb
+@defi-workflow-engine/cloud-runtime:build: $ tsc -p tsconfig.json
+@defi-workflow-engine/reference-dapp:build: cache miss, executing 3a15d2109b41b3b2
+@defi-workflow-engine/reference-dapp:build: $ NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 next build
+@defi-workflow-engine/reference-dapp:build: ▲ Next.js 16.3.6 (Turbopack)
+@defi-workflow-engine/reference-dapp:build: ✓ Running next.config.ts took 130ms
+@defi-workflow-engine/reference-dapp:build: 
+@defi-workflow-engine/reference-dapp:build:   Creating an optimized production build ...
+@defi-workflow-engine/reference-dapp:build: ✓ Compiled successfully in 3.1s
+@defi-workflow-engine/reference-dapp:build:   Running TypeScript ...
+@defi-workflow-engine/reference-dapp:build:   Finished TypeScript in 2.2s ...
+@defi-workflow-engine/reference-dapp:build:   Collecting page data using 4 workers ...
+@defi-workflow-engine/reference-dapp:build:   Generating static pages using 4 workers (0/3) ...
+@defi-workflow-engine/reference-dapp:build: ✓ Generating static pages using 4 workers (3/3) in 1310ms
+@defi-workflow-engine/reference-dapp:build:   Finalizing page optimization ...
+@defi-workflow-engine/reference-dapp:build: 
+@defi-workflow-engine/reference-dapp:build: Route (app)
+@defi-workflow-engine/reference-dapp:build: ┌ ○ /
+@defi-workflow-engine/reference-dapp:build: └ ○ /_not-found
+@defi-workflow-engine/reference-dapp:build: 
+@defi-workflow-engine/reference-dapp:build: 
+@defi-workflow-engine/reference-dapp:build: ○  (Static)  prerendered as static content
+@defi-workflow-engine/reference-dapp:build: 
+
+ Tasks:    8 successful, 8 total
+Cached:    7 cached, 8 total
+  Time:    9.078s 
+
+
+CHECK 3
+$ node scripts/export-schemas.mjs --check
+11 schema exports verified
+
+CHECK 4
+$ vitest run packages apps/reference-dapp/src apps/reference-dapp/backend --exclude '**/*.fork.test.ts' --exclude '**/*.pg.test.ts' --maxWorkers=4 --testTimeout=30000
+
+ RUN  v5.0.0 /home/asus/projects/gryloo/.turbo/build016
+
+
+ Test Files  152 passed | 2 skipped (154)
+      Tests  1250 passed | 2 skipped (1252)
+   Start at  02:09:16
+   Duration  55.14s (import 50%, tests 47%, transform 3%)
+
+     Import  538 modules were evaluated 2146 times · 98.44s total, 50% of tracked time
+             ~12.53s faster with isolate: false — shared modules are evaluated once per worker instead of once per file
+             learn more: https://vitest.dev/guide/improving-performance#test-isolation
+
+
+CHECK 5
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 0.941s
+
+OK
+
+CHECK 6
+Governance-lite passed (829 text files; no build scope or history required)
+
