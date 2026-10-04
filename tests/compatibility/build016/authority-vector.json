@@ -1,0 +1,222 @@
+{
+  "policy": {
+    "allowanceKey": "0x9c9629247c655dbf61e0f4786553d87cd4e1953bff20004af366801f60b84635",
+    "artifactSetHash": "0x078ddcc9c0b86ff845ff4da5027e3827c0130a224a7e31d4b707e3b87521610b",
+    "chainId": 31337,
+    "cooldownSeconds": 10,
+    "executor": "0xf3d2c1711ad3e6c708704f759c691ab3276f3cd5",
+    "executorCalldata": "0xc6fe87470000000000000000000000002626664c2603336e57b271c5c0b26f421741e481000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000d569288bf6668c3d380683bdb0191be0a57ad75a482654f4e78488b47480be5e000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001a45ae401dc000000000000000000000000000000000000000000000000000000006ac10e0d00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000e404e45aaf000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000001f4000000000000000000000000329d16e745216b393c1e6ece8d0e3c9ac5b8e24100000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000000000000003de00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "expiresAt": 1791036942,
+    "format": "gryloo.mode-c-buy-dip.v1",
+    "frequencySeconds": 20,
+    "functionId": "0x5ae401dc",
+    "maximumExecutions": 1,
+    "maximumPerPeriod": 1,
+    "maximumSlippageBps": 100,
+    "maximumSwapAmount": "1000000",
+    "minimumOut": "990",
+    "owner": "0x672782d2f723427146fb5d25b9f1b604bc0c83e0",
+    "perPeriodBudget": "1000000",
+    "periodSeconds": 600,
+    "permissionHash": "0x1a0af5c5af7f28f4929a4771ede2c0cd56de9b3fb4c45da002474f63b1d9e38e",
+    "recipient": "0x329d16e745216b393c1e6ece8d0e3c9ac5b8e241",
+    "reference": {
+      "adapter": {
+        "id": "uniswap-v3.pool-state.build016",
+        "version": "1.0.0"
+      },
+      "artifactId": "dip-observation-13-13781fb1",
+      "chainId": "eip155:31337",
+      "chainPosition": {
+        "height": 13,
+        "kind": "BLOCK"
+      },
+      "fees": [],
+      "freshness": {
+        "expiresAt": "2026-10-03T13:46:12.000Z",
+        "maximumAgeSeconds": 30,
+        "observedAt": "2026-10-03T13:45:42.000Z"
+      },
+      "gas": [],
+      "nodeId": "dip-swap",
+      "normalizedValues": [
+        {
+          "kind": "IDENTIFIER",
+          "name": "pool",
+          "value": "0x0000000000000000000000000000000000000320"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "pool-code-hash",
+          "value": "0x2aa6c82a8ce32f9ab88f0ce10e3bbc005fd03f661ffd3ffbdfc279510767c88f"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "factory",
+          "value": "0x33128a8fc17869897dce68ed026d694621f6fdfd"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "token0",
+          "value": "0x4200000000000000000000000000000000000006"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "token1",
+          "value": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "sqrt-price-x96",
+          "value": "1000000000000000000000000"
+        },
+        {
+          "kind": "IDENTIFIER",
+          "name": "block-hash",
+          "value": "0x13781fb1e0c42746ec1ec87c0db7eecd1500f7cd4fc1623c0f2574e709baecb0"
+        },
+        {
+          "kind": "INTEGER",
+          "name": "fee",
+          "value": 500
+        }
+      ],
+      "outputBounds": [],
+      "proposedContracts": [],
+      "proposedRecipients": [],
+      "proposedSpenders": [],
+      "providerReference": {
+        "kind": "NONE"
+      },
+      "rawResponseHash": "0x44fda76a5e21ba273c1cd28b2d6705d4c496cdd6107cc260dab761b0136c3204",
+      "registryValidation": {
+        "actionType": "asset.swap.exact-input",
+        "enforcement": "NOT_ENFORCED",
+        "registryVersion": "1.0.0",
+        "result": "CONTRACT_VALIDATED"
+      },
+      "retrievedAt": "2026-10-03T13:45:42.000Z",
+      "schemaVersion": "1.0.0",
+      "semanticWorkflowHash": "0x47f7510b2a613082fc8ac8f0bae8e24529033ed947ab0f642fc311045a375702",
+      "sourceId": "build016.uniswap-v3-pool-state",
+      "uncertainty": [
+        {
+          "code": "SPOT_PRICE",
+          "description": "Local-only pool spot price; manipulation is not prevented by this source."
+        }
+      ]
+    },
+    "referenceHash": "0x12120fcc167aff0b82844c13e08ab0bfb874603840a8f7a2308985271933c842",
+    "revocation": "ROLES_REMOVE_AND_SAFE_DISABLE",
+    "revocationEpoch": 0,
+    "roleKey": "0xd569288bf6668c3d380683bdb0191be0a57ad75a482654f4e78488b47480be5e",
+    "roles": "0xd62a9493d0f8b3b8d6498a6c9c24503b5eafe1ec",
+    "router": "0x2626664c2603336e57b271c5c0b26f421741e481",
+    "safe": "0x329d16e745216b393c1e6ece8d0e3c9ac5b8e241",
+    "semanticWorkflowHash": "0x47f7510b2a613082fc8ac8f0bae8e24529033ed947ab0f642fc311045a375702",
+    "simulationHash": "0xc0dc369945fb9eee52c19fca81a6a461a773e2a19e06302ffab0aeabf470afb3",
+    "source": {
+      "factory": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
+      "fee": 500,
+      "id": "build016.uniswap-v3-pool-state",
+      "maximumAgeSeconds": 30,
+      "pool": "0x0000000000000000000000000000000000000320",
+      "poolCodeHash": "0x2aa6c82a8ce32f9ab88f0ce10e3bbc005fd03f661ffd3ffbdfc279510767c88f"
+    },
+    "startsAt": 1791035142,
+    "swapCalldata": "0x5ae401dc000000000000000000000000000000000000000000000000000000006ac10e0d00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000e404e45aaf000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000001f4000000000000000000000000329d16e745216b393c1e6ece8d0e3c9ac5b8e24100000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000000000000003de000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "tokenOut": "0x4200000000000000000000000000000000000006",
+    "totalBudget": "1000000",
+    "triggerDropBps": 500,
+    "verifier": {
+      "address": "0x14018d1f428cea9d5677d7ad34cc38ac45c8679d",
+      "id": "build016.buy-dip.roles-condition.v1",
+      "runtimeHash": "0x66476f5b0488b431e344e9ae3fa72566ff3195524d2773cc6d406317efb69f8d",
+      "templateHash": "0x68aa03770bfb4e2844bf63ee52520118d8903757179ac44efa4662eb6958c87e"
+    }
+  },
+  "policyHash": "0x21fc658d5c7eae8baadd29653b254a6c240a3c2f8a225793a7c312dca780108e",
+  "manifest": {
+    "schemaVersion": "2.0.0",
+    "manifestId": "mode-c-21fc658d5c7eae8baadd2965",
+    "semanticWorkflowRevision": 1,
+    "semanticWorkflowHash": "0x47f7510b2a613082fc8ac8f0bae8e24529033ed947ab0f642fc311045a375702",
+    "artifactSetHash": "0x078ddcc9c0b86ff845ff4da5027e3827c0130a224a7e31d4b707e3b87521610b",
+    "simulationHash": "0xc0dc369945fb9eee52c19fca81a6a461a773e2a19e06302ffab0aeabf470afb3",
+    "policyHash": "0x21fc658d5c7eae8baadd29653b254a6c240a3c2f8a225793a7c312dca780108e",
+    "authorizationMode": "MODE_C",
+    "owner": {
+      "chainId": "eip155:31337",
+      "address": "0x672782d2f723427146fb5d25b9f1b604bc0c83e0"
+    },
+    "executor": {
+      "chainId": "eip155:31337",
+      "address": "0xf3d2c1711ad3e6c708704f759c691ab3276f3cd5"
+    },
+    "expiresAt": "2026-10-03T14:15:42.000Z",
+    "nonce": "0",
+    "revocationEpoch": 0,
+    "spendLimits": [
+      {
+        "asset": {
+          "chainId": "eip155:31337",
+          "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "decimals": 6
+        },
+        "maximumAmount": "1000000",
+        "maximumPerStepAmount": "1000000",
+        "maximumCumulativeAmount": "1000000"
+      }
+    ],
+    "maximumSlippageBps": 100,
+    "gasBudgets": [],
+    "feeBudgets": [],
+    "providers": {
+      "kind": "FIXED",
+      "providerId": "build016.uniswap-v3-pool-state"
+    },
+    "recovery": {
+      "failurePolicy": "ABORT",
+      "residualAssetRecipient": {
+        "chainId": "eip155:31337",
+        "address": "0x329d16e745216b393c1e6ece8d0e3c9ac5b8e241"
+      },
+      "maximumAttemptsPerStep": 1,
+      "requiresHumanReview": true
+    },
+    "enforcement": "SMART_ACCOUNT_MODULE_OR_GUARD"
+  },
+  "manifestHash": "0x0e7f8f489bd7adc9575546f7fe88137a1dc1c5f4fc8ee9d8ed0422059c6bd776",
+  "executionPlan": {
+    "schemaVersion": "2.0.0",
+    "executionPlanId": "mode-c-21fc658d5c7eae8baadd2965.plan",
+    "semanticWorkflowHash": "0x47f7510b2a613082fc8ac8f0bae8e24529033ed947ab0f642fc311045a375702",
+    "manifestHash": "0x0e7f8f489bd7adc9575546f7fe88137a1dc1c5f4fc8ee9d8ed0422059c6bd776",
+    "segments": [
+      {
+        "segmentId": "dip-segment",
+        "chainId": "eip155:31337",
+        "dependencies": [],
+        "steps": [
+          {
+            "stepId": "dip-swap",
+            "nodeId": "dip-swap",
+            "chainId": "eip155:31337",
+            "adapter": {
+              "id": "uniswap-v3.swap-router-02",
+              "version": "1.0.0"
+            },
+            "dependencies": [],
+            "requiredAuthorizationClass": "MODE_C",
+            "executionKind": "DIRECT_TRANSACTION",
+            "payloadHash": "0xa7fbdd3c53c08c42f22e848ec034edd297b9e7074dfd31a0bb16f7830ac6b63d"
+          }
+        ]
+      }
+    ],
+    "checkpointIds": [],
+    "enforcement": "SMART_ACCOUNT_MODULE_OR_GUARD"
+  },
+  "executionPlanHash": "0x64eb5d42bf28c9291a07f9bcc2c152fcf83765b25ec1bf8b0faf52782e5eb7bf"
+}

@@ -1,0 +1,18 @@
+{
+  "format": "gryloo.build-003f-provider-billing.v1",
+  "provider": "Alchemy",
+  "plan": "<owner-observed plan; must be Free>",
+  "network": "Base Mainnet",
+  "reportedOn": "<recording UTC date YYYY-MM-DD>",
+  "usedMonthlyCu": "<owner-observed integer>",
+  "remainingMonthlyCu": "<owner-observed integer>",
+  "monthlyAllowanceCu": "<owner-observed integer; must be 30000000>",
+  "paymentMethod": "<owner-observed boolean; must be false>",
+  "paidAddOn": "<owner-observed boolean; must be false>",
+  "payAsYouGo": "<owner-observed boolean; must be false>",
+  "overage": "<owner-observed boolean; must be false>",
+  "autoUpgrade": "<owner-observed boolean; must be false>",
+  "credentialRotated": "<owner attestation after rotation; must be true>",
+  "previousCredentialDeleted": "<owner attestation after deletion; must be true>",
+  "rotatedOn": "<rotation UTC date YYYY-MM-DD>"
+}
