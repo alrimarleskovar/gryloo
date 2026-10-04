@@ -351,3 +351,34 @@ RPC fallback, historical credential, exhausted budget or synthetic source
 response is substituted. See report §14 for the two owner-provided files needed
 to unblock recording. Their paths must be supplied by the owner; none are
 invented. Implementation authorization and D-016-1 remain approved.
+
+### Credential-free recording preparation — owner-directed 2026-10-04
+
+Prepare the BUILD-016-specific scenario, bounded recorder entrypoint and sealed
+preflight before the owner creates the fresh provider credential. Reuse the
+existing recorder's fixed Alchemy transport, hash-pinned finalized source,
+durable request/CU reservation, single-flight pacing and first-error stop.
+No authenticated provider request is permitted in this preparation turn.
+
+The certification fixture must deploy pinned Safe/Roles and the existing
+verifier locally; leave real forked token/pool/router code and storage untouched
+by setup setters. Fund only disposable native accounts locally, wrap through
+the actual WETH contract, acquire USDC through the existing swap primitive and
+transfer the finite USDC authority to the Safe. Compute simulation outputs from
+actual local EVM calls, bind the observed reference into the unchanged policy,
+and drive the dip through real pool swaps with a deterministic price limit.
+Snapshot-isolated negative scenarios must preserve their own journals; the
+successful financial branch must prove one reservation, restart/uncertain-send
+reconciliation and no resubmission. New fork Evidence Bundle assembly stays
+in certification tooling and requires genuine recorded/replayed source proof.
+
+Before credential rotation: compile/pin tools and contract artifacts, validate
+the scenario and source policy, run deterministic credential-free engineering
+checks, create fresh disposable local signer files, prepare a zero-request
+journal and budget limits, and seal an immutable manifest with exact completion
+timestamp/digest. Billing values and source N/H stay explicitly unresolved until
+owner observation / finalized source reads; do not fill them with test values.
+Owner-selected transport paths are supplied only later. Code/input changes
+invalidate the preflight and require a new seal before a new credential is made.
+Document the exact billing JSON and credential requirements, confirm branch/tree
+state, then stop with the two owner transport files as the sole external blocker.
