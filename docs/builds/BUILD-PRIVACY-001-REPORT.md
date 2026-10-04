@@ -10,6 +10,12 @@ The isolated worktree is `/home/asus/projects/gryloo/.turbo/privacy001`, branch 
 
 ## Discovery and implemented boundary
 
+### Live-stage continuation after the reviewed checkpoint
+
+The completed LOCAL/MOCKED lifecycle was committed and pushed as **`86800ee019da7a5b77b4b6125710cbde35a05a40`**, and PR #55 was updated while remaining draft. Work then continued immediately by inspecting the actual pinned SDK's preparation, proof, request-authentication and settlement path. The standard relay swap cannot authenticate or honor the exact reviewed Jupiter route: changing an added route/transaction/Manifest commitment leaves its supported request digest unchanged. Its proof-bound swap parameters also omit an exact route commitment. This is a factual SDK/relay integration blocker under the retained authorization requirements, independently of dependency clearance.
+
+The [live-boundary investigation](BUILD-PRIVACY-001-LIVE-BLOCKER.md) records exact package integrity, source locations, scope of the finding, alternative-path limits and required remedy. Fourteen new tests exercise the actual SDK authentication encoder without proving, signing or network traffic; all **81 focused privacy tests** pass. Focused lint and the dapp TypeScript check pass. These test/documentation changes remain local after the pushed checkpoint. No live financial integration, authoritative mainnet observations, recovery UI or timeout/refund execution is claimed complete. Owner funding/signing cannot resolve this contract limitation and is not required now.
+
 The [plan](BUILD-PRIVACY-001-PLAN.md) was written before implementation and records the official documentation, SDK inspection, network, wallet and security findings. The implementation pins published `@cloak.dev/sdk` **0.2.5**; SDK note generation, commitments, serialization and recovery derivation are exercised directly in local tests. No guessed SDK calls or alternate privacy application were introduced.
 
 | Existing Flofi boundary | Change |
