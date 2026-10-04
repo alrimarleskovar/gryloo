@@ -75,7 +75,8 @@ export async function prepareBuild016() {
   const {createServer}=await import('vite');const vite=await createServer({configFile:false,server:{middlewareMode:true,hmr:false},appType:'custom',logLevel:'error'});
   try {const module=await vite.ssrLoadModule('/apps/reference-dapp/src/server/mode-c-service.ts');if(typeof module.createModeCLocalService!=='function')fail('BUILD016_SERVICE_IMPORT_FAILED');}finally{await vite.close();}
   const checks=[];
-  for(const [index,[command,args]] of [['pnpm',['check']],['python3',['-m','unittest','discover','-s','scripts','-p','test_governance_lite.py']],
+  for(const [index,[command,args]] of [['pnpm',['typecheck','--cache-dir='+join(root,'turbo')]],['pnpm',['lint']],['pnpm',['build','--cache-dir='+join(root,'turbo')]],
+    ['pnpm',['schemas:check']],['pnpm',['test']],['python3',['-m','unittest','discover','-s','scripts','-p','test_governance_lite.py']],
     ['python3',['scripts/governance_lite.py']]].entries())checks.push(await check(command,args,root,index));
   const owner=secp256k1.utils.randomSecretKey(),executor=secp256k1.utils.randomSecretKey();
   const address=k=>toHex(keccak_256(secp256k1.getPublicKey(k,false).slice(1)).slice(-20));
