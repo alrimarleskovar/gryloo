@@ -56,6 +56,10 @@ variables exist only for tests and must never be set in a deployment.
 | `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Base Sepolia Uniswap liquidity, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter, Cross-chain Router) to forward to the API. |
 | `API_AUTH_TOKEN` | Same value as the API's token. It also keys the wallet-session cookies (HKDF, separate label) unless `FLOFI_SESSION_SECRET` is set. |
 | `FLOFI_SESSION_SECRET` | Optional, ≥ 32 characters (`openssl rand -hex 32`): a key for the wallet-session cookies separate from `API_AUTH_TOKEN`. Rotating it signs every wallet out (no funds or runs are affected). |
+| `FLOFI_COPILOT` | Optional. `off` (default), `live` (AI interpretation through the OpenAI Responses API) or `replay` (committed test answers, no model; not for production). |
+| `OPENAI_API_KEY` | Required for `FLOFI_COPILOT=live`. Server-only; never `NEXT_PUBLIC_*`. Use a dedicated OpenAI project key with a spend limit. |
+| `OPENAI_COPILOT_MODEL` | Required for `FLOFI_COPILOT=live`: the model ID the owner chooses (no built-in default). It must support strict JSON-schema structured outputs in the Responses API. |
+| `OPENAI_COPILOT_TEMPERATURE` | Optional, default `0`; set `omit` for models that reject the parameter. |
 
 **Wallet sessions (BUILD-JOURNEY-001).** A user signs one EIP-4361 message with their own wallet (`personal_sign`); the BFF
 verifies the signer and sets HttpOnly, SameSite=Strict, Secure cookies (8 h session, 5 min challenge). The verified address
@@ -63,6 +67,14 @@ is forwarded to the API in the server-to-server `x-flofi-wallet-principal` heade
 only sees and operates its own runs (`/v1/runs*` are filtered to it). Requests made with the bearer token but no principal
 (operators) keep tenant-wide read access. The session never authorizes a transaction: every wallet request still needs the
 user's Review, Manifest acceptance, Execute click and signature.
+
+**Flofi Copilot (BUILD-COPILOT-001).** With `FLOFI_COPILOT=live`, text that the exact chat grammar does not recognize is
+sent from the Next.js server (never the browser) to `https://api.openai.com/v1/responses` with strict structured output,
+no tools and `store: false`. The answer is an untrusted intent: Flofi validates it, checks every amount, address and
+mainnet against the user's own words, and turns it into an exact-grammar command that the user still has to apply,
+simulate, review and sign. A misconfigured `live` mode (missing key or model) leaves the exact grammar working and
+reports `COPILOT_NOT_CONFIGURED`. The per-process limits (2 concurrent, 30 per minute) are not a global quota on
+serverless instances; rely on the OpenAI project's spend limit.
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
 keep their existing `GRYLOO_*` gates; leave those unset on Vercel so they stay disabled (their journals would
