@@ -12,6 +12,7 @@
     "test:e2e": "NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 playwright test"
   },
   "dependencies": {
+    "@cloak.dev/sdk": "0.2.5",
     "@defi-workflow-engine/action-registry": "workspace:0.1.0",
     "@defi-workflow-engine/cloud-runtime": "workspace:0.1.0",
     "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",

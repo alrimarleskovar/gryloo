@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { ReviewContext } from './context.js';
 import { validateAuthoringWorkflow } from './validation.js';
-import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
+import { BRIDGE_ACTION, privacyRequirement } from '@defi-workflow-engine/workflow-contracts';
 
 export interface ReviewFinding {
   readonly code: string;
@@ -23,6 +23,8 @@ export function lintWorkflow(input: unknown, context: ReviewContext): ReviewResu
   const bridgeSwap = workflow.nodes[0]?.nodeId === 'build009-bridge';
   const composition = workflow.resourceEdges.some(edge => edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap');
   for (const node of workflow.nodes) {
+    if (privacyRequirement(node)) { findings.push({ code: 'CLOAK_EXECUTION_GATES_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId,
+      field: 'requiredCapabilities', message: 'Privacy REQUIRED / Cloak. USDC output is public; SOL change is private. Verified proof simulation, durable private recovery state and settlement reconciliation are required before owner authorization.' }); continue; }
     if (node.actionType === 'supply') { findings.push({ code: 'SUPPLY_SIMULATION_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'amount', message: 'Simulate the exact Aave Supply and review its allowance and beneficiary before execution.' }); continue; }
     if (node.actionType === BRIDGE_ACTION) { findings.push({ code: 'BRIDGE_QUOTE_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: node.adapterConstraints.adapters[0]?.id === 'across.direct' ? 'A fresh direct Across quote and fixed-provider review are required before the simulated bridge.' : 'A fresh LI.FI route and Manifest review are required before the mocked rehearsal.' }); continue; }
     if (node.actionType === 'asset.liquidity.concentrated' && node.chainId === 'eip155:84532') { findings.push({ code: 'UNISWAP_LIQUIDITY_SIMULATION_REQUIRED', severity: 'BLOCK', nodeId: node.nodeId, field: 'expectedOutputs', message: 'Simulate the position against current Base Sepolia pool state and review the exact approvals and mint before execution.' }); continue; }

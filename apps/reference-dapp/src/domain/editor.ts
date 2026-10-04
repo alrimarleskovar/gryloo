@@ -63,11 +63,13 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   if (command.type === 'ADD_SOLANA_SWAP' || command.type === 'SET_SOLANA_SWAP') {
     try {
       if (command.type === 'SET_SOLANA_SWAP' && !current.nodes.some(n => n.nodeId === command.nodeId && solanaSwapDetails(n))) return reject('UNKNOWN_SOLANA_SWAP_NODE');
+      if (command.type === 'SET_SOLANA_SWAP' && solanaSwapDetails(current.nodes.find(n => n.nodeId === command.nodeId)!)?.privacy && !command.input.privacy)
+        return reject('PRIVACY_DOWNGRADE_DENIED');
       if (command.type === 'ADD_SOLANA_SWAP' && current.nodes.some(n => !n.actionType.startsWith('mock-'))) return reject('SOLANA_SWAP_ISOLATED_ONLY');
       const id = command.type === 'SET_SOLANA_SWAP' ? command.nodeId : `node-${String(current.revision + 2).padStart(3, '0')}`;
       const replacement = createSolanaSwapNode(id, command.input);
       if (command.type === 'SET_SOLANA_SWAP' && JSON.stringify(replacement) === JSON.stringify(current.nodes.find(n => n.nodeId === id))) return { workflow: current, error: null };
-      const workflow = { ...current, revision: current.revision + 1, nodes: command.type === 'ADD_SOLANA_SWAP' ? [...current.nodes, replacement] : current.nodes.map(n => n.nodeId === id ? replacement : n) };
+      const workflow = { ...current, revision: current.revision + 1, nodes: command.type === 'ADD_SOLANA_SWAP' ? command.input.privacy ? [replacement] : [...current.nodes, replacement] : current.nodes.map(n => n.nodeId === id ? replacement : n) };
       if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
       validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
     } catch (cause) { return reject(cause instanceof Error ? cause.message : 'SOLANA_SWAP_INPUT_INVALID'); }

@@ -236,7 +236,7 @@ export function commandIsValid(input: unknown): input is Command {
       if (command.type === 'SET_SOLANA_SWAP' && !id(command.nodeId)) return false;
       const fields = command.input;
       if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.getPrototypeOf(fields) !== Object.prototype ||
-          Reflect.ownKeys(fields).sort().join() !== ['network','from','to','amount','slippage'].sort().join() ||
+          Reflect.ownKeys(fields).sort().join() !== ['network','from','to','amount','slippage', ...('privacy' in fields ? ['privacy'] : [])].sort().join() ||
           !Object.values(fields).every(v => typeof v === 'string' && v.length <= 40)) return false;
       try { createSolanaSwapNode('node-preview', fields as SolanaSwapInput); return true; } catch { return false; }
     }
@@ -330,7 +330,7 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
   if(lending)return `Revision ${workflow.revision}. Supply ${lending.supply} Aave USDC → HF ≥ 2.0 checkpoint → Borrow ${lending.borrow} Aave USDC → Swap exactly the borrowed Aave USDC to WETH on Base Sepolia; slippage ${lending.slippage} bps; owner ${lending.owner}. Debt remains after Swap.`;
   return `Revision ${workflow.revision}. ` + workflow.nodes.map(node => {
     const solana = solanaSwapDetails(node);
-    if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;
+    if (solana) return `${node.nodeId}: Swap ${solana.amount} ${solana.from} to ${solana.to} on ${solana.network} via ${solana.privacy ? 'Cloak · Privacy REQUIRED; public USDC / private SOL change' : solanaSwapLabels(solana.network).provider}, ${solana.slippage} bps, quote required.`;
     const transfer=transferDetails(node as Parameters<typeof transferDetails>[0]);
     if(transfer)return `${node.nodeId}: Self-transfer ${transfer.amount} test ETH on ${transfer.network} to the connected owner; chain execution proof, not DeFi.`;
     const withdrawn=withdrawDetails(node as Parameters<typeof withdrawDetails>[0]);

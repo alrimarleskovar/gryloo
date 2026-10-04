@@ -31,9 +31,11 @@ export function CopilotPanel() {
       const command = parseLocalCommand(text, state.workflow, context, wallet.account);
       propose(command);
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: `Proposal: ${text}. Review against revision ${command.baseRevision} before applying.` }]);
-    } catch {
+    } catch (cause) {
       dismissProposal();
-      setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: guidance }]);
+      const message = cause instanceof Error && cause.message.startsWith('CLOAK_')
+        ? 'Cloak supports SOL → public USDC with private SOL change. USDC → private SOL is unavailable. Try “swap 0.02 SOL to USDC privately”.' : guidance;
+      setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: message }]);
     }
   }
   function apply() {
