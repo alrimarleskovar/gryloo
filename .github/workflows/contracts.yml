@@ -10,7 +10,6 @@ permissions:
 jobs:
   contracts:
     name: Contracts, reference app, dependencies and SBOM
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, flofi-wsl]
     env:
       TURBO_TELEMETRY_DISABLED: "1"
@@ -19,6 +18,7 @@ jobs:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      TMPDIR: ${{ runner.temp }}
     # BUILD-CLOUD-001: a disposable PostgreSQL bound to the runner's loopback interface, pinned by digest.
     # Test-only trust authentication; it holds no data beyond the suites' own throwaway databases.
     services:
