@@ -21,6 +21,8 @@ BUILD-016 is **BLOCKED** on the required genuine fork financial-certification
 gate: the closed source recording lacks required token/tick state, and the owner
 confirmed no fresh Alchemy credential or current Free-plan attestation is
 available. The immutable preflight and exact required files are in the report.
+Credential-free recording preparation is complete (2026-10-04 seal in report);
+the two owner transport files are the sole external blocker to starting it.
 The owner has authorized fork certification; PR #52 stays draft and unmerged.
 
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution

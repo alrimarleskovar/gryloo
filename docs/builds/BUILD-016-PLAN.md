@@ -382,3 +382,14 @@ Owner-selected transport paths are supplied only later. Code/input changes
 invalidate the preflight and require a new seal before a new credential is made.
 Document the exact billing JSON and credential requirements, confirm branch/tree
 state, then stop with the two owner transport files as the sole external blocker.
+
+Credential-free preparation completed at **2026-10-04T01:10:13.890Z** from code
+HEAD `99d708c2a5af33c28256a1812f576f929a2814c8`. Immutable manifest:
+`BUILD-016-RECORDING-PREFLIGHT-2026-10-04.json`, SHA-256
+`79af02006dee2b94d51560f938da9a90f10e5d9b4bd6d0e4b00ed75d1e449ac8`.
+The preparation journal records zero requests/reserved CU and no consumed
+attempt. All normal workspace gates and governance passed; no financial fork
+gate or authenticated request occurred. Report §14 specifies the owner inputs.
+Billing values and finalized source N/H remain unresolved. The owner must create
+the fresh credential strictly after this timestamp. Stop before `record` until
+the two owner-controlled files and their actual filesystem paths are supplied.

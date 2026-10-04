@@ -1,6 +1,6 @@
 # BUILD-016 — Report
 
-Date: 2026-10-03. **BUILD-016 BLOCKED — genuine fork financial certification requires fresh owner-provided transport inputs.**
+Updated: 2026-10-04. **BUILD-016 BLOCKED — credential-free recording preparation COMPLETE; genuine fork certification awaits only the two owner transport files.**
 The owner accepted the local behavioral implementation but requires the original
 FORK_REPRODUCED financial target before BUILD-016 acceptance. Only the missing
 certification was pursued in this continuation; no product functionality or
@@ -257,10 +257,11 @@ reservations, retaining limits of 1500 requests / 39000 listed CU / 30 minutes,
 stop. Historical attempt budgets are not available. Disposable local test
 signers and their mode-0600 files are generated locally, not additional owner
 wallet keys. The old BUILD-007 recorder must not be run against its spent root.
-The BUILD-016-specific scenario/recording entrypoint and complete closed fixture
-remain work for the authorized continuation after transport becomes available;
-the files alone do not constitute certification. No new implementation approval
-is needed to resume the already-authorized fork proof.
+The BUILD-016-specific scenario and recording/replay entrypoint are now prepared
+and pinned by the credential-free seal below. Actual recording, financial fork
+execution, closed replay and the resulting fork Evidence Bundle remain pending;
+the two files alone do not constitute certification. No new implementation
+approval is needed to resume the already-authorized fork proof.
 
 ### Certification continuation: exact blocker and immutable evidence
 
@@ -344,3 +345,88 @@ the accepted local implementation commit confirms both MOCKED evidence files
 and all three source transcripts are byte-preserved. The full regression suite,
 workspace lint/typecheck, 17 governance self-tests and scanner passed. No fresh
 provider attempt, public-chain transaction, merge, or evidence relabel occurred.
+
+### Credential-free recording preparation completed 2026-10-04
+
+The owner directed all preparatory work to precede credential rotation. The
+transport-independent preflight is sealed; billing remains an obligatory
+current-owner-input gate before the recording proxy can start. No fabricated
+billing attestation is used to construct the preflight or its journal.
+
+- Completion timestamp: **2026-10-04T01:10:13.890Z**.
+- Fresh-credential modification threshold: **1791076213890** milliseconds since
+  Unix epoch; the credential must be created/modified strictly after this seal.
+- Preflight manifest SHA-256:
+  **79af02006dee2b94d51560f938da9a90f10e5d9b4bd6d0e4b00ed75d1e449ac8**.
+- Prepared source-code HEAD: `99d708c2a5af33c28256a1812f576f929a2814c8`.
+- Private preparation root: `/tmp/gryloo-b016-recording-47TAof`, owner-only
+  directory containing fresh disposable LOCAL signer files, pinned compiled
+  verifier, check logs, manifest, zero-request journal and prepared budget limits.
+  The root must remain available for the recording. No provider credential exists
+  in this preparation and no authenticated request has been made.
+
+Immutable public artifacts, explicitly **NOT_EVIDENCE** for financial maturity:
+
+| Artifact | Meaning |
+|---|---|
+| BUILD-016-RECORDING-PREFLIGHT-2026-10-04.json | Exact sealed manifest: 486 source/runtime file pins, tool/artifact pins, scenario recipe, public LOCAL accounts, seven check results; source N/H and billing values unresolved |
+| BUILD-016-RECORDING-PREPARATION-JOURNAL-2026-10-04.json | WAITING_FOR_OWNER_TRANSPORT_FILES; providerRequests 0; reservedCu 0; providerSessionStarted false; attemptConsumed false |
+| BUILD-016-RECORDING-RESERVATIONS-2026-10-04.jsonl | Prepared 1500-request / 39000-CU limits; no provider request reserved or sent |
+| BUILD-016-RECORDING-CHECKS-2026-10-04.log | Preserved successful typecheck, lint, build, schema, regression and governance output |
+| BUILD-016-OWNER-BILLING-TEMPLATE.json | Exact owner JSON structure with placeholders for observed/current values; intentionally rejected as an actual attestation |
+
+Checks passed: 15 typecheck/dependency tasks, workspace lint, eight build tasks
+including Next production build, 11 schema exports, **1250 regression tests**
+with two pre-existing gated skips, 17 governance self-tests and the scanner.
+Seven new credential-free tests cover canonical workflow/limits, exact boundary
+math from the historical real pool value, setup ABI isolation, placeholder
+rejection, sealed recording/path guards and refusal to promote MOCKED evidence.
+No fork financial gate is reported as passed.
+
+The prepared scenario uses real forked WETH/USDC/factory/pool/Router02 contracts.
+Only disposable native accounts, local contract lineage and the disclosed LOCAL
+clock are declared. WETH funding occurs by deposit, USDC acquisition by a real
+funding sale, and Safe funding by actual token transfer. The existing canonical
+authorized swap continues to enforce zero price limit. Setup-only WETH sales
+use the real router ABI with a bounded price limit to create the dip; they are
+not a new Mode C strategy or an extension of its delegated primitive. There is
+no pool/token/router code substitution or storage setter.
+
+The prepared run compiles and signs the unchanged one-action policy using the
+actual reference and Mode B simulation result, tests invalid inputs, stale
+monitoring, expiry, confirmed unused revocation and same-block one-use scope,
+then proves file reservation concurrency, injected before/after-reservation
+failpoints, restart, withheld-send-result recovery, cooldown/frequency and budget
+exhaustion. Negative snapshot branches retain separate journals. Fresh fork
+Evidence Bundle assembly requires successful real recording, matching closed
+replay, signed-byte checks and independent Mode B reconciliation. It does not
+call the MOCKED evidence helper or relabel historical bundles.
+
+The recording CLI is separate from preparation and requires the sealed digest
+plus both owner-selected paths. It rejects changed inputs, spent attempts,
+invalid/noncurrent billing, files inside any checkout, wrong ownership/mode,
+symlinks and a credential older than the seal. Only the existing bounded proxy
+reads the provider credential and sends the fixed Alchemy header. Recording
+retains durable request reservation, pacing, budgets and permanent first-error
+stop; the credential is destroyed on completion/stop. This turn stops before
+that command. The two owner transport files are the sole remaining external
+blocker for beginning the prepared recording; financial certification remains
+pending its actual results.
+
+Prospective file locations the owner **may choose** in the existing private
+preparation directory (not created or treated as owner-provided inputs here):
+
+- `/tmp/gryloo-b016-recording-47TAof/alchemy-billing.json`
+- `/tmp/gryloo-b016-recording-47TAof/alchemy-key`
+
+Other absolute paths outside Git are accepted subject to the same ownership,
+regular-file, mode-0600 and freshness requirements. Report paths only after the
+owner has created the files; never provide the credential value. Current billing
+must be obtained from the dashboard, not copied from any historical report.
+
+One initial credential-free gate run stopped because `/tmp` was full. Only this
+BUILD-016's generated Turbo cache and stopped disposable PostgreSQL data were
+removed; tools, historical evidence and other worktrees were preserved. Explicit
+task-local cache flags were added and the complete preparation rerun passed.
+The failed preparation remains outside Git for diagnosis; no authenticated
+attempt was consumed.
