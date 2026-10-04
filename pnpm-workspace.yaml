@@ -5,6 +5,10 @@ minimumReleaseAge: 10080
 pmOnFail: error
 strictPeerDependencies: true
 autoInstallPeers: false
+# BUILD-PRIVACY-001: patch only the vulnerable transitive edges introduced by Cloak 0.2.5.
+overrides:
+  'jsonpath>underscore': 1.13.8
+  '@ethersproject/providers>ws': 8.22.0
 patchedDependencies:
   '@streamparser/json@0.0.26': patches/@streamparser__json@0.0.26.patch
   '@xyflow/system@0.0.82': patches/@xyflow__system@0.0.82.patch

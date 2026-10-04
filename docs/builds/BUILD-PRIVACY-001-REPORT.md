@@ -6,7 +6,7 @@
 
 This implementation adds required Cloak policy to Flofi's existing Guided/Canvas canonical swap, prevents public compilation/fallback, and introduces tested browser private-state preparation, encrypted immutable checkpoints, wallet-change protection and a strict reconciliation contract. It deliberately issues no executable financial Manifest, requests no wallet signature and submits no transaction. A feasibility report is explicitly non-executed evidence. This is not a completed end-to-end private-execution demonstration.
 
-The isolated worktree is `/home/asus/projects/gryloo/.turbo/privacy001`, branch `codex/build-privacy-001-cloak`, based on fetched current main `7f582c55775f086ac456b22032c0c63a759c4176`. Main advanced from the initial `ce78992` base during implementation; only this privacy commit was rebased onto main, with four UI/export conflicts resolved to preserve main's behavior and add privacy. Protected worktrees/branches were not modified, merged, rebased, cherry-picked or used directly as an integration source. No branch was merged.
+The isolated worktree is `/home/asus/projects/gryloo/.turbo/privacy001`, branch `codex/build-privacy-001-cloak`, based on fetched current main `ebbd4aa3766a656f01b24a61ea71e13c4963b1f8`. Main advanced twice from the initial `ce78992` base during implementation; only the privacy commits were rebased onto main, with UI/export/dependency conflicts resolved to preserve main's behavior and add privacy. Protected worktrees/branches were not modified, merged, rebased, cherry-picked or used directly as an integration source. No branch was merged.
 
 ## Discovery and implemented boundary
 
@@ -44,6 +44,7 @@ These are implementation gaps, **not owner funding/signature blockers**:
 4. Authoritative mainnet verification of SwapState, both transaction stages, exact recipient balance effects, nullifier spend and private commitment membership/index/unspent status. A pure reconciliation function cannot manufacture those observations.
 5. Timeout/refund execution/recovery, malformed or incomplete SDK-result quarantine and resumption of ambiguous attempts without automatic resubmission. Valid divergent returned state is preserved now; the funded failure lifecycle remains unwired.
 6. Genuine owner-funded execution, reload/recovery demonstration and redacted evidence produced through the canonical financial evidence model. No such evidence exists in this draft.
+7. SDK dependency clearance: the remaining Elliptic advisory must be resolved without suppressing the repository's low-severity audit gate. The exact added dependency inventory/licenses must also be reviewed and admitted through the existing integrity/SBOM controls before merge. The current registry/license verification deliberately remains failing; no allowlist or CI gate was weakened.
 
 Do not remove the linter/capability/financial gates merely to make a demonstration appear successful. Do not treat mocked verdicts or the feasibility JSON as chain acceptance. Keep the PR draft until the gates and genuine evidence exist.
 
@@ -59,14 +60,19 @@ Final local checks on 2026-10-04:
 
 | Check | Result |
 | --- | --- |
-| `pnpm test` | **1,277 passed**, 2 existing skips; 152 passing files. Includes 27 added privacy security tests. Fork tests are excluded by the existing script. |
-| `pnpm exec turbo run build typecheck --cache-dir .turbo/privacy001-cache` | **14 tasks successful**, including production Next build and all package/app type checks. |
+| `pnpm test` | **1,355 passed**, 2 existing skips; 161 passing files. Includes 27 added privacy security tests. Fork and PostgreSQL tests are excluded by the current-main script. |
+| `pnpm exec turbo run build typecheck --cache-dir .turbo/privacy001-cache` | **16 tasks successful**, including production Next build and all package/app type checks. |
 | `pnpm lint` plus ESLint on the isolated privacy Playwright config | Passed. |
 | `pnpm schemas:check` | **11 unchanged schema exports verified**. |
 | `playwright test --config playwright.privacy.config.ts` | **2 passed**, including non-executed redacted feasibility export. |
 | `git diff --check` | Passed. |
+| Local governance safety check / self-tests | Passed; **17 self-tests**. |
+| `pnpm audit --audit-level low` | **Failed: 1 low Elliptic advisory remains**; two high and one moderate advisories were removed with scoped published patch pins. No audit exception was added. |
+| `bootstrap-ci.py --verify-dependencies` / approved SBOM inventory | **Blocked**: the added SDK graph is outside the old exact inventory and includes GPL/Unlicense packages and a package lacking npm license metadata. Existing verification remains intact. No approved dependency/SBOM evidence is claimed. |
 
 These checks do not substitute for real owner-funded challenge acceptance or an independent security audit.
+
+The raw SDK tree initially brought four advisories. Scoped overrides pin `jsonpath>underscore` to **1.13.8** and `@ethersproject/providers>ws` to **8.22.0**, addressing the [Underscore recursion advisory](https://github.com/advisories/GHSA-qpx9-hpmf-5gmw) and both WebSocket advisories. The [remaining Elliptic advisory](https://github.com/advisories/GHSA-848j-6mx2-7j84) affects the SDK's transitive **6.6.1**. The advisory lists 6.6.2 as patched, but the official npm registry returned no published 6.6.2 and identified 6.6.1 as latest during this work. Do not pin a nonexistent release or waive the failing gate. This draft does not use EVM signing, but that fact is not an audit exemption. The registry verifier also reported 14 new license-review entries (GPL-3.0 / Unlicense / missing metadata), unchanged existing exception pins and no new integrity-mismatch finding; this is not a completed license clearance. SDK dependency remediation/review is an engineering prerequisite, not an owner wallet action.
 
 [Draft PR #55](https://github.com/alrimarleskovar/gryloo/pull/55) targets main and remains draft pending genuine acceptance. The main-base conflict resolution is confined to this privacy branch.
 

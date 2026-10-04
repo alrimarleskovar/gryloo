@@ -4,7 +4,7 @@
 
 Add privacy to Flofi's existing canonical swap workflow, without a separate application or general privacy runtime. The original request was `Swap 5 USDC to SOL privately`. Discovery established that the published Cloak SDK does not support that direction or shielded swap proceeds. The owner subsequently selected the alternative demonstration: **SOL → public USDC, with private SOL change**. Never label the USDC proceeds private. Preserve a fail-closed response to the original request.
 
-Initial base: `origin/main` at `ce78992bdb135c96caf55da90880c7aa0591958a`, fetched on 2026-10-04. The supplied workspace was already a clean, isolated worktree on `codex/build-privacy-001-cloak`. Main advanced during implementation; the final privacy branch is based on updated `origin/main` at `7f582c55775f086ac456b22032c0c63a759c4176`. Only the privacy commit was rebased onto main and its UI conflicts resolved. No protected branch/worktree was modified or used directly as a merge/rebase/cherry-pick source.
+Initial base: `origin/main` at `ce78992bdb135c96caf55da90880c7aa0591958a`, fetched on 2026-10-04. The supplied workspace was already a clean, isolated worktree on `codex/build-privacy-001-cloak`. Main advanced twice during implementation; the final privacy branch is based on updated `origin/main` at `ebbd4aa3766a656f01b24a61ea71e13c4963b1f8`. Only the privacy commits were rebased onto main and their conflicts resolved. No protected branch/worktree was modified or used directly as a merge/rebase/cherry-pick source.
 
 ## Discovery and protocol requirements
 
@@ -24,6 +24,7 @@ Swap Tx1 consumes shielded SOL and opens SwapState; a separate settlement perfor
 - Existing Guided command parser, editor reducer, revision invalidation, Canvas, proposal review and artifact inspector.
 - Frozen v1 artifact hashes and schemas, ArtifactSet → SimulationBundle → AuthorizationPolicy → StrategyManifest → ExecutionPlan.
 - Existing capability resolution, owner wallet sessions, journal creation/state transitions, evidence classes and reconciliation principles.
+- The current-main cloud runtime remains the public attempt/journal/evidence boundary; private spending authority must stay in the browser. No private provider route, extra runtime or cloud deployment is introduced here.
 - Existing public Solana/Jupiter compilation remains unavailable to any privacy-required workflow; no public fallback.
 
 The Cloak adapter belongs at the existing execution boundary. Proofs and spending secrets must stay in the browser. A browser component is technically required: Flofi's existing server executor cannot receive private notes. The current frontend CSP permits only same-origin connections. Do not casually broaden it to enable SDK traffic.
@@ -51,6 +52,8 @@ Require all applicable public confirmations, finalized settlement evidence for t
 ## Security risks and implementation gates
 
 Browser data loss, XSS, passphrase loss, leaked backups, quota failures, multi-tab races, SDK hidden note creation, two-stage swap ambiguity, stale quotes, fee changes and wallet switching are material risks. Persist-before-submit and immutable checkpoints are required. Fail closed on any gate that cannot be satisfied.
+
+Dependency discovery during final checks: the SDK introduces legacy EVM/proving dependencies even though this demonstration is Solana-only. Preserve the audit threshold and exact integrity/license/SBOM controls. Two available scoped patches remove the Underscore/WebSocket advisories; Elliptic 6.6.1 still fails the low-severity audit and the indicated 6.6.2 patch is not published in npm. Added license/inventory review remains required. Keep these as explicit blockers rather than approving exceptions to obtain a green demo.
 
 SDK free functions perform proving and submission together. Existing Flofi exact unsigned-message simulation cannot simply simulate the Cloak result; public Jupiter balance-delta reconciliation cannot prove private change. Build the narrow adapter/state boundary and fail-closed tests first. Keep financial execution disabled if the existing exact simulation, prepared-output persistence, browser network configuration or authoritative settlement verification cannot be safely satisfied. Record engineering blockers distinctly from owner-only signatures/funding. Do not pretend a policy feasibility check is a financial simulation.
 

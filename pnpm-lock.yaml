@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  jsonpath>underscore: 1.13.8
+  '@ethersproject/providers>ws': 8.22.0
+
 patchedDependencies:
   '@streamparser/json@0.0.26': 3232498480ccaaab0643460d8c365f143109561324575b05feff987eb45278e6
   '@xyflow/system@0.0.82': 4420c4eab49ef56325c7cb81898894b1c9f08fe39621216e8cf77532ce98f6d5
@@ -2133,8 +2137,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  underscore@1.13.6:
-    resolution: {integrity: sha512-+A5Sja4HP1M08MaXya7p5LvjuM7K6q/2EaC0+iovj/wOcMsTzMvDFbasi/oSapiwOlt252IqsKqPjCl7huKS0A==}
+  underscore@1.13.8:
+    resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
 
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
@@ -2259,18 +2263,6 @@ packages:
   word-wrap@1.2.5:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
-
-  ws@8.18.0:
-    resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
 
   ws@8.22.0:
     resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
@@ -2543,7 +2535,7 @@ snapshots:
       '@ethersproject/transactions': 5.8.0
       '@ethersproject/web': 5.8.0
       bech32: 1.1.4
-      ws: 8.18.0
+      ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -4037,7 +4029,7 @@ snapshots:
     dependencies:
       esprima: 1.2.5
       static-eval: 2.1.1
-      underscore: 1.13.6
+      underscore: 1.13.8
 
   keyv@5.6.0:
     dependencies:
@@ -4431,7 +4423,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  underscore@1.13.6: {}
+  underscore@1.13.8: {}
 
   undici-types@7.18.2: {}
 
@@ -4497,8 +4489,6 @@ snapshots:
       stackback: 0.0.2
 
   word-wrap@1.2.5: {}
-
-  ws@8.18.0: {}
 
   ws@8.22.0: {}
 

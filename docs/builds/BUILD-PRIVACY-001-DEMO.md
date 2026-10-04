@@ -8,8 +8,8 @@ Use Node 24.21.0 and pnpm 11.22.0 in the isolated `codex/build-privacy-001-cloak
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm exec turbo run build --cache-dir .turbo/privacy001-cache
-pnpm --filter @defi-workflow-engine/reference-dapp start --port 3017
+API_BASE_URL= API_AUTH_TOKEN= pnpm exec turbo run build --cache-dir .turbo/privacy001-cache
+API_BASE_URL= API_AUTH_TOKEN= pnpm --filter @defi-workflow-engine/reference-dapp start --port 3017
 ```
 
 1. Open `http://127.0.0.1:3017` in a fresh browser session.
@@ -39,7 +39,7 @@ This wording is accurate for this draft. Do not replace “not yet integrated”
 
 ## Owner-only actions remaining
 
-**Now:** no financial owner action can unblock this implementation. Do not fund or sign in an attempt to bypass the engineering gates in the report.
+**Now:** no financial owner action can unblock this implementation. Do not fund or sign in an attempt to bypass the engineering gates in the report, including the unresolved SDK dependency audit and license/inventory review. The local authoring demonstration does not grant permission to merge or deploy financial execution.
 
 Separate owner-only repository/hosting follow-up remains: inspect GitHub **Billing & plans** for the failed-payment/spending-limit condition reported by [contract CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420919) and [governance CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420925), resolve the account condition personally, then rerun those checks. Open the [failed Vercel preview](https://vercel.com/alrimarleskovars-projects/flofi/Axy3vxeYHHCRSGCjJcBpoeMYVGdx) and inspect its build logs; the deployment error cause is unverified here. These actions do not resolve the financial execution engineering gates. The agent has not changed account billing, spending limits or deployment settings.
 
