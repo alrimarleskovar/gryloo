@@ -7,6 +7,21 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-JOURNEY-001 — Permissionless external user journey
+
+**Status: IMPLEMENTATION COMPLETE — DEPLOYED JOURNEY NOT YET RUN (`PERMISSIONLESS_EXECUTED` not claimed).** Branch
+`claude/build-journey-001` from main `bc4fc57`. The existing Router lifecycle now serves any external wallet on public
+testnets: **Base Sepolia USDC → Cross-chain Router → Arbitrum Sepolia USDC** (verified supported by LI.FI and the Across
+testnet API; real Across testnet fills observed), as its own flow `crosschain-router-testnet` (gate `GRYLOO_ROUTER_TESTNET=live`).
+A one-signature EIP-4361 wallet session (verified server-side; no transaction authority) binds every Router run to the wallet
+that created it in the API and local actions; run reads and listings are per wallet; an account switch after Review clears
+the unused authorization; runs are recoverable from any browser. No new runtime, executor, authorization or evidence format;
+no new dependency (app manifest and lockfile identical to main). Evidence: MOCKED (unit 1,411, PostgreSQL 40 incl. the journey
+suite with API/worker restarts and wallet isolation, browser journey 3/3) and a real `PUBLIC_READ_ONLY` preflight
+([BUILD-JOURNEY-001-READONLY.json](builds/BUILD-JOURNEY-001-READONLY.json)). Owner actions remain: deploy this revision's
+API/worker with `GRYLOO_ROUTER_TESTNET=live`, make the Vercel URL public, then an external user's own run. See the
+[plan](builds/BUILD-JOURNEY-001-PLAN.md) and [report](builds/BUILD-JOURNEY-001-REPORT.md).
+
 ## BUILD-ROUTER-001 — Flofi canonical Cross-chain Router
 
 **Status: IMPLEMENTATION COMPLETE — READY FOR OWNER MAINNET E2E.** Branch `claude/build-crosschain-router-001` from main
