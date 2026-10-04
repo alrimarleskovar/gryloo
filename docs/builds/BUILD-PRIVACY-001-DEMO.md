@@ -31,6 +31,17 @@ pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test --config
 
 Install Playwright's matching Chromium and OS libraries using your usual development setup if they are absent. The first test aborts any request to a non-loopback host and verifies none occurred.
 
+## Available local engineering lifecycle
+
+The continuation adds a safe LOCAL/MOCKED simulation → reviewed acknowledgment → execution → encrypted restart/reconciliation harness. Run it in this worktree with the approved toolchain:
+
+```sh
+pnpm --filter @defi-workflow-engine/reference-compiler build
+pnpm exec vitest run apps/reference-dapp/src/privacy/local-execution.test.ts --maxWorkers=2 --testTimeout=30000
+```
+
+The 40 lifecycle cases use actual SDK note codecs, synthetic note authority, an encrypted local backend, a simulated wallet acknowledgment and a closed in-process ledger. They exercise tampering, replay, lost responses and failed checkpoints as well as successful reload/reconciliation. They perform no wallet signing or public-chain transaction. The production browser UI continues to expose feasibility only; this test harness is not wired into it. See the [report](BUILD-PRIVACY-001-REPORT.md) for the remaining engineering gates and [dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md) for the audit/license blockers.
+
 ## Exact privacy explanation for the current submission
 
 > Flofi makes privacy a required property of its existing canonical workflow, rather than a separate application. For this Cloak integration, the supported target is shielded SOL input exchanged for public USDC, with remaining SOL change kept shielded. USDC proceeds and their recipient are public. Deposits, swap transactions, timing and network metadata remain observable; this is not a claim that the entire trade is invisible or that anonymity is guaranteed. Flofi refuses public fallback for a privacy-required workflow. Its adapter preserves actual Cloak note and refund authority in encrypted, run-linked browser checkpoints, and its reconciliation contract requires settlement plus verified, reloadable private change before success. The present draft demonstrates policy authoring, fail-closed feasibility and local SDK/state security tests. Funded execution, exact financial simulation and authoritative chain reconciliation are not yet integrated, so it provides no mainnet execution acceptance evidence.
@@ -41,7 +52,7 @@ This wording is accurate for this draft. Do not replace “not yet integrated”
 
 **Now:** no financial owner action can unblock this implementation. Do not fund or sign in an attempt to bypass the engineering gates in the report, including the unresolved SDK dependency audit and license/inventory review. The local authoring demonstration does not grant permission to merge or deploy financial execution.
 
-Separate owner-only repository/hosting follow-up remains: inspect GitHub **Billing & plans** for the failed-payment/spending-limit condition reported by [contract CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420919) and [governance CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420925), resolve the account condition personally, then rerun those checks. Open the [failed Vercel preview](https://vercel.com/alrimarleskovars-projects/flofi/Axy3vxeYHHCRSGCjJcBpoeMYVGdx) and inspect its build logs; the deployment error cause is unverified here. These actions do not resolve the financial execution engineering gates. The agent has not changed account billing, spending limits or deployment settings.
+Historical remote CI/preview failures are recorded in the report. This continuation uses local validation and requires no billing, account, funding, wallet, signing, secret or API-key action. It does not alter the separate CI migration or deployment settings. The next engineering stage is live prepare-only simulation and authoritative observation transport, subject to dependency clearance and review of this uncommitted slice.
 
 **Only after those gates are implemented and reviewed**, the owner must personally perform these actions:
 

@@ -11,7 +11,9 @@ export type PrivateState = PrivateStateIdentity & {
 };
 export type VaultReference = PrivateStateIdentity & { checkpoint: PrivateState['checkpoint']; ciphertextHash: string };
 /** putNew must atomically reject an existing key; acknowledgment means the transaction committed. */
-export type VaultBackend = { putNew(key: string, value: string): Promise<void>; get(key: string): Promise<string | null> };
+export type VaultBackend = { putNew(key: string, value: string): Promise<void>; get(key: string): Promise<string | null>;
+  /** All keys commit together or none do. Required for submission and cross-run reservations. */
+  putManyNew?(entries: readonly { key: string; value: string }[]): Promise<void> };
 function fail(code: string): never { throw new Error(code); }
 const encode = (bytes: Uint8Array): string => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
 const decode = (text: unknown, length?: number): Uint8Array<ArrayBuffer> => {
@@ -63,6 +65,40 @@ export class PrivateStateVault {
     const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(this.passphrase), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
   }
+  /** Separate authenticated execution records; the completed v1 note codec stays unchanged. */
+  async saveExecution(identityInput: PrivateStateIdentity, stage: string, value: unknown, reservationInput: readonly string[] = []): Promise<void> {
+    const identity = structuredClone(identityInput), reservations = [...reservationInput];
+    if (!/^execution\.(prepared|intent|handoff|submitted|reconciled)$/.test(stage)) fail('PRIVACY_STAGE_INVALID');
+    const text = JSON.stringify(structuredClone(value));
+    if (!text || text.length > 1_048_576) fail('PRIVACY_STATE_TOO_LARGE');
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv,
+      additionalData: aadOf({ ...identity, checkpoint: stage }) }, await this.key(salt), new TextEncoder().encode(text)));
+    const envelope = JSON.stringify({ format: 'flofi.cloak-execution-v1', salt: encode(salt), iv: encode(iv), ciphertext: encode(ciphertext) });
+    const entries = [{ key: keyOf({ ...identity, checkpoint: stage }), value: envelope },
+      ...reservations.map(key => ({ key: 'cloak.reservation:' + key, value: envelope }))];
+    if (stage === 'execution.intent') {
+      if (!this.backend.putManyNew || !reservations.length) fail('PRIVACY_ATOMIC_RESERVATION_UNAVAILABLE');
+      await this.backend.putManyNew(entries);
+    } else {
+      if (reservations.length) fail('PRIVACY_STAGE_INVALID');
+      await this.backend.putNew(entries[0]!.key, envelope);
+    }
+    if (JSON.stringify(await this.loadExecution(identity, stage)) !== text) fail('PRIVACY_PERSISTENCE_DIVERGENT');
+  }
+  async loadExecution(identityInput: PrivateStateIdentity, stage: string): Promise<unknown | null> {
+    const identity = structuredClone(identityInput);
+    const envelope = await this.backend.get(keyOf({ ...identity, checkpoint: stage }));
+    if (envelope === null) return null;
+    try {
+      if (envelope.length > 1_500_000) fail('PRIVACY_STATE_TOO_LARGE');
+      const parsed: unknown = JSON.parse(envelope);
+      if (!exact(parsed, ['format', 'salt', 'iv', 'ciphertext']) || parsed.format !== 'flofi.cloak-execution-v1') fail('PRIVACY_STATE_INVALID');
+      const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decode(parsed.iv, 12),
+        additionalData: aadOf({ ...identity, checkpoint: stage }) }, await this.key(decode(parsed.salt, 16)), decode(parsed.ciphertext));
+      return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(plaintext));
+    } catch { throw new Error('PRIVACY_STATE_UNREADABLE'); }
+  }
   async save(input: PrivateState): Promise<VaultReference> {
     // Snapshot before the first await so a caller cannot alter note ownership mid-write.
     const state: unknown = structuredClone(input); validatePrivateState(state);
@@ -96,6 +132,20 @@ export class PrivateStateVault {
     await this.load(reference); // A corrupt or wrong-owner record must never be exported as a usable backup.
     return await this.backend.get(keyOf(reference)) ?? fail('PRIVACY_RECOVERY_DATA_MISSING');
   }
+  /** Recover a committed result when the process stopped before its evidence pointer was written. */
+  async existingResult(identity: PrivateStateIdentity): Promise<VaultReference | null> {
+    const envelope = await this.backend.get(keyOf({ ...identity, checkpoint: 'result' }));
+    if (envelope === null) return null;
+    try {
+      const parsed = JSON.parse(envelope) as { ciphertext: unknown };
+      const reference: VaultReference = { ...identity, checkpoint: 'result', ciphertextHash: await digest(decode(parsed.ciphertext)) };
+      await this.load(reference); return reference;
+    } catch { throw new Error('PRIVACY_STATE_UNREADABLE'); }
+  }
+  async hasExecutionReservation(keys: readonly string[]): Promise<boolean> {
+    const reservations = await Promise.all(keys.map(key => this.backend.get('cloak.reservation:' + key)));
+    return reservations.some(value => value !== null);
+  }
   async restore(reference: VaultReference, encryptedBackup: string): Promise<PrivateState> {
     // Verify in an isolated sink before committing the supplied ciphertext to durable storage.
     const reader = new PrivateStateVault({ get: async () => encryptedBackup, putNew: async () => fail('PRIVACY_READ_ONLY') }, this.passphrase);
@@ -109,6 +159,14 @@ export class PrivateStateVault {
 /** Immutable checkpoints; IDB add fails on duplicates. Resolve only on transaction completion. */
 export function indexedDbVaultBackend(db: IDBDatabase): VaultBackend {
   return {
+    putManyNew: entries => new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('checkpoints', 'readwrite', { durability: 'strict' });
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(new Error('PRIVACY_RESERVATION_CONFLICT'));
+      tx.onerror = () => reject(new Error('PRIVACY_RESERVATION_CONFLICT'));
+      try { for (const entry of entries) tx.objectStore('checkpoints').add(entry.value, entry.key); }
+      catch { tx.abort(); reject(new Error('PRIVACY_RESERVATION_CONFLICT')); }
+    }),
     putNew: (key, value) => new Promise<void>((resolve, reject) => {
       const tx = db.transaction('checkpoints', 'readwrite', { durability: 'strict' });
       tx.objectStore('checkpoints').add(value, key);

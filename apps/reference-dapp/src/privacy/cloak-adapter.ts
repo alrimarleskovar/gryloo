@@ -37,10 +37,10 @@ export class CloakResultDivergence extends Error {
   constructor(readonly recoveryReference: VaultReference) { super('CLOAK_PRIVATE_RESULT_DIVERGENT'); }
 }
 
-/** Prepare and persist actual change and refund authority before any SDK financial operation can run. */
-export async function prepareCloakPrivateState(input: { identity: PrivateStateIdentity; inputUtxos: Utxo[];
-  swapAmount: bigint; viewingKeyNk: Uint8Array; vault: PrivateStateVault }): Promise<{ reference: VaultReference; state: PrivateState }> {
-  const { identity, vault, swapAmount } = input;
+/** Prepare-only note material so its commitment can enter Review before the final Manifest-linked write. No submission. */
+export async function buildCloakPrivateState(input: { identity: PrivateStateIdentity; inputUtxos: Utxo[];
+  swapAmount: bigint; viewingKeyNk: Uint8Array }): Promise<PrivateState> {
+  const { identity, swapAmount } = input;
   const notes = input.inputUtxos.map(note => ({ ...note, keypair: { ...note.keypair } }));
   const nk = input.viewingKeyNk.slice();
   if (identity.programId !== CLOAK_RUNTIME.programId || identity.genesisHash !== CLOAK_RUNTIME.genesisHash) fail('CLOAK_NETWORK_MISMATCH');
@@ -55,6 +55,14 @@ export async function prepareCloakPrivateState(input: { identity: PrivateStateId
     refund: { privateKey: hex(refund.privateKey), publicKey: hex(refund.publicKey), blinding: hex(refund.blinding), derivedFromNk: true },
     viewingKeyNk: byteHex(nk), noteSalt: output.noteSalt.toString(), swapStatePda: null, signature: null };
   if (new Set(state.inputNotes.map(n => n.commitment)).size !== state.inputNotes.length) fail('CLOAK_DUPLICATE_INPUT_NOTE');
+  return state;
+}
+
+/** Prepare and persist actual change and refund authority before any SDK financial operation can run. */
+export async function prepareCloakPrivateState(input: { identity: PrivateStateIdentity; inputUtxos: Utxo[];
+  swapAmount: bigint; viewingKeyNk: Uint8Array; vault: PrivateStateVault }): Promise<{ reference: VaultReference; state: PrivateState }> {
+  const vault = input.vault;
+  const state = await buildCloakPrivateState(input);
   return { reference: await vault.save(state), state };
 }
 

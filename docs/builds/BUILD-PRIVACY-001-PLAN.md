@@ -74,3 +74,11 @@ Zcash; private USDC → SOL or shielded swap proceeds not supported by this SDK;
 ## Deliverables
 
 Implementation and meaningful security tests; BUILD-PRIVACY-001-REPORT.md; exact demo/owner instructions; truthful submission privacy explanation; draft PR with no manufactured financial acceptance evidence.
+
+## Continuation: deterministic local execution/recovery slice
+
+Continue only the existing `codex/build-privacy-001-cloak` worktree at PR #55 head `e98101d`. Preserve completed policies, SDK codecs, vault encryption, wallet guards, rejection paths and the pure reconciler. Do not change main, CI migration, Tempo or BUILD-016; do not commit/push/merge before review of the updated report.
+
+Implement a LOCAL-only fixture compiler using the unchanged v1 artifact/Manifest chain; bind the complete reviewed route, amounts, privacy, owner/recipient, prepared change commitment, fees, nonce, expiry and recovery to explicit simulated authorization. Write encrypted preparation and atomic intent/input-note/nonce reservations before the local submitter can run. Persist raw SDK hand-off/quarantine, actual results and observation/verdict evidence afterwards. Restart after intent only inspects/reconciles the same attempt and never automatically signs, retries or regenerates state. Keep the financial UI, CSP, real execution guard and acceptance gates disabled. Local observations stay MOCKED.
+
+Prove success and failure lifecycles with safe fixtures: authorization forgery/tampering, fallback, expiry, concurrent/replayed attempts, restart before/after submission, lost response/write, public/private mismatch, malformed output, absent/corrupt storage and owner changes. Investigate published dependency remedies and exact license/inventory findings without weakening their gates. Report changed files, completed local behavior, remaining live/browser gaps, validation, blockers and any genuinely required owner action. No financial owner action is needed for this slice or its next engineering stage.
