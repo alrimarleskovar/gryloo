@@ -30,8 +30,8 @@ export function BorrowAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string
   </form>;
 }
 const messages:Record<string,string>={
-  BORROW_INSUFFICIENT_COLLATERAL:'No sufficient collateral was found.',BORROW_COLLATERAL_NOT_ENABLED:'Your supplied USDC must be enabled as collateral in Aave before Borrow. Gryloo will not enable it automatically.',
-  BORROW_ABOVE_CAPACITY:'The amount exceeds your available borrow capacity.',BORROW_UNSAFE_HEALTH_FACTOR:'This borrow would leave health factor below Gryloo’s minimum of 2.0. Reduce the amount.',
+  BORROW_INSUFFICIENT_COLLATERAL:'No sufficient collateral was found.',BORROW_COLLATERAL_NOT_ENABLED:'Your supplied USDC must be enabled as collateral in Aave before Borrow. Flofi will not enable it automatically.',
+  BORROW_ABOVE_CAPACITY:'The amount exceeds your available borrow capacity.',BORROW_UNSAFE_HEALTH_FACTOR:'This borrow would leave health factor below Flofi’s minimum of 2.0. Reduce the amount.',
   SUPPLY_RESERVE_UNAVAILABLE:'This Aave reserve is currently unavailable.',
   BORROW_RESERVE_UNAVAILABLE:'Borrowing is currently unavailable for this reserve.',BORROW_INSUFFICIENT_LIQUIDITY:'Aave does not have enough available USDC.',BORROW_AUTHORIZATION_STALE:'The reviewed collateral, debt or price changed. Simulate and review again.',
   SUPPLY_AUTHORIZATION_STALE:'Review expired or the wallet state changed. Simulate and review again.',SUPPLY_WRONG_CHAIN:'Switch your wallet to Base Sepolia.',SUPPLY_WRONG_ACCOUNT:'Select the borrower wallet shown in Review.',SUPPLY_REJECTED:'The Borrow request was declined.',
@@ -53,7 +53,7 @@ export function BorrowPanel({view}:{view:'simulate'|'execute'}){
       <p>Available borrow capacity: ${human(risk.availableBorrowBase,8)}</p>
       <p>Health factor before: {hf(risk.healthFactor)}</p><p>Estimated health factor after: {hf(review!.borrow!.expectedPostHealthFactor)}</p>
       <p>Estimated debt after transaction: ${human(review!.borrow!.debtAfterBase,8)}</p>
-      <p>Liquidation threshold: {human(risk.liquidationThresholdBps,2)}%. Liquidation becomes possible below health factor 1. Gryloo requires at least 2.0; prices and interest can change.</p>
+      <p>Liquidation threshold: {human(risk.liquidationThresholdBps,2)}%. Liquidation becomes possible below health factor 1. Flofi requires at least 2.0; prices and interest can change.</p>
       <p>Estimated maximum network cost: {human(review!.manifest.gasBudgets[0]?.maximumAmount??'0',18)} ETH.</p></>}
     {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)} onClick={()=>void run.simulate()}>Simulate Borrow</button>:<>
       {review&&<p>Borrower / beneficiary: {review.account}</p>}
@@ -63,9 +63,9 @@ export function BorrowPanel({view}:{view:'simulate'|'execute'}){
       {pending&&record?.verdict==='PENDING'&&<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing transaction</button>}
       {record?.notSubmitted&&<p>The wallet request was not submitted. This attempt is retained. Prepare a fresh owner review for the same intent.</p>}
       {record?.notSubmitted&&<button type="button" disabled={run.busy} onClick={()=>void run.recoverReview()}>Prepare fresh review</button>}
-      {record?.attempts.length&&!record.evidence?<a download="gryloo-aave-borrow-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>:null}
+      {record?.attempts.length&&!record.evidence?<a download="flofi-aave-borrow-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>:null}
       {record?.evidence&&observation?.postPosition?.borrow&&<><p>Borrow independently reconciled. Wallet increased by {human(observation.walletDelta!,6)} USDC; debt is {human(observation.postPosition.borrow.debt,6)} USDC; health factor is {hf(observation.postPosition.borrow.healthFactor)}.</p>
-        <a download="gryloo-aave-borrow-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
+        <a download="flofi-aave-borrow-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
     </>}
     {info&&<p role="status">{messages[info]??'Borrow needs attention. Inspect technical details and observe any existing transaction.'}</p>}
     <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,review,attempts:record?.attempts,observations:record?.observations,walletDiagnostic:record?.walletDiagnostic,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>

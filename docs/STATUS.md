@@ -1,5 +1,12 @@
 # Repository status
 
+Current product name: **Flofi** (formerly Gryloo); see the
+[branding transition](builds/BUILD-BRAND-001-PLAN.md). Historical entries below
+retain the name used at the time. Runtime identifiers remain compatible.
+BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
+`6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
+This separate branding build does not resume its execution work or start BUILD-CLOUD-001.
+
 ## BUILD-013 — Advanced lending composition
 
 **Implementation evidence: MOCKED; public execution gated.** Owner-approved single finite path: Supply Aave USDC → HF checkpoint ≥ 2.0 → Borrow Aave USDC → Swap exactly the borrowed output to WETH on Base Sepolia. Chat/Canvas authoring, composed Simulate/Review, exact owner calls, durable partial recovery, economic reconciliation and an independent read-only verifier are implemented with no Manifest schema change. The exact-token compatible route was discovered independently, but all three original bounded public sequential-simulation attempts, and all three separate recheck attempts, were rate-limited. **PUBLIC_EXECUTION_BLOCKED** before Supply; no public owner transaction/signature and no public composed completion/certification claim. See the [plan](builds/BUILD-013-PLAN.md), [report](builds/BUILD-013-REPORT.md), preserved [preflight](builds/BUILD-013-PREFLIGHT-READONLY.json) and open [PR #48](https://github.com/alrimarleskovar/gryloo/pull/48). The original `7003856` implementation is preserved in `dd0e97d`; the later RH-DEMO main was integrated only after GitHub confirmed PR conflicts. Robinhood and historical BUILD-012 records remain unchanged against main.

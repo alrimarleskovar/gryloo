@@ -1,6 +1,6 @@
 # Trademarks
 
-Gryloo names, logos, visual identity, and associated goodwill are not licensed
+Flofi and legacy Gryloo names, logos, visual identity, and associated goodwill are not licensed
 by the source and documentation licenses described in this repository. No
 trademark rights are granted by source availability, contribution,
 redistribution, or use.

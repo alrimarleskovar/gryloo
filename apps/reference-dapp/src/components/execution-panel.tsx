@@ -41,7 +41,7 @@ export function ExecutionPanel() {
       {view.attempt.transactionHash && <div><dt>Transaction</dt><dd><code>{view.attempt.transactionHash}</code></dd></div>}
       {view.observation && <div><dt>Independent read</dt><dd>{view.observation.outcome} · {view.observation.code}</dd></div>}
     </dl>}
-    {view.label === 'SUBMISSION_RESULT_UNKNOWN' && <p className="simulate-alert" role="status">The wallet result is unknown. Gryloo will not request this step again; it first scans the fork (nonce, blocks, txpool) for the exact transaction.</p>}
+    {view.label === 'SUBMISSION_RESULT_UNKNOWN' && <p className="simulate-alert" role="status">The wallet result is unknown. Flofi will not request this step again; it first scans the fork (nonce, blocks, txpool) for the exact transaction.</p>}
     {view.label === 'DIVERGENT' && <p className="simulate-alert" role="alert">The signed transaction differs from the reviewed payload ({view.observation?.code}). It can never be RECONCILED.</p>}
     <div className="simulate-controls">
       {!view.attempt || view.label === 'NOT_FOUND'
@@ -59,7 +59,7 @@ export function ExecutionPanel() {
           : <button type="button" onClick={modeA.connect} disabled={Boolean(busy)}>Connect injected wallet</button>}
       </div>
     </div>
-    {walletError && <p className="simulate-alert" role="alert">Wallet refused before any request: {walletError}. Gryloo never switches chains or accounts.</p>}
+    {walletError && <p className="simulate-alert" role="alert">Wallet refused before any request: {walletError}. Flofi never switches chains or accounts.</p>}
     {!reviewAccepted && <p className="simulate-note">Review the Mode A Manifest above before any wallet request.</p>}
     {busy && <p className="simulate-note" role="status">{busy}.</p>}
     {error && <p className="simulate-alert" role="alert">Step refused: {error}.</p>}

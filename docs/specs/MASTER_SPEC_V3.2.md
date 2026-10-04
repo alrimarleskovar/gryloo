@@ -1,11 +1,15 @@
-# Gryloo — Master Product Specification
+# Flofi — Master Product Specification
+
+Branding-only revision: 2026-10-02, BUILD-BRAND-001. The original specification
+and implementation history used Gryloo. Technical contracts, historical evidence
+and compatibility identifiers retain their original names; product semantics are unchanged.
 
 **Status:** Final v3.2 for team implementation, bounded-authority validation and embedded distribution  
 **Version:** 3.2  
 **Date:** 21 September 2026  
 **Category:** Verifiable multichain DeFi workflow composition and execution  
 **Execution modes:** Mode A transaction authorization, Mode B finite delegated execution, and bounded Mode C automation after Mode B certification  
-**Brand status:** `Gryloo` is the team-approved product name following market research; protocol-level identifiers remain technically neutral
+**Brand status:** `Flofi` is the owner-approved product name under BUILD-BRAND-001 (formerly Gryloo); protocol-level identifiers remain technically neutral
 
 ---
 
@@ -33,7 +37,7 @@ The product has two distribution modes built on the same engine:
 - **Original DApp:** the complete interface for creating, reviewing, signing, tracking and recovering workflows;
 - **embedded engine:** a widget, SDK, API or MCP integration that lets wallets, fintechs, on/off-ramps and crypto platforms offer the same capabilities inside their own products.
 
-This embedded layer does not create a second thesis. It distributes the Gryloo v3.2 engine through partner channels. Every execution still produces the same Semantic Workflow IR, Strategy Manifest, Execution ID, canonical states and evidence. The original Gryloo DApp remains the canonical center for tracking and recovery, including when the journey began outside it.
+This embedded layer does not create a second thesis. It distributes the Flofi v3.2 engine through partner channels. Every execution still produces the same Semantic Workflow IR, Strategy Manifest, Execution ID, canonical states and evidence. The original Flofi DApp remains the canonical center for tracking and recovery, including when the journey began outside it.
 
 The product's trust promise depends on the authorization mode:
 
@@ -229,7 +233,7 @@ The user adds actions step by step through chat or canvas. The product validates
 
 ### 6.5 Arbitrage
 
-The product vision supports arbitrage nodes, but live competitive arbitrage is not a core release promise. Gryloo may detect and simulate an opportunity. Live execution requires private order flow, latency engineering, MEV protection and strict profitability guarantees.
+The product vision supports arbitrage nodes, but live competitive arbitrage is not a core release promise. Flofi may detect and simulate an opportunity. Live execution requires private order flow, latency engineering, MEV protection and strict profitability guarantees.
 
 ---
 
@@ -741,7 +745,7 @@ Every adapter exposes:
 
 Allow partner platforms to offer multichain DeFi composition and execution inside their own user journeys while using the same verifiable engine as the original DApp.
 
-> The partner distributes the experience. Gryloo compiles, simulates, constrains, executes, reconciles and proves.
+> The partner distributes the experience. Flofi compiles, simulates, constrains, executes, reconciles and proves.
 
 The embedded layer is a B2B2C distribution and monetization strategy. It is not a separate product, does not fork the Semantic Workflow IR and does not make the partner a custodian by default.
 
@@ -869,7 +873,7 @@ MCP receives no private keys and exposes no `send_arbitrary_transaction` tool. T
 
 | Party | Primary responsibility |
 |---|---|
-| Gryloo | Compilation, schemas, simulation, Manifest, orchestration, reconciliation and evidence |
+| Flofi | Compilation, schemas, simulation, Manifest, orchestration, reconciliation and evidence |
 | Partner | Offer context, communication, template curation, tenant identity and agreed first-line support |
 | User | Parameter selection, understanding of risks and wallet authorization |
 | Protocols/routes | Primitive execution, liquidity and protocol-specific settlement/refund mechanisms |
@@ -1037,7 +1041,7 @@ Mode C never grants unrestricted portfolio discretion and cannot silently expand
 
 ### 17.3 SolVerdict relationship
 
-SolVerdict remains independent. It can later attack workflows, prompts, adapters and Manifest enforcement as a security/regression service. Gryloo must remain usable without it.
+SolVerdict remains independent. It can later attack workflows, prompts, adapters and Manifest enforcement as a security/regression service. Flofi must remain usable without it.
 
 ---
 
@@ -1113,7 +1117,7 @@ This specification is not legal advice.
 
 ### 19.3 Embedded platform release — must ship on the same engine
 
-- global Execution ID and Execution Explorer in the original Gryloo DApp;
+- global Execution ID and Execution Explorer in the original Flofi DApp;
 - versioned Strategy Templates with authorship and content hashes;
 - reference widget able to load, simulate, authorize and track a template;
 - headless SDK using the same contracts;
@@ -1159,14 +1163,14 @@ This specification is not legal advice.
 ### Demo 1 - Beginner
 
 1. User asks to swap USDC to ETH.
-2. Gryloo compares Uniswap and, when independently certified, CoW by disclosed net-result criteria.
+2. Flofi compares Uniswap and, when independently certified, CoW by disclosed net-result criteria.
 3. User reviews the Semantic Workflow IR, artifacts, Simulation Bundle and decoded Mode A payload or intent.
 4. User signs and receives reconciled execution evidence.
 
 ### Demo 2 - Bounded authority
 
 1. User creates a finite USDC to Uniswap liquidity workflow through chat and confirms the same plan on canvas.
-2. Gryloo calculates the token composition for the approved range rather than assuming 50/50.
+2. Flofi calculates the token composition for the approved range rather than assuming 50/50.
 3. The user installs or signs bounded Mode B authority with target, function, asset, amount, recipient, nonce and expiry limits.
 4. The browser closes and the deterministic executor completes the permitted workflow.
 5. A separate attempt changes the recipient or exceeds the cumulative budget and fails at the effective enforcement boundary.
@@ -1189,12 +1193,12 @@ This specification is not legal advice.
 3. Review detects an unsafe health factor and missing recovery step.
 4. User accepts corrected limits.
 5. Manifest diff proves exactly what changed.
-6. Gryloo clearly separates the execution-time health-factor check from continuing monitoring and does not promise prevention of future liquidation.
+6. Flofi clearly separates the execution-time health-factor check from continuing monitoring and does not promise prevention of future liquidation.
 
 ### Demo 5 - Solana portability
 
 1. The same semantic swap action is authored through chat or canvas.
-2. Gryloo resolves it to Jupiter through a Solana-specific adapter without creating a second product architecture.
+2. Flofi resolves it to Jupiter through a Solana-specific adapter without creating a second product architecture.
 3. Authorization, simulation, execution states and reconciliation expose the differences between EVM and Solana.
 4. One Orca or Raydium liquidity path follows only after its isolated gates pass.
 
@@ -1202,7 +1206,7 @@ This specification is not legal advice.
 
 1. A partner website opens a versioned strategy template.
 2. The user selects amount and limits without leaving the partner site.
-3. The widget uses the same Semantic Workflow IR, Simulation Bundle and Manifest as the Gryloo DApp.
+3. The widget uses the same Semantic Workflow IR, Simulation Bundle and Manifest as the Flofi DApp.
 4. The wallet displays and signs authorization bound to the Manifest Hash.
 5. The partner tracks events through the Execution ID.
 6. A simulated failure requires recovery.
@@ -1222,7 +1226,7 @@ The program is ordered by dependency and certification, not by team size or cale
 
 ### Phase 0 - Constitution and decisions
 
-- approve Gryloo naming and neutral protocol namespace rules;
+- approve Flofi naming and neutral protocol namespace rules;
 - freeze artifact terminology and canonical identifiers;
 - approve the Mode B authority ADR and threat model;
 - freeze licensing map and contribution policy;
@@ -1287,7 +1291,7 @@ The program is ordered by dependency and certification, not by team size or cale
 
 - deliver Strategy Templates, widget, SDK, API, MCP, Partner Gateway and console;
 - prove tenant isolation, signed webhooks and partner unavailability recovery;
-- show the same Execution ID, canonical state and Evidence Bundle in partner and Gryloo DApp surfaces.
+- show the same Execution ID, canonical state and Evidence Bundle in partner and Flofi DApp surfaces.
 
 ### Phase 10 - Hardening and public proof
 
@@ -1323,11 +1327,11 @@ The v3.2 implementation is accepted when:
 - evidence distinguishes confirmed, reconciled, inconclusive and divergent outcomes;
 - every proof is labeled `MOCKED`, `FORK_REPRODUCED`, `TESTNET_EXECUTED` or `MAINNET_EXECUTED`;
 - EVM and Solana paths are executed or reproduced in an explicitly identified official environment;
-- partner and Gryloo DApp display the same canonical state for the same Execution ID;
+- partner and Flofi DApp display the same canonical state for the same Execution ID;
 - a published template cannot change without a new version and content hash;
 - an API key, partner session, webhook or MCP call cannot move funds without wallet or previously bounded authority;
 - duplicate or out-of-order webhooks do not alter canonical state;
-- the user can recover in the Gryloo DApp an execution initiated through a partner;
+- the user can recover in the Flofi DApp an execution initiated through a partner;
 - logs and tests demonstrate isolation between at least two tenants;
 - public documentation discloses limitations, setup signatures, active permissions, revocation procedures and unsupported guarantees.
 
@@ -1409,7 +1413,7 @@ The v3.2 implementation is accepted when:
 6. Chained multichain simulation with propagated outputs, budgets and failure paths.
 7. Failure-aware, recoverable orchestration with independent reconciliation.
 8. Evidence from intent to business outcome, not merely transaction confirmation.
-9. Canonical continuity between the Gryloo DApp and embedded surfaces.
+9. Canonical continuity between the Flofi DApp and embedded surfaces.
 10. Versioned partner templates that generate individual Manifests rather than generic permissions.
 
 ### Long-term moat
@@ -1496,7 +1500,7 @@ Use an open-core model with explicit per-package licensing.
 
 ### 26.2 AGPL-3.0-only public implementation
 
-- Gryloo reference DApp;
+- Flofi reference DApp;
 - reference compiler and linter;
 - reference simulation engine;
 - local/reference executor and reconciler;
@@ -1522,8 +1526,8 @@ Use an open-core model with explicit per-package licensing.
 - dependency compatibility is reviewed before merge;
 - external contributions use an approved CLA if future dual licensing is required;
 - founders formalize IP ownership outside the repository;
-- the Apache and AGPL licenses grant no right to use the Gryloo name, logo or visual identity;
-- maintain `TRADEMARKS.md` for Gryloo;
+- the Apache and AGPL licenses grant no right to use the Flofi name, logo or visual identity;
+- maintain `TRADEMARKS.md` for Flofi;
 - commercial licensing for AGPL-incompatible partners requires a separate approved agreement;
 - directory placement alone never determines licensing without the corresponding legal files and package metadata.
 
@@ -1554,7 +1558,7 @@ This structure supports auditability and adoption while preserving managed opera
 | Status diverges between partner and DApp | High | One canonical state, ordered events and onchain reconciliation |
 | Cross-tenant data leakage | Critical | Isolation, authorization tests, audit logs and separate secrets |
 | Support responsibility becomes undefined | High | Contractual matrix, Execution ID and explicit handoff between partner and platform |
-| Embedded surfaces drift from the Gryloo DApp | High | Same contracts, hashes, Execution ID, state and Evidence Bundle across every surface |
+| Embedded surfaces drift from the Flofi DApp | High | Same contracts, hashes, Execution ID, state and Evidence Bundle across every surface |
 | Evidence overstates environment maturity | High | Mandatory mock, fork, testnet and mainnet labels |
 
 ---
@@ -1595,7 +1599,7 @@ One recurring or conditional policy proves frequency, duration, cumulative budge
 
 ### Gate 9 - Distribution integrity
 
-The same Execution ID, Manifest, canonical state and Evidence Bundle appear on the partner surface and in the Gryloo DApp; partner unavailability does not prevent tracking or recovery.
+The same Execution ID, Manifest, canonical state and Evidence Bundle appear on the partner surface and in the Flofi DApp; partner unavailability does not prevent tracking or recovery.
 
 ### Gate 10 - Mainnet
 
@@ -1621,7 +1625,7 @@ Teams may work concurrently after contracts and ADRs are frozen. Parallel implem
 
 ## 30. Final recommendation
 
-Build the full Gryloo product architecture and certify it through progressively composed workflows. Team capacity may increase parallel implementation, but it does not change trust dependencies or evidence requirements.
+Build the full Flofi product architecture and certify it through progressively composed workflows. Team capacity may increase parallel implementation, but it does not change trust dependencies or evidence requirements.
 
 Do not position the product as:
 
@@ -1632,7 +1636,7 @@ Do not position the product as:
 
 Position it as:
 
-> **Gryloo — the verifiable workflow engine for multichain DeFi.**
+> **Flofi — the verifiable workflow engine for multichain DeFi.**
 
 Distribute it as:
 
@@ -1640,7 +1644,7 @@ Distribute it as:
 
 The strongest Colosseum narrative is not that the product integrates the most chains. It is that a user can freely design a sophisticated strategy, understand it, bind it to explicit authorization and watch it execute safely across fragmented financial infrastructure.
 
-The embedded layer strengthens the business potential without changing that narrative: partners become distribution channels for the same Gryloo engine, while the original DApp remains the complete product and the canonical source of truth for the user.
+The embedded layer strengthens the business potential without changing that narrative: partners become distribution channels for the same Flofi engine, while the original DApp remains the complete product and the canonical source of truth for the user.
 
 ---
 

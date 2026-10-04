@@ -51,19 +51,19 @@ const messages: Record<string, string> = {
   WALLET_REJECTED: 'You declined the signature request. No transaction was sent.',
   WALLET_SIGN_FAILED: 'The wallet did not return a signed transaction. Nothing was sent.',
   WALLET_NOT_SUBMITTED: 'No signed transaction was returned. Nothing was sent; simulate again to retry.',
-  TRANSACTION_CHANGED: 'The wallet returned a different transaction than the one you reviewed. Gryloo did not send it.',
-  SIGNATURE_INVALID: 'The returned signature does not belong to the reviewed owner. Gryloo did not send it.',
-  POSITION_SIGNATURE_INVALID: 'The position-mint signature is invalid. Gryloo did not send it.',
+  TRANSACTION_CHANGED: 'The wallet returned a different transaction than the one you reviewed. Flofi did not send it.',
+  SIGNATURE_INVALID: 'The returned signature does not belong to the reviewed owner. Flofi did not send it.',
+  POSITION_SIGNATURE_INVALID: 'The position-mint signature is invalid. Flofi did not send it.',
   POSITION_KEY_UNAVAILABLE: 'This browser tab no longer holds the one-time position key for this review (for example after a reload). Simulate again; nothing was sent.',
   REVIEW_STALE: 'This review has expired. Simulate again for fresh pool state.',
   WRONG_OWNER: 'Select the wallet account shown in Review.',
   SEMANTIC_REVISION_CHANGED: 'The workflow changed. Simulate and review the current position again.',
   EXECUTION_NOT_ENABLED: 'Execution is not enabled on this server. Simulation and Review remain read-only.',
   OWNER_ATTEMPT_IN_PROGRESS: 'Another position transaction from this wallet is still being observed. Wait for it to resolve.',
-  POSITION_ALREADY_OPEN: 'You already have a Gryloo position on this pool. Manage it below instead of opening another.',
+  POSITION_ALREADY_OPEN: 'You already have a Flofi position on this pool. Manage it below instead of opening another.',
   OPEN_UNRESOLVED: 'The position-opening transaction is still being observed. Observe it first.',
-  SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The network did not confirm receipt. Gryloo is observing the signed transaction and will not send another.',
-  TRANSACTION_NOT_OBSERVED: 'The transaction is not visible yet. Observe again; Gryloo will not send another.',
+  SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The network did not confirm receipt. Flofi is observing the signed transaction and will not send another.',
+  TRANSACTION_NOT_OBSERVED: 'The transaction is not visible yet. Observe again; Flofi will not send another.',
   TRANSACTION_EXPIRED_NOT_EXECUTED: 'The transaction expired without landing. Nothing changed; simulate again to retry.',
   TRANSACTION_FAILED: 'The transaction failed on chain. Only the network fee was charged.',
   INSUFFICIENT_DEVUSDC: 'Your wallet needs more devUSDC (test). Swap Devnet SOL to devUSDC first.',
@@ -107,7 +107,7 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
       <button type="button" className="quiet" disabled={jupiter.busy} onClick={jupiter.cancelWalletChoice}>Cancel</button></div>}
     {liquidity.owner && <p>Wallet connected · Solana Devnet: <span>{liquidity.owner}</span></p>}
     {jupiter.error && !liquidity.owner && <p role="status">{jupiter.error}</p>}
-    {liquidity.positions && <section aria-label="Your Gryloo positions"><h3>Your Gryloo positions on this pool</h3>
+    {liquidity.positions && <section aria-label="Your Flofi positions"><h3>Your Flofi positions on this pool</h3>
       {liquidity.positions.length === 0 ? <p className="muted">None yet.</p> : <ul>{liquidity.positions.map(p => <li key={p.positionMint}>
         <code>{p.positionMint}</code> · {p.status.toLowerCase().replaceAll('_', ' ')}{p.liquidity !== null ? ` · liquidity ${p.liquidity}` : ''}
         {p.feeOwedA !== null ? ` · recorded fees owed ${sol(p.feeOwedA)} / ${usdc(p.feeOwedB)}` : ''}
@@ -162,7 +162,7 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
         <dt>Exact message</dt><dd><code>{review.messageHash}</code> · blockhash <code>{review.blockhash}</code> · valid to block height {review.lastValidBlockHeight}</dd>
         {!attempt && <><dt>Review freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired'}</dd></>}
       </dl>}
-      {review && !attempt && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Gryloo never signs for you.</p>}
+      {review && !attempt && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.</p>}
       {record && !record.authorization && !attempt && !liquidity.retired && <button type="button" disabled={liquidity.busy || fresh === 0} onClick={() => void liquidity.review()}>Accept liquidity review</button>}
       {record?.authorization && !attempt && !liquidity.executionEnabled && <p role="status">{message('ORCA_LIQUIDITY_EXECUTION_NOT_ENABLED')}</p>}
       {canExecute && <button type="button" className="primary" disabled={liquidity.busy} onClick={() => void liquidity.execute()}>Execute {review?.operation === 'OPEN' ? 'position' : 'removal'}</button>}
@@ -176,8 +176,8 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
           {observation.explorer && <><dt>Explorer</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">View on Solana Explorer (Devnet)</a></dd></>}
           <dt>Position</dt><dd><code>{review?.accounts.positionMint}</code></dd><dt>Slot</dt><dd>{observation.slot ?? '--'}</dd></dl>
         <p>Evidence: {record.evidenceClass}</p>
-        <a download={`gryloo-solana-devnet-liquidity-${review?.operation.toLowerCase()}-evidence.json`} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
-      {record && attempt && !record.evidence && <a download="gryloo-solana-devnet-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+        <a download={`flofi-solana-devnet-liquidity-${review?.operation.toLowerCase()}-evidence.json`} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
+      {record && attempt && !record.evidence && <a download="flofi-solana-devnet-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
     </>}
     {info && <p role="status">{message(info) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
     <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,

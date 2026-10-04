@@ -45,8 +45,8 @@ const shared: Record<string, string> = {
   WALLET_REJECTED: 'You declined the signature request. No transaction was sent.',
   WALLET_SIGN_FAILED: 'The wallet did not return a signed transaction. Nothing was sent.',
   WALLET_NOT_SUBMITTED: 'No signed transaction was returned. Nothing was sent; simulate again to retry.',
-  TRANSACTION_CHANGED: 'The wallet returned a different transaction than the one you reviewed. Gryloo did not send it.',
-  SIGNATURE_INVALID: 'The returned signature does not belong to the reviewed owner. Gryloo did not send it.',
+  TRANSACTION_CHANGED: 'The wallet returned a different transaction than the one you reviewed. Flofi did not send it.',
+  SIGNATURE_INVALID: 'The returned signature does not belong to the reviewed owner. Flofi did not send it.',
   QUOTE_STALE: 'This quote has expired. Simulate again for a fresh quote.',
   WRONG_OWNER: 'Select the wallet account shown in Review.',
   WRONG_CLUSTER: 'The wallet and the swap are on different Solana clusters. Nothing was signed.',
@@ -54,8 +54,8 @@ const shared: Record<string, string> = {
   MAINNET_EXECUTION_NOT_ENABLED: 'Mainnet execution is not enabled on this server. Simulation and Review remain read-only.',
   EXECUTION_NOT_ENABLED: 'Execution is not enabled on this server. Simulation and Review remain read-only.',
   OWNER_ATTEMPT_IN_PROGRESS: 'Another swap from this wallet is still being observed. Wait for it to resolve.',
-  SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The network did not confirm receipt. Gryloo is observing the signed transaction and will not send another.',
-  TRANSACTION_NOT_OBSERVED: 'The transaction is not visible yet. Observe again; Gryloo will not send another.',
+  SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The network did not confirm receipt. Flofi is observing the signed transaction and will not send another.',
+  TRANSACTION_NOT_OBSERVED: 'The transaction is not visible yet. Observe again; Flofi will not send another.',
   AWAITING_FINALITY: 'Waiting for Solana finality.',
   TRANSACTION_EXPIRED_NOT_EXECUTED: 'The transaction expired without landing. No swap happened; simulate again to retry.',
   SWAP_FAILED: 'The swap failed on chain. Only the network fee was charged.',
@@ -124,8 +124,8 @@ export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
         <dt>Route</dt><dd>{[...new Set(review.quote.routePlan.map(step => step.label))].join(' → ')}</dd>
         {!attempt && <><dt>Quote freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired'}</dd></>}
       </dl>}
-      {mainnet && !attempt && review && <p role="note">This swap uses real funds on Solana mainnet. Your wallet will ask you to sign one exact transaction; Gryloo never signs for you.</p>}
-      {devnet && !attempt && review && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Gryloo never signs for you.</p>}
+      {mainnet && !attempt && review && <p role="note">This swap uses real funds on Solana mainnet. Your wallet will ask you to sign one exact transaction; Flofi never signs for you.</p>}
+      {devnet && !attempt && review && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.</p>}
       {record && !record.authorization && !attempt && !jupiter.retired && <button type="button" disabled={jupiter.busy || fresh === 0} onClick={() => void jupiter.review()}>Accept swap review</button>}
       {mainnet && record?.authorization && !attempt && <label><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)}/> I understand this executes on Solana mainnet with real funds</label>}
       {record?.authorization && !attempt && !jupiter.executionEnabled && <p role="status">{message(notEnabled, devnet)}</p>}
@@ -139,8 +139,8 @@ export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
           {observation.explorer && <><dt>Explorer</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">{devnet ? 'View on Solana Explorer (Devnet)' : 'View transaction'}</a></dd></>}
           <dt>Network</dt><dd>{labels.network}</dd><dt>Slot</dt><dd>{observation.slot ?? '--'}</dd></dl>
         <p>Evidence: {record.evidenceClass}</p>
-        <a download={devnet ? 'gryloo-solana-devnet-swap-evidence.json' : 'gryloo-jupiter-swap-evidence.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
-      {record && attempt && !record.evidence && <a download={devnet ? 'gryloo-solana-devnet-execution-record.json' : 'gryloo-jupiter-execution-record.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+        <a download={devnet ? 'flofi-solana-devnet-swap-evidence.json' : 'flofi-jupiter-swap-evidence.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
+      {record && attempt && !record.evidence && <a download={devnet ? 'flofi-solana-devnet-execution-record.json' : 'flofi-jupiter-execution-record.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
     </>}
     {info && <p role="status">{message(info, devnet) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
     <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,

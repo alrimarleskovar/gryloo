@@ -32,7 +32,7 @@ export function ModeBPanel({ view }: { view: 'simulate' | 'execute' }) {
     </div>}
     {busy && <p className="simulate-note" role="status">{busy}.</p>}
     {error && <p className="simulate-alert" role="alert">Mode B stopped: {error}. Inspect the fork state before another action.</p>}
-    {mode.unknownSubmission && <p className="simulate-alert" role="alert">Wallet result is unknown. Gryloo will not request the same operation again. Read the chain and transaction history before continuing.</p>}
+    {mode.unknownSubmission && <p className="simulate-alert" role="alert">Wallet result is unknown. Flofi will not request the same operation again. Read the chain and transaction history before continuing.</p>}
     {prepared && <>
       {mode.recoveryOnly && <p className="simulate-note" role="status">Recovered from the local journal. New installation and browser-triggered execution are disabled; inspect and revoke any existing permission after review.</p>}
       {mode.quoteExpired && !installed && <p className="simulate-alert" role="status">The fork quote expired. Simulate the current revision again before requesting installation signatures. Existing onchain permission still requires inspection or revocation.</p>}

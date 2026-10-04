@@ -1,5 +1,9 @@
 # Requirements registry
 
+Current product name: **Flofi** (formerly Gryloo); see the
+[branding transition](builds/BUILD-BRAND-001-PLAN.md). Historical entries below
+retain the name used at the time. Runtime identifiers remain compatible.
+
 Source references below point to `docs/specs/MASTER_SPEC_V3.2.md` and the Master
 Prompt. BUILD-000 rows retain their historical evidence. BUILD-001 adds contract
 and governance evidence; neither build provides financial execution evidence.

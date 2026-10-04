@@ -36,9 +36,9 @@ const messages: Record<string, string> = {
   TRANSFER_REVIEW_EXPIRED: 'Review expired. Simulate and review again.', TRANSFER_AUTHORIZATION_STALE: 'Wallet state changed since Review. Simulate and review again.',
   TRANSFER_WALLET_NONCE_MISMATCH: 'The wallet would use a different nonce than the Review. Simulate and review again.',
   TRANSFER_REJECTED: 'The transfer request was declined in the wallet. Nothing was submitted.', AWAITING_CONFIRMATIONS: 'Waiting for network confirmations.',
-  TRANSFER_TRANSACTION_NOT_OBSERVED: 'No transaction for the reviewed nonce is visible yet. Gryloo will not submit again; observe later.',
-  TRANSFER_SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The wallet result is uncertain. Gryloo will not submit again; observe the existing request.',
-  TRANSFER_SUBMISSION_UNKNOWN: 'The wallet result is uncertain. Gryloo will not submit again; observe the existing request.',
+  TRANSFER_TRANSACTION_NOT_OBSERVED: 'No transaction for the reviewed nonce is visible yet. Flofi will not submit again; observe later.',
+  TRANSFER_SUBMISSION_UNKNOWN_OBSERVE_EXISTING: 'The wallet result is uncertain. Flofi will not submit again; observe the existing request.',
+  TRANSFER_SUBMISSION_UNKNOWN: 'The wallet result is uncertain. Flofi will not submit again; observe the existing request.',
   TRANSFER_RPC_RATE_LIMITED: 'The public Robinhood Testnet provider is busy. Try again.',
 };
 export function RobinhoodTransferPanel({ view }: { view: 'simulate' | 'execute' }) {
@@ -77,10 +77,10 @@ export function RobinhoodTransferPanel({ view }: { view: 'simulate' | 'execute' 
       {observing && <button type="button" disabled={run.busy} onClick={() => void run.observe()}>Observe existing transaction</button>}
       {record?.notSubmitted && record.verdict === 'PENDING' && !run.retired && <><p>The wallet request was not submitted. Prepare a fresh explicit owner Review.</p>
         <button type="button" disabled={run.busy} onClick={() => void run.recoverReview()}>Prepare fresh review</button></>}
-      {attempt && !record?.evidence && <a download="gryloo-rh-demo-001-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+      {attempt && !record?.evidence && <a download="flofi-rh-demo-001-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
       {record?.evidence && observation?.facts && <><p>Transfer reconciled. Exactly one owner-signed transaction, nonce {observation.facts.nonceBefore} → {observation.facts.nonceAfter},
         block {observation.facts.blockNumber}; network cost {formatEth(observation.facts.fee)} ETH; balance {formatEth(observation.facts.balanceBefore)} → {formatEth(observation.facts.balanceAfter)} ETH.</p>
-        <a download="gryloo-rh-demo-001-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></>}
+        <a download="flofi-rh-demo-001-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></>}
     </>}
     {info && <p role="status">{messages[info] ?? 'The transfer needs attention. Inspect technical details and observe any existing transaction.'}</p>}
     <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, attempt, observations: record?.observations, walletDiagnostic: record?.walletDiagnostic,

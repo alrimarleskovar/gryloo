@@ -16,7 +16,7 @@ test('an unknown wallet result survives a browser restart and is recovered from 
   testWallet.fault = { dropResponse: true };
   await requestStep(page, 'Step 2 · exact swap');
   await expect(stepState(page, 'Step 2 · exact swap')).toHaveText('SUBMISSION_RESULT_UNKNOWN');
-  await expect(executionPanel(page)).toContainText('Gryloo will not request this step again');
+  await expect(executionPanel(page)).toContainText('Flofi will not request this step again');
   await expect(executionPanel(page).getByRole('button', { name: /^Request wallet signature · swap/ })).toHaveCount(0);
   await visual(page, 'execute-result-unknown.png');
 

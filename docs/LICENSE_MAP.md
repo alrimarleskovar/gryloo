@@ -4,7 +4,7 @@
 
 The additive composition permission domain and v2 compatibility vector in `packages/workflow-contracts/**` remain Apache-2.0. New reference compiler, linter, executor, reconciler and DApp files follow their existing AGPL-3.0-only path rules. Official Safe, Zodiac Roles, ERC-2470 and Uniswap artifacts are digest-pinned temporary test inputs outside Git; this build adds no registry dependency, vendored binary or third-party legal text. `workflow-contracts` advances to private workspace version 0.3.0 with exact consumer pins; publication is not authorized.
 
-This is the authoritative path classification for the multi-licensed Gryloo
+This is the authoritative path classification for the multi-licensed Flofi
 repository. Each currently tracked file belongs to exactly one row below.
 Paths in a row do not overlap paths in another row. The license texts are
 published in `LICENSES/`; the root `LICENSE` routes readers here.
@@ -32,7 +32,7 @@ ownership of Gryloo intellectual property.
 | AGPL-3.0-only implementation | `apps/reference-dapp/**` except `apps/reference-dapp/LICENSE`, `packages/reference-linter/**` except `packages/reference-linter/LICENSE`, and the BUILD-003D packages `packages/reference-compiler/**`, `packages/reference-executor/**` and `packages/reference-reconciler/**`, each except its `LICENSE` | Gryloo-authored private reference application, tests, baseline images and deterministic linter under [AGPL-3.0-only](../LICENSES/AGPL-3.0-only.txt). Local fork and loopback financial operations have only their recorded evidence ceilings; public financial execution is not authorized. |
 | License routing | `LICENSE` | Multi-license routing document; consult this map for grants. |
 | Official legal text | `LICENSES/Apache-2.0.txt`, `LICENSES/AGPL-3.0-only.txt`, `packages/workflow-contracts/LICENSE`, `packages/action-registry/LICENSE`, `apps/reference-dapp/LICENSE`, `packages/reference-linter/LICENSE`, `packages/reference-compiler/LICENSE`, `packages/reference-executor/LICENSE`, `packages/reference-reconciler/LICENSE` | Unmodified official texts. The contracts and registry copies match `LICENSES/Apache-2.0.txt`; the application, linter, compiler, executor and reconciler copies match `LICENSES/AGPL-3.0-only.txt` byte-for-byte. |
-| Excluded third-party references | `docs/assets/1.jpeg`, `docs/assets/2.jpeg`, `docs/assets/3.jpeg` | Visual reference material; no Gryloo license grant. |
+| Excluded third-party references | `docs/assets/1.jpeg`, `docs/assets/2.jpeg`, `docs/assets/3.jpeg` | Visual reference material; no Flofi license grant. |
 
 The exclusion applies prospectively to all `docs/assets/**`. Unverified
 third-party material anywhere in the repository is excluded unless its rights
@@ -75,7 +75,7 @@ public repository:
 - `services/enterprise-policy/**`
 - `services/hosted-explorer/**`
 
-No Gryloo trademark rights are granted; see [TRADEMARKS.md](../TRADEMARKS.md).
+No Flofi or Gryloo trademark rights are granted; see [TRADEMARKS.md](../TRADEMARKS.md).
 
 
 ## BUILD-002 dependency boundary
