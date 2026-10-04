@@ -154,6 +154,8 @@ jobs:
           # Visual/default-state specs run before local-fork execution writes a recovery journal.
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts public-testnet.spec.ts robinhood-network.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
           GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts withdraw.spec.ts
+          # BUILD-COPILOT-001: Flofi Copilot on committed replay answers (no model, no external request) with the MOCKED supply harness.
+          FLOFI_COPILOT=replay GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test copilot.spec.ts
           # BUILD-013: complete lending sequence and recovery, MOCKED loopback only; no public broadcasts.
           GRYLOO_LENDING_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test lending-composition.spec.ts
           # BUILD-014: Jupiter/Solana swap on the MOCKED loopback harness; never a public provider or broadcast.

@@ -74,6 +74,10 @@ if (process.env.GRYLOO_ROUTER_TESTNET_E2E && !routerTestnetHarness) throw new Er
 const routerTestnetJournal = process.env.GRYLOO_ROUTER_TESTNET_JOURNAL ?? join(tmpdir(), 'gryloo-router-testnet-' + Date.now() + '-' + process.pid);
 if (routerTestnetHarness) process.env.GRYLOO_ROUTER_TESTNET_JOURNAL = routerTestnetJournal;
 
+// BUILD-COPILOT-001: the Copilot runs in browser tests only on committed replay answers; a live model is never called from tests.
+const copilot = process.env.FLOFI_COPILOT;
+if (copilot !== undefined && copilot !== 'off' && copilot !== 'replay') throw new Error('Copilot E2E permits only FLOFI_COPILOT=replay');
+
 export default defineConfig({
   testDir: './e2e',
   workers: 1,
@@ -123,6 +127,7 @@ export default defineConfig({
       ...(uniswapHarness ? { GRYLOO_UNISWAP_LIQUIDITY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_UNISWAP_LIQUIDITY_JOURNAL: uniswapJournal } : {}),
       ...(routerHarness ? { GRYLOO_ROUTER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_JOURNAL: routerJournal } : {}),
       ...(routerTestnetHarness ? { GRYLOO_ROUTER_TESTNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_TESTNET_JOURNAL: routerTestnetJournal } : {}),
+      ...(copilot === 'replay' ? { FLOFI_COPILOT: 'replay' } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });

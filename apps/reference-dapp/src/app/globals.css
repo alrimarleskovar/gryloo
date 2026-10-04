@@ -265,3 +265,5 @@
 
 /* Three semantic lending steps remain readable in their vertical policy/typed-output graph. */
 .canvas.lending-canvas{height:760px}
+/* BUILD-COPILOT-001: Copilot answers, clarification options and the AI-proposal notice. */
+.copilot-notes{margin:6px 0 0;padding-left:16px;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}.copilot-options{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.copilot-options button{min-height:32px;border-radius:6px;padding:0 10px;font-weight:700}.copilot-notice{color:#174d9f}
