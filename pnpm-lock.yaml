@@ -139,6 +139,9 @@ importers:
 
   packages/reference-reconciler:
     dependencies:
+      '@defi-workflow-engine/action-registry':
+        specifier: workspace:0.1.0
+        version: link:../action-registry
       '@defi-workflow-engine/reference-compiler':
         specifier: workspace:0.1.0
         version: link:../reference-compiler

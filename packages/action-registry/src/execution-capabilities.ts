@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import {isLendingComposition,readLendingComposition} from '@defi-workflow-engine/workflow-contracts';
+import {AAVE_V3_BASE_SEPOLIA as lendingAave} from './aave-v3-testnet.js';
+import {LENDING_BASE_SEPOLIA as lendingUni} from './lending-base-sepolia.js';
 /** BUILD-011D-1: execution support is distinct from declarative action compatibility. */
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import type { AuthorizationMode, ExecutionKind } from './capabilities.js';
@@ -85,7 +88,7 @@ export type CapabilityRuntime = {
   readonly forkAvailable?: boolean; readonly forkEvidence?: 'MOCKED' | 'FORK_REPRODUCED';
   readonly quoteProviderAvailable?: boolean; readonly walletConnected?: boolean; readonly walletChainId?: string | null;
   readonly artifacts?: 'CURRENT' | 'MISSING' | 'STALE'; readonly simulationReady?: boolean;
-  readonly authorizationReady?: boolean;
+  readonly authorizationReady?: boolean; readonly lendingCompositionViable?: boolean;
 };
 export type CapabilityRequest = { readonly environment: ExecutionEnvironment | string; readonly runtime?: CapabilityRuntime };
 export type NodeCapability = { readonly nodeId: string; readonly actionType: string; readonly adapterId: string | null;
@@ -160,6 +163,10 @@ export function resolveWorkflowCapability(workflow: WorkflowLike, request: Capab
   const capabilities = flags(capabilityDimensions.filter(dimension => operational.length > 0 && operational.every(node =>
     isDerived(node) && ['AUTHORIZE', 'EXECUTE', 'RECONCILE', 'RECOVER'].includes(dimension) ? true : node.capabilities[dimension])));
   const blockers = nodes.flatMap(node => node.blockers);
+  const lending=isLendingComposition(workflow);
+  if(lending){let exact:boolean;try{const f=readLendingComposition(workflow as unknown as SemanticWorkflow);exact=f.chain===lendingAave.chain&&f.collateral.address===lendingAave.asset&&f.borrowed.address===lendingAave.asset&&f.output.address===lendingUni.weth;}catch{exact=false;}
+    if(!exact||!request.runtime?.lendingCompositionViable)blockers.push({nodeId:nodes[0]!.nodeId,dimension:'EXECUTE',code:'RUNTIME_UNAVAILABLE'});
+  }
   const executionSupported = financial.length > 0 && financial.every(node => node.capabilities.EXECUTE &&
     !node.blockers.some(blocker => ['AUTHORIZATION_MODE_UNSUPPORTED', 'RUNTIME_UNAVAILABLE', 'ACTION_TEMPLATE_ONLY'].includes(blocker.code)));
   for (const node of financial) {
@@ -179,7 +186,7 @@ export function resolveWorkflowCapability(workflow: WorkflowLike, request: Capab
     if (node.capabilities.AUTHORIZE && request.runtime?.authorizationReady === false)
       blockers.push({ nodeId: node.nodeId, dimension: 'EXECUTE', code: 'AUTHORIZATION_REQUIRED' });
   }
-  const evidenceCeiling = operational.length && operational.every(node => node.evidenceCeiling) ? operational.reduce<EvidenceMaturity | null>(
+  const evidenceCeiling = lending ? 'MOCKED' : operational.length && operational.every(node => node.evidenceCeiling) ? operational.reduce<EvidenceMaturity | null>(
     (ceiling, node) => lower(ceiling, node.evidenceCeiling), operational[0]!.evidenceCeiling) : null;
   const requiredIds = new Set(operational.map(node => node.nodeId));
   return { environment: request.environment, nodes, capabilities, executionSupported, executionReady: executionSupported &&

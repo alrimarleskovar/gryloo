@@ -1,3 +1,4 @@
+import {createAuthoredLending} from './lending-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { commandIsValid, type Command } from './commands';
@@ -28,6 +29,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if(command.type==='AUTHOR_LENDING'){try{const workflow=createAuthoredLending(current.workflowId,current.revision+1,command.input);validateAuthoringWorkflow(workflow,createBaseSepoliaReviewContext());return{workflow:freeze(workflow),error:null};}catch(cause){return reject(cause instanceof Error?cause.message:'LENDING_INPUT_INVALID');}}
   if (command.type === 'ADD_RH_TRANSFER' || command.type === 'SET_RH_TRANSFER') {
     const editing = command.type === 'SET_RH_TRANSFER';
     try {

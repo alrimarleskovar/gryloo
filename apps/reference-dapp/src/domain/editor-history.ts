@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import {isLendingComposition,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import type { Command } from './commands';
 import type { CanvasLayout } from './canvas-layout';
 import { editorReducer, initialEditor, type EditorState } from './editor';
@@ -9,6 +10,7 @@ type Snapshot = { readonly workflow: Workflow; readonly layout: CanvasLayout };
 export type EditorHistory = { readonly editor: EditorState; readonly layout: CanvasLayout;
   readonly past: readonly Snapshot[]; readonly future: readonly Snapshot[] };
 export type HistoryAction =
+  | { readonly type: 'RESTORE_LENDING_CANVAS'; readonly workflow: SemanticWorkflow }
   | { readonly type: 'COMMAND'; readonly command: Command; readonly context: ReviewContext; readonly position?: { x: number; y: number } }
   | { readonly type: 'MOVE'; readonly positions: Readonly<Record<string, { x: number; y: number }>> }
   | { readonly type: 'DUPLICATE'; readonly nodeIds: readonly string[]; readonly context: ReviewContext }
@@ -56,6 +58,16 @@ export function planCanvasDuplicate(workflow: Workflow, layout: CanvasLayout, no
 }
 
 export function editorHistoryReducer(state: EditorHistory, action: HistoryAction): EditorHistory {
+  if(action.type==='RESTORE_LENDING_CANVAS') {
+    // Restore only the untouched initial Canvas from a validated durable run.
+    // Preserve its exact IR/revision; this creates no Review or execution authority.
+    if(state.editor.workflow.revision!==0||state.past.length||!state.editor.workflow.nodes.every(n=>n.actionType.startsWith('mock-')))return state;
+    try {
+      const workflow=validateAuthoringWorkflow(action.workflow,createBaseSepoliaReviewContext());
+      if(!isLendingComposition(workflow))return state;
+      return {...state,editor:{workflow:freeze(workflow),error:null},layout:{},past:[],future:[]};
+    } catch {return state;}
+  }
   if (action.type === 'LOAD_LAYOUT') return { ...state, layout: action.layout };
   if (action.type === 'DUPLICATE') {
     const result = planCanvasDuplicate(state.editor.workflow, state.layout, action.nodeIds, action.context);

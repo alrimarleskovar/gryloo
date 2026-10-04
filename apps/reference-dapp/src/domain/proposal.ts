@@ -12,6 +12,7 @@ import { solanaLiquidityDetails } from './solana-liquidity-authoring';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
+  if(command.type==='AUTHOR_LENDING')return [`Revision ${before.workflow.revision} → ${after.workflow.revision}`,`Supply ${command.input.supply} Aave USDC → health checkpoint HF ≥ 2.0 → Borrow ${command.input.borrow} Aave USDC → Swap exactly borrowed USDC to WETH`, `Owner ${command.input.owner}; Base Sepolia; slippage ${command.input.slippage} bps`, 'Debt remains after Swap. If Swap fails, borrowed USDC and debt remain; no automatic repayment or retry.', 'Acceptance replaces the workflow and invalidates previous simulation, Manifest and Review. Full public path must pass before any transaction.'];
   if (command.type === 'AUTHOR_CROSS_CHAIN_LIQUIDITY') return Object.freeze([
     `Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Base USDC → Arbitrum USDC via ${command.input.provider} → pool preparation${command.input.noSwap ? '' : ' → destination WETH swap'} → Uniswap v3 liquidity`,

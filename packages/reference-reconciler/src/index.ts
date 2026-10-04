@@ -28,5 +28,7 @@ export * from './repay.js';
 export * from './orca-liquidity.js';
 export * from './robinhood-network.js';
 export * from './withdraw.js';
+
+export * from './lending-composition.js';
 export * from './native-transfer.js';
 export * from './robinhood-transfer-verifier.js';

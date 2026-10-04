@@ -9,11 +9,13 @@ import { describeProposal } from '../domain/proposal';
 import { chainReducer, checkChainAccess, initialChainState, type ChainState } from '../domain/artifact-chain';
 import { generateMockedChain, generationEligibility, type Eligibility } from '../domain/mock-artifacts';
 import type { Command } from '../domain/commands';
+import type {SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import { readBaseQuote } from '../app/observation-action';
 import { browserFailureMessage, initialObservationState, observationReducer, receiveObservation, type ObservationState } from '../domain/base-observation';
 
 type Pending = { command: Command; diff: readonly string[]; review: ReviewResult | null };
 type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
+  restoreLendingCanvas(workflow:SemanticWorkflow):void;
   canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
   moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
   addCanvasCommand(command: Command, position: { x: number; y: number }): void;
@@ -31,6 +33,7 @@ export function WorkflowProvider({ children, initialContext }: { children: React
   const dispatch = useCallback((command: Command) => {
     dispatchHistory({ type: 'COMMAND', command, context });
   }, [context]);
+  const restoreLendingCanvas=useCallback((workflow:SemanticWorkflow)=>dispatchHistory({type:'RESTORE_LENDING_CANVAS',workflow}),[]);
   const addCanvasCommand = useCallback((command: Command, position: { x: number; y: number }) => {
     dispatchHistory({ type: 'COMMAND', command, position, context });
   }, [context]);
@@ -115,7 +118,7 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     if (!checkChainAccess(chainRef.current, workflowRef.current, Date.now(), performance.now()).ok) { accessCheck(); return; }
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
-  return <Context.Provider value={{ state, dispatch, context, canvasLayout: history.layout, canUndo: history.past.length > 0,
+  return <Context.Provider value={{ state, dispatch, context, restoreLendingCanvas, canvasLayout: history.layout, canUndo: history.past.length > 0,
     canRedo: history.future.length > 0, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes,
     pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
     chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck }}>

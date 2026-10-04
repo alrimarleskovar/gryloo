@@ -1,5 +1,11 @@
 # Repository status
 
+## BUILD-013 — Advanced lending composition
+
+**Implementation evidence: MOCKED; public execution gated.** Owner-approved single finite path: Supply Aave USDC → HF checkpoint ≥ 2.0 → Borrow Aave USDC → Swap exactly the borrowed output to WETH on Base Sepolia. Chat/Canvas authoring, composed Simulate/Review, exact owner calls, durable partial recovery, economic reconciliation and an independent read-only verifier are implemented with no Manifest schema change. The exact-token compatible route was discovered independently, but all three original bounded public sequential-simulation attempts, and all three separate recheck attempts, were rate-limited. **PUBLIC_EXECUTION_BLOCKED** before Supply; no public owner transaction/signature and no public composed completion/certification claim. See the [plan](builds/BUILD-013-PLAN.md), [report](builds/BUILD-013-REPORT.md), preserved [preflight](builds/BUILD-013-PREFLIGHT-READONLY.json) and open [PR #48](https://github.com/alrimarleskovar/gryloo/pull/48). The original `7003856` implementation is preserved in `dd0e97d`; the later RH-DEMO main was integrated only after GitHub confirmed PR conflicts. Robinhood and historical BUILD-012 records remain unchanged against main.
+
+Closure traced CI run `37018814071` to repeated full-history lending journal validation in the Borrow/route-loss continuation test. Exact byte-prefix validation reuse fixes that runtime cost while preserving disk checks, corruption rejection, simulation and owner gates; the 30-second unit-test timeout is unchanged. The integrated `pnpm check` passed **1,144 tests / two existing skips**, Governance-Lite passed, and guarded browsers passed **15 lending**, **44 Aave primitive**, **7 Robinhood** and **53 broad/visual** cases, with four existing environment skips. Final engineering evidence is recorded in the report. This is implementation closure for owner review, with public execution still blocked and no merge authorized.
+
 ## Governance-lite migration
 
 Future repository work follows [GOVERNANCE-LITE](SCOPE_GUARD.md), from baseline `6e41b2fb5762c321730c3427aeb1fc0c64d8f916`. This migration changes repository authorization only. The build status and evidence entries below are retained as recorded; no new financial execution, acceptance or certification is claimed.

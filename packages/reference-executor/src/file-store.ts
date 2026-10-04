@@ -12,18 +12,21 @@ export type StoreOps = {
 const defaultOps: StoreOps = { mkdir, readFile, open, rename, unlink };
 let sequence = 0;
 const pendingWrites = new Map<string, Promise<void>>();
+export const DEFAULT_EXTENDING_FILE_MAX_BYTES = 16_777_216;
 /** Atomic append-only file replacement: complete temp file, file fsync, rename, directory fsync. */
-export async function writeExtendingFile(path: string, nextBytes: Uint8Array, validate: (bytes: Uint8Array) => void, ops: StoreOps = defaultOps): Promise<void> {
+export async function writeExtendingFile(path: string, nextBytes: Uint8Array, validate: (bytes: Uint8Array) => void, ops: StoreOps = defaultOps,
+  maxBytes = DEFAULT_EXTENDING_FILE_MAX_BYTES): Promise<void> {
   const previous = pendingWrites.get(path) ?? Promise.resolve();
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   pendingWrites.set(path, gate);
   await previous;
-  try { await writeExtendingFileLocked(path, nextBytes, validate, ops); }
+  try { await writeExtendingFileLocked(path, nextBytes, validate, ops, maxBytes); }
   finally { release(); if (pendingWrites.get(path) === gate) pendingWrites.delete(path); }
 }
-async function writeExtendingFileLocked(path: string, nextBytes: Uint8Array, validate: (bytes: Uint8Array) => void, ops: StoreOps): Promise<void> {
-  if (!(nextBytes instanceof Uint8Array) || nextBytes.length > 16_777_216) throw new Error('JOURNAL_CORRUPT');
+async function writeExtendingFileLocked(path: string, nextBytes: Uint8Array, validate: (bytes: Uint8Array) => void, ops: StoreOps, maxBytes: number): Promise<void> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw new Error('JOURNAL_CORRUPT');
+  if (!(nextBytes instanceof Uint8Array) || nextBytes.length > maxBytes) throw new Error('JOURNAL_CORRUPT');
   const directory = dirname(path);
   await ops.mkdir(directory, { recursive: true, mode: 0o700 });
   let prior: Uint8Array = new Uint8Array();

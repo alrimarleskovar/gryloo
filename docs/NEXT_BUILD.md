@@ -6,7 +6,7 @@ Use [GOVERNANCE-LITE](SCOPE_GUARD.md): branch, implementation, focused tests, PR
 
 ## Next planned build: BUILD-013 — Advanced lending composition
 
-The [existing Master Prompt roadmap](../prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md) defines BUILD-013 after the four BUILD-012 Aave primitives: compose supply → health check → borrow → swap or liquidity; propagate debt, collateral, fees and resulting exposure; require acceptance and a new Manifest for material AI-suggested corrections; separate execution-time checks, ongoing monitoring and any later Mode C defense. This records the already-defined next scope only. BUILD-013 has not been started; this closure implements no new build.
+BUILD-013 is owner-approved and implemented for one finite Base Sepolia path: Supply exact Aave USDC → HF checkpoint ≥ 2.0 → Borrow the same USDC → Swap exactly the borrowed output to WETH. No Liquidity. The [plan](builds/BUILD-013-PLAN.md) and [report](builds/BUILD-013-REPORT.md) bind the scope, durable recovery, composed evidence and owner boundary. Local execution evidence is **MOCKED**. A compatible public route was discovered, but sequential public simulation was rate-limited; the full-path gate remains **PUBLIC_EXECUTION_BLOCKED** before Supply. No public financial execution or composed TESTNET_EXECUTED claim is made. Owner execution and independent reconciliation remain required for the intended public completion target.
 
 ## Completed BUILD-012D — Aave V3 Withdraw
 

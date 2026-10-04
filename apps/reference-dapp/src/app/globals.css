@@ -262,3 +262,6 @@
 .review-workflow-ir{border-top:1px solid var(--line);padding-top:12px;font-size:11px}
 .review-workflow-ir summary{cursor:pointer;font-weight:700}
 .review-workflow-ir pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:290px;overflow:auto;background:var(--soft);padding:12px}
+
+/* Three semantic lending steps remain readable in their vertical policy/typed-output graph. */
+.canvas.lending-canvas{height:760px}
