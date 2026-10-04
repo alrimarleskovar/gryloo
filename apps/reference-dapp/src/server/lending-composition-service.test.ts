@@ -375,6 +375,32 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
       expect(r.attempts).toHaveLength(4);
     }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
   }));
+  // The real ROUTER_APPROVAL.10 again: the wallet never answered and its request was dropped; nothing reached the chain.
+  it('closes a long-stranded SUBMITTING ROUTER_APPROVAL as NOT_FOUND only after the window and 30 minutes, then continues',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);const handedOff=Date.now();
+      advance(model,130);let o=await service.observe(r.id);
+      expect(o).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(o.attempts.at(-1)!.state).toBe('SUBMITTING');
+      travel(model,handedOff+31*60_000);o=await service.observe(r.id);
+      const closed=o.attempts.at(-1)!;
+      expect(closed).toMatchObject({id:begin.attemptId,state:'NOT_FOUND',notSubmitted:true,hash:null,nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED',allowance:'0'}});
+      expect(o.journal.entries.filter(e=>e.entityId===begin.attemptId).map(e=>e.toState)).toEqual(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND']);
+      expect(o).toMatchObject({status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT',authorization:null});
+      o=await service.refreshReview(r.id);expect(o.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(o.reviews.at(-1)!.calls[0]!.id).toBe('ROUTER_APPROVAL');
+      o=await service.review(r.id,o.reviews.at(-1)!.commitment,workflow);o=await step(service,model,r.id);
+      expect(o.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',reconciled:true});
+      expect(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL'].map(s=>o.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1,2]);expect(model.transactions).toHaveLength(4);
+    }finally{vi.useRealTimers();}
+  }));
+  it('does not close a stranded SUBMITTING ROUTER_APPROVAL whose allowance moved',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);
+      model.state.routerAllowance=10000n;advance(model,130);travel(model,Date.now()+31*60_000);
+      const o=await service.observe(r.id);expect(o.attempts.at(-1)).toMatchObject({state:'SUBMITTING'});expect(o.attempts.at(-1)!.nonSubmission).toBeUndefined();
+    }finally{vi.useRealTimers();}
+  }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){

@@ -14,7 +14,7 @@ import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/work
 export type LendingRecord = LendingRun & {observations:LendingObservation[];currentPosition:LendingSnapshot|null;evidence:ReturnType<typeof buildLendingEvidence>|null};
 // Every run line is a full snapshot whose evidence repeats every Review, so a run grows with each Fresh Simulate;
 // the real pilot passed 100 MB by ROUTER_APPROVAL. Lending run files therefore get a much larger bound than the shared 16 MiB.
-const LENDING_RUN_MAX_BYTES=536_870_912,LENDING_HANDOFF_HEADROOM_LINES=16;
+const LENDING_RUN_MAX_BYTES=536_870_912,LENDING_HANDOFF_HEADROOM_LINES=16,LENDING_STRANDED_HANDOFF_MS=1_800_000;
 const idCheck=(id:string)=>{if(!/^lending-[a-f0-9]{32}$/.test(id))throw Error('LENDING_ID_INVALID');return id;};
 const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.step);
 const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
@@ -134,7 +134,10 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
    * Every other step stays observe-only.
    */
   async function nonSubmissionProof(r:LendingRecord,a:LendingRecord['attempts'][number]):Promise<LendingNonSubmissionProof|null> {
-    if(a.state!=='SUBMISSION_RESULT_UNKNOWN'||a.hash!==null||(a.step!=='POOL_APPROVAL'&&a.step!=='ROUTER_APPROVAL'))return null;
+    if(a.state!=='SUBMISSION_RESULT_UNKNOWN'&&a.state!=='SUBMITTING'||a.hash!==null||(a.step!=='POOL_APPROVAL'&&a.step!=='ROUTER_APPROVAL'))return null;
+    // A wallet that never answered may still be showing the request: only a long-stranded handoff qualifies.
+    const handedOff=Date.parse(r.journal.entries.filter(e=>e.entityId===a.id&&e.toState==='SUBMITTING').at(-1)?.recordedAt??'');
+    if(a.state==='SUBMITTING'&&!(Date.now()-handedOff>=LENDING_STRANDED_HANDOFF_MS))return null;
     const review=r.reviews.find(v=>v.commitment===a.reviewCommitment)!,owner=review.fields.owner,window:[number,number]=[a.preparedAtBlock,a.preparedAtBlock+128];
     const reviewed=a.step==='POOL_APPROVAL'?review.state.aave.allowance:review.state.routerAllowance,target=BigInt('0x'+a.call.tx.data.slice(-64));
     // Snapshots read the nonce at 'pending'; the proof also needs it exactly at the proof block.
@@ -283,7 +286,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
           const proof=found.exhausted?await nonSubmissionProof(r,a):null;
           if(!proof)return save({...r,status:'RECOVERY_REQUIRED',authorization:null,error:'LENDING_UNKNOWN_OBSERVE_ONLY'});
           // Durable, never resent: the attempt is closed as NOT_FOUND on chain; a fresh Review is required to continue.
-          const next=lendingAttemptTransition(r,a.id,'NOT_FOUND');
+          const next=lendingAttemptTransition(a.state==='SUBMITTING'?lendingAttemptTransition(r,a.id,'SUBMISSION_RESULT_UNKNOWN') as LendingRecord:r,a.id,'NOT_FOUND');
           return save({...r,...next,attempts:next.attempts.map(v=>v.id===a!.id?{...v,notSubmitted:true,nonSubmission:proof}:v),authorization:null,status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT'});
         }
         r={...r,attempts:r.attempts.map(v=>v.id===a!.id?{...v,hash:found.hash}:v)};r=lendingAttemptTransition(r,a.id,'PENDING') as LendingRecord;a=r.attempts.find(v=>v.id===a!.id)!;
