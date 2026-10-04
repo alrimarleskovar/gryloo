@@ -214,7 +214,9 @@ jobs:
           export GRYLOO_COMPOSITION_EXECUTOR_KEY_FILE="$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json"
           export GRYLOO_COMPOSITION_SMOKE_PROFILE="$GRYLOO_COMPOSITION_PROFILE"
           export GRYLOO_COMPOSITION_MODE=fork
-          pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts packages/reference-executor/test/composition.fork.test.ts packages/reference-reconciler/test/composition.fork.test.ts --testTimeout=120000
+          # The three files share one Anvil fork; the compiler file temporarily replaces Position Manager code inside a
+          # snapshot, so the reconciler's code-identity read must not run concurrently with it.
+          pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts packages/reference-executor/test/composition.fork.test.ts packages/reference-reconciler/test/composition.fork.test.ts --no-file-parallelism --testTimeout=120000
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test composition-adversarial.spec.ts composition-fork.spec.ts composition-recovery.spec.ts
 
       - name: Summarize screenshot differences after a browser failure
