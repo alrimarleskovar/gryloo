@@ -7,6 +7,21 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-ROUTER-001 — Flofi canonical Cross-chain Router
+
+**Status: IMPLEMENTATION COMPLETE — READY FOR OWNER MAINNET E2E.** Branch `claude/build-crosschain-router-001` from main
+`ebbd4aa` (PR #56 not included; rebase after it lands). The canonical `asset.bridge` action gained a provider-neutral
+Cross-chain Router (adapter `flofi.router`) for Base USDC → Arbitrum One USDC: owner-chosen amount, recipient, slippage and
+routing policy (LI.FI first, Across direct, or one of them); a canonical route model whose commitment is bound into the
+Manifest and the owner's authorization; `ROUTE_CHANGED` on any material change after Review (no fallback); real
+`eth_simulateV1` of the exact Base transactions; asynchronous lifecycle `PREPARED → AUTHORIZED → SOURCE_SUBMITTED →
+SOURCE_CONFIRMED → IN_FLIGHT → DESTINATION_OBSERVED → RECONCILED` (plus `RECONCILIATION_REQUIRED`, `RECOVERY_REQUIRED`,
+`REFUNDED`, `FAILED`), destination success proven from the Across `FilledRelay` on Arbitrum at both chains' safe heads.
+Same file/PostgreSQL runtime (`crosschain-router` flow; no migration, no new service). Evidence: MOCKED (unit,
+PostgreSQL, loopback browser) and a real `PUBLIC_READ_ONLY` preflight
+([BUILD-ROUTER-001-READONLY.json](builds/BUILD-ROUTER-001-READONLY.json)). No transaction was sent; `MAINNET_EXECUTED` needs
+the owner's wallet-signed run. See the [plan](builds/BUILD-ROUTER-001-PLAN.md) and [report](builds/BUILD-ROUTER-001-REPORT.md).
+
 ## BUILD-UNISWAP-LIQUIDITY-PUBLIC — Public Uniswap v3 liquidity on the cloud runtime
 
 **Status: IMPLEMENTATION COMPLETE — READY FOR OWNER PUBLIC E2E.** Stacked on BUILD-CLOUD-001 in branch

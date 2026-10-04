@@ -6,9 +6,10 @@ import { assetSymbol, createReviewContext, hasKeys, isRecord, type ReviewContext
 import { LIQUIDITY_ACTION, validateLiquidityNode } from './liquidity.js';
 import { validateCompositionWorkflow } from './composition.js';
 import { validateBridgeWorkflow } from './bridge.js';
+import { validateRouterBridgeWorkflow } from './crosschain-router.js';
 import { validateBridgeSwapWorkflow } from './bridge-swap.js';
 import { validateCrossChainLiquidityWorkflow } from './cross-chain-liquidity.js';
-import { BRIDGE_ACTION } from '@defi-workflow-engine/workflow-contracts';
+import { BRIDGE_ACTION, isRouterBridgeNode } from '@defi-workflow-engine/workflow-contracts';
 
 import { isLendingComposition } from '@defi-workflow-engine/workflow-contracts';
 import { validateLendingComposition } from './lending-composition.js';
@@ -90,6 +91,8 @@ export function validateAuthoringWorkflow(input: unknown, context: ReviewContext
     return workflow;
   }
   if (workflow.nodes.some(node => node.actionType === BRIDGE_ACTION)) {
+    // BUILD-ROUTER-001: the Cross-chain Router declaration; BUILD-008/009/010 bridge shapes keep their own validators.
+    if (workflow.nodes.some(isRouterBridgeNode)) { validateRouterBridgeWorkflow(workflow); return workflow; }
     if (workflow.nodes.length === 2) validateBridgeSwapWorkflow(workflow);
     else validateBridgeWorkflow(workflow);
     return workflow;

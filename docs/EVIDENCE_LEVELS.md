@@ -1,5 +1,18 @@
 # Evidence levels
 
+## BUILD-ROUTER-001 Cross-chain Router evidence boundary
+
+Router runs (Base mainnet USDC → Arbitrum One USDC, via LI.FI or direct Across, underlying Across) are classified `MOCKED`
+(in-process and loopback chains and providers), `PUBLIC_READ_ONLY` (live provider quotes, real Base/Arbitrum reads and a real
+`eth_simulateV1` of the exact Base transactions, without owner execution) or `MAINNET_EXECUTED`. `MAINNET_EXECUTED` is valid
+only for an owner-initiated run whose Base transactions are the reviewed calls from the owner (directly or as one canonical
+MetaMask delegated redemption), whose receipt carries exactly the reviewed Across `FundsDeposited`, and whose Arbitrum
+`FilledRelay` for the same `(originChainId, depositId)` delivers at least the reviewed minimum to the reviewed recipient,
+with the USDC `Transfer` in the fill receipt, both blocks at their chain's `safe` head. A provider status string is never
+settlement evidence. A refund after the fill deadline is `REFUNDED`, not success. Current evidence is `MOCKED` plus
+`PUBLIC_READ_ONLY` ([BUILD-ROUTER-001-READONLY.json](builds/BUILD-ROUTER-001-READONLY.json)); the BUILD-008/010 `MOCKED`
+bridge records are unchanged.
+
 ## BUILD-UNISWAP-LIQUIDITY-PUBLIC Base Sepolia liquidity evidence boundary
 
 Base Sepolia Uniswap v3 liquidity runs are classified `MOCKED` (in-process and loopback chains), `PUBLIC_READ_ONLY`

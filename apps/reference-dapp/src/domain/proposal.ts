@@ -10,6 +10,7 @@ import { bridgeDetails } from './bridge-authoring';
 import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import { solanaLiquidityDetails } from './solana-liquidity-authoring';
 import { uniswapLiquidityDetails } from './uniswap-liquidity-authoring';
+import { routerDetails, ROUTER_ROUTING_LABEL } from './router-authoring';
 
 export function describeProposal(before: EditorState, after: EditorState, command: Command, context: ReviewContext): readonly string[] {
   if (after.error) return [after.error];
@@ -42,6 +43,13 @@ export function describeProposal(before: EditorState, after: EditorState, comman
   ]);
   const oldNode = 'nodeId' in command ? before.workflow.nodes.find(n => n.nodeId === command.nodeId) : undefined;
   const newNode = after.workflow.nodes.find(n => n.nodeId === ('nodeId' in command ? command.nodeId : `node-${String(before.workflow.revision + 2).padStart(3, '0')}`));
+  const routed = newNode && routerDetails(newNode), routedBefore = oldNode && routerDetails(oldNode);
+  if (routed) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
+    `Node ${newNode?.nodeId}: cross-chain bridge Base USDC → Arbitrum One USDC (Cross-chain Router)`,
+    `Amount: ${routedBefore?.amount ?? 'none'} → ${routed.amount} USDC; slippage ${routed.slippage} bps`,
+    `Recipient on Arbitrum: ${routedBefore ? routedBefore.recipientLabel + ' → ' : ''}${routed.recipientLabel}`,
+    `Routing: ${ROUTER_ROUTING_LABEL[routed.routing]}`,
+    'Real funds on mainnet. A fresh route, transaction simulation and route-bound Manifest review are required before any wallet request.']);
   const bridge = newNode && bridgeDetails(newNode);
   if (bridge) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
     `Node ${newNode?.nodeId}: Base → Optimism USDC bridge`,

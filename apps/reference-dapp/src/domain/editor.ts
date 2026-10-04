@@ -19,6 +19,7 @@ import { createAuthoredTransfer } from './robinhood-transfer-authoring';
 import { createSolanaSwapNode, solanaSwapDetails } from './jupiter-authoring';
 import { createSolanaLiquidityNode, solanaLiquidityDetails } from './solana-liquidity-authoring';
 import { createUniswapLiquidityNode, uniswapLiquidityDetails } from './uniswap-liquidity-authoring';
+import { createRouterNode, routerDetails } from './router-authoring';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -113,6 +114,19 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
     try { const workflow = createBridgeSwapWorkflow(current.workflowId, current.revision + 1, command.input);
       validateAuthoringWorkflow(workflow, context); return { workflow: freeze(workflow), error: null };
     } catch (cause) { return reject(cause instanceof Error ? cause.message : 'BRIDGE_SWAP_INVALID'); }
+  }
+  if (command.type === 'ADD_ROUTER_BRIDGE' || command.type === 'SET_ROUTER_BRIDGE') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try {
+      if (command.type === 'SET_ROUTER_BRIDGE' && !current.nodes.some(node => node.nodeId === command.nodeId && routerDetails(node))) return reject('UNKNOWN_ROUTER_NODE');
+      const id = command.type === 'SET_ROUTER_BRIDGE' ? command.nodeId : `node-${String(current.revision + 2).padStart(3, '0')}`;
+      const replacement = createRouterNode(id, command.input);
+      if (command.type === 'SET_ROUTER_BRIDGE' && JSON.stringify(replacement) === JSON.stringify(current.nodes.find(n => n.nodeId === id))) return { workflow: current, error: null };
+      // One isolated cross-chain bridge, like every other bridge workflow: authoring templates are replaced, never connected.
+      const workflow = { ...current, revision: current.revision + 1, nodes: [replacement], resourceEdges: [] };
+      validateAuthoringWorkflow(workflow, context);
+      return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'ROUTER_INPUT_INVALID'); }
   }
   if (command.type === 'ADD_BRIDGE' || command.type === 'SET_BRIDGE') {
     if (!context) return reject('REVIEW_CONTEXT_REQUIRED');

@@ -23,6 +23,8 @@ export type BackendOptions = {
   readonly holderId: string; readonly evidenceStore: EvidenceStore | null;
   /** Test seam: loopback MOCKED chains replace the network clients. Never used by the deployed entry point. */
   readonly rpc?: Partial<Record<FlowName, Rpc>>; readonly http?: JupiterHttp; readonly leaseTtlMs?: number; readonly busyRetries?: number;
+  /** Test seam (BUILD-ROUTER-001): the MOCKED destination chain and providers used with `rpc['crosschain-router']`. */
+  readonly router?: FlowDeps['router'];
 };
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 
@@ -35,10 +37,11 @@ export function createBackend(options: BackendOptions) {
     let transport = transports.get(flow);
     if (!transport) {
       const override = options.rpc?.[flow];
-      transport = override ? { rpc: override, ...options.http ? { http: options.http } : {} } : FLOWS[flow].transport(mode, env);
+      transport = override ? { rpc: override, ...options.http ? { http: options.http } : {}, ...options.router ? { router: options.router } : {} } : FLOWS[flow].transport(mode, env);
       transports.set(flow, transport);
     }
-    return { ...transport, mode, env, rpc: readOnly ? observeOnly(transport.rpc) : transport.rpc };
+    const router = transport.router && readOnly ? { router: { ...transport.router, destinationRpc: observeOnly(transport.router.destinationRpc) } } : {};
+    return { ...transport, ...router, mode, env, rpc: readOnly ? observeOnly(transport.rpc) : transport.rpc };
   };
   function storage(flow: FlowName, tenantId: string): ExecutionStorage {
     const definition = FLOWS[flow];

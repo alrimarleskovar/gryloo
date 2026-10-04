@@ -63,6 +63,11 @@ const uniswapHarness = process.env.GRYLOO_UNISWAP_LIQUIDITY_E2E === 'MOCKED_LOOP
 if (process.env.GRYLOO_UNISWAP_LIQUIDITY_E2E && !uniswapHarness) throw new Error('Uniswap liquidity E2E permits only the MOCKED loopback harness');
 const uniswapJournal = process.env.GRYLOO_UNISWAP_LIQUIDITY_JOURNAL ?? join(tmpdir(), 'gryloo-unilp-' + Date.now() + '-' + process.pid);
 if (uniswapHarness) process.env.GRYLOO_UNISWAP_LIQUIDITY_JOURNAL = uniswapJournal;
+// BUILD-ROUTER-001: Cross-chain Router browser tests use only the MOCKED loopback Base/Arbitrum chains and providers; never a public network or a broadcast.
+const routerHarness = process.env.GRYLOO_ROUTER_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_ROUTER_E2E && !routerHarness) throw new Error('Router E2E permits only the MOCKED loopback harness');
+const routerJournal = process.env.GRYLOO_ROUTER_JOURNAL ?? join(tmpdir(), 'gryloo-router-' + Date.now() + '-' + process.pid);
+if (routerHarness) process.env.GRYLOO_ROUTER_JOURNAL = routerJournal;
 
 export default defineConfig({
   testDir: './e2e',
@@ -90,7 +95,8 @@ export default defineConfig({
     ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(devnetHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(robinhoodHarness ? [{ command: 'node e2e/robinhood-transfer-harness.mjs --serve', url: 'http://127.0.0.1:8553', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []), {
+    ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(routerHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: 'http://127.0.0.1:8547',
     reuseExistingServer: false,
@@ -110,6 +116,7 @@ export default defineConfig({
       ...(devnetHarness ? { GRYLOO_SOLANA_DEVNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SOLANA_DEVNET_JOURNAL: devnetJournal } : {}),
       ...(robinhoodHarness ? { GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROBINHOOD_JOURNAL: robinhoodJournal } : {}),
       ...(uniswapHarness ? { GRYLOO_UNISWAP_LIQUIDITY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_UNISWAP_LIQUIDITY_JOURNAL: uniswapJournal } : {}),
+      ...(routerHarness ? { GRYLOO_ROUTER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_JOURNAL: routerJournal } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });
