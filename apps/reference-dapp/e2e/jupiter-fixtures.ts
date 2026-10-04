@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 import { createMockedSolanaWallet } from '@defi-workflow-engine/reference-compiler';
 
 /** MOCKED Wallet Standard wallet. Its disposable key lives only in this test process's memory. */
 export async function resetJupiterHarness(options: Record<string, unknown> = {}, funding: { lamports?: string; usdc?: string } = {}) {
-  if (process.env.GRYLOO_JUPITER_E2E !== 'MOCKED_LOOPBACK_ONLY' || !process.env.GRYLOO_JUPITER_JOURNAL?.startsWith('/tmp/gryloo-build014-')) throw new Error('MOCK_RESET_DENIED');
+  if (process.env.GRYLOO_JUPITER_E2E !== 'MOCKED_LOOPBACK_ONLY' || !process.env.GRYLOO_JUPITER_JOURNAL?.startsWith(join(tmpdir(), 'gryloo-build014-'))) throw new Error('MOCK_RESET_DENIED');
   await rm(process.env.GRYLOO_JUPITER_JOURNAL, { recursive: true, force: true });
   const wallet = createMockedSolanaWallet();
   await jupiterControl({ action: 'reset', owner: wallet.owner, options, ...funding });

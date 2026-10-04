@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { createMockedSolanaWallet } from '@defi-workflow-engine/reference-compiler';
 import { chooseSolanaWallet, installSolanaWallet } from './jupiter-fixtures';
 
 /** MOCKED Solana Devnet loopback only. The wallet's disposable key lives only in this test process's memory. */
 export async function resetDevnetHarness(options: Record<string, unknown> = {}, funding: { lamports?: string; devUsdc?: string } = {}) {
-  if (process.env.GRYLOO_SOLANA_DEVNET_E2E !== 'MOCKED_LOOPBACK_ONLY' || !process.env.GRYLOO_SOLANA_DEVNET_JOURNAL?.startsWith('/tmp/gryloo-demo001-')) throw new Error('MOCK_RESET_DENIED');
+  if (process.env.GRYLOO_SOLANA_DEVNET_E2E !== 'MOCKED_LOOPBACK_ONLY' || !process.env.GRYLOO_SOLANA_DEVNET_JOURNAL?.startsWith(join(tmpdir(), 'gryloo-demo001-'))) throw new Error('MOCK_RESET_DENIED');
   await rm(process.env.GRYLOO_SOLANA_DEVNET_JOURNAL, { recursive: true, force: true });
   const wallet = createMockedSolanaWallet();
   await devnetControl({ action: 'reset', owner: wallet.owner, options, ...funding });

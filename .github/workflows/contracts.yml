@@ -10,7 +10,7 @@ permissions:
 jobs:
   contracts:
     name: Contracts, reference app, dependencies and SBOM
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, flofi-wsl]
     env:
       TURBO_TELEMETRY_DISABLED: "1"
       DO_NOT_TRACK: "1"
@@ -34,6 +34,17 @@ jobs:
           --health-timeout 5s
           --health-retries 30
     steps:
+      - name: Configure self-hosted temp storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:-}"
+          mkdir -p "$RUNNER_TEMP"
+          printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          # Diagnostics only: the persistent runner shares RAM with the RAM-backed /tmp tmpfs.
+          free -h
+          df -h "$RUNNER_TEMP" /tmp
+
       - name: Fetch reviewed revision with runner-provided Git
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,9 +56,11 @@ jobs:
           set -euo pipefail
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git init .
+          git remote remove origin 2>/dev/null || true
           git remote add origin "$SERVER/$REPOSITORY.git"
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin "$REVISION"
-          git checkout --detach FETCH_HEAD
+          git checkout --detach -f FETCH_HEAD
+          git clean -ffdx
           unset auth GH_TOKEN
 
       - name: Verify and bootstrap exact official Node and pnpm archives
@@ -85,6 +98,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # turbo.json caps task concurrency at 2: the default (10 parallel tsc/next tasks) peaked at ~3.4 GB
+          # and triggered the OOM killer on the 8 GB self-hosted runner. Same tasks, same gates.
           pnpm typecheck
           pnpm lint
           pnpm build
@@ -178,6 +193,8 @@ jobs:
           if init is None or len(init)!=340: raise SystemExit('BUILD-007 ERC-2470 initcode pin changed')
           (root/'erc2470-initcode.bin').write_bytes(init)
           PYCODE
+          # The disposable executor key must stay under /tmp/ (enforced by the harness and the composition service);
+          # it is a few small files and is removed when this step exits so the persistent runner's tmpfs does not fill.
           export GRYLOO_MODE_B_RUNTIME="/tmp/gryloo-b007-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export GRYLOO_MODE_B_SAFE_PACKAGE="$GRYLOO_B007_INPUTS/safe/package"
           export GRYLOO_MODE_B_ROLES_MASTERCOPIES="$GRYLOO_B007_INPUTS/roles-mastercopies.json"
@@ -186,7 +203,7 @@ jobs:
           export GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_SHA256="$(sha256sum "$GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_PATH" | cut -d' ' -f1)"
           node apps/reference-dapp/e2e/fork/composition-harness.mjs serve > "$RUNNER_TEMP/gryloo-b007-harness.log" 2>&1 &
           b007_pid=$!
-          trap 'kill "$b007_pid" 2>/dev/null || true' EXIT
+          trap 'kill "$b007_pid" 2>/dev/null || true; rm -rf "$GRYLOO_MODE_B_RUNTIME"' EXIT
           for attempt in $(seq 1 120); do
             if [ -s "$GRYLOO_MODE_B_RUNTIME/profile.json" ] && [ -s "$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json" ]; then break; fi
             if ! kill -0 "$b007_pid" 2>/dev/null; then cat "$RUNNER_TEMP/gryloo-b007-harness.log"; exit 1; fi
@@ -197,7 +214,9 @@ jobs:
           export GRYLOO_COMPOSITION_EXECUTOR_KEY_FILE="$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json"
           export GRYLOO_COMPOSITION_SMOKE_PROFILE="$GRYLOO_COMPOSITION_PROFILE"
           export GRYLOO_COMPOSITION_MODE=fork
-          pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts packages/reference-executor/test/composition.fork.test.ts packages/reference-reconciler/test/composition.fork.test.ts --testTimeout=120000
+          # The three files share one Anvil fork; the compiler file temporarily replaces Position Manager code inside a
+          # snapshot, so the reconciler's code-identity read must not run concurrently with it.
+          pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts packages/reference-executor/test/composition.fork.test.ts packages/reference-reconciler/test/composition.fork.test.ts --no-file-parallelism --testTimeout=120000
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test composition-adversarial.spec.ts composition-fork.spec.ts composition-recovery.spec.ts
 
       - name: Summarize screenshot differences after a browser failure
