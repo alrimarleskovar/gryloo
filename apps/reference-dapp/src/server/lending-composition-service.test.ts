@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {describe,it,expect} from 'vitest';
-import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
+import {describe,it,expect,vi} from 'vitest';
+import {mkdtemp,rm,readFile,writeFile,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createLendingHarness,OWNER} from '../../e2e/lending-harness.mjs';
@@ -12,8 +12,8 @@ import {appendJournalState} from '@defi-workflow-engine/reference-executor';
 import {wrappedAaveSetup} from '../../e2e/aave-wallet-fixtures';
 import {repayModel} from '../../e2e/repay-fixtures';
 import {AAVE_V3_BASE_SEPOLIA as p} from '@defi-workflow-engine/action-registry';
-import {supplyHash,supplyArtifactHash,readLendingSnapshot} from '@defi-workflow-engine/reference-compiler';
-import {verifyComposedLendingEffects,verifyLendingExport,buildLendingEvidence} from '@defi-workflow-engine/reference-reconciler';
+import {supplyHash,supplyArtifactHash,readLendingSnapshot,decodeSupplyWalletEnvelope,SUPPLY_METAMASK} from '@defi-workflow-engine/reference-compiler';
+import {verifyComposedLendingEffects,verifyLendingExport,buildLendingEvidence,lendingObservationsDigest} from '@defi-workflow-engine/reference-reconciler';
 const workflow=createAuthoredLending('lending',0,{supply:'0.1',borrow:'0.01',slippage:'50',owner:OWNER});
 async function fixture(action:(f:{model:ReturnType<typeof createLendingHarness>;service:ReturnType<typeof createLendingCompositionService>;dir:string})=>Promise<void>){
   const dir=await mkdtemp(join(tmpdir(),'build013-')),model=createLendingHarness(),service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
@@ -41,6 +41,366 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
       expect((await composed.begin(r.id,OWNER,workflow)).record.attempts[0]!.state).toBe('PREPARED');expect(model.transactions).toHaveLength(1);
     }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
   }));
+  it.each(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP'])('reconciles all five steps relayed as MetaMask type-2 depth-1 redemptions with an unchanged owner nonce; a preconfirmed %s receipt stays observation-only',target=>fixture(async({model})=>{
+    const wrapped=await wrappedAaveSetup(model as unknown as ReturnType<typeof repayModel>,workflow),ZERO='0x'+'0'.repeat(64);
+    // Base Flashblocks: a receipt with an all-zero block hash for a block that is not sealed yet.
+    let preconfirmed:string|null=null,unsealed:string|null=null;
+    const rpc:typeof wrapped.rpc=async(method,params)=>{
+      const result=await wrapped.rpc(method,params);
+      if(preconfirmed&&['eth_getTransactionReceipt','eth_getTransactionByHash'].includes(method)&&params[0]===preconfirmed)return {...result as object,blockHash:ZERO};
+      return method==='eth_getBlockByNumber'&&params[0]===unsealed?null:result;
+    };
+    const service=createLendingCompositionService({...wrapped.input,rpc});
+    try{
+      let r=await authorized(service);const nonce=String(model.state.nonce);
+      for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){
+        const begin=await service.begin(r.id,OWNER,workflow);expect(begin.record.attempts.at(-1)).toMatchObject({step:expected,nonce});expect(begin.transaction.value).toBe('0x0');
+        await service.handoff(r.id,begin.attemptId);const hash=await rpc('MOCK_submit',[begin.transaction]) as string;
+        const relayed=await wrapped.rpc('eth_getTransactionByHash',[hash]) as Record<string,unknown>;
+        expect(relayed).toMatchObject({type:'0x2',to:SUPPLY_METAMASK.manager});expect(relayed.from).not.toBe(OWNER);expect(relayed.authorizationList).toBeUndefined();
+        expect(decodeSupplyWalletEnvelope(relayed.input).call).toEqual({to:begin.transaction.to,value:'0',data:begin.transaction.data});
+        await service.report(r.id,begin.attemptId,{kind:'HASH',hash});
+        if(expected===target){
+          preconfirmed=hash;unsealed=(await wrapped.rpc('eth_getTransactionReceipt',[hash]) as {blockNumber:string}).blockNumber;
+          for(let i=0;i<2;i++){
+            const sent=model.transactions.length;r=await service.observe(r.id);
+            expect(r.attempts.at(-1)).toMatchObject({step:expected,hash,reconciled:false});expect(r.status).toBe('RECOVERY_REQUIRED');
+            expect(r.observations.at(-1)).toMatchObject({verdict:'INCONCLUSIVE',reason:'LENDING_RECEIPT_NOT_CANONICAL',transaction:null,receipt:null,ownerProof:null});
+            await expect(service.begin(r.id,OWNER,workflow)).rejects.toThrow();await expect(service.refreshReview(r.id)).rejects.toThrow('LENDING_RECOVERY_OBSERVE_ONLY');
+            expect(model.transactions).toHaveLength(sent);
+          }
+          preconfirmed=null;unsealed=null;
+        }
+        const sent=model.transactions.length;r=await service.observe(r.id);
+        expect(r.attempts.at(-1)).toMatchObject({step:expected,reconciled:true});expect(model.transactions).toHaveLength(sent);
+        expect(r.observations.at(-1)!.ownerProof).toMatchObject({kind:'METAMASK_EIP7702',outerDestination:SUPPLY_METAMASK.manager,ownerAuthorizationNonce:null,ownerNonceBefore:nonce,ownerNonceAfter:nonce,callCountBefore:'0',callCountAfter:'1'});
+        expect(String(model.state.nonce)).toBe(nonce);
+      }
+      expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(model.transactions).toHaveLength(5);
+      for(const o of r.evidence!.composedExecution.observations){
+        const block=await rpc('eth_getBlockByNumber',[(o.receipt as {blockNumber:string}).blockNumber,false]) as {hash:string;transactions:string[]};
+        expect((o.receipt as {blockHash:string}).blockHash).not.toBe(ZERO);expect((o.receipt as {blockHash:string}).blockHash).toBe(block.hash);
+        expect(block.transactions).toContain((o.receipt as {transactionHash:string}).transactionHash);
+      }
+    }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
+  }));
+  // The real paused run: three POOL_APPROVAL preparations cancelled before wallet handoff, then the later Uniswap
+  // liquidity owner E2E spent exactly 0.000999999999998412 WETH from the same wallet.
+  const WETH_AT_PAUSE=3272386910091893n,WETH_AFTER_UNISWAP=2272386910093481n;
+  async function pausedAfterThreeCancellations(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    model.state.weth=WETH_AT_PAUSE;model.history.set(model.state.block,{...model.state});
+    let r=await authorized(service);
+    for(let i=0;i<3;i++){const b=await service.begin(r.id,OWNER,workflow);r=await service.cancelPrepared(r.id,b.attemptId);if(i<2)r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);}
+    expect(r.attempts.map(a=>[a.step,a.state,a.hash,a.notSubmitted])).toEqual(Array(3).fill(['POOL_APPROVAL','CANCELLED',null,true]));
+    return r;
+  }
+  const drift=(model:ReturnType<typeof createLendingHarness>)=>{model.state.weth=WETH_AFTER_UNISWAP;model.state.block+=10;model.history.set(model.state.block,{...model.state});};
+  it('re-roots a never-handed-off paused run after the exact Uniswap WETH drift and binds the composed baseline to the fresh Review',()=>fixture(async({model,service,dir})=>{
+    let r=await pausedAfterThreeCancellations(model,service);drift(model);
+    const file=join(dir,r.id+'.jsonl'),history=await readFile(file,'utf8'),previous=structuredClone(r.reviews);
+    r=await service.refreshReview(r.id);
+    const fresh=r.reviews.at(-1)!;
+    expect(r.reviews.slice(0,-1)).toEqual(previous);expect((await readFile(file,'utf8')).startsWith(history)).toBe(true);
+    expect(fresh.rerootOf).toBe(previous[0]!.commitment);expect(previous.map(v=>v.commitment)).not.toContain(fresh.commitment);
+    expect(fresh.rootState).toEqual(fresh.state);expect(fresh.rootState.wethBalance).toBe(WETH_AFTER_UNISWAP.toString());expect(fresh.completed).toEqual([]);
+    expect(fresh.calls.map(c=>c.id)).toEqual(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']);
+    expect((fresh.simulationResponse as {calls:{status:string}[]}[])[0]!.calls).toHaveLength((previous[0]!.simulationResponse as {calls:unknown[]}[])[0]!.calls.length);
+    expect((fresh.simulationResponse as {calls:{status:string}[]}[])[0]!.calls.every(c=>c.status==='0x1')).toBe(true);
+    expect(r).toMatchObject({status:'SIMULATED',authorization:null,error:null});expect(r.attempts).toHaveLength(3);expect(model.transactions).toHaveLength(0);
+    r=await service.review(r.id,fresh.commitment,workflow);
+    for(let i=0;i<5;i++)r=await step(service,model,r.id);
+    expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(r.attempts.slice(0,3).every(a=>a.notSubmitted)).toBe(true);
+    expect(r.evidence!.composedExecution.effects!.walletWeth).toBe((WETH_AFTER_UNISWAP+10000000000000n).toString());
+    expect(r.evidence!.artifacts.review.commitment).toBe(fresh.commitment);expect(r.evidence!.bundle.manifestHash).toBe(supplyArtifactHash('strategy-manifest',fresh.manifest));
+    const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
+    const stale=structuredClone(archive);stale.artifacts.review=stale.artifacts.reviews[0]!;
+    await expect(verifyLendingExport(stale,model.rpc)).rejects.toThrow('LENDING_ARCHIVE_MISMATCH');
+  }));
+  it('keeps strict principal continuity once a step completed',()=>fixture(async({model,service})=>{
+    model.state.weth=WETH_AT_PAUSE;model.history.set(model.state.block,{...model.state});
+    let r=await authorized(service);r=await step(service,model,r.id);expect(r.attempts[0]!.reconciled).toBe(true);
+    drift(model);await expect(service.refreshReview(r.id)).rejects.toThrow('LENDING_PRINCIPAL_CHANGED');expect((await service.load(r.id)).reviews).toHaveLength(1);
+  }));
+  it('keeps observation-only recovery once an attempt reached wallet handoff',()=>fixture(async({model,service})=>{
+    let r=await pausedAfterThreeCancellations(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const b=await service.begin(r.id,OWNER,workflow);await service.handoff(r.id,b.attemptId);await service.report(r.id,b.attemptId,{kind:'UNKNOWN'});
+    drift(model);await expect(service.refreshReview(r.id)).rejects.toThrow('LENDING_RECOVERY_OBSERVE_ONLY');expect(model.transactions).toHaveLength(0);
+  }));
+  it.each(['nonce','economic'] as const)('keeps strict principal continuity when a %s reservation is not held by this run',kind=>fixture(async({model,service,dir})=>{
+    const r=await pausedAfterThreeCancellations(model,service);
+    const file=kind==='nonce'?join(dir,OWNER+'-'+r.attempts[0]!.nonce+'.intent'):join(dir,'economic-'+supplyHash(r.reviews[0]!.calls[1]!.tx).slice(2)+'.intent');
+    const foreign=JSON.parse((await readFile(file,'utf8')).trimEnd().split('\n').at(-1)!);foreign.id='lending-'+'f'.repeat(32);
+    await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify(foreign)+'\n');
+    drift(model);await expect(service.refreshReview(r.id)).rejects.toThrow('LENDING_PRINCIPAL_CHANGED');
+  }));
+  it.each(['after a completed step','with a wrong predecessor root'] as const)('rejects a forged re-root %s as store corruption',kind=>fixture(async({model,service,dir})=>{
+    let r=await authorized(service);if(kind==='after a completed step')r=await step(service,model,r.id);
+    const last=structuredClone(r),content:Record<string,unknown>={...last.reviews[0]!,rootState:last.reviews[0]!.state,completed:[],
+      rerootOf:kind==='after a completed step'?last.reviews[0]!.commitment:'0x'+'1'.repeat(64),expiresAt:new Date(Date.now()+60000).toISOString()};
+    delete content.commitment;last.reviews.push({...content,commitment:supplyHash(content)} as typeof last.reviews[number]);last.authorization=null;
+    const file=join(dir,r.id+'.jsonl');await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify(last)+'\n');
+    const restarted=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+    await expect(restarted.load(r.id)).rejects.toThrow('LENDING_STORE_CORRUPT');
+  }));
+  // The real pilot after its first owner step: six POOL_APPROVAL preparations cancelled before handoff, then POOL_APPROVAL.6 reconciled.
+  async function poolApprovedAfterSixCancellations(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);
+    for(let i=0;i<6;i++){const b=await service.begin(r.id,OWNER,workflow);r=await service.cancelPrepared(r.id,b.attemptId);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);}
+    r=await step(service,model,r.id);
+    expect(r.attempts.map(a=>a.state)).toEqual([...Array(6).fill('CANCELLED'),'CONFIRMED']);expect(r.attempts.at(-1)).toMatchObject({id:r.id+'.POOL_APPROVAL.6',reconciled:true});
+    return r;
+  }
+  it('continues after a reconciled POOL_APPROVAL once the run journal outgrows the shared 16 MiB default',()=>fixture(async({model,service,dir})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    // Identical snapshots are valid history; they stand in for the real run's 15.9 MB of events.
+    const file=join(dir,r.id+'.jsonl'),bytes=await readFile(file,'utf8'),last=bytes.trimEnd().split('\n').at(-1)!+'\n';
+    await writeFile(file,bytes+last.repeat(Math.ceil((16_777_216-Buffer.byteLength(bytes))/Buffer.byteLength(last))+1));
+    const history=await readFile(file,'utf8'),before=structuredClone(r);expect(Buffer.byteLength(history)).toBeGreaterThan(16_777_216);
+    r=await service.refreshReview(r.id);
+    const continuation=r.reviews.at(-1)!;
+    expect(continuation.rerootOf).toBeUndefined();expect(continuation.completed).toEqual(['POOL_APPROVAL']);
+    expect(continuation.calls.map(c=>c.id)).toEqual(['SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']);expect(continuation.rootState).toEqual(before.reviews.at(-1)!.rootState);
+    expect(r.reviews.slice(0,-1)).toEqual(before.reviews);expect(r.attempts).toEqual(before.attempts);expect(r.observations).toEqual(before.observations);
+    expect((await readFile(file,'utf8')).startsWith(history)).toBe(true);
+    r=await service.review(r.id,continuation.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);
+    expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED',reviewCommitment:continuation.commitment});
+    expect(begin.record.attempts.filter(a=>a.step==='POOL_APPROVAL')).toHaveLength(7);expect(model.transactions).toHaveLength(1);
+    expect((await readFile(file,'utf8')).startsWith(history)).toBe(true);
+  }),120_000);
+  it('six pre-handoff cancellations do not consume the submitted-attempt bound needed to reach SWAP',()=>fixture(async({model,service})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    for(const expected of ['SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){r=await step(service,model,r.id);expect(r.attempts.at(-1)).toMatchObject({step:expected,reconciled:true});}
+    expect(r.status).toBe('COMPLETED');expect(r.attempts).toHaveLength(11);expect(model.transactions).toHaveLength(5);
+    expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(r.evidence!.composedExecution.reviews.some(v=>v.completed.join()==='POOL_APPROVAL')).toBe(true);
+  }),120_000);
+  it('fails closed when the reconciled step cannot be independently reconciled again',()=>fixture(async({model,service})=>{
+    let r=await poolApprovedAfterSixCancellations(model,service);
+    model.receipts.delete(r.attempts.at(-1)!.hash!);
+    await expect(service.refreshReview(r.id)).rejects.toThrow(/PREDECESSOR/);r=await service.load(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual([]);expect(r.attempts).toHaveLength(7);expect(model.transactions).toHaveLength(1);
+  }));
+  it('refuses the next wallet handoff when the run journal could not record its outcome',()=>fixture(async({model,service,dir})=>{
+    const r=await poolApprovedAfterSixCancellations(model,service),file=join(dir,r.id+'.jsonl'),size=Buffer.byteLength(await readFile(file,'utf8'));
+    const tight=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED',maxRunBytes:size+4*(JSON.stringify(r).length+1)});
+    const intents=(await readdir(dir)).sort();
+    await expect(tight.begin(r.id,OWNER,workflow)).rejects.toThrow('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
+    expect((await tight.load(r.id)).attempts).toHaveLength(7);expect((await readdir(dir)).sort()).toEqual(intents);expect(model.transactions).toHaveLength(1);
+  }));
+  // Owner-interaction lifetime: a continuation Review lives 600 s; the wallet release gate rechecks fresh state without a new simulation.
+  async function continuationReview(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);r=await step(service,model,r.id);r=await service.refreshReview(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL']);return r;
+  }
+  const travel=(model:ReturnType<typeof createLendingHarness>,at:number)=>{vi.setSystemTime(at);model.state.timestamp=Math.floor(at/1000);model.history.set(model.state.block,{...model.state});};
+  function counted(rpc:ReturnType<typeof createLendingHarness>['rpc'],patch:(method:string,params:unknown[],result:unknown)=>unknown=(_m,_p,r)=>r){
+    const calls:string[]=[];return {calls,rpc:(async(method:string,params:unknown[])=>{calls.push(method);return patch(method,params,await rpc(method,params));}) as typeof rpc};
+  }
+  it('keeps a continuation Review usable past 120 s and releases SUPPLY through the fast gate without another POOL_APPROVAL',()=>fixture(async({model,service,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      let r=await authorized(service);const first=r.reviews[0]!;
+      expect(Date.parse(first.expiresAt)-Date.parse(first.simulation.freshness.observedAt)).toBe(120_000);
+      r=await step(service,model,r.id);r=await service.refreshReview(r.id);const fresh=r.reviews.at(-1)!,observed=Date.parse(fresh.simulation.freshness.observedAt);
+      expect(fresh.completed).toEqual(['POOL_APPROVAL']);expect(Date.parse(fresh.expiresAt)-observed).toBe(600_000);
+      travel(model,observed+180_000);r=await service.review(r.id,fresh.commitment,workflow);
+      travel(model,observed+300_000);const begin=await service.begin(r.id,OWNER,workflow);
+      expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});
+      const gate=counted(model.rpc),release=createLendingCompositionService({rpc:gate.rpc,journalDir:dir,provenance:'MOCKED'});
+      travel(model,observed+420_000);const handed=await release.handoff(r.id,begin.attemptId);
+      expect(handed.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'SUBMITTING'});expect(gate.calls).not.toContain('eth_simulateV1');
+      expect(handed.attempts.filter(a=>a.step==='POOL_APPROVAL')).toHaveLength(1);expect(model.transactions).toHaveLength(1);
+    }finally{vi.useRealTimers();}
+  }));
+  it('fails closed at the wallet release gate once the 600 s continuation lifetime has passed',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+      const begin=await service.begin(r.id,OWNER,workflow);travel(model,Date.parse(r.reviews.at(-1)!.expiresAt)+1_000);
+      await expect(service.handoff(r.id,begin.attemptId)).rejects.toThrow('LENDING_REVIEW_STALE');
+      expect((await service.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
+    }finally{vi.useRealTimers();}
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>)=>void,string,((method:string,params:unknown[],result:unknown)=>unknown)|undefined]>([
+    ['principal changed (wallet WETH)',m=>{m.state.weth+=1n;},'LENDING_PRINCIPAL_CHANGED',undefined],
+    ['principal changed (wallet USDC)',m=>{m.state.balance-=1n;},'LENDING_PRINCIPAL_CHANGED',undefined],
+    ['gas price above the reviewed ceiling',()=>undefined,'LENDING_REVIEW_STALE',(method,_p,result)=>method==='eth_gasPrice'?'0x'+(10n**12n).toString(16):result],
+    ['L1 fee above the reviewed ceiling',()=>undefined,'LENDING_FINAL_L1_FEE_BUDGET_CHANGED',(method,params,result)=>method==='eth_call'&&(params[0] as {to:string}).to.toLowerCase()==='0x420000000000000000000000000000000000000f'?'0x'+(10n**15n).toString(16).padStart(64,'0'):result],
+  ])('fails closed at the wallet release gate when %s',(_,mutate,code,patch)=>fixture(async({model,service,dir})=>{
+    let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);mutate(model);model.history.set(model.state.block,{...model.state});
+    const gate=createLendingCompositionService({rpc:counted(model.rpc,patch).rpc,journalDir:dir,provenance:'MOCKED'});
+    await expect(gate.handoff(r.id,begin.attemptId)).rejects.toThrow(code);
+    expect((await gate.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
+  }));
+  it('fails closed at the wallet release gate when the completed POOL_APPROVAL proof is missing',()=>fixture(async({model,service})=>{
+    let r=await continuationReview(model,service);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);model.receipts.delete(r.attempts[0]!.hash!);
+    await expect(service.handoff(r.id,begin.attemptId)).rejects.toThrow('LENDING_PREDECESSOR_PROOF_CHANGED');
+    expect((await service.load(r.id)).attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});expect(model.transactions).toHaveLength(1);
+  }));
+  it('reconciles SUPPLY and continues to BORROW after Fresh Simulates push the Reviews past the 1 MiB hash bound',()=>fixture(async({model,service,dir})=>{
+    // The real run reached 21 Reviews (1,034,314 bytes); Observe then threw "Hash input size" before saving and SUPPLY stayed PENDING.
+    let r=await authorized(service);r=await step(service,model,r.id);r=await service.refreshReview(r.id);
+    // One valid snapshot repeating the latest committed Review stands in for the many Fresh Simulates of the real run.
+    const latest=r.reviews.at(-1)!,copies=Math.ceil(1_100_000/Buffer.byteLength(JSON.stringify(latest)));
+    const file=join(dir,r.id+'.jsonl');await writeFile(file,(await readFile(file,'utf8'))+JSON.stringify({...r,reviews:[...r.reviews,...Array(copies).fill(latest)]})+'\n');
+    r=await service.load(r.id);expect(Buffer.byteLength(JSON.stringify(r.reviews))).toBeGreaterThan(1_048_576);
+    r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+    const begin=await service.begin(r.id,OWNER,workflow);expect(begin.record.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'PREPARED'});
+    await service.handoff(r.id,begin.attemptId);await service.report(r.id,begin.attemptId,{kind:'HASH',hash:await model.rpc('MOCK_submit',[begin.transaction]) as string});
+    r=await service.observe(r.id);
+    expect(r.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'CONFIRMED',reconciled:true});expect(r.observations.at(-1)).toMatchObject({verdict:'RECONCILED'});
+    r=await service.refreshReview(r.id);r=await service.refreshReview(r.id);
+    expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY']);expect(r.reviews.at(-1)!.calls.map(c=>c.id)).toEqual(['BORROW','ROUTER_APPROVAL','SWAP']);
+    expect(r.attempts.filter(a=>a.step==='SUPPLY')).toHaveLength(1);expect((await service.load(r.id)).attempts).toHaveLength(2);
+    r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);for(let i=0;i<3;i++)r=await step(service,model,r.id);
+    expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(Buffer.byteLength(JSON.stringify(r.reviews))).toBeGreaterThan(1_048_576);
+    const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
+    const tampered=structuredClone(archive);tampered.composedExecution.reviews[3]!.fields.borrowAmount='999';
+    await expect(verifyLendingExport(tampered,model.rpc)).rejects.toThrow();
+  }),180_000);
+  // ROUTER_APPROVAL after POOL_APPROVAL, SUPPLY and BORROW reconciled: one lifetime rule across every gate.
+  async function routerApprovalPrepared(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    let r=await authorized(service);for(let i=0;i<3;i++)r=await step(service,model,r.id);
+    r=await service.refreshReview(r.id);const v=r.reviews.at(-1)!;
+    expect(v.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(v.calls.map(c=>c.id)).toEqual(['ROUTER_APPROVAL','SWAP']);
+    r=await service.review(r.id,v.commitment,workflow);const begin=await service.begin(r.id,OWNER,workflow);
+    expect(begin.record.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'PREPARED'});
+    return {r:begin.record,begin,review:v};
+  }
+  it('derives expiresAt and maximumAgeSeconds from one lifetime rule: 120 s initially, 600 s for a continuation',()=>fixture(async({model,service})=>{
+    let r=await authorized(service);const first=r.reviews[0]!;
+    expect([Date.parse(first.expiresAt)-Date.parse(first.simulation.freshness.observedAt),first.simulation.freshness.maximumAgeSeconds*1000,Date.parse(first.simulation.freshness.expiresAt)-Date.parse(first.simulation.freshness.observedAt)]).toEqual([120_000,120_000,120_000]);
+    for(let i=0;i<3;i++)r=await step(service,model,r.id);r=await service.refreshReview(r.id);const next=r.reviews.at(-1)!;
+    expect([Date.parse(next.expiresAt)-Date.parse(next.simulation.freshness.observedAt),next.simulation.freshness.maximumAgeSeconds*1000,Date.parse(next.simulation.freshness.expiresAt)-Date.parse(next.simulation.freshness.observedAt)]).toEqual([600_000,600_000,600_000]);
+  }));
+  it('releases ROUTER_APPROVAL past 120 s through the fast gate; no completed step repeats and SWAP stays planned',()=>fixture(async({model,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+      const {r,begin,review}=await routerApprovalPrepared(model,service),observed=Date.parse(review.simulation.freshness.observedAt);
+      travel(model,observed+420_000);const gate=counted(model.rpc),release=createLendingCompositionService({rpc:gate.rpc,journalDir:dir,provenance:'MOCKED'});
+      const handed=await release.handoff(r.id,begin.attemptId);
+      expect(handed.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'SUBMITTING'});expect(gate.calls).not.toContain('eth_simulateV1');
+      expect(['POOL_APPROVAL','SUPPLY','BORROW'].map(s=>handed.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1]);
+      expect(handed.attempts.some(a=>a.step==='SWAP')).toBe(false);expect(model.transactions).toHaveLength(3);
+    }finally{vi.useRealTimers();}
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>,ctx:{r:Awaited<ReturnType<typeof routerApprovalPrepared>>['r']})=>void,string]>([
+    ['the 600 s continuation lifetime has passed',()=>undefined,'LENDING_REVIEW_STALE'],
+    ['principal drifted (wallet WETH)',m=>{m.state.weth+=1n;},'LENDING_PRINCIPAL_CHANGED'],
+    ['the route no longer quotes the reviewed minimum',m=>{m.state.quoteBps=9000n;},'LENDING_SWAP_MINIMUM_UNAVAILABLE'],
+    ['the BORROW predecessor proof is missing',(m,{r})=>{m.receipts.delete(r.attempts.find(a=>a.step==='BORROW')!.hash!);},'LENDING_PREDECESSOR_PROOF_CHANGED'],
+    ['gas price exceeds the reviewed ceiling',()=>undefined,'LENDING_REVIEW_STALE'],
+  ])('fails closed before the ROUTER_APPROVAL wallet request when %s',(name,mutate,code)=>fixture(async({model,dir})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const service=createLendingCompositionService({rpc:model.rpc,journalDir:dir,provenance:'MOCKED'});
+      const ctx=await routerApprovalPrepared(model,service);mutate(model,ctx);model.history.set(model.state.block,{...model.state});
+      if(name.includes('600 s'))travel(model,Date.parse(ctx.review.expiresAt)+1_000);
+      const patch=name.includes('gas price')?(method:string,_p:unknown[],result:unknown)=>method==='eth_gasPrice'?'0x'+(10n**12n).toString(16):result:undefined;
+      const gate=createLendingCompositionService({rpc:counted(model.rpc,patch).rpc,journalDir:dir,provenance:'MOCKED'});
+      await expect(gate.handoff(ctx.r.id,ctx.begin.attemptId)).rejects.toThrow(code);
+      const after=await gate.load(ctx.r.id);expect(after.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'PREPARED'});expect(after.attempts).toHaveLength(4);expect(model.transactions).toHaveLength(3);
+    }finally{vi.useRealTimers();}
+  }));
+  // The real ROUTER_APPROVAL.9: handed to MetaMask, never confirmable, reported SUBMISSION_RESULT_UNKNOWN; nothing on chain.
+  async function unknownRouterApproval(model:ReturnType<typeof createLendingHarness>,service:ReturnType<typeof createLendingCompositionService>){
+    const ctx=await routerApprovalPrepared(model,service);await service.handoff(ctx.r.id,ctx.begin.attemptId);
+    const r=await service.report(ctx.r.id,ctx.begin.attemptId,{kind:'UNKNOWN'});expect(r.attempts.at(-1)!.state).toBe('SUBMISSION_RESULT_UNKNOWN');return {...ctx,r};
+  }
+  const advance=(model:ReturnType<typeof createLendingHarness>,blocks:number)=>{model.state.block+=blocks;model.history.set(model.state.block,{...model.state});};
+  it('proves an unknown ROUTER_APPROVAL never reached the chain, then continues with a fresh ROUTER_APPROVAL and a verifiable export',()=>fixture(async({model,service})=>{
+    const {r:unknown}=await unknownRouterApproval(model,service),id=unknown.id;
+    let r=await service.observe(id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(r.attempts.at(-1)!.state).toBe('SUBMISSION_RESULT_UNKNOWN');
+    advance(model,130);r=await service.observe(id);
+    const resolved=r.attempts.at(-1)!;
+    expect(resolved).toMatchObject({step:'ROUTER_APPROVAL',state:'NOT_FOUND',notSubmitted:true,hash:null,nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED',ownerNonce:resolved.nonce,allowance:'0'}});
+    expect(r).toMatchObject({status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT',authorization:null});expect(r.observations).toHaveLength(3);
+    r=await service.refreshReview(id);expect(r.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(r.reviews.at(-1)!.calls.map(c=>c.id)).toEqual(['ROUTER_APPROVAL','SWAP']);
+    r=await service.review(id,r.reviews.at(-1)!.commitment,workflow);r=await step(service,model,id);
+    expect(r.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',reconciled:true});r=await step(service,model,id);
+    expect(r.status).toBe('COMPLETED');expect(r.evidence?.bundle.outcome).toBe('RECONCILED');expect(model.transactions).toHaveLength(5);
+    expect(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP'].map(s=>r.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1,2,1]);
+    expect(r.evidence!.composedExecution.resolvedNotSubmitted).toEqual([{attemptId:resolved.id,step:'ROUTER_APPROVAL',nonSubmission:resolved.nonSubmission}]);
+    const publish=(e:typeof r.evidence)=>{const a=structuredClone(e!);a.bundle.environment='TESTNET_EXECUTED';a.composedExecution.provenance='PUBLIC_TESTNET';
+      a.bundle.evidence[0]!.contentHash=lendingObservationsDigest(a.composedExecution);a.bundleHash=supplyArtifactHash('evidence-bundle',a.bundle);return a;};
+    expect((await verifyLendingExport(publish(r.evidence),model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
+    const forged=structuredClone(r.evidence!);forged.composedExecution.resolvedNotSubmitted[0]!.nonSubmission.allowance='10000';
+    await expect(verifyLendingExport(publish(forged),model.rpc)).rejects.toThrow('LENDING_NON_SUBMISSION_PROOF_MISMATCH');
+  }),120_000);
+  it('keeps an unknown SUPPLY observe-only even after its discovery window',()=>fixture(async({model,service})=>{
+    let r=await authorized(service);r=await step(service,model,r.id);
+    const b=await service.begin(r.id,OWNER,workflow);await service.handoff(r.id,b.attemptId);await service.report(r.id,b.attemptId,{kind:'UNKNOWN'});
+    advance(model,130);r=await service.observe(r.id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(r.attempts.at(-1)).toMatchObject({step:'SUPPLY',state:'SUBMISSION_RESULT_UNKNOWN'});
+    expect(r.attempts.at(-1)!.notSubmitted).toBeUndefined();
+  }));
+  it.each<[string,(m:ReturnType<typeof createLendingHarness>)=>void]>([
+    ['the router allowance changed',m=>{m.state.routerAllowance=10000n;}],
+    ['the owner nonce advanced',m=>{m.state.nonce+=1;}],
+  ])('does not prove non-submission of an unknown ROUTER_APPROVAL when %s',(_,mutate)=>fixture(async({model,service})=>{
+    const {r:unknown}=await unknownRouterApproval(model,service);mutate(model);advance(model,130);
+    const r=await service.observe(unknown.id);
+    expect(r).toMatchObject({status:'RECOVERY_REQUIRED'});expect(r.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',state:'SUBMISSION_RESULT_UNKNOWN'});
+    expect(r.attempts.at(-1)!.nonSubmission).toBeUndefined();
+  }));
+  // The real ROUTER_APPROVAL.10: handed off, still SUBMITTING, no hash reported; the wallet may confirm long after handoff.
+  it('reconciles a direct ROUTER_APPROVAL confirmed after the discovery window without a reported hash',()=>fixture(async({model,service})=>{
+    const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);
+    advance(model,200);await model.rpc('MOCK_submit',[begin.transaction]);
+    const observed=await service.observe(r.id);
+    expect(observed.attempts.at(-1)).toMatchObject({id:begin.attemptId,step:'ROUTER_APPROVAL',state:'CONFIRMED',reconciled:true});
+    expect(observed.observations.at(-1)).toMatchObject({verdict:'RECONCILED'});expect(observed.attempts).toHaveLength(4);expect(model.transactions).toHaveLength(4);
+  }));
+  it('reconciles a relayed ROUTER_APPROVAL confirmed after the discovery window from the allowance it set',()=>fixture(async({model})=>{
+    const wrapped=await wrappedAaveSetup(model as unknown as ReturnType<typeof repayModel>,workflow);
+    try{
+      const service=createLendingCompositionService({...wrapped.input,rpc:wrapped.rpc});
+      let r=await authorized(service);
+      for(let i=0;i<3;i++){const b=await service.begin(r.id,OWNER,workflow);await service.handoff(r.id,b.attemptId);
+        await service.report(r.id,b.attemptId,{kind:'HASH',hash:await wrapped.rpc('MOCK_submit',[b.transaction]) as string});r=await service.observe(r.id);}
+      r=await service.refreshReview(r.id);r=await service.review(r.id,r.reviews.at(-1)!.commitment,workflow);
+      const b=await service.begin(r.id,OWNER,workflow);expect(b.record.attempts.at(-1)!.step).toBe('ROUTER_APPROVAL');await service.handoff(r.id,b.attemptId);
+      const nonce=model.state.nonce;advance(model,200);await wrapped.rpc('MOCK_submit',[b.transaction]);expect(model.state.nonce).toBe(nonce);
+      r=await service.observe(r.id);
+      expect(r.attempts.at(-1)).toMatchObject({id:b.attemptId,state:'CONFIRMED',reconciled:true});expect(r.observations.at(-1)!.ownerProof).toMatchObject({kind:'METAMASK_EIP7702'});
+      expect(r.attempts).toHaveLength(4);
+    }finally{await rm(wrapped.input.journalDir,{recursive:true,force:true});}
+  }));
+  // The real ROUTER_APPROVAL.10 again: the wallet never answered and its request was dropped; nothing reached the chain.
+  it('closes a long-stranded SUBMITTING ROUTER_APPROVAL as NOT_FOUND only after the window and 30 minutes, then continues',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);const handedOff=Date.now();
+      advance(model,130);let o=await service.observe(r.id);
+      expect(o).toMatchObject({status:'RECOVERY_REQUIRED',error:'LENDING_UNKNOWN_OBSERVE_ONLY'});expect(o.attempts.at(-1)!.state).toBe('SUBMITTING');
+      travel(model,handedOff+31*60_000);o=await service.observe(r.id);
+      const closed=o.attempts.at(-1)!;
+      expect(closed).toMatchObject({id:begin.attemptId,state:'NOT_FOUND',notSubmitted:true,hash:null,nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED',allowance:'0'}});
+      expect(o.journal.entries.filter(e=>e.entityId===begin.attemptId).map(e=>e.toState)).toEqual(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND']);
+      expect(o).toMatchObject({status:'PAUSED',error:'LENDING_WALLET_DID_NOT_SUBMIT',authorization:null});
+      o=await service.refreshReview(r.id);expect(o.reviews.at(-1)!.completed).toEqual(['POOL_APPROVAL','SUPPLY','BORROW']);expect(o.reviews.at(-1)!.calls[0]!.id).toBe('ROUTER_APPROVAL');
+      o=await service.review(r.id,o.reviews.at(-1)!.commitment,workflow);o=await step(service,model,r.id);
+      expect(o.attempts.at(-1)).toMatchObject({step:'ROUTER_APPROVAL',reconciled:true});
+      expect(['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL'].map(s=>o.attempts.filter(a=>a.step===s).length)).toEqual([1,1,1,2]);expect(model.transactions).toHaveLength(4);
+    }finally{vi.useRealTimers();}
+  }));
+  it('does not close a stranded SUBMITTING ROUTER_APPROVAL whose allowance moved',()=>fixture(async({model,service})=>{
+    vi.useFakeTimers({toFake:['Date'],now:Date.now()});
+    try{
+      const {r,begin}=await routerApprovalPrepared(model,service);await service.handoff(r.id,begin.attemptId);
+      model.state.routerAllowance=10000n;advance(model,130);travel(model,Date.now()+31*60_000);
+      const o=await service.observe(r.id);expect(o.attempts.at(-1)).toMatchObject({state:'SUBMITTING'});expect(o.attempts.at(-1)!.nonSubmission).toBeUndefined();
+    }finally{vi.useRealTimers();}
+  }));
   it('executes five exact owner calls, ordered receipts, conserved balances, scaled collateral/debt and honest MOCKED evidence',()=>fixture(async({model,service,dir})=>{
     let r=await authorized(service);const initial=await readLendingSnapshot(model.rpc,OWNER);
     for(const expected of ['POOL_APPROVAL','SUPPLY','BORROW','ROUTER_APPROVAL','SWAP']){
@@ -54,7 +414,7 @@ describe('BUILD-013 durable composition and economic outcome',()=>{
     // Exercise public archive validation with SYNTHETIC test data and the closed mock RPC only.
     // No public-shaped fixture is written to disk or claimed as public execution evidence.
     const archive=structuredClone(r.evidence!);archive.bundle.environment='TESTNET_EXECUTED';archive.composedExecution.provenance='PUBLIC_TESTNET';
-    archive.bundle.evidence[0]!.contentHash=supplyHash(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
+    archive.bundle.evidence[0]!.contentHash=lendingObservationsDigest(archive.composedExecution);archive.bundleHash=supplyArtifactHash('evidence-bundle',archive.bundle);
     expect((await verifyLendingExport(archive,model.rpc)).verdict).toBe('INDEPENDENTLY_RECONCILED');
     const forged=structuredClone(archive);forged.bundle.reconciliation.debt[0]!.amount='0';forged.bundleHash=supplyArtifactHash('evidence-bundle',forged.bundle);
     await expect(verifyLendingExport(forged,model.rpc)).rejects.toThrow('LENDING_EVIDENCE_EXPOSURE_MISMATCH');

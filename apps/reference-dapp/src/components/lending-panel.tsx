@@ -39,12 +39,13 @@ const messages:Record<string,string>={
   LENDING_GAS_FUNDING_INSUFFICIENT:'The owner needs enough Base Sepolia ETH for the whole fee budget.',
   LENDING_WRONG_CHAIN:'Switch your wallet to Base Sepolia.',LENDING_WRONG_ACCOUNT:'Select the owner address shown in Review.',
   LENDING_UNKNOWN_OBSERVE_ONLY:'The submission result is unknown. Observe the existing transaction; no new submission is permitted.',
+  LENDING_WALLET_DID_NOT_SUBMIT:'The wallet never submitted the previous approval: its nonce, allowance and discovery window prove it is not on chain. Run a fresh Simulate and Review to continue.',
 };
 export function LendingPanel({view}:{view:'simulate'|'execute'}){
   const {state}=useWorkflow(),run=useLending(),record=run.record,review=record?.reviews.at(-1),fields=review?.fields;
   const authored=isLendingComposition(state.workflow)?lendingDetails(state.workflow as SemanticWorkflow):null;
   const pending=record?.attempts.find(a=>!a.reconciled&&!a.notSubmitted),hasBorrow=record?.attempts.some(a=>a.step==='BORROW'&&a.reconciled);
-  const historical=record?.attempts.filter(a=>a.state==='CANCELLED'&&a.notSubmitted&&!a.reconciled)??[];
+  const historical=record?.attempts.filter(a=>(a.state==='CANCELLED'||a.state==='NOT_FOUND'&&a.nonSubmission)&&a.notSubmitted&&!a.reconciled)??[];
   const active=record?.attempts.filter(a=>!historical.includes(a))??[];
   const finished=record?.status==='COMPLETED',next=review?.calls.find(c=>!record?.attempts.some(a=>a.step===c.id&&a.reconciled));
   const info=run.error??record?.error,current=record?.currentPosition;
@@ -65,7 +66,7 @@ export function LendingPanel({view}:{view:'simulate'|'execute'}){
       <p>Exact authorizations: {review.calls.some(c=>c.id==='POOL_APPROVAL')?`${lendingHuman(review.fields.supplyAmount)} USDC to Aave Pool ${p.pool}; `:'existing Aave allowance; '}{review.calls.some(c=>c.id==='ROUTER_APPROVAL')?`${lendingHuman(review.fields.borrowAmount)} USDC to Uniswap router ${u.router}`:'existing router allowance'}. Each listed transaction requires your wallet signature.</p>
       <ol>{review.calls.map(c=>{const a=active.filter(a=>a.step===c.id).at(-1);return <li key={c.id}>{c.id.replaceAll('_',' ')} · {a?a.reconciled?'reconciled':a.state:next?.id===c.id?'NEXT EXECUTABLE STEP':'PLANNED'}{c.id==='BORROW'?' · waits for reconciled Supply and fresh HF':c.id==='SWAP'?' · waits for reconciled Borrow and fresh route/HF':''}</li>;})}</ol>
     </>}
-    {historical.length>0&&<details aria-label="Historical cancelled attempts"><summary>Historical cancelled attempts ({historical.length}) · not submitted</summary><p>These preparations were cancelled before wallet handoff. They remain in the durable journal and do not complete or block the current step. A fresh Review and your explicit execution click are required.</p><ul>{historical.map(a=><li key={a.id}>{a.step.replaceAll('_',' ')} · historical cancelled preparation · {a.id}</li>)}</ul></details>}
+    {historical.length>0&&<details aria-label="Historical cancelled attempts"><summary>Historical cancelled attempts ({historical.length}) · not submitted</summary><p>These preparations were cancelled before wallet handoff, or are approvals proven never submitted on chain. They remain in the durable journal and do not complete or block the current step. A fresh Review and your explicit execution click are required.</p><ul>{historical.map(a=><li key={a.id}>{a.step.replaceAll('_',' ')} · historical cancelled preparation · {a.id}</li>)}</ul></details>}
     {run.retired&&<p role="alert">The workflow changed. Previous authority is invalid. Observe any existing transaction before preparing a new workflow.</p>}
     {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)||Boolean(finished&&!run.retired)} onClick={()=>void run.simulate()}>Simulate lending composition</button>:<>
       {record&&!record.authorization&&!pending&&!finished&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.review()}>Accept composed Review</button>}

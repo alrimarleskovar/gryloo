@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Independent canonical chain, owner-authority, and composed economic observations. */
 import { AAVE_V3_BASE_SEPOLIA as p, LENDING_BASE_SEPOLIA as u } from '@defi-workflow-engine/action-registry';
-import { readLendingSnapshot, assertLendingReview, compileLendingCalls, rpcRecord, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash, supplyTopic, supplyWord,
-  type SupplyRpc, type LendingSnapshot, type LendingReview, type LendingCall } from '@defi-workflow-engine/reference-compiler';
+import { readLendingSnapshot, assertLendingReview, compileLendingCalls, lendingRootChain, rpcRecord, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash, supplyTopic, supplyWord,
+  type SupplyRpc, type LendingSnapshot, type LendingReview, type LendingCall, type LendingStepId } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal, type EvidenceBundle } from '@defi-workflow-engine/workflow-contracts';
 import { verifySupplyPosition, verifySupplyWalletEnvelope, addressTopic, logMatches, type SupplyWalletProof } from './supply.js';
 import { verifyBorrowEffects } from './borrow.js';
@@ -63,11 +63,16 @@ export async function reconcileLendingAttempt(review:LendingReview,attempt:Lendi
     if(rpcUint(await rpc('eth_chainId',[]))!==84532n)throw Error('LENDING_WRONG_CHAIN');
     const [tv,rv]=await Promise.all([rpc('eth_getTransactionByHash',[attempt.hash]),rpc('eth_getTransactionReceipt',[attempt.hash])]);
     if(!tv||!rv)return o;
-    const tx=rpcRecord(tv),r=rpcRecord(rv), expected=attempt.call.tx;o.transaction=tx;o.receipt=r;
-    if(rpcHash(tx.hash)!==attempt.hash||rpcHash(r.transactionHash)!==attempt.hash||rpcUint(tx.chainId)!==84532n||rpcUint(tx.value)!==0n||tx.from!==r.from||tx.to!==r.to||
-      tx.blockHash!==r.blockHash||tx.blockNumber!==r.blockNumber||tx.transactionIndex!==r.transactionIndex)throw Error('LENDING_TRANSACTION_MISMATCH');
-    const n=Number(rpcUint(r.blockNumber)),canonical=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(n),false]));
-    if(n<attempt.preparedAtBlock||canonical.hash!==r.blockHash||!Array.isArray(canonical.transactions)||!canonical.transactions.includes(attempt.hash))throw Error('LENDING_CANONICAL_INCLUSION_MISMATCH');
+    const tx=rpcRecord(tv),r=rpcRecord(rv), expected=attempt.call.tx;
+    if(rpcHash(tx.hash)!==attempt.hash||rpcHash(r.transactionHash)!==attempt.hash||rpcUint(tx.chainId)!==84532n||rpcUint(tx.value)!==0n||tx.from!==r.from||tx.to!==r.to)throw Error('LENDING_TRANSACTION_MISMATCH');
+    // Base Flashblocks serves preconfirmed receipts with an all-zero block hash before the block is sealed.
+    // Only a receipt in the canonical block at its height, consistent with the transaction readback, is final;
+    // anything else is observed again later: never a mismatch, never a resend and never evidence.
+    const n=Number(rpcUint(r.blockNumber)),sealed=await rpc('eth_getBlockByNumber',[supplyHex(n),false]),canonical=sealed?rpcRecord(sealed):null;
+    if(typeof r.blockHash!=='string'||/^0x0{64}$/.test(r.blockHash)||tx.blockHash!==r.blockHash||tx.blockNumber!==r.blockNumber||tx.transactionIndex!==r.transactionIndex||
+      !canonical||canonical.hash!==r.blockHash||!Array.isArray(canonical.transactions)||!canonical.transactions.includes(attempt.hash))return {...o,reason:'LENDING_RECEIPT_NOT_CANONICAL'};
+    o.transaction=tx;o.receipt=r;
+    if(n<attempt.preparedAtBlock)throw Error('LENDING_CANONICAL_INCLUSION_MISMATCH');
     if(rpcUint(await rpc('eth_blockNumber',[]))<BigInt(n+2))return {...o,reason:'AWAITING_CONFIRMATIONS'};
     const wrapped=tx.to!==expected.to;
     if(wrapped)o.ownerProof=await verifySupplyWalletEnvelope({account:review.fields.owner},{transaction:expected,nonce:attempt.nonce},tx,r,rpc);
@@ -116,12 +121,21 @@ export function verifyComposedLendingEffects(review:LendingReview,observations:L
     residualPoolAllowance:final.aave.allowance,residualRouterAllowance:final.routerAllowance,
     totalNetworkCost:observations.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n).toString()};
 }
-export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null}) {
+/**
+ * Content digest of composed observations. Reviews enter by commitment (each binds its full content and is re-verified
+ * on export), so the hashed preimage stays bounded however many Fresh Simulates a long run accumulated.
+ */
+export function lendingObservationsDigest(observations:{reviews:readonly LendingReview[]}&Record<string,unknown>):string {
+  return supplyHash({...observations,reviews:observations.reviews.map(r=>r.commitment)});
+}
+export type LendingResolvedNotSubmitted={attemptId:string;step:LendingStepId;nonSubmission:{kind:'APPROVAL_NOT_SUBMITTED';provenAtBlock:number;blockHash:string;ownerNonce:string;allowance:string;discoveryWindow:[number,number]}};
+export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];journal:ExecutionJournal;observations:LendingObservation[];provenance:'MOCKED'|'PUBLIC_TESTNET';completed:boolean;previous?:{bundle:EvidenceBundle;bundleHash:string}|null;
+  resolvedNotSubmitted?:LendingResolvedNotSubmitted[]}) {
   if(input.provenance==='PUBLIC_TESTNET'&&!input.observations.some(o=>o.receipt&&o.ownerProof&&(o.verdict==='RECONCILED'||o.reason==='LENDING_TRANSACTION_REVERTED')))throw Error('PUBLIC_OWNER_EXECUTION_NOT_PROVEN');
-  const root=input.reviews[0]!, post=input.observations.filter(o=>o.post).at(-1)?.post;
+  const root=lendingRootChain(input.reviews).root, post=input.observations.filter(o=>o.post).at(-1)?.post;
   const effects=input.completed?verifyComposedLendingEffects(root,input.observations):null;
   const observations={format:'gryloo.lending-observations.v1',provenance:input.provenance,ownerInitiated:true,
-    completed:input.completed,reviews:input.reviews,observations:input.observations,effects};
+    completed:input.completed,reviews:input.reviews,observations:input.observations,effects,resolvedNotSubmitted:input.resolvedNotSubmitted??[]};
   const asset=root.fields.borrowed,weth=root.fields.output;
   const bundle:EvidenceBundle={schemaVersion:'1.0.0',evidenceBundleId:input.id,version:(input.previous?.bundle.version??0)+1,supersedes:input.previous?.bundleHash??null,
     semanticWorkflowHash:root.manifest.semanticWorkflowHash,artifactSetHash:root.manifest.artifactSetHash,simulationHash:root.manifest.simulationHash,policyHash:root.manifest.policyHash,
@@ -136,35 +150,52 @@ export function buildLendingEvidence(input:{id:string;reviews:LendingReview[];jo
       residualAssets:post?[{asset,amount:post.aave.balance},{asset:weth,amount:post.wethBalance}]:[],ownership:[{chainId:p.chain,address:root.fields.owner}],
       limitations:['HF is observed at named checkpoints, not continuing liquidation protection.','Borrowed-token provenance is fungible accounting linkage.',
         'Historical block snapshots include all block transactions; inconsistent effects fail closed.','Submission guarantees cover durable Gryloo attempts, not all external wallet activity.']},
-    evidence:[{evidenceId:'lending-composed-observations',kind:'EXTERNAL_REFERENCE',contentHash:supplyHash(observations)}]};
+    evidence:[{evidenceId:'lending-composed-observations',kind:'EXTERNAL_REFERENCE',contentHash:lendingObservationsDigest(observations)}]};
   return {bundle,bundleHash:supplyArtifactHash('evidence-bundle',bundle),composedExecution:observations,
     artifacts:{review:root,reviews:input.reviews,workflow:root.workflow,artifactSet:root.artifactSet,simulation:root.simulation,policy:root.policy,manifest:root.manifest,plan:root.plan,journal:input.journal}};
 }
 export async function verifyLendingExport(exported:ReturnType<typeof buildLendingEvidence>,rpc:SupplyRpc) {
   const {bundle,artifacts,composedExecution:e}=exported;
   if(bundle.environment!=='TESTNET_EXECUTED'||bundle.outcome!=='RECONCILED'||e.provenance!=='PUBLIC_TESTNET'||!e.ownerInitiated||!e.completed)throw Error('PUBLIC_COMPOSED_OWNER_EVIDENCE_REQUIRED');
-  if(supplyArtifactHash('evidence-bundle',bundle)!==exported.bundleHash||supplyHash(e)!==bundle.evidence[0]?.contentHash||
+  if(supplyArtifactHash('evidence-bundle',bundle)!==exported.bundleHash||lendingObservationsDigest(e)!==bundle.evidence[0]?.contentHash||
     hashJournalBytes(new TextEncoder().encode(JSON.stringify(artifacts.journal))).at(-1)!==bundle.journalHeadHash)throw Error('LENDING_EVIDENCE_COMMITMENT_MISMATCH');
   for(const [field,kind,value] of [['semanticWorkflowHash','semantic-workflow',artifacts.workflow],['artifactSetHash','artifact-set',artifacts.artifactSet],['simulationHash','simulation-bundle',artifacts.simulation],
     ['policyHash','authorization-policy',artifacts.policy],['manifestHash','strategy-manifest',artifacts.manifest],['executionPlanHash','execution-plan',artifacts.plan]] as const)
     if(supplyArtifactHash(kind,value)!==bundle[field])throw Error('LENDING_ARTIFACT_COMMITMENT_MISMATCH');
-  if(supplyHash(e.reviews)!==supplyHash(artifacts.reviews)||supplyHash(e.reviews[0])!==supplyHash(artifacts.review)||artifacts.journal.manifestHash!==bundle.manifestHash||artifacts.journal.executionPlanHash!==bundle.executionPlanHash)throw Error('LENDING_ARCHIVE_MISMATCH');
-  const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING');
+  // The bundle binds to the composed baseline (first or re-rooted Review); the journal header to the run's first Review.
+  let chain:ReturnType<typeof lendingRootChain>;try{chain=lendingRootChain(e.reviews);}catch{throw Error('LENDING_ARCHIVE_MISMATCH');}
+  if(e.reviews.length!==artifacts.reviews.length||e.reviews.some((r,i)=>supplyHash(r)!==supplyHash(artifacts.reviews[i]))||supplyHash(chain.root)!==supplyHash(artifacts.review)||
+    supplyArtifactHash('strategy-manifest',artifacts.review.manifest)!==bundle.manifestHash||supplyArtifactHash('execution-plan',artifacts.review.plan)!==bundle.executionPlanHash||
+    artifacts.journal.manifestHash!==supplyArtifactHash('strategy-manifest',e.reviews[0]!.manifest)||artifacts.journal.executionPlanHash!==supplyArtifactHash('execution-plan',e.reviews[0]!.plan))throw Error('LENDING_ARCHIVE_MISMATCH');
+  // Approvals whose wallet result was unknown and that were proven absent from chain carry no observation.
+  const resolved=new Map((e.resolvedNotSubmitted??[]).map(x=>[x.attemptId,x]));
+  const submissions=artifacts.journal.entries.filter(j=>j.toState==='SUBMITTING'&&!resolved.has(j.entityId));
   if(submissions.length!==e.observations.length||submissions.some(j=>!e.observations.some(o=>o.attemptId===j.entityId)))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
   const attempts=new Set(artifacts.journal.entries.filter(j=>j.level==='attempt').map(j=>j.entityId));
-  for(const id of attempts){const rows=artifacts.journal.entries.filter(j=>j.entityId===id);
+  if([...resolved.keys()].some(id=>!attempts.has(id)))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
+  for(const id of attempts){const rows=artifacts.journal.entries.filter(j=>j.entityId===id),proven=resolved.get(id);
+    if(proven){
+      if(e.observations.some(o=>o.attemptId===id)||JSON.stringify(rows.map(j=>j.toState))!==JSON.stringify(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND'])||
+        (proven.step!=='POOL_APPROVAL'&&proven.step!=='ROUTER_APPROVAL')||rows.some(j=>j.stepId!==proven.step))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
+      // Re-proved independently at the recorded block: same block, owner nonce unchanged, allowance never set.
+      const p=proven.nonSubmission,owner=e.reviews[0]!.fields.owner,at=await readLendingSnapshot(rpc,owner,supplyHex(p.provenAtBlock),false);
+      const nonceAtBlock=rpcUint(await rpc('eth_getTransactionCount',[owner,supplyHex(p.provenAtBlock)])).toString();
+      if(p.kind!=='APPROVAL_NOT_SUBMITTED'||p.provenAtBlock<=p.discoveryWindow[1]||at.aave.blockHash!==p.blockHash||nonceAtBlock!==p.ownerNonce||
+        (proven.step==='POOL_APPROVAL'?at.aave.allowance:at.routerAllowance)!==p.allowance)throw Error('LENDING_NON_SUBMISSION_PROOF_MISMATCH');
+      continue;
+    }
     if(!e.observations.some(o=>o.attemptId===id)&&(rows.at(-1)?.toState!=='CANCELLED'||rows.some(j=>j.toState==='SUBMITTING')))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
   }
   for(const review of e.reviews){
     assertLendingReview(review,review.workflow,review.fields.owner,Date.parse(review.simulation.freshness.observedAt));
     const compiled=compileLendingCalls(review.workflow,review.fields.owner,review.state,review.route.minimumOut,review.completed);
-    if(supplyHash(compiled.map(c=>({id:c.id,tx:c.tx})))!==supplyHash(review.calls.map(c=>({id:c.id,tx:c.tx})))||supplyHash(review.rootState)!==supplyHash(artifacts.review.rootState)||supplyHash(review.workflow)!==supplyHash(artifacts.workflow))throw Error('LENDING_ARCHIVE_MISMATCH');
+    if(supplyHash(compiled.map(c=>({id:c.id,tx:c.tx})))!==supplyHash(review.calls.map(c=>({id:c.id,tx:c.tx})))||supplyHash(review.workflow)!==supplyHash(artifacts.workflow))throw Error('LENDING_ARCHIVE_MISMATCH');
     if(review.policy.accountRiskRules.length!==2||review.policy.accountRiskRules.some(c=>c.minimumHealthFactorNumerator!=='2'||c.minimumHealthFactorDenominator!=='1')||review.manifest.spendLimits[0]?.maximumAmount!==(BigInt(review.fields.supplyAmount)+BigInt(review.fields.borrowAmount)).toString())throw Error('LENDING_POLICY_MISMATCH');
   }
   const observed:LendingObservation[]=[];
   for(const archived of e.observations){
     const review=e.reviews.find(r=>r.commitment===archived.reviewCommitment);
-    const call=review?.calls.find(c=>c.id===archived.step);if(!review||!call||!archived.receipt||!archived.transaction)throw Error('LENDING_ARCHIVE_MISMATCH');
+    const call=review?.calls.find(c=>c.id===archived.step);if(!review||!call||!archived.receipt||!archived.transaction||e.reviews.indexOf(review)<chain.index)throw Error('LENDING_ARCHIVE_MISMATCH');
     const entries=artifacts.journal.entries.filter(j=>j.entityId===archived.attemptId);
     if(entries[0]?.toState!=='PREPARED'||entries.at(-1)?.toState!=='CONFIRMED'||entries.filter(j=>j.toState==='SUBMITTING').length!==1||entries.some(j=>j.stepId!==call.id))throw Error('LENDING_JOURNAL_SUBMISSION_MISMATCH');
     verifyIndependentLendingCalldata(review,call);

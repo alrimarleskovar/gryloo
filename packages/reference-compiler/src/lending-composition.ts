@@ -17,7 +17,7 @@ export type LendingReview = { format: 'gryloo.lending-review.v1'; workflow: Sema
   calls: LendingCall[]; projected: { afterSupply: LendingSnapshot; afterBorrow: LendingSnapshot; afterSwap: LendingSnapshot };
   simulationResponse: unknown; gasPrice: string; l1FeeUpperBound: string; gasBudget: string; expiresAt: string;
   artifactSet: ArtifactSet; simulation: SimulationBundle; policy: AuthorizationPolicy; manifest: StrategyManifest;
-  plan: ExecutionPlan; commitment: string };
+  plan: ExecutionPlan; rerootOf?: string; commitment: string };
 const order: LendingStepId[] = ['POOL_APPROVAL', 'SUPPLY', 'BORROW', 'ROUTER_APPROVAL', 'SWAP'];
 export const lendingSteps = order;
 // Match the existing 2x fee-price headroom in Supply and this composition.
@@ -136,11 +136,25 @@ function simulatedSnapshot(before: LendingSnapshot, responses: Record<string, un
       liquidationThresholdBps: a[3]!.toString(), ltvBps: a[4]!.toString(), healthFactor: a[5]!.toString(),
       userConfiguration: n[0]!, debt: n[5]!, scaledDebt: n[6]!, debtIndex: n[10]!,liquidity:n[11]!,debtTotalSupply:n[12]! } } };
 }
+/**
+ * Owner-interaction lifetime of a Review, measured from its simulation. A continuation (at least one completed step)
+ * needs Accept, the full public gate at preparation and a fast release gate before the wallet; 120 s was not enough
+ * for that sequence. Every wallet handoff is still gated on fresh state, so a longer lifetime grants no stale authority.
+ */
+export const LENDING_REVIEW_TTL_MS = 120_000, LENDING_CONTINUATION_REVIEW_TTL_MS = 600_000;
+/** The one lifetime rule: expiresAt and simulation.freshness.maximumAgeSeconds both derive from it. */
+export const lendingReviewLifetimeMs = (completed: readonly LendingStepId[]) => completed.length ? LENDING_CONTINUATION_REVIEW_TTL_MS : LENDING_REVIEW_TTL_MS;
+/** Gates accept only a Review whose committed expiry, declared maximum age and lifetime rule agree. */
+export function assertLendingReviewLifetime(review: LendingReview): void {
+  const lifetime = lendingReviewLifetimeMs(review.completed), f = review.simulation.freshness;
+  if (Date.parse(review.expiresAt) - Date.parse(f.observedAt) !== lifetime || f.expiresAt !== review.expiresAt || f.maximumAgeSeconds * 1000 !== lifetime) throw Error('LENDING_REVIEW_STALE');
+}
 /** Rejects unsupported simulation; no state override, replacement token, pool creation or send exists here. */
 export async function simulateLendingComposition(workflow: SemanticWorkflow, account: string, rpc: SupplyRpc,
-  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string } = {}): Promise<LendingReview> {
+  options: { now?: number; completed?: LendingStepId[]; rootState?: LendingSnapshot; minimumOut?: string; maximumL1Fee?: string; rerootOf?: string } = {}): Promise<LendingReview> {
   const now = options.now ?? Date.now(), f = assertLendingFields(workflow, account), completed = options.completed ?? [];
   const route = await readLendingRoute(rpc, f.borrowAmount, f.slippageBps, now, 'latest', options.minimumOut);
+  if (options.rerootOf !== undefined && (options.rootState || completed.length || !/^0x[0-9a-f]{64}$/.test(options.rerootOf))) throw Error('LENDING_REROOT_INVALID');
   const state = await readLendingSnapshot(rpc, account, supplyHex(route.block)), rootState = options.rootState ?? state;
   if (state.aave.blockHash !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
   if (!completed.includes('SUPPLY') && uint(state.aave.balance) < uint(f.supplyAmount) || completed.includes('BORROW') && uint(state.aave.balance) < uint(f.borrowAmount)) throw Error('LENDING_OWNER_FUNDING_INSUFFICIENT');
@@ -200,7 +214,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
   const gasBudget = (calls.reduce((sum,c) => sum + uint(c.gasLimit) * uint(gasPrice), 0n) + maximumL1Fee).toString();
   if (!uint(gasPrice) || uint(state.aave.nativeBalance) < uint(gasBudget)) throw Error('LENDING_GAS_FUNDING_INSUFFICIENT');
   if (rpcHash(rpcRecord(await rpc('eth_getBlockByNumber', [supplyHex(route.block), false])).hash) !== route.blockHash) throw Error('LENDING_RPC_INCONSISTENT');
-  const expiresAt = new Date(now + 120_000).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
+  const expiresAt = new Date(now + lendingReviewLifetimeMs(completed)).toISOString(), semanticHash = supplyArtifactHash('semantic-workflow', workflow);
   const artifactSet: ArtifactSet = { schemaVersion:'1.0.0', artifactSetId:'lending-artifacts', semanticWorkflowHash:semanticHash,
     artifacts: workflow.nodes.map(n => ({ artifactId:n.nodeId + '-state', nodeId:n.nodeId,
       artifactHash:supplyHash({ nodeId:n.nodeId, state, rootState, route, calls, completed, projected, gasPrice, l1FeeUpperBound, simulationResponse }) })) };
@@ -216,7 +230,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
     uncertainty:[{code:'NON_ATOMIC_LENDING',description:'Debt remains if Swap fails. Checkpoint health factor does not protect against future liquidation.'},
       {code:'MODE_A_APPLICATION_CHECKS',description:'The wallet signs exact calls. HF 2.0, route readiness, expiry and aggregate budgets are application checks.'},
       {code:'VARIABLE_INTEREST_AND_L1_FEES',description:'Future variable interest is not capped. Base L1 fees and wallet envelopes may differ from estimates.'}],
-    unsupportedAssumptions:[], freshness:{observedAt:new Date(now).toISOString(),expiresAt,maximumAgeSeconds:120} };
+    unsupportedAssumptions:[], freshness:{observedAt:new Date(now).toISOString(),expiresAt,maximumAgeSeconds:lendingReviewLifetimeMs(completed)/1000} };
   const simulationHash = supplyArtifactHash('simulation-bundle', simulation), owner = {chainId:p.chain,address:account};
   const spend = (uint(f.supplyAmount)+uint(f.borrowAmount)).toString(), native = {chainId:p.chain,nativeId:'ETH',decimals:18};
   const gasBudgets = [{asset:native,maximumAmount:gasBudget}], feeBudgets = [{asset:native,maximumAmount:maximumL1Fee.toString()}];
@@ -245,8 +259,26 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
       requiredAuthorizationClass:'MODE_A',executionKind:'DIRECT_TRANSACTION',payloadHash:hashSupplyValue(c.tx,'payload')}))}],
     checkpointIds:checkpoints.map(c=>c.checkpointId),enforcement:'NOT_ENFORCED'};
   supplyArtifactHash('execution-plan',plan);
-  const content = {format:'gryloo.lending-review.v1' as const,workflow,fields:f,state,rootState,route,completed,calls,projected,simulationResponse,gasPrice,l1FeeUpperBound,gasBudget,expiresAt,artifactSet,simulation,policy,manifest,plan};
+  const content = {format:'gryloo.lending-review.v1' as const,workflow,fields:f,state,rootState,route,completed,calls,projected,simulationResponse,gasPrice,l1FeeUpperBound,gasBudget,expiresAt,artifactSet,simulation,policy,manifest,plan,
+    ...(options.rerootOf === undefined ? {} : {rerootOf:options.rerootOf})};
   return {...content,commitment:supplyHash(content)};
+}
+/**
+ * The composed baseline of a run: its first Review, or the latest Review that re-rooted it. A re-root names the
+ * previous root's commitment, starts from its own fresh state and has no completed step; every other Review keeps
+ * the current root's starting state. Whether a re-root was permitted is validated against the run's attempts.
+ */
+export function lendingRootChain(reviews: readonly LendingReview[]): { root: LendingReview; index: number } {
+  if (!reviews.length || reviews[0]!.rerootOf !== undefined) throw Error('LENDING_ROOT_CHAIN_INVALID');
+  let index = 0;
+  reviews.forEach((r, i) => {
+    if (!i) return;
+    const root = reviews[index]!;
+    if (r.rerootOf === undefined) { if (supplyHash(r.rootState) !== supplyHash(root.rootState)) throw Error('LENDING_ROOT_CHAIN_INVALID'); return; }
+    if (r.rerootOf !== root.commitment || r.completed.length || supplyHash(r.rootState) !== supplyHash(r.state)) throw Error('LENDING_ROOT_CHAIN_INVALID');
+    index = i;
+  });
+  return { root: reviews[index]!, index };
 }
 /** Whole commitment and economic predicates, including unchanged approved calldata/minimum. */
 export function assertLendingReview(review: LendingReview, workflow: SemanticWorkflow, account: string, now = Date.now()): void {

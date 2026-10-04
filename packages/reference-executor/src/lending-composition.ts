@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { hashJournalBytes, type ExecutionJournal, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import { assertLendingReview, supplyArtifactHash, supplyHash, rpcHash, lendingSteps,
+import { assertLendingReview, lendingRootChain, supplyArtifactHash, supplyHash, rpcHash, lendingSteps,
   type LendingReview, type LendingCall, type LendingStepId } from '@defi-workflow-engine/reference-compiler';
 import { createJournal, appendJournalState } from './journal.js';
 export type LendingAttempt = {id:string;step:LendingStepId;call:LendingCall;nonce:string;preparedAtBlock:number;
-  state:'PREPARED'|'SUBMITTING'|'SUBMISSION_RESULT_UNKNOWN'|'PENDING'|'CONFIRMED'|'REVERTED'|'CANCELLED'|'RECONCILIATION_REQUIRED';
-  hash:string|null;reconciled:boolean;ownerInitiated:boolean;notSubmitted?:boolean;reviewCommitment:string};
+  state:'PREPARED'|'SUBMITTING'|'SUBMISSION_RESULT_UNKNOWN'|'PENDING'|'CONFIRMED'|'REVERTED'|'CANCELLED'|'NOT_FOUND'|'RECONCILIATION_REQUIRED';
+  hash:string|null;reconciled:boolean;ownerInitiated:boolean;notSubmitted?:boolean;reviewCommitment:string;nonSubmission?:LendingNonSubmissionProof};
+/** On-chain proof that an approval whose wallet result was unknown never reached the chain (see lending observe). */
+export type LendingNonSubmissionProof = {kind:'APPROVAL_NOT_SUBMITTED';provenAtBlock:number;blockHash:string;ownerNonce:string;allowance:string;discoveryWindow:[number,number]};
+const PRE_HANDOFF_CANCELLATION=JSON.stringify(['PREPARED','CANCELLED']),PROVEN_UNKNOWN_NOT_SUBMITTED=JSON.stringify(['PREPARED','SUBMITTING','SUBMISSION_RESULT_UNKNOWN','NOT_FOUND']);
 export type LendingRun = {format:'gryloo.lending-run.v1';id:string;reviews:LendingReview[];authorization:string|null;
   attempts:LendingAttempt[];journal:ExecutionJournal;provenance:'MOCKED'|'PUBLIC_TESTNET';
   status:'SIMULATED'|'AUTHORIZED'|'EXECUTING'|'PAUSED'|'PARTIALLY_COMPLETED'|'RECOVERY_REQUIRED'|'COMPLETED'|'FAILED';
@@ -41,21 +44,30 @@ export function prepareLendingAttempt(run:LendingRun,workflow:SemanticWorkflow,a
 }
 export function validateLendingRun(run:LendingRun):void {
   if(run.format!=='gryloo.lending-run.v1'||!/^lending-[a-f0-9]{32}$/.test(run.id)||!run.reviews.length||run.reviews.length>64||
-      !['SIMULATED','AUTHORIZED','EXECUTING','PAUSED','PARTIALLY_COMPLETED','RECOVERY_REQUIRED','COMPLETED','FAILED'].includes(run.status)||new Set(run.attempts.map(a=>a.id)).size!==run.attempts.length||!['MOCKED','PUBLIC_TESTNET'].includes(run.provenance)||run.attempts.length>10||run.journal.journalId!==run.id||
+      !['SIMULATED','AUTHORIZED','EXECUTING','PAUSED','PARTIALLY_COMPLETED','RECOVERY_REQUIRED','COMPLETED','FAILED'].includes(run.status)||new Set(run.attempts.map(a=>a.id)).size!==run.attempts.length||!['MOCKED','PUBLIC_TESTNET'].includes(run.provenance)||run.attempts.filter(a=>!a.notSubmitted).length>10||run.attempts.length>64||run.journal.journalId!==run.id||
       run.authorization!==null&&run.authorization!==currentLendingReview(run).commitment)throw Error('LENDING_STORE_CORRUPT');
   const first=run.reviews[0]!;
   if(run.journal.manifestHash!==supplyArtifactHash('strategy-manifest',first.manifest)||run.journal.executionPlanHash!==supplyArtifactHash('execution-plan',first.plan))throw Error('LENDING_STORE_CORRUPT');
-  for(const r of run.reviews){const {commitment,...value}=r;if(supplyHash(value)!==commitment||supplyHash(r.workflow)!==supplyHash(first.workflow)||supplyHash(r.rootState)!==supplyHash(first.rootState))throw Error('LENDING_STORE_CORRUPT');}
+  for(const r of run.reviews){const {commitment,...value}=r;if(supplyHash(value)!==commitment||supplyHash(r.workflow)!==supplyHash(first.workflow))throw Error('LENDING_STORE_CORRUPT');}
+  let rootIndex:number;try{rootIndex=lendingRootChain(run.reviews).index;}catch{throw Error('LENDING_STORE_CORRUPT');}
   hashJournalBytes(new TextEncoder().encode(JSON.stringify(run.journal)));
   const successful=new Set<LendingStepId>();
   for(const a of run.attempts){
-    const review=run.reviews.find(r=>r.commitment===a.reviewCommitment), call=review?.calls.find(c=>c.id===a.step);
+    const reviewIndex=run.reviews.findIndex(r=>r.commitment===a.reviewCommitment),review=run.reviews[reviewIndex], call=review?.calls.find(c=>c.id===a.step);
     const entry=[...run.journal.entries].reverse().find(e=>e.entityId===a.id);
     if(!call||supplyHash(call)!==supplyHash(a.call)||entry?.toState!==a.state||a.reconciled&&a.state!=='CONFIRMED'||a.hash!==null&&rpcHash(a.hash)!==a.hash||
         !a.ownerInitiated||!Number.isSafeInteger(a.preparedAtBlock)||!/^(0|[1-9][0-9]*)$/.test(a.nonce)||successful.has(a.step))throw Error('LENDING_STORE_CORRUPT');
     if(a.step==='BORROW'&&!successful.has('SUPPLY')||a.step==='SWAP'&&!successful.has('BORROW'))throw Error('LENDING_STORE_CORRUPT');
     if(a.reconciled)successful.add(a.step);
-    if(a.notSubmitted&&(a.hash||a.reconciled||a.state!=='CANCELLED'))throw Error('LENDING_STORE_CORRUPT');
+    if(a.notSubmitted&&(a.hash||a.reconciled||a.state!==(a.nonSubmission?'NOT_FOUND':'CANCELLED')))throw Error('LENDING_STORE_CORRUPT');
+    // Not submitted means cancelled before handoff, or an unknown approval later proven absent from chain.
+    if(a.notSubmitted){const states=JSON.stringify(run.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState));
+      if(a.nonSubmission?states!==PROVEN_UNKNOWN_NOT_SUBMITTED||!['POOL_APPROVAL','ROUTER_APPROVAL'].includes(a.step)||a.nonSubmission.kind!=='APPROVAL_NOT_SUBMITTED'||a.nonSubmission.ownerNonce!==a.nonce
+        :states!==PRE_HANDOFF_CANCELLATION)throw Error('LENDING_STORE_CORRUPT');}
+    else if(a.nonSubmission)throw Error('LENDING_STORE_CORRUPT');
+    // Only attempts cancelled before wallet handoff may precede a re-rooted baseline.
+    if(reviewIndex<rootIndex&&(a.notSubmitted!==true||a.state!=='CANCELLED'||a.hash!==null||a.reconciled||
+      JSON.stringify(run.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState))!==JSON.stringify(['PREPARED','CANCELLED'])))throw Error('LENDING_STORE_CORRUPT');
   }
   const completed=run.attempts.filter(a=>a.reconciled).map(a=>a.step);
   if(completed.some((s,i)=>i>0&&lendingSteps.indexOf(s)<=lendingSteps.indexOf(completed[i-1]!))||run.status==='COMPLETED'&&!successful.has('SWAP'))throw Error('LENDING_STORE_CORRUPT');
