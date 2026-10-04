@@ -49,6 +49,17 @@ authorization model, recovery engine or evidence format.
 No hard-coded owner address exists in the Router runtime, wallet store or BFF (searched: only Anvil dev accounts in the
 local-fork Mode A service and placeholder recipients in mocked templates).
 
+Against the five assumption classes the build brief names:
+
+* **Known owner** — none hard-coded in runtime paths; the Router browser fixtures used a fixed test owner `0x5555…` (A7).
+* **Localhost** — local mode keeps journals on the developer filesystem (`GRYLOO_ROUTER_JOURNAL`); the deployed path is
+  already API + PostgreSQL + workers (BUILD-CLOUD-001). Loopback harnesses are test-only gates. Any new server secret must not
+  be per-process in the multi-instance BFF (addressed by deriving the session key from `API_AUTH_TOKEN`).
+* **Operator intervention** — mainnet execution needs `GRYLOO_ROUTER_OWNER_EXECUTION=MAINNET_OWNER_APPROVED` (A1); no
+  operator step exists inside a run (no manual continuation, no terminal artifact).
+* **Owner-only environment variables** — the real-funds opt-in above; the testnet flow needs only the deployment gate.
+* **Manually prepared sessions** — there was no session concept at all (A2); nothing pre-seeds a run, wallet or session.
+
 ## 4. Provider verification: Base Sepolia → Arbitrum Sepolia (read-only, 2026-10-04)
 
 The preferred slice was verified, not assumed:

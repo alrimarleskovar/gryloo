@@ -172,7 +172,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     await refreshRuns();
   }); }
   async function signOut() { await operation(async () => {
-    await walletSignOut(); setSession(null); setRecord(null); setRecovered(false); setRuns([]);
+    await walletSignOut(); latestSession.current = null; setSession(null); setRecord(null); setRecovered(false); setRuns([]);
   }); }
   async function open(runId: string) { await operation(async () => {
     if (!latestSession.current) throw new Error('WALLET_SESSION_REQUIRED');
