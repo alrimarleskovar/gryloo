@@ -266,7 +266,7 @@ function createSwapChain(account: string) {
   const sent = new Map<string, { to: string; data: string }>();
   const quoted = 1_000_000_000_000_000n, gasUsed = 100_000n, price = 1_000_000_000n;
   const rpc = async (method: string, params: readonly unknown[]): Promise<unknown> => {
-    const head = { number: '0x' + state.block.toString(16), hash: '0x' + 'b'.repeat(64), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+    const head = { number: '0x' + state.block.toString(16), hash: '0x' + 'b'.repeat(64), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16), transactions: [...sent.keys()] };
     if (method === 'eth_chainId') return BASE_SEPOLIA.chainHex;
     if (method === 'eth_blockNumber') return head.number;
     if (method === 'eth_getBlockByNumber') return head;

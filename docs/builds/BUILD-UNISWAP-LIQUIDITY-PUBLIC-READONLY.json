@@ -1,0 +1,205 @@
+{
+  "build": "BUILD-UNISWAP-LIQUIDITY-PUBLIC",
+  "kind": "REAL_READ_ONLY_PREFLIGHT",
+  "evidenceLevel": "PUBLIC_READ_ONLY",
+  "statement": "Read-only public Base Sepolia reads and eth_simulateV1 simulation through the production service code. No wallet, key, signature or transaction.",
+  "startedAt": "2026-10-03T05:29:05.254Z",
+  "finishedAt": "2026-10-03T05:29:10.619Z",
+  "rpc": "sepolia.base.org",
+  "rpcMethodCounts": {
+    "eth_chainId": 2,
+    "eth_getBlockByNumber": 3,
+    "eth_call": 20,
+    "eth_getCode": 5,
+    "eth_getBalance": 1,
+    "eth_getTransactionCount": 2,
+    "eth_simulateV1": 2,
+    "eth_maxPriorityFeePerGas": 1
+  },
+  "network": {
+    "chainId": 84532,
+    "block": {
+      "number": 47618529,
+      "hash": "0xa725f239960f051b6432aade0b90c679e88a095dcbfdd4687fc8339c15d7a170",
+      "timestamp": 1791005346
+    }
+  },
+  "contracts": {
+    "factory": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+    "positionManager": "0x27f971cb582bf9e50f397e4d29a5c7a34f11faa2",
+    "pool": "0x94bfc0574ff48e92ce43d495376c477b1d0eeec0",
+    "codeSha256": {
+      "factory": "2e3c9aa72d26cfbcdc2358f85decb5bbd56331b90175f5da562c687f1a93a164",
+      "positionManager": "253dd1ca2b371704b3cfb6cef8eea148a72182a491bfdc1b4c69d779b3c51c60",
+      "pool": "5f45f1a6192232a8ad495ee4dc03eb32071327af0afbf081d3045bebb109cac9",
+      "token0": "e878b99fc0c17354c86c7edeb999c70c18cfd925abb0958496f027cbad996d28",
+      "token1": "0b4867c60e2c1404e78a40ff738ebcf733152e803fed63dae9fadcf3d58e86cc"
+    }
+  },
+  "token0": {
+    "symbol": "USDC",
+    "address": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+    "decimals": 6
+  },
+  "token1": {
+    "symbol": "WETH",
+    "address": "0x4200000000000000000000000000000000000006",
+    "decimals": 18
+  },
+  "pool": {
+    "fee": 500,
+    "tickSpacing": 10,
+    "sqrtPriceX96": "6275102594684764908555041365911922",
+    "tick": 225606,
+    "liquidity": "448098251397",
+    "price": "159.41071"
+  },
+  "currentPrice": {
+    "sqrtPriceX96": "6275102594684764908555041365911922",
+    "tick": 225606,
+    "price": "159.41071",
+    "blockNumber": 47618528
+  },
+  "simulatedOwner": {
+    "address": "0xbef21e374bf02bf51c71d63a7637156da6214c9a",
+    "note": "public address holding test USDC/WETH; simulation only, no authority",
+    "scannedWindows": 1
+  },
+  "review": {
+    "commitment": "0x970208b460c8ac2c794a8e694845210c6197947a430b598d918df58e4e7c185d",
+    "range": {
+      "tickLower": 224650,
+      "tickUpper": 226670,
+      "lowerPrice": "143.33067",
+      "upperPrice": "175.41319",
+      "state": "IN_RANGE",
+      "description": "The current price is inside your range: the position holds USDC and WETH and earns fees while it stays in range."
+    },
+    "intent": {
+      "amount0Max": "1000000",
+      "amount1Max": "500000000000000",
+      "slippageBps": 100
+    },
+    "expected": {
+      "liquidity": "135167331034",
+      "amount0": "88362",
+      "amount1": "499999999997824"
+    },
+    "minimums": {
+      "amount0Min": "87478",
+      "amount1Min": "494999999997845"
+    },
+    "deadline": "1791006246",
+    "approvals": [
+      {
+        "step": "APPROVE_TOKEN0",
+        "token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+        "symbol": "USDC",
+        "spender": "0x27f971cb582bf9e50f397e4d29a5c7a34f11faa2",
+        "amount": "1000000",
+        "currentAllowance": "0",
+        "required": true
+      },
+      {
+        "step": "APPROVE_TOKEN1",
+        "token": "0x4200000000000000000000000000000000000006",
+        "symbol": "WETH",
+        "spender": "0x27f971cb582bf9e50f397e4d29a5c7a34f11faa2",
+        "amount": "500000000000000",
+        "currentAllowance": "0",
+        "required": true
+      }
+    ],
+    "calls": [
+      {
+        "step": "APPROVE_TOKEN0",
+        "to": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+        "data": "0x095ea7b300000000000000000000000027f971cb582bf9e50f397e4d29a5c7a34f11faa200000000000000000000000000000000000000000000000000000000000f4240",
+        "gasUsed": "55437",
+        "gasLimit": "97068"
+      },
+      {
+        "step": "APPROVE_TOKEN1",
+        "to": "0x4200000000000000000000000000000000000006",
+        "data": "0x095ea7b300000000000000000000000027f971cb582bf9e50f397e4d29a5c7a34f11faa20000000000000000000000000000000000000000000000000001c6bf52634000",
+        "gasUsed": "46031",
+        "gasLimit": "84840"
+      },
+      {
+        "step": "MINT",
+        "to": "0x27f971cb582bf9e50f397e4d29a5c7a34f11faa2",
+        "data": "0x88316456000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e000000000000000000000000420000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000001f40000000000000000000000000000000000000000000000000000000000036d8a000000000000000000000000000000000000000000000000000000000003756e00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000001c6bf5263400000000000000000000000000000000000000000000000000000000000000155b60000000000000000000000000000000000000000000000000001c2332b29e795000000000000000000000000bef21e374bf02bf51c71d63a7637156da6214c9a000000000000000000000000000000000000000000000000000000006ac09626",
+        "gasUsed": "521735",
+        "gasLimit": "703255"
+      }
+    ],
+    "fees": {
+      "maxFeePerGas": "11000000",
+      "maxPriorityFeePerGas": "1000000",
+      "gasLimitTotal": "885163",
+      "executionFeeUpperBoundWei": "9736793000000",
+      "l1FeeUpperBoundWei": "44920928794",
+      "totalUpperBoundWei": "9781713928794"
+    },
+    "simulation": {
+      "method": "eth_simulateV1",
+      "block": 47618529,
+      "calls": [
+        {
+          "step": "APPROVE_TOKEN0",
+          "gasUsed": "55437"
+        },
+        {
+          "step": "APPROVE_TOKEN1",
+          "gasUsed": "46031"
+        },
+        {
+          "step": "MINT",
+          "gasUsed": "521735"
+        }
+      ],
+      "mint": {
+        "liquidity": "135167331034",
+        "amount0": "88362",
+        "amount1": "499999999997824"
+      },
+      "localEstimate": {
+        "liquidity": "135167331034",
+        "amount0": "88362",
+        "amount1": "499999999997824"
+      }
+    },
+    "recipient": "0xbef21e374bf02bf51c71d63a7637156da6214c9a"
+  },
+  "executionAttempted": false,
+  "beginWithExecutionDisabled": "UNISWAP_EXECUTION_NOT_ENABLED",
+  "apiProcess": {
+    "statement": "The same read-only path through the real backend API process (node backend/main.ts api, GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live, GRYLOO_UNISWAP_LIQUIDITY_EXECUTION=DISABLED) against public Base Sepolia, with run state in a disposable loopback PostgreSQL 18.6 (schema version 3, no new migration).",
+    "mode": "live",
+    "priceBlock": 47618795,
+    "run": "unilp-e8c37550e091ce5a7b799379f6285023",
+    "provenance": "PUBLIC_TESTNET",
+    "simulationBlock": 47618802,
+    "rangeState": "IN_RANGE",
+    "expected": {
+      "liquidity": "135167331034",
+      "amount0": "88362",
+      "amount1": "499999999997824"
+    },
+    "calls": [
+      "APPROVE_TOKEN0",
+      "APPROVE_TOKEN1",
+      "MINT"
+    ],
+    "reviewAccepted": true,
+    "begin": "UNISWAP_EXECUTION_NOT_ENABLED",
+    "postgres": {
+      "execution_runs.status": "AUTHORIZED",
+      "provenance": "PUBLIC_TESTNET",
+      "needs_observation": false,
+      "log_segments": 2
+    },
+    "apiErrorsLogged": 0,
+    "transactionsSent": 0
+  }
+}

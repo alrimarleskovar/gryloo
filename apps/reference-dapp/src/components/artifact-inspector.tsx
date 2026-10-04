@@ -21,6 +21,8 @@ import { SolanaSwapForm } from './jupiter-panel';
 import { solanaSwapDetails, solanaSwapLabels } from '../domain/jupiter-authoring';
 import { solanaLiquidityDetails } from '../domain/solana-liquidity-authoring';
 import { SolanaLiquidityForm } from './solana-liquidity-panel';
+import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
+import { uniswapLiquidityDetails } from '../domain/uniswap-liquidity-authoring';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
@@ -89,7 +91,8 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
   const supply = node?.actionType === 'supply';
   const solana = node ? solanaSwapDetails(node) : null;
   const orcaPosition = node ? solanaLiquidityDetails(node) : null;
-  const label = lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition ? 'Liquidity position' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
+  const uniPosition = node ? uniswapLiquidityDetails(node) : null;
+  const label = lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
     {node ? <>
       {node.actionType==='asset.transfer'&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
@@ -99,6 +102,7 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
       {!lending&&node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {!lending && supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
       {solana && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
+      {uniPosition && <><p className="muted">{uniPosition.network} USDC / WETH via {uniPosition.provider} · fee 0.05% · test tokens · simulate against the live pool. Changes require review.</p><UniswapLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
@@ -117,7 +121,7 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
         ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
         ['tickLower', 'Lower tick'], ['tickUpper', 'Upper tick'], ['recipient', 'Recipient'],
       ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}<button type="submit">Review pool change</button></form>}
-      {!lending && !cross && !swap && !bridge && !liquidity && !template && !supply && !solana && <p className="muted">This step is configured through its workflow review.</p>}
+      {!lending && !cross && !swap && !bridge && !liquidity && !template && !supply && !solana && !uniPosition && <p className="muted">This step is configured through its workflow review.</p>}
       {error && <p role="alert" className="form-error">{error}. Check the parameters and try again.</p>}
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}
         <button type="button" className="quiet" disabled={!deletable} onClick={() => { dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision }); select(null); }}>Remove step</button></div>

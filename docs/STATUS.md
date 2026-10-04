@@ -7,6 +7,19 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-UNISWAP-LIQUIDITY-PUBLIC — Public Uniswap v3 liquidity on the cloud runtime
+
+**Status: IMPLEMENTATION COMPLETE — READY FOR OWNER PUBLIC E2E.** Stacked on BUILD-CLOUD-001 in branch
+`claude/build-uniswap-liquidity-public`. The canonical `asset.liquidity.concentrated` action now has a public EVM
+runtime: Uniswap v3 USDC/WETH 0.05% on Base Sepolia, signed and sent only by the owner's browser wallet (exact finite
+approvals, then a mint whose NFT recipient is the owner), simulated with `eth_simulateV1` against public state, and
+reconciled by the same PostgreSQL/API/worker runtime as every cloud flow (`uniswap-liquidity`; no migration, no new
+service, no key). Evidence so far: MOCKED (unit, PostgreSQL and loopback browser suites) and a real
+`PUBLIC_READ_ONLY` preflight through the production service and the real API process. No public transaction was
+sent; `TESTNET_EXECUTED` needs the owner's wallet-signed acceptance. BUILD-006's `FORK_REPRODUCED` record is
+unchanged. Public swap → liquidity composition is not part of this build (see the
+[report](builds/BUILD-UNISWAP-LIQUIDITY-PUBLIC-REPORT.md)).
+
 ## BUILD-CLOUD-001 — Durable, cloud-capable execution
 
 **Status: IMPLEMENTATION COMPLETE — OWNER ACTION REQUIRED.** Stacked on BUILD-BRAND-001 (PR #49) in branch
