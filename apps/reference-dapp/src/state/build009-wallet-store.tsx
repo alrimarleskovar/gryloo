@@ -22,9 +22,15 @@ const validAccount = (value: unknown): value is string => typeof value === 'stri
 type Discovery = { readonly announced: Map<Provider, string>; readonly listeners: Set<() => void>; selected: Provider | null };
 const discoveries = new WeakMap<Window, Discovery>();
 const usable = (value: unknown): value is Provider => Boolean(value && typeof (value as Provider).request === 'function');
+const braveWallet = (provider: Provider, rdns?: string) => provider.isBraveWallet === true || rdns === 'com.brave.wallet';
 function selectProvider(target: Window, discovery: Discovery): Provider | null {
-  const announcedMetaMask = [...discovery.announced].filter(([provider, rdns]) => rdns === 'io.metamask' && provider.isBraveWallet !== true);
+  const announced = [...discovery.announced].filter(([provider, rdns]) => !braveWallet(provider, rdns));
+  const announcedMetaMask = announced.filter(([, rdns]) => rdns === 'io.metamask');
   if (announcedMetaMask.length) return announcedMetaMask.length === 1 ? announcedMetaMask[0]![0] : null;
+  // EIP-6963 is authoritative: an announced wallet is used through its announced provider object, never through the
+  // separate window.ethereum proxy it may also inject (Rabby does, and may flag that proxy isMetaMask for compatibility).
+  // Several announced wallets without MetaMask stay ambiguous and fail closed.
+  if (announced.length) return announced.length === 1 ? announced[0]![0] : null;
   const ethereum = (target as Window & { ethereum?: { providers?: unknown } }).ethereum;
   const multiple = Array.isArray(ethereum?.providers);
   const legacy = [...new Set((multiple ? ethereum.providers as unknown[] : [ethereum]).filter(usable))];
@@ -75,7 +81,7 @@ function incompatibleWalletMessage(): string | null {
   const ethereum = (window as Window & { ethereum?: { providers?: unknown } }).ethereum;
   const legacy = Array.isArray(ethereum?.providers) ? ethereum.providers : [ethereum];
   return [...discovery.announced.keys(), ...legacy].some(provider => usable(provider) && provider.isBraveWallet === true)
-    ? 'No compatible wallet. Enable MetaMask for this site and refresh; Brave Wallet cannot be used.' : null;
+    ? 'No compatible wallet. Enable MetaMask or Rabby for this site and refresh; Brave Wallet cannot be used.' : null;
 }
 export function chainName(id: string | null): string { return walletChainLabel(id); }
 export function Build009WalletProvider({ children }: { children: ReactNode }) {

@@ -1,5 +1,7 @@
 # BUILD-013 — Advanced lending composition report
 
+> **Closed 2026-10-04 — see [Final closure](#final-closure-2026-10-04).** The sections before it record the build as it stood before public owner execution and are kept unchanged as history.
+
 **Implementation evidence: MOCKED. Public execution remains gated; no public owner signature or transaction was requested or submitted by this work.** A discovered compatible pool and public quote do not demonstrate the composed workflow. Public completion is not claimed. See the [approved finite scope](BUILD-013-PLAN.md).
 
 ## Implemented behavior
@@ -87,3 +89,47 @@ Required test assets are at least 0.1 of the **exact Aave USDC**, plus the displ
 ## Delivery and preservation
 
 Work remains on `codex/build-013-lending-composition`, initially from `7003856`. The complete interrupted implementation was first preserved in `dd0e97d26ab6285e8f088f23e350255cb7c4a9ca` and pushed. [PR #48](https://github.com/alrimarleskovar/gryloo/pull/48) then reported CONFLICTING/DIRTY against main. Only after that concrete blocker was established, the later `ce78992bdb135c96caf55da90880c7aa0591958a` Robinhood demo merge was integrated under the owner's strictly-necessary exception, using a merge rather than rewriting history. Shared UI, commands and export conflicts retain both paths. Robinhood-specific source/evidence and historical BUILD-012 files match main byte-for-byte; the RH-DEMO worktree is untouched. One focused PR remains open, without merge or automatic merging. Public composed completion and certification remain pending explicit owner execution and independent reconciliation.
+
+## Final closure (2026-10-04)
+
+**Classification: ENGINEERING_COMPLETE · OWNER_E2E_PARTIAL · EXTERNAL_WALLET_COMPATIBILITY_FOLLOWUP.** BUILD-013 is closed and no further owner transaction testing is requested for it.
+
+### Public owner execution (Base Sepolia, canonical run `lending-67ba60bd9d6afc4d4f6fa3fb2bef5602`)
+
+| Step | Transaction | Block | Owner proof | Status |
+|---|---|---|---|---|
+| POOL_APPROVAL | `0x65766d1e1fa824a2d63728bce6dd57f8542d4e59be6c5f42be6b68a8cc1341aa` | 47651628 | MetaMask EIP-7702 relayed redemption | RECONCILED |
+| SUPPLY | `0x74210fa42d131520460d002c8a98b431343857c75dd3c06bb08885da96e8250d` | 47655253 | direct EIP-1559 | RECONCILED |
+| BORROW | `0x1b57d59c6592f7d538937e53432522face71c8c3f37495f6b068c6b9c4d89954` | 47657133 | direct EIP-1559 | RECONCILED |
+| ROUTER_APPROVAL | none (attempts 9 and 10 proven `NOT_FOUND` at blocks 47660539 and 47670827) | — | — | not executed |
+| SWAP | none | — | — | not executed |
+
+The owner's position is **partially completed**: 0.1 Aave test USDC is supplied as collateral and 0.01 USDC variable debt is open, with the borrowed USDC in the owner wallet. At closure the router allowance is 0 and the owner nonce is 7. No public composed outcome is claimed; there is no final Evidence Bundle for the full five-step composition.
+
+### Proven by implementation, tests and read-only public proofs (not by owner execution)
+
+ROUTER_APPROVAL and SWAP continuation Review, authorization, wallet handoff, recovery and reconciliation: 22/22-gate read-only preflights with the exact remaining-path `eth_simulateV1` (`validation=true`, no overrides), real-app continuation proofs on the canonical run, and copy-journal proofs where the app handed the exact reviewed ROUTER_APPROVAL (approve 0.01 USDC to SwapRouter02 `0x94cc0aac535ccdb3c01d6787d6413c739ae12bc4`) to a stand-in wallet that never signs, including a non-MetaMask EIP-6963 wallet. Final READY artifact: `BUILD-013-PREFLIGHT-ALCHEMY-READONLY-20261004T103849610Z.json` (SHA-256 `0210a0e17ee144941a147571d5355c5a9adfccd43c2b0eac8e4969e1f28e3221`). All BUILD-013 evidence produced during closure is pinned in [BUILD-013-EVIDENCE-INDEX-20261004.json](BUILD-013-EVIDENCE-INDEX-20261004.json); the files stay in the worktree because of size.
+
+### External blocker
+
+MetaMask's address scan (Blockaid) classifies two official Base Sepolia contracts as `Malicious`: the Aave V3 test USDC `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f` and Uniswap SwapRouter02 `0x94cc0aac535ccdb3c01d6787d6413c739ae12bc4`. MetaMask's transaction validation rates the exact approval `Benign`, but the two address alerts kept the owner from reaching Confirm. The adapter was not changed to evade the classification.
+
+### Fixes delivered during public execution (after `6cd675e`)
+
+- `aa698b9` preconfirmed (zero block hash) receipts stay observation-only until canonical.
+- `afdc5b3` a paused run whose attempts never reached a wallet may re-root its starting state (commitment-bound `rerootOf`).
+- `d9753b2` long runs: lending run file bound, submitted-attempt bound, pre-handoff journal capacity guard.
+- `dfa7dba` 600 s continuation Review lifetime; fast fail-closed release gate before every wallet handoff.
+- `87b53c5` evidence and store hashing bounded per element (21+ Reviews exceeded the 1 MiB canonical hash bound).
+- `139f777` one lifetime rule for `expiresAt` and `maximumAgeSeconds`; 512 MiB lending run bound.
+- `1a905a6` an unknown approval proven absent from chain closes as `NOT_FOUND`, re-verified on export.
+- `d9046e9` a submission landing after the discovery window is located from its nonce or allowance effect.
+- `000b160` a long-stranded `SUBMITTING` approval closes with the same on-chain proof.
+- Wallet discovery: EIP-6963 announcements are authoritative, so a wallet such as Rabby is used through its announced `io.rabby` provider rather than its separate `window.ethereum` proxy; MetaMask preference, Brave rejection and fail-closed ambiguity are unchanged.
+
+### Follow-up (not part of BUILD-013)
+
+- **External wallet compatibility:** a real owner test with a non-MetaMask EIP-6963 wallet (for example Rabby) for ROUTER_APPROVAL and SWAP on the existing run, or a decision to close the open position.
+- Lending UI: classify explicit wallet refusals (EIP-1193 4001 and similar) as known non-submission, as the BUILD-012 stores do.
+- Run journal: a compact format that does not repeat every Review in each line and its evidence.
+

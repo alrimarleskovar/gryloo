@@ -87,7 +87,7 @@ test('connect and network switching use the same EIP-6963 MetaMask provider', as
 });
 test('late MetaMask discovery rebinds listeners and ignores the old Brave wallet events', async ({ page }) => {
   await install(page, 'late'); await page.goto('/');
-  await expect(page.getByText('No compatible wallet. Enable MetaMask for this site and refresh; Brave Wallet cannot be used.', { exact: true })).toBeVisible();
+  await expect(page.getByText('No compatible wallet. Enable MetaMask or Rabby for this site and refresh; Brave Wallet cannot be used.', { exact: true })).toBeVisible();
   await expect(page.locator('.build009-wallet-info')).toHaveCount(0);
   expect(await controls(page)).toEqual([]);
   await page.evaluate(() => (window as unknown as { walletProviderTest: Controls }).walletProviderTest.announceMetaMask());
@@ -103,4 +103,47 @@ test('without an injected provider, existing no-wallet behavior remains', async 
   await page.goto('/'); await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   await expect(page.locator('.wallet-toast[role="alert"]')).toContainText('No wallet found. Install or enable a browser wallet.');
   await expect(page.locator('.build009-wallet-info')).toHaveCount(0);
+});
+
+// Real Rabby lifecycle: it announces io.rabby (at injection and on request) and also injects a separate window.ethereum
+// proxy that claims isMetaMask. Only the announced provider may receive owner requests; there is no MetaMask here.
+test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.ethereum proxy', async ({ page }) => {
+  await page.exposeFunction('grylooLendingTestRpc', lendingRpc);
+  await page.addInitScript(({ owner }) => {
+    const requests: Request[] = [];
+    const w = window as unknown as { ethereum: unknown; walletProviderTest: { requests: Request[] }; grylooLendingTestRpc(method: string, params: unknown[]): Promise<unknown> };
+    let connected = false;
+    const rabby = { isRabby: true, isMetaMask: false,
+      async request(input: { method: string; params?: unknown[] }): Promise<unknown> {
+        requests.push({ provider: 'Rabby', ...input });
+        if (input.method === 'eth_accounts') return connected ? [owner] : [];
+        if (input.method === 'eth_requestAccounts') { connected = true; return [owner]; }
+        if (input.method === 'eth_chainId') return '0x14a34';
+        if (input.method === 'eth_getTransactionCount') return w.grylooLendingTestRpc(input.method, input.params ?? []);
+        if (input.method === 'eth_sendTransaction') return w.grylooLendingTestRpc('MOCK_submit', [{
+          ...input.params?.[0] as Record<string, unknown>, nonce: await w.grylooLendingTestRpc('eth_getTransactionCount', [owner, 'pending']),
+        }]);
+        throw Error('MOCK_WALLET_METHOD_DENIED');
+      },
+      on() { /* no wallet events in this journey */ }, removeListener() { /* no wallet events in this journey */ } };
+    w.ethereum = { isRabby: true, isMetaMask: true, async request(input: { method: string }) {
+      requests.push({ provider: 'RabbyProxy', ...input }); throw Error('RABBY_PROXY_MUST_NOT_BE_USED'); }, on() { /* unused */ }, removeListener() { /* unused */ } };
+    const announce = () => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+      detail: Object.freeze({ provider: rabby, info: { rdns: 'io.rabby', uuid: '6f1d6b2e-5c3b-4f3a-9d0e-1a2b3c4d5e6f', name: 'Rabby Wallet', icon: 'data:image/png;base64,' } }),
+    }));
+    window.addEventListener('eip6963:requestProvider', announce);
+    announce();
+    w.walletProviderTest = { requests };
+  }, { owner: LENDING_OWNER });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect Wallet' }).click();
+  await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
+  await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();
+  await panel(page).getByRole('button', { name: 'Execute pool approval', exact: true }).click(); await expect(panel(page)).toContainText('POOL_APPROVAL: reconciled');
+  const requests = await controls(page);
+  expect(requests.filter(request => request.provider === 'RabbyProxy')).toEqual([]);
+  expect(requests.filter(request => request.method === 'eth_sendTransaction').map(request => request.provider)).toEqual(['Rabby']);
 });

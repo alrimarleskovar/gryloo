@@ -74,6 +74,35 @@ describe('shared injected EVM provider selection', () => {
     browser({ providers: [null, {}] }); expect(injected()).toBeNull();
     vi.unstubAllGlobals(); expect(injected()).toBeNull();
   });
+  // Real Rabby: announces io.rabby with its provider object and also injects a different window.ethereum proxy that may
+  // claim isMetaMask for compatibility. The announced provider must be selected; the proxy must never be used.
+  const rabby = () => ({ announced: { ...provider(), isRabby: true }, proxy: { ...provider({ isMetaMask: true }), isRabby: true } });
+  it('selects the announced io.rabby provider, not its separate window.ethereum proxy', () => {
+    const { announced, proxy } = rabby(), target = browser(proxy);
+    target.addEventListener('eip6963:requestProvider', () => announce(target, announced, 'io.rabby'));
+    expect(injected()).toBe(announced); expect(proxy.request).not.toHaveBeenCalled();
+  });
+  it('rebinds from the legacy proxy to a late io.rabby announcement and deduplicates reannouncements', () => {
+    const { announced, proxy } = rabby(), target = browser(proxy);
+    expect(injected()).toBe(proxy);
+    announce(target, announced, 'io.rabby'); announce(target, announced, 'io.rabby');
+    expect(injected()).toBe(announced); expect(proxy.request).not.toHaveBeenCalled();
+  });
+  it('keeps preferring an announced MetaMask when Rabby is also installed', () => {
+    const { announced, proxy } = rabby(), metaMask = provider(), target = browser(proxy);
+    target.addEventListener('eip6963:requestProvider', () => { announce(target, announced, 'io.rabby'); announce(target, metaMask, 'io.metamask'); });
+    expect(injected()).toBe(metaMask);
+  });
+  it('fails closed when Rabby and another non-MetaMask wallet both announce', () => {
+    const { announced, proxy } = rabby(), other = provider(), target = browser(proxy);
+    target.addEventListener('eip6963:requestProvider', () => { announce(target, announced, 'io.rabby'); announce(target, other, 'com.example.wallet'); });
+    expect(injected()).toBeNull(); expect(proxy.request).not.toHaveBeenCalled();
+  });
+  it('selects Rabby over an announced Brave wallet without ever using Brave', () => {
+    const { announced, proxy } = rabby(), brave = provider({ isBraveWallet: true }), target = browser(proxy);
+    target.addEventListener('eip6963:requestProvider', () => { announce(target, brave, 'com.brave.wallet'); announce(target, announced, 'io.rabby'); });
+    expect(injected()).toBe(announced); expect(brave.request).not.toHaveBeenCalled();
+  });
   it('ignores unusable announcements without losing the single usable provider', () => {
     const wallet = provider(), target = browser(wallet);
     target.addEventListener('eip6963:requestProvider', () => announce(target, { request: null }, 'io.metamask'));
