@@ -26,9 +26,11 @@ jobs:
           set -euo pipefail
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git init .
+          git remote remove origin 2>/dev/null || true
           git remote add origin "$SERVER/$REPOSITORY.git"
           git -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=2 origin "$REVISION"
-          git checkout --detach FETCH_HEAD
+          git checkout --detach -f FETCH_HEAD
+          git clean -ffdx
           unset auth GH_TOKEN
 
       - name: Governance-lite self-tests and safety check
