@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+    "@defi-workflow-engine/cloud-runtime": "workspace:0.1.0",
     "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
     "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
     "@defi-workflow-engine/reference-linter": "workspace:0.1.0",

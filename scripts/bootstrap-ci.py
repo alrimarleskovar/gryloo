@@ -263,6 +263,18 @@ BUILD003D_REFERENCE_PACKAGES = {
     }),
 }
 
+# BUILD-CLOUD-001 exact direct pins for the PostgreSQL driver (MIT; its 13 transitive registry
+# packages are MIT/ISC, no license exception). Only the private cloud-runtime package uses them.
+BUILDCLOUD001_DIRECT_VERSIONS = {
+    "pg": "8.23.0",
+    "@types/pg": "8.23.1",
+}
+BUILDCLOUD001_CLOUD_RUNTIME = ("packages/cloud-runtime/package.json", "@defi-workflow-engine/cloud-runtime",
+                               {"@defi-workflow-engine/reference-executor": "workspace:0.1.0", "pg": "8.23.0"},
+                               {"@types/pg": "8.23.1"})
+# BUILD-CLOUD-001 adds 15 registry packages (pg, @types/pg and their MIT/ISC dependencies) to the 247.
+REGISTRY_PACKAGE_COUNT = 262
+
 # The pre-existing BUILD-001 MPL tooling exception is exact-name scoped too.
 BUILD001_LIGHTNINGCSS_NAMES = {
     "lightningcss",
@@ -305,7 +317,7 @@ def verify_dependencies():
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
     resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
-    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "591b314a3f89f2ba78d8a8cd2fa7835d3def09eccfeec5400812e9bbedf1045c":
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "7477e3d4b87bd36605580e7e0032fc0bd2801f59ea251669d2e361d93684bdd9":
         errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
@@ -331,8 +343,8 @@ def verify_dependencies():
             errors.append(f"Non-registry or missing integrity: {identity}")
         else:
             locked[identity] = integrity[0]
-    if len(package_blocks) != 247 or len(locked) != 247 or len(snapshot_blocks) != 247:
-        errors.append(f"BUILD-003D lock count drift: packages={len(package_blocks)}, "
+    if len(package_blocks) != REGISTRY_PACKAGE_COUNT or len(locked) != REGISTRY_PACKAGE_COUNT or len(snapshot_blocks) != REGISTRY_PACKAGE_COUNT:
+        errors.append(f"BUILD-CLOUD-001 lock count drift: packages={len(package_blocks)}, "
                       f"registry={len(locked)}, snapshots={len(snapshot_blocks)}")
     for identity, (_, digest) in pins.items():
         if locked.get(identity) != digest:
@@ -352,6 +364,8 @@ def verify_dependencies():
     app = json.loads(Path("apps/reference-dapp/package.json").read_text())
     expected_app_dependencies = {
         "@defi-workflow-engine/action-registry": "workspace:0.1.0",
+        # BUILD-CLOUD-001: the backend entry point in the app links the private infrastructure adapters.
+        "@defi-workflow-engine/cloud-runtime": "workspace:0.1.0",
         # BUILD-003F: the app links the three already locked reference packages; no registry identity changes.
         "@defi-workflow-engine/reference-compiler": "workspace:0.1.0",
         "@defi-workflow-engine/reference-executor": "workspace:0.1.0",
@@ -433,6 +447,25 @@ def verify_dependencies():
             target = ("link:../" + dependency.split("/", 1)[1]) if version.startswith("workspace:") else version
             if f"      '{dependency}':\n        specifier: {version}\n        version: {target}\n" not in block:
                 errors.append(f"BUILD-003D lock importer differs: {manifest_path} {dependency}")
+    cloud_path, cloud_name, cloud_dependencies, cloud_dev = BUILDCLOUD001_CLOUD_RUNTIME
+    cloud = json.loads(Path(cloud_path).read_text())
+    if (cloud.get("name") != cloud_name or cloud.get("version") != "0.1.0" or cloud.get("private") is not True or
+            cloud.get("license") != "AGPL-3.0-only" or cloud.get("dependencies") != cloud_dependencies or
+            cloud.get("devDependencies") != cloud_dev):
+        errors.append("BUILD-CLOUD-001 cloud-runtime manifest identity or exact dependencies differ")
+    cloud_importer = importer_block("packages/cloud-runtime")
+    for dependency, version in {**cloud_dependencies, **cloud_dev}.items():
+        target = "link:../reference-executor" if version.startswith("workspace:") else version
+        if f"      '{dependency}':\n        specifier: {version}\n        version: {target}\n" not in cloud_importer and \
+                f"      {dependency}:\n        specifier: {version}\n        version: {target}\n" not in cloud_importer:
+            errors.append(f"BUILD-CLOUD-001 lock importer differs: {dependency}")
+    if app_importer.count("'@defi-workflow-engine/cloud-runtime':") != 1 or not re.search(
+            r"(?m)^      '@defi-workflow-engine/cloud-runtime':\n        specifier: workspace:0\.1\.0\n        version: link:\.\./\.\./packages/cloud-runtime$",
+            app_importer):
+        errors.append("BUILD-CLOUD-001 app lock workspace link differs: cloud-runtime")
+    for identity, version in BUILDCLOUD001_DIRECT_VERSIONS.items():
+        if identity + "@" + version not in locked:
+            errors.append(f"BUILD-CLOUD-001 direct lock identity missing: {identity}@{version}")
     for manifest_path in [Path("package.json"), *Path("packages").glob("*/package.json"),
                           Path("apps/reference-dapp/package.json")]:
         manifest = json.loads(manifest_path.read_text())
@@ -441,7 +474,8 @@ def verify_dependencies():
                 if version in ("workspace:0.1.0", "workspace:0.3.0") and name.startswith("@defi-workflow-engine/"):
                     continue
                 if (name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version
-                        and BUILD003D_DIRECT_VERSIONS.get(name) != version):
+                        and BUILD003D_DIRECT_VERSIONS.get(name) != version
+                        and BUILDCLOUD001_DIRECT_VERSIONS.get(name) != version):
                     errors.append(f"Unapproved direct pin: {name}@{version}")
 
     def dependencies(body, group):
@@ -575,8 +609,8 @@ def verify_dependencies():
     if rejected_identities != expected_rejected:
         errors.append(f"Full rejected set drift: missing={sorted(expected_rejected - rejected_identities)}, "
                       f"new={sorted(rejected_identities - expected_rejected)}")
-    if len(records) != 247:
-        errors.append(f"Incomplete registry review: {len(records)} of 247")
+    if len(records) != REGISTRY_PACKAGE_COUNT:
+        errors.append(f"Incomplete registry review: {len(records)} of {REGISTRY_PACKAGE_COUNT}")
     if errors:
         for error in errors:
             print(error, flush=True)

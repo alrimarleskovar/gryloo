@@ -7,8 +7,9 @@ import { resolveWorkflowCapability } from '@defi-workflow-engine/action-registry
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
 import { hashArtifactBytes, type EvidenceBundle, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { validateArtifact } from '@defi-workflow-engine/workflow-contracts/schemas';
-import { BASE_SEPOLIA } from '../domain/public-testnet-swap';
-export { BASE_SEPOLIA } from '../domain/public-testnet-swap';
+import { utf8, type ExecutionStorage } from '@defi-workflow-engine/reference-executor';
+import { BASE_SEPOLIA } from '../domain/public-testnet-swap.ts';
+export { BASE_SEPOLIA } from '../domain/public-testnet-swap.ts';
 
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 type Step = 'approval' | 'swap';
@@ -156,8 +157,28 @@ export function publicRecordingEnabled(env: NodeJS.ProcessEnv): boolean {
     typeof env.GRYLOO_PUBLIC_TESTNET_JOURNAL === 'string' && isAbsolute(env.GRYLOO_PUBLIC_TESTNET_JOURNAL);
 }
 export function explorerUrl(txHash: string): string { if (!HASH.test(txHash)) fail('TX_HASH_INVALID'); return BASE_SEPOLIA.explorer + txHash; }
+/** Persistence used by the shared core: synchronous files locally, async shared storage in the cloud. */
+type Persistence = { readonly save: (run: PublicRun) => PublicRun | Promise<PublicRun>; readonly load: (id: string) => PublicRun | Promise<PublicRun>;
+  readonly locked: <T>(id: string, action: () => Promise<T>) => Promise<T> };
+/** Pure Review transition, shared by the local and the durable service. */
+export function reviewPublicRun(run: PublicRun, manifestHash: string, now: Date): PublicRun {
+  if (run.quote.manifestHash !== manifestHash || now.getTime() >= Date.parse(run.quote.expiresAt) ||
+      run.attempts.some(a => a.step === 'swap' || ['PREPARED', 'HASH', 'PENDING', 'UNKNOWN'].includes(a.state)))
+    fail('REVIEW_EXPIRED');
+  return { ...run, reviewedManifestHash: manifestHash };
+}
+/** Pure wallet-result transition, shared by the local and the durable service. */
+export function reportPublicRun(run: PublicRun, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }, now: Date): PublicRun {
+  const target = run.attempts.find(a => a.attemptId === attemptId);
+  if (!target || target.state !== 'PREPARED') fail('ATTEMPT_STATE_INVALID');
+  if (result.kind === 'HASH' && !HASH.test(result.txHash)) fail('TX_HASH_INVALID');
+  const changed: PublicAttempt = { ...target, state: result.kind === 'HASH' ? 'HASH' : result.kind,
+    submittedAt: result.kind === 'HASH' ? now.toISOString() : null,
+    txHash: result.kind === 'HASH' ? result.txHash : null };
+  return { ...run, attempts: run.attempts.map(a => a.attemptId === attemptId ? changed : a) };
+}
 export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly journalDir: string; readonly now?: () => Date }) {
-  const { rpc, journalDir } = config;
+  const { journalDir } = config;
   const now = config.now ?? (() => new Date());
   if (!isAbsolute(journalDir)) fail('PUBLIC_JOURNAL_INVALID');
   mkdirSync(journalDir, { recursive: true, mode: 0o700 });
@@ -187,6 +208,77 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
     locks.add(id);
     try { return await action(); } finally { locks.delete(id); unlinkSync(lockFile); }
   }
+  const core = createPublicTestnetCore(config.rpc, now, { save, load, locked });
+  const review = (id: string, manifestHash: string): PublicRun => save(reviewPublicRun(load(id), manifestHash, now()));
+  const report = (id: string, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }): PublicRun =>
+    save(reportPublicRun(load(id), attemptId, result, now()));
+  return { ...core, review, report, load,
+    list: () => readdirSync(journalDir).filter(file => /^pub-[0-9a-f]{24}\.json$/.test(file)).map(file => file.slice(0, -5)) };
+}
+export type PublicTestnetService = ReturnType<typeof createPublicTestnetService>;
+
+/**
+ * BUILD-CLOUD-001: the same swap service on shared durable storage. Every snapshot is appended to an
+ * append-only log (`<id>.jsonl`) under fenced leases, so N API/worker instances can serve one run and its full
+ * history survives. Every mutation, including Review and wallet results, runs under the run lease.
+ */
+export function createDurablePublicTestnetService(config: { readonly rpc: Rpc; readonly storage: ExecutionStorage; readonly now?: () => Date }) {
+  const now = config.now ?? (() => new Date()), { log, leases } = config.storage;
+  const name = (id: string) => { if (!/^pub-[0-9a-f]{24}$/.test(id)) fail('EXECUTION_ID_INVALID'); return id + '.jsonl'; };
+  const validate = (bytes: Uint8Array) => validatePublicRunLog(bytes);
+  async function load(id: string): Promise<PublicRun> {
+    const bytes = await log.read(name(id));
+    if (!bytes) fail('EXECUTION_NOT_FOUND');
+    validate(bytes);
+    const run = JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as PublicRun;
+    if (run.quote.executionId !== id) fail('PUBLIC_STORE_CORRUPT');
+    return run;
+  }
+  async function save(run: PublicRun): Promise<PublicRun> {
+    const file = name(run.quote.executionId);
+    await log.extend(file, new TextEncoder().encode(utf8(await log.read(file)) + JSON.stringify(run) + '\n'), validate);
+    return run;
+  }
+  const locked = <T,>(id: string, action: () => Promise<T>): Promise<T> => leases.hold(name(id).slice(0, -6), action);
+  const core = createPublicTestnetCore(config.rpc, now, { save, load, locked });
+  return { ...core, load,
+    review: (id: string, manifestHash: string) => locked(id, async () => save(reviewPublicRun(await load(id), manifestHash, now()))),
+    report: (id: string, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }) =>
+      locked(id, async () => save(reportPublicRun(await load(id), attemptId, result, now()))) };
+}
+export type DurablePublicTestnetService = ReturnType<typeof createDurablePublicTestnetService>;
+
+/** Append-only snapshot history: identity, authorized calls, hashes and terminal results never change. */
+export function validatePublicRunLog(bytes: Uint8Array): void {
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  if (!text.endsWith('\n') || bytes.length > 16_777_216) fail('PUBLIC_STORE_CORRUPT');
+  let prior: PublicRun | null = null;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  for (const line of text.trimEnd().split('\n')) {
+    const run = JSON.parse(line) as PublicRun;
+    if (!isObject(run) || !isObject(run.quote) || !/^pub-[0-9a-f]{24}$/.test(String(run.quote.executionId)) || run.quote.chainId !== 84532 ||
+        !isObject(run.workflow) || !Array.isArray(run.attempts) || run.attempts.length > 8 || (run.outcome !== null && !isObject(run.outcome)) ||
+        run.attempts.some(a => !isObject(a) || a.executionId !== run.quote.executionId || a.chainId !== 84532 || !ADDRESS.test(String(a.account)) ||
+          (a.txHash !== null && !HASH.test(String(a.txHash)))) || new Set(run.attempts.map(a => a.attemptId)).size !== run.attempts.length)
+      fail('PUBLIC_STORE_CORRUPT');
+    if (prior) {
+      if (run.quote.executionId !== prior.quote.executionId || !same(run.workflow, prior.workflow) || run.attempts.length < prior.attempts.length ||
+          prior.outcome && !same(run.outcome, prior.outcome)) fail('PUBLIC_STORE_CORRUPT');
+      for (const [index, before] of prior.attempts.entries()) {
+        const after = run.attempts[index]!;
+        if (after.attemptId !== before.attemptId || after.step !== before.step || after.account !== before.account || !same(after.tx, before.tx) ||
+            after.authorizedInput !== before.authorizedInput || after.authorizedMinimumOutput !== before.authorizedMinimumOutput ||
+            after.preBlock !== before.preBlock || before.txHash !== null && after.txHash !== before.txHash ||
+            ['CONFIRMED', 'REVERTED', 'REJECTED'].includes(before.state) && after.state !== before.state) fail('PUBLIC_STORE_CORRUPT');
+      }
+    }
+    prior = run;
+  }
+}
+
+function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persistence) {
+  const { locked } = persistence;
+  const save = async (run: PublicRun) => persistence.save(run), load = async (id: string) => persistence.load(id);
   async function read(to: string, data: string, block: string): Promise<string> {
     return hex(await rpc('eth_call', [{ to, data }, block]));
   }
@@ -247,7 +339,7 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
   }
   async function refresh(id: string): Promise<PublicRun> {
     return locked(id, async () => {
-      const run = load(id);
+      const run = await load(id);
       const last = run.attempts.at(-1);
       if (run.outcome || last?.step !== 'approval' || last.state !== 'CONFIRMED' ||
           run.attempts.some(attempt => attempt.step === 'swap')) fail('QUOTE_REFRESH_NOT_ALLOWED');
@@ -255,16 +347,9 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
       return save({ ...run, quote: fresh, reviewedManifestHash: null });
     });
   }
-  function review(id: string, manifestHash: string): PublicRun {
-    const run = load(id);
-    if (run.quote.manifestHash !== manifestHash || now().getTime() >= Date.parse(run.quote.expiresAt) ||
-        run.attempts.some(a => a.step === 'swap' || ['PREPARED', 'HASH', 'PENDING', 'UNKNOWN'].includes(a.state)))
-      fail('REVIEW_EXPIRED');
-    return save({ ...run, reviewedManifestHash: manifestHash });
-  }
   async function begin(id: string, ownerValue: string): Promise<PublicBegin> {
     return locked(id, async () => {
-      let run = load(id);
+      let run = await load(id);
       const owner = address(ownerValue);
       if (run.outcome || run.attempts.some(attempt => ['PREPARED', 'HASH', 'PENDING', 'UNKNOWN'].includes(attempt.state))) fail('ATTEMPT_ALREADY_ACTIVE');
       if (run.attempts.some(attempt => attempt.step === 'swap' && attempt.state !== 'REJECTED')) fail('SWAP_ALREADY_ATTEMPTED');
@@ -274,12 +359,12 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
         // Observation metadata changes each block; only economic changes require a new review.
         if (fresh.expectedOut !== run.quote.expectedOut || fresh.minimumOut !== run.quote.minimumOut ||
             fresh.pool !== run.quote.pool || fresh.fee !== run.quote.fee) {
-          run = save({ ...run, quote: fresh, reviewedManifestHash: null });
+          run = await save({ ...run, quote: fresh, reviewedManifestHash: null });
           fail('QUOTE_CHANGED_REVIEW_REQUIRED');
         }
       }
       if (now().getTime() >= Date.parse(run.quote.expiresAt)) {
-        run = save({ ...run, quote: fresh, reviewedManifestHash: null });
+        run = await save({ ...run, quote: fresh, reviewedManifestHash: null });
         fail('QUOTE_EXPIRED_REVIEW_REQUIRED');
       }
       const gate = resolveWorkflowCapability(run.workflow, { environment: 'PUBLIC_TESTNET', runtime: {
@@ -309,27 +394,17 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
         tx, calldataDigest: digest(data), authorizedInput: run.quote.amountIn,
         authorizedMinimumOutput: run.quote.minimumOut, preBlock: head, nativeBefore: ethBefore.toString(), inputBefore: inputBefore.toString(),
         outputBefore: outputBefore.toString(), allowanceBefore: allowanceBefore.toString(), nativeAfter: null, txHash: null, receipt: null };
-      save({ ...run, attempts: [...run.attempts, attempt] });
+      await save({ ...run, attempts: [...run.attempts, attempt] });
       return { attempt, tx };
     });
   }
-  function report(id: string, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }): PublicRun {
-    const run = load(id);
-    const target = run.attempts.find(a => a.attemptId === attemptId);
-    if (!target || target.state !== 'PREPARED') fail('ATTEMPT_STATE_INVALID');
-    if (result.kind === 'HASH' && !HASH.test(result.txHash)) fail('TX_HASH_INVALID');
-    const changed: PublicAttempt = { ...target, state: result.kind === 'HASH' ? 'HASH' : result.kind,
-      submittedAt: result.kind === 'HASH' ? now().toISOString() : null,
-      txHash: result.kind === 'HASH' ? result.txHash : null };
-    return save({ ...run, attempts: run.attempts.map(a => a.attemptId === attemptId ? changed : a) });
-  }
   async function observe(id: string): Promise<PublicRun> {
     return locked(id, async () => {
-      let run = load(id);
+      let run = await load(id);
       const attempt = run.attempts.at(-1);
       if (!attempt?.txHash || !['HASH', 'PENDING', 'CONFIRMED'].includes(attempt.state) || run.outcome) fail('NO_SUBMITTED_ATTEMPT');
       const raw = await rpc('eth_getTransactionReceipt', [attempt.txHash]);
-      if (raw === null) return save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
+      if (raw === null) return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
       if (!isObject(raw)) fail('RECEIPT_INVALID');
       const tx = await rpc('eth_getTransactionByHash', [attempt.txHash]);
       if (!isObject(tx)) fail('TRANSACTION_MISMATCH');
@@ -419,7 +494,7 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
         delegationDepth: delegated ? delegationDepth! : 0,
         outerCalldataDigest: digest(txInput), executionCalldataDigest: attempt.calldataDigest };
       const changed: PublicAttempt = { ...attempt, state: status === 1 ? 'CONFIRMED' : 'REVERTED', receipt };
-      run = save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? changed : a) });
+      run = await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? changed : a) });
       if (status === 0) return run;
       const at = blockHex(blockNumber);
       if (attempt.step === 'approval') {
@@ -433,7 +508,7 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
             (direct && BigInt(attempt.nativeBefore) - nativeAfter < BigInt(receipt.gasCostWei)) ||
             (delegated && nativeAfter !== BigInt(attempt.nativeBefore)))
           fail('APPROVAL_NOT_EFFECTIVE');
-        return save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ?
+        return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ?
           { ...a, nativeAfter: nativeAfter.toString() } : a) });
       }
       const [inputAfter, outputAfter, allowanceAfter, nativeAfter] = await Promise.all([
@@ -482,10 +557,8 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
       const outcome: PublicOutcome = { inputSpent: spent.toString(), outputReceived: received.toString(),
         inputAfter: inputAfter.toString(), outputAfter: outputAfter.toString(), allowanceAfter: allowanceAfter.toString(),
         nativeAfter: nativeAfter.toString(), gasCostWei: actualGasCost.toString(), explorer, evidence: bundle, evidenceBundleHash };
-      return save({ ...run, outcome });
+      return await save({ ...run, outcome });
     });
   }
-  return { prepare, refresh, review, begin, report, observe, load,
-    list: () => readdirSync(journalDir).filter(file => /^pub-[0-9a-f]{24}\.json$/.test(file)).map(file => file.slice(0, -5)) };
+  return { prepare, refresh, begin, observe };
 }
-export type PublicTestnetService = ReturnType<typeof createPublicTestnetService>;

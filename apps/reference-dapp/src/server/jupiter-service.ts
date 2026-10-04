@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
-import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
-import { join, isAbsolute } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { simulateJupiterSwap, assertJupiterReview, verifySignedJupiterTransaction, simulateOrcaDevnetSwap, assertOrcaDevnetReview, verifySignedOrcaDevnetTransaction,
   requireSolanaSwapRuntime, solanaAddress, type JupiterHttp, type JupiterReview, type OrcaDevnetReview, type SolanaRpc, type SolanaSwapReview } from '@defi-workflow-engine/reference-compiler';
 import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, type SolanaSwapRuntime } from '@defi-workflow-engine/action-registry';
 import { createSolanaSwapRun, prepareSolanaSwapAttempt, recordSolanaSwapSignature, solanaSwapTransition, solanaSwapObservationDecision, solanaSwapAttemptResolved,
-  validateSolanaSwapRun, writeExtendingFile, type SolanaSwapProvenance, type SolanaSwapRun } from '@defi-workflow-engine/reference-executor';
+  validateSolanaSwapRun, createFileExecutionStorage, logMissing, utf8, type ExecutionStorage, type SolanaSwapProvenance, type SolanaSwapRun } from '@defi-workflow-engine/reference-executor';
 import { reconcileSolanaSwapAttempt, buildSolanaSwapEvidence, classifySolanaSwapEvidence, type JupiterObservation, type SolanaSwapEvidenceClass } from '@defi-workflow-engine/reference-reconciler';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 
@@ -35,24 +34,26 @@ export const orcaDevnetAdapter = (): SolanaSwapAdapter => ({ runtime: requireSol
   assertReview: (review, workflow, owner, height, now) => assertOrcaDevnetReview(reviewOf(review, 'gryloo.orca-devnet-review.v1', 'DEVNET_SWAP') as OrcaDevnetReview, workflow, owner, height, now),
   verifySigned: (review, signed) => verifySignedOrcaDevnetTransaction(reviewOf(review, 'gryloo.orca-devnet-review.v1', 'DEVNET_SWAP') as OrcaDevnetReview, signed) });
 
-export function createJupiterService(input: { rpc: SolanaRpc; http: JupiterHttp; journalDir: string; provenance: 'PUBLIC_MAINNET' | 'MOCKED';
+export function createJupiterService(input: { rpc: SolanaRpc; http: JupiterHttp; journalDir?: string; storage?: ExecutionStorage; provenance: 'PUBLIC_MAINNET' | 'MOCKED';
   executionEnabled: boolean; now?: () => number }) {
   return createSolanaSwapService({ ...input, adapter: jupiterAdapter(input.http) });
 }
 /** Solana Devnet through Orca Whirlpools with valueless test tokens. Execution still requires Review, Execute and the owner's wallet signature. */
-export function createSolanaDevnetService(input: { rpc: SolanaRpc; journalDir: string; provenance: 'PUBLIC_DEVNET' | 'MOCKED'; executionEnabled: boolean; now?: () => number }) {
+export function createSolanaDevnetService(input: { rpc: SolanaRpc; journalDir?: string; storage?: ExecutionStorage; provenance: 'PUBLIC_DEVNET' | 'MOCKED'; executionEnabled: boolean; now?: () => number }) {
   return createSolanaSwapService({ ...input, adapter: orcaDevnetAdapter() });
 }
 
-export function createSolanaSwapService(input: { adapter: SolanaSwapAdapter; rpc: SolanaRpc; journalDir: string; provenance: SolanaSwapProvenance;
+export function createSolanaSwapService(input: { adapter: SolanaSwapAdapter; rpc: SolanaRpc; journalDir?: string; storage?: ExecutionStorage; provenance: SolanaSwapProvenance;
   executionEnabled: boolean; now?: () => number }) {
   const { runtime } = input.adapter, X = runtime.codePrefix;
   if (input.provenance !== 'MOCKED' && input.provenance !== runtime.provenance) throw new Error(`${X}_PROVENANCE_INVALID`);
-  if (!isAbsolute(input.journalDir) || input.journalDir.includes('/.git/')) throw new Error(`${X}_STORAGE_INVALID`);
+  // Local mode keeps the original journal directory; cloud mode supplies shared durable storage instead.
+  if (!input.storage && (!input.journalDir || !isAbsolute(input.journalDir) || input.journalDir.includes('/.git/'))) throw new Error(`${X}_STORAGE_INVALID`);
+  const { log, leases } = input.storage ?? createFileExecutionStorage(input.journalDir!, `${X}_BUSY`);
   const idPattern = new RegExp(`^${runtime.idPrefix}-[a-f0-9]{32}$`);
   const idCheck = (id: string) => { if (typeof id !== 'string' || !idPattern.test(id)) throw new Error(`${X}_ID_INVALID`); return id; };
   const now = input.now ?? Date.now;
-  const path = (id: string) => join(input.journalDir, idCheck(id) + '.jsonl');
+  const path = (id: string) => idCheck(id) + '.jsonl';
   const validate = (bytes: Uint8Array) => {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     if (!text.endsWith('\n') || bytes.length > 16_777_216) throw new Error(`${X}_STORE_CORRUPT`);
@@ -73,31 +74,17 @@ export function createSolanaSwapService(input: { adapter: SolanaSwapAdapter; rpc
     }
   };
   const load = async (id: string): Promise<JupiterRecord> => {
-    const bytes = await readFile(path(id)); validate(bytes);
-    return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!) as JupiterRecord;
+    const bytes = await log.read(path(id)); if (!bytes) throw logMissing(path(id)); validate(bytes);
+    return JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as JupiterRecord;
   };
   const save = async (record: JupiterRecord) => {
     const next = { ...record, evidenceClass: classifySolanaSwapEvidence({ provenance: record.provenance, ownerInitiated: record.ownerInitiated, observation: record.observations.at(-1) ?? null }) };
-    let prior = ''; try { prior = await readFile(path(record.id), 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
-    await writeExtendingFile(path(record.id), new TextEncoder().encode(prior + JSON.stringify(next) + '\n'), validate);
+    const prior = utf8(await log.read(path(record.id)));
+    await log.extend(path(record.id), new TextEncoder().encode(prior + JSON.stringify(next) + '\n'), validate);
     return next;
   };
-  async function locked<T>(key: string, action: () => Promise<T>): Promise<T> {
-    await mkdir(input.journalDir, { recursive: true, mode: 0o700 });
-    const directory = join(input.journalDir, key + '.lock');
-    try { await mkdir(directory, { mode: 0o700 }); } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-      const before = await stat(directory);
-      let pid: number; try { pid = Number(await readFile(join(directory, 'pid'), 'utf8')); } catch (cause) { throw new Error(`${X}_BUSY`, { cause }); }
-      if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error(`${X}_BUSY`, { cause: e });
-      try { process.kill(pid, 0); throw new Error(`${X}_BUSY`, { cause: e }); } catch (cause) { if ((cause as NodeJS.ErrnoException).code !== 'ESRCH') throw cause; }
-      const after = await stat(directory); if (before.ino !== after.ino) throw new Error(`${X}_BUSY`, { cause: e });
-      await unlink(join(directory, 'pid')); await rmdir(directory); await mkdir(directory, { mode: 0o700 });
-    }
-    const handle = await open(join(directory, 'pid'), 'wx', 0o600);
-    try { await handle.writeFile(String(process.pid)); await handle.sync(); } finally { await handle.close(); }
-    try { return await action(); } finally { await unlink(join(directory, 'pid')); await rmdir(directory); }
-  }
+  // Cross-process exclusive section: the original PID lock directory locally, a fenced lease in shared storage.
+  const locked = <T,>(key: string, action: () => Promise<T>): Promise<T> => leases.hold(key, action);
   const blockHeight = async (commitment: 'confirmed' | 'finalized') => {
     const height = await input.rpc('getBlockHeight', [{ commitment }]);
     if (!Number.isSafeInteger(height)) throw new Error('SOLANA_RPC_INVALID');
@@ -106,13 +93,13 @@ export function createSolanaSwapService(input: { adapter: SolanaSwapAdapter; rpc
   /** One unresolved attempt per owner across runs, tabs and restarts. The lease history is append-only. */
   async function acquireOwnerLease(owner: string, id: string): Promise<void> {
     await locked('owner-' + owner, async () => {
-      const lease = join(input.journalDir, owner + `.${runtime.idPrefix}-lease`);
-      let prior = ''; try { prior = await readFile(lease, 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+      const lease = owner + `.${runtime.idPrefix}-lease`;
+      const prior = utf8(await log.read(lease));
       const holders = prior.trimEnd().split('\n').filter(Boolean);
       const holder = holders.at(-1);
       if (holder && holder !== id && !solanaSwapAttemptResolved(await load(holder))) throw new Error(`${X}_OWNER_ATTEMPT_IN_PROGRESS`);
       if (holder === id) throw new Error(`${X}_EXISTING_ATTEMPT_OBSERVE_ONLY`);
-      await writeExtendingFile(lease, new TextEncoder().encode(prior + id + '\n'), bytes => {
+      await log.extend(lease, new TextEncoder().encode(prior + id + '\n'), bytes => {
         if (!new TextDecoder().decode(bytes).trimEnd().split('\n').every(line => idPattern.test(line))) throw new Error(`${X}_STORE_CORRUPT`);
       });
     });
