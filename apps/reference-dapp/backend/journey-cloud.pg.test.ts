@@ -19,7 +19,7 @@ import type { RouterBridgeInput } from '../src/domain/router-authoring.ts';
 import type { RouterBegin, RouterRecord } from '../src/server/router-service.ts';
 import { WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
 import { createRouterHarness, type RouterHarness } from '../e2e/router-harness.ts';
-import { createTestWallet } from '../e2e/test-wallet.ts';
+import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { createBackend, type FlowResult } from './app.ts';
 
 const FLOW = 'crosschain-router-testnet';

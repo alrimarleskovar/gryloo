@@ -12,8 +12,9 @@
  * acceptance, Execute click and transaction signature. Pure functions here; cookies are handled by the server action.
  */
 import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
-import { secp256k1 } from '@noble/curves/secp256k1.js';
-import { keccak_256 } from '@noble/hashes/sha3.js';
+import { checksumAddress, recoverPersonalSigner } from '@defi-workflow-engine/reference-reconciler';
+
+export { checksumAddress, recoverPersonalSigner };
 
 export const WALLET_SESSION_COOKIE = 'flofi_wallet_session';
 export const WALLET_CHALLENGE_COOKIE = 'flofi_wallet_challenge';
@@ -25,7 +26,7 @@ type Challenge = { readonly n: string; readonly i: number; readonly e: number; r
 type Session = { readonly a: string; readonly i: number; readonly e: number; readonly s: string };
 export type WalletSession = { readonly account: string; readonly expiresAt: string };
 
-const ACCOUNT = /^0x[0-9a-f]{40}$/, SIGNATURE = /^0x[0-9a-fA-F]{130}$/, DOMAIN = /^[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?$/;
+const ACCOUNT = /^0x[0-9a-f]{40}$/, DOMAIN = /^[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?$/;
 const fail = (code: string): never => { throw new Error(code); };
 const seconds = (now: Date) => Math.floor(now.getTime() / 1000);
 
@@ -58,34 +59,12 @@ function unseal<T extends { e: number }>(kind: 'c1' | 's1', token: string | unde
   return value && typeof value === 'object' && Number.isSafeInteger(value.e) && value.e > seconds(now) ? value : null;
 }
 
-/** EIP-55 mixed-case checksum of a lower-case address. */
-export function checksumAddress(address: string): string {
-  if (!ACCOUNT.test(address)) fail('WALLET_ADDRESS_INVALID');
-  const hash = Buffer.from(keccak_256(new TextEncoder().encode(address.slice(2)))).toString('hex');
-  return '0x' + [...address.slice(2)].map((c, i) => parseInt(hash[i]!, 16) >= 8 ? c.toUpperCase() : c).join('');
-}
 /** The exact EIP-4361 message the wallet signs. Every field comes from the server (sealed challenge) or is re-checked. */
 export function walletSignInMessage(input: { readonly domain: string; readonly uri: string; readonly address: string; readonly chainId: number;
   readonly nonce: string; readonly issuedAt: string; readonly expirationTime: string }): string {
   return `${input.domain} wants you to sign in with your Ethereum account:\n${checksumAddress(input.address)}\n\n${WALLET_SIGN_IN_STATEMENT}\n\n` +
     `URI: ${input.uri}\nVersion: 1\nChain ID: ${input.chainId}\nNonce: ${input.nonce}\nIssued At: ${input.issuedAt}\nExpiration Time: ${input.expirationTime}`;
 }
-/** The signer of an EIP-191 `personal_sign` signature (lower-case address). Throws `WALLET_SIGNATURE_INVALID`. */
-export function recoverPersonalSigner(message: string, signature: string): string {
-  if (!SIGNATURE.test(signature)) fail('WALLET_SIGNATURE_INVALID');
-  const bytes = new TextEncoder().encode(message);
-  const prefix = new TextEncoder().encode(`\x19Ethereum Signed Message:\n${bytes.length}`);
-  const digest = keccak_256(Uint8Array.from([...prefix, ...bytes]));
-  const raw = Uint8Array.from(Buffer.from(signature.slice(2), 'hex')), v = raw[64]!;
-  const recovery = v >= 27 ? v - 27 : v;
-  if (recovery !== 0 && recovery !== 1) fail('WALLET_SIGNATURE_INVALID');
-  try {
-    const compact = raw.subarray(0, 64), publicKey = secp256k1.Signature.fromBytes(compact).addRecoveryBit(recovery).recoverPublicKey(digest).toBytes(false);
-    if (!secp256k1.verify(compact, digest, publicKey, { prehash: false })) fail('WALLET_SIGNATURE_INVALID');
-    return '0x' + Buffer.from(keccak_256(publicKey.subarray(1)).subarray(12)).toString('hex');
-  } catch { return fail('WALLET_SIGNATURE_INVALID'); }
-}
-
 /** A fresh nonce bound to this origin; the sealed token goes into the HttpOnly challenge cookie. */
 export function issueWalletChallenge(env: Env, input: { readonly domain: string; readonly uri: string; readonly now: Date }) {
   if (!DOMAIN.test(input.domain) || !/^https?:\/\/[^\s/?#]+$/.test(input.uri)) fail('WALLET_SIGN_IN_ORIGIN_INVALID');

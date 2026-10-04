@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { routerControl } from './router-fixtures';
-import { personalSignText, type TestWallet } from './test-wallet';
+import { personalSignText, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 
 export const BASE_SEPOLIA_HEX = '0x14a34';
 const APP_ORIGIN = 'http://127.0.0.1:3000';

@@ -5,7 +5,7 @@
  */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { createTestWallet, type TestWallet } from './test-wallet';
+import { createTestWallet, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { BASE_SEPOLIA_HEX, guardedContext, installJourneyWallet, journeyAdvance, journeySends, resetJourneyHarness, setWalletChain, switchAccount,
   walletRequests } from './journey-fixtures';
 

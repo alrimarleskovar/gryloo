@@ -8,7 +8,7 @@ import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
-import { createTestWallet, personalSignText, type TestWallet } from './test-wallet';
+import { createTestWallet, personalSignText, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 
 let wallet: TestWallet = createTestWallet();
 

@@ -3,9 +3,11 @@
  * BUILD-JOURNEY-001: an arbitrary external wallet for tests. Each call creates a fresh random secp256k1 key that exists only
  * in this process's memory (never written, logged or committed) and signs EIP-191 `personal_sign` messages with it, so the
  * real server-side sign-in verification runs. It holds nothing on any network; loopback MOCKED chains never check signatures.
+ * Test code only (never part of the package build): Flofi itself never signs.
  */
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { personalSignDigest } from '../src/personal-sign.ts';
 
 const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 export type TestWallet = { readonly address: string; signMessage(message: string): string };
@@ -16,8 +18,7 @@ export function createTestWallet(): TestWallet {
     address,
     /** `personal_sign` of a UTF-8 message: 65 bytes r ‖ s ‖ v with v ∈ {27, 28}. */
     signMessage(message: string): string {
-      const bytes = new TextEncoder().encode(message);
-      const digest = keccak_256(Uint8Array.from([...new TextEncoder().encode(`\x19Ethereum Signed Message:\n${bytes.length}`), ...bytes]));
+      const digest = personalSignDigest(message);
       const recovered = secp256k1.sign(digest, signer, { prehash: false, format: 'recovered' });
       return '0x' + hex(recovered.subarray(1)) + (recovered[0]! + 27).toString(16).padStart(2, '0');
     },

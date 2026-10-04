@@ -14,7 +14,7 @@ import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts'
 import { editorReducer, initialEditor } from '../domain/editor';
 import type { RouterBridgeInput } from '../domain/router-authoring';
 import { createRouterHarness, ROUTER_MOCK_CODE_PINS, type RouterHarness, type RouterHarnessOptions } from '../../e2e/router-harness';
-import { createTestWallet } from '../../e2e/test-wallet';
+import { createTestWallet } from '../../../../packages/reference-reconciler/test/test-wallet.ts';
 import { createRouterService, routerEvidenceClass, validateRouterLog, type RouterRecord, type RouterService } from './router-service';
 import { routerTestnetMode, routerTestnetRuntime } from './router-runtime';
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { createTestWallet } from '../../e2e/test-wallet.ts';
+import { createTestWallet } from '../../../../packages/reference-reconciler/test/test-wallet.ts';
 import { challengeMessage, checksumAddress, issueWalletChallenge, readWalletSession, recoverPersonalSigner, verifyWalletSignIn, walletSessionKey,
   WALLET_SIGN_IN_STATEMENT } from './wallet-session.ts';
 
