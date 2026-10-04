@@ -41,6 +41,8 @@ This wording is accurate for this draft. Do not replace “not yet integrated”
 
 **Now:** no financial owner action can unblock this implementation. Do not fund or sign in an attempt to bypass the engineering gates in the report.
 
+Separate owner-only repository/hosting follow-up remains: inspect GitHub **Billing & plans** for the failed-payment/spending-limit condition reported by [contract CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420919) and [governance CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420925), resolve the account condition personally, then rerun those checks. Open the [failed Vercel preview](https://vercel.com/alrimarleskovars-projects/flofi/Axy3vxeYHHCRSGCjJcBpoeMYVGdx) and inspect its build logs; the deployment error cause is unverified here. These actions do not resolve the financial execution engineering gates. The agent has not changed account billing, spending limits or deployment settings.
+
 **Only after those gates are implemented and reviewed**, the owner must personally perform these actions:
 
 1. Select a Solana mainnet wallet supporting `solana:signTransaction`, `solana:signMessage` and account-change events. Bind the exact owner and public USDC recipient in Review. Verify genesis `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d` and Cloak program `zh1eLd6rSphLejbFfJEneUwzHRfMKxgzrgkfwA6qRkW`.

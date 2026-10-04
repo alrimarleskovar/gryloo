@@ -70,6 +70,8 @@ These checks do not substitute for real owner-funded challenge acceptance or an 
 
 [Draft PR #55](https://github.com/alrimarleskovar/gryloo/pull/55) targets main and remains draft pending genuine acceptance. The main-base conflict resolution is confined to this privacy branch.
 
+Remote checks observed on implementation commit `012bb0880c4caf7854677921519c2b4a8cd40f5e`: GitHub reports the PR as conflict-free (`MERGEABLE`) but checks are not green. Both [contract CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420919) and [governance CI](https://github.com/alrimarleskovar/gryloo/actions/runs/37200420925) did **not start**: GitHub's annotation says recent account payments failed or the spending limit needs adjustment. It does not identify which account condition applies. These are account-level blockers, not remote test results. The [Vercel preview](https://vercel.com/alrimarleskovars-projects/flofi/Axy3vxeYHHCRSGCjJcBpoeMYVGdx) also reports failure; build logs could not be retrieved in this session, so its cause is unverified. No billing, spending limit, deployment settings or production rollout was changed. Owner-only follow-up is recorded in the demo instructions. Local passing checks do not establish that remote CI/deployment passed.
+
 ## Demonstration, submission and owner actions
 
 [BUILD-PRIVACY-001-DEMO.md](BUILD-PRIVACY-001-DEMO.md) contains the exact available demonstration, accurate submission explanation and future owner-only actions. No funded action is requested now. Funding and signatures become relevant only after the engineering gates above are implemented. No owner keypair was generated, and no owner message or transaction was signed/sent by the agent.
