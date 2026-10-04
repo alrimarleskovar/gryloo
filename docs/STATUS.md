@@ -5,7 +5,19 @@ Current product name: **Flofi** (formerly Gryloo); see the
 retain the name used at the time. Runtime identifiers remain compatible.
 BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
-This separate branding build does not resume its execution work or start BUILD-CLOUD-001.
+This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
+
+## BUILD-CLOUD-001 — Durable, cloud-capable execution
+
+**Status: IMPLEMENTATION COMPLETE — OWNER ACTION REQUIRED.** Stacked on BUILD-BRAND-001 (PR #49) in branch
+`claude/build-cloud-001`. Execution state for every capability with a real-network path except BUILD-013 (Base Sepolia Uniswap swap, Aave Supply/Borrow/Repay/Withdraw, Robinhood transfer, Solana Devnet Orca swap and liquidity, Jupiter mainnet-beta Simulate/Review) can now
+live in PostgreSQL behind explicit storage ports (fenced leases, append-only logs, transactional outbox), served
+by a stateless API and reconciled by horizontally scalable workers; evidence exports go to a content-addressed
+EvidenceStore. File/local mode, every `GRYLOO_*` variable and every persisted format are unchanged. Validation is
+local and MOCKED (loopback PostgreSQL, in-process chains): no deployment exists yet and no public transaction was
+made. Deployment needs owner credentials (Neon, object storage, Railway, Vercel) and the testnet acceptance needs
+an explicit owner wallet action; see the [plan](builds/BUILD-CLOUD-001-PLAN.md),
+[report](builds/BUILD-CLOUD-001-REPORT.md), [capability matrix](builds/BUILD-CLOUD-001-CAPABILITIES.md) and [deployment runbook](deploy/CLOUD.md).
 
 ## BUILD-013 — Advanced lending composition
 

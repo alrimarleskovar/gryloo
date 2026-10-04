@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
-import { mkdir, open, readFile, readdir, unlink, rmdir, stat } from 'node:fs/promises';
-import { join, isAbsolute } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY as profile, assertOrcaLiquidityReview, inspectOrcaPosition, readOrcaLiquidityPrice, simulateOrcaLiquidity,
   solanaAddress, verifySignedOrcaLiquidityTransaction, type OrcaLiquidityOperation, type SolanaRpc } from '@defi-workflow-engine/reference-compiler';
 import { createOrcaLiquidityRun, orcaLiquidityAttemptResolved, orcaLiquidityTransition, prepareOrcaLiquidityAttempt, recordOrcaLiquiditySignature,
-  solanaSwapObservationDecision, validateOrcaLiquidityRun, writeExtendingFile, ORCA_LIQUIDITY_ID, type OrcaLiquidityRun, type OrcaLiquidityProvenance } from '@defi-workflow-engine/reference-executor';
+  solanaSwapObservationDecision, validateOrcaLiquidityRun, createFileExecutionStorage, logMissing, utf8, ORCA_LIQUIDITY_ID, type ExecutionStorage, type OrcaLiquidityRun,
+  type OrcaLiquidityProvenance } from '@defi-workflow-engine/reference-executor';
 import { buildOrcaLiquidityEvidence, classifyOrcaLiquidityEvidence, reconcileOrcaLiquidityAttempt, type OrcaLiquidityEvidenceClass,
   type OrcaLiquidityObservation } from '@defi-workflow-engine/reference-reconciler';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
@@ -31,12 +31,14 @@ type RegistryLine = { positionMint: string; id: string; operation: OrcaLiquidity
 const code = (cause: unknown, fallback: string) => cause instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(cause.message) ? cause.message : fallback;
 const X = 'ORCA_LIQUIDITY';
 
-export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: string; provenance: OrcaLiquidityProvenance; executionEnabled: boolean; now?: () => number }) {
-  if (!isAbsolute(input.journalDir) || input.journalDir.includes('/.git/')) throw new Error(`${X}_STORAGE_INVALID`);
+export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir?: string; storage?: ExecutionStorage; provenance: OrcaLiquidityProvenance; executionEnabled: boolean; now?: () => number }) {
+  // Local mode keeps the original journal directory; cloud mode supplies shared durable storage instead.
+  if (!input.storage && (!input.journalDir || !isAbsolute(input.journalDir) || input.journalDir.includes('/.git/'))) throw new Error(`${X}_STORAGE_INVALID`);
+  const { log, leases } = input.storage ?? createFileExecutionStorage(input.journalDir!, `${X}_BUSY`);
   const now = input.now ?? Date.now;
   const idCheck = (id: string) => { if (typeof id !== 'string' || !ORCA_LIQUIDITY_ID.test(id)) throw new Error(`${X}_ID_INVALID`); return id; };
-  const path = (id: string) => join(input.journalDir, idCheck(id) + '.jsonl');
-  const registryPath = (owner: string) => join(input.journalDir, solanaAddress(owner) + '.orcalp-positions');
+  const path = (id: string) => idCheck(id) + '.jsonl';
+  const registryPath = (owner: string) => solanaAddress(owner) + '.orcalp-positions';
   const classify = (record: OrcaLiquidityRecord) => classifyOrcaLiquidityEvidence({ provenance: record.provenance, ownerInitiated: record.ownerInitiated,
     observation: record.observations.at(-1) ?? null });
   const validate = (bytes: Uint8Array) => {
@@ -59,38 +61,24 @@ export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: 
     }
   };
   const load = async (id: string): Promise<OrcaLiquidityRecord> => {
-    const bytes = await readFile(path(id)); validate(bytes);
-    return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!) as OrcaLiquidityRecord;
+    const bytes = await log.read(path(id)); if (!bytes) throw logMissing(path(id)); validate(bytes);
+    return JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as OrcaLiquidityRecord;
   };
   const save = async (record: OrcaLiquidityRecord) => {
     const next = { ...record, evidenceClass: classify(record) };
-    let prior = ''; try { prior = await readFile(path(record.id), 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
-    await writeExtendingFile(path(record.id), new TextEncoder().encode(prior + JSON.stringify(next) + '\n'), validate);
+    const prior = utf8(await log.read(path(record.id)));
+    await log.extend(path(record.id), new TextEncoder().encode(prior + JSON.stringify(next) + '\n'), validate);
     return next;
   };
-  async function locked<T>(key: string, action: () => Promise<T>): Promise<T> {
-    await mkdir(input.journalDir, { recursive: true, mode: 0o700 });
-    const directory = join(input.journalDir, key + '.lock');
-    try { await mkdir(directory, { mode: 0o700 }); } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-      const before = await stat(directory);
-      let pid: number; try { pid = Number(await readFile(join(directory, 'pid'), 'utf8')); } catch (cause) { throw new Error(`${X}_BUSY`, { cause }); }
-      if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error(`${X}_BUSY`, { cause: e });
-      try { process.kill(pid, 0); throw new Error(`${X}_BUSY`, { cause: e }); } catch (cause) { if ((cause as NodeJS.ErrnoException).code !== 'ESRCH') throw cause; }
-      const after = await stat(directory); if (before.ino !== after.ino) throw new Error(`${X}_BUSY`, { cause: e });
-      await unlink(join(directory, 'pid')); await rmdir(directory); await mkdir(directory, { mode: 0o700 });
-    }
-    const handle = await open(join(directory, 'pid'), 'wx', 0o600);
-    try { await handle.writeFile(String(process.pid)); await handle.sync(); } finally { await handle.close(); }
-    try { return await action(); } finally { await unlink(join(directory, 'pid')); await rmdir(directory); }
-  }
+  // Cross-process exclusive section: the original PID lock directory locally, a fenced lease in shared storage.
+  const locked = <T,>(key: string, action: () => Promise<T>): Promise<T> => leases.hold(key, action);
   const blockHeight = async (commitment: 'confirmed' | 'finalized') => {
     const height = await input.rpc('getBlockHeight', [{ commitment }]);
     if (!Number.isSafeInteger(height)) throw new Error('SOLANA_RPC_INVALID');
     return height as number;
   };
   const readRegistry = async (owner: string): Promise<RegistryLine[]> => {
-    let text = ''; try { text = await readFile(registryPath(owner), 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    const text = utf8(await log.read(registryPath(owner)));
     return text.trimEnd().split('\n').filter(Boolean).map(line => {
       const value = JSON.parse(line) as RegistryLine;
       if (!ORCA_LIQUIDITY_ID.test(value.id) || !['OPEN', 'DECREASE_PARTIAL', 'EXIT'].includes(value.operation)) throw new Error(`${X}_STORE_CORRUPT`);
@@ -99,8 +87,8 @@ export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: 
     });
   };
   const appendRegistry = async (owner: string, line: RegistryLine) => {
-    let prior = ''; try { prior = await readFile(registryPath(owner), 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
-    await writeExtendingFile(registryPath(owner), new TextEncoder().encode(prior + JSON.stringify(line) + '\n'), bytes => {
+    const prior = utf8(await log.read(registryPath(owner)));
+    await log.extend(registryPath(owner), new TextEncoder().encode(prior + JSON.stringify(line) + '\n'), bytes => {
       const text = new TextDecoder().decode(bytes);
       if (!text.endsWith('\n')) throw new Error(`${X}_STORE_CORRUPT`);
       for (const l of text.trimEnd().split('\n')) { const v = JSON.parse(l) as RegistryLine; if (!ORCA_LIQUIDITY_ID.test(v.id)) throw new Error(`${X}_STORE_CORRUPT`); }
@@ -108,12 +96,12 @@ export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: 
   };
   /** One unresolved liquidity attempt per owner across runs, tabs and restarts. The lease history is append-only. */
   async function acquireOwnerLease(owner: string, id: string): Promise<void> {
-    const lease = join(input.journalDir, owner + '.orcalp-lease');
-    let prior = ''; try { prior = await readFile(lease, 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    const lease = owner + '.orcalp-lease';
+    const prior = utf8(await log.read(lease));
     const holder = prior.trimEnd().split('\n').filter(Boolean).at(-1);
     if (holder && holder !== id && !orcaLiquidityAttemptResolved(await load(holder))) throw new Error(`${X}_OWNER_ATTEMPT_IN_PROGRESS`);
     if (holder === id) throw new Error(`${X}_EXISTING_ATTEMPT_OBSERVE_ONLY`);
-    await writeExtendingFile(lease, new TextEncoder().encode(prior + id + '\n'), bytes => {
+    await log.extend(lease, new TextEncoder().encode(prior + id + '\n'), bytes => {
       if (!new TextDecoder().decode(bytes).trimEnd().split('\n').every(line => ORCA_LIQUIDITY_ID.test(line))) throw new Error(`${X}_STORE_CORRUPT`);
     });
   }
@@ -258,7 +246,7 @@ export function createOrcaLiquidityService(input: { rpc: SolanaRpc; journalDir: 
     }); },
     /** Restart recovery: every journal in the store, newest last (bounded). */
     async runIds(): Promise<string[]> {
-      let names: string[] = []; try { names = await readdir(input.journalDir); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+      const names = await log.list('orcalp-', 1_000);
       return names.filter(n => /^orcalp-[a-f0-9]{32}\.jsonl$/.test(n)).map(n => n.slice(0, -6)).slice(0, 512);
     },
   };

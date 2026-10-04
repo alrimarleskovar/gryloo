@@ -6,12 +6,11 @@
  * create a second economic attempt. Unknown results are observation-only.
  */
 import { randomBytes } from 'node:crypto';
-import { mkdir, open, readFile, rmdir, stat, unlink } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
 import { assertNativeTransferReview, readTransferState, simulateNativeTransfer, type NativeTransferTransaction, type TransferRpc } from '@defi-workflow-engine/reference-compiler';
-import { createTransferRun, discoverTransferByNonce, prepareTransferAttempt, transferTransition, validateTransferRun, writeExtendingFile,
-  TRANSFER_RUN_ID, type TransferRun } from '@defi-workflow-engine/reference-executor';
+import { createTransferRun, discoverTransferByNonce, prepareTransferAttempt, transferTransition, validateTransferRun, createFileExecutionStorage,
+  logMissing, utf8, TRANSFER_RUN_ID, type ExecutionStorage, type TransferRun } from '@defi-workflow-engine/reference-executor';
 import { buildNativeTransferEvidence, reconcileNativeTransfer, type NativeTransferEvidence, type TransferObservation } from '@defi-workflow-engine/reference-reconciler';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 
@@ -26,10 +25,12 @@ const idCheck = (id: string) => { if (!TRANSFER_RUN_ID.test(id)) throw new Error
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const prefix = (before: readonly unknown[], after: readonly unknown[]) => after.length >= before.length && same(after.slice(0, before.length), before);
 
-export function createRobinhoodTransferService(input: { rpc: TransferRpc; journalDir: string; provenance: 'PUBLIC_TESTNET' | 'MOCKED'; now?: () => number }) {
-  if (!isAbsolute(input.journalDir) || input.journalDir.includes('/.git/')) throw new Error('TRANSFER_STORAGE_INVALID');
+export function createRobinhoodTransferService(input: { rpc: TransferRpc; journalDir?: string; storage?: ExecutionStorage; provenance: 'PUBLIC_TESTNET' | 'MOCKED'; now?: () => number }) {
+  // Local mode keeps the original journal directory; cloud mode supplies shared durable storage instead.
+  if (!input.storage && (!input.journalDir || !isAbsolute(input.journalDir) || input.journalDir.includes('/.git/'))) throw new Error('TRANSFER_STORAGE_INVALID');
+  const { log, leases } = input.storage ?? createFileExecutionStorage(input.journalDir!, 'TRANSFER_BUSY');
   const now = input.now ?? Date.now, at = () => new Date(now());
-  const path = (id: string) => join(input.journalDir, idCheck(id) + '.jsonl');
+  const path = (id: string) => idCheck(id) + '.jsonl';
   /** Append-only history: every line is a valid run and never rewrites what an earlier line established. */
   const validate = (bytes: Uint8Array) => {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -52,49 +53,32 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
     }
   };
   const load = async (id: string): Promise<TransferRecord> => {
-    const bytes = await readFile(path(id)); validate(bytes);
-    return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!) as TransferRecord;
+    const bytes = await log.read(path(id)); if (!bytes) throw logMissing(path(id)); validate(bytes);
+    return JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!) as TransferRecord;
   };
   const save = async (record: TransferRecord) => {
-    let prior = ''; try { prior = await readFile(path(record.id), 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
-    await writeExtendingFile(path(record.id), new TextEncoder().encode(prior + JSON.stringify(record) + '\n'), validate);
+    const prior = utf8(await log.read(path(record.id)));
+    await log.extend(path(record.id), new TextEncoder().encode(prior + JSON.stringify(record) + '\n'), validate);
     return record;
   };
-  /** Cross-process lock directory holding the owner pid; a lock left by a dead process is reclaimed. */
-  async function locked<T>(key: string, action: () => Promise<T>): Promise<T> {
-    await mkdir(input.journalDir, { recursive: true, mode: 0o700 });
-    const directory = join(input.journalDir, key + '.lock');
-    try { await mkdir(directory, { mode: 0o700 }); } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-      const before = await stat(directory);
-      let pid: number; try { pid = Number(await readFile(join(directory, 'pid'), 'utf8')); } catch (cause) { throw new Error('TRANSFER_BUSY', { cause }); }
-      if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('TRANSFER_BUSY', { cause: e });
-      try { process.kill(pid, 0); throw new Error('TRANSFER_BUSY', { cause: e }); } catch (cause) { if ((cause as NodeJS.ErrnoException).code !== 'ESRCH') throw cause; }
-      if ((await stat(directory)).ino !== before.ino) throw new Error('TRANSFER_BUSY', { cause: e });
-      await unlink(join(directory, 'pid')); await rmdir(directory); await mkdir(directory, { mode: 0o700 });
-    }
-    const handle = await open(join(directory, 'pid'), 'wx', 0o600);
-    try { await handle.writeFile(String(process.pid)); await handle.sync(); } finally { await handle.close(); }
-    try { return await action(); } finally { await unlink(join(directory, 'pid')); await rmdir(directory); }
-  }
+  /** Cross-process exclusive section: the original PID lock directory locally, a fenced lease in shared storage. */
+  const locked = <T,>(key: string, action: () => Promise<T>): Promise<T> => leases.hold(key, action);
   /** Permanent economic identity of (owner, nonce). Only a proven pre-broadcast refusal lets a fresh Review reuse it. */
   async function reserveNonce(record: TransferRecord): Promise<void> {
-    const key = `${record.review.account}-${record.review.nonce}`, lease = join(input.journalDir, key + '.intent');
+    const key = `${record.review.account}-${record.review.nonce}`, lease = key + '.intent';
     await locked(key, async () => {
       const entry = JSON.stringify({ id: record.id, transaction: record.review.transaction }) + '\n';
-      let prior: string | null = null; try { prior = await readFile(lease, 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+      const existing = await log.read(lease), prior = existing === null ? null : utf8(existing);
       if (prior === null) {
-        const handle = await open(lease, 'wx', 0o600);
-        try { await handle.writeFile(entry); await handle.sync(); } finally { await handle.close(); }
+        if (!await log.create(lease, new TextEncoder().encode(entry))) throw new Error('TRANSFER_NONCE_ALREADY_RESERVED');
       } else {
         const last = JSON.parse(prior.trimEnd().split('\n').at(-1)!) as { id: string };
         if (!record.recoveryOf || last.id !== record.recoveryOf || !(await load(record.recoveryOf)).notSubmitted) throw new Error('TRANSFER_NONCE_ALREADY_RESERVED');
-        await writeExtendingFile(lease, new TextEncoder().encode(prior + entry), bytes => {
+        await log.extend(lease, new TextEncoder().encode(prior + entry), bytes => {
           const ids = new TextDecoder('utf-8', { fatal: true }).decode(bytes).trimEnd().split('\n').map(line => (JSON.parse(line) as { id: string }).id);
           if (ids.some(id => !TRANSFER_RUN_ID.test(id)) || new Set(ids).size !== ids.length) throw new Error('TRANSFER_STORE_CORRUPT');
         });
       }
-      const directory = await open(input.journalDir, 'r'); try { await directory.sync(); } finally { await directory.close(); }
     });
   }
   const fresh = async (workflowInput: unknown, account: string, recoveryOf?: { id: string; nonce: string }): Promise<TransferRecord> => {

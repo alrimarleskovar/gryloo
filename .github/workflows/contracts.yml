@@ -18,6 +18,21 @@ jobs:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    # BUILD-CLOUD-001: a disposable PostgreSQL bound to the runner's loopback interface, pinned by digest.
+    # Test-only trust authentication; it holds no data beyond the suites' own throwaway databases.
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
+        env:
+          POSTGRES_USER: flofi
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flofi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
     steps:
       - name: Fetch reviewed revision with runner-provided Git
         env:
@@ -79,6 +94,13 @@ jobs:
           test -f packages/reference-linter/dist/index.js
           test -f packages/reference-linter/dist/index.d.ts
           pnpm --filter @defi-workflow-engine/reference-linter exec node --input-type=module -e "const m = await import('@defi-workflow-engine/reference-linter'); for (const key of ['lintWorkflow','validateAuthoringWorkflow','createReviewContext','digestArtifact','digestRawResponse','digestSelfCheck','reviewMockedArtifactChain','mockedSwapOutputs','mockedFixtureBytes','collectBaseTranscript','deriveBaseObservation','reviewBaseObservation']) if (typeof m[key] !== 'function') throw new Error('Missing linter export: '+key); if (!Object.isFrozen(m.MOCKED_CHAIN_PROFILE)) throw new Error('Mocked chain profile must be frozen'); if (!Object.isFrozen(m.BASE_OBSERVATION_PROFILE)) throw new Error('Base observation profile must be frozen'); await m.digestSelfCheck()"
+
+      - name: PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres"
+          pnpm test:postgres
 
       - name: Bootstrap exact approved anvil and run the offline compatibility gate and fork suite
         shell: bash
@@ -215,7 +237,7 @@ jobs:
                   raise SystemExit('Unexpected SBOM format or version')
               evidence=json.loads((path.parent/'build-002-dependencies.json').read_text())
               expected={(r['name'],r['version']):r['license'] for r in evidence}
-              if len(evidence)!=247 or len(expected)!=247:
+              if len(evidence)!=262 or len(expected)!=262:
                   raise SystemExit('Dependency evidence count changed')
               components=document.get('components')
               if not isinstance(components,list):
@@ -247,6 +269,7 @@ jobs:
                   'packages/reference-compiler/package.json':('@defi-workflow-engine/reference-compiler','AGPL-3.0-only'),
                   'packages/reference-executor/package.json':('@defi-workflow-engine/reference-executor','AGPL-3.0-only'),
                   'packages/reference-reconciler/package.json':('@defi-workflow-engine/reference-reconciler','AGPL-3.0-only'),
+                  'packages/cloud-runtime/package.json':('@defi-workflow-engine/cloud-runtime','AGPL-3.0-only'),
                   'apps/reference-dapp/package.json':('@defi-workflow-engine/reference-dapp','AGPL-3.0-only'),
               }
               for manifest_path,(name,license_id) in workspace.items():
@@ -258,10 +281,10 @@ jobs:
               importer_section=lock.split('\nimporters:\n',1)[1].split('\npackages:\n',1)[0]
               import re
               importer_paths=set(re.findall(r'(?m)^  (\S[^\n]*):$',importer_section))
-              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','packages/reference-compiler','packages/reference-executor','packages/reference-reconciler','apps/reference-dapp'}:
+              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','packages/reference-compiler','packages/reference-executor','packages/reference-reconciler','packages/cloud-runtime','apps/reference-dapp'}:
                   raise SystemExit('Workspace lock importer inventory differs')
               component_refs={component['bom-ref'] for component in components}
-              if len(component_refs)!=247 or root_component.get('bom-ref') in component_refs:
+              if len(component_refs)!=262 or root_component.get('bom-ref') in component_refs:
                   raise SystemExit('SBOM component references differ')
               dependencies=document.get('dependencies')
               if not isinstance(dependencies,list):
@@ -274,7 +297,7 @@ jobs:
                   targets=entry.get('dependsOn',[])
                   if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets)-all_refs:
                       raise SystemExit('Invalid SBOM dependency references')
-              # pnpm 11.22.0 omits workspace components; the exact eight local
+              # pnpm 11.22.0 omits workspace components; the exact nine local
               # manifests and lock importers above are checked independently.
 
               reviewed={
@@ -297,7 +320,7 @@ jobs:
                   actual=license_value.get('expression',license_value.get('license',{}).get('id'))
                   if actual!=expected[(name,component['version'])]:
                       raise SystemExit('SBOM license expression changed: '+name)
-              message='Ephemeral CycloneDX 1.6 SBOM: 247 exact registry components, zero workspace components (eight exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
+              message='Ephemeral CycloneDX 1.6 SBOM: 262 exact registry components, zero workspace components (nine exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
               print(message)
               with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                   summary.write(message+'\n')
