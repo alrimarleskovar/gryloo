@@ -5,9 +5,9 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
-  // The browser may connect only to its own origin; read-only Base reads run on the local server.
+  // Cloak's pinned public relay, mainnet RPC and hash-verified circuit host. No arbitrary provider origins.
   async headers() {
-    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self'" }] }];
+    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self' https://api.cloak.ag https://api.mainnet-beta.solana.com https://storage.googleapis.com" }] }];
   },
 };
 

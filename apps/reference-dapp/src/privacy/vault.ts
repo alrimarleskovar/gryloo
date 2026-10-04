@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { digestRawResponse } from '@defi-workflow-engine/reference-linter';
 /** Browser-only custody boundary. No private state is sent to server actions or public evidence. */
 export type PrivateNote = { bytes: string; index: number | null; commitment: string };
 export type PrivateRefund = { privateKey: string; publicKey: string; blinding: string; derivedFromNk: boolean };
@@ -58,17 +59,25 @@ const digest = async (bytes: Uint8Array<ArrayBuffer>) => '0x' + Array.from(new U
 
 /** AES-GCM binds ciphertext to owner/network/program/run/Manifest/checkpoint. No wallet key is requested. */
 export class PrivateStateVault {
+  // Reuse a derived encryption key only while this vault is unlocked; every ciphertext still has its own random salt/IV.
+  private readonly derivedKeys = new Map<string, Promise<CryptoKey>>();
   constructor(private readonly backend: VaultBackend, private readonly passphrase: string) {
     if (passphrase.length < 16 || passphrase.length > 1024) fail('PRIVACY_UNLOCK_SECRET_REQUIRED');
   }
   private async key(salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-    const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(this.passphrase), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    const id = encode(salt), cached = this.derivedKeys.get(id); if (cached) return cached;
+    if (this.derivedKeys.size >= 128) this.derivedKeys.delete(this.derivedKeys.keys().next().value!);
+    const deriving = (async () => {
+      const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(this.passphrase), 'PBKDF2', false, ['deriveKey']);
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    })();
+    this.derivedKeys.set(id, deriving);
+    try { return await deriving; } catch (e) { this.derivedKeys.delete(id); throw e; }
   }
   /** Separate authenticated execution records; the completed v1 note codec stays unchanged. */
   async saveExecution(identityInput: PrivateStateIdentity, stage: string, value: unknown, reservationInput: readonly string[] = []): Promise<void> {
     const identity = structuredClone(identityInput), reservations = [...reservationInput];
-    if (!/^execution\.(prepared|intent|handoff|submitted|reconciled)$/.test(stage)) fail('PRIVACY_STAGE_INVALID');
+    if (!/^execution\.(prepared|intent|signed|handoff|submitted|reconciled|restore|viewing|journal\.[0-9]{1,3})$/.test(stage)) fail('PRIVACY_STAGE_INVALID');
     const text = JSON.stringify(structuredClone(value));
     if (!text || text.length > 1_048_576) fail('PRIVACY_STATE_TOO_LARGE');
     const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
@@ -153,6 +162,57 @@ export class PrivateStateVault {
     await this.backend.putNew(keyOf(reference), encryptedBackup);
     await this.load(reference);
     return restored;
+  }
+  /** Complete encrypted LIVE recovery bundle, including immutable journal and authorization evidence. */
+  async executionBackup(reference: VaultReference): Promise<string> {
+    await this.load(reference);
+    const records: Record<string, string> = {};
+    for (const checkpoint of ['prepared', 'result', 'execution.prepared', 'execution.intent', 'execution.signed',
+      'execution.handoff', 'execution.submitted', 'execution.reconciled', 'execution.restore', 'execution.viewing',
+      ...Array.from({ length: 64 }, (_, i) => 'execution.journal.' + i)]) {
+      const raw = await this.backend.get(keyOf({ ...reference, checkpoint }));
+      if (raw === null) continue;
+      if (checkpoint.startsWith('execution.')) await this.loadExecution(reference, checkpoint);
+      else if (checkpoint === 'result') await this.existingResult(reference);
+      records[checkpoint] = raw;
+    }
+    if (!records['execution.prepared'] || reference.checkpoint !== 'prepared') fail('PRIVACY_LIVE_BACKUP_INCOMPLETE');
+    return JSON.stringify({ format: 'flofi.cloak-live-backup.v1', reference, records });
+  }
+  /** Atomic, quarantined restore. It can resume inspection; it can never resume signing or submission. */
+  async restoreExecutionBackup(text: string): Promise<VaultReference> {
+    if (text.length > 24_000_000 || !this.backend.putManyNew) fail('PRIVACY_ATOMIC_RESERVATION_UNAVAILABLE');
+    const bundle = JSON.parse(text) as { format?: string; reference?: VaultReference; records?: Record<string, string> };
+    if (!exact(bundle, ['format', 'reference', 'records']) || bundle.format !== 'flofi.cloak-live-backup.v1' ||
+        !bundle.reference || bundle.reference.checkpoint !== 'prepared' || !bundle.records ||
+        !bundle.records.prepared || !bundle.records['execution.prepared']) fail('PRIVACY_LIVE_BACKUP_INCOMPLETE');
+    const reference = structuredClone(bundle.reference), records = structuredClone(bundle.records);
+    const isolated = new Map<string, string>();
+    for (const [checkpoint, raw] of Object.entries(records)) {
+      if (!/^(prepared|result|execution\.(prepared|intent|signed|handoff|submitted|reconciled|restore|viewing|journal\.[0-9]{1,2}))$/.test(checkpoint) ||
+          typeof raw !== 'string' || raw.length > 1_500_000) fail('PRIVACY_LIVE_BACKUP_INCOMPLETE');
+      isolated.set(keyOf({ ...reference, checkpoint }), raw);
+    }
+    const reader = new PrivateStateVault({ get: async key => isolated.get(key) ?? null,
+      putNew: async (key, value) => { if (isolated.has(key)) fail('PRIVACY_DUPLICATE'); isolated.set(key, value); } }, this.passphrase);
+    const state = await reader.load(reference);
+    for (const checkpoint of Object.keys(records)) if (checkpoint.startsWith('execution.')) await reader.loadExecution(reference, checkpoint);
+    if (records.result) await reader.existingResult(reference);
+    const preparation = await reader.loadExecution(reference, 'execution.prepared') as {
+      format?: string; reference?: VaultReference; review?: { manifestHash?: string; manifest?: { nonce?: string } } };
+    if (preparation.format !== 'flofi.cloak-live-preparation.v1' || JSON.stringify(preparation.reference) !== JSON.stringify(reference) ||
+        preparation.review?.manifestHash !== reference.manifestHash || !/^(?:0|[1-9][0-9]*)$/.test(preparation.review?.manifest?.nonce ?? ''))
+      fail('PRIVACY_LIVE_BACKUP_INCOMPLETE');
+    // Always regenerate the marker locally, even when the exported bundle predated submission.
+    isolated.delete(keyOf({ ...reference, checkpoint: 'execution.restore' }));
+    await reader.saveExecution(reference, 'execution.restore', { format: 'flofi.cloak-live-restore.v1', mode: 'INSPECTION_ONLY' });
+    const keys = await Promise.all([['nonce', state.owner, state.genesisHash, state.programId, preparation.review!.manifest!.nonce!],
+      ...state.inputNotes.map(n => ['note', state.genesisHash, state.programId, n.commitment])]
+      .map(k => digestRawResponse(new TextEncoder().encode(JSON.stringify(k)))));
+    const marker = isolated.get(keyOf({ ...reference, checkpoint: 'execution.restore' }))!;
+    await this.backend.putManyNew!([...isolated].map(([key, value]) => ({ key, value })).concat(keys.map(k => ({ key: 'cloak.reservation:' + k, value: marker }))));
+    await this.load(reference);
+    return reference;
   }
 }
 

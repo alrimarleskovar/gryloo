@@ -1,12 +1,39 @@
-# BUILD-PRIVACY-001 — verified live SDK boundary
+# BUILD-PRIVACY-001 — SDK contract and accepted authorization model
 
-Inspected on 2026-10-04, after the reviewed LOCAL/MOCKED checkpoint was committed and pushed as `86800ee019da7a5b77b4b6125710cbde35a05a40`. [PR #55](https://github.com/alrimarleskovar/gryloo/pull/55) remains draft. Selected policy: SOL → public USDC, with private SOL change.
+Inspected on 2026-10-04, after the reviewed LOCAL/MOCKED checkpoint was committed and pushed as `11670bf`. [PR #55](https://github.com/alrimarleskovar/gryloo/pull/55) remains draft. Selected policy: SOL → public USDC, with private SOL change.
 
-## Finding and stopping condition
+## Current disposition
 
-The approved SDK's standard relay swap cannot bind execution to the exact route reviewed by Flofi. This is a factual blocker for that integration under the existing authorization requirements, independently of the unresolved dependency gates. No financial boundary was enabled and no owner signature, funding or transaction was requested.
+The owner accepted the exact-route limitation and explicitly selected **provider-managed Jupiter routing via Cloak**. The earlier blocker applied to an exact-route authorization contract; it does not forbid the newly authorized property contract. The original counterexample tests remain intact, committed and pushed at `6bded358886525d0d0e524ee0ba9013496101bcd` before this implementation continued. PR #55 remains draft.
 
-This conclusion concerns the published **0.2.5 SDK standard relay path**. It is not a claim that every possible Cloak program integration is impossible. No alternative route-committing relay contract or independently prepared settlement path has been verified. Such a path would need to meet the same Manifest, privacy and reconciliation requirements before enabling execution.
+The replacement model is technically consistent with the actual SDK's signed field agreement and swap external-data hash. No client-only route field is added, and no exact route or unsigned settlement message is represented as owner-approved. The UI and public review explicitly say:
+
+- Routing provider: Jupiter via Cloak
+- Exact DEX route: provider-managed and not authorization-bound
+
+### Actual guarantee boundaries
+
+| Reviewed property | Actual binding / verification |
+| --- | --- |
+| Cloak provider | Fixed Manifest/provider policy and pinned production relay; no public adapter fallback. |
+| Shielded SOL, exact gross spend | Circuit mint/public amount and conservation; source proof bytes and public inputs are request-authenticated. |
+| USDC mint, exact recipient ATA, exact minimum output | Poseidon swap external-data hash and SDK request authentication. LIVE preparation additionally derives the owner's actual USDC ATA. |
+| Protocol fee ceiling | `max_fee` in the same proof hash and signed request; finalized program-owned PoolConfig supplies the reviewed ceiling. |
+| Private residual SOL change | Actual SDK recoverable change, circuit output commitment/conservation, signed proof/ciphertext, exact durable note and finalized membership/unspent reconciliation. |
+| Program identity | SDK authentication preimage program domain plus program-owned finalized accounts/instructions. |
+| Mainnet identity | Pinned production RPC/relay and explicit mainnet genesis checks. Genesis is a client/observation guard, **not a new signed SDK field**. |
+| Review freshness | Local 60-second review/sign/first-submission checks; signed issue timestamp and the documented relay first-use 300-second window. This does **not** enforce a settlement deadline or cancel an accepted swap; relay cached replay semantics are unchanged. Flofi never blindly replays it. |
+| Exact DEX route | No protocol binding; explicitly provider-managed. |
+
+The private change/refund construction and real proof kernel were checked against SDK 0.2.5. The SDK's own hash-verifying circuit loader supplied ceremony 0.2.0 bytes, and real Groth16 proofs over synthetic local witnesses passed verification with the actual zkey. Direct `snarkjs@0.7.6` is the same locked version already used transitively by the SDK; no proving or protocol primitive was replaced.
+
+Official [request-authentication documentation](https://docs.cloak.ag/sdk/request-authentication) describes the client/Rust signed-field agreement and supported manual request construction. Read-only production relay health and finalized mainnet genesis/PoolConfig reads were checked on 2026-10-04. The relay reported an open swap intake and matching sealed program provenance. These observations verify availability/configuration, not acceptance of a signed financial request: none was sent. Authenticated production execution still needs owner-controlled inputs/signing after acceptance gates permit it.
+
+WASM SHA-256: `02ec02e954ae3932827ad9de51afa597ca95569aa97fec8410879c937a58aa2b` (3,249,734 bytes). Zkey SHA-256: `9da7db8cb1370fc497d36a0365f1f107ab0b0c13ca66fa9f0287e5f96ee68d25` (19,657,219 bytes). Finalized SOL PoolConfig read: fixed 5,000,000 lamports plus 3/1000 of gross; 20,000,000 gross gives a 5,060,000 fee. Runtime always reads the account rather than treating this example as a constant.
+
+Private refund Phase 1 uses the pinned SDK runtime's actual discriminator **13**, exactly **41 bytes**, with its commitment at bytes 1–32 (`dist/index.js:4164–4167`, `:4316–4324`). The unversioned program overview's generic close tag 5 is not used as private-refund evidence. Reconciliation additionally requires the authenticated refund event to match that wire commitment, actual SDK NK/nullifier derivation, canonical finalized leaf membership and unspent state. Unknown/malformed phases remain recovery-required. No trailing close-payload semantics were guessed. The SDK's runtime is authoritative for this private-leaf decoder, and the docs/SDK distinction is preserved rather than silently accepted as an equivalent ABI.
+
+No additional security-critical property-binding blocker was found in this scoped model. This is not READY_FOR_OWNER_EXECUTION or challenge acceptance. The existing financial/linter/capability, dependency/license and reconciliation gates remain intact. RPC simulation of the source/settlement transactions is not performed or claimed; the candidate Review explicitly describes proof verification and finalized input-state checks.
 
 ## Reproducible package evidence
 
@@ -45,18 +72,12 @@ The tests compare the final request digest, excluding the independently randomiz
 
 The digest tests demonstrate SDK authentication behavior, not a transaction signed by an owner or an experiment against the production relay. They do not claim the relay accepts arbitrary extra fields; an ignored or rejected extra field cannot provide a verified route commitment.
 
-## Why local adapter work cannot resolve this contract
+## Historical exact-route finding
 
-Flofi's existing `simulateJupiterSwap` binds a route commitment, inspected accounts/instructions, exact message hash and unsigned transaction before Review. The LOCAL/MOCKED compiler similarly binds its fixture route to the Manifest and authorization. Letting the relay choose a route later, even within an approved DEX list and minimum output, would drop that requirement. An after-the-fact mismatch verdict would detect the deviation only after financial execution.
+Flofi's public Jupiter path and LOCAL fixture bind an exact route. The inspected standard Cloak relay cannot provide that guarantee, and adding a route field to a client digest does not change the relay or circuit agreement. The owner has now authorized a distinct Cloak property contract; public Jupiter's route contract and the LOCAL fixture remain unchanged. The original 14 investigation tests still demonstrate why an exact route must never be claimed here.
 
-The SDK does export verified circuit artifacts, note/nullifier primitives, generic instruction and transaction construction. Splitting or independently implementing proof preparation is engineering work, not by itself a protocol impossibility. It still cannot make the current relay swap request authenticate and honor an exact reviewed Jupiter route. Intercepting the signing callback also cannot add that missing contract: it receives the request-auth preimage after internal preparation, and the supported request schema still lacks the route commitment.
+## Implementation and remaining acceptance
 
-A genuine continuation requires a verified Cloak SDK/relay interface that prepares and simulates the intended messages before authorization **and honors an authenticated exact route/payload commitment**, or a verified compatible protocol path with the same guarantees. A client-only field, synthetic proof, public fallback, post-submission review or altered acceptance requirement is not a remedy.
+The property contract, actual preparation/proof/request, browser vault/Review/Manifest, single-submission controller, immutable encrypted journal/backup and finalized source/output/input/change/refund observation/reconciliation paths are implemented locally behind the existing release gate. Restart and restored backups inspect only; missing authorization or divergent private/public state cannot yield success. Timeout close/refund events are inspected and actual private refund notes are reconstructed; no automatic owner close/withdrawal transaction is introduced.
 
-## Remaining live stage and validation
-
-Real proof/transaction preparation, browser financial integration, authoritative mainnet source/settlement/output/nullifier/change/refund observations, recovery/backup UI and journal integration, and live timeout/refund handling remain incomplete. The completed SDK note/vault/reservation/replay/reconciliation foundations are preserved. No funded evidence or challenge acceptance is claimed.
-
-The new boundary suite passes **14 tests** against the installed SDK. The full focused privacy regression run passes **81 tests in 8 files**, including those 14. Focused ESLint and the dapp TypeScript check pass. The pushed local checkpoint's earlier validation remains 1,395 tests, 2 existing skips, 2 browser checks and all 16 build/typecheck tasks; the complete suite was not rerun for this test/documentation-only investigation.
-
-Dependency acceptance remains separately blocked by the Elliptic advisory and inventory/license review recorded in [the dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md). No gate was changed. Owner funding/signing does not remedy the route-binding blocker and is not required now. The SDK/relay contract must be resolved before reaching an owner financial boundary.
+See the [current report](BUILD-PRIVACY-001-REPORT.md) for exact validation and remaining owner/dependency acceptance boundaries. Production signed relay acceptance, browser proof generation with real owner-held notes, funded settlement/refund and multi-tab acceptance evidence have not been produced. Owner financial actions are not requested while the existing release gates remain blocked.

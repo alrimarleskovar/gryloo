@@ -29,7 +29,7 @@ The automated browser demonstration is isolated from other builds and uses neith
 pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test --config playwright.privacy.config.ts
 ```
 
-Install Playwright's matching Chromium and OS libraries using your usual development setup if they are absent. The first test aborts any request to a non-loopback host and verifies none occurred.
+Install Playwright's matching Chromium and OS libraries using your usual development setup if they are absent. The first test aborts any request to a non-loopback host and verifies none occurred. With SDK-verified offline circuits, a third test runs real browser proving/Manifest generation, encrypted backup and reload using synthetic notes and intercepted read-only provider responses; it aborts financial requests and never signs.
 
 ## Available local engineering lifecycle
 
@@ -40,28 +40,35 @@ pnpm --filter @defi-workflow-engine/reference-compiler build
 pnpm exec vitest run apps/reference-dapp/src/privacy/local-execution.test.ts --maxWorkers=2 --testTimeout=30000
 ```
 
-The 40 lifecycle cases use actual SDK note codecs, synthetic note authority, an encrypted local backend, a simulated wallet acknowledgment and a closed in-process ledger. They exercise tampering, replay, lost responses and failed checkpoints as well as successful reload/reconciliation. They perform no wallet signing or public-chain transaction. The production browser UI continues to expose feasibility only; this test harness is not wired into it. See the [report](BUILD-PRIVACY-001-REPORT.md) for the remaining engineering gates and [dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md) for the audit/license blockers.
+The 40 lifecycle cases use actual SDK note codecs, synthetic note authority, an encrypted local backend, a simulated wallet acknowledgment and a closed in-process ledger. They exercise tampering, replay, lost responses and failed checkpoints as well as successful reload/reconciliation. They perform no wallet signing or public-chain transaction. The LOCAL ledger remains restricted to tests; the genuine candidate browser path described below stays behind the existing release gate. See the [report](BUILD-PRIVACY-001-REPORT.md) for the remaining engineering gates and [dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md) for the audit/license blockers.
 
-## Exact privacy explanation for the current submission
+## Genuine SDK path available behind the existing release gate
 
-> Flofi makes privacy a required property of its existing canonical workflow, rather than a separate application. For this Cloak integration, the supported target is shielded SOL input exchanged for public USDC, with remaining SOL change kept shielded. USDC proceeds and their recipient are public. Deposits, swap transactions, timing and network metadata remain observable; this is not a claim that the entire trade is invisible or that anonymity is guaranteed. Flofi refuses public fallback for a privacy-required workflow. Its adapter preserves actual Cloak note and refund authority in encrypted, run-linked browser checkpoints, and its reconciliation contract requires settlement plus verified, reloadable private change before success. The present draft demonstrates policy authoring, fail-closed feasibility and local SDK/state security tests. Funded execution, exact financial simulation and authoritative chain reconciliation are not yet integrated, so it provides no mainnet execution acceptance evidence.
+On the same Cloak workflow, **Open encrypted vault and live preparation** loads the SDK path only after an explicit click. Loading it requests neither a signature nor external traffic. Durable local vault unlock, compatible encrypted note/reference import, actual finalized-state/proof preparation, public property Review/Manifest export, complete encrypted backup and inspection/reconciliation controls are wired. A public recovery reference lets the same browser reload an existing encrypted run after restart; a backup restored into a new vault is permanently inspection-only and reserves the inputs.
 
-This wording is accurate for this draft. Do not replace “not yet integrated” with an execution-success claim until real acceptance evidence exists. Do not publish note encodings, private keys, viewing keys, note salts, refund secrets, an unlocked vault or its passphrase. Encrypted backups also contain spending authority and are not challenge artifacts.
+The Review binds Cloak, exact shielded SOL gross input, USDC mint, exact owner recipient ATA, exact minimum, actual protocol fee ceiling, positive private SOL change, program/mainnet guards and freshness. It explicitly states:
 
-## Owner-only actions remaining
+- Routing provider: Jupiter via Cloak
+- Exact DEX route: provider-managed and not authorization-bound
 
-**Now:** no financial owner action can unblock this implementation. Do not fund or sign in an attempt to bypass the engineering gates in the report, including the unresolved SDK dependency audit and license/inventory review. The local authoring demonstration does not grant permission to merge or deploy financial execution.
+Its simulation scope is real local Groth16 verification plus finalized mainnet input/root/fee checks. It does not claim a source/settlement RPC transaction simulation, an exact route approval or cancellation at review expiry. Candidate v1 artifacts retain their original `NOT_ENFORCED` flags and cannot unlock the financial release gate.
 
-Historical remote CI/preview failures are recorded in the report. This continuation uses local validation and requires no billing, account, funding, wallet, signing, secret or API-key action. It does not alter the separate CI migration or deployment settings. The next engineering stage is live prepare-only simulation and authoritative observation transport, subject to dependency clearance and review of this uncommitted slice.
+Separate viewing-key registration is an explicit owner action when gates permit it: Cloak receives viewing authority for recovery; owner wallet private keys and note spending keys never leave the wallet/browser vault. The swap requires a separate acknowledgment and exact wallet request signature. An encrypted intent/input/nonce reservation precedes signing, signed bytes and journal precede the sole POST, and raw response/uncertainty precedes reconciliation. Failed or unknown submission never automatically retries. After an outcome, the UI supports exporting an updated encrypted backup.
 
-**Only after those gates are implemented and reviewed**, the owner must personally perform these actions:
+Run the actual ceremony proving/lifecycle fixtures with an SDK-verified offline circuits directory:
 
-1. Select a Solana mainnet wallet supporting `solana:signTransaction`, `solana:signMessage` and account-change events. Bind the exact owner and public USDC recipient in Review. Verify genesis `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d` and Cloak program `zh1eLd6rSphLejbFfJEneUwzHRfMKxgzrgkfwA6qRkW`.
-2. Choose and retain the owner-held vault unlock secret, grant persistent browser storage if supported, and retain a verified encrypted backup plus its recovery reference outside the browser. A wallet seed/private key is never needed by Flofi.
-3. Fund the owner wallet with 0.03 SOL for the proposed shield plus the **freshly reviewed** network, protocol, relay and account-creation costs. These costs must be obtained from the deployed configuration and current quote; this document specifies no invented fee allowance or USDC minimum.
-4. Review the exact shield payload and recovery preparation, then personally approve its wallet signature. Confirm and reload the actual deposited private note before proceeding.
-5. Author `swap 0.02 SOL to USDC privately`. Review the actual input note commitments, 0.02 SOL gross spend, quoted minimum public USDC output, recipient ATA, fee caps, 0.01 SOL private change (when inputs total exactly 0.03 SOL), expiry and refund/recovery policy. Preparation must already be durably persisted and the exact financial simulation must pass.
-6. Personally approve Cloak's required message authentication and any reviewed wallet authorization. Flofi must use the relay path; never silently switch to an unrevealed public or no-relay execution mode.
-7. Wait for both required public stages and authoritative settlement. Reload the encrypted result in a new browser session, verify private change and retained refund authority, then export only redacted genuine evidence linked to the run/Manifest and journal.
+```sh
+CLOAK_VERIFIED_CIRCUITS_DIRECTORY=/path/to/sdk-verified-circuits pnpm exec vitest run apps/reference-dapp/src/privacy --maxWorkers=2 --testTimeout=30000
+```
 
-Any account change, expired review, storage failure, missing recovery material, ambiguous submission or unverifiable result stops this path. Recover/reconcile the same attempt before considering another; never regenerate notes or retry blindly. The agent has not performed any of these owner financial actions.
+The optional actual-proving cases are explicitly skipped without those local ceremony bytes. Their witnesses, wallet signatures and chain/financial transport are synthetic or mocked; they are not mainnet execution evidence. Pure policy, encoder, fee, parsing, observation and custody checks run without owner data.
+
+## Accurate privacy explanation
+
+Flofi makes privacy a required property of its existing canonical swap. This scoped Cloak path spends shielded SOL, pays public USDC to the reviewed ATA and retains residual SOL privately. Deposits, transaction timing and the public recipient remain observable. Jupiter routing is managed by Cloak and is not authorized as an exact DEX route. Fail-closed authorization uses the proof/request properties the actual protocol supports. Success additionally requires finalized source and settlement observations, spent inputs and exact private change that survives encrypted reload. A timeout refund is another private SOL note, independently reconstructed and checked; it is not swap completion or an automatic withdrawal. The draft has no owner-funded acceptance evidence.
+
+## Owner boundary and present status
+
+No owner funding, signature, secret, API-key, billing or financial action is requested now. Existing financial/linter/capability gates remain disabled, and dependency audit/inventory/license acceptance is unresolved. **READY_FOR_OWNER_EXECUTION is false.** No merge or PR readiness change is authorized.
+
+A future genuine mainnet experiment, after those gates permit it, intrinsically needs owner-controlled existing shielded input notes, durable encrypted custody/backup and explicit wallet signatures. This implementation accepts the existing Flofi encrypted note checkpoint/reference shape; it does not add an initial deposit/shielding UI or generic third-party wallet-backup importer. Owner notes are entered only through the local browser recovery boundary, never chat, server actions or agent custody. Browser proving with real notes, signed production relay acceptance, funded success/timeout and multi-tab recovery remain unperformed acceptance checks. These limitations are recorded in the [report](BUILD-PRIVACY-001-REPORT.md), independently of the [dependency blockers](BUILD-PRIVACY-001-DEPENDENCIES.md).

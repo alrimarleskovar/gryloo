@@ -9,13 +9,17 @@
     "provider": "cloak",
     "output": "public-with-private-change"
   },
+  "routing": {
+    "routingProvider": "Jupiter via Cloak",
+    "exactDexRoute": "provider-managed and not authorization-bound"
+  },
   "acceptance": "BLOCKED",
   "findings": [
     "CLOAK_EXECUTION_GATES_REQUIRED"
   ],
   "blockers": [
-    "CLOAK_EXACT_PROOF_SIMULATION_UNAVAILABLE",
-    "CLOAK_BROWSER_NETWORK_POLICY_UNCONFIGURED",
-    "CLOAK_SETTLEMENT_VERIFIER_UNAVAILABLE"
+    "CLOAK_OWNER_INPUT_STATE_NOT_PROVIDED",
+    "CLOAK_RPC_TRANSACTION_SIMULATION_NOT_PERFORMED",
+    "CLOAK_FINANCIAL_ACCEPTANCE_GATES_BLOCKED"
   ]
 }

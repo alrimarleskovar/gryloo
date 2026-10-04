@@ -8,18 +8,19 @@ import simulationSchema from '@defi-workflow-engine/workflow-contracts/schemas/v
 
 /**
  * Browser-safe DWE-HASH v1 digests for the four BUILD-003B artifact kinds and
- * the raw-response domain. It mirrors the frozen Node implementation and may
- * only be stricter. There is deliberately no payload, intent, policy,
+ * the raw-response/payload domains. It mirrors the frozen Node implementation and may
+ * only be stricter. There is deliberately no intent, policy,
  * manifest, plan, journal or evidence domain.
  */
 export type DigestKind = 'semantic-workflow' | 'quote-state-artifact' | 'artifact-set' | 'simulation-bundle';
 
-const DOMAINS: Readonly<Record<DigestKind | 'raw-response', string>> = Object.freeze({
+const DOMAINS: Readonly<Record<DigestKind | 'raw-response' | 'payload', string>> = Object.freeze({
   'semantic-workflow': 'defi-workflow-engine/semantic-workflow',
   'quote-state-artifact': 'defi-workflow-engine/quote-state-artifact',
   'artifact-set': 'defi-workflow-engine/artifact-set',
   'simulation-bundle': 'defi-workflow-engine/simulation-bundle',
   'raw-response': 'defi-workflow-engine/raw-response',
+  'payload': 'defi-workflow-engine/payload',
 });
 
 /** Explicit projections; tests prove each equals the frozen schema properties. */
@@ -54,7 +55,7 @@ const encoder = new TextEncoder();
  * key and compact-byte counts equal what the frozen raw parser would count for
  * the compact serialization, so anything that parser rejects is rejected here.
  */
-function jsonIngress(value: unknown): void {
+export function jsonIngress(value: unknown): void {
   const seen = new Set<object>();
   let bytes = 0, tokens = 0, keys = 0;
   const add = (size: number) => {
@@ -115,7 +116,7 @@ function sameJson(left: unknown, right: unknown): boolean {
 }
 
 /** Port of the frozen shared invariants, including their exact key coverage. */
-function sharedInvariants(value: unknown): void {
+export function sharedInvariants(value: unknown): void {
   const decimals = new Map<string, number>();
   const walk = (current: unknown, key = ''): void => {
     if (typeof current === 'string') {
@@ -271,7 +272,7 @@ function project(kind: DigestKind, input: unknown): Record<string, unknown> {
   return selected;
 }
 
-async function framedDigest(domainKind: DigestKind | 'raw-response', data: Uint8Array): Promise<string> {
+async function framedDigest(domainKind: DigestKind | 'raw-response' | 'payload', data: Uint8Array): Promise<string> {
   if (data.byteLength > LIMITS.bytes) fail('INPUT_SIZE');
   const domain = encoder.encode(DOMAINS[domainKind]);
   const preimage = new Uint8Array(12 + domain.length + 8 + data.length);
@@ -305,6 +306,12 @@ export async function digestArtifact(kind: DigestKind, value: unknown): Promise<
 export async function digestRawResponse(bytes: Uint8Array): Promise<string> {
   if (!(bytes instanceof Uint8Array)) fail('INPUT_SIZE');
   return framedDigest('raw-response', bytes);
+}
+
+/** Raw execution payload, with the unchanged frozen v1 payload domain and framing. */
+export async function digestPayload(bytes: Uint8Array): Promise<string> {
+  if (!(bytes instanceof Uint8Array)) fail('INPUT_SIZE');
+  return framedDigest('payload', bytes);
 }
 
 /** Frozen v1 semantic-workflow hash vector used by the self-check. */
