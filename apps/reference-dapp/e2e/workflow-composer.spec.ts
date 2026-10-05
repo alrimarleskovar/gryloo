@@ -56,7 +56,7 @@ test('supported toolbar actions create real selected nodes and bind their editor
     await expect(cards(page)).toContainText('USDC');
     await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
     await expect(cards(page).locator('input, form')).toHaveCount(0);
-    await expect(inspector(page).getByRole('button', { name: /Selected Action · 1\./ })).toHaveAttribute('aria-expanded', 'true');
+    await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
     if (form) await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
     else await expect(inspector(page).getByLabel('Input amount (USDC)')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Privacy', exact: true })).toBeDisabled();
@@ -73,7 +73,8 @@ test('connected lending steps select one editor, update linked summaries after a
   ] as const) {
     await step(page, id).locator('.composer-card').click();
     await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
-    await expect(inspector(page).getByRole('button', { name: new RegExp(`Selected Action · ${number}\\.`) })).toHaveAttribute('aria-expanded', 'true');
+    await expect(step(page, id).locator('.composer-action-title')).toContainText(`${number}.`);
+    await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
   }
   await step(page, 'lending-borrow').click();
@@ -101,9 +102,9 @@ test('connected lending steps select one editor, update linked summaries after a
   await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(0);
-  await expect(inspector(page)).toContainText('Select a step');
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
   await step(page, 'lending-swap').focus(); await page.keyboard.press('Enter');
-  await expect(inspector(page).getByRole('button', { name: 'Selected Action · 3. Swap', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await expect(step(page, 'lending-swap').locator('.composer-card')).toHaveClass(/active/);
 });
 
@@ -122,7 +123,7 @@ test('accepted settings update the card and existing warnings link to Selected A
   await expect(inspector(page).getByLabel('Selected action checks')).toContainText('Review the prototype slippage limit.');
   await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(0);
   await page.getByRole('button', { name: 'Remove step', exact: true }).click();
-  await expect(cards(page)).toHaveCount(0); await expect(inspector(page)).toContainText('Select a step');
+  await expect(cards(page)).toHaveCount(0); await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
 });
 
 test('desktop and mobile composer keep compact cards, editor placement and approved canvas controls', async ({ page }) => {
@@ -152,7 +153,7 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
   const primary = toolbar.getByRole('group', { name: 'Workflow actions', exact: true });
   const utilities = toolbar.getByRole('group', { name: 'Workflow utilities', exact: true });
   const labels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap',
-    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Undock toolbar'];
+    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete card', 'Undock toolbar'];
   async function checkRow() {
     expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(labels);
     const centers = await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => {
@@ -208,6 +209,7 @@ test('Swap and Bridge amount boxes select the existing editor, preserve the foot
     await expect(amount.locator('.composer-amount-value')).toHaveText('1');
     await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
     await expect(amount.locator('svg')).toBeVisible();
+    await expect(card.locator('.composer-pair-box')).toHaveText(action === 'swap' ? 'USDC → WETH' : 'USDC → USDC');
     await expect(card.locator('input, form')).toHaveCount(0);
     const footerGap = await card.evaluate(element => {
       const footer = element.querySelector('.composer-selected') as HTMLElement;
@@ -242,7 +244,7 @@ test('Selected Action stays compact until selection and reopens for clicks and k
   expect((await panel.boundingBox())!.height).toBeLessThan(60);
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
-  await expect(toggle).toHaveText('Selected Action · 1. Supply');
+  await expect(toggle).toHaveText('Advanced Settings');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const supplyAmount = panel.getByLabel('Supply amount USDC', { exact: true });
   await supplyAmount.fill('0.25');
@@ -255,14 +257,14 @@ test('Selected Action stays compact until selection and reopens for clicks and k
   await expect(supplyAmount).toHaveValue('0.25');
   await toggle.click();
   await step(page, 'lending-borrow').locator('.composer-card').click();
-  await expect(toggle).toHaveText('Selected Action · 2. Borrow');
+  await expect(toggle).toHaveText('Advanced Settings');
   await expect(panel.getByRole('form', { name: 'Edit Aave Borrow', exact: true })).toBeVisible();
   for (const key of ['Enter', 'Space']) {
     await toggle.click();
     await expect(body).toBeHidden();
     await step(page, 'lending-swap').focus();
     await page.keyboard.press(key);
-    await expect(toggle).toHaveText('Selected Action · 3. Swap');
+    await expect(toggle).toHaveText('Advanced Settings');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(panel.getByRole('form', { name: 'Edit Uniswap Swap', exact: true })).toBeVisible();
     await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
@@ -272,7 +274,34 @@ test('Selected Action stays compact until selection and reopens for clicks and k
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(toggle).toBeDisabled();
   await expect(body).toBeHidden();
-  await expect(panel).toContainText('Select a step');
+  await expect(panel.locator('.inspector-toggle')).toHaveText('Advanced Settings');
   expect((await panel.boundingBox())!.height).toBeLessThan(60);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+});
+
+test('Delete card uses the current selection, honors locks/protected steps and remains undoable', async ({ page }) => {
+  await open(page);
+  const remove = page.getByRole('button', { name: 'Delete card', exact: true });
+  await expect(remove).toBeDisabled();
+  await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await expect(remove).toBeEnabled();
+  await inspector(page).getByRole('button', { name: 'Lock amount', exact: true }).click();
+  await expect(remove).toBeDisabled();
+  await expect(cards(page)).toHaveCount(1);
+  await inspector(page).getByRole('button', { name: 'Unlock amount', exact: true }).click();
+  await expect(remove).toBeEnabled();
+  await remove.click();
+  await expect(cards(page)).toHaveCount(0);
+  await expect(remove).toBeDisabled();
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(cards(page).locator('.composer-amount-value')).toHaveText('1');
+  await expect(cards(page)).toHaveClass(/active/);
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(cards(page)).toHaveCount(0);
+  await lending(page);
+  await step(page, 'lending-borrow').locator('.composer-card').click();
+  await expect(remove).toBeDisabled();
+  await expect(cards(page)).toHaveCount(3);
 });

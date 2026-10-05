@@ -427,3 +427,24 @@ Targeted validation:
 Desktop (1440px) and mobile (390px) captures of both amount cards and the pinned toolbar were visually reviewed from untracked `.tmp/`; the utility group stays visible and the amount boxes/footer retain the compact blue product styling.
 
 Limitations: narrow primary action groups require horizontal scrolling; utility labels become icon-only at compact widths but their buttons remain visible and accessible. Amount editing continues in Selected Action. UX-003B/C/D/E remain out of scope. The pre-existing generated `next-env.d.ts` change is excluded from the commit.
+
+
+### UX-003A correction — Advanced Settings header and card controls
+
+The disclosure header now contains only “Advanced Settings” beside its existing chevron, including the compact empty state. The action number/name and empty-selection hint were removed from that header only. Its accessible expansion controls, current `selectedId`, automatic opening, manual collapse, mounted editor forms and all editor content/handlers remain intact. Cards retain the requested “Editing in Selected Action” footer.
+
+The top toolbar adds Delete card immediately after Redo and before the existing docking control. It uses the same `canDeleteCanvasNode` guard and canonical REMOVE authoring command as the existing inspector removal. It applies only to the current card, clears that editor selection after removal, and preserves the existing history/Undo/Redo path. No-selection, locked, required/dependent and other protected cards disable it, with a concise tooltip. It does not alter keyboard deletion, edge deletion, batch deletion or canonical protections. The approved floating toolbar is unchanged. Narrow top layouts use compact utility icons plus slightly tighter primary text/spacing to retain all five utilities on one row without clipping; primary actions remain horizontally reachable.
+
+Swap pair text is now inside a compact blue box matching the existing amount box family. Supported router/legacy Bridge readers provide an additional presentation-only `bridgePair` for the known USDC → USDC route, consumed only by Build cards. Existing `detail` fields and Simulate/Execute rendering remain unchanged. No inferred output amounts, new asset guesses or inline forms were introduced. Provider/network summaries, amount boxes, action title/icon order, card shell and bottom-anchored footer are preserved.
+
+Targeted validation:
+
+- **41 component/deletion tests passed** across `build-correction.test.tsx`, `simulate-workflow-canvas.test.tsx` and existing `canvas-keyboard.test.ts`, including canonical summaries/order, editor binding, read-only projection and removal protections.
+- **14 focused Chromium cases passed** across the composer (eight), Simulate projection (four) and existing Build/floating layout (two) specs. Header checks assert the exact “Advanced Settings” button while preserving collapse/reopen, same-node/different-node selection, keyboard selection and retained drafts. The new deletion case verifies disabled empty/locked/protected selections, successful current-card removal, cleared selection, Undo restoration and Redo removal.
+- Toolbar geometry checks retain exact action/control order with Delete card after Redo, visible/unclipped anchored utilities, single-row alignment and primary reachability at 1920/1440/1200/1024/768/390/320px, 125/150/200% CSS page zoom and a separately narrowed 360px canvas. Native browser chrome zoom is not automated; smaller CSS viewports also cover its layout-width reduction.
+- Desktop/mobile Swap and Bridge cases assert boxed amount/token/pencil, boxed USDC → WETH / USDC → USDC pair, pinned footer padding and existing selection/history behavior. Build edits and shared Simulate continuity continue to pass. Browser fixtures remain localhost-only and assert zero signing/transaction requests.
+- App-only `tsc --noEmit`, ESLint on the six touched TypeScript/TSX files, and `git diff --check` passed. Full CI and UX-005 certification suites were not run.
+
+Desktop (1440px) and mobile (390px) captures were visually reviewed from untracked `.tmp/`, confirming the exact Advanced Settings header, visible delete icon next to Redo, compact matched amount/pair boxes and pinned card footers.
+
+Shared integration touchpoints are limited to existing presentation components/helpers and scoped CSS; AppShell, workflow state, IR schemas, runtime, APIs/adapters, simulation, Copilot, wallet, execution and privacy runtime are unchanged. Delete card intentionally honors existing protection rules rather than enabling unsupported removals. Generated `next-env.d.ts` remains excluded. UX-003B/C/D/E were not started.

@@ -160,7 +160,8 @@ describe('UX-002 canonical composer projections', () => {
     expect(canvas).toContain('1. Supply'); expect(canvas).toContain('2. Borrow'); expect(canvas).toContain('3. Swap');
     expect(canvas).not.toMatch(/Completed|Runtime:|Confirmed|<form/);
     const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: 'lending-borrow', select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
-    expect(inspector).toContain('Selected Action · 2. Borrow');
+    expect(inspector).toContain('<span>Advanced Settings</span>');
+    expect(inspector).not.toContain('Selected Action · 2. Borrow');
     expect(inspector).toContain('aria-label="Edit Aave Borrow"');
     fixture.store.state = editorReducer(fixture.store.state, { type: 'AUTHOR_LENDING', source: 'CANVAS', baseRevision: workflow.revision,
       input: { supply: '0.1', borrow: '0.025', slippage: '50', owner: '0x1111111111111111111111111111111111111111' } }, fixture.store.context);
@@ -194,7 +195,7 @@ describe('UX-002 canonical composer projections', () => {
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn() }));
     expect(canvas).not.toContain('composer-card active');
     const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: null, select: vi.fn(), onExpandedChange: vi.fn() }));
-    expect(inspector).toContain('Select a step'); expect(inspector).not.toContain('Edit Supply');
+    expect(inspector).toContain('Advanced Settings'); expect(inspector).toContain('aria-expanded="false"'); expect(inspector).not.toContain('Edit Supply');
   });
 });
 

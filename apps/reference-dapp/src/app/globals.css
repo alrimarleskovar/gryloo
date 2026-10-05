@@ -375,6 +375,7 @@
 .composer-amount-box .composer-amount-token{flex:none;font-size:12px;font-weight:650;color:var(--blue)}
 .composer-amount-box svg{flex:none;margin-left:auto;color:var(--blue)}
 .composer-amount-box[data-symbolic] .composer-amount-value{font-size:12px;line-height:1.4}
+.build-flow-surface .composer-pair-box{display:block;margin-bottom:4px;padding:7px 10px;border:1px solid #c9ddff;border-radius:7px;background:var(--blue-soft);color:var(--blue);font-size:11px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
 .composer-provider,.composer-chain,.composer-detail{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .composer-provider{font-weight:600;color:var(--ink)}
 .composer-amount{font-size:13px;font-weight:650;margin-top:3px;overflow-wrap:anywhere}
@@ -416,11 +417,11 @@
 @container(max-width:1200px){.canvas-toolbar-row{gap:5px}.canvas-toolbar-row .canvas-primary-tools,.canvas-toolbar-row .canvas-utility-tools{gap:2px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:4px;gap:4px}}
 @container(max-width:1100px){.canvas-toolbar-row{gap:3px}.canvas-toolbar-row .canvas-primary-tools,.canvas-toolbar-row .canvas-utility-tools{gap:1px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:2px;gap:3px}.canvas-toolbar-row .toolbox-divider{margin-inline:2px}}
 @container(max-width:850px){.canvas-toolbar-row .canvas-utility-tools button span{display:none}.canvas-toolbar-row .canvas-utility-tools button{width:32px;padding:0}.canvas-toolbar-row .canvas-utility-tools .toolbox-mode-toggle{width:32px}.canvas-toolbar-row>.revision{display:none}}
+@container(max-width:650px){.canvas-toolbar-row .canvas-utility-tools button,.canvas-toolbar-row .canvas-utility-tools .toolbox-mode-toggle{width:28px}.canvas-toolbar-row .canvas-primary-tools button{font-size:10px;padding-inline:1px;gap:2px}}
 .floating-toolbox .canvas-primary-tools,.floating-toolbox .canvas-utility-tools{display:flex;flex-direction:column;align-items:center;gap:0}
 .inspector.inspector-disclosure{padding:0;min-height:0;overflow:hidden}
 .inspector-disclosure .inspector-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:12px 16px;border:0;border-radius:0;background:var(--paper);color:var(--blue);text-align:left;font-size:12px;font-weight:700}
 .inspector-disclosure .inspector-toggle svg{flex:none}
 .inspector-disclosure .inspector-toggle:disabled{opacity:1;cursor:default}
 .inspector-disclosure .inspector-toggle:focus-visible{outline-offset:-3px}
-.inspector-selection-hint{margin-left:auto;color:var(--muted);font-weight:400}
 .inspector-body{padding:18px;border-top:1px solid var(--line)}

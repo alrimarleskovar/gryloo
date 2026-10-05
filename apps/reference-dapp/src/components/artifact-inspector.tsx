@@ -13,7 +13,7 @@ import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
-import { composerActions, composerSummary, composerNodeState } from '../domain/composer-presentation';
+import { composerSummary, composerNodeState } from '../domain/composer-presentation';
 
 import { RepayAuthoringForm } from './repay-panel';
 import { BorrowAuthoringForm } from './borrow-panel';
@@ -103,13 +103,11 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   const summary = node ? composerSummary(state.workflow, node, context) : null;
   const validation = node ? composerNodeState(review, node.nodeId) : null;
-  const step = node ? composerActions(state.workflow).findIndex(item => item.nodeId === node.nodeId) + 1 : null;
   const open = Boolean(node && expanded);
   return <section className="inspector panel inspector-disclosure" aria-label="Action inspector">
     <button type="button" className="inspector-toggle" aria-expanded={open} aria-controls={contentId} disabled={!node} onClick={() => onExpandedChange(!open)}>
       <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" style={{ transform: open ? 'rotate(90deg)' : undefined }}><path d="m6 3 5 5-5 5"/></svg>
-      <span>Selected Action{summary && step ? ` · ${step}. ${summary.action}` : ''}</span>
-      {!node && <span className="inspector-selection-hint">Select a step</span>}
+      <span>Advanced Settings</span>
     </button>
     <div id={contentId} className="inspector-body" hidden={!open}>
     <h2>{node ? `${label} settings` : 'Settings'}</h2>

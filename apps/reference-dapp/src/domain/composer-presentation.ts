@@ -59,7 +59,9 @@ export function composerSummary(workflow: Workflow, node: Workflow['nodes'][numb
   const detail = solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` :
     lending && node.actionType === 'asset.swap.exact-input' ? 'Borrowed USDC → WETH' :
     uni ? 'USDC / WETH' : orca ? 'SOL / devUSDC' : position ? 'WETH / USDC' : undefined;
-  return { action, provider, chain, amount, detail, linked,
+  // Supported router and legacy bridge readers describe USDC on both ends. Build alone displays this token route.
+  const bridgePair = router ? `${router.token} → ${router.token}` : bridge ? 'USDC → USDC' : undefined;
+  return { action, provider, chain, amount, detail, bridgePair, linked,
     risk: node.actionType === 'borrow' ? 'Variable debt' : node.actionType === 'withdraw' ? 'Collateral change' : undefined };
 }
 

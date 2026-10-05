@@ -139,3 +139,10 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Give only Build Swap/Bridge cards a compact blue amount/token box with larger known amounts and a pencil affordance. Keep symbolic linked amounts truthful. Card clicks still open the same Selected Action editor; no inline form or new workflow/amount state.
 - Preserve blue numbered titles with trailing icons, compact provider/network and pair summaries, and the bottom-anchored selection footer. Leave other actions and Simulate cards unchanged.
 - Validate pinned utilities/reachable primary actions at narrow/zoomed widths, Swap/Bridge amount boxes, footer placement, selection and history, focused regressions, app typecheck, touched-file lint and diff checks. Commit `UX-003A: refine toolbar resilience and action amount cards`, then stop before UX-003B.
+
+### UX-003A correction — Advanced Settings header and card controls
+
+- Rename only the existing disclosure header to “Advanced Settings”; keep its content, selection source, mounted form drafts and collapse/reopen behavior.
+- Add a top-toolbar-only Delete card control immediately after Redo. Use the existing current selection, deletion guard and REMOVE command; retain lock/dependency protection and Undo/Redo. Keep utilities pinned on one row and primary actions reachable at narrow/zoomed widths.
+- Box only Build Swap/Bridge pair summaries to match the existing blue amount box. Derive Bridge token routes from supported bridge/router presentation readers, leave inspection cards unchanged, and retain the bottom-anchored footer.
+- Validate exact header text, deletion/guard/history behavior, toolbar geometry and reachability, paired boxes/footer/selection, focused regressions, app typecheck, lint and diff checks. Commit `UX-003A: refine advanced settings header and card controls`, then stop before UX-003B.
