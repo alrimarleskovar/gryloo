@@ -13,7 +13,8 @@ import { signWithSolanaWallet, type SolanaSession } from '../wallet/solana-walle
 import { PrivateStateVault, type PrivateNote, type PrivateStateIdentity } from './vault';
 import { assertOwnerDepositPermit, type OwnerDepositPermit } from './owner-proof-gate';
 import { ownerDepositReadRpc } from './owner-proof-rpc';
-import { broadcastOwnerDeposit } from '../app/privacy-owner-proof-actions';
+import { broadcastOwnerDeposit, reserveOwnerDepositSignature } from '../app/privacy-owner-proof-actions';
+import { OWNER_PROOF_RESIDUAL_LABEL, sameOwnerProofScope, type OwnerProofAcceptance } from './owner-proof-residuals';
 
 const fail = (code: string): never => { throw new Error(code); };
 const preparationBrands = new WeakMap<OwnerDepositPreparation, string>();
@@ -157,9 +158,14 @@ export async function submitOwnerDeposit(vault: PrivateStateVault, prepared: Own
     if (preflight.value.err !== null || remaining == null || (balance - remaining).toString() !== prepared.simulatedWalletDebitLamports)
       fail('CLOAK_DEPOSIT_PREFLIGHT_OR_REVIEWED_COST_CHANGED');
     assertOwnerDepositPermit(permit, prepared, session.account.address, acknowledgedDigest); guard.assertCurrent();
-    await vault.saveExecution(prepared.identity, 'execution.intent', { reviewDigest: prepared.reviewDigest, messageDigest: prepared.messageDigest },
+    // The intent records the dependency admission (or owner-accepted residual risk) this signature is authorized under.
+    await vault.saveExecution(prepared.identity, 'execution.intent', { reviewDigest: prepared.reviewDigest, messageDigest: prepared.messageDigest,
+      dependencyAdmission: permit.dependencyAdmission },
       [await digest(['deposit', prepared.manifest.owner, prepared.manifest.outputCommitment]), await digest(['deposit-nonce', prepared.manifest.owner, prepared.manifest.nonce]),
         await digest(['owner-mainnet-proof-deposit', prepared.manifest.owner, prepared.manifest.genesisHash, prepared.manifest.programId])]);
+    // Server-side one-shot reservation: a refused or failed reservation means the wallet is never opened.
+    await reserveOwnerDepositSignature(prepared);
+    assertOwnerDepositPermit(permit, prepared, session.account.address, acknowledgedDigest); guard.assertCurrent();
     const signed = await signWithSolanaWallet(session, prepared.unsignedTransaction, 'CLOAK_DEPOSIT'); guard.assertCurrent();
     assertOwnerDepositPermit(permit, prepared, session.account.address, acknowledgedDigest);
     const parsed = parseTransaction(fromBase64(signed));
@@ -178,6 +184,13 @@ export async function submitOwnerDeposit(vault: PrivateStateVault, prepared: Own
   } finally { guard.close(); }
 }
 
+/** Public dependency basis recorded with the signature intent and exported evidence. A residual is never release admission. */
+export function depositDependencyEvidence(admission: OwnerProofAcceptance | null | undefined, owner: string) {
+  const dependencyAdmission = admission ?? null;
+  if (dependencyAdmission && (dependencyAdmission.status !== OWNER_PROOF_RESIDUAL_LABEL || !sameOwnerProofScope(dependencyAdmission.scope) ||
+      dependencyAdmission.scope.owner !== owner)) fail('CLOAK_DEPOSIT_AUTHORIZATION_CHECKPOINT_MISSING');
+  return { dependencyStatus: dependencyAdmission ? OWNER_PROOF_RESIDUAL_LABEL : 'ALL UNCHANGED GATES ADMITTED', dependencyAdmission };
+}
 /** Exposes no wallet authority. A deposited note is complete only after authenticated reload and finalized chain membership. */
 export async function recoverOwnerDeposit(vault: PrivateStateVault, identity: PrivateStateIdentity) {
   const p = await vault.loadExecution(identity, 'execution.prepared') as DepositCheckpoint | null;
@@ -192,10 +205,12 @@ export async function recoverOwnerDeposit(vault: PrivateStateVault, identity: Pr
       !Array.isArray(p.outputUtxos) || p.outputUtxos.length !== 2 || JSON.stringify(p.outputUtxos[0]) !== JSON.stringify(p.note))
     fail('CLOAK_DEPOSIT_CHECKPOINT_INVALID');
   if (!signed) return { state: 'RECOVERY_REQUIRED' as const, reason: 'CLOAK_DEPOSIT_SIGNATURE_CHECKPOINT_MISSING' };
-  const intent = await vault.loadExecution(identity, 'execution.intent') as { reviewDigest?: string; messageDigest?: string } | null;
+  const intent = await vault.loadExecution(identity, 'execution.intent') as { reviewDigest?: string; messageDigest?: string;
+    dependencyAdmission?: OwnerProofAcceptance | null } | null;
   const handoff = await vault.loadExecution(identity, 'execution.handoff') as { signature?: string; submissionCount?: number } | null;
   if (intent?.reviewDigest !== review.reviewDigest || intent?.messageDigest !== review.messageDigest ||
       handoff?.signature !== signed.signature || handoff?.submissionCount !== 1) fail('CLOAK_DEPOSIT_AUTHORIZATION_CHECKPOINT_MISSING');
+  const dependency = depositDependencyEvidence(intent?.dependencyAdmission, identity.owner);
   const tx = parseTransaction(fromBase64(signed!.signedTransaction));
   if (tx.signatures.length !== 1 || sha256Hex(tx.message) !== review.messageDigest || signed.reviewDigest !== review.reviewDigest ||
       base58Encode(tx.signatures[0]!) !== signed.signature || !verifyEd25519(tx.signatures[0]!, tx.message, identity.owner)) fail('CLOAK_DEPOSIT_WALLET_TRANSACTION_CHANGED');
@@ -238,7 +253,7 @@ export async function recoverOwnerDeposit(vault: PrivateStateVault, identity: Pr
     programId: identity.programId, genesisHash: identity.genesisHash, depositLamports: p.manifest.depositLamports,
     commitment: p.manifest.outputCommitment, signature: result.signature, explorer: `https://explorer.solana.com/tx/${result.signature}`,
     slot: result.slot, blockTime: result.blockTime, manifestHash: result.manifestHash, reviewDigest: result.reviewDigest,
-    submissionCount: 1, encryptedOutputUtxosReloadVerified: true };
+    submissionCount: 1, encryptedOutputUtxosReloadVerified: true, ...dependency };
 }
 // RPC's branded signature type is structurally a string; validating the wire signature above supplies its provenance.
 const toAddressSignature = (value: string) => value as Parameters<ReturnType<typeof createCloakRpc>['getTransaction']>[0];

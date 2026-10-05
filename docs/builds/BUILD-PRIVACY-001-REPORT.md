@@ -1,5 +1,7 @@
 # BUILD-PRIVACY-001 — current implementation report
 
+Latest [blocker-closure pass](BUILD-PRIVACY-001-BLOCKER-CLOSURE.md): the inherited SBOM array-validation defect is fixed and 152 focused owner-proof tests pass, including genuine preparation with zero Elliptic private-key calls. The verifier still fails on 21 policy findings and audit on one LOW advisory with no compatible published fix. **READY_FOR_OWNER_EXECUTION remains false.** No acceptance/admission record or owner transaction was created.
+
 ## Status and commit boundary
 
 **Admission continuation after owner-observed Phantom PASS:** all 149 added package identities now have concrete route/SRI/release-age review evidence against the authenticated 262-identity baseline; no baseline package identity/SRI changed. Package archives and actual legal text were inspected for 14 license findings plus the Apache-2.0 SDK. Three GPL archives lack packaged legal files/source grant headers and remain unresolved. Fresh audit still fails on one low Elliptic advisory; stable/staging provider graphs retain the vulnerable exact dependency with no compatible patched published release. The [concrete review packet](BUILD-PRIVACY-001-ADMISSION-REVIEW.md) documents the remaining decisions. No gate was weakened, no inventory/license acceptance is claimed, and no real signature/submission occurred.

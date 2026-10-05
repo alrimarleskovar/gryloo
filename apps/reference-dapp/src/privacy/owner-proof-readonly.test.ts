@@ -5,6 +5,7 @@ import { setCircuitsPath } from '@cloak.dev/sdk';
 import { writeFile } from 'node:fs/promises';
 import { prepareOwnerDeposit } from './owner-proof-deposit';
 import { PrivateStateVault } from './vault';
+import { ellipticPrivateKeyTripwire } from './owner-proof-elliptic.test-support';
 describe.runIf(process.env.CLOAK_OWNER_PROOF_READONLY === '1')('owner deposit: genuine SDK/public mainnet, never signing/submitting', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('prepares the exact minimum deposit with a capture-only signer and encrypted synthetic-session storage', async () => {
@@ -23,12 +24,15 @@ describe.runIf(process.env.CLOAK_OWNER_PROOF_READONLY === '1')('owner deposit: g
       putNew: async (k, value) => { if (records.has(k)) throw new Error('DUPLICATE'); records.set(k, value); } }, crypto.randomUUID());
     const owner = process.env.CLOAK_OWNER_PROOF_PUBLIC_OWNER;
     if (!owner) throw new Error('PUBLIC_OWNER_REQUIRED');
-    const p = await prepareOwnerDeposit(vault, owner);
+    // GHSA-848j-6mx2-7j84 reachability: genuine SDK proving/preparation must never use a secp256k1 private key.
+    const tripwire = ellipticPrivateKeyTripwire();
+    const p = await prepareOwnerDeposit(vault, owner).finally(() => tripwire.restore());
     const publicResult = { owner, depositLamports: p.manifest.depositLamports, program: p.manifest.programId,
       simulation: p.simulation, networkFeeLamports: p.networkFeeLamports, totalWalletDebitLamports: p.simulatedWalletDebitLamports,
       messageDigest: p.messageDigest, manifestHash: p.manifestHash, unsignedBytes: atob(p.unsignedTransaction).length,
-      transactionCount: 1, signaturesRequested: 0, submissions: 0 };
+      transactionCount: 1, signaturesRequested: 0, submissions: 0, ellipticPrivateKeyUses: tripwire.calls.length };
     await writeFile('.turbo/privacy-owner-deposit-readonly.json', JSON.stringify(publicResult, null, 2));
+    expect(tripwire.signingKeyLoaded()).toBe(true); expect(tripwire.calls).toEqual([]);
     expect(p.manifest.depositLamports).toBe('10000000'); expect(p.messageDigest).toMatch(/^0x[a-f0-9]{64}$/);
     expect(records.size).toBe(3); expect([...records.values()].every(v => !v.includes('viewingKeyNk'))).toBe(true);
   }, 240_000);

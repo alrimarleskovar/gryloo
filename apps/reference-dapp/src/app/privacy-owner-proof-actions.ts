@@ -4,12 +4,13 @@
 import { createCloakRpc, toAddress, fetchLookupTables, getShieldPoolPDAs } from '@cloak.dev/sdk';
 import { base58Encode, decompileMessageV0, fromBase64, parseMessageV0, parseTransaction, sha256Hex, verifyEd25519 } from '@defi-workflow-engine/reference-compiler';
 import { digestRawResponse } from '@defi-workflow-engine/reference-linter';
-import { mkdir, open } from 'node:fs/promises';
+import { mkdir, open, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CLOAK_RUNTIME } from '../privacy/cloak-adapter';
 import { CLOAK_READ_RPC } from '../privacy/live-proof';
 import { assertDepositInstructions, type OwnerDepositPreparation } from '../privacy/owner-proof-deposit';
-import { ownerProofConfiguration } from '../privacy/owner-proof-configuration';
+import { ownerProofConfiguration, ownerProofJournalPaths } from '../privacy/owner-proof-configuration';
+import { ownerProofAdmitted, type OwnerProofConfiguration } from '../privacy/owner-proof-gate';
 import { bytesBase64 } from '../privacy/provider-contract';
 
 const methods = new Set(['getGenesisHash', 'getSlot', 'getAccountInfo', 'getMultipleAccounts', 'getLatestBlockhash',
@@ -26,12 +27,16 @@ export async function readOwnerProofRpc(method: string, args: unknown[]): Promis
   const rpc = createCloakRpc(CLOAK_READ_RPC) as unknown as Record<string, (...params: unknown[]) => { send(): Promise<unknown> }>;
   return rpc[method]!(...args).send();
 }
-export async function broadcastOwnerDeposit(prepared: OwnerDepositPreparation, signedTransaction: string): Promise<string> {
+const digest = (v: unknown) => digestRawResponse(new TextEncoder().encode(JSON.stringify(v)));
+const journalPaths = (owner: string) => ownerProofJournalPaths(resolve(process.cwd(), '../..'), owner);
+async function admittedConfiguration(): Promise<OwnerProofConfiguration> {
   const configuration = await ownerProofConfiguration();
-  if (!configuration.enabled || Date.now() >= configuration.expiresAt || Object.values(configuration.admission).some(v => v !== true))
-    throw new Error('CLOAK_OWNER_PROOF_DISABLED');
+  if (!ownerProofAdmitted(configuration) || Date.now() >= configuration.expiresAt) throw new Error('CLOAK_OWNER_PROOF_DISABLED');
+  return configuration;
+}
+/** Only the exact digest-bound Review and Manifest for the admitted owner's 0.01 SOL deposit can be signed or sent. */
+async function assertReviewedPreparation(prepared: OwnerDepositPreparation, configuration: OwnerProofConfiguration): Promise<void> {
   const { reviewDigest, ...reviewValue } = prepared;
-  const digest = (v: unknown) => digestRawResponse(new TextEncoder().encode(JSON.stringify(v)));
   if (await digest(reviewValue) !== reviewDigest || await digest(prepared.manifest) !== prepared.manifestHash ||
       prepared.manifest.owner !== configuration.owner || prepared.identity.owner !== configuration.owner || prepared.simulation !== 'PASSED' ||
       prepared.manifest.provider !== 'cloak' || prepared.manifest.depositLamports !== '10000000' ||
@@ -42,6 +47,37 @@ export async function broadcastOwnerDeposit(prepared: OwnerDepositPreparation, s
       prepared.manifest.lastValidBlockHeight !== prepared.lastValidBlockHeight || prepared.manifest.networkFeeLamports !== prepared.networkFeeLamports ||
       prepared.manifest.walletDebitLamports !== prepared.simulatedWalletDebitLamports || prepared.simulatedWalletDebitLamports === null)
     throw new Error('CLOAK_OWNER_PROOF_REVIEW_CHANGED');
+  const scope = configuration.acceptance?.scope;
+  if (scope && (prepared.manifest.owner !== scope.owner || prepared.manifest.genesisHash !== scope.genesisHash || prepared.manifest.programId !== scope.programId ||
+      prepared.manifest.mint !== scope.mint || prepared.manifest.depositLamports !== scope.depositLamports)) throw new Error('CLOAK_OWNER_RESIDUAL_SCOPE_EXCEEDED');
+}
+/** Exclusive, fsynced public journal written once; its existence is the one-shot reservation. */
+async function writeExclusiveJournal(directory: string, path: string, value: unknown, duplicate: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  let journal;
+  try { journal = await open(path, 'wx', 0o600); }
+  catch { throw new Error(duplicate); }
+  try { await journal.writeFile(JSON.stringify(value)); await journal.sync(); } finally { await journal.close(); }
+  const dir = await open(directory, 'r'); try { await dir.sync(); } finally { await dir.close(); }
+}
+/** Called after Review/Manifest authorization and before the wallet opens. At most one signature request per owner proof. */
+export async function reserveOwnerDepositSignature(prepared: OwnerDepositPreparation): Promise<void> {
+  const configuration = await admittedConfiguration();
+  await assertReviewedPreparation(prepared, configuration);
+  const paths = journalPaths(configuration.owner);
+  await writeExclusiveJournal(paths.directory, paths.signatureRequest, { messageDigest: prepared.messageDigest, manifestHash: prepared.manifestHash,
+    reviewDigest: prepared.reviewDigest, signatureRequests: 1, dependencyAdmission: configuration.acceptance, state: 'WALLET_SIGNATURE_REQUESTED' },
+  'CLOAK_DEPOSIT_DUPLICATE_SIGNATURE_REQUEST_DENIED');
+}
+export async function broadcastOwnerDeposit(prepared: OwnerDepositPreparation, signedTransaction: string): Promise<string> {
+  const configuration = await admittedConfiguration();
+  await assertReviewedPreparation(prepared, configuration);
+  const paths = journalPaths(configuration.owner), { reviewDigest } = prepared;
+  let reservation: { messageDigest?: string; manifestHash?: string; reviewDigest?: string } | null;
+  try { reservation = JSON.parse(await readFile(paths.signatureRequest, 'utf8')); } catch { reservation = null; }
+  // Only the transaction whose signature request was reserved can be submitted.
+  if (reservation?.messageDigest !== prepared.messageDigest || reservation.manifestHash !== prepared.manifestHash || reservation.reviewDigest !== reviewDigest)
+    throw new Error('CLOAK_DEPOSIT_SIGNATURE_RESERVATION_REQUIRED');
   const signed = parseTransaction(fromBase64(signedTransaction)), unsigned = parseTransaction(fromBase64(prepared.unsignedTransaction));
   if (signed.signatures.length !== 1 || unsigned.signatures.length !== 1 || sha256Hex(signed.message) !== prepared.messageDigest ||
       bytesBase64(unsigned.message) !== bytesBase64(signed.message) || unsigned.signatures[0]!.some(b => b !== 0) ||
@@ -64,15 +100,9 @@ export async function broadcastOwnerDeposit(prepared: OwnerDepositPreparation, s
     throw new Error('CLOAK_DEPOSIT_PREFLIGHT_OR_REVIEWED_COST_CHANGED');
   const signature = base58Encode(signed.signatures[0]!);
   // Public submission journal is independent of the browser vault and survives server restart. One owner-proof attempt forever.
-  const directory = resolve(process.cwd(), '../../.turbo/privacy-owner-proof-broadcast'); await mkdir(directory, { recursive: true });
-  let journal;
-  try { journal = await open(resolve(directory, configuration.owner + '.json'), 'wx', 0o600); }
-  catch { throw new Error('CLOAK_DEPOSIT_DUPLICATE_SUBMISSION_DENIED'); }
-  try {
-    await journal.writeFile(JSON.stringify({ signature, messageDigest: prepared.messageDigest, manifestHash: prepared.manifestHash,
-      reviewDigest, submissionCount: 1, state: 'SUBMISSION_OUTCOME_UNKNOWN' })); await journal.sync();
-  } finally { await journal.close(); }
-  const dir = await open(directory, 'r'); try { await dir.sync(); } finally { await dir.close(); }
+  await writeExclusiveJournal(paths.directory, paths.broadcast, { signature, messageDigest: prepared.messageDigest, manifestHash: prepared.manifestHash,
+    reviewDigest, submissionCount: 1, dependencyAdmission: configuration.acceptance, state: 'SUBMISSION_OUTCOME_UNKNOWN' },
+  'CLOAK_DEPOSIT_DUPLICATE_SUBMISSION_DENIED');
   if (Date.now() >= prepared.expiresAt || Date.now() >= configuration.expiresAt) throw new Error('CLOAK_DEPOSIT_REVIEW_EXPIRED');
   return rpc.sendTransaction(signedTransaction as Parameters<typeof rpc.sendTransaction>[0], {
     encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed', maxRetries: 0n }).send();
