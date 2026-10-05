@@ -130,18 +130,16 @@ function AppShellContent() {
           crossChainWorkflow ? <CrossChainLiquidityPanel view="execute"/> : across.run ? <AcrossPanel view="execute"/> :
           bridgeSwap.run ? <BridgeSwapPanel view="execute"/> : bridge.execution ? <BridgePanel view="execute"/> :
           <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
-        : <section className="unavailable panel" aria-label="Execute unavailable"><p className="eyebrow">EXECUTE / UNAVAILABLE</p><h2>{environment === 'PUBLIC_TESTNET' || environment === 'MAINNET' ? 'Execution unavailable in selected environment' : 'Execute is not implemented for mocked or observed artifacts'}</h2><p>Mocked quote and simulation artifacts cannot authorize execution. Read-only Base observations cannot authorize execution either. There is no wallet, signature, transaction, execution or outcome here.</p>
-          {blocker && <p role="status">{capabilityBlockMessage(blocker, blockedNode)}</p>}
-          {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
-          <button type="button" onClick={() => setTab('Build')}>Return to Build</button></section>;
+        : null;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
     <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
       {tab === 'Execute' && !productExecutionPath ? <>
-        <section className="stage-empty panel"><h2>Prepare for execution</h2>
+        <WorkflowCanvas mode="execute" workflowName={workflowName}/>
+        <details className="shell-details technical-workspace"><summary>Technical diagnostics</summary>{executionSurface ? stageContent : <>
           <p>A supported workflow, current simulation and explicit wallet authorization are required before execution.</p>
-          <button type="button" onClick={() => setTab('Build')}>Return to Build</button>
-        </section>
-        <details className="shell-details technical-workspace"><summary>Technical diagnostics</summary>{stageContent}</details>
+          {blocker && <p role="status">{capabilityBlockMessage(blocker, blockedNode)}</p>}
+          {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
+        </>}</details>
       </> : stageContent}
       {state.error && <div className="error-banner" role="alert"><strong>Edit not applied</strong><span>{state.error}</span></div>}
     </main><SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost}/>

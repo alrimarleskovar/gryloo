@@ -15,12 +15,49 @@ vi.mock('../state/build009-wallet-store', () => ({ useBuild009Wallet: () => ({ a
 vi.mock('@xyflow/react', async () => {
   const React = await import('react');
   return {
-    ReactFlow: ({ nodes, nodeTypes }: { nodes: { id: string; data: unknown }[]; nodeTypes: { workflow: React.ComponentType } }) =>
-      React.createElement('div', {}, nodes.map(node => React.createElement(nodeTypes.workflow, { key: node.id, data: node.data } as React.Attributes))),
+    ReactFlow: ({ nodes, nodeTypes, nodesDraggable, nodesConnectable, elementsSelectable }: { nodes: { id: string; data: unknown }[]; nodeTypes: { workflow: React.ComponentType }; nodesDraggable?: boolean; nodesConnectable?: boolean; elementsSelectable?: boolean }) =>
+      React.createElement('div', { 'data-graph-readonly': nodesDraggable === false && nodesConnectable === false && elementsSelectable === false }, nodes.map(node => React.createElement(nodeTypes.workflow, { key: node.id, data: node.data } as React.Attributes))),
     Background: () => null, Controls: () => null, Handle: () => null, Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
     useNodesState: (nodes: unknown) => [nodes, vi.fn(), vi.fn()], useNodesInitialized: () => false,
     useReactFlow: () => ({ fitView: vi.fn() }), useStore: () => '', useStoreApi: () => ({}), useUpdateNodeInternals: () => vi.fn(),
   };
+});
+
+describe('Execute workflow overview', () => {
+  function renderOverview() {
+    const before = JSON.stringify(fixture.store.state.workflow);
+    const html = renderToStaticMarkup(createElement(WorkflowCanvas, { mode: 'execute', workflowName: 'ESPARTACUS' }));
+    expect(html).toContain('aria-label="Workflow overview graph"');
+    expect(html).toContain('data-graph-readonly="true"');
+    expect(html).toContain('<h2>ESPARTACUS</h2>');
+    expect(html).not.toMatch(/<form|<input|data-mocked-value|Expected |Minimum |Select to edit|Generate mocked|MOCK|EXECUTE \/ UNAVAILABLE|Completed|Running|Confirmed/);
+    expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+    for (const handler of [fixture.store.dispatch, fixture.store.propose, fixture.store.moveCanvasNodes, fixture.store.addCanvasCommand]) expect(handler).not.toHaveBeenCalled();
+    return html;
+  }
+
+  it('renders an empty workflow surface without the internal scaffold or authoring controls', () => {
+    setWorkflow();
+    expect(renderOverview()).not.toMatch(/class="flow-card|<button|Start your workflow|Add action|Rename workflow/);
+  });
+
+  it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('shows the canonical %s parameters without editing or execution claims', action => {
+    setWorkflow(action);
+    const html = renderOverview();
+    expect(html).toContain('class="flow-card"');
+    expect(html).toContain('USDC');
+    expect(html).toContain('AAVE V3');
+    expect(html).toContain('Base Sepolia');
+  });
+
+  it('shows the authored swap amount without projecting simulation outputs as execution results', () => {
+    setWorkflow();
+    fixture.store.state = editorReducer(initialEditor(), { type: 'ADD_SWAP', direction: 'USDC_TO_WETH', amount: '2.25', slippage: '50', source: 'CHAT', baseRevision: 0 }, fixture.store.context);
+    const html = renderOverview();
+    expect(html).toContain('USDC → WETH');
+    expect(html).toContain('2.25 USDC');
+    expect(fixture.store.state.workflow.revision).toBe(1);
+  });
 });
 
 const owner = '0x1111111111111111111111111111111111111111';

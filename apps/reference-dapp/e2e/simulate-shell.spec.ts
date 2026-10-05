@@ -12,11 +12,13 @@ test('Simulate and Execute open directly on existing content without a workspace
   await expect(execution.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
   await expect(execution.getByRole('heading', { name: 'Execute', exact: true })).toHaveCount(0);
   expect(await execution.innerText()).not.toMatch(/Draft · Untitled workflow|EXECUTE \/ WORKFLOW|Current stage · Execute|Authorize and track execution|No chain selected|Revision 0/);
-  await expect(execution.locator(':scope > :first-child')).toHaveClass('stage-empty panel');
-  await expect(execution.getByRole('heading', { name: 'Prepare for execution', exact: true })).toBeVisible();
-  await expect(execution.getByRole('region', { name: 'Execute unavailable', exact: true })).toBeHidden();
+  await expect(execution.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow overview');
+  await expect(execution.getByRole('region', { name: 'Workflow overview graph', exact: true })).toBeVisible();
+  await expect(execution.locator('.stage-empty, .unavailable')).toHaveCount(0);
+  await expect(execution.getByRole('button', { name: 'Return to Build', exact: true })).toHaveCount(0);
+  await expect(execution.getByRole('region', { name: 'Execute unavailable', exact: true })).toHaveCount(0);
   await execution.locator('.technical-workspace > summary').click();
-  await expect(execution.getByRole('region', { name: 'Execute unavailable', exact: true })).toBeVisible();
+  await expect(execution.getByText('A supported workflow, current simulation and explicit wallet authorization are required before execution.', { exact: true })).toBeVisible();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).click();
   const main = page.getByRole('main', { name: 'Simulation workspace', exact: true });
   await expect(main).toBeVisible();

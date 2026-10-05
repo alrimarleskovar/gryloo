@@ -255,6 +255,31 @@ Deleted the now-unused WorkspaceHeading component and the shell's description-on
 
 Browser traffic was limited to the existing loopback preview/development HMR, external requests blocked, and zero wallet signing/transaction requests verified. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, public/fork financial execution, PostgreSQL, Anvil, audit, SBOM or final certification was run.
 
+### Owner-directed Execute workflow surface
+
+Commit subject: `UX-001A: replace Execute placeholder with workflow surface`.
+
+Presentation changes:
+
+- Removed the fallback Prepare for execution card, large Execute unavailable block, EXECUTE / UNAVAILABLE eyebrow, mock/read-only explanatory hero and both inner Return to Build buttons. No replacement warning/empty-state hero was added. Global navigation and the existing footer action remain available.
+- The primary fallback Execute area now displays WorkflowCanvas in an Execute overview mode, reusing the existing read-only simulation graph's canonical node/edge projection, layout/fitting and bottom-right zoom controls. Neutral cards show authored action labels, chains, asset amounts and existing risk cues. They show no simulated output, transaction/result status or execution action. Nodes cannot be dragged, connected, selected or edited through this surface. The existing canonical scaffold is excluded as in Build/Simulate; an empty workflow simply shows the graph surface.
+- The heading is the same AppShell `workflowName` edited in Build and carried through Simulate. No Execute-only workflow, title state, persistence, canonical metadata or API was introduced.
+- Technical diagnostics remains below the graph. It retains capability explanations and local-runtime guidance when execution is unavailable, and the existing exact Manifest/execution/recovery panels when applicable. Existing product-specific public execution panels and all execution-path selection/eligibility conditions are unchanged. The overview describes current authored IR; authoritative reviewed runs remain in their existing runtime panels.
+
+Untouched guarantees: canonical IR/semantic hashes and revisions, simulation/artifact generation and provenance, runtime/backend/API/provider adapters, Review/Manifest binding, explicit wallet authorization, execution ownership and safety gates, journal/recovery/reconciliation/evidence. Build/Simulate behavior and Guided Chat are unchanged. No Part B work.
+
+| Minimal targeted validation | Result |
+| --- | --- |
+| Vitest: `components/build-correction.test.tsx`, `components/simulate-panel.test.tsx` | 17 tests passed. Empty and authored Execute rendering, shared supplied title, canonical swap/lending inputs, immutable IR and no authoring callbacks, read-only graph options and absence of fake outcomes/actions; existing Build cards/inspector/CTA and Simulate generation/diagnostic gates preserved. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source/browser tests | Passed. |
+| Focused Chromium: `e2e/execute-workflow.spec.ts`, `e2e/simulate-shell.spec.ts`, `e2e/execution-capabilities.spec.ts`, `e2e/simulate-cleanup.spec.ts` | Five distinct tests passed across the initial run and focused capability-file rerun. Shared ESPARTACUS title and 2.25 USDC workflow across Build/Simulate/Execute, graph first without placeholders, 1440px/390px fit/edge margins/no overflow, retained diagnostics/footer/revision, no unprepared authorization/execution controls, preserved Supply/liquidity panels and shared simulation controls/artifact/proof access. |
+| `git diff --check` | Passed. |
+
+The initial capability test assumed Add pool still produced an unsupported placeholder. It now authors the existing public Base Sepolia liquidity position, whose real execution panel is intentionally preserved. Corrected that obsolete expectation to verify its wallet requirement and absence of review acceptance/execution before preparation; the two-test file passed on rerun. No runtime code or gates were changed for this failure.
+
+Browser requests were restricted to the existing loopback preview/development HMR, external traffic blocked, and zero wallet signing/transaction requests verified. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, financial execution, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. Broader visual baselines and legacy visual selectors remain part of final integration/certification; this overview makes no execution/evidence maturity claim.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

@@ -18,11 +18,17 @@ test('normal Build keeps capability details internal and authoring wallet-free',
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
 });
 
-test('unsupported workflow stays out of public execution without permanent diagnostics', async ({ page }) => {
+test('an unprepared liquidity workflow cannot authorize or execute', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add pool' }).click();
   await expect(page.getByRole('region', { name: 'Workflow readiness' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toBeVisible();
+  const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });
+  const position = execution.getByRole('region', { name: 'Base Sepolia liquidity', exact: true });
+  await expect(position).toBeVisible();
+  await expect(execution.locator('.unavailable, .stage-empty')).toHaveCount(0);
+  await expect(position.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+  await expect(position.getByRole('button', { name: 'Accept liquidity review', exact: true })).toHaveCount(0);
+  await expect(position.getByRole('button', { name: /^Execute:/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Mode A execution' })).toHaveCount(0);
 });

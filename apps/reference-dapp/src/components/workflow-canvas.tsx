@@ -36,10 +36,17 @@ export function setCrossChainCanvasRuntime(workflowId: string, revision: number,
 }
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
 /** `solana`/`solanaKind`/`solanaProvider` mark a live-provider runtime card (Solana runtimes and the Base Sepolia Uniswap position). */
-type CardData = { lending?: boolean; title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; chain?: string; risk?: string; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
+type CardData = { overview?: boolean; lending?: boolean; title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; chain?: string; risk?: string; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
   const card = data as CardData;
+  if (card.overview) return <div className="flow-card">
+    <Handle type="target" position={card.lending ? Position.Top : Position.Left} isConnectable={false}/>
+    <span className="flow-card-kind">{card.chain}{card.supply ? ' · AAVE V3' : card.solanaProvider ? ` · ${card.solanaProvider}` : ''}</span>
+    <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
+    {card.risk && <span className="flow-card-risk">{card.risk}</span>}
+    <Handle type="source" position={card.lending ? Position.Bottom : Position.Right} isConnectable={false}/>
+  </div>;
   if(card.lending)return <div className={`flow-card ${card.selected?'active':''}`}>
     <Handle type="target" position={Position.Top} isConnectable={false}/>
     <span className="flow-card-kind">BASE SEPOLIA · {card.swap?'UNISWAP V3':'AAVE V3'}</span>
@@ -154,8 +161,8 @@ function SimulationViewport({ onState }: { onState: (state: ViewportState) => vo
   return null;
 }
 
-/** Read-only projection of the same IR with current mocked outputs only. */
-function SimulationCanvas({ workflowName, overlay, primaryAction }: { workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
+/** Read-only IR projection. Execute overview supplies no outputs or execution state. */
+function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: { mode: 'simulate' | 'execute'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
   const { state, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const nodes = useMemo(() => workflow.nodes.filter(node => !node.actionType.startsWith('mock-')).map((node, index) => {
@@ -185,16 +192,16 @@ function SimulationCanvas({ workflowName, overlay, primaryAction }: { workflowNa
     return { id: node.nodeId, type: 'workflow', position: lending?{x:180,y:35+index*230}:{ x: 60 + index * 280, y: 70 + (index % 2) * 40 },
       data: { chain: shellChainLabel(node.chainId), risk: node.actionType === 'borrow' ? 'Variable debt' : node.actionType === 'withdraw' ? 'Collateral change' : undefined, lending:Boolean(lending), title: lending?(node.nodeId==='lending-supply'?'Aave Supply':node.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap'):node.actionType==='asset.transfer'?'Self-transfer test ETH':lending&&node.actionType==='asset.swap.exact-input'?'Borrowed Aave USDC → WETH':node.actionType==='withdraw'?'Withdraw from Aave V3':node.actionType==='repay'?'Repay to Aave V3':node.actionType==='borrow'?'Borrow from Aave V3':node.actionType === 'supply' ? 'Supply to Aave V3' : crossChain ? (crossBridge ? 'Bridge USDC' : preparation ? 'Calculate destination split' : crossSwap ? 'Swap selected USDC for WETH' : 'Mint Uniswap v3 position') : routed ? (routed.network === 'testnet' ? 'Base Sepolia → Arbitrum Sepolia USDC' : 'Base → Arbitrum USDC') : across ? 'Base → Arbitrum USDC' : bridgeSwap ? (bridge ? 'Base → Arbitrum USDC' : 'Arbitrum USDC → WETH') : bridge ? 'Base → Optimism USDC' : isLiquidity ? 'WETH/USDC v3 position' : orcaPosition ? 'SOL/devUSDC position' : uniPosition ? 'USDC/WETH v3 position' : solana ? `${solana.from} → ${solana.to}` : swap ? `${swap.from} → ${swap.to}` : node.actionType.startsWith('mock-') ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : node.actionType, amount: node.actionType==='asset.transfer'?`${transferDetails(node as Parameters<typeof transferDetails>[0])?.amount} ETH · Robinhood Testnet`:lending?(node.actionType==='supply'?`${lending.supply} USDC collateral`:node.actionType==='borrow'?`${lending.borrow} USDC · HF checkpoint ≥ 2.0`:`Exactly ${lending.borrow} borrowed USDC`):node.actionType==='withdraw'?`${withdrawDetails(node as Parameters<typeof withdrawDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='repay'?`${repayDetails(node as Parameters<typeof repayDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType==='borrow'?`${borrowDetails(node as Parameters<typeof borrowDetails>[0])?.amount} USDC · Base Sepolia`:node.actionType === 'supply' ? `${supplyDetails(node as Parameters<typeof supplyDetails>[0])?.amount} USDC · Base Sepolia` : crossChain ? (crossBridge ? 'Base USDC → Arbitrum USDC' : preparation ? 'Reconciled amount → range ratio' : crossSwap ? 'Calculated partial USDC input' : `Ticks ${range} · fee 500`) : routed ? `${routed.amount} USDC → ${routed.recipient ? routed.recipient.slice(0, 8) + '…' : 'your wallet'} · ${routed.slippage} bps` : bridgeSwap && !bridge ? 'Reconciled USDC input' : bridge ? `${bridge.amount} USDC · ${bridge.slippageBps} bps` : isLiquidity ? `Ticks ${range} · fee 500` : orcaPosition ? `${orcaPosition.lowerPrice}–${orcaPosition.upperPrice} devUSDC/SOL · ${orcaPosition.network}` : uniPosition ? `${uniPosition.lowerPrice}–${uniPosition.upperPrice} USDC/WETH · ${uniPosition.network}` : solana ? `${solana.amount} ${solana.from} · ${solana.network} · ${solana.slippage} bps` : swap ? `${swap.amount} ${swap.from} · ${swap.slippage ?? 'missing'} bps` : `${amountOf(node)} sample units`, locked: node.lockedParameters.length > 0, selected: false, supply: ['supply','borrow','repay','withdraw'].includes(node.actionType), swap: node.actionType === SWAP_ACTION, solana: Boolean(solana || orcaPosition || uniPosition || routed), solanaKind: solana ? solanaSwapLabels(solana.network).kind : orcaPosition ? 'SOLANA DEVNET · ORCA' : uniPosition ? 'BASE SEPOLIA · UNISWAP V3' : routed ? (routed.network === 'testnet' ? 'TESTNET · BASE SEPOLIA → ARBITRUM SEPOLIA · CROSS-CHAIN ROUTER' : 'BASE → ARBITRUM · CROSS-CHAIN ROUTER') : undefined, solanaProvider: solana ? solanaSwapLabels(solana.network).provider : orcaPosition ? orcaPosition.provider : uniPosition ? uniPosition.provider : routed ? ROUTER_ROUTING_LABEL[routed.routing] : undefined, bridge: Boolean(bridge) || crossBridge, liquidity: isLiquidity, composition, bridgeSwap, across, crossChain, preparation, simulate },
     };
-  }), [workflow, overlay, context]);
+  }).map(node => mode === 'execute' ? { ...node, data: { ...node.data, overview: true } } : node), [workflow, overlay, context, mode]);
   const edges = useMemo(() => (lendingCanvasEdges(workflow)??workflow.resourceEdges.map(edge => ({
     id: `${edge.fromNodeId}-${edge.toNodeId}`, source: edge.fromNodeId, target: edge.toNodeId, label: edge.outputId === 'swap-input' ? 'Calculated swap USDC' : edge.outputId === 'liquidity-usdc' ? 'Reserved liquidity USDC' : edge.outputId === 'liquidity-weth' ? 'Existing WETH' : edge.outputId === 'amount-out' && edge.inputName === 'amount0-max' ? 'Reconciled WETH output' : edge.outputId === 'amount-out' && edge.inputName === 'weth-from-swap' ? 'WETH output reference' : edge.inputName === 'amount-in' ? 'Arbitrum USDC output' : 'sample units', animated: false,
   }))), [workflow]);
   const swaps = workflow.nodes.filter(n => n.actionType === SWAP_ACTION).length;
   const bridges = workflow.nodes.filter(n => n.actionType === 'asset.bridge').length;
   const [viewportState, setViewportState] = useState<ViewportState>('pending');
-  return <section className="canvas simulate-canvas panel" aria-label="Mocked outputs graph">
+  return <section className="canvas simulate-canvas panel" aria-label={mode === 'execute' ? 'Workflow overview' : 'Mocked outputs graph'}>
     <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{nodes.length} actions</span></div>
-    <div className="flow-surface" role="region" aria-label="Mocked outputs on the workflow graph" data-viewport={viewportState}>
+    <div className="flow-surface" role="region" aria-label={mode === 'execute' ? 'Workflow overview graph' : 'Mocked outputs on the workflow graph'} data-viewport={viewportState}>
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
         <SimulationViewport onState={setViewportState} />
@@ -202,13 +209,14 @@ function SimulationCanvas({ workflowName, overlay, primaryAction }: { workflowNa
       </ReactFlow>
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot"><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} {workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base'} swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></div>
+    <div className="canvas-foot">{mode === 'execute' ? <span>Workflow overview</span> : <><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} {workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base'} swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></>}</div>
   </section>;
 }
 
 type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
-export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
-  if ('mode' in props) return <SimulationCanvas workflowName={props.workflowName} overlay={props.overlay} primaryAction={props.primaryAction}/>;
+const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
+export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
+  if ('mode' in props) return <ReadonlyWorkflowCanvas mode={props.mode} workflowName={props.workflowName} overlay={props.mode === 'simulate' ? props.overlay : EMPTY_OVERLAY} primaryAction={props.mode === 'simulate' ? props.primaryAction : undefined}/>;
   return <BuildCanvas {...props}/>;
 }
 
