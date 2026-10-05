@@ -271,16 +271,10 @@
 .skip-link:focus{transform:translateY(0);clip-path:none}
 .top-bar{height:auto;min-height:80px;display:grid;grid-template-columns:minmax(160px,1fr) auto minmax(260px,1fr);align-items:center;gap:14px 24px;padding:18px 28px 0}
 .brand{letter-spacing:-.04em;gap:12px}.brand-mark{width:auto;height:auto;display:flex;align-items:center;flex:none}
-.brand small{font-size:11px;letter-spacing:.08em;font-weight:400;line-height:1.5;color:var(--muted);padding-left:14px;opacity:.78}
-.brand:hover small{opacity:1}
-@media(prefers-reduced-motion:no-preference){
-  .brand small{transform:translateX(-4px);transition:transform 180ms cubic-bezier(.22,1,.36,1),opacity 180ms ease}
-  .brand:hover small{transform:translateX(0)}
-}
 .tabs{height:auto;gap:4px;order:0}
 .tabs button{min-height:44px;min-width:106px;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid transparent;border-radius:8px;font-weight:600}
 .tabs button:hover{background:var(--soft)}.tabs button.selected{background:var(--blue-soft);border-color:#c9ddff;color:var(--blue)}
-.stage-number{width:20px;height:20px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:10px;font-variant-numeric:tabular-nums}
+.stage-number{width:20px;height:20px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:10px;font-variant-numeric:tabular-nums}
 .tabs button.selected .stage-number{background:var(--blue);border-color:var(--blue);color:white}
 .top-meta{min-width:0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;white-space:normal;color:var(--ink)}
 .top-meta .wallet-connection{display:inline;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
@@ -302,9 +296,10 @@
 .summary-bar{padding:16px 28px;min-height:76px}.summary-bar>div:first-child{flex-wrap:wrap}
 .summary-bar button:not(:disabled){background:var(--blue);border-color:var(--blue);color:white}
 @media(max-width:1280px){.brand small{display:none}.top-bar{gap:12px;grid-template-columns:minmax(110px,1fr) auto minmax(240px,1fr)}}
+@media(min-width:801px) and (max-width:900px){.tabs button{min-width:0;padding:10px 6px;gap:6px}}
 @media(max-width:800px){
   .top-bar{grid-template-columns:minmax(0,1fr);padding:16px 18px 0;gap:14px}
-  .brand{grid-row:1}.tabs{grid-row:2;width:100%;justify-content:stretch}.tabs button{flex:1;min-width:0;padding:10px 6px}
+  .brand{grid-row:1}.tabs{grid-row:2;width:100%;justify-content:stretch}.tabs button{flex:1;min-width:0;padding:10px 6px;font-size:12px;gap:6px}
   .top-meta{grid-row:3;justify-content:flex-start;max-width:100%}.shell-network-row{grid-row:4}
   .shell-technical{width:100%;margin-left:0}.wallet-toast{right:12px;max-width:calc(100% - 24px)}
   .main{padding:22px 16px}.workflow-context{gap:8px 12px;margin-bottom:20px}.workflow-chains{flex-basis:100%}

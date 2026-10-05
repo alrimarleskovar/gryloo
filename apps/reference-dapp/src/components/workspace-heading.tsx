@@ -6,6 +6,7 @@ import { useWorkflow } from '../state/workflow-store';
 
 export function WorkspaceHeading({ stage, description }: { stage: WorkflowStage; description: string }) {
   const { state } = useWorkflow();
+  if (stage === 'Build') return null;
   const context = workflowShellContext(state.workflow);
   return <section className="workspace-heading" aria-label="Workflow workspace">
     <div className="workflow-context" data-workflow-id={context.workflowId} data-workflow-revision={context.revision}>
@@ -15,8 +16,8 @@ export function WorkspaceHeading({ stage, description }: { stage: WorkflowStage;
       <span className="workflow-chains">{context.chains.length ? context.chains.join(' · ') : 'No chain selected'}</span>
     </div>
     <div className="page-heading"><div>
-      <p className="eyebrow">{stage === 'Build' ? 'BUILD / WORKFLOW' : `${stage.toUpperCase()} / WORKFLOW`}</p>
-      <h1 id="workspace-title">{stage === 'Build' ? product.strategyName : stage}</h1>
+      <p className="eyebrow">{stage.toUpperCase()} / WORKFLOW</p>
+      <h1 id="workspace-title">{stage}</h1>
       <p>{description}</p>
     </div><span className="stage-current">Current stage · {stage}</span></div>
     <p className="stage-guidance"><strong>{STAGE_GUIDANCE[stage].purpose}</strong><span>{STAGE_GUIDANCE[stage].detail}</span></p>

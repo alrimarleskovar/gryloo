@@ -55,8 +55,30 @@ describe('product shell rendering', () => {
     expect(wallet.switchTo).not.toHaveBeenCalled();
   });
 
-  it('retains draft identity and revision in every stage, without implying mock execution', () => {
-    for (const stage of WORKFLOW_STAGES) {
+  it('keeps Dashboard unnumbered and separate from the three lifecycle steps', () => {
+    const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Dashboard', setTab: vi.fn() }));
+    expect(html).toMatch(/aria-current="page"[^>]*>Dashboard<\/button>/);
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(html.match(/class="stage-number"/g)).toHaveLength(3);
+    for (const [index, stage] of WORKFLOW_STAGES.entries()) {
+      expect(html).toContain(`>${index + 1}</span>${stage}</button>`);
+    }
+    expect(html).toContain('src="/brand/flofi-logo.png"');
+    expect(html).toContain('alt="FloFi"');
+    expect(html).not.toContain('Compose · Verify · Execute');
+    expect(html).not.toContain('Workflow workspace');
+    expect(wallet.connect).not.toHaveBeenCalled();
+    expect(wallet.switchTo).not.toHaveBeenCalled();
+    expect(wallet.reset).not.toHaveBeenCalled();
+  });
+
+  it('renders no Build heading, metadata or guidance block', () => {
+    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage: 'Build', description: 'Add actions to the canvas.' }));
+    expect(html).toBe('');
+  });
+
+  it('retains draft identity and revision in Simulate and Execute, without implying mock execution', () => {
+    for (const stage of ['Simulate', 'Execute'] as const) {
       const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
       expect(html).toContain('data-workflow-id="workflow-local" data-workflow-revision="0"');
       expect(html).toContain('Draft · Untitled workflow');

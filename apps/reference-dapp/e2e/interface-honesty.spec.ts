@@ -21,7 +21,8 @@ test('provides semantic landmarks, labelled controls and keyboard access', async
   await page.goto('/');
   await expect(page.getByRole('main')).toHaveCount(1);
   await expect(page.getByRole('navigation', { name: 'Workflow stages' })).toHaveCount(1);
-  await expect(page.getByRole('heading', { level: 1, name: 'Untitled workflow' })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Workflow workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Untitled workflow' })).toHaveCount(0);
   await page.getByText('Technical authoring tools', { exact: true }).click();
   await expect(page.getByLabel('Describe a mock edit')).toBeVisible();
   await page.getByLabel('Describe a mock edit').focus();

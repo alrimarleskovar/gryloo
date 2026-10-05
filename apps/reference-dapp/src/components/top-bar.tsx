@@ -17,7 +17,8 @@ import { useJupiter } from '../state/jupiter-store';
 import Image from 'next/image';
 
 export type Tab = WorkflowStage;
-export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void }) {
+export type ProductSection = Tab | 'Dashboard';
+export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: ProductSection) => void }) {
   const { info, wallet } = useModeA();
   const modeB = useModeB();
   const build009 = useBuild009Wallet();
@@ -41,8 +42,8 @@ export function TopBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void
   const solanaActive = requiredChain?.startsWith('solana:') || Boolean(jupiter.recovered && jupiter.record && context.mockExample);
   const fork = info?.available ? info : null;
   return <header className="top-bar">
-    <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1062} height={299} unoptimized/></span><small>Compose · Verify · Execute</small></div>
-    <nav aria-label="Workflow stages" className="tabs">{WORKFLOW_STAGES.map((value, index) =>
+    <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1062} height={299} unoptimized/></span></div>
+    <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={tab === 'Dashboard' ? 'page' : undefined} className={tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
       {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
