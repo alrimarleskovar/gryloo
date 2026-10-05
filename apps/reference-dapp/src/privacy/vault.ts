@@ -107,6 +107,37 @@ export class PrivateStateVault {
       return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(plaintext));
     } catch { throw new Error('PRIVACY_STATE_UNREADABLE'); }
   }
+  /** Initial deposits have no funded input-note checkpoint yet. Export only authenticated encrypted records. */
+  async initialDepositBackup(identityInput: PrivateStateIdentity): Promise<string> {
+    const identityValue = structuredClone(identityInput), records: Record<string, string> = {};
+    for (const stage of ['execution.prepared', 'execution.journal.0', 'execution.intent', 'execution.signed', 'execution.handoff', 'execution.submitted', 'execution.reconciled']) {
+      const ciphertext = await this.backend.get(keyOf({ ...identityValue, checkpoint: stage }));
+      if (ciphertext !== null) { await this.loadExecution(identityValue, stage); records[stage] = ciphertext; }
+    }
+    if (!records['execution.prepared'] || !records['execution.journal.0']) fail('PRIVACY_RECOVERY_DATA_MISSING');
+    return JSON.stringify({ format: 'flofi.cloak-initial-deposit-backup.v1', identity: identityValue, records });
+  }
+  /** Restore is permanently inspection-only; a stale backup can never authorize another deposit. */
+  async restoreInitialDepositBackup(text: string): Promise<PrivateStateIdentity> {
+    if (text.length > 8_000_000) fail('PRIVACY_STATE_TOO_LARGE');
+    const parsed = JSON.parse(text) as { format?: string; identity: PrivateStateIdentity; records: Record<string, string> };
+    if (!exact(parsed, ['format', 'identity', 'records']) || parsed.format !== 'flofi.cloak-initial-deposit-backup.v1' ||
+        !exact(parsed.identity, identityFields) || !/^cloak-[a-f0-9]{32}$/.test(parsed.identity.runId) || !address(parsed.identity.owner) ||
+        !address(parsed.identity.programId) || !address(parsed.identity.genesisHash) || !/^0x[a-f0-9]{64}$/.test(parsed.identity.manifestHash) ||
+        !parsed.records || typeof parsed.records !== 'object' || !parsed.records['execution.prepared'] || !parsed.records['execution.journal.0']) fail('PRIVACY_STATE_INVALID');
+    const allowed = ['execution.prepared', 'execution.journal.0', 'execution.intent', 'execution.signed', 'execution.handoff', 'execution.submitted', 'execution.reconciled'];
+    if (Object.keys(parsed.records).some(s => !allowed.includes(s)) || !this.backend.putManyNew) fail('PRIVACY_ATOMIC_RESERVATION_UNAVAILABLE');
+    const staged = new Map(Object.entries(parsed.records).map(([stage, encrypted]) => [keyOf({ ...parsed.identity, checkpoint: stage }), encrypted]));
+    const inspector = new PrivateStateVault({ get: async k => staged.get(k) ?? null, putNew: async (k, v) => { if (staged.has(k)) fail('PRIVACY_STAGE_INVALID'); staged.set(k, v); } }, this.passphrase);
+    for (const stage of Object.keys(parsed.records)) await inspector.loadExecution(parsed.identity, stage);
+    const reservation = await digestRawResponse(new TextEncoder().encode(JSON.stringify(['owner-mainnet-proof-deposit',
+      parsed.identity.owner, parsed.identity.genesisHash, parsed.identity.programId])));
+    staged.set('cloak.reservation:' + reservation, parsed.records['execution.prepared']!);
+    // Even a backup containing the original intent must remain inspection-only after restoration.
+    await inspector.saveExecution(parsed.identity, 'execution.restore', { format: 'flofi.cloak-deposit-restored.v1', inspectionOnly: true });
+    await this.backend.putManyNew([...staged].map(([key, value]) => ({ key, value })));
+    return parsed.identity;
+  }
   async save(input: PrivateState): Promise<VaultReference> {
     // Snapshot before the first await so a caller cannot alter note ownership mid-write.
     const state: unknown = structuredClone(input); validatePrivateState(state);

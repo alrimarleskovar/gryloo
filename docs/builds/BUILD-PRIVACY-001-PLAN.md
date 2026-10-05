@@ -1,5 +1,9 @@
 # BUILD-PRIVACY-001 — Cloak private execution for Flofi
 
+## Latest priority: minimum owner-controlled mainnet deposit
+
+Prepare a separate genuine Cloak 0.01 SOL shield deposit before funded swap acceptance. Preserve the completed LOCAL demo and globally disabled production gate. Use actual SDK proof/transaction construction, fresh exact Review/Manifest authorization, explicit owner Wallet Standard signing, one submission, encrypted preservation of both SDK outputUtxos, restart inspection and finalized reconciliation. Default-disable this isolated proof path, require unchanged audit/SBOM/inventory/license admission, and stop before the first owner signature. No automatic funding, signing, retry, public fallback or challenge acceptance. [Current implementation and measured fees](BUILD-PRIVACY-001-MAINNET-DEPOSIT.md) supersede the earlier absence of an initial deposit UI; the full swap remains a separate later stage.
+
 ## Product demo slice — 2026-10-05
 
 After independent confirmation of the existing 40 LOCAL lifecycle tests, expose that engine through one **Run Privacy Demo** control on the canonical Cloak workflow. Use deterministic public synthetic SDK notes, existing fixture arithmetic and the unchanged compiler/authorization/ledger/encrypted-vault/reconciler. Require separate simulation, Review, Manifest, explicit acknowledgment and LOCAL execution steps. Recreate the controller for a visible encrypted-checkpoint recovery without resubmission, and export redacted mocked evidence. Label every stage **LOCAL DEMO / MOCKED EXECUTION — NO MAINNET TRANSACTION**.
