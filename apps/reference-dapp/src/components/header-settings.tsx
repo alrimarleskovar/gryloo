@@ -2,7 +2,7 @@
 'use client';
 import { useEffect, useId, useRef, useState } from 'react';
 
-export function HeaderSettings() {
+export function HeaderSettings({ onDisconnect, disconnectDisabled }: { onDisconnect: () => void; disconnectDisabled: boolean }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -31,7 +31,10 @@ export function HeaderSettings() {
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
     {open && <div className="header-settings-menu" id={menuId} role="group" aria-label="Settings options">
-      {['Language', 'Theme', 'Disconnect'].map(label => <button key={label} type="button" disabled>{label}</button>)}
+      {['Language', 'Theme'].map(label => <button key={label} type="button" disabled>{label}</button>)}
+      <button type="button" disabled={disconnectDisabled}
+        title="Clear this app’s wallet connection. Wallet permissions are managed in your wallet."
+        onClick={() => { onDisconnect(); setOpen(false); toggle.current?.focus(); }}>Disconnect</button>
     </div>}
   </div>;
 }

@@ -35,10 +35,16 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
     expect(settingsBox.height).toBe(40);
     expect(await wallet.evaluate(element => getComputedStyle(element).borderTopStyle)).toBe('solid');
     expect(await wallet.evaluate(element => parseFloat(getComputedStyle(element).borderRadius))).toBeGreaterThan(0);
-    await expect(wallet.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
+    await expect(wallet.getByRole('button', { name: 'Disconnect', exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
-  await wallet.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await settings.click();
+  await expect(options.getByRole('button', { name: 'Language', exact: true })).toBeVisible();
+  await expect(options.getByRole('button', { name: 'Theme', exact: true })).toBeVisible();
+  await expect(options.getByRole('button', { name: 'Disconnect', exact: true })).toBeEnabled();
+  await options.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(options).toHaveCount(0);
+  await expect(settings).toBeFocused();
   await expect(wallet).toContainText('Wallet not connected');
   await expect(wallet.getByRole('button', { name: 'Connect Wallet', exact: true })).toBeVisible();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
@@ -64,8 +70,7 @@ test('Settings toggles without layout changes, closes outside/Escape/Tab and lea
     expect(await page.getByRole('banner').boundingBox()).toEqual(headerBefore);
     expect(await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox()).toEqual(canvasBefore);
     const disconnect = options.getByRole('button', { name: 'Disconnect', exact: true });
-    await expect(disconnect).toBeDisabled();
-    await disconnect.dispatchEvent('click');
+    await expect(disconnect).toBeEnabled();
     await expect(page.getByRole('group', { name: 'Wallet connection' })).toContainText('0x1111…1111');
     await settings.press('Escape');
     await expect(options).toHaveCount(0);
@@ -77,6 +82,9 @@ test('Settings toggles without layout changes, closes outside/Escape/Tab and lea
     await expect(options).toHaveCount(0);
     await settings.click();
     await settings.press('Tab');
+    await expect(disconnect).toBeFocused();
+    await expect(options).toBeVisible();
+    await disconnect.press('Tab');
     await expect(options).toHaveCount(0);
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);

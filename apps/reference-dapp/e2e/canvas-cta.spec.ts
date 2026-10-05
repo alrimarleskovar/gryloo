@@ -20,9 +20,11 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       const ctaBox = (await cta.boundingBox())!;
       const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
       expect(Math.abs(graphBox.y + graphBox.height - ctaBox.y - ctaBox.height - 12)).toBeLessThan(1);
-      expect(Math.abs(graphBox.x + graphBox.width - ctaBox.x - ctaBox.width - 56)).toBeLessThan(1);
+      expect(Math.abs(graphBox.x + graphBox.width - ctaBox.x - ctaBox.width - 12)).toBeLessThan(1);
       expect(ctaBox.x).toBeGreaterThanOrEqual(graphBox.x);
-      expect(controlsBox.x - ctaBox.x - ctaBox.width).toBeGreaterThanOrEqual(12);
+      expect(ctaBox.y - controlsBox.y - controlsBox.height).toBeGreaterThanOrEqual(12);
+      expect(controlsBox.y).toBeGreaterThan(graphBox.y);
+      expect((await canvas.boundingBox())!.height).toBe(floating ? 680 : 590);
       const nodeBox = (await graph.locator('.flow-card').boundingBox())!;
       expect(ctaBox.x >= nodeBox.x + nodeBox.width || ctaBox.y >= nodeBox.y + nodeBox.height ||
         ctaBox.x + ctaBox.width <= nodeBox.x || ctaBox.y + ctaBox.height <= nodeBox.y).toBe(true);
@@ -52,7 +54,8 @@ test('Simular Fees keeps the same navigation-only action and guarded Supply revi
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeVisible();
-  await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
+  await expect(page.locator('.summary-bar button')).toHaveCount(0);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Build', exact: true }).click();

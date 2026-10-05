@@ -49,11 +49,10 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
     <div className="top-meta">
       <div className="header-wallet" role="group" aria-label="Wallet connection">
       {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
-        : build009.account ? <><span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>
-          <button type="button" onClick={build009.reset} disabled={build009.busy} title="Clear this app’s wallet connection. Wallet permissions are managed in your wallet.">Disconnect</button></>
+        : build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>
           : <><span className="wallet-connection">Wallet not connected</span><button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button></>}
       </div>
-      <HeaderSettings/>
+      <HeaderSettings onDisconnect={build009.reset} disconnectDisabled={Boolean(solanaActive) || !build009.account || build009.busy}/>
     </div>
     <div className="shell-network-row">
       {requiredChain && <span className="build009-required">Workflow network: {shellChainLabel(requiredChain)}</span>}

@@ -7,9 +7,14 @@ const stages = (page: Page) => page.getByRole('navigation', { name: 'Workflow st
 const summaries = (page: Page, surface: string) => page.locator(`${surface} .composer-card`).evaluateAll(cards => cards.map(card => {
   const title = card.querySelector('strong')?.textContent ?? '';
   const number = title.match(/^(\d+)\. /)?.[1];
+  // Compare the token route across Build's value boxes and Simulate's unchanged pair summary.
+  const destination = card.querySelector('.composer-destination-box .composer-amount-token')?.textContent;
+  const detail = destination && title.includes('Swap')
+    ? `${card.querySelector('.composer-amount .composer-amount-token')?.textContent} → ${destination}`
+    : (card.querySelector('.composer-detail')?.textContent ?? '').replace(/^Borrowed /, '');
   return [number ? `Step ${number}` : card.querySelector('.composer-step')?.textContent ?? '', title.replace(/^\d+\. /, ''),
-    ...['.composer-provider', '.composer-chain', '.composer-amount', '.composer-detail'].map(selector =>
-      (card.querySelector(selector)?.textContent ?? '').replace(/Cross-chain Router/g, 'Router'))];
+    ...['.composer-provider', '.composer-chain', '.composer-amount'].map(selector =>
+      (card.querySelector(selector)?.textContent ?? '').replace(/Cross-chain Router/g, 'Router')), detail];
 }));
 
 test.beforeEach(async ({ page }) => {

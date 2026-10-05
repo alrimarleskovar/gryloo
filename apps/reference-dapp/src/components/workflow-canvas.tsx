@@ -424,8 +424,8 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
     <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>Undo</span></button>
     <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
-    {toolboxMode === 'top' && <button type="button" aria-label="Delete card" title={deleteAllowed ? 'Delete card' : selectedId ? 'This card is required by the workflow or protected.' : 'Select a card to delete'} disabled={!deleteAllowed} onClick={deleteSelectedCard}>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg><span>Delete card</span>
+    {toolboxMode === 'top' && <button type="button" aria-label="Delete" title={deleteAllowed ? 'Delete' : selectedId ? 'This card is required by the workflow or protected.' : 'Select a card to delete'} disabled={!deleteAllowed} onClick={deleteSelectedCard}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg><span>Delete</span>
     </button>}
     {toolboxMode === 'top' && dockButton}
     </div>

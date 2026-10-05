@@ -146,3 +146,13 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Add a top-toolbar-only Delete card control immediately after Redo. Use the existing current selection, deletion guard and REMOVE command; retain lock/dependency protection and Undo/Redo. Keep utilities pinned on one row and primary actions reachable at narrow/zoomed widths.
 - Box only Build Swap/Bridge pair summaries to match the existing blue amount box. Derive Bridge token routes from supported bridge/router presentation readers, leave inspection cards unchanged, and retain the bottom-anchored footer.
 - Validate exact header text, deletion/guard/history behavior, toolbar geometry and reachability, paired boxes/footer/selection, focused regressions, app typecheck, lint and diff checks. Commit `UX-003A: refine advanced settings header and card controls`, then stop before UX-003B.
+
+
+### UX-003A refinement — canvas controls and Swap/Bridge value cards
+
+- Add 60px to Build canvas heights (590px standard, 680px floating toolbar, 820px lending), matching the desktop Copilot container while retaining the existing responsive column behavior. Preserve the canvas footer, graph interactions and editor below it.
+- Raise Build zoom/fit controls to a 70px bottom inset and move Simular Fees to a 12px right inset, retaining its 12px bottom inset. Leave Simulate and Execute controls unchanged.
+- Relocate the existing header wallet reset handler into Settings → Disconnect. Preserve the wallet display, busy/disconnected disabling and existing Solana wallet handling; keep Language and Theme in the popover. Retain outside/Escape dismissal and keyboard focus behavior.
+- Rename the existing top-toolbar Delete card action to Delete, preserving its guards, handler, history and single-row layout.
+- Replace only Build Swap/Bridge amount/pair presentation with stacked source/destination boxes, values on the left and known tokens on the right. Use existing summary data only; preserve symbolic source amounts and show Not quoted for unavailable destination amounts. Retain the blue title, compact provider/network metadata and pinned editing footer without inline editing or quote logic.
+- Validate focused component/browser regressions, wallet menu interaction, card value/token alignment, footer/selection/history, canvas/control geometry and narrow/zoomed toolbar reachability. Run app typecheck, touched-file lint and diff checks only. Commit `UX-003A: refine canvas controls and swap-bridge value cards`, then stop before UX-003B.

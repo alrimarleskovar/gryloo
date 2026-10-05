@@ -323,17 +323,19 @@
 
 /* Build layout: canvas and existing assistant, with selected parameters below. */
 .build-grid{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
-.build-grid>.canvas{width:100%;min-width:0}
-.build-grid>.copilot{height:530px;min-width:0;grid-column:auto}
-.build-grid:has(.floating-toolbox)>.canvas:not(.lending-canvas),.build-grid:has(.floating-toolbox)>.copilot{height:620px}
-.build-grid:has(.lending-canvas)>.copilot{height:760px}
+.build-grid>.canvas{width:100%;min-width:0;height:590px}
+.build-grid>.canvas.lending-canvas{height:820px}
+.build-grid>.copilot{height:590px;min-width:0;grid-column:auto}
+.build-grid:has(.floating-toolbox)>.canvas:not(.lending-canvas),.build-grid:has(.floating-toolbox)>.copilot{height:680px}
+.build-grid:has(.lending-canvas)>.copilot{height:820px}
 .build-grid+.inspector{min-width:0;width:100%}
 .build-grid+.inspector .inspector-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
 .build-grid+.inspector .inspector-fields>strong,.build-grid+.inspector .inspector-fields>p,.build-grid+.inspector .inspector-fields>small{grid-column:1/-1}
 .build-grid+.inspector .inspector-fields label{width:100%}.build-grid+.inspector input,.build-grid+.inspector select{width:100%;min-width:0;max-width:100%}
 .build-grid+.inspector p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 .build-grid+.inspector select{min-height:40px;border:1px solid var(--line);border-radius:6px;padding:0 10px;background:var(--paper);color:var(--ink);font:inherit}
-.build-flow-surface .react-flow__controls{margin:12px}
+.build-flow-surface .react-flow__controls{margin:12px 12px 70px}
+.build-flow-surface .canvas-primary-action{right:12px}
 .canvas-primary-action{position:absolute;z-index:5;right:56px;bottom:12px}
 .canvas-primary-action button{min-height:44px;padding:10px 16px;border:1px solid var(--blue);border-radius:9px;background:var(--blue);color:white;font-weight:700;box-shadow:0 5px 18px rgba(24,59,104,.2)}
 .canvas-primary-action button:hover{filter:brightness(.96)}
@@ -370,12 +372,13 @@
 .build-flow-surface .composer-card-state{align-self:start}
 .build-flow-surface .composer-metadata{font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .build-flow-surface .composer-selected{margin-top:auto;padding-top:6px;border-top:1px solid var(--line)}
-.build-flow-surface .composer-amount-box{display:flex;align-items:center;gap:6px;margin:4px 0;padding:9px 10px;border:1px solid #c9ddff;border-radius:7px;background:var(--blue-soft)}
-.composer-amount-box .composer-amount-value{min-width:0;font-size:20px;font-weight:750;line-height:1.2;overflow-wrap:anywhere}
-.composer-amount-box .composer-amount-token{flex:none;font-size:12px;font-weight:650;color:var(--blue)}
-.composer-amount-box svg{flex:none;margin-left:auto;color:var(--blue)}
+.build-flow-surface .composer-amount-box{display:flex;align-items:center;gap:6px;min-height:44px;margin:4px 0;padding:9px 10px;border:1px solid #c9ddff;border-radius:7px;background:var(--blue-soft)}
+.composer-amount-box .composer-amount-value{flex:1;min-width:0;font-size:20px;font-weight:750;line-height:1.2;overflow-wrap:anywhere}
+.composer-amount-box .composer-amount-token{flex:none;margin-left:auto;font-size:12px;font-weight:650;color:var(--blue)}
+.composer-amount-box svg{flex:none;color:var(--blue)}
 .composer-amount-box[data-symbolic] .composer-amount-value{font-size:12px;line-height:1.4}
-.build-flow-surface .composer-pair-box{display:block;margin-bottom:4px;padding:7px 10px;border:1px solid #c9ddff;border-radius:7px;background:var(--blue-soft);color:var(--blue);font-size:11px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.build-flow-surface .composer-destination-box{margin-top:0}
+.composer-destination-box .composer-amount-value{color:var(--muted);font-weight:500}
 .composer-provider,.composer-chain,.composer-detail{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .composer-provider{font-weight:600;color:var(--ink)}
 .composer-amount{font-size:13px;font-weight:650;margin-top:3px;overflow-wrap:anywhere}

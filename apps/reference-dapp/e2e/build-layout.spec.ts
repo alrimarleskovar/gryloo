@@ -46,7 +46,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(() => toolbar.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true);
     expect((await toolbar.boundingBox())!.width).toBe(46);
-    expect((await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!.height).toBe(620);
+    expect((await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!.height).toBe(680);
     for (const button of await toolbar.getByRole('button').all()) {
       const buttonBox = (await button.boundingBox())!;
       const iconBox = (await button.locator('svg').boundingBox())!;
@@ -56,7 +56,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
     const toolboxBox = (await toolbar.boundingBox())!;
     expect(lastButton.y + lastButton.height).toBeLessThanOrEqual(toolboxBox.y + toolboxBox.height);
     if (width === 1440) {
-      expect((await page.getByRole('complementary', { name: 'Workflow assistant' }).boundingBox())!.height).toBe(620);
+      expect((await page.getByRole('complementary', { name: 'Workflow assistant' }).boundingBox())!.height).toBe(680);
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -69,7 +69,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const currentGraphBox = (await graph.boundingBox())!;
   const controlsBox = (await controls.boundingBox())!;
   expect(Math.abs(currentGraphBox.x + currentGraphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
-  expect(Math.abs(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height - 12)).toBeLessThan(1);
+  expect(Math.abs(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height - 70)).toBeLessThan(1);
   const nodeBox = (await graph.locator('.flow-card').boundingBox())!;
   expect(controlsBox.x >= nodeBox.x + nodeBox.width || controlsBox.y >= nodeBox.y + nodeBox.height ||
     controlsBox.x + controlsBox.width <= nodeBox.x || controlsBox.y + controlsBox.height <= nodeBox.y).toBe(true);

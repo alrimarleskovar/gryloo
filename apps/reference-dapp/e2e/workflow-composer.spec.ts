@@ -153,7 +153,7 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
   const primary = toolbar.getByRole('group', { name: 'Workflow actions', exact: true });
   const utilities = toolbar.getByRole('group', { name: 'Workflow utilities', exact: true });
   const labels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap',
-    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete card', 'Undock toolbar'];
+    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete', 'Undock toolbar'];
   async function checkRow() {
     expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(labels);
     const centers = await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => {
@@ -200,16 +200,28 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
 });
 
-test('Swap and Bridge amount boxes select the existing editor, preserve the footer and retain history controls', async ({ page }) => {
+test('Swap and Bridge source/destination boxes select the existing editor, preserve the footer and retain history controls', async ({ page }) => {
   for (const width of [1440, 390]) for (const action of ['swap', 'bridge']) {
     await page.setViewportSize({ width, height: 900 });
     await open(page);
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
-    const card = cards(page), amount = card.locator('.composer-amount-box');
+    const card = cards(page), amount = card.locator('.composer-amount');
+    const destination = card.locator('.composer-destination-box');
     await expect(amount.locator('.composer-amount-value')).toHaveText('1');
     await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
     await expect(amount.locator('svg')).toBeVisible();
-    await expect(card.locator('.composer-pair-box')).toHaveText(action === 'swap' ? 'USDC → WETH' : 'USDC → USDC');
+    await expect(card.locator('.composer-amount-box')).toHaveCount(2);
+    await expect(destination.locator('.composer-amount-value')).toHaveText('Not quoted');
+    await expect(destination.locator('.composer-amount-token')).toHaveText(action === 'swap' ? 'WETH' : 'USDC');
+    const sourceBox = (await amount.boundingBox())!, destinationBox = (await destination.boundingBox())!;
+    expect(destinationBox.y).toBeGreaterThanOrEqual(sourceBox.y + sourceBox.height + 3);
+    expect(destinationBox.width).toBe(sourceBox.width);
+    for (const valueBox of [amount, destination]) {
+      const value = (await valueBox.locator('.composer-amount-value').boundingBox())!;
+      const token = (await valueBox.locator('.composer-amount-token').boundingBox())!;
+      expect(value.x + value.width).toBeLessThan(token.x);
+      expect(Math.abs(value.y + value.height / 2 - token.y - token.height / 2)).toBeLessThan(1);
+    }
     await expect(card.locator('input, form')).toHaveCount(0);
     const footerGap = await card.evaluate(element => {
       const footer = element.querySelector('.composer-selected') as HTMLElement;
@@ -279,9 +291,9 @@ test('Selected Action stays compact until selection and reopens for clicks and k
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });
 
-test('Delete card uses the current selection, honors locks/protected steps and remains undoable', async ({ page }) => {
+test('Delete uses the current selection, honors locks/protected steps and remains undoable', async ({ page }) => {
   await open(page);
-  const remove = page.getByRole('button', { name: 'Delete card', exact: true });
+  const remove = page.getByRole('button', { name: 'Delete', exact: true });
   await expect(remove).toBeDisabled();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await expect(remove).toBeEnabled();
@@ -295,7 +307,7 @@ test('Delete card uses the current selection, honors locks/protected steps and r
   await expect(remove).toBeDisabled();
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(cards(page).locator('.composer-amount-value')).toHaveText('1');
+  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('1');
   await expect(cards(page)).toHaveClass(/active/);
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('button', { name: 'Redo', exact: true }).click();

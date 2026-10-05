@@ -5,12 +5,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { initialWorkflow, freeze, type Workflow } from '../domain/initial-workflow';
 import { createRouterNode } from '../domain/router-authoring';
 import { TopBar } from './top-bar';
+import { HeaderSettings } from './header-settings';
 import { WORKFLOW_STAGES } from '../domain/product-shell';
 
 const fixture = vi.hoisted(() => ({ workflow: null as unknown as Workflow }));
 const wallet = vi.hoisted(() => ({ account: null as string | null, chainId: null as string | null,
   busy: false, providerError: null, error: null, connect: vi.fn(), switchTo: vi.fn(), reset: vi.fn() }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => ({ state: { workflow: fixture.workflow } }) }));
+vi.mock('./header-settings', async importOriginal => {
+  const actual = await importOriginal<typeof import('./header-settings')>();
+  return { HeaderSettings: vi.fn(actual.HeaderSettings) };
+});
 vi.mock('../state/build009-wallet-store', async () => {
   const { walletChainLabel } = await import('../wallet/evm-networks');
   return { useBuild009Wallet: () => wallet, chainName: walletChainLabel,
@@ -34,9 +39,11 @@ describe('product shell rendering', () => {
   it.each([false, true])('boxes the wallet and renders Settings collapsed when connected=%s', connected => {
     if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
-    expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<button[^>]*>[\s\S]*?<\/button><\/div><div class="header-settings-control"><button type="button" class="header-settings"/);
+    expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<\/div><div class="header-settings-control"><button type="button" class="header-settings"/);
     expect(html).toContain(connected ? 'Wallet: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
-    expect(html).toContain(connected ? '>Disconnect</button>' : '>Connect Wallet</button>');
+    expect(html).not.toContain('>Disconnect</button>');
+    if (!connected) expect(html).toContain('>Connect Wallet</button>');
+    expect(vi.mocked(HeaderSettings).mock.calls.at(-1)?.[0]).toMatchObject({ onDisconnect: wallet.reset, disconnectDisabled: !connected });
     expect(html).toMatch(/class="header-settings" aria-label="Settings" title="Settings" aria-expanded="false"><svg[\s\S]*?<\/svg><\/button>/);
     expect(html).not.toMatch(/role="dialog"|role="menu"|aria-haspopup/);
     expect(wallet.connect).not.toHaveBeenCalled();
@@ -44,11 +51,12 @@ describe('product shell rendering', () => {
     expect(wallet.switchTo).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])('preserves busy disabling for boxed wallet actions when connected=%s', connected => {
+  it.each([false, true])('preserves busy disabling for wallet actions when connected=%s', connected => {
     wallet.busy = true;
     if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
-    expect(html).toMatch(new RegExp(`<button type="button" disabled=""[^>]*>${connected ? 'Disconnect' : 'Connect Wallet'}</button>`));
+    if (!connected) expect(html).toMatch(/<button type="button" disabled=""[^>]*>Connect Wallet<\/button>/);
+    expect(vi.mocked(HeaderSettings).mock.calls.at(-1)?.[0]).toMatchObject({ onDisconnect: wallet.reset, disconnectDisabled: true });
   });
 
   it.each(WORKFLOW_STAGES)('marks %s as the current view without performing wallet actions', stage => {
