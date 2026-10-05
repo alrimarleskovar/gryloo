@@ -20,6 +20,8 @@ import { editorReducer } from '../domain/editor';
 import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/canvas-authoring';
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
+import { ComposerCard, type ComposerCardData } from './composer-card';
+import { SimulateWorkflowCanvas } from './simulate-workflow-canvas';
 import { composerActions, composerSummary, composerNodeState, composerConnections } from '../domain/composer-presentation';
 import { canDeleteCanvasEdge, deletableCanvasNodes, isTextEntry } from '../domain/canvas-keyboard';
 import { canvasPosition, defaultCanvasPosition, readToolboxMode, saveToolboxMode, type ToolboxMode } from '../domain/canvas-layout';
@@ -37,26 +39,10 @@ export function setCrossChainCanvasRuntime(workflowId: string, revision: number,
 }
 export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: string; readonly minimum: string };
 /** `solana`/`solanaKind`/`solanaProvider` mark a live-provider runtime card (Solana runtimes and the Base Sepolia Uniswap position). */
-type ComposerCardData = { composer: true; step: number; selected: boolean; vertical: boolean; summary: ReturnType<typeof composerSummary>; validation: ReturnType<typeof composerNodeState> };
 type CardData = { overview?: boolean; lending?: boolean; title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; chain?: string; risk?: string; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
-  if (data.composer) {
-    const card = data as ComposerCardData;
-    return <div className={`flow-card composer-card ${card.selected ? 'active' : ''}`} data-state={card.validation.tone}>
-      <Handle type="target" position={card.vertical ? Position.Top : Position.Left} isConnectable={false}/>
-      <div className="composer-card-head"><span className="composer-step">Step {card.step}</span><span className="composer-card-state" title={card.validation.message ?? 'Parameters saved in the draft; execution requires separate review.'}>{card.validation.tone !== 'neutral' && '⚠ '}{card.validation.status}</span></div>
-      <strong>{card.summary.action}</strong>
-      <span className="composer-provider">{card.summary.provider || 'Provider not specified'}</span>
-      <span className="composer-chain">{card.summary.chain}</span>
-      <span className="numeric composer-amount">{card.summary.amount}</span>
-      {card.summary.detail && <span className="composer-detail">{card.summary.detail}</span>}
-      {card.validation.message && <span className="composer-warning" title={card.validation.message}>Check settings</span>}
-      {card.summary.risk && <span className="flow-card-risk">{card.summary.risk}</span>}
-      <span className="composer-selected">{card.selected ? 'Editing in Selected Action' : 'Select to edit below'}</span>
-      <Handle type="source" position={card.vertical ? Position.Bottom : Position.Right} isConnectable={false}/>
-    </div>;
-  }
+  if (data.composer) return <ComposerCard data={data as ComposerCardData}/>;
   const card = data as CardData;
   if (card.overview) return <div className="flow-card">
     <Handle type="target" position={card.lending ? Position.Top : Position.Left} isConnectable={false}/>
@@ -234,8 +220,9 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
 
 type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
 const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
-export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
-  if ('mode' in props) return <ReadonlyWorkflowCanvas mode={props.mode} workflowName={props.workflowName} overlay={props.mode === 'simulate' ? props.overlay : EMPTY_OVERLAY} primaryAction={props.mode === 'simulate' ? props.primaryAction : undefined}/>;
+export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay?: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
+  if ('mode' in props && props.mode === 'simulate') return <SimulateWorkflowCanvas workflowName={props.workflowName} primaryAction={props.primaryAction}/>;
+  if ('mode' in props) return <ReadonlyWorkflowCanvas mode={props.mode} workflowName={props.workflowName} overlay={EMPTY_OVERLAY}/>;
   return <BuildCanvas {...props}/>;
 }
 

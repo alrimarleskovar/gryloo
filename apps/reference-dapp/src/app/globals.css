@@ -376,3 +376,16 @@
 .composer-findings p{margin:4px 0}
 .build-flow-surface .react-flow__node:focus-visible .composer-card{outline:2px solid var(--blue);outline-offset:4px}
 .build-flow-surface .react-flow__node.selected .composer-card:not(.active){border-style:dashed;background:#fbfdff}
+
+/* UX-003A: shared composer language on the inspection surface only. */
+.simulate-flow-surface .composer-card{width:224px;min-height:156px;padding:12px 14px;gap:4px;border:1px solid #bdcadb;box-shadow:0 3px 10px rgba(24,59,104,.06)}
+.simulate-flow-surface .composer-card strong{font-size:16px;font-weight:750}
+.simulation-lending-canvas{height:760px}
+.simulation-workflow-canvas+.panel{margin-top:14px}
+.simulation-workflow-empty{position:absolute;top:28px;left:24px;right:24px;max-width:420px;padding:14px 16px;border:1px dashed var(--line);border-radius:8px;background:var(--paper);color:var(--muted);font-size:12px;pointer-events:none}
+.simulation-workflow-empty strong{color:var(--ink)}.simulation-workflow-empty p{margin:6px 0 0;line-height:1.5}
+.simulate-panel>.simulate-grid{display:block}
+.simulation-technical>.simulate-results{margin-top:14px}
+@media(max-width:700px){.simulation-lending-canvas{height:760px}}
+.simulation-workflow-canvas .simulation-canvas-actions{max-width:calc(100% - 68px)}
+.simulation-workflow-canvas .simulation-review-action{min-width:0}

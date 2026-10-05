@@ -9,8 +9,8 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   await page.getByRole('textbox', { name: 'Workflow name', exact: true }).press('Enter');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
-  const panel = page.getByRole('region', { name: 'Mocked artifact chain' });
-  const graph = panel.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true });
+  const panel = page.getByRole('region', { name: 'Workflow simulation details' });
+  const graph = panel.getByRole('region', { name: 'Simulation workflow graph', exact: true });
   const returnToBuild = graph.getByRole('button', { name: 'Return to Build', exact: true });
   const reviewSwap = graph.getByRole('button', { name: 'Review swap', exact: true });
   const technical = panel.locator('.simulation-technical');
@@ -28,7 +28,9 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   await expect(page.getByRole('button', { name: 'Show technical details', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Hide technical details', exact: true })).toHaveCount(0);
   await expect(page.getByText('Add a Base swap in Build before generating mocked artifacts.', { exact: true })).toBeHidden();
+  await technical.locator(':scope > summary').click();
   await expect(panel.getByRole('button', { name: 'Generate mocked artifacts for revision 0', exact: true })).toBeDisabled();
+  await technical.locator(':scope > summary').click();
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toBeHidden();
   for (const width of [1440, 390]) {
@@ -76,12 +78,12 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   await expect(viewport).not.toHaveAttribute('style', afterZoom!);
   await graph.locator('.react-flow__controls-fitview').click();
   await expect(graph.locator('.flow-card')).toBeInViewport();
+  await technical.locator(':scope > summary').click();
   await panel.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
   await expect(panel.locator('.simulate-swap')).toBeVisible();
   await expect(panel.locator('.simulate-swap')).toContainText('2.25 USDC');
-  await expect(panel.locator('.chain-strip')).toBeHidden();
+  await expect(panel.locator('.chain-strip')).toBeVisible();
   await expect(reviewSwap).toBeDisabled();
-  await technical.locator(':scope > summary').click();
   await expect(panel).toHaveAttribute('data-technical-open', 'true');
   await expect(panel.locator('.chain-strip')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeVisible();

@@ -112,3 +112,15 @@ Owner-approved UX-001 is closed. This section supersedes older Part B scheduling
 - Keep Privacy disabled and accessible. No Cloak/Zcash/Manifest integration. Keep Copilot architecture and chat-to-IR logic externally owned.
 - Validate only the changed composer: targeted component/canonical projection and existing authoring/history tests, focused Chromium interactions and desktop/mobile review, app typecheck, touched-file ESLint and `git diff --check`.
 - Update this report with results, limitations and shared-file integration touchpoints; commit `UX-002: productize workflow composer`, then stop.
+
+## UX-003A — Simulate Workflow Canvas
+
+UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approved. Only UX-003A is authorized here; stop for localhost visual inspection after committing it.
+
+- Project the current shared canonical draft in Simulate for every existing product route, including lending, isolated actions and fallback workflows. Preserve current product simulation panels, artifact logic and Review gates.
+- Reuse UX-002's card component, summary readers, action order, dependency/resource projection and saved Build positions. Introduce no editable workflow state or simulation-only action model.
+- Keep the shared workflow title, directional arrows, compact authored asset/amount summaries and existing canvas action/control placement. Disable node editing, dragging, connections, selection and keyboard deletion.
+- Omit authoring instructions and result/status badges from inspection cards. Show no inferred outputs, fees, gas, health factor, ETA or execution/authorization state. Keep existing artifacts/results intact in their existing controls; move fallback technical artifact content under Technical diagnostics.
+- Show compact empty/incomplete messaging from the existing draft/validation result, without fabricated nodes or workspace introductions. Reserve enough graph-fit space for existing canvas actions and controls.
+- Validate only projection/order/branching, shared title, read-only behavior, existing diagnostics and Review gates, relevant Chromium desktop/mobile checks, app typecheck, touched-file lint and diff checks. Keep Build/Execute regression coverage focused.
+- Commit `UX-003A: project workflow into Simulate canvas`. Do not start UX-003B/C/D/E.

@@ -343,3 +343,44 @@ Initial checks caught and fixed a composition-vs-isolated Borrow reader mismatch
 - Final visual baselines and broader financial/runtime certification remain UX-005 work. UX-003 was not started.
 
 Changed files: `src/domain/composer-presentation.ts`, `src/components/workflow-canvas.tsx`, `src/components/artifact-inspector.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/workflow-composer.spec.ts`, and both `docs/builds/BUILD-PRODUCT-UX-001-{PLAN,REPORT}.md`.
+
+## UX-003A — Simulate Workflow Canvas
+
+Implemented from owner-approved UX-002 `8c9337354612fc5a08f18107621e0786e1558bda` on `codex/build-product-ux-001`. This is only UX-003A; subsequent UX-003 parts are not implemented.
+
+### Workflow projection and card reuse
+
+`SimulateWorkflowCanvas` reads the existing `useWorkflow().state.workflow`, review context and saved canvas layout. Its nodes are derived React Flow presentation props, with no editable action data or second workflow store. UX-002's `composerActions`, `composerSummary` and `composerConnections` are reused unchanged. Step numbers, IDs, known providers/chains/routes, authored assets/amounts and typed linkage therefore match Build. Unknown future amounts stay symbolic. Saved Build positions, including lending's default vertical sequence, carry through.
+
+The compact UX-002 card markup was extracted into `ComposerCard`. Build's existing props and rendered authoring markup are preserved; the inspection variant omits authoring status badges, warning/editor instructions and selected-state emphasis. It retains action, provider, chain, authored amount/pair and existing action-derived risk labels. Simulate introduces no output, fee, gas, slippage, health-factor, ETA, success or authorization values. Existing result overlays do not replace the authored card summary; their numbers remain available in the retained artifact/result surfaces.
+
+`WorkflowCanvas` dispatches only its Simulate mode to the new projection. Execute's existing overview and Build's composer behavior are preserved. AppShell adds this graph above existing product simulation panels for routes that previously bypassed the fallback graph, passing its existing shared workflow name and Return to Build callback. The existing SummaryBar action is relocated through its already-established portal host; its labels, route precedence, eligibility and navigation handlers are untouched. Existing product-panel simulation/result controls remain below the graph.
+
+### Connections, inspection and empty states
+
+Smooth, non-animated arrows project the same canonical dependencies/resource links as Build. Lending retains Supply → Borrow → Swap, and cross-chain branching is preserved. Edges do not display policy metrics as simulated results or create links between independent steps. Canonical order remains unchanged.
+
+Simulate nodes cannot be dragged, connected, selected, keyboard-focused as editable controls or deleted. There are no node editing handlers, forms or Selected Action editor in the graph. Zoom, pan and fit remain available. The viewport uses React Flow's measured bounds and direct `setViewport`, with a remeasurement fallback and asymmetric bottom padding to keep cards above the approved Return/Review controls. The lending graph gets enough vertical room to retain its Build sequence and readable compact cards. Narrow action rows wrap their existing labels within canvas bounds without moving the zoom/fit controls or changing Review behavior.
+
+An untouched workflow projects no internal mock scaffold. Empty drafts get a compact “Add an action to your workflow” prompt. Existing validation exceptions produce “Check your workflow” with guidance to complete configuration in Build; no guessed nodes or new validation rules are introduced. The shared title is forwarded directly from AppShell without additional title state or persistence.
+
+### Technical surfaces and preserved behavior
+
+Fallback artifact generation controls, explanations, genuine current artifact tables/JSON, binding/expiry/rejection/retirement feedback and existing diagnostic child panels remain intact under the existing Technical diagnostics disclosure. The main fallback workflow surface no longer exposes MOCK/MOCKED, LOCAL, SYNTHETIC or internal artifact language. Its product-accessible labels are “Workflow simulation details”, “Workflow simulation” and “Simulation workflow graph”. No backend diagnostics were removed and no results presentation redesign was undertaken. Existing product-specific results remain in their original panels.
+
+No canonical schemas/semantics, runtime, adapters, API/database, Manifest, wallet authorization, execution, recovery, reconciliation, evidence, Copilot or Guided Chat code changed. AppShell's six-line addition is a Simulate-only integration touchpoint, not a routing or shared-state refactor. UX-002 card extraction is the other shared presentation touchpoint; focused regression assertions retain Build/Execute markup and behavior.
+
+### Targeted validation and visual review
+
+- **52 Vitest tests passed in four files:** `simulate-workflow-canvas.test.tsx`, `simulate-panel.test.tsx`, `build-correction.test.tsx`, `summary-bar.test.tsx`. Coverage includes all toolbar action summaries, lending order/links, cross-chain branching and symbolic amounts, saved positions, shared title, read-only React Flow flags/no authoring handlers, ignored result overlays, compact empty/incomplete states, retained artifact/generation checks and existing Build/Execute/Review gates.
+- **Six Chromium tests passed in three focused files:** `simulate-workflow-canvas.spec.ts`, `simulate-cleanup.spec.ts`, `simulate-shell.spec.ts`. Coverage includes Build/Simulate summary and position parity, shared title/rename and accepted edit propagation, directional links, drag/delete refusal, return navigation and retained Build selection, all isolated toolbar action routes, current diagnostic artifacts/JSON and disabled synthetic Review, existing simulation controls/panels, desktop/mobile action order/clearance, zoom and fit restoration, and absence of the removed shell introductions. Existing selector/visibility expectations were updated to the new graph labels, product-route graph placement and diagnostic disclosure; no assertion or gate was skipped.
+- App-only `tsc --noEmit`, ESLint on all ten touched TypeScript/TSX files and `git diff --check`: **passed**.
+- Desktop (1440px) and mobile (390px) canvas captures were visually reviewed in untracked `.tmp/`. Node hierarchy/sequence are readable and controls do not overlap cards. Browser traffic is guarded to loopback preview/development HMR; external traffic is blocked and zero wallet signing/transaction requests are asserted.
+
+Initial browser checks caught a pending fitted viewport: queuing `fitView` before controlled read-only node initialization did not complete. The final projection sets the viewport directly from measured bounds, following the existing canvas's measurement recovery pattern, and verifies actual zoom/fit restoration. A transient automatic-approval reviewer capacity failure prevented one rerun from executing; a later approved rerun succeeded. No full repository CI, full browser matrix, fork/PostgreSQL suite, audit, SBOM or financial execution was run.
+
+### Scope, limitations and owner inspection
+
+The projection shows authored parameters, not simulation outcomes. Result presentation is deferred to UX-003B. Existing composition restrictions, recovery-only panel behavior and provider-specific simulation controls remain; a recovered run does not fabricate a current canonical workflow graph. Broader certification remains deferred. Localhost is the inspection surface; the existing development preview is reused where available. No UX-003B/C/D/E work was started.
+
+Changed files: shared/new card and graph components (`composer-card.tsx`, `simulate-workflow-canvas.tsx`, `workflow-canvas.tsx`), Simulate integration (`app-shell.tsx`, `simulate-panel.tsx`, appended Simulate-scoped `globals.css`), focused unit/browser coverage (`simulate-workflow-canvas.test.tsx`, `simulate-panel.test.tsx`, `simulate-workflow-canvas.spec.ts`, `simulate-cleanup.spec.ts`, `simulate-shell.spec.ts`) and both build documents. The pre-existing generated `next-env.d.ts` modification is excluded from the commit.

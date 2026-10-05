@@ -23,9 +23,9 @@ test('Simulate and Execute open directly on existing content without a workspace
   const main = page.getByRole('main', { name: 'Simulation workspace', exact: true });
   await expect(main).toBeVisible();
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
-  await expect(main.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true })).toBeVisible();
+  await expect(main.getByRole('region', { name: 'Simulation workflow graph', exact: true })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Prepare your workflow', exact: true })).toHaveCount(0);
-  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Mocked artifact chain');
+  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation details');
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
@@ -33,8 +33,9 @@ test('Simulate and Execute open directly on existing content without a workspace
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
   expect(await main.innerText()).not.toMatch(/Draft · Untitled workflow|SIMULATE \/ WORKFLOW|Current stage · Simulate|Understand the outcome|No chain selected/);
   await expect(main.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeVisible();
-  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Aave Supply');
-  await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
+  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation');
+  await expect(main.getByRole('region', { name: 'Aave Supply', exact: true })).toBeVisible();
+  await expect(main.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(execution).toBeVisible();

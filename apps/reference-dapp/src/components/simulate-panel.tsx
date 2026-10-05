@@ -77,7 +77,15 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
   const jsonKeys = current ? [...current.chain.quotes.map(quote => [`quote:${quote.nodeId}`, `mocked quote · ${quote.nodeId}`] as const),
     ['artifact-set', 'Artifact Set'] as const, ['simulation-bundle', 'mocked simulation'] as const] : [];
 
-  return <section className="simulate-panel panel" aria-label="Mocked artifact chain" data-technical-open={showTechnical}>
+  return <section className="simulate-panel panel" aria-label="Workflow simulation details" data-technical-open={showTechnical}>
+    <div className="simulate-grid">
+      <WorkflowCanvas mode="simulate" workflowName={workflowName} overlay={overlay} primaryAction={<>
+        {returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}
+        {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
+      </>}/>
+    </div>
+    <details className="shell-details technical-workspace simulation-technical" onToggle={event => setShowTechnical(event.currentTarget.open)}>
+      <summary>Technical diagnostics</summary>
     <div className="simulate-head">
       <div><p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
       <div className="simulate-controls">
@@ -93,11 +101,6 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
     {chain.notice && <p className="simulate-note" role="status">Generation finished for a superseded revision and was discarded.</p>}
     {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
-    <div className="simulate-grid">
-      <WorkflowCanvas mode="simulate" workflowName={workflowName} overlay={overlay} primaryAction={<>
-        {returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}
-        {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
-      </>}/>
       <div className="simulate-results">
         {current ? <>
           <ol className="chain-strip" aria-label="Artifact links">
@@ -139,9 +142,7 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
         <p className="not-modeled"><strong>Not modeled:</strong> balances, allowances, gas, fees, price impact, liquidity, MEV and duration. USD values: not modeled.</p>
         <p className="simulate-next">Next step: Manifest review is unavailable for mocked artifacts; they cannot authorize execution and the workflow stays DRAFT. Local-fork Mode A uses its own separate artifacts, never these.</p>
       </div>
-    </div>
-    <details className="shell-details technical-workspace simulation-technical" onToggle={event => setShowTechnical(event.currentTarget.open)}>
-      <summary>Technical diagnostics</summary>
+
       {!current && !eligibility.eligible && <p className="simulate-note">{eligibility.reason}</p>}
       {children}
     </details>

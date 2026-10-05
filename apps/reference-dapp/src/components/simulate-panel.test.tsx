@@ -45,6 +45,9 @@ describe('Simulate control presentation', () => {
     expect(html).toContain('Existing diagnostic panels');
     expect(html).toMatch(/disabled="">Generate mocked artifacts for revision 0/);
     expect(html).toContain('USD values: not modeled.');
+    expect(html.indexOf('Generates MOCKED')).toBeGreaterThan(html.indexOf('simulation-technical'));
+    expect(html.indexOf('No current mocked artifacts')).toBeGreaterThan(html.indexOf('simulation-technical'));
+    expect(html.indexOf('ARTIFACTS:')).toBeGreaterThan(html.indexOf('simulation-technical'));
   });
 
   it('retains generation eligibility, current revision and the pending-generation gate', () => {

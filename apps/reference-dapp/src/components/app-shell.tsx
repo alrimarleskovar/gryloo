@@ -133,6 +133,12 @@ function AppShellContent() {
         : null;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
     <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
+      {tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) &&
+        <WorkflowCanvas mode="simulate" workflowName={workflowName} primaryAction={<>
+          <button type="button" onClick={() => setTab('Build')}>Return to Build</button>
+          <div className="simulation-review-action" ref={setSimulationActionHost}/>
+        </>}/>
+      }
       {tab === 'Execute' && !productExecutionPath ? <>
         <WorkflowCanvas mode="execute" workflowName={workflowName}/>
         <details className="shell-details technical-workspace"><summary>Technical diagnostics</summary>{executionSurface ? stageContent : <>
