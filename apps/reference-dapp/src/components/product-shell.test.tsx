@@ -93,20 +93,19 @@ describe('product shell rendering', () => {
     expect(wallet.reset).not.toHaveBeenCalled();
   });
 
-  it('renders no Build heading, metadata or guidance block', () => {
-    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage: 'Build', description: 'Add actions to the canvas.' }));
+  it.each(['Build', 'Simulate'] as const)('renders no %s heading, metadata or guidance block', stage => {
+    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
     expect(html).toBe('');
   });
 
-  it('retains draft identity and revision in Simulate and Execute, without implying mock execution', () => {
-    for (const stage of ['Simulate', 'Execute'] as const) {
-      const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
-      expect(html).toContain('data-workflow-id="workflow-local" data-workflow-revision="0"');
-      expect(html).toContain('Draft · Untitled workflow');
-      expect(html).not.toMatch(/Mock example|Local mock|Mock action|Template/i);
-      expect(html).toContain('0 actions');
-      expect(html).toContain(`Current stage · ${stage}`);
-      expect(html).not.toMatch(/Authorized|Confirmed|Completed/);
-    }
+  it('retains draft identity and revision in Execute, without implying mock execution', () => {
+    const stage = 'Execute';
+    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
+    expect(html).toContain('data-workflow-id="workflow-local" data-workflow-revision="0"');
+    expect(html).toContain('Draft · Untitled workflow');
+    expect(html).not.toMatch(/Mock example|Local mock|Mock action|Template/i);
+    expect(html).toContain('0 actions');
+    expect(html).toContain(`Current stage · ${stage}`);
+    expect(html).not.toMatch(/Authorized|Confirmed|Completed/);
   });
 });

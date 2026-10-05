@@ -144,7 +144,7 @@ function AppShellContent() {
           {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
           <button type="button" onClick={() => setTab('Build')}>Return to Build</button></section>;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
-    <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-labelledby={tab === 'Build' ? undefined : 'workspace-title'} aria-label={tab === 'Build' ? 'Workflow workspace' : undefined}>
+    <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-labelledby={tab === 'Execute' ? 'workspace-title' : undefined} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : undefined}>
       <WorkspaceHeading stage={tab} description={tab === 'Build' ? 'Add actions to the canvas, connect supported steps and select a card to edit its parameters.'
         : productExecutionPath ? description : tab === 'Simulate' ? 'Inspect the route, expected results and execution conditions for your workflow.' : 'Authorize with your wallet, then follow execution and reconciliation.'}/>
       {tab !== 'Build' && !productExecutionPath ? <>

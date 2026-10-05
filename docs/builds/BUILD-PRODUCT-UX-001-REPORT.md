@@ -159,6 +159,16 @@ The first browser pass found the mobile canvas shrinking to intrinsic width, cau
 
 Limitations: settings options are presentation-only; “Simular Fees” opens the existing Simulate view and does not imply fees are known or automatically calculated. Browser files with only CTA-selector updates were typechecked/linted, not execution-certified. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run.
 
+### Owner-directed Simulate shell cleanup
+
+Commit subject: `UX-001A: simplify Simulate workspace shell`.
+
+Removed the complete Simulate introductory block: draft name, action count, revision, chain context, SIMULATE / WORKFLOW eyebrow, large page title/subtitle, Current stage badge and Understand the outcome guidance strip. No visible replacement was added. The existing simulation content is now the first content in the main workspace. Its accessible label is Simulation workspace rather than a reference to the removed title. Existing empty states and diagnostic disclosures remain intact.
+
+Only heading presentation and landmark labeling changed. Build/Execute behavior and presentation, simulation routing/logic, artifacts, canonical IR, runtime, backend/API, Review/Manifest binding and wallet authorization remain unchanged. No Part B work.
+
+Validation: 12 focused `components/product-shell.test.tsx` tests passed; reference-dapp typecheck, touched-file ESLint and `git diff --check` passed. One focused `e2e/simulate-shell.spec.ts` browser check passed against the existing loopback preview: intro absent in empty and authored flows, existing Aave Supply content first, simulation action still available, unsimulated review disabled, unchanged revision/selection on navigation, and retained Build/Execute UI. External browser traffic was blocked, only the preview/development HMR allowed, and zero wallet sign/send requests verified. Temporary loopback fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, financial execution, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

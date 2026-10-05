@@ -6,7 +6,7 @@ import { useWorkflow } from '../state/workflow-store';
 
 export function WorkspaceHeading({ stage, description }: { stage: WorkflowStage; description: string }) {
   const { state } = useWorkflow();
-  if (stage === 'Build') return null;
+  if (stage === 'Build' || stage === 'Simulate') return null;
   const context = workflowShellContext(state.workflow);
   return <section className="workspace-heading" aria-label="Workflow workspace">
     <div className="workflow-context" data-workflow-id={context.workflowId} data-workflow-revision={context.revision}>
