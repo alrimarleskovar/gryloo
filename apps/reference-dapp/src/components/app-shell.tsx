@@ -31,9 +31,8 @@ import { SummaryBar } from './summary-bar';
 import { ReviewPanel } from './review-panel';
 import { SimulatePanel } from './simulate-panel';
 import { ObservationPanel } from './observation-panel';
-import { TopBar, type Tab, type ProductSection } from './top-bar';
+import { TopBar, type ProductSection } from './top-bar';
 import { WorkflowCanvas } from './workflow-canvas';
-import { WorkspaceHeading } from './workspace-heading';
 import { WorkflowEditReview } from './workflow-edit-review';
 import { CapabilityProvider, useWorkflowCapability } from '../state/capability-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
@@ -56,14 +55,6 @@ import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
 import { JourneyCard, RouterPanel } from './router-panel';
 import { useRouter } from '../state/router-store';
 import { routerDetails } from '../domain/router-authoring';
-
-const headings: Record<Tab, string> = {
-  Build: 'Arrange your steps, then select one to configure it.',
-  Simulate: 'Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.',
-  Execute: 'This stage is unavailable.',
-};
-const forkExecuteHeading = 'Local-fork Mode A only: review two exact payloads, request them from your wallet on chain 31337, then recover and reconcile.';
-const modeBExecuteHeading = 'Local fork chain 31337: review wallet authority, run the bounded worker, and reconcile exact effects.';
 
 export function AppShell() { return <ModeBProvider><CompositionProvider><CapabilityProvider><AppShellContent/></CapabilityProvider></CompositionProvider></ModeBProvider>; }
 
@@ -128,7 +119,6 @@ function AppShellContent() {
   if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
     <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"/>
   </div>;
-  const description = transferPath && tab !== 'Build' ? 'Self-transfer a tiny amount of test ETH on Robinhood Chain Testnet. Review the exact transaction and sign once with your wallet. A chain execution proof, not a DeFi action.' : lendingPath && tab !== 'Build' ? 'Use USDC collateral to borrow USDC and convert borrowed exposure into WETH. Review the complete economics and sign each step.' : withdrawPath && tab !== 'Build' ? 'Withdraw partial USDC collateral from Aave V3 on Base Sepolia. Review risk and sign with your wallet.' : repayPath && tab !== 'Build' ? 'Repay variable USDC debt to Aave V3 on Base Sepolia. Review the amount and sign with your wallet.' : borrowPath && tab !== 'Build' ? 'Borrow against existing Aave collateral on Base Sepolia. Review debt and health factor, then sign with your wallet.' : supplyPath && tab !== 'Build' ? 'Supply USDC to Aave V3 on Base Sepolia. Review the beneficiary and sign with your wallet.' : routerPath && tab !== 'Build' ? (routerState.network === 'testnet' ? 'Bridge test USDC from Base Sepolia to Arbitrum Sepolia through the Flofi Cross-chain Router with your own wallet. Review the exact route, then sign each Base Sepolia transaction; success needs the fill observed on Arbitrum Sepolia.' : 'Bridge USDC from Base to Arbitrum One through the Flofi Cross-chain Router. Review the exact route, then sign each Base transaction with your wallet; success needs the fill observed on Arbitrum.') : uniswapLiquidityPath && tab !== 'Build' ? 'Provide concentrated liquidity with test USDC and WETH on Base Sepolia through Uniswap v3. Review each exact approval and the mint, and sign each with your wallet.' : solanaLiquidityPath && tab !== 'Build' ? 'Provide concentrated liquidity with valueless test tokens on Solana Devnet through Orca Whirlpools. Review each exact transaction and sign with your Solana wallet.' : solanaPath && tab !== 'Build' ? (jupiter.network === 'Solana Devnet' ? 'Swap valueless test tokens on Solana Devnet through Orca Whirlpools. Review the exact transaction and sign with your Solana wallet.' : 'Swap on Solana through Jupiter. Review the exact transaction and sign with your Solana wallet.') : publicPath && tab !== 'Build' ? 'Swap test USDC and WETH through the verified Uniswap pool on Base Sepolia.' : forkExecution ? (across.run ? 'Direct Across bridge with simulated deposit, fill, recovery and refund.' : bridge.execution ? 'LI.FI live route with deterministic MOCKED execution and destination reconciliation.' : liquidity.info?.available && liquidity.prepared ? 'Local-fork Mode A Uniswap v3 position: review one exact payload, request the wallet transaction, then reconcile.' : info?.available && prepared ? forkExecuteHeading : (cow.execution ? 'MOCKED CoW signed intent: track, cancel and reconcile the local order.' : modeBExecuteHeading)) : tab === 'Build' && routerPath ? (routerState.network === 'testnet' ? 'Author one Base Sepolia → Arbitrum Sepolia test USDC bridge on the canvas. The route is chosen and reviewed before anything is signed.' : 'Author one Base → Arbitrum USDC bridge on the canvas. The route is chosen and reviewed before anything is signed.') : tab === 'Build' && crossChainWorkflow ? 'One reviewed Base → Arbitrum bridge, calculated destination split, and Uniswap v3 position.' : tab === 'Build' && acrossWorkflow ? 'Bridge Base USDC to Arbitrum directly through Across.' : tab === 'Build' && bridgeSwapWorkflow ? 'Author Base USDC → Arbitrum USDC → WETH in one workflow.' : tab === 'Build' && bridge.enabled ? 'Author one Base to Optimism USDC bridge on the canvas.' : tab === 'Build' && liquidity.info?.available ? 'Author locally. Review every swap or liquidity edit in one shared semantic workflow.' : headings[tab];
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
   const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={select} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={select}/><WorkflowEditReview/><JourneyCard/>
           <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
@@ -145,9 +135,7 @@ function AppShellContent() {
           {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
           <button type="button" onClick={() => setTab('Build')}>Return to Build</button></section>;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
-    <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-labelledby={tab === 'Execute' ? 'workspace-title' : undefined} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : undefined}>
-      <WorkspaceHeading stage={tab} description={tab === 'Build' ? 'Add actions to the canvas, connect supported steps and select a card to edit its parameters.'
-        : productExecutionPath ? description : tab === 'Simulate' ? 'Inspect the route, expected results and execution conditions for your workflow.' : 'Authorize with your wallet, then follow execution and reconciliation.'}/>
+    <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
       {tab === 'Execute' && !productExecutionPath ? <>
         <section className="stage-empty panel"><h2>Prepare for execution</h2>
           <p>A supported workflow, current simulation and explicit wallet authorization are required before execution.</p>

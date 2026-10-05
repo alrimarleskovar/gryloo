@@ -2,10 +2,21 @@
 import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 
-test('Simulate opens directly on existing content without a workspace introduction', async ({ page }) => {
+test('Simulate and Execute open directly on existing content without a workspace introduction', async ({ page }) => {
   await installSupplyWallet(page);
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
+  const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });
+  await nav.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(execution).toBeVisible();
+  await expect(execution.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
+  await expect(execution.getByRole('heading', { name: 'Execute', exact: true })).toHaveCount(0);
+  expect(await execution.innerText()).not.toMatch(/Draft · Untitled workflow|EXECUTE \/ WORKFLOW|Current stage · Execute|Authorize and track execution|No chain selected|Revision 0/);
+  await expect(execution.locator(':scope > :first-child')).toHaveClass('stage-empty panel');
+  await expect(execution.getByRole('heading', { name: 'Prepare for execution', exact: true })).toBeVisible();
+  await expect(execution.getByRole('region', { name: 'Execute unavailable', exact: true })).toBeHidden();
+  await execution.locator('.technical-workspace > summary').click();
+  await expect(execution.getByRole('region', { name: 'Execute unavailable', exact: true })).toBeVisible();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).click();
   const main = page.getByRole('main', { name: 'Simulation workspace', exact: true });
   await expect(main).toBeVisible();
@@ -24,7 +35,14 @@ test('Simulate opens directly on existing content without a workspace introducti
   await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Execute', exact: true })).toBeVisible();
+  await expect(execution).toBeVisible();
+  await expect(execution.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
+  await expect(execution.getByRole('heading', { name: 'Execute', exact: true })).toHaveCount(0);
+  expect(await execution.innerText()).not.toMatch(/Draft · Untitled workflow|EXECUTE \/ WORKFLOW|Current stage · Execute|Authorize and track execution|No chain selected|Revision 0/);
+  await expect(execution.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Aave Supply');
+  await expect(execution.getByRole('heading', { name: 'Review Supply', exact: true })).toBeVisible();
+  await expect(execution.getByRole('button', { name: 'Accept Supply review', exact: true })).toHaveCount(0);
+  await expect(execution.getByRole('button', { name: /^(Execute|Execute Supply)$/ })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeVisible();

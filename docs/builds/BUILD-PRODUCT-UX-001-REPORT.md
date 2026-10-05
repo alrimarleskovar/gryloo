@@ -237,6 +237,24 @@ Presentation changes:
 
 The first layout check found insufficient left padding for the action row at 390px; scoped mobile button padding resolved it and the browser checks passed on rerun. Browser requests were limited to the existing loopback preview/development HMR, external traffic blocked, and zero wallet signing/transaction requests verified. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. The shared title remains session presentation state and resets on reload, as before.
 
+### Owner-directed Execute shell cleanup
+
+Commit subject: `UX-001A: simplify Execute workspace shell`.
+
+Removed the entire Execute introductory area: Draft · Untitled workflow, action count, revision and chain metadata, EXECUTE / WORKFLOW eyebrow, large Execute title/subtitle, Current stage · Execute badge and Authorize and track execution guidance strip. No visible replacement was added. The existing execution content is first in the main workspace. Its accessible label is Execution workspace instead of a reference to the deleted heading.
+
+Deleted the now-unused WorkspaceHeading component and the shell's description-only constants/expression. Build and Simulate already omitted that component, so their presentation and behavior are unchanged. Existing content routing, empty states, technical disclosures, workflow footer and all authorization/execution/recovery/reconciliation/evidence interfaces remain intact. No canonical IR, runtime, backend/API, wallet/session, Review/Manifest or Guided Chat changes. No Part B work.
+
+| Minimal targeted validation | Result |
+| --- | --- |
+| Vitest: `components/product-shell.test.tsx` | Nine shell/header/navigation tests passed. Removed unit expectations for the deleted heading component, including its obsolete positive Execute-header assertion; actual workspace absence is covered by the browser test below. Lifecycle numbering/current view, network context and wallet controls remain checked. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source/browser tests | Passed. |
+| Focused Chromium: `e2e/simulate-shell.spec.ts` | One test passed against the existing loopback preview: complete intro absent on empty and authored Execute views, accessible landmark intact, existing empty-state/diagnostic content retained, Aave Supply execution panel first, no review acceptance/execution action for an unsimulated Supply, and preserved Simulate/Build content, selected node and revision. |
+| `git diff --check` | Passed. |
+
+Browser traffic was limited to the existing loopback preview/development HMR, external requests blocked, and zero wallet signing/transaction requests verified. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, public/fork financial execution, PostgreSQL, Anvil, audit, SBOM or final certification was run.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { initialWorkflow, freeze, type Workflow } from '../domain/initial-workflow';
 import { createRouterNode } from '../domain/router-authoring';
 import { TopBar } from './top-bar';
-import { WorkspaceHeading } from './workspace-heading';
 import { WORKFLOW_STAGES } from '../domain/product-shell';
 
 const fixture = vi.hoisted(() => ({ workflow: null as unknown as Workflow }));
@@ -58,6 +57,7 @@ describe('product shell rendering', () => {
     expect(html).toContain('aria-label="Workflow stages"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
     expect(html).toMatch(new RegExp(`aria-current="page"[^>]*><span[^>]*aria-hidden="true"[^>]*>[123]</span>${stage}</button>`));
+    expect(html).not.toMatch(/Draft · Untitled workflow|Current stage ·|workspace-title|stage-guidance/);
     expect(setTab).not.toHaveBeenCalled();
     expect(wallet.connect).not.toHaveBeenCalled();
     expect(wallet.switchTo).not.toHaveBeenCalled();
@@ -93,19 +93,4 @@ describe('product shell rendering', () => {
     expect(wallet.reset).not.toHaveBeenCalled();
   });
 
-  it.each(['Build', 'Simulate'] as const)('renders no %s heading, metadata or guidance block', stage => {
-    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
-    expect(html).toBe('');
-  });
-
-  it('retains draft identity and revision in Execute, without implying mock execution', () => {
-    const stage = 'Execute';
-    const html = renderToStaticMarkup(createElement(WorkspaceHeading, { stage, description: 'Stage description' }));
-    expect(html).toContain('data-workflow-id="workflow-local" data-workflow-revision="0"');
-    expect(html).toContain('Draft · Untitled workflow');
-    expect(html).not.toMatch(/Mock example|Local mock|Mock action|Template/i);
-    expect(html).toContain('0 actions');
-    expect(html).toContain(`Current stage · ${stage}`);
-    expect(html).not.toMatch(/Authorized|Confirmed|Completed/);
-  });
 });
