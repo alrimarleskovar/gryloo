@@ -60,6 +60,10 @@ variables exist only for tests and must never be set in a deployment.
 | `OPENAI_API_KEY` | Required for `FLOFI_COPILOT=live`. Server-only; never `NEXT_PUBLIC_*`. Use a dedicated OpenAI project key with a spend limit. |
 | `OPENAI_COPILOT_MODEL` | Required for `FLOFI_COPILOT=live`: the model ID the owner chooses (no built-in default). It must support strict JSON-schema structured outputs in the Responses API. |
 | `OPENAI_COPILOT_TEMPERATURE` | Optional, default `0`; set `omit` for models that reject the parameter. |
+| `OPENAI_COPILOT_TIMEOUT_MS` | Optional (BUILD-COPILOT-002), 5000–60000, default 20000. An invalid value makes the Copilot unavailable rather than using another limit. |
+| `OPENAI_COPILOT_MAX_OUTPUT_TOKENS` | Optional (BUILD-COPILOT-002), 256–16384, default 4096 for the conversational protocol. Reasoning models count reasoning tokens here. |
+| `OPENAI_COPILOT_REASONING_EFFORT` | Optional (BUILD-COPILOT-002): `minimal`, `low`, `medium` or `high`, sent only when set and only for models that accept it. |
+| `FLOFI_COPILOT_TELEMETRY` | Optional (BUILD-COPILOT-002): `log` or `off`. By default live requests log one metadata line each (model, outcome code, intent kind, duration, token counts); never prompts, transcripts, addresses, cookies or keys. |
 
 **Wallet sessions (BUILD-JOURNEY-001).** A user signs one EIP-4361 message with their own wallet (`personal_sign`); the BFF
 verifies the signer and sets HttpOnly, SameSite=Strict, Secure cookies (8 h session, 5 min challenge). The verified address
@@ -75,6 +79,14 @@ mainnet against the user's own words, and turns it into an exact-grammar command
 simulate, review and sign. A misconfigured `live` mode (missing key or model) leaves the exact grammar working and
 reports `COPILOT_NOT_CONFIGURED`. The per-process limits (2 concurrent, 30 per minute) are not a global quota on
 serverless instances; rely on the OpenAI project's spend limit.
+
+**Conversational Copilot (BUILD-COPILOT-002).** The browser now sends a bounded transcript (≤ 16 messages, ≤ 8 user turns)
+with `version: '2'` and receives a strict `CopilotIntentV2`. The model never receives the workflow, wallet addresses or
+Flofi state; Flofi resolves references, writes read-only answers and builds proposals itself. There is still no default
+model and no model fallback. Before enabling it in production, run the owner-only smoke test once with the chosen model:
+`FLOFI_COPILOT_LIVE_SMOKE=1 FLOFI_COPILOT=live OPENAI_API_KEY=… OPENAI_COPILOT_MODEL=… pnpm test:copilot-live` (local shell; the
+key stays in your environment). It checks that the strict schema is accepted and prints latency and token counts. It
+makes no blockchain request.
 
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
 keep their existing `GRYLOO_*` gates; leave those unset on Vercel so they stay disabled (their journals would

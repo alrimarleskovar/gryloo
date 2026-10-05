@@ -141,8 +141,8 @@ ordinal: FIRST…FIFTH|LAST|null }`. It never supplies a node id.
 * **Edit**: the target's step is turned into a V1 action, the model's changes replace only their fields, the planners
   re-ground the changed fields against the open request, the exact grammar validates the result, and
   `editCommandFor` turns it into the existing edit command. A pending proposal is revised into a new proposal instead.
-  Supported changes: amount, slippage, recipient/beneficiary and routing; bridge destination (a test-network
-  destination switches the pair to Base Sepolia → Arbitrum Sepolia; a mainnet one must be named explicitly); liquidity
+  Supported changes: amount, slippage, recipient/beneficiary and routing; bridge destination (a destination that does
+  not pair with the current source makes Flofi ask which route, and a mainnet route must be named explicitly); liquidity
   maxima and range; lending composition supply/borrow amounts and swap slippage. Changing a Base swap's tokens or
   network, or a swap amount inside the composition, is explained, not guessed.
 * **Remove**: `REMOVE` only when `canDeleteCanvasNode` allows it; otherwise the reason (first step, last step,
