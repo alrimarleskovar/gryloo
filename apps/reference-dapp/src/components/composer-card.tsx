@@ -17,6 +17,8 @@ export type ComposerCardData = {
 
 /** Shared UX-002 card; inspection has no authoring or simulation-result status. */
 export function ComposerCard({ data: card }: { data: ComposerCardData }) {
+  const amountBox = !card.inspection && (card.summary.action === 'Swap' || card.summary.action === 'Bridge');
+  const amountParts = card.summary.amount.match(/^(\d+(?:\.\d+)?) (\S+)$/);
   return <div className={`flow-card composer-card ${card.selected ? 'active' : ''}`} data-state={card.inspection ? undefined : card.validation.tone}>
       <Handle type="target" position={card.vertical ? Position.Top : Position.Left} isConnectable={false}/>
       {card.inspection ? <>
@@ -33,7 +35,11 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
         <span className="composer-provider">{card.summary.provider.replace(/Cross-chain Router/g, 'Router') || 'Provider not specified'}</span>
         {' · '}<span className="composer-chain">{card.summary.chain}</span>
       </span>}
-      <span className="numeric composer-amount">{card.summary.amount}</span>
+      {amountBox ? <span className="numeric composer-amount composer-amount-box" data-symbolic={!amountParts || undefined} title="Edit amount in Selected Action">
+        <span className="composer-amount-value">{amountParts ? amountParts[1] : card.summary.amount}</span>
+        {amountParts && <>{' '}<span className="composer-amount-token">{amountParts[2]}</span></>}
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6Z"/></svg>
+      </span> : <span className="numeric composer-amount">{card.summary.amount}</span>}
       {card.summary.detail && <span className="composer-detail">{card.summary.detail}</span>}
       {!card.inspection && card.validation.message && <span className="composer-warning" title={card.validation.message}>Check settings</span>}
       {card.summary.risk && <span className="flow-card-risk">{card.summary.risk}</span>}

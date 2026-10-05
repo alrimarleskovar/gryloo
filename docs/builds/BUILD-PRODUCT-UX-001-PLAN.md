@@ -132,3 +132,10 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Include the previously requested Build card presentation refinements: numbered blue titles with trailing toolbar icons, combined provider/network metadata, compact amount/pair content, no Configured badge and a bottom-anchored selection footer. Preserve the Simulate card presentation.
 - Validate toolbar geometry/reachability at multiple viewport widths, CSS page zoom and independently reduced canvas width; disclosure collapse/reopen, keyboard selection and retained drafts; focused Build/Simulate regressions, app typecheck, touched-file lint and diff checks.
 - Commit `UX-003A: refine responsive toolbar and action inspector`, then stop. UX-003B remains out of scope.
+
+### UX-003A refinement — toolbar resilience and action amount cards
+
+- Split top tools into a scrollable primary action group and an anchored utility group containing Duplicate, Undo, Redo and the existing docking control. Preserve order, handlers and availability. Compress spacing first; retain visible utility icons with accessible labels/tooltips at narrow canvas widths. Preserve the floating toolbox.
+- Give only Build Swap/Bridge cards a compact blue amount/token box with larger known amounts and a pencil affordance. Keep symbolic linked amounts truthful. Card clicks still open the same Selected Action editor; no inline form or new workflow/amount state.
+- Preserve blue numbered titles with trailing icons, compact provider/network and pair summaries, and the bottom-anchored selection footer. Leave other actions and Simulate cards unchanged.
+- Validate pinned utilities/reachable primary actions at narrow/zoomed widths, Swap/Bridge amount boxes, footer placement, selection and history, focused regressions, app typecheck, touched-file lint and diff checks. Commit `UX-003A: refine toolbar resilience and action amount cards`, then stop before UX-003B.

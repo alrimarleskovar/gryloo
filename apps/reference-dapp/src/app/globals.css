@@ -370,6 +370,11 @@
 .build-flow-surface .composer-card-state{align-self:start}
 .build-flow-surface .composer-metadata{font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .build-flow-surface .composer-selected{margin-top:auto;padding-top:6px;border-top:1px solid var(--line)}
+.build-flow-surface .composer-amount-box{display:flex;align-items:center;gap:6px;margin:4px 0;padding:9px 10px;border:1px solid #c9ddff;border-radius:7px;background:var(--blue-soft)}
+.composer-amount-box .composer-amount-value{min-width:0;font-size:20px;font-weight:750;line-height:1.2;overflow-wrap:anywhere}
+.composer-amount-box .composer-amount-token{flex:none;font-size:12px;font-weight:650;color:var(--blue)}
+.composer-amount-box svg{flex:none;margin-left:auto;color:var(--blue)}
+.composer-amount-box[data-symbolic] .composer-amount-value{font-size:12px;line-height:1.4}
 .composer-provider,.composer-chain,.composer-detail{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .composer-provider{font-weight:600;color:var(--ink)}
 .composer-amount{font-size:13px;font-weight:650;margin-top:3px;overflow-wrap:anywhere}
@@ -400,13 +405,18 @@
 .canvas-toolbar-row{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;width:100%;min-width:0}
 .canvas-toolbar-utilities{display:flex;align-items:center;gap:8px;margin-left:auto}
 .canvas-toolbar-row>.revision{flex:none;white-space:nowrap}
-.canvas-head .canvas-toolbar-row .canvas-toolbox{flex:1;min-width:0;width:auto;order:0;margin:0;padding:4px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-padding-inline:4px;scrollbar-width:none}
-.canvas-toolbar-row .canvas-toolbox::-webkit-scrollbar{display:none}
+.canvas-head .canvas-toolbar-row .canvas-toolbox{flex:1;min-width:0;width:auto;order:0;margin:0;flex-wrap:nowrap;gap:0}
+.canvas-toolbar-row .canvas-primary-tools{display:flex;align-items:center;flex:1;min-width:0;gap:3px;padding:4px;overflow-x:auto;overflow-y:hidden;scroll-padding-inline:4px;scrollbar-width:none}
+.canvas-toolbar-row .canvas-primary-tools::-webkit-scrollbar{display:none}
+.canvas-toolbar-row .canvas-utility-tools{display:flex;align-items:center;flex:none;gap:3px;padding:4px 0}
 .canvas-toolbar-row .canvas-toolbox button{flex:none;justify-content:center}
 .canvas-toolbar-row .canvas-toolbox button span{display:inline}
+.canvas-toolbar-row .canvas-utility-tools .toolbox-mode-toggle{border-color:var(--line);background:var(--paper)}
 .canvas-toolbar-row .toolbox-divider{flex:none}
-@container(max-width:1200px){.canvas-toolbar-row{gap:5px}.canvas-toolbar-row .canvas-toolbox{gap:2px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:4px;gap:4px}}
-@container(max-width:1100px){.canvas-toolbar-row{gap:3px}.canvas-toolbar-row .canvas-toolbox{gap:1px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:2px;gap:3px}.canvas-toolbar-row .toolbox-divider{margin-inline:2px}}
+@container(max-width:1200px){.canvas-toolbar-row{gap:5px}.canvas-toolbar-row .canvas-primary-tools,.canvas-toolbar-row .canvas-utility-tools{gap:2px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:4px;gap:4px}}
+@container(max-width:1100px){.canvas-toolbar-row{gap:3px}.canvas-toolbar-row .canvas-primary-tools,.canvas-toolbar-row .canvas-utility-tools{gap:1px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:2px;gap:3px}.canvas-toolbar-row .toolbox-divider{margin-inline:2px}}
+@container(max-width:850px){.canvas-toolbar-row .canvas-utility-tools button span{display:none}.canvas-toolbar-row .canvas-utility-tools button{width:32px;padding:0}.canvas-toolbar-row .canvas-utility-tools .toolbox-mode-toggle{width:32px}.canvas-toolbar-row>.revision{display:none}}
+.floating-toolbox .canvas-primary-tools,.floating-toolbox .canvas-utility-tools{display:flex;flex-direction:column;align-items:center;gap:0}
 .inspector.inspector-disclosure{padding:0;min-height:0;overflow:hidden}
 .inspector-disclosure .inspector-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:12px 16px;border:0;border-radius:0;background:var(--paper);color:var(--blue);text-align:left;font-size:12px;font-weight:700}
 .inspector-disclosure .inspector-toggle svg{flex:none}

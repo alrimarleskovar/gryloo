@@ -149,8 +149,10 @@ test('desktop and mobile composer keep compact cards, editor placement and appro
 test('top toolbar stays in one row with every action reachable at narrow widths and page zoom', async ({ page }) => {
   await open(page);
   const toolbar = page.getByRole('toolbar', { name: 'Canvas tools', exact: true });
+  const primary = toolbar.getByRole('group', { name: 'Workflow actions', exact: true });
+  const utilities = toolbar.getByRole('group', { name: 'Workflow utilities', exact: true });
   const labels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap',
-    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo'];
+    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Undock toolbar'];
   async function checkRow() {
     expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(labels);
     const centers = await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => {
@@ -160,18 +162,26 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
     expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(1);
     const dock = (await page.getByRole('button', { name: 'Undock toolbar', exact: true }).boundingBox())!;
     expect(Math.abs(dock.y + dock.height / 2 - centers[0]!)).toBeLessThan(1);
-    for (const button of await toolbar.getByRole('button').all()) {
+    const utilityBox = (await utilities.boundingBox())!, toolbarBox = (await toolbar.boundingBox())!;
+    for (const button of await utilities.getByRole('button').all()) {
+      await expect(button).toBeInViewport();
+      const box = (await button.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(toolbarBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width);
+    }
+    for (const button of await primary.getByRole('button').all()) {
       await expect(button.locator('span')).toBeVisible();
       await button.scrollIntoViewIfNeeded();
-      const box = (await button.boundingBox())!, region = (await toolbar.boundingBox())!;
+      const box = (await button.boundingBox())!, region = (await primary.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(region.x);
       expect(box.x + box.width).toBeLessThanOrEqual(region.x + region.width);
+      expect((await utilities.boundingBox())!.x).toBe(utilityBox.x);
     }
     const row = (await page.locator('.canvas-toolbar-row').boundingBox())!;
     const canvas = (await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!;
     expect(row.x + row.width).toBeLessThanOrEqual(canvas.x + canvas.width);
   }
-  for (const width of [1920, 1440, 1200, 1024, 768, 390]) {
+  for (const width of [1920, 1440, 1200, 1024, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await checkRow();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -187,6 +197,40 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
   await page.getByRole('region', { name: 'Workflow canvas', exact: true }).evaluate(element => { element.style.maxWidth = '360px'; });
   await checkRow();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+});
+
+test('Swap and Bridge amount boxes select the existing editor, preserve the footer and retain history controls', async ({ page }) => {
+  for (const width of [1440, 390]) for (const action of ['swap', 'bridge']) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page);
+    await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
+    const card = cards(page), amount = card.locator('.composer-amount-box');
+    await expect(amount.locator('.composer-amount-value')).toHaveText('1');
+    await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
+    await expect(amount.locator('svg')).toBeVisible();
+    await expect(card.locator('input, form')).toHaveCount(0);
+    const footerGap = await card.evaluate(element => {
+      const footer = element.querySelector('.composer-selected') as HTMLElement;
+      return (element as HTMLElement).clientHeight - footer.offsetTop - footer.offsetHeight;
+    });
+    expect(footerGap).toBeGreaterThanOrEqual(11); expect(footerGap).toBeLessThanOrEqual(13);
+    await inspector(page).locator('.inspector-toggle').click();
+    await expect(inspector(page).locator('.inspector-body')).toBeHidden();
+    await amount.click();
+    await expect(card).toHaveClass(/active/);
+    await expect(inspector(page).locator('.inspector-body')).toBeVisible();
+    await expect(card.locator('.composer-selected')).toHaveText('Editing in Selected Action');
+    const utilities = page.getByRole('group', { name: 'Workflow utilities', exact: true });
+    // The inspector toggle can scroll a narrow page below the canvas header; history lives in that header.
+    await page.getByRole('toolbar', { name: 'Canvas tools', exact: true }).scrollIntoViewIfNeeded();
+    await expect(utilities.getByRole('button', { name: 'Undo', exact: true })).toBeInViewport();
+    await utilities.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    await expect(utilities.getByRole('button', { name: 'Redo', exact: true })).toBeInViewport();
+    await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect(amount.locator('.composer-amount-value')).toHaveText('1');
+    await expect(inspector(page).locator('.inspector-body')).toBeVisible();
+  }
 });
 
 test('Selected Action stays compact until selection and reopens for clicks and keyboard selection without losing drafts', async ({ page }) => {
