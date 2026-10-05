@@ -19,6 +19,7 @@ import { useWorkflow } from '../state/workflow-store';
 import { editorReducer } from '../domain/editor';
 import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/canvas-authoring';
 import { shellChainLabel } from '../domain/product-shell';
+import { WorkflowName } from './workflow-name';
 import { canDeleteCanvasEdge, deletableCanvasNodes, isTextEntry } from '../domain/canvas-keyboard';
 import { canvasPosition, defaultCanvasPosition, readToolboxMode, saveToolboxMode, type ToolboxMode } from '../domain/canvas-layout';
 import { canvasMarquee, marqueeIntersects } from '../domain/canvas-marquee';
@@ -204,12 +205,13 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
   </section>;
 }
 
-export function WorkflowCanvas(props: { selectedId: string | null; select: (id: string | null) => void } | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay> }) {
+type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void };
+export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay> }) {
   if ('mode' in props) return <SimulationCanvas overlay={props.overlay}/>;
-  return <BuildCanvas selectedId={props.selectedId} select={props.select}/>;
+  return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
+function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renameWorkflow = () => {} }: BuildCanvasProps) {
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const wallet=useBuild009Wallet();
@@ -403,13 +405,16 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
     {actions.map(action => <button key={action} type="button"
       title={action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add ' + actionLabel(action)}
       aria-label={action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
+    <button type="button" disabled aria-label="Privacy" title="Privacy · not available yet">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/></svg><span>Privacy</span>
+    </button>
     <span className="toolbox-divider" aria-hidden="true"/>
     <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
     <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>Undo</span></button>
     <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
   </div>;
   return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label="Workflow canvas">
-    <div className="canvas-head"><h2>Your Workflow</h2>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div>
+    <div className="canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}/>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div>
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView minZoom={0.35} maxZoom={1.4}

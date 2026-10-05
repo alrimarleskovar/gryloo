@@ -15,11 +15,11 @@ test('chat and canvas round-trip through the same semantic revision', async ({ p
   await page.getByRole('button', { name: 'Save parameter' }).click();
   await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
 
-  await page.getByLabel('Describe a mock edit').fill('explain');
+  await page.getByLabel('Describe your flow').fill('explain');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByRole('log')).toContainText('node-002: mock-transform, 2500000 sample units');
 
-  await page.getByLabel('Describe a mock edit').fill('add condition');
+  await page.getByLabel('Describe your flow').fill('add condition');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();

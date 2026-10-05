@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 import { readyForVisualCapture } from './mode-a-fixtures';
 
-const prompt = (page: Page) => page.getByLabel('Describe a mock edit');
+const prompt = (page: Page) => page.getByLabel('Describe your flow');
 const send = async (page: Page, text: string) => {
   await prompt(page).fill(text);
   await page.getByRole('button', { name: 'Send' }).click();

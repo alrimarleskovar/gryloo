@@ -85,6 +85,33 @@ Workspace hygiene: `.tmp/` review artifacts and the unrelated generated `apps/re
 
 No full browser suite, financial execution, PostgreSQL, Anvil/fork, dependency audit, SBOM or final certification was run for this correction. The focused check uses a stub wallet for account/network access and does not certify server deployment or execution. The existing preview's runtime mode configuration was not changed.
 
+### Owner-directed Part A workflow identity and Privacy affordance
+
+Commit subject: `UX-001A: refine workflow identity and privacy affordance`.
+
+Visual/product changes:
+
+- Removed GRYLOO from Copilot messages; retained ASSISTANT and Copilot. The prompt now reads exactly “Describe your flow”. Replaced the local-command welcome, developer example placeholder, raw command-help footer and parse-error help with concise product copy. Explain displays authored actions using the existing summary, excluding the same hidden scaffold as the canvas; it reports an empty flow when no authored actions exist. User messages remain intact.
+- Added a small pencil next to the existing workflow name. Inline input focuses/selects its value; Enter or blur confirms a trimmed, nonempty name, Escape cancels without clearing the selected action, and blank input preserves the previous name. Names are limited to 80 characters and wrap without horizontal page overflow.
+- AppShell owns the presentation-only name, defaulting to Your Workflow. It survives section navigation in the current mounted session and resets on reload. It is not persisted to canonical IR, reviewed runs, Manifest or evidence, and renaming does not increment revision.
+- Added a disabled Privacy shield immediately after Withdraw in both toolbar placements. Accessible name: Privacy; tooltip: “Privacy · not available yet”. It has no click handler, command factory, canonical action entry or execution capability. No Cloak/Zcash wiring or execution claim was added.
+- Fitted the additional entry into the existing 46px floating toolbar by changing its vertical gap from 2px to 0 and orienting its divider horizontally (24×1px). Buttons/icons, existing ordering and behavior are retained; the 620px canvas/Copilot heights, inspector position and bottom-right zoom controls remain unchanged. All icons fit without internal scrolling at tested desktop/mobile widths.
+- Updated affected browser input-label selectors and toolbar ordering; added focused identity/Copilot browser coverage and component presentation assertions.
+
+Untouched guarantees: Copilot command parsing, proposal/apply/dismiss flow and revision binding; canvas node operations and inspector forms; canonical IR and runtime; backend/API/provider execution; wallet/session/signature authorization; Manifest semantics; durable recovery, reconciliation and evidence. No Guided Chat implementation or parallel-branch changes. No Simulate/Execute behavior changes. Part B remains pending.
+
+| Targeted validation | Result |
+| --- | --- |
+| Vitest: `components/copilot-panel.test.tsx`, `components/build-correction.test.tsx`, `components/product-shell.test.tsx` | 14 tests passed across three files. Product copy, untouched render state, inert Privacy placement, title rendering, existing selected lending cards and header/navigation checks. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source and browser tests | Passed. |
+| Focused Chromium: `e2e/build-identity.spec.ts`, `e2e/build-layout.spec.ts` against the existing loopback development preview | Five tests passed. Inline Enter/Escape/blur/blank handling, current-session navigation retention, mobile long-title overflow, Privacy inertness/order in both toolbar modes, existing Copilot propose/apply/explain, canvas/Copilot/inspector placement, toolbox fit at 1440px/390px, unchanged add/edit/zoom behavior. |
+| `git diff --check` | Passed. |
+
+The first browser pass caught scrolling after the extra toolbar entry; the scoped spacing/divider fix resolved it without changing canvas height. Browser checks used the existing preview at 127.0.0.1:3001 with external HTTP/WebSocket traffic blocked; only the preview and its development HMR were allowed. All five checks verified zero wallet sign/send requests. Repository egress gates and financial test assertions were not weakened. Temporary loopback fixture/config copies and browser artifacts remain in untracked `.tmp/`, excluded from the commit.
+
+Limitations: the workflow name is session-only presentation identity; Privacy remains unavailable; Copilot still accepts its existing supported command grammar without a new model or Guided Chat. Older mock-scaffold browser scenarios remain pending alignment during later UX work. Selector updates outside the two focused browser files were typechecked/linted, not browser-certified. No full CI, PostgreSQL, Anvil/fork, dependency audit, SBOM or final certification was run.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

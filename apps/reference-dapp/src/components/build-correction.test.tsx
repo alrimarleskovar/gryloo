@@ -41,6 +41,22 @@ describe('corrected Build workspace presentation', () => {
     expect(html).not.toMatch(/class="flow-card|Mock example|Local mock|MOCK ACTION|Template.*no execution/i);
   });
 
+  it('places an inert Privacy entry after Withdraw and renders the presentation title without editing IR', () => {
+    setWorkflow();
+    const before = JSON.stringify(fixture.store.state.workflow);
+    const renameWorkflow = vi.fn();
+    const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn(), workflowName: 'ETH Carry Strategy', renameWorkflow }));
+    expect(html).toContain('<h2>ETH Carry Strategy</h2>');
+    expect(html).toContain('aria-label="Rename workflow"');
+    expect(html).toMatch(/aria-label="Add withdraw"[\s\S]*?<\/button><button type="button" disabled="" aria-label="Privacy"/);
+    expect(html).toContain('Privacy · not available yet');
+    expect(html).not.toMatch(/Cloak|Zcash/);
+    expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+    expect(renameWorkflow).not.toHaveBeenCalled();
+    expect(fixture.store.dispatch).not.toHaveBeenCalled();
+    expect(fixture.store.addCanvasCommand).not.toHaveBeenCalled();
+  });
+
   it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s is a compact selected card; its parameters live only in the inspector', action => {
     const selectedId = setWorkflow(action);
     const before = JSON.stringify(fixture.store.state.workflow);

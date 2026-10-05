@@ -39,7 +39,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
   const toolbar = graph.locator('.floating-toolbox');
   await expect(toolbar).toBeVisible();
-  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Duplicate selection', 'Undo', 'Redo'];
+  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo'];
   expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(buttonLabels);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });

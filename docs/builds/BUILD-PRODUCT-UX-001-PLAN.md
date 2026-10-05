@@ -51,3 +51,13 @@ Create a separate focused correction commit, report back and stop before further
 ## Current status
 
 Part A committed. The owner-requested Build direction correction is implemented and targeted validation passed; it is recorded as a separate correction commit. Further Parts B–E work has not started. Final integration/certification is reserved for Part E.
+
+## Owner-directed Part A identity and Privacy refinement
+
+Keep the existing Copilot parser, proposal/revision checks and integration. Remove internal branding and command-help examples from its primary presentation; use exactly “Describe your flow”. Its explanation should display authored actions rather than the hidden canonical scaffold.
+
+Add inline naming beside the existing canvas title. No canonical title persistence exists, so the name belongs to AppShell presentation state only: Enter/blur confirm, Escape cancels, navigation preserves the name during the current session, and reload resets it. Naming must not edit IR, increment revision or rename a reviewed run/Manifest.
+
+Place a disabled shield labeled Privacy immediately after Withdraw, outside the canonical action definitions. It has no handler or execution claim. Keep the existing toolbar width, icon sizes, canvas/Copilot heights, inspector and zoom positions; fit the extra entry by tightening floating-toolbar vertical spacing if necessary. Cloak/Zcash integration remains deferred to final integration/certification after the UX parts.
+
+Validate component/header/toolbar presentation, inline keyboard naming and existing Copilot proposal handling with targeted unit/browser checks, app typecheck and touched-file lint. Commit `UX-001A: refine workflow identity and privacy affordance`, then stop. Part B is not authorized.

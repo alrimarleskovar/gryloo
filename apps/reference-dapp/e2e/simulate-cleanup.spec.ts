@@ -21,7 +21,7 @@ test('Simulate keeps the workflow visible and reveals technical views on request
 
   const stages = page.getByRole('navigation', { name: 'Workflow stages' });
   await stages.getByRole('button', { name: 'Build' }).click();
-  await page.getByLabel('Describe a mock edit').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await stages.getByRole('button', { name: 'Simulate' }).click();

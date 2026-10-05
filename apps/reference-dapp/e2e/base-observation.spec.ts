@@ -8,7 +8,7 @@ const observation = (page: import('@playwright/test').Page) => page.getByRole('r
 test('replay fails closed for an unrecorded swap and preserves the authority boundary', async ({ page, networkGuard }) => {
   const response = await page.goto('/');
   expect(response?.headers()['content-security-policy']).toContain("connect-src 'self'");
-  await page.getByLabel('Describe a mock edit').fill('swap 3 USDC to WETH on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 3 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
@@ -33,7 +33,7 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
 
 test('observation controls are keyboard reachable and fit mobile, tablet and desktop widths', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Describe a mock edit').fill('swap 1 WETH to USDC on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
@@ -60,7 +60,7 @@ for (const [from, to, amount, at] of [
     await page.goto('/');
     // Keep the recorded wall time fixed while ResizeObserver and animation frames fit the graph.
     await page.clock.setFixedTime(new Date(at));
-    await page.getByLabel('Describe a mock edit').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
+    await page.getByLabel('Describe your flow').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
     await page.getByRole('button', { name: 'Send' }).click();
     await page.getByRole('button', { name: 'Apply proposal' }).click();
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
@@ -115,7 +115,7 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await page.goto('/');
   // Navigation can exceed one second; keep replay time fixed without rewinding timers.
   await page.clock.setFixedTime(at);
-  await page.getByLabel('Describe a mock edit').fill('swap 1 WETH to USDC on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
@@ -127,7 +127,7 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await region.getByRole('button', { name: 'Read Base quote' }).click();
   await expect(region).toContainText('OBSERVATION: CURRENT');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build' }).click();
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 2');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 2');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();

@@ -18,7 +18,7 @@ async function open(page: Page) {
   await page.clock.pauseAt(T1);
 }
 async function apply(page: Page, text: string) {
-  await page.getByLabel('Describe a mock edit').fill(text);
+  await page.getByLabel('Describe your flow').fill(text);
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
@@ -117,12 +117,12 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await tab(page, 'Simulate');
   await expect(chip(page, 'CURRENT')).toBeVisible();
   await tab(page, 'Build');
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 3');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 3');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await apply(page, 'set node-002 amount 2.25');
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 4');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 4');
   await page.getByRole('button', { name: 'Send' }).click();
   await page.locator('.flow-card').nth(1).click();
   await page.getByRole('button', { name: 'Lock amount' }).click();
