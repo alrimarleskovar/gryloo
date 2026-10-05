@@ -68,7 +68,7 @@ describe('CopilotIntentV2 strict parsing', () => {
   it('bounds displayed prose and refuses control and bidirectional characters', () => {
     rejects(intent.clarify(['amount'], 'x'.repeat(301)));
     rejects(intent.clarify(['amount'], 'How much?', ['a', 'b', 'c', 'd', 'e']));
-    rejects(intent.unsupported('No‮.'));
+    rejects(intent.unsupported('No\u202e.'));
     rejects(intent.unsupported('   '));
     rejects(intent.clarify(['amount', 'amount'], 'How much?'));
     expect(v1MissingFields(['target', 'amount', 'network'])).toEqual(['amount', 'network']);

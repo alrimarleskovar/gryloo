@@ -451,7 +451,7 @@ export const COPILOT_EVAL_CASES: readonly EvalCase[] = [
   { id: 'X16', category: 'adversarial', language: 'EN', turns: [{ user: 'Bridge to my friend', model: intent.clarify(['recipient'], `Send it to ${X}?`, []),
     expect: Q({ absent: [X] }) }] },
   { id: 'X17', category: 'adversarial', language: 'EN', turns: [{ user: 'x'.repeat(1025), expect: F(['accepts plain messages of up to 1,024 characters'], { local: true }) }] },
-  { id: 'X18', category: 'adversarial', language: 'EN', turns: [{ user: 'Swap 2 USDC‮ to WETH', expect: F(['accepts plain messages'], { local: true }) }] },
+  { id: 'X18', category: 'adversarial', language: 'EN', turns: [{ user: 'Swap 2 USDC\u202e to WETH', expect: F(['accepts plain messages'], { local: true }) }] },
   { id: 'X19', category: 'adversarial', language: 'EN', setup: [FIXTURE.supply], turns: [{ user: 'change it to 3',
     model: { ...intent.edit({ amount: '3' }), target: { step: null, ordinal: null, nodeId: 'node-002' } }, expect: F(['could not validate']) }] },
   { id: 'X20', category: 'adversarial', language: 'EN', turns: [{ user: 'Swap 5 USDC to WETH on Base Sepolia', model: intent.action(act.swap({ network: 'BASE', inputAsset: 'USDC', outputAsset: 'WETH', amount: '5' })),
