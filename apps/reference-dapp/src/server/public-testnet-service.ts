@@ -1,29 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** One opt-in, exact-profile Base Sepolia Uniswap v3 swap. This service never signs or sends. */
+/**
+ * One opt-in, exact-profile Uniswap v3 swap on a public testnet: Base Sepolia USDC/WETH 0.05%, or (BUILD-ETHEREUM-001)
+ * Ethereum Sepolia USDC/WETH 0.3%. The authored chain selects the profile and its own read client; no chain falls back to
+ * another. This service never signs or sends.
+ */
 import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { resolveWorkflowCapability } from '@defi-workflow-engine/action-registry';
-import { createBaseSepoliaReviewContext, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, reviewContextForChain, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
 import { hashArtifactBytes, type EvidenceBundle, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { validateArtifact } from '@defi-workflow-engine/workflow-contracts/schemas';
 import { utf8, type ExecutionStorage } from '@defi-workflow-engine/reference-executor';
-import { BASE_SEPOLIA } from '../domain/public-testnet-swap.ts';
-export { BASE_SEPOLIA } from '../domain/public-testnet-swap.ts';
+import { BASE_SEPOLIA, publicSwapProfile, type PublicSwapProfile } from '../domain/public-testnet-swap.ts';
+export { BASE_SEPOLIA, ETHEREUM_SEPOLIA_SWAP } from '../domain/public-testnet-swap.ts';
 
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 type Step = 'approval' | 'swap';
-type Tx = { readonly chainId: typeof BASE_SEPOLIA.chainHex; readonly from: string; readonly to: string;
+type Tx = { readonly chainId: PublicSwapProfile['chainHex']; readonly from: string; readonly to: string;
   readonly data: string; readonly value: '0x0'; readonly gas: string };
 export type PublicQuote = { readonly executionId: string; readonly revision: number; readonly nodeId: string;
-  readonly workflowHash: string; readonly manifestHash: string; readonly chainId: 84532; readonly inputToken: string;
+  readonly workflowHash: string; readonly manifestHash: string; readonly chainId: PublicSwapProfile['chainId']; readonly inputToken: string;
   readonly outputToken: string; readonly inputSymbol: 'USDC' | 'WETH'; readonly outputSymbol: 'USDC' | 'WETH';
   readonly amountIn: string; readonly expectedOut: string; readonly minimumOut: string; readonly slippageBps: number;
-  readonly pool: string; readonly fee: 500; readonly blockNumber: number; readonly blockHash: string;
+  readonly pool: string; readonly fee: PublicSwapProfile['fee']; readonly blockNumber: number; readonly blockHash: string;
   readonly observedAt: string; readonly expiresAt: string; readonly estimatedGas: string | null };
 export type PublicAttempt = { readonly attemptId: string; readonly executionId: string; readonly step: Step;
   readonly state: 'PREPARED' | 'HASH' | 'REJECTED' | 'UNKNOWN' | 'PENDING' | 'REVERTED' | 'CONFIRMED';
-  readonly createdAt: string; readonly submittedAt: string | null; readonly account: string; readonly chainId: 84532; readonly environment: 'PUBLIC_TESTNET';
+  readonly createdAt: string; readonly submittedAt: string | null; readonly account: string; readonly chainId: PublicSwapProfile['chainId']; readonly environment: 'PUBLIC_TESTNET';
   readonly adapter: 'uniswap.v3'; readonly semanticRevision: number; readonly manifestHash: string;
   readonly tx: Tx; readonly calldataDigest: string; readonly authorizedInput: string; readonly authorizedMinimumOutput: string;
   readonly preBlock: number; readonly nativeBefore: string; readonly inputBefore: string; readonly outputBefore: string;
@@ -62,27 +66,30 @@ function digest(value: unknown): string { return '0x' + createHash('sha256').upd
 const blockHex = (n: number) => '0x' + n.toString(16);
 const callData = (selector: string, ...words: string[]) => selector + words.join('');
 const balanceData = (owner: string) => callData('0x70a08231', addrWord(owner));
-const allowanceData = (owner: string) => callData('0xdd62ed3e', addrWord(owner), addrWord(BASE_SEPOLIA.router));
-const approveData = (amount: bigint) => callData('0x095ea7b3', addrWord(BASE_SEPOLIA.router), word(amount));
+const allowanceData = (owner: string, p: PublicSwapProfile) => callData('0xdd62ed3e', addrWord(owner), addrWord(p.router));
+const approveData = (amount: bigint, p: PublicSwapProfile) => callData('0x095ea7b3', addrWord(p.router), word(amount));
 const swapData = (q: PublicQuote, owner: string) => callData('0x04e45aaf', addrWord(q.inputToken), addrWord(q.outputToken),
   word(BigInt(q.fee)), addrWord(owner), word(BigInt(q.amountIn)), word(BigInt(q.minimumOut)), word(0n));
-const poolData = (a: string, b: string) => callData('0x1698ee82', addrWord(a), addrWord(b), word(BigInt(BASE_SEPOLIA.fee)));
-const quoteData = (a: string, b: string, amount: bigint) => callData('0xc6a5026a', addrWord(a), addrWord(b),
-  word(amount), word(BigInt(BASE_SEPOLIA.fee)), word(0n));
+const poolData = (a: string, b: string, p: PublicSwapProfile) => callData('0x1698ee82', addrWord(a), addrWord(b), word(BigInt(p.fee)));
+const quoteData = (a: string, b: string, amount: bigint, p: PublicSwapProfile) => callData('0xc6a5026a', addrWord(a), addrWord(b),
+  word(amount), word(BigInt(p.fee)), word(0n));
+/** The swap profile of a run's quote; a persisted chain without a profile is corrupt. */
+const profileOf = (chainId: number): PublicSwapProfile => publicSwapProfile(chainId) ?? fail('PUBLIC_STORE_CORRUPT');
 function canonical(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical((value as Record<string, unknown>)[key])).join(',') + '}';
 }
 function swapOf(workflow: SemanticWorkflow) {
-  validateAuthoringWorkflow(workflow, createBaseSepoliaReviewContext());
   const financial = workflow.nodes.filter(node => !node.actionType.startsWith('mock-'));
-  if (financial.length !== 1 || financial[0]?.actionType !== 'asset.swap.exact-input' || financial[0].chainId !== BASE_SEPOLIA.chainRef)
-    fail('PUBLIC_WORKFLOW_UNSUPPORTED');
+  // The authored chain selects the profile; its own trusted asset context validates the swap (Base USDC is never Ethereum Sepolia USDC).
+  const profile = financial.length === 1 && financial[0]?.actionType === 'asset.swap.exact-input' ? publicSwapProfile(financial[0].chainId) : null;
+  if (!profile) fail('PUBLIC_WORKFLOW_UNSUPPORTED');
+  validateAuthoringWorkflow(workflow, reviewContextForChain(profile.chainRef, createBaseSepoliaReviewContext()));
   const cap = resolveWorkflowCapability(workflow, { environment: 'PUBLIC_TESTNET' });
   if (!cap.executionSupported || cap.nodes.find(node => node.nodeId === financial[0]!.nodeId)?.profile?.adapterId !== 'uniswap.v3')
     fail('PUBLIC_WORKFLOW_UNSUPPORTED');
-  const node = financial[0];
+  const node = financial[0]!;
   const amount = node.inputs.find(p => p.name === 'amount-in');
   const out = node.inputs.find(p => p.name === 'asset-out');
   const slip = node.userConstraints.find(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS');
@@ -90,11 +97,11 @@ function swapOf(workflow: SemanticWorkflow) {
       slip.maximumBps < 1 || slip.maximumBps > 300) fail('PUBLIC_SWAP_INVALID');
   const inputToken = address('address' in amount.value.asset ? amount.value.asset.address : '');
   const outputToken = address('address' in out.value ? out.value.address : '');
-  if (!(inputToken === BASE_SEPOLIA.usdc || inputToken === BASE_SEPOLIA.weth) ||
-      !(outputToken === BASE_SEPOLIA.usdc || outputToken === BASE_SEPOLIA.weth) || inputToken === outputToken)
+  if (!(inputToken === profile.usdc || inputToken === profile.weth) ||
+      !(outputToken === profile.usdc || outputToken === profile.weth) || inputToken === outputToken)
     fail('PUBLIC_SWAP_INVALID');
-  return { node, inputToken, outputToken, inputSymbol: inputToken === BASE_SEPOLIA.usdc ? 'USDC' as const : 'WETH' as const,
-    outputSymbol: outputToken === BASE_SEPOLIA.usdc ? 'USDC' as const : 'WETH' as const,
+  return { node, profile, inputToken, outputToken, inputSymbol: inputToken === profile.usdc ? 'USDC' as const : 'WETH' as const,
+    outputSymbol: outputToken === profile.usdc ? 'USDC' as const : 'WETH' as const,
     amountIn: BigInt(amount.value.amount), slippageBps: slip.maximumBps };
 }
 function isObject(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
@@ -158,7 +165,8 @@ function delegatedExecutionDepth(input: string, target: string, data: string): n
  */
 export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash: string; readonly account: string; readonly target: string;
   readonly data: string; readonly preBlock: number }, tx: unknown, raw: Record<string, unknown>,
-  /** EVM chain id of the reviewed call (Base Sepolia unless a flow names its chain, e.g. the Base mainnet router). */ chainId = 84532) {
+  /** EVM chain id of the reviewed call (Base Sepolia unless a flow names its chain, e.g. the Base mainnet router). */ chainId = 84532,
+  /** OP Stack receipts must carry `l1Fee`; an Ethereum L1 receipt must not (BUILD-ETHEREUM-001). */ l1DataFee = true) {
   if (!isObject(tx)) fail('TRANSACTION_MISMATCH');
   const txFrom = address(tx.from), txTo = address(tx.to), txInput = hex(tx.input);
   if (Number(quantity(tx.chainId)) !== chainId || hex(tx.hash) !== attempt.txHash || quantity(tx.value) !== 0n)
@@ -181,7 +189,7 @@ export async function verifyOwnerSubmission(rpc: Rpc, attempt: { readonly txHash
   const status = Number(quantity(raw.status));
   const blockNumber = Number(quantity(raw.blockNumber));
   const gasUsed = quantity(raw.gasUsed), effectiveGasPrice = quantity(raw.effectiveGasPrice);
-  const l1Fee = quantity(raw.l1Fee);
+  const l1Fee = l1DataFee ? quantity(raw.l1Fee) : raw.l1Fee === undefined ? 0n : fail('RECEIPT_INVALID');
   if (![0, 1].includes(status) || !Number.isSafeInteger(blockNumber) || blockNumber < attempt.preBlock ||
       hex(raw.transactionHash) !== attempt.txHash || address(raw.from) !== txFrom ||
       address(raw.to) !== txTo || !HASH.test(hex(raw.blockHash))) fail('RECEIPT_INVALID');
@@ -228,7 +236,7 @@ export function publicRecordingEnabled(env: NodeJS.ProcessEnv): boolean {
   return env.GRYLOO_PUBLIC_TESTNET === 'record' && env.NODE_ENV === 'development' &&
     typeof env.GRYLOO_PUBLIC_TESTNET_JOURNAL === 'string' && isAbsolute(env.GRYLOO_PUBLIC_TESTNET_JOURNAL);
 }
-export function explorerUrl(txHash: string): string { if (!HASH.test(txHash)) fail('TX_HASH_INVALID'); return BASE_SEPOLIA.explorer + txHash; }
+export function explorerUrl(txHash: string, profile: PublicSwapProfile = BASE_SEPOLIA): string { if (!HASH.test(txHash)) fail('TX_HASH_INVALID'); return profile.explorer + txHash; }
 /** Persistence used by the shared core: synchronous files locally, async shared storage in the cloud. */
 type Persistence = { readonly save: (run: PublicRun) => PublicRun | Promise<PublicRun>; readonly load: (id: string) => PublicRun | Promise<PublicRun>;
   readonly locked: <T>(id: string, action: () => Promise<T>) => Promise<T> };
@@ -249,7 +257,8 @@ export function reportPublicRun(run: PublicRun, attemptId: string, result: { kin
     txHash: result.kind === 'HASH' ? result.txHash : null };
   return { ...run, attempts: run.attempts.map(a => a.attemptId === attemptId ? changed : a) };
 }
-export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly journalDir: string; readonly now?: () => Date }) {
+/** `rpc` is the Base Sepolia read client; `rpcs` adds one chain-bound read client per further swap profile (CAIP-2 keyed). */
+export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly rpcs?: Readonly<Partial<Record<string, Rpc>>>; readonly journalDir: string; readonly now?: () => Date }) {
   const { journalDir } = config;
   const now = config.now ?? (() => new Date());
   if (!isAbsolute(journalDir)) fail('PUBLIC_JOURNAL_INVALID');
@@ -280,7 +289,7 @@ export function createPublicTestnetService(config: { readonly rpc: Rpc; readonly
     locks.add(id);
     try { return await action(); } finally { locks.delete(id); unlinkSync(lockFile); }
   }
-  const core = createPublicTestnetCore(config.rpc, now, { save, load, locked });
+  const core = createPublicTestnetCore(rpcRouter(config), now, { save, load, locked });
   const review = (id: string, manifestHash: string): PublicRun => save(reviewPublicRun(load(id), manifestHash, now()));
   const report = (id: string, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }): PublicRun =>
     save(reportPublicRun(load(id), attemptId, result, now()));
@@ -294,7 +303,7 @@ export type PublicTestnetService = ReturnType<typeof createPublicTestnetService>
  * append-only log (`<id>.jsonl`) under fenced leases, so N API/worker instances can serve one run and its full
  * history survives. Every mutation, including Review and wallet results, runs under the run lease.
  */
-export function createDurablePublicTestnetService(config: { readonly rpc: Rpc; readonly storage: ExecutionStorage; readonly now?: () => Date }) {
+export function createDurablePublicTestnetService(config: { readonly rpc: Rpc; readonly rpcs?: Readonly<Partial<Record<string, Rpc>>>; readonly storage: ExecutionStorage; readonly now?: () => Date }) {
   const now = config.now ?? (() => new Date()), { log, leases } = config.storage;
   const name = (id: string) => { if (!/^pub-[0-9a-f]{24}$/.test(id)) fail('EXECUTION_ID_INVALID'); return id + '.jsonl'; };
   const validate = (bytes: Uint8Array) => validatePublicRunLog(bytes);
@@ -312,7 +321,7 @@ export function createDurablePublicTestnetService(config: { readonly rpc: Rpc; r
     return run;
   }
   const locked = <T,>(id: string, action: () => Promise<T>): Promise<T> => leases.hold(name(id).slice(0, -6), action);
-  const core = createPublicTestnetCore(config.rpc, now, { save, load, locked });
+  const core = createPublicTestnetCore(rpcRouter(config), now, { save, load, locked });
   return { ...core, load,
     review: (id: string, manifestHash: string) => locked(id, async () => save(reviewPublicRun(await load(id), manifestHash, now()))),
     report: (id: string, attemptId: string, result: { kind: 'HASH'; txHash: string } | { kind: 'REJECTED' | 'UNKNOWN' }) =>
@@ -320,6 +329,10 @@ export function createDurablePublicTestnetService(config: { readonly rpc: Rpc; r
 }
 export type DurablePublicTestnetService = ReturnType<typeof createDurablePublicTestnetService>;
 
+/** The read client of a profile's chain; a chain without a configured client is not enabled and fails closed. */
+function rpcRouter(config: { readonly rpc: Rpc; readonly rpcs?: Readonly<Partial<Record<string, Rpc>>> }): (profile: PublicSwapProfile) => Rpc {
+  return profile => config.rpcs?.[profile.chainRef] ?? (profile.chainRef === BASE_SEPOLIA.chainRef ? config.rpc : fail('PUBLIC_NETWORK_UNAVAILABLE'));
+}
 /** Append-only snapshot history: identity, authorized calls, hashes and terminal results never change. */
 export function validatePublicRunLog(bytes: Uint8Array): void {
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -328,13 +341,13 @@ export function validatePublicRunLog(bytes: Uint8Array): void {
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   for (const line of text.trimEnd().split('\n')) {
     const run = JSON.parse(line) as PublicRun;
-    if (!isObject(run) || !isObject(run.quote) || !/^pub-[0-9a-f]{24}$/.test(String(run.quote.executionId)) || run.quote.chainId !== 84532 ||
+    if (!isObject(run) || !isObject(run.quote) || !/^pub-[0-9a-f]{24}$/.test(String(run.quote.executionId)) || !publicSwapProfile(run.quote.chainId) ||
         !isObject(run.workflow) || !Array.isArray(run.attempts) || run.attempts.length > 8 || (run.outcome !== null && !isObject(run.outcome)) ||
-        run.attempts.some(a => !isObject(a) || a.executionId !== run.quote.executionId || a.chainId !== 84532 || !ADDRESS.test(String(a.account)) ||
+        run.attempts.some(a => !isObject(a) || a.executionId !== run.quote.executionId || a.chainId !== run.quote.chainId || !ADDRESS.test(String(a.account)) ||
           (a.txHash !== null && !HASH.test(String(a.txHash)))) || new Set(run.attempts.map(a => a.attemptId)).size !== run.attempts.length)
       fail('PUBLIC_STORE_CORRUPT');
     if (prior) {
-      if (run.quote.executionId !== prior.quote.executionId || !same(run.workflow, prior.workflow) || run.attempts.length < prior.attempts.length ||
+      if (run.quote.executionId !== prior.quote.executionId || run.quote.chainId !== prior.quote.chainId || !same(run.workflow, prior.workflow) || run.attempts.length < prior.attempts.length ||
           prior.outcome && !same(run.outcome, prior.outcome)) fail('PUBLIC_STORE_CORRUPT');
       for (const [index, before] of prior.attempts.entries()) {
         const after = run.attempts[index]!;
@@ -348,47 +361,47 @@ export function validatePublicRunLog(bytes: Uint8Array): void {
   }
 }
 
-function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persistence) {
+function createPublicTestnetCore(rpcFor: (profile: PublicSwapProfile) => Rpc, now: () => Date, persistence: Persistence) {
   const { locked } = persistence;
   const save = async (run: PublicRun) => persistence.save(run), load = async (id: string) => persistence.load(id);
-  async function read(to: string, data: string, block: string): Promise<string> {
+  async function read(rpc: Rpc, to: string, data: string, block: string): Promise<string> {
     return hex(await rpc('eth_call', [{ to, data }, block]));
   }
-  async function balance(token: string, owner: string, block: string): Promise<bigint> {
-    return BigInt(await read(token, balanceData(owner), block));
+  async function balance(rpc: Rpc, token: string, owner: string, block: string): Promise<bigint> {
+    return BigInt(await read(rpc, token, balanceData(owner), block));
   }
-  async function allowance(token: string, owner: string, block: string): Promise<bigint> {
-    return BigInt(await read(token, allowanceData(owner), block));
+  async function allowance(rpc: Rpc, profile: PublicSwapProfile, token: string, owner: string, block: string): Promise<bigint> {
+    return BigInt(await read(rpc, token, allowanceData(owner, profile), block));
   }
   async function quote(workflow: SemanticWorkflow, executionId: string): Promise<PublicQuote> {
-    const swap = swapOf(workflow);
-    if (quantity(await rpc('eth_chainId', [])) !== 84532n) fail('WRONG_PROVIDER_CHAIN');
+    const swap = swapOf(workflow), P = swap.profile, rpc = rpcFor(P);
+    const call = (to: string, data: string, block: string) => read(rpc, to, data, block);
+    if (quantity(await rpc('eth_chainId', [])) !== BigInt(P.chainId)) fail('WRONG_PROVIDER_CHAIN');
     const head = await rpc('eth_getBlockByNumber', ['latest', false]);
     if (!isObject(head) || typeof head.number !== 'string' || typeof head.hash !== 'string' || typeof head.timestamp !== 'string') fail('RPC_RESPONSE_INVALID');
     const blockNumber = Number(quantity(head.number)), blockHash = hex(head.hash), block = blockHex(blockNumber);
     if (!Number.isSafeInteger(blockNumber) || !HASH.test(blockHash)) fail('RPC_RESPONSE_INVALID');
     const age = now().getTime() - Number(quantity(head.timestamp)) * 1000;
     if (age > 120_000 || age < -30_000) fail('STALE_CHAIN_HEAD');
-    for (const target of [BASE_SEPOLIA.factory, BASE_SEPOLIA.router, BASE_SEPOLIA.quoter,
-      BASE_SEPOLIA.usdc, BASE_SEPOLIA.weth, BASE_SEPOLIA.pool]) {
+    for (const target of [P.factory, P.router, P.quoter, P.usdc, P.weth, P.pool]) {
       const code = hex(await rpc('eth_getCode', [target, block]));
       if (code === '0x0' || code === '0x') fail('CONTRACT_CODE_MISSING');
     }
-    for (const target of [BASE_SEPOLIA.quoter, BASE_SEPOLIA.router]) {
-      if (address('0x' + (await read(target, '0xc45a0155', block)).slice(-40)) !== BASE_SEPOLIA.factory ||
-          address('0x' + (await read(target, '0x4aa4a4fc', block)).slice(-40)) !== BASE_SEPOLIA.weth)
+    for (const target of [P.quoter, P.router]) {
+      if (address('0x' + (await call(target, '0xc45a0155', block)).slice(-40)) !== P.factory ||
+          address('0x' + (await call(target, '0x4aa4a4fc', block)).slice(-40)) !== P.weth)
         fail('PROTOCOL_DEPLOYMENT_MISMATCH');
     }
-    if (Number(BigInt(await read(BASE_SEPOLIA.usdc, '0x313ce567', block))) !== 6 ||
-        Number(BigInt(await read(BASE_SEPOLIA.weth, '0x313ce567', block))) !== 18) fail('TOKEN_METADATA_MISMATCH');
-    if (address('0x' + (await read(BASE_SEPOLIA.factory, poolData(swap.inputToken, swap.outputToken), block)).slice(-40)) !== BASE_SEPOLIA.pool)
+    if (Number(BigInt(await call(P.usdc, '0x313ce567', block))) !== 6 ||
+        Number(BigInt(await call(P.weth, '0x313ce567', block))) !== 18) fail('TOKEN_METADATA_MISMATCH');
+    if (address('0x' + (await call(P.factory, poolData(swap.inputToken, swap.outputToken, P), block)).slice(-40)) !== P.pool)
       fail('POOL_FACTORY_MISMATCH');
-    if (address('0x' + (await read(BASE_SEPOLIA.pool, '0x0dfe1681', block)).slice(-40)) !== BASE_SEPOLIA.usdc ||
-        address('0x' + (await read(BASE_SEPOLIA.pool, '0xd21220a7', block)).slice(-40)) !== BASE_SEPOLIA.weth ||
-        BigInt(await read(BASE_SEPOLIA.pool, '0xddca3f43', block)) !== 500n) fail('POOL_METADATA_MISMATCH');
-    if (BigInt(await read(BASE_SEPOLIA.pool, '0x1a686502', block)) === 0n ||
-        BigInt((await read(BASE_SEPOLIA.pool, '0x3850c7bd', block)).slice(0, 66)) === 0n) fail('POOL_UNUSABLE');
-    const raw = await read(BASE_SEPOLIA.quoter, quoteData(swap.inputToken, swap.outputToken, swap.amountIn), block);
+    if (address('0x' + (await call(P.pool, '0x0dfe1681', block)).slice(-40)) !== P.usdc ||
+        address('0x' + (await call(P.pool, '0xd21220a7', block)).slice(-40)) !== P.weth ||
+        BigInt(await call(P.pool, '0xddca3f43', block)) !== BigInt(P.fee)) fail('POOL_METADATA_MISMATCH');
+    if (BigInt(await call(P.pool, '0x1a686502', block)) === 0n ||
+        BigInt((await call(P.pool, '0x3850c7bd', block)).slice(0, 66)) === 0n) fail('POOL_UNUSABLE');
+    const raw = await call(P.quoter, quoteData(swap.inputToken, swap.outputToken, swap.amountIn, P), block);
     if (raw.length < 66) fail('QUOTE_INVALID');
     const expectedOut = BigInt(raw.slice(0, 66));
     const minimumOut = expectedOut * BigInt(10_000 - swap.slippageBps) / 10_000n;
@@ -397,10 +410,10 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
     if (!isObject(sameBlock) || sameBlock.hash !== blockHash) fail('QUOTE_BLOCK_REORG');
     const observedAt = now().toISOString();
     const fields = { executionId, revision: workflow.revision, nodeId: swap.node.nodeId,
-      workflowHash: digest(canonical(workflow)), chainId: 84532 as const, inputToken: swap.inputToken, outputToken: swap.outputToken,
+      workflowHash: digest(canonical(workflow)), chainId: P.chainId, inputToken: swap.inputToken, outputToken: swap.outputToken,
       inputSymbol: swap.inputSymbol, outputSymbol: swap.outputSymbol, amountIn: swap.amountIn.toString(),
       expectedOut: expectedOut.toString(), minimumOut: minimumOut.toString(), slippageBps: swap.slippageBps,
-      pool: BASE_SEPOLIA.pool, fee: 500 as const, blockNumber, blockHash, observedAt,
+      pool: P.pool, fee: P.fee, blockNumber, blockHash, observedAt,
       expiresAt: new Date(now().getTime() + 60_000).toISOString(), estimatedGas: null };
     return { ...fields, manifestHash: digest(canonical(fields)) };
   }
@@ -439,29 +452,30 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
         run = await save({ ...run, quote: fresh, reviewedManifestHash: null });
         fail('QUOTE_EXPIRED_REVIEW_REQUIRED');
       }
+      const P = profileOf(run.quote.chainId), rpc = rpcFor(P);
       const gate = resolveWorkflowCapability(run.workflow, { environment: 'PUBLIC_TESTNET', runtime: {
-        quoteProviderAvailable: true, walletConnected: true, walletChainId: BASE_SEPOLIA.chainRef,
+        quoteProviderAvailable: true, walletConnected: true, walletChainId: P.chainRef,
         artifacts: 'CURRENT', simulationReady: true, authorizationReady: true,
       } });
       if (!gate.executionReady) fail('EXECUTION_NOT_READY');
       const head = Number(quantity(await rpc('eth_blockNumber', []))), at = blockHex(head);
       const amountIn = BigInt(run.quote.amountIn);
       const [inputBefore, outputBefore, allowanceBefore, ethBefore] = await Promise.all([
-        balance(run.quote.inputToken, owner, at), balance(run.quote.outputToken, owner, at),
-        allowance(run.quote.inputToken, owner, at), rpc('eth_getBalance', [owner, at]).then(quantity),
+        balance(rpc, run.quote.inputToken, owner, at), balance(rpc, run.quote.outputToken, owner, at),
+        allowance(rpc, P, run.quote.inputToken, owner, at), rpc('eth_getBalance', [owner, at]).then(quantity),
       ]);
       if (inputBefore < amountIn) fail('INSUFFICIENT_INPUT');
       const step: Step = allowanceBefore < amountIn ? 'approval' : 'swap';
       if (step === 'approval' && run.attempts.some(a => a.step === 'approval' && a.state === 'CONFIRMED')) fail('APPROVAL_INEFFECTIVE');
-      const data = step === 'approval' ? approveData(amountIn) : swapData(run.quote, owner);
-      const to = step === 'approval' ? run.quote.inputToken : BASE_SEPOLIA.router;
-      const baseTx = { chainId: BASE_SEPOLIA.chainHex, from: owner, to, data, value: '0x0' as const };
+      const data = step === 'approval' ? approveData(amountIn, P) : swapData(run.quote, owner);
+      const to = step === 'approval' ? run.quote.inputToken : P.router;
+      const baseTx = { chainId: P.chainHex, from: owner, to, data, value: '0x0' as const };
       const gas = quantity(await rpc('eth_estimateGas', [{ from: owner, to, data, value: '0x0' }]));
       const gasPrice = quantity(await rpc('eth_gasPrice', []));
       if (gas <= 0n || gasPrice <= 0n || ethBefore < gas * gasPrice * 2n) fail('INSUFFICIENT_TEST_ETH');
       const tx: Tx = { ...baseTx, gas: '0x' + (gas * 12n / 10n).toString(16) };
       const attempt: PublicAttempt = { attemptId: id + '.' + step + '.' + String(run.attempts.length + 1), executionId: id,
-        step, state: 'PREPARED', createdAt: now().toISOString(), submittedAt: null, account: owner, chainId: 84532, environment: 'PUBLIC_TESTNET',
+        step, state: 'PREPARED', createdAt: now().toISOString(), submittedAt: null, account: owner, chainId: P.chainId, environment: 'PUBLIC_TESTNET',
         adapter: 'uniswap.v3', semanticRevision: run.quote.revision, manifestHash: run.quote.manifestHash,
         tx, calldataDigest: digest(data), authorizedInput: run.quote.amountIn,
         authorizedMinimumOutput: run.quote.minimumOut, preBlock: head, nativeBefore: ethBefore.toString(), inputBefore: inputBefore.toString(),
@@ -475,13 +489,15 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
       let run = await load(id);
       const attempt = run.attempts.at(-1);
       if (!attempt?.txHash || !['HASH', 'PENDING', 'CONFIRMED'].includes(attempt.state) || run.outcome) fail('NO_SUBMITTED_ATTEMPT');
+      const P = profileOf(run.quote.chainId), rpc = rpcFor(P);
+      if (quantity(await rpc('eth_chainId', [])) !== BigInt(P.chainId)) fail('WRONG_PROVIDER_CHAIN');
       const raw = await rpc('eth_getTransactionReceipt', [attempt.txHash]);
       if (raw === null) return await save({ ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ? { ...a, state: 'PENDING' } : a) });
       if (!isObject(raw)) fail('RECEIPT_INVALID');
       const tx = await rpc('eth_getTransactionByHash', [attempt.txHash]);
       let verified: Awaited<ReturnType<typeof verifyOwnerSubmission>>;
       try { verified = await verifyOwnerSubmission(rpc, { txHash: attempt.txHash, account: attempt.account, target: attempt.tx.to, data: attempt.tx.data,
-        preBlock: attempt.preBlock }, tx, raw); }
+        preBlock: attempt.preBlock }, tx, raw, P.chainId, P.l1DataFee); }
       catch (cause) {
         // Not yet canonically included (e.g. a preconfirmed receipt): exactly like no receipt yet.
         if (cause instanceof Error && cause.message === 'RECEIPT_NOT_CANONICAL')
@@ -498,7 +514,7 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
               address(tokenLogs[0].address) !== run.quote.inputToken || !Array.isArray(tokenLogs[0].topics) ||
               tokenLogs[0].topics[0] !== APPROVAL_TOPIC ||
               topicAddress(tokenLogs[0].topics[1]) !== attempt.account ||
-              topicAddress(tokenLogs[0].topics[2]) !== BASE_SEPOLIA.router ||
+              topicAddress(tokenLogs[0].topics[2]) !== P.router ||
               quantity(tokenLogs[0].data) !== BigInt(attempt.authorizedInput)) fail('TRANSACTION_MISMATCH');
         } else {
           const tokenLogs = raw.logs.filter(log => isObject(log) &&
@@ -514,7 +530,7 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
               !isObject(outputLog) || !Array.isArray(outputLog.topics) || outputLog.topics[0] !== TRANSFER_TOPIC ||
               topicAddress(outputLog.topics[1]) !== run.quote.pool || topicAddress(outputLog.topics[2]) !== attempt.account ||
               !isObject(poolLog) || !Array.isArray(poolLog.topics) || poolLog.topics[0] !== SWAP_TOPIC ||
-              topicAddress(poolLog.topics[1]) !== BASE_SEPOLIA.router || topicAddress(poolLog.topics[2]) !== attempt.account)
+              topicAddress(poolLog.topics[1]) !== P.router || topicAddress(poolLog.topics[2]) !== attempt.account)
             fail('TRANSACTION_MISMATCH');
           const poolData = hex(poolLog.data);
           if (poolData.length < 130 || BigInt('0x' + poolData.slice(2, 66)) !== BigInt(attempt.authorizedInput) ||
@@ -538,8 +554,8 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
       const at = blockHex(blockNumber);
       if (attempt.step === 'approval') {
         const [observed, inputAfter, outputAfter, nativeAfter] = await Promise.all([
-          allowance(run.quote.inputToken, attempt.account, at),
-          balance(run.quote.inputToken, attempt.account, at), balance(run.quote.outputToken, attempt.account, at),
+          allowance(rpc, P, run.quote.inputToken, attempt.account, at),
+          balance(rpc, run.quote.inputToken, attempt.account, at), balance(rpc, run.quote.outputToken, attempt.account, at),
           rpc('eth_getBalance', [attempt.account, at]).then(quantity),
         ]);
         if (observed !== BigInt(attempt.authorizedInput) || inputAfter !== BigInt(attempt.inputBefore) ||
@@ -551,8 +567,8 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
           { ...a, nativeAfter: nativeAfter.toString() } : a) });
       }
       const [inputAfter, outputAfter, allowanceAfter, nativeAfter] = await Promise.all([
-        balance(run.quote.inputToken, attempt.account, at), balance(run.quote.outputToken, attempt.account, at),
-        allowance(run.quote.inputToken, attempt.account, at), rpc('eth_getBalance', [attempt.account, at]).then(quantity),
+        balance(rpc, run.quote.inputToken, attempt.account, at), balance(rpc, run.quote.outputToken, attempt.account, at),
+        allowance(rpc, P, run.quote.inputToken, attempt.account, at), rpc('eth_getBalance', [attempt.account, at]).then(quantity),
       ]);
       const spent = BigInt(attempt.inputBefore) - inputAfter;
       const received = outputAfter - BigInt(attempt.outputBefore);
@@ -564,22 +580,22 @@ function createPublicTestnetCore(rpc: Rpc, now: () => Date, persistence: Persist
       if (spent !== BigInt(run.quote.amountIn) || received < BigInt(run.quote.minimumOut) ||
           (direct && BigInt(attempt.nativeBefore) - nativeAfter < BigInt(receipt.gasCostWei)) ||
           (delegated && nativeAfter !== BigInt(attempt.nativeBefore))) fail('RECONCILIATION_MISMATCH');
-      const explorer = explorerUrl(attempt.txHash);
+      const explorer = explorerUrl(attempt.txHash, P);
       run = { ...run, attempts: run.attempts.map(a => a.attemptId === attempt.attemptId ?
         { ...a, nativeAfter: nativeAfter.toString() } : a) };
       const journalHeadHash = digest(canonical(run));
       const receiptHash = digest(canonical(raw));
-      const inputAsset = { chainId: BASE_SEPOLIA.chainRef, address: run.quote.inputToken,
+      const inputAsset = { chainId: P.chainRef, address: run.quote.inputToken,
         decimals: run.quote.inputSymbol === 'USDC' ? 6 : 18 };
-      const outputAsset = { chainId: BASE_SEPOLIA.chainRef, address: run.quote.outputToken,
+      const outputAsset = { chainId: P.chainRef, address: run.quote.outputToken,
         decimals: run.quote.outputSymbol === 'USDC' ? 6 : 18 };
-      const nativeAsset = { chainId: BASE_SEPOLIA.chainRef, nativeId: 'ETH', decimals: 18 };
+      const nativeAsset = { chainId: P.chainRef, nativeId: 'ETH', decimals: 18 };
       const reconciliation = { balances: [{ asset: inputAsset, amount: inputAfter.toString() },
         { asset: outputAsset, amount: outputAfter.toString() }],
         allowances: [{ asset: inputAsset, amount: allowanceAfter.toString() }], debt: [], positions: [],
         fees: [{ asset: nativeAsset, amount: actualGasCost.toString() }],
         residualAssets: [{ asset: inputAsset, amount: inputAfter.toString() }, { asset: outputAsset, amount: outputAfter.toString() }],
-        ownership: [{ chainId: BASE_SEPOLIA.chainRef, address: attempt.account }], limitations: ['PUBLIC_TESTNET_ONLY'] };
+        ownership: [{ chainId: P.chainRef, address: attempt.account }], limitations: ['PUBLIC_TESTNET_ONLY'] };
       const bundle = validateArtifact('evidence-bundle', { schemaVersion: '1.0.0',
         evidenceBundleId: id + '.evidence', version: 1, supersedes: null,
         semanticWorkflowHash: run.quote.workflowHash, artifactSetHash: digest(canonical(run.quote)),

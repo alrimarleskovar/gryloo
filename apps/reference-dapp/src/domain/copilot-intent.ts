@@ -6,8 +6,9 @@
  * renders an exact-grammar sentence for `parseLocalCommand`. Nothing here can execute, sign, quote or authorize.
  */
 export const COPILOT_INTENT_VERSION = '1';
-export const COPILOT_NETWORKS = ['BASE', 'BASE_SEPOLIA', 'ARBITRUM', 'ARBITRUM_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET', 'OTHER'] as const;
-export const COPILOT_ASSETS = ['USDC', 'WETH', 'ETH', 'SOL', 'USDT', 'DEVUSDC', 'OTHER'] as const;
+/** BUILD-ETHEREUM-001: ETHEREUM_SEPOLIA is a test network; ETHEREUM is "Ethereum" named without Sepolia (never executable, always clarified). */
+export const COPILOT_NETWORKS = ['BASE', 'BASE_SEPOLIA', 'ARBITRUM', 'ARBITRUM_SEPOLIA', 'ETHEREUM', 'ETHEREUM_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET', 'OTHER'] as const;
+export const COPILOT_ASSETS = ['USDC', 'WETH', 'ETH', 'SOL', 'USDT', 'DEVUSDC', 'WBTC', 'OTHER'] as const;
 export const COPILOT_ROUTING = ['AUTO', 'LIFI', 'ACROSS'] as const;
 export const COPILOT_LENDING_TYPES = ['SUPPLY', 'BORROW', 'REPAY', 'WITHDRAW'] as const;
 export const COPILOT_LIQUIDITY_PROTOCOLS = ['UNISWAP_V3', 'ORCA'] as const;
@@ -182,7 +183,7 @@ const nullableChoice = (values: readonly string[], description: string) => ({ an
 const object = (properties: Record<string, unknown>) => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const AMOUNT_TEXT = 'Exactly the number the user wrote, digits with "." as decimal separator; null if not stated.';
 const SLIPPAGE_TEXT = 'Maximum slippage in basis points only if the user stated it (0.5% = "50"); null otherwise.';
-const NETWORK_TEXT = 'Network the user named; OTHER for any network not listed; null if not named.';
+const NETWORK_TEXT = 'Network the user named; ETHEREUM for Ethereum without "Sepolia" (including Ethereum Mainnet); OTHER for any network not listed; null if not named.';
 const ASSET_TEXT = 'Token the user named: ETH for ether, WETH only if the user said WETH; OTHER if not listed; null if not named.';
 const ADDRESS_TEXT = 'A 0x address only if the user typed it exactly; null otherwise (the connected wallet is used).';
 const actionSchemas = [

@@ -4,7 +4,7 @@
  * trusts the wallet's reported result: inclusion, sender, recipient, value, calldata, nonce, fee bounds and
  * the exact owner balance and nonce deltas are re-derived from the chain.
  */
-import { rpcRecord, rpcHash, supplyHex, supplyHash, supplyArtifactHash, ROBINHOOD_TESTNET_TRANSFER as profile,
+import { rpcRecord, rpcHash, supplyHex, supplyHash, supplyArtifactHash, nativeTransferProfile,
   type NativeTransferReview, type TransferRpc } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type EvidenceBundle, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 
@@ -20,7 +20,9 @@ export async function reconcileNativeTransfer(review: NativeTransferReview, atte
   const base: TransferObservation = { verdict: 'INCONCLUSIVE', reason: 'TRANSACTION_NOT_OBSERVED', transaction: null, receipt: null, facts: null };
   if (!attempt.transactionHash) return base;
   try {
-    if (strict(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) throw new Error('TRANSFER_WRONG_CHAIN');
+    // The reviewed chain selects the profile; the RPC must report that same chain.
+    const profile = nativeTransferProfile(review.chain);
+    if (review.chainId !== profile.chainId || strict(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) throw new Error('TRANSFER_WRONG_CHAIN');
     const [txValue, receiptValue] = await Promise.all([rpc('eth_getTransactionByHash', [attempt.transactionHash]), rpc('eth_getTransactionReceipt', [attempt.transactionHash])]);
     if (!txValue || !receiptValue) return base;
     const tx = rpcRecord(txValue), receipt = rpcRecord(receiptValue);
@@ -48,7 +50,7 @@ export async function reconcileNativeTransfer(review: NativeTransferReview, atte
     if (!Array.isArray(receipt.logs) || receipt.logs.length) throw new Error('TRANSFER_LOGS_MISMATCH');
     const gasUsed = strict(receipt.gasUsed), effectiveGasPrice = strict(receipt.effectiveGasPrice);
     if (gasUsed > gasLimit || effectiveGasPrice > offeredPrice) throw new Error('TRANSFER_FEE_BOUND_MISMATCH');
-    // Arbitrum Nitro charges L2 execution and L1 data in gasUsed; there is no separate L1 fee.
+    // Ethereum L1 charges gasUsed × effectiveGasPrice; Arbitrum Nitro also folds L1 data into gasUsed. No separate L1 fee.
     const fee = gasUsed * effectiveGasPrice;
     if (fee > BigInt(review.feeBudget)) throw new Error('TRANSFER_FEE_BOUND_MISMATCH');
     const before = supplyHex(blockNumber - 1), after = supplyHex(blockNumber);
@@ -80,6 +82,7 @@ export function buildNativeTransferEvidence(input: { id: string; review: NativeT
   if (o.verdict !== 'RECONCILED' || !o.facts || !o.receipt || !o.transaction || !input.ownerInitiated) throw new Error('TRANSFER_EVIDENCE_NOT_RECONCILED');
   const head = hashJournalBytes(new TextEncoder().encode(JSON.stringify(input.journal))).at(-1);
   if (!head) throw new Error('TRANSFER_JOURNAL_EMPTY');
+  const profile = nativeTransferProfile(review.chain);
   const nativeAsset = { chainId: profile.chain, nativeId: 'ETH', decimals: 18 };
   const publicExecution = { network: profile.network, chainId: profile.chainId, explorer: profile.explorer, officialSource: profile.officialSource,
     account: review.account, recipient: review.recipient, value: review.value, nonce: review.nonce, transactionHash: o.receipt.transactionHash,
@@ -93,9 +96,12 @@ export function buildNativeTransferEvidence(input: { id: string; review: NativeT
     receipts: [{ receiptId: 'native-transfer-receipt', contentHash: supplyHash(o.receipt) }], differences: [],
     reconciliation: { balances: [{ asset: nativeAsset, amount: o.facts.balanceAfter }], allowances: [], debt: [], positions: [],
       fees: [{ asset: nativeAsset, amount: o.facts.fee }], residualAssets: [], ownership: [{ chainId: profile.chain, address: review.account }],
-      limitations: ['Inclusion is verified at Robinhood Chain (L2) sequencer level after confirmations; L1 finality is reported by the independent verifier.',
+      limitations: profile.settlement === 'L2' ? ['Inclusion is verified at Robinhood Chain (L2) sequencer level after confirmations; L1 finality is reported by the independent verifier.',
         'Self-transfer: the value leg nets to zero; the fee is gasUsed × effectiveGasPrice, which includes Arbitrum Nitro L1 data gas.',
-        'This is a chain execution proof, not a DeFi capability.'] },
+        'This is a chain execution proof, not a DeFi capability.'] :
+        [`Inclusion is verified at ${profile.network} block level after ${profile.minimumConfirmations} confirmations; finalized-checkpoint status is not claimed.`,
+          'Self-transfer: the value leg nets to zero; the fee is gasUsed × effectiveGasPrice.',
+          'This is a chain execution proof, not a DeFi capability.'] },
     evidence: [{ evidenceId: 'native-transfer-public-observations', kind: 'EXTERNAL_REFERENCE', contentHash: supplyHash(publicExecution) }] };
   return { bundle, bundleHash: supplyArtifactHash('evidence-bundle', bundle), publicExecution,
     artifacts: { workflow: review.workflow, artifactSet: review.artifactSet, simulation: review.simulation, policy: review.policy,

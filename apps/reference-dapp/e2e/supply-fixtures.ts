@@ -15,40 +15,55 @@ type Model={state:{owner:string;allowanceSlot:string;block:number;nonce:number;a
 export function supplyModel():Model{
   const module=createRequire(import.meta.url)('./supply-harness.mjs') as {createSupplyHarness:()=>Model};return module.createSupplyHarness();
 }
-export async function supplyHarnessRpc(method:string,params:unknown[]=[]):Promise<unknown>{
-  const response=await fetch('http://127.0.0.1:8549',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+/** `route` selects the harness reserve: '' is Base Sepolia USDC, '/ethereum-sepolia' is Ethereum Sepolia WBTC (BUILD-ETHEREUM-001). */
+export type SupplyRoute=''|'/ethereum-sepolia';
+export async function supplyHarnessRpc(method:string,params:unknown[]=[],route:SupplyRoute=''):Promise<unknown>{
+  const response=await fetch('http://127.0.0.1:8549'+route,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
   const value=await response.json() as {result?:unknown;error?:unknown};if(value.error)throw new Error('MOCK_HARNESS_ERROR');return value.result;
 }
-export async function installSupplyWallet(page:Page,options:{nonceFailure?:boolean;lateNonceFailure?:boolean;walletNonce?:unknown;providerFailure?:boolean;notBroadcast?:'APPROVAL'|'SUPPLY';pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean}={}){
+export async function installSupplyWallet(page:Page,options:{nonceFailure?:boolean;lateNonceFailure?:boolean;walletNonce?:unknown;providerFailure?:boolean;notBroadcast?:'APPROVAL'|'SUPPLY';pause?:'APPROVAL'|'SUPPLY';uncertain?:'APPROVAL'|'SUPPLY';reject?:'APPROVAL'|'SUPPLY';chain?:string;account?:string;connected?:boolean;
+  /** BUILD-ETHEREUM-001: the harness reserve the wallet's reads and submissions go to. */ route?:SupplyRoute;
+  /** Explicit owner switching: KNOWN switches; UNKNOWN answers 4902 until the chain is added. Absent: the owner declines every switch. */ switching?:'KNOWN'|'UNKNOWN'}={}){
   await page.exposeFunction('grylooSupplyTestRpc',supplyHarnessRpc);
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[];
-    const state={connected:options.connected!==false,chain:options.chain??'0x14a34',account:options.account??owner};
-    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[])=>Promise<unknown>;supplyWalletRequests:typeof requests;releaseSupplyWalletRequest?:()=>void};
+    const state={connected:options.connected!==false,chain:options.chain??'0x14a34',account:options.account??owner,added:new Set<string>()};
+    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[],route:string)=>Promise<unknown>;supplyWalletRequests:typeof requests;releaseSupplyWalletRequest?:()=>void;setSupplyWalletChain?:(chain:string)=>void};
+    const route=options.route??'';
     w.supplyWalletRequests=requests;
+    // The owner changes the wallet's network outside Flofi (no event: Flofi must re-read the chain before any request).
+    w.setSupplyWalletChain=chain=>{state.chain=chain;};
     w.ethereum={request:async(input:{method:string;params?:unknown[]})=>{
       requests.push(input);
       if(input.method==='eth_accounts')return state.connected?[state.account]:[];
       if(input.method==='eth_requestAccounts'){state.connected=true;return[state.account];}
       if(input.method==='eth_chainId')return state.chain;
-      if(input.method==='eth_getTransactionCount'){if(options.nonceFailure||options.lateNonceFailure&&requests.filter(r=>r.method==='eth_getTransactionCount').length===2)throw Object.assign(new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION',{cause:new Error('Disconnected transport')}),{code:4900,data:{stage:'READ_ONLY_PREFLIGHT'}});if(options.walletNonce!==undefined)return options.walletNonce;return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);}
+      if(input.method==='wallet_switchEthereumChain'){
+        const target=(input.params?.[0] as {chainId:string}).chainId;
+        if(!options.switching)throw Object.assign(new Error('Owner declined the network switch'),{code:4001});
+        if(options.switching==='UNKNOWN'&&!state.added.has(target))throw Object.assign(new Error('Unrecognized chain'),{code:4902});
+        state.chain=target;return null;
+      }
+      if(input.method==='wallet_addEthereumChain'){state.added.add((input.params?.[0] as {chainId:string}).chainId);return null;}
+      if(input.method==='eth_getTransactionCount'){if(options.nonceFailure||options.lateNonceFailure&&requests.filter(r=>r.method==='eth_getTransactionCount').length===2)throw Object.assign(new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION',{cause:new Error('Disconnected transport')}),{code:4900,data:{stage:'READ_ONLY_PREFLIGHT'}});if(options.walletNonce!==undefined)return options.walletNonce;return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[],route);}
       if(input.method==='eth_sendTransaction'){
         if(options.providerFailure)throw Object.assign(new Error('Provider refused malformed request',{cause:new Error('Validation')}),{code:-32602,data:{reason:'invalid transaction'}});
-        const tx=input.params?.[0] as {to:string};const step=tx.to==='0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f'?'APPROVAL':'SUPPLY';
+        // Approvals go to the reviewed token: Base Sepolia USDC or Ethereum Sepolia WBTC.
+        const tx=input.params?.[0] as {to:string};const step=['0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f','0x29f2d40b0605204364af54ec677bd022da425d03'].includes(tx.to)?'APPROVAL':'SUPPLY';
         if(options.pause===step)await new Promise<void>(resolve=>{w.releaseSupplyWalletRequest=resolve;});
         if(options.reject===step)throw Object.assign(new Error('Owner rejected test request'),{code:4001});
         if(options.notBroadcast===step)throw new Error('MOCK_NOT_BROADCAST');
-        const assigned={...tx,nonce:await w.grylooSupplyTestRpc('eth_getTransactionCount',[state.account,'pending'])};
-        const hash=await w.grylooSupplyTestRpc('MOCK_submit',[assigned]);if(options.uncertain===step)throw new Error('MOCK_RESPONSE_LOST');return hash;
+        const assigned={...tx,nonce:await w.grylooSupplyTestRpc('eth_getTransactionCount',[state.account,'pending'],route)};
+        const hash=await w.grylooSupplyTestRpc('MOCK_submit',[assigned],route);if(options.uncertain===step)throw new Error('MOCK_RESPONSE_LOST');return hash;
       }
       throw new Error('MOCK_WALLET_METHOD_DENIED');
     }};
   },{owner:SUPPLY_OWNER,options});
 }
 
-export async function resetSupplyHarness(options:Record<string,unknown>={}){
+export async function resetSupplyHarness(options:Record<string,unknown>={},route:SupplyRoute=''){
   if(process.env.GRYLOO_SUPPLY_E2E!=='MOCKED_LOOPBACK_ONLY'||!process.env.GRYLOO_SUPPLY_JOURNAL?.startsWith(join(tmpdir(),'gryloo-build012a-')))throw new Error('MOCK_RESET_DENIED');
-  await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options]);
+  await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options],route);
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
   await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();

@@ -29,7 +29,7 @@ export type CopilotOutcome =
   | { readonly kind: 'REJECTED'; readonly code: string; readonly message: string };
 export type CopilotConversion = { readonly userText: string; readonly workflow: Workflow; readonly context: ReviewContext; readonly wallet: string | null };
 /** The only Command types an AI interpretation can produce: new authoring proposals, never edits, removals or execution. */
-export const COPILOT_AUTHORING_COMMANDS = Object.freeze(['ADD_SWAP', 'ADD_TESTNET_SWAP', 'ADD_SOLANA_SWAP', 'ADD_ROUTER_BRIDGE', 'ADD_SUPPLY', 'ADD_BORROW',
+export const COPILOT_AUTHORING_COMMANDS = Object.freeze(['ADD_SWAP', 'ADD_TESTNET_SWAP', 'ADD_ETHEREUM_SEPOLIA_SWAP', 'ADD_SOLANA_SWAP', 'ADD_ROUTER_BRIDGE', 'ADD_SUPPLY', 'ADD_BORROW',
   'ADD_REPAY', 'ADD_WITHDRAW', 'ADD_UNISWAP_LIQUIDITY', 'ADD_SOLANA_LIQUIDITY', 'AUTHOR_LENDING'] as const);
 export type CopilotAuthoringCommand = (typeof COPILOT_AUTHORING_COMMANDS)[number];
 export const COPILOT_CAPABILITIES = copilotCopy('EN').capabilities;
@@ -46,15 +46,17 @@ export type Grounding = { readonly text: string; readonly carried: ReadonlySet<C
 const NOTHING_CARRIED: ReadonlySet<CarriedField> = new Set();
 
 type Network = Exclude<CopilotNetwork, 'OTHER'>;
-type Family = 'base' | 'arbitrum' | 'solana';
+type Family = 'base' | 'arbitrum' | 'ethereum' | 'solana';
 const FAMILY: Readonly<Record<Network, Family>> = { BASE: 'base', BASE_SEPOLIA: 'base', ARBITRUM: 'arbitrum', ARBITRUM_SEPOLIA: 'arbitrum',
-  SOLANA: 'solana', SOLANA_DEVNET: 'solana' };
+  ETHEREUM: 'ethereum', ETHEREUM_SEPOLIA: 'ethereum', SOLANA: 'solana', SOLANA_DEVNET: 'solana' };
 export const COPILOT_NETWORK_LABEL: Readonly<Record<Network, string>> = { BASE: 'Base', BASE_SEPOLIA: 'Base Sepolia', ARBITRUM: 'Arbitrum One',
-  ARBITRUM_SEPOLIA: 'Arbitrum Sepolia', SOLANA: 'Solana', SOLANA_DEVNET: 'Solana Devnet' };
-const MAINNETS: ReadonlySet<CopilotNetwork> = new Set(['BASE', 'ARBITRUM', 'SOLANA']);
+  ARBITRUM_SEPOLIA: 'Arbitrum Sepolia', ETHEREUM: 'Ethereum', ETHEREUM_SEPOLIA: 'Ethereum Sepolia', SOLANA: 'Solana', SOLANA_DEVNET: 'Solana Devnet' };
+// BUILD-ETHEREUM-001: ETHEREUM ("Ethereum" without Sepolia) is in no action's supported list, so it never resolves; it is always clarified.
+const MAINNETS: ReadonlySet<CopilotNetwork> = new Set(['BASE', 'ARBITRUM', 'ETHEREUM', 'SOLANA']);
 const MENTIONS: readonly (readonly [Network, RegExp])[] = [
   ['BASE_SEPOLIA', /\bbase[\s-]*sepolia\b/i], ['BASE', /\bbase\b(?![\s-]*sepolia)/i],
   ['ARBITRUM_SEPOLIA', /\barbitrum[\s-]*sepolia\b/i], ['ARBITRUM', /\barbitrum\b(?![\s-]*sepolia)/i],
+  ['ETHEREUM_SEPOLIA', /\bethereum[\s-]*sepolia\b/i], ['ETHEREUM', /\bethereum\b(?![\s-]*sepolia)/i],
   ['SOLANA_DEVNET', /\bsolana[\s-]*devnet\b/i], ['SOLANA', /\bsolana\b(?![\s-]*devnet)/i],
 ];
 // Any test-network or test-token wording rules out a mainnet (real funds) interpretation.
@@ -62,7 +64,7 @@ export const TESTNET_WORDS = /\b(?:sepolia|devnet|testnets?|test\s?net(?:work)?|
 const ASSET_MENTIONS: Readonly<Record<Exclude<CopilotAsset, 'OTHER'>, RegExp>> = {
   // `\busdc` does not match inside "devUSDC": there is no word boundary between "v" and "U".
   USDC: /\busdc\b/i, DEVUSDC: /\b(?:dev\s?usdc|test\s?usdc)\b/i, WETH: /\bw?eth\b|\bether\b/i, ETH: /\bw?eth\b|\bether\b/i,
-  SOL: /\bsol\b/i, USDT: /\b(?:usdt|tether)\b/i,
+  SOL: /\bsol\b/i, USDT: /\b(?:usdt|tether)\b/i, WBTC: /\bwbtc\b/i,
 };
 
 /** Networks the user named, in any language that uses the network names. */
@@ -134,6 +136,10 @@ function resolveNetwork(value: CopilotNetwork | null, supported: readonly Networ
   const m = copyOf(g), what = m.networkSubject[subject], named = mentionedNetworks(g.text), options = labels(supported);
   const carried = value !== null && value !== 'OTHER' && g.carried.has('network');
   if (value === 'OTHER') return ask(['network'], m.networkOnlyOn(what, options), options);
+  // "Ethereum" without Sepolia never means Ethereum Mainnet (not executable in Flofi) nor silently Ethereum Sepolia: Flofi asks.
+  const ethereumOnly = named.includes('ETHEREUM') && !named.includes('ETHEREUM_SEPOLIA') && !carried;
+  if (value === 'ETHEREUM' || (ethereumOnly && (value === 'ETHEREUM_SEPOLIA' || (value === null && !supported.some(n => named.includes(n))))))
+    return ask(['network'], m.ethereumWhichNetwork(what, options), options);
   let network: Network | null = value;
   if (network === null) { const candidates = supported.filter(n => named.includes(n)); network = candidates.length === 1 ? candidates[0]! : null; }
   if (network === null) {
@@ -181,21 +187,23 @@ function needAsset(value: CopilotAsset | null, g: Grounding, subject: Subject, f
 export type Plan = { readonly sentence: string; readonly expect: CopilotAuthoringCommand; readonly notes: string[] };
 
 function planSwap(a: CopilotSwapAction, g: Grounding): Plan {
-  const m = copyOf(g), notes: string[] = [], supported: Network[] = ['BASE', 'BASE_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET'];
+  const m = copyOf(g), notes: string[] = [], supported: Network[] = ['BASE', 'BASE_SEPOLIA', 'ETHEREUM_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET'];
+  // A generic "Ethereum" is left to resolveNetwork, which explains that Ethereum Mainnet is never used.
+  const named = mentionedNetworks(g.text);
   const missing: CopilotMissingField[] = [...(a.amount === null ? ['amount' as const] : []), ...(a.inputAsset === null || a.outputAsset === null ? ['asset' as const] : []),
-    ...(a.network === null && !supported.some(n => mentionedNetworks(g.text).includes(n)) ? ['network' as const] : [])];
+    ...(a.network === null && !supported.some(n => named.includes(n)) && !named.includes('ETHEREUM') ? ['network' as const] : [])];
   if (missing.length) ask(missing, stillNeeds(m, missing, 'swap'), missing.length === 1 && missing[0] === 'network' ? labels(supported) : []);
   const network = resolveNetwork(a.network, supported, g, 'swap', notes);
   const input = needAsset(a.inputAsset, g, 'swap', 'inputAsset'), output = needAsset(a.outputAsset, g, 'swap', 'outputAsset');
   const amount = amountOf(a.amount, g, 'swap');
   const slippage = slippageOf(a.slippageBps, '50', g, notes);
-  if (FAMILY[network] === 'base') {
+  if (FAMILY[network] === 'base' || FAMILY[network] === 'ethereum') {
     const evm = (asset: string) => asset === 'USDC' ? 'USDC' : asset === 'WETH' || asset === 'ETH' ? 'WETH' : refuse(m.evmSwapTokens);
     const from = evm(input), to = evm(output);
     if (from === to) reject('INVALID_ASSET_PAIR', m.differentTokens);
     if (input === 'ETH' || output === 'ETH') notes.push(m.wethNote);
     return { sentence: `swap ${amount} ${from} to ${to} on ${COPILOT_NETWORK_LABEL[network]} slippage ${slippage} bps`,
-      expect: network === 'BASE_SEPOLIA' ? 'ADD_TESTNET_SWAP' : 'ADD_SWAP', notes };
+      expect: network === 'BASE_SEPOLIA' ? 'ADD_TESTNET_SWAP' : network === 'ETHEREUM_SEPOLIA' ? 'ADD_ETHEREUM_SEPOLIA_SWAP' : 'ADD_SWAP', notes };
   }
   const devnet = network === 'SOLANA_DEVNET';
   const solana = (asset: string) => asset === 'SOL' ? 'SOL' : devnet ? (asset === 'DEVUSDC' || asset === 'USDC' ? 'devUSDC' : refuse(m.devnetSwapTokens))
@@ -256,23 +264,25 @@ const LENDING_SUBJECT = { SUPPLY: 'supply', BORROW: 'borrow', REPAY: 'repay', WI
 function planLending(a: CopilotLendingAction, g: Grounding, wallet: string | null): Plan {
   const m = copyOf(g), notes: string[] = [], subject = LENDING_SUBJECT[a.type];
   const missing: CopilotMissingField[] = [...(a.amount === null ? ['amount' as const] : []), ...(a.asset === null ? ['asset' as const] : [])];
-  if (missing.length) ask(missing, stillNeeds(m, missing, subject), missing.includes('asset') ? ['USDC'] : []);
-  resolveNetwork(a.network, ['BASE_SEPOLIA'], g, 'aave', notes);
+  // BUILD-ETHEREUM-001: each Aave asset has exactly one deployment (USDC on Base Sepolia, WBTC on Ethereum Sepolia), so the asset bounds the network.
+  if (missing.length) ask(missing, stillNeeds(m, missing, subject), !missing.includes('asset') ? [] : a.network === 'ETHEREUM_SEPOLIA' ? ['WBTC']
+    : a.network === 'BASE_SEPOLIA' ? ['USDC'] : ['USDC', 'WBTC']);
+  const network = resolveNetwork(a.network, a.asset === 'WBTC' ? ['ETHEREUM_SEPOLIA'] : ['BASE_SEPOLIA'], g, 'aave', notes);
   const asset = needAsset(a.asset, g, subject, 'asset');
-  if (asset !== 'USDC') refuse(m.aaveOnly);
-  const amount = amountOf(a.amount, g, subject);
+  if (asset !== 'USDC' && asset !== 'WBTC') refuse(m.aaveOnly);
+  const amount = amountOf(a.amount, g, subject), on = COPILOT_NETWORK_LABEL[network];
   if (a.type === 'WITHDRAW') {
     if (a.beneficiary !== null) refuse(m.withdrawToWallet);
     notes.push(m.connectedRecipientNote);
-    return { sentence: `withdraw ${amount} USDC from Aave on Base Sepolia`, expect: 'ADD_WITHDRAW', notes };
+    return { sentence: `withdraw ${amount} ${asset} from Aave on ${on}`, expect: 'ADD_WITHDRAW', notes };
   }
   const beneficiary = addressOf(a.beneficiary, g, 'beneficiary');
   if (!beneficiary && !wallet) ask(['beneficiary'], stillNeeds(m, ['beneficiary'], subject));
   if (!beneficiary) notes.push(m.beneficiaryNote(wallet!));
   const suffix = beneficiary ? ` beneficiary ${beneficiary}` : '';
-  return a.type === 'SUPPLY' ? { sentence: `supply ${amount} USDC to Aave on Base Sepolia${suffix}`, expect: 'ADD_SUPPLY', notes }
-    : a.type === 'BORROW' ? { sentence: `borrow ${amount} USDC from Aave on Base Sepolia${suffix}`, expect: 'ADD_BORROW', notes }
-    : { sentence: `repay ${amount} USDC to Aave on Base Sepolia${suffix}`, expect: 'ADD_REPAY', notes };
+  return a.type === 'SUPPLY' ? { sentence: `supply ${amount} ${asset} to Aave on ${on}${suffix}`, expect: 'ADD_SUPPLY', notes }
+    : a.type === 'BORROW' ? { sentence: `borrow ${amount} ${asset} from Aave on ${on}${suffix}`, expect: 'ADD_BORROW', notes }
+    : { sentence: `repay ${amount} ${asset} to Aave on ${on}${suffix}`, expect: 'ADD_REPAY', notes };
 }
 
 export const COPILOT_POOLS = Object.freeze({
@@ -288,10 +298,12 @@ function planLiquidity(a: CopilotLiquidityAction, g: Grounding): Plan {
   const answered = g.latest === undefined ? [] : named(g.latest);
   const namedProtocols = answered.length === 1 ? answered : named(text);
   if (namedProtocols.length > 1) ask(['protocol'], m.whichPool, m.poolOptions);
-  // The protocol is trusted only when the user named it or the named network determines it.
-  const supported: Network[] = namedProtocols.length ? [COPILOT_POOLS[namedProtocols[0]!].network] : ['BASE_SEPOLIA', 'SOLANA_DEVNET'];
+  // The protocol is trusted only when the user named it or the named network determines it. Uniswap v3 runs on two test
+  // networks (BUILD-ETHEREUM-001), so it never defaults to one of them.
+  const uniswap: Network[] = [COPILOT_POOLS.UNISWAP_V3.network, 'ETHEREUM_SEPOLIA'];
+  const supported: Network[] = namedProtocols.length ? namedProtocols[0] === 'UNISWAP_V3' ? uniswap : [COPILOT_POOLS.ORCA.network] : [...uniswap, COPILOT_POOLS.ORCA.network];
   const network = resolveNetwork(a.network, supported, g, 'liquidity', notes);
-  const protocol = network === 'BASE_SEPOLIA' ? 'UNISWAP_V3' : 'ORCA';
+  const protocol = network === COPILOT_POOLS.ORCA.network ? 'ORCA' : 'UNISWAP_V3';
   if (a.protocol !== null && a.protocol !== protocol) ask(['protocol'], m.whichPool, m.poolOptions);
   const pool = COPILOT_POOLS[protocol];
   const deposits = new Map<string, string>();

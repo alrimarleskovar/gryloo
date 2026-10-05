@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Asset } from '@defi-workflow-engine/workflow-contracts';
+import { ETHEREUM_SEPOLIA_ASSETS } from '@defi-workflow-engine/action-registry';
 
 export type Symbol = 'USDC' | 'WETH';
 export interface AssetRecord {
@@ -25,15 +26,28 @@ const TESTNET_EXPECTED = Object.freeze({
   WETH: Object.freeze({ chainId: 'eip155:84532', address: '0x4200000000000000000000000000000000000006', decimals: 18, maximumAmountUnits: '1000000000000000000' }),
 });
 
-/** Exact public-testnet asset profile; no caller-supplied token addresses. */
-export function createBaseSepoliaReviewContext(): ReviewContext {
+/** BUILD-ETHEREUM-001: Ethereum Sepolia USDC (Aave faucet token) and Uniswap WETH9, from the chain-specific asset registry. */
+const ETHEREUM_SEPOLIA_EXPECTED = Object.freeze({
+  USDC: Object.freeze({ chainId: ETHEREUM_SEPOLIA_ASSETS.USDC.chain, address: ETHEREUM_SEPOLIA_ASSETS.USDC.address, decimals: ETHEREUM_SEPOLIA_ASSETS.USDC.decimals, maximumAmountUnits: '1000000000' }),
+  WETH: Object.freeze({ chainId: ETHEREUM_SEPOLIA_ASSETS.WETH.chain, address: ETHEREUM_SEPOLIA_ASSETS.WETH.address, decimals: ETHEREUM_SEPOLIA_ASSETS.WETH.decimals, maximumAmountUnits: '1000000000000000000' }),
+});
+type Expected = typeof TESTNET_EXPECTED | typeof ETHEREUM_SEPOLIA_EXPECTED | typeof MAINNET_EXPECTED;
+function contextFrom(expected: Expected): ReviewContext {
   const assets = Object.fromEntries((['USDC', 'WETH'] as const).map(symbol => [symbol, {
-    symbol, asset: { chainId: TESTNET_EXPECTED[symbol].chainId, address: TESTNET_EXPECTED[symbol].address,
-      decimals: TESTNET_EXPECTED[symbol].decimals }, maximumAmountUnits: TESTNET_EXPECTED[symbol].maximumAmountUnits,
+    symbol, asset: { chainId: expected[symbol].chainId, address: expected[symbol].address,
+      decimals: expected[symbol].decimals }, maximumAmountUnits: expected[symbol].maximumAmountUnits,
     provenance: 'NOT_ONCHAIN_VERIFIED' as const,
   }]));
   return validatedContext({ registryId: 'reference.registry', capabilityId: 'swap.direct-transaction',
     actionId: 'asset.swap.exact-input', assets });
+}
+/** Exact public-testnet asset profile; no caller-supplied token addresses. */
+export function createBaseSepoliaReviewContext(): ReviewContext { return contextFrom(TESTNET_EXPECTED); }
+/** BUILD-ETHEREUM-001: the exact Ethereum Sepolia asset profile. Base and Ethereum Sepolia USDC never share a context. */
+export function createEthereumSepoliaReviewContext(): ReviewContext { return contextFrom(ETHEREUM_SEPOLIA_EXPECTED); }
+/** The trusted context for a swap's chain: Base Sepolia or Ethereum Sepolia by CAIP-2 id; any other chain keeps `fallback`. */
+export function reviewContextForChain(chain: string, fallback: ReviewContext): ReviewContext {
+  return chain === TESTNET_EXPECTED.USDC.chainId ? createBaseSepoliaReviewContext() : chain === ETHEREUM_SEPOLIA_EXPECTED.USDC.chainId ? createEthereumSepoliaReviewContext() : fallback;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,8 +71,8 @@ function validatedContext(input: unknown): ReviewContext {
       || input.registryId !== 'reference.registry' || input.capabilityId !== 'swap.direct-transaction'
       || input.actionId !== 'asset.swap.exact-input' || !isRecord(input.assets)
       || !hasKeys(input.assets, ['USDC', 'WETH'])) throw new Error('INVALID_REVIEW_CONTEXT');
-  const expectedProfile = isRecord(input.assets.USDC) && isRecord(input.assets.USDC.asset) &&
-    input.assets.USDC.asset.chainId === 'eip155:84532' ? TESTNET_EXPECTED : MAINNET_EXPECTED;
+  const usdcChain = isRecord(input.assets.USDC) && isRecord(input.assets.USDC.asset) ? input.assets.USDC.asset.chainId : null;
+  const expectedProfile: Expected = usdcChain === 'eip155:84532' ? TESTNET_EXPECTED : usdcChain === ETHEREUM_SEPOLIA_EXPECTED.USDC.chainId ? ETHEREUM_SEPOLIA_EXPECTED : MAINNET_EXPECTED;
   for (const symbol of ['USDC', 'WETH'] as const) {
     const item = input.assets[symbol];
     const expected = expectedProfile[symbol];

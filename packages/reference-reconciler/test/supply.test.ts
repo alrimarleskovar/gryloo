@@ -95,7 +95,7 @@ async function syntheticWrappedSupply(borrow=false){
   const draft={owner,delegate:'0x0000000000000000000000000000000000000a11',salt:'7',signature:'0x'+'00'.repeat(65),call,
     caveats:[{enforcer:SUPPLY_METAMASK.limited,terms:'0x'+supplyWord(1n),args:'0x'},
       {enforcer:SUPPLY_METAMASK.exact,terms:packedCall(call),args:'0x'}]};
-  const digest=supplyWalletDelegationDigest({...draft,delegationTuple:''}).digest;
+  const digest=supplyWalletDelegationDigest({...draft,delegationTuple:''},84532).digest;
   const signatureBytes=secp256k1.sign(fromHex(digest),key,{prehash:false});
   const recovery=[0,1].find(i=>{
     const recovered=secp256k1.Signature.fromBytes(signatureBytes).addRecoveryBit(i).recoverPublicKey(fromHex(digest)).toBytes(false);
@@ -105,7 +105,7 @@ async function syntheticWrappedSupply(borrow=false){
   const envelope=encodeSupplyWalletEnvelope({...draft,signature:toHex(signatureBytes)+(27+recovery).toString(16)});
   tx.from=relay;tx.to=SUPPLY_METAMASK.manager;tx.input=envelope;tx.nonce='0x1234';tx.type='0x2';
   receipt.from=relay;receipt.to=SUPPLY_METAMASK.manager;
-  const decoded=decodeSupplyWalletEnvelope(envelope),delegationHash=supplyWalletDelegationDigest(decoded).delegationHash;
+  const decoded=decodeSupplyWalletEnvelope(envelope),delegationHash=supplyWalletDelegationDigest(decoded,84532).delegationHash;
   (receipt.logs as Record<string,unknown>[]).push(
     {address:SUPPLY_METAMASK.limited,topics:[supplyTopic('IncreasedCount(address,address,bytes32,uint256,uint256)'),
       '0x'+supplyWord(SUPPLY_METAMASK.manager),'0x'+supplyWord(relay),delegationHash],data:'0x'+supplyWord(1n)+supplyWord(1n)},

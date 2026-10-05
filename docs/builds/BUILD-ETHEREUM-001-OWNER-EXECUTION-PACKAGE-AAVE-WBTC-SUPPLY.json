@@ -1,0 +1,146 @@
+{
+  "build": "BUILD-ETHEREUM-001",
+  "kind": "OWNER_EXECUTION_PACKAGE",
+  "status": "READY_FOR_OWNER_EXECUTION",
+  "preparedAt": "2026-10-05T13:18:24.106Z",
+  "evidenceLevelNow": "MOCKED (local fork rehearsal) + PUBLIC_READ_ONLY verification; no public execution has happened",
+  "evidenceLevelAfterOwnerAction": "TESTNET_EXECUTED only if the owner signs, the transactions land, Flofi reconciles them, the bundle is archived and the independent verifier passes",
+  "authority": "Only the owner signs, in the owner's own browser wallet, through Flofi's reviewed wallet flow. Flofi holds no key, never signs, never sends, never retries a transaction.",
+  "network": {
+    "name": "Ethereum Sepolia",
+    "caip2": "eip155:11155111",
+    "chainId": 11155111,
+    "chainHex": "0xaa36a7",
+    "explorer": "https://sepolia.etherscan.io",
+    "nativeCurrency": "Sepolia test ETH (no value)",
+    "wrongNetworks": "Ethereum Mainnet (0x1) and Base Sepolia (0x14a34) fail closed; Flofi never switches to or adds Mainnet."
+  },
+  "verifiedAt": {
+    "readOnlyBlock": 11848941,
+    "readOnlyReport": "docs/builds/BUILD-ETHEREUM-001-READONLY.json",
+    "forkBlock": 11849026,
+    "forkRehearsal": "docs/builds/BUILD-ETHEREUM-001-FORK-REHEARSAL.json"
+  },
+  "wallet": {
+    "kind": "The owner's own injected browser wallet (e.g. MetaMask) on Ethereum Sepolia",
+    "accepted": [
+      "A direct EOA transaction from the owner",
+      "A MetaMask Delegation Framework redemption of exactly the reviewed call (EIP-7702), whose DelegationManager/EIP7702StatelessDeleGator code matches the Ethereum Sepolia pins"
+    ]
+  },
+  "app": {
+    "local": "GRYLOO_SUPPLY_JOURNAL=<durable dir> (no harness variable) runs the Supply service against public Ethereum Sepolia with PUBLIC_TESTNET provenance",
+    "cloud": "API: GRYLOO_SUPPLY_TESTNET=live; optional GRYLOO_ETHEREUM_SEPOLIA_RPC_URL=<https endpoint>",
+    "authoring": "Build → Add supply → Supply network: Ethereum Sepolia → amount 0.001 WBTC → beneficiary: the connected owner → Simulate → Review → Execute"
+  },
+  "prerequisites": [
+    {
+      "what": "Test ETH for gas",
+      "how": "Any public Sepolia faucet to the owner address",
+      "bound": "The Review shows the exact fee upper bound; ≥ 0.005 test ETH is ample at current Sepolia gas prices"
+    },
+    {
+      "what": "Test WBTC ≥ 0.001 (100000 units, 8 decimals)",
+      "how": "Aave's permissionless testnet faucet, owner-signed, outside Flofi (app.aave.com testnet mode, or the call below)",
+      "transaction": {
+        "to": "0xc959483dba39aa9e78757139af0e9a2edeb3f42d",
+        "method": "mint(address,address,uint256)",
+        "args": {
+          "token": "0x29f2d40b0605204364af54ec677bd022da425d03",
+          "to": "<OWNER>",
+          "amount": "1000000"
+        },
+        "value": "0x0",
+        "calldataTemplate": "0xc6c3bbe600000000000000000000000029f2d40b0605204364af54ec677bd022da425d03<OWNER_ADDRESS_LEFT_PADDED_TO_32_BYTES>00000000000000000000000000000000000000000000000000000000000f4240"
+      },
+      "note": "Setup only, not evidence. Flofi never sends it."
+    },
+    {
+      "what": "Optional read-only pre-check",
+      "how": "node scripts/verify-ethereum-sepolia-supply.mjs --prestate <OWNER> 100000 prestate.json",
+      "expect": "status READ_ONLY_SIMULATION_VERIFIED, with the exact calls and gas limits for that owner"
+    }
+  ],
+  "transactions": [
+    {
+      "step": "APPROVAL",
+      "order": 1,
+      "condition": "Only if the owner's current WBTC allowance to the Pool is below 100000 (Review shows whether it is required)",
+      "chainId": "0xaa36a7",
+      "from": "<OWNER>",
+      "to": "0x29f2d40b0605204364af54ec677bd022da425d03",
+      "contract": "WBTC (Aave Sepolia test token, 8 decimals)",
+      "method": "approve(address,uint256)",
+      "args": {
+        "spender": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+        "amount": "100000"
+      },
+      "value": "0x0",
+      "calldata": "0x095ea7b30000000000000000000000006ae43d3271ff6888e7fc43fd7321a503ff73895100000000000000000000000000000000000000000000000000000000000186a0",
+      "exactCalldata": true,
+      "gas": {
+        "reviewedLimitObserved": 69896,
+        "forkGasUsed": 46215,
+        "note": "Flofi sets the limit from the simulation at Review; the wallet must not raise it"
+      }
+    },
+    {
+      "step": "SUPPLY",
+      "order": 2,
+      "chainId": "0xaa36a7",
+      "from": "<OWNER>",
+      "to": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+      "contract": "Aave V3 Pool (Ethereum Sepolia, v3.0)",
+      "method": "supply(address,uint256,address,uint16)",
+      "args": {
+        "asset": "0x29f2d40b0605204364af54ec677bd022da425d03",
+        "amount": "100000",
+        "onBehalfOf": "<OWNER>",
+        "referralCode": 0
+      },
+      "value": "0x0",
+      "calldataTemplate": "0x617ba03700000000000000000000000029f2d40b0605204364af54ec677bd022da425d0300000000000000000000000000000000000000000000000000000000000186a0<OWNER_ADDRESS_LEFT_PADDED_TO_32_BYTES>0000000000000000000000000000000000000000000000000000000000000000",
+      "calldataRule": "Replace <OWNER_ADDRESS_LEFT_PADDED_TO_32_BYTES> with the owner address left-padded to 32 bytes; the result must equal the wallet prompt byte for byte",
+      "gas": {
+        "reviewedLimitObserved": 329663,
+        "forkGasUsed": 206044
+      }
+    }
+  ],
+  "nonce": {
+    "rule": "The wallet assigns the nonce; Flofi records the owner's pending nonce at Review, reserves it under the chain-qualified lease eip155-11155111-<owner>-<nonce>, and accepts only a transaction with that nonce.",
+    "uncertain": "If the wallet response is lost or ambiguous, Flofi observes by hash and by nonce; it never resends. A replaced or cancelled transaction is reconciled, never retried blindly."
+  },
+  "expiry": {
+    "review": "expiresAt = simulation time + 120 s; an expired, edited or chain-changed Review cannot reach the wallet and needs a new simulation and Review",
+    "walletNetwork": "eth_chainId is re-read before each wallet request; anything other than 0xaa36a7 stops before signing"
+  },
+  "expectedStateTransition": {
+    "approval": {
+      "allowance": "WBTC.allowance(owner, 0x6ae43d3271ff6888e7fc43fd7321a503ff738951) becomes 100000"
+    },
+    "supply": {
+      "walletWbtc": "−100000 units",
+      "aWbtc": "0x1804bf30507dc2eb3bdebbbdd859991eaef6eeff position +100000 units (scaled balance at the post-block liquidity index; bounded ray rounding)",
+      "allowance": "consumed back to its prior value",
+      "collateral": "reserve id 3 collateral bit (userConfiguration 0x80) set on first supply",
+      "debt": "unchanged (none)",
+      "nativeCost": "gasUsed × effectiveGasPrice only; an Ethereum L1 receipt carries no l1Fee (a receipt with l1Fee fails closed)"
+    }
+  },
+  "postTransactionVerification": [
+    "Flofi observes each receipt, requires canonical inclusion on 0xaa36a7, the exact reviewed to/data/value from the owner (or a pinned MetaMask redemption of exactly that call), and reconciles WBTC, aWBTC, allowance, collateral and cost; verdict must be RECONCILED.",
+    "Download the Evidence Bundle (environment TESTNET_EXECUTED, outcome RECONCILED) and archive it.",
+    "node scripts/verify-ethereum-sepolia-supply.mjs --evidence <bundle.json> verification.json → status TESTNET_EXECUTED, verdict INDEPENDENTLY_RECONCILED.",
+    "Optional: https://sepolia.etherscan.io/tx/<hash> for each transaction."
+  ],
+  "followOn": {
+    "note": "After Supply reconciles, the same flow authors Borrow, Repay and Withdraw of WBTC on Ethereum Sepolia (rehearsed on the fork: Borrow 0.0001, Repay 0.00005, Withdraw 0.0002 WBTC). Each needs its own Review and owner signature; the independent verifier covers Supply only."
+  },
+  "stopConditions": [
+    "Wallet on any chain other than 0xaa36a7",
+    "Any wallet prompt whose to, data or value differs from this package",
+    "Review expired or changed",
+    "Any Flofi verdict other than RECONCILED"
+  ]
+}

@@ -4,7 +4,7 @@ import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createFileExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import { createUniswapLiquidityService, type UniswapLiquidityService, type UniswapWalletDiagnostic } from '../server/uniswap-liquidity-service';
-import { baseSepoliaRpcUrl, createBaseSepoliaReadRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../server/public-testnet-rpc';
+import { baseSepoliaRpcUrl, createBaseSepoliaReadRpc, ethereumSepoliaSwapRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../server/public-testnet-rpc';
 import { UNI_MOCK_CODE_PINS, UNI_MOCK_RPC_URL } from '../server/uniswap-liquidity-mock';
 import { callCloudFlow } from '../server/cloud-api-client';
 
@@ -26,6 +26,8 @@ function current(): UniswapLiquidityService {
   if (!journalDir || !isAbsolute(journalDir)) throw new Error('UNISWAP_LIQUIDITY_STORAGE_NOT_CONFIGURED');
   service ??= createUniswapLiquidityService({ storage: createFileExecutionStorage(journalDir, 'UNISWAP_LIQUIDITY_BUSY'),
     rpc: createBaseSepoliaReadRpc(mode === 'harness' ? UNI_MOCK_RPC_URL : baseSepoliaRpcUrl(process.env.GRYLOO_BASE_SEPOLIA_RPC_URL), UNISWAP_LIQUIDITY_RPC_METHODS),
+    // BUILD-ETHEREUM-001: live Ethereum Sepolia reads use their own chain-bound client; the MOCKED harness is Base Sepolia only.
+    ...mode === 'live' ? { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(process.env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS) } } : {},
     provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET', executionEnabled: process.env.GRYLOO_UNISWAP_LIQUIDITY_EXECUTION !== 'DISABLED',
     ...mode === 'harness' ? { mockedCodePins: UNI_MOCK_CODE_PINS } : {} });
   return service;
@@ -44,7 +46,7 @@ export async function uniswapLiquidityMode(): Promise<Mode> {
   return localMode();
 }
 export async function uniswapLiquidityInfo() { return run('info', [], async s => ({ executionEnabled: s.executionEnabled })); }
-export async function uniswapLiquidityPrice() { return run('price', [], s => s.price()); }
+export async function uniswapLiquidityPrice(chain?: 'eip155:84532' | 'eip155:11155111') { return run('price', chain ? [chain] : [], s => s.price(chain)); }
 export async function uniswapLiquiditySimulate(workflow: SemanticWorkflow, owner: string) { return run('simulate', [workflow, owner], s => s.simulate(workflow, owner)); }
 export async function uniswapLiquidityRefresh(id: string) { return run('refresh', [id], s => s.refresh(id)); }
 export async function uniswapLiquidityReview(id: string, commitment: string, workflow: SemanticWorkflow) { return run('review', [id, commitment, workflow], s => s.review(id, commitment, workflow)); }

@@ -110,7 +110,7 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
       {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
-      {swap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}
+      {swap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : node.chainId === 'eip155:11155111' ? 'Ethereum Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}
       {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
       {liquidity && <p className="muted">Base WETH/USDC position. Pool conditions require separate simulation.</p>}
       {(swap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>

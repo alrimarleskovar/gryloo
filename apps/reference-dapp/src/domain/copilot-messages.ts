@@ -15,14 +15,14 @@ export type Subject = 'swap' | 'bridge' | 'supply' | 'borrow' | 'repay' | 'withd
 export type NetworkSubject = 'swap' | 'aave' | 'liquidity' | 'composition';
 export type CarriedLabel = 'network' | 'token' | 'amount' | 'destination' | 'recipient' | 'beneficiary' | 'slippage' | 'routing' | 'range' | 'maxima' | 'owner';
 
-const EN_CAPABILITIES = 'Flofi Copilot can author: swaps on Base, Base Sepolia, Solana and Solana Devnet; Cross-chain Router USDC bridges ' +
-  '(Base → Arbitrum One, Base Sepolia → Arbitrum Sepolia); Aave V3 Supply, Borrow, Repay and Withdraw of USDC on Base Sepolia; Uniswap v3 liquidity on ' +
-  'Base Sepolia and Orca liquidity on Solana Devnet; and Supply → Borrow → Swap the borrowed USDC to WETH on Base Sepolia.';
+const EN_CAPABILITIES = 'Flofi Copilot can author: swaps on Base, Base Sepolia, Ethereum Sepolia, Solana and Solana Devnet; Cross-chain Router USDC bridges ' +
+  '(Base → Arbitrum One, Base Sepolia → Arbitrum Sepolia); Aave V3 Supply, Borrow, Repay and Withdraw of USDC on Base Sepolia and of WBTC on Ethereum Sepolia; Uniswap v3 liquidity on ' +
+  'Base Sepolia and Ethereum Sepolia and Orca liquidity on Solana Devnet; and Supply → Borrow → Swap the borrowed USDC to WETH on Base Sepolia.';
 const EN_COMPOSITION = 'Flofi can combine steps only as Supply USDC → Borrow USDC → Swap the borrowed USDC to WETH (Aave V3, Base Sepolia). ' +
   'Other combinations cannot share one workflow yet: author each action on its own.';
-const PT_CAPABILITIES = 'O Flofi Copilot pode criar: swaps na Base, Base Sepolia, Solana e Solana Devnet; bridges de USDC pelo Cross-chain Router ' +
-  '(Base → Arbitrum One, Base Sepolia → Arbitrum Sepolia); Supply, Borrow, Repay e Withdraw de USDC na Aave V3 na Base Sepolia; liquidez Uniswap v3 na ' +
-  'Base Sepolia e liquidez Orca na Solana Devnet; e Supply → Borrow → Swap do USDC emprestado para WETH na Base Sepolia.';
+const PT_CAPABILITIES = 'O Flofi Copilot pode criar: swaps na Base, Base Sepolia, Ethereum Sepolia, Solana e Solana Devnet; bridges de USDC pelo Cross-chain Router ' +
+  '(Base → Arbitrum One, Base Sepolia → Arbitrum Sepolia); Supply, Borrow, Repay e Withdraw na Aave V3 de USDC na Base Sepolia e de WBTC na Ethereum Sepolia; liquidez Uniswap v3 na ' +
+  'Base Sepolia e na Ethereum Sepolia e liquidez Orca na Solana Devnet; e Supply → Borrow → Swap do USDC emprestado para WETH na Base Sepolia.';
 const PT_COMPOSITION = 'O Flofi só combina passos como Supply de USDC → Borrow de USDC → Swap do USDC emprestado para WETH (Aave V3, Base Sepolia). ' +
   'Outras combinações ainda não podem ficar no mesmo fluxo: crie cada ação separadamente.';
 
@@ -43,6 +43,7 @@ const EN = {
   whichNetwork: (subject: string) => `Which network should Flofi use for ${subject}?`,
   defaultNetworkNote: (subject: string, network: string) => `${subject} is available only on ${network} (test tokens), so Flofi used it.`,
   realFundsWhichNetwork: (network: string) => `${network} uses real funds. Which network do you mean?`,
+  ethereumWhichNetwork: (subject: string, options: readonly string[]) => `Flofi never uses Ethereum Mainnet. ${subject} is available in Flofi on ${options.join(', ')}. Did you mean a test network?`,
   amountNotFound: (value: string) => `Flofi could not find the amount ${value} in your message. How much exactly? Write it in digits.`,
   defaultSlippageNote: (bps: string) => `Slippage ${bps} bps (Flofi default). Say, for example, "slippage 100 bps" to change it.`,
   slippageNotFound: (bps: string) => `Flofi could not find the slippage ${bps} bps in your message. What maximum slippage should it use?`,
@@ -50,7 +51,7 @@ const EN = {
   addressNotFound: (field: 'beneficiary' | 'recipient') => `Flofi could not find that ${field} address in your message. Type the full address, or leave it out to use your connected wallet.`,
   tokenUnsupported: (subject: string) => `That token is not supported for ${subject}. ${EN_CAPABILITIES}`,
   tokenNotFound: (token: string) => `Flofi could not find the token ${token} in your message. Which token do you mean?`,
-  evmSwapTokens: 'Flofi swaps USDC and WETH on Base and Base Sepolia.',
+  evmSwapTokens: 'Flofi swaps USDC and WETH on Base, Base Sepolia and Ethereum Sepolia.',
   differentTokens: 'The input and output tokens must differ.',
   wethNote: 'Flofi swaps the ERC-20 WETH (wrapped ETH), not native ETH.',
   devnetSwapTokens: 'Solana Devnet swaps support SOL and devUSDC.',
@@ -67,11 +68,11 @@ const EN = {
   autoRoutingNote: 'Routing: automatic (LI.FI first, Across direct if LI.FI has no reconcilable route).',
   connectedRecipientNote: 'Recipient: your connected wallet, bound at Review.',
   mainnetFundsNote: ROUTER_NETWORK_OPTIONS.mainnet.funds as string,
-  aaveOnly: 'Flofi supports Aave V3 with USDC only, on Base Sepolia.',
+  aaveOnly: 'Flofi supports Aave V3 with USDC on Base Sepolia and WBTC on Ethereum Sepolia only.',
   withdrawToWallet: 'An Aave withdrawal always pays your connected wallet; Flofi cannot send it to another address.',
   beneficiaryNote: (wallet: string) => `Beneficiary: your connected wallet ${wallet}.`,
   whichPool: 'Which pool do you mean?',
-  poolOptions: ['Uniswap v3 on Base Sepolia', 'Orca on Solana Devnet'] as readonly string[],
+  poolOptions: ['Uniswap v3 on Base Sepolia', 'Orca on Solana Devnet', 'Uniswap v3 on Ethereum Sepolia'] as readonly string[],
   poolTokens: (first: string, second: string) => `This pool takes ${first} and ${second} only.`,
   poolTokenOnce: (first: string, second: string) => `Name each token of the pool once: ${first} and ${second}.`,
   liquidityNeeds: (first: string, second: string, quote: string, base: string) =>
@@ -84,7 +85,7 @@ const EN = {
   debtNote: 'Debt remains after the swap. Review the health factor checkpoint before signing anything.',
   cannotAuthor: 'Flofi Copilot cannot author that request.',
   rejection: {
-    INVALID_AMOUNT: 'The amount is not a valid positive number.', SUPPLY_AMOUNT_INVALID: 'The amount is not a valid positive USDC amount.',
+    INVALID_AMOUNT: 'The amount is not a valid positive number.', SUPPLY_AMOUNT_INVALID: 'The amount is not a valid positive token amount.',
     AMOUNT_PRECISION: 'The amount has more decimal places than the token supports.', AMOUNT_OUT_OF_RANGE: 'The amount is outside the range Flofi allows for this token.',
     INVALID_SLIPPAGE: 'The slippage is not valid.', INVALID_ASSET_PAIR: 'The input and output tokens must differ.',
     ROUTER_SLIPPAGE_OUT_OF_RANGE: 'The slippage is outside the range allowed for the Cross-chain Router.',
@@ -191,6 +192,7 @@ const PT: CopilotCopy = {
   whichNetwork: subject => `Em qual rede? O Flofi precisa saber a rede para ${subject}.`,
   defaultNetworkNote: (subject, network) => `${capitalize(subject)} só está disponível em ${network} (tokens de teste), então o Flofi usou essa rede.`,
   realFundsWhichNetwork: network => `${network} usa fundos reais. Qual rede você quer dizer?`,
+  ethereumWhichNetwork: (subject, options) => `O Flofi nunca usa a Ethereum Mainnet. ${capitalize(subject)} está disponível no Flofi em ${options.join(', ')}. Você quis dizer uma rede de teste?`,
   amountNotFound: value => `O Flofi não encontrou o valor ${value} na sua mensagem. Quanto exatamente? Escreva em algarismos.`,
   defaultSlippageNote: bps => `Slippage de ${bps} bps (padrão do Flofi). Diga, por exemplo, "slippage 100 bps" para mudar.`,
   slippageNotFound: bps => `O Flofi não encontrou o slippage de ${bps} bps na sua mensagem. Qual slippage máximo usar?`,
@@ -198,7 +200,7 @@ const PT: CopilotCopy = {
   addressNotFound: field => `O Flofi não encontrou esse endereço de ${field === 'beneficiary' ? 'beneficiário' : 'destinatário'} na sua mensagem. Digite o endereço completo ou deixe-o de fora para usar sua carteira conectada.`,
   tokenUnsupported: subject => `Esse token não é suportado em ${subject}. ${PT_CAPABILITIES}`,
   tokenNotFound: token => `O Flofi não encontrou o token ${token} na sua mensagem. Qual token você quer dizer?`,
-  evmSwapTokens: 'O Flofi faz swap de USDC e WETH na Base e na Base Sepolia.',
+  evmSwapTokens: 'O Flofi faz swap de USDC e WETH na Base, na Base Sepolia e na Ethereum Sepolia.',
   differentTokens: 'Os tokens de entrada e de saída precisam ser diferentes.',
   wethNote: 'O Flofi faz swap do ERC-20 WETH (ETH embrulhado), não de ETH nativo.',
   devnetSwapTokens: 'Swaps na Solana Devnet aceitam SOL e devUSDC.',
@@ -215,11 +217,11 @@ const PT: CopilotCopy = {
   autoRoutingNote: 'Roteamento: automático (LI.FI primeiro, Across direto se a LI.FI não tiver rota reconciliável).',
   connectedRecipientNote: 'Destinatário: sua carteira conectada, definida na Review.',
   mainnetFundsNote: 'Fundos reais: Base mainnet e Arbitrum One.',
-  aaveOnly: 'O Flofi suporta a Aave V3 apenas com USDC, na Base Sepolia.',
+  aaveOnly: 'O Flofi suporta a Aave V3 apenas com USDC na Base Sepolia e WBTC na Ethereum Sepolia.',
   withdrawToWallet: 'Um withdraw da Aave sempre paga sua carteira conectada; o Flofi não pode enviá-lo para outro endereço.',
   beneficiaryNote: wallet => `Beneficiário: sua carteira conectada ${wallet}.`,
   whichPool: 'Qual pool você quer dizer?',
-  poolOptions: ['Uniswap v3 na Base Sepolia', 'Orca na Solana Devnet'],
+  poolOptions: ['Uniswap v3 na Base Sepolia', 'Orca na Solana Devnet', 'Uniswap v3 na Ethereum Sepolia'],
   poolTokens: (first, second) => `Este pool aceita apenas ${first} e ${second}.`,
   poolTokenOnce: (first, second) => `Informe cada token do pool uma vez: ${first} e ${second}.`,
   liquidityNeeds: (first, second, quote, base) =>
@@ -232,7 +234,7 @@ const PT: CopilotCopy = {
   debtNote: 'A dívida continua depois do swap. Revise o checkpoint de health factor antes de assinar qualquer coisa.',
   cannotAuthor: 'O Flofi Copilot não pode criar esse pedido.',
   rejection: {
-    INVALID_AMOUNT: 'O valor não é um número positivo válido.', SUPPLY_AMOUNT_INVALID: 'O valor não é uma quantia positiva válida de USDC.',
+    INVALID_AMOUNT: 'O valor não é um número positivo válido.', SUPPLY_AMOUNT_INVALID: 'O valor não é uma quantia positiva válida do token.',
     AMOUNT_PRECISION: 'O valor tem mais casas decimais do que o token suporta.', AMOUNT_OUT_OF_RANGE: 'O valor está fora da faixa que o Flofi permite para este token.',
     INVALID_SLIPPAGE: 'O slippage não é válido.', INVALID_ASSET_PAIR: 'Os tokens de entrada e de saída precisam ser diferentes.',
     ROUTER_SLIPPAGE_OUT_OF_RANGE: 'O slippage está fora da faixa permitida pelo Cross-chain Router.',

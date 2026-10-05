@@ -30,7 +30,10 @@ describe('shared EVM wallet networks', () => {
     expect(walletChainRef('0x14a34')).toBe('eip155:84532');
     expect(walletChainRef('0xb626')).toBe('eip155:46630');
     expect(walletChainRef('0x1237')).toBe('eip155:4663');
-    for (const other of ['0x1', '0x7a69', '0xb6260', null, undefined, '']) expect(walletChainRef(other)).toBeNull();
+    // BUILD-ETHEREUM-001: Ethereum Sepolia is a switch target; Ethereum Mainnet is recognized only to be named and refused.
+    expect(walletChainRef('0xaa36a7')).toBe('eip155:11155111');
+    expect(walletChainRef('0x1')).toBe('eip155:1');
+    for (const other of ['0x7a69', '0xb6260', '0xaa36a8', null, undefined, '']) expect(walletChainRef(other)).toBeNull();
     for (const network of EVM_WALLET_NETWORKS) expect(network.chain).toBe(`eip155:${Number.parseInt(network.hex, 16)}`);
   });
   it('keeps the existing labels and names Robinhood networks', () => {
@@ -79,6 +82,44 @@ describe('shared EVM wallet networks', () => {
     const { provider, calls } = wallet({ chain: '0x14a34', switchError: Object.assign(new Error('rejected'), { code: 4001 }) });
     await expect(switchWalletNetwork(provider, '0xb626')).rejects.toMatchObject({ code: 4001 });
     expect(calls.map(call => call.method)).toEqual(['wallet_switchEthereumChain']);
+  });
+  it('names Ethereum Sepolia and Ethereum Mainnet distinctly', () => {
+    expect(walletChainLabel('0xaa36a7')).toBe('Ethereum Sepolia (11155111)');
+    expect(walletChainLabel('0x1')).toBe('Ethereum Mainnet (1)');
+  });
+  it('never offers Ethereum Mainnet as a switch target or adds it, so Sepolia support has no path to Mainnet', async () => {
+    expect(walletNetwork('0x1')).toMatchObject({ chain: 'eip155:1', switchable: false, add: null });
+    const { provider, calls } = wallet({ chain: '0xaa36a7', known: ['0x1', '0xaa36a7'] });
+    await expect(switchWalletNetwork(provider, '0x1')).rejects.toThrow('WALLET_NETWORK_NOT_SWITCHABLE');
+    await expect(switchWalletNetwork(provider, '0x01')).rejects.toThrow('WALLET_NETWORK_NOT_SWITCHABLE');
+    expect(calls).toEqual([]);
+  });
+  it('switches to Ethereum Sepolia directly when the wallet knows it, and reads the chain back', async () => {
+    const { provider, calls } = wallet({ chain: '0x1', known: ['0xaa36a7'] });
+    await switchWalletNetwork(provider, '0xAA36A7');
+    expect(calls.map(call => call.method)).toEqual(['wallet_switchEthereumChain', 'eth_chainId']);
+    expect(calls[0]?.params).toEqual([{ chainId: '0xaa36a7' }]);
+  });
+  it('adds Ethereum Sepolia from the official record only after 4902, then switches and reads back', async () => {
+    const { provider, calls } = wallet({ chain: '0x14a34', known: [] });
+    await switchWalletNetwork(provider, '0xaa36a7');
+    expect(calls.map(call => call.method)).toEqual(['wallet_switchEthereumChain', 'wallet_addEthereumChain', 'wallet_switchEthereumChain', 'eth_chainId']);
+    expect(calls[1]?.params).toEqual([{ chainId: '0xaa36a7', chainName: 'Ethereum Sepolia', nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: ['https://ethereum-sepolia-rpc.publicnode.com'], blockExplorerUrls: ['https://sepolia.etherscan.io'] }]);
+  });
+  it('fails when the wallet stays on Base or Mainnet after an Ethereum Sepolia switch', async () => {
+    for (const reported of ['0x14a34', '0x1']) {
+      const { provider } = wallet({ chain: '0x14a34', known: ['0xaa36a7'], reportAfterSwitch: reported });
+      await expect(switchWalletNetwork(provider, '0xaa36a7')).rejects.toThrow('WALLET_DID_NOT_SWITCH');
+    }
+  });
+  it('propagates a refused Ethereum Sepolia add without switching', async () => {
+    const calls: { method: string }[] = [];
+    const provider = { request: async ({ method }: { method: string }) => { calls.push({ method });
+      if (method === 'wallet_switchEthereumChain') throw Object.assign(new Error('unknown'), { code: 4902 });
+      throw Object.assign(new Error('rejected'), { code: 4001 }); } };
+    await expect(switchWalletNetwork(provider, '0xaa36a7')).rejects.toMatchObject({ code: 4001 });
+    expect(calls.map(call => call.method)).toEqual(['wallet_switchEthereumChain', 'wallet_addEthereumChain']);
   });
   it('rejects a wallet that reports another chain after switching', async () => {
     const { provider } = wallet({ chain: '0x14a34', known: ['0xb626'], reportAfterSwitch: '0x1237' });

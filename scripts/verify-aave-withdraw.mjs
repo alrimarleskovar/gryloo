@@ -26,7 +26,7 @@ const response=await globalThis.fetch(officialUrl,{signal:globalThis.AbortSignal
 for(const field of ['pool','provider','oracle','asset','aToken','variableDebtToken'])if(!official.toLowerCase().includes(p[field]))throw Error('OFFICIAL_PROFILE_MISMATCH');
 let result;
 if(mode==='--prestate'){
-  const state=await readBorrowState(rpc,owner,owner);
+  const state=await readBorrowState(rpc,p,owner,owner);
   const prerequisites={collateralClearlyAboveAcceptance:BigInt(state.position)>BigInt(amount)*5n,comfortableHealthFactor:BigInt(state.borrow.healthFactor)>10n*10n**18n,existingPartialDebt:BigInt(state.borrow.debt)>0n,verifiedProfile:true};
   if(!Object.values(prerequisites).every(Boolean))result={status:'STOP_PREREQUISITES_FAILED',readOnly:true,prerequisites,state};
   else{
@@ -53,7 +53,7 @@ if(mode==='--prestate'){
   if(call.to!==p.pool||BigInt(call.value)!==0n||call.data!==data)throw Error('INDEPENDENT_ABI_MISMATCH');
   const expectedReceipts=[{receiptId:'withdraw-receipt',contentHash:supplyHash(observed.receipt)}];
   if(supplyHash(bundle.receipts)!==supplyHash(expectedReceipts)||publicExecution.withdrawTransactionHash!==observed.receipt.transactionHash||publicExecution.transactionCost!==observed.cost||publicExecution.totalNetworkCost!==observed.cost||publicExecution.owner!==owner||publicExecution.recipient!==owner||publicExecution.amount!==amount||publicExecution.pool!==p.pool||publicExecution.asset!==p.asset||publicExecution.aToken!==p.aToken||publicExecution.chainId!==p.chainId||supplyHash(stable(publicExecution.prePosition))!==supplyHash(stable(observed.prePosition))||supplyHash(stable(publicExecution.postPosition))!==supplyHash(stable(observed.postPosition)))throw Error('PUBLIC_OBSERVATION_MISMATCH');
-  const effects=verifyWithdrawEffects(amount,observed.prePosition,observed.postPosition);
+  const effects=verifyWithdrawEffects(amount,observed.prePosition,observed.postPosition,p);
   for(const [field,value] of Object.entries(effects))if(value!==publicExecution[field])throw Error('ARCHIVED_ECONOMIC_MISMATCH');
   // Independently reconstruct scaled principal; underlying credit remains exact.
   const ray=10n**27n,index=BigInt(observed.postPosition.index),burn=BigInt(observed.prePosition.scaledPosition)-BigInt(observed.postPosition.scaledPosition),n=BigInt(amount);

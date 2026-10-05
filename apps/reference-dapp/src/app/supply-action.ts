@@ -2,7 +2,7 @@
 'use server';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createSupplyService, type SupplyWalletDiagnostic, type SupplyService } from '../server/supply-service';
-import { createSupplyReadRpc } from '../server/supply-rpc';
+import { createLendingReadRpcs } from '../server/supply-rpc';
 import { callCloudFlow } from '../server/cloud-api-client';
 let service:SupplyService|null=null;
 function current():SupplyService {
@@ -10,7 +10,8 @@ function current():SupplyService {
   const journalDir=process.env.GRYLOO_SUPPLY_JOURNAL;
   if(!journalDir)throw new Error('SUPPLY_STORAGE_NOT_CONFIGURED');
   // Pace public reads and retry only bounded provider throttling. No mutation method is permitted.
-  service??=createSupplyService({journalDir,provenance:harness?'MOCKED':'PUBLIC_TESTNET',rpc:createSupplyReadRpc(harness)});
+  // One chain-bound read client per Aave profile; the reviewed chain selects it.
+  service??=(()=>{const rpcs=createLendingReadRpcs(harness,process.env);return createSupplyService({journalDir,provenance:harness?'MOCKED':'PUBLIC_TESTNET',rpc:rpcs['eip155:84532'],rpcs});})();
   return service;
 }
 async function run<T>(method:string,args:readonly unknown[],action:(service:SupplyService)=>Promise<T>):Promise<{ok:true;value:T}|{ok:false;code:string}>{

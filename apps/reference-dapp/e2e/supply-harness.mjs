@@ -4,11 +4,11 @@ import { secp256k1 } from '../../../packages/reference-reconciler/node_modules/@
 import { keccak_256 } from '../../../packages/reference-reconciler/node_modules/@noble/hashes/sha3.js';
 import { createServer } from 'node:http';
 import { Buffer } from 'node:buffer';
-import { AAVE_V3_BASE_SEPOLIA as p, supplyCall, supplyWord, supplyTopic, supplyHex, rlpEncode, rlpInteger, toHex, fromHex } from '../../../packages/reference-compiler/dist/index.js';
+import { AAVE_V3_BASE_SEPOLIA, AAVE_V3_ETHEREUM_SEPOLIA, supplyCall, supplyWord, supplyTopic, supplyHex, rlpEncode, rlpInteger, toHex, fromHex } from '../../../packages/reference-compiler/dist/index.js';
 export const OWNER='0x1111111111111111111111111111111111111111';
 // Public disposable MOCKED fixture; never imported by product runtime.
 const fixtureKey=new Uint8Array(32).fill(0x43),fixturePublic=secp256k1.getPublicKey(fixtureKey,false);
-export function mockAllowanceSlot(owner){const h=v=>toHex(keccak_256(fromHex(v)));return h('0x'+supplyWord(p.pool)+h('0x'+supplyWord(owner)+supplyWord(1n)).slice(2));}
+export function mockAllowanceSlot(owner,p=AAVE_V3_BASE_SEPOLIA){const h=v=>toHex(keccak_256(fromHex(v)));return h('0x'+supplyWord(p.pool)+h('0x'+supplyWord(owner)+supplyWord(1n)).slice(2));}
 export const REPAY_OWNER=toHex(keccak_256(fixturePublic.slice(1)).slice(12));
 export function signMockTransaction(tx){
   const fields=[rlpInteger(BigInt(tx.chainId)),rlpInteger(BigInt(tx.nonce)),rlpInteger(1000000n),rlpInteger(BigInt(tx.gasPrice)),rlpInteger(BigInt(tx.gas)),fromHex(tx.to),rlpInteger(0n),fromHex(tx.data),[]];
@@ -18,12 +18,14 @@ export function signMockTransaction(tx){
   const r=BigInt(toHex(sig.slice(0,32))),s=BigInt(toHex(sig.slice(32)));
   return {type:'0x2',maxFeePerGas:tx.gasPrice,maxPriorityFeePerGas:'0xf4240',accessList:[],yParity:supplyHex(parity),r:supplyHex(r),s:supplyHex(s),hash:toHex(keccak_256(fromHex('0x02'+toHex(rlpEncode([...fields,rlpInteger(BigInt(parity)),rlpInteger(r),rlpInteger(s)])).slice(2))))};
 }
-const SLOT='0x0eb026e3feeb6eaf0b78e4cc060713d5dc1bb58e7fce3ea589f6e19ecbbf4f06';
 const hash=n=>'0x'+BigInt(n).toString(16).padStart(64,'0');
 const word=n=>'0x'+supplyWord(BigInt(n));
 const topicAddress=a=>'0x'+supplyWord(a);
-export function createSupplyHarness(){
-  const state={owner:OWNER,allowanceSlot:SLOT,block:10,nonce:0,allowance:0n,balance:100_000_000n,nativeBalance:10n**18n,scaled:8_000_000n,index:125n*10n**25n,chain:'0x14a34',scaledDebt:0n,debtIndex:125n*10n**25n,price:100000000n,userConfig:2n,reserveConfig:(1n<<56n)|(1n<<58n)|(6n<<48n)|8250n|(8600n<<16n),liquidity:1000000000000n,revert:false,mismatch:false,ignoreOverride:false,previousIndex:125n*10n**25n};
+/** MOCKED Aave reserve for one registered lending profile (Base Sepolia USDC by default; Ethereum Sepolia WBTC on request). */
+export function createSupplyHarness(p=AAVE_V3_BASE_SEPOLIA){
+  // Reserve id selects the user-configuration bits; decimals select the base-currency scale. No L1 data fee on Ethereum L1.
+  const shift=2n*BigInt(p.reserveId),scale=10n**BigInt(p.decimals);
+  const state={owner:OWNER,allowanceSlot:mockAllowanceSlot(OWNER,p),block:10,nonce:0,allowance:0n,balance:100_000_000n,nativeBalance:10n**18n,scaled:8_000_000n,index:125n*10n**25n,chain:p.chainHex,scaledDebt:0n,debtIndex:125n*10n**25n,price:100000000n,userConfig:2n<<shift,reserveConfig:(1n<<56n)|(1n<<58n)|(BigInt(p.decimals)<<48n)|8250n|(8600n<<16n),liquidity:1000000000000n,revert:false,mismatch:false,ignoreOverride:false,previousIndex:125n*10n**25n};
   const transactions=[],receipts=new Map(),history=new Map();
   const snapshot=()=>({...state});history.set(10,snapshot());
   const at=tag=>{const n=tag==='latest'||tag==='pending'?state.block:Number(BigInt(tag));if(n>=state.block)return snapshot();return [...history.entries()].filter(([b])=>b<=n).at(-1)?.[1]??snapshot();};
@@ -31,9 +33,9 @@ export function createSupplyHarness(){
     const s=at(tag),data=tx.data.toLowerCase(),to=tx.to.toLowerCase();
     const effectiveAllowance=!state.ignoreOverride&&override?.[p.asset]?.stateDiff?.[s.allowanceSlot]!==undefined?BigInt(override[p.asset].stateDiff[s.allowanceSlot]):s.allowance;
     if(data===supplyCall('getPool()')&&to===p.provider)return word(p.pool);
-    if(data===supplyCall('getReserveData(address)',p.asset)&&to===p.pool){const words=Array.from({length:15},()=>supplyWord(0n));words[0]=supplyWord(s.reserveConfig);words[10]=supplyWord(p.variableDebtToken);words[1]=supplyWord(s.index);words[8]=supplyWord(p.aToken);return '0x'+words.join('');}
+    if(data===supplyCall('getReserveData(address)',p.asset)&&to===p.pool){const words=Array.from({length:15},()=>supplyWord(0n));words[0]=supplyWord(s.reserveConfig);words[7]=supplyWord(BigInt(p.reserveId));words[10]=supplyWord(p.variableDebtToken);words[1]=supplyWord(s.index);words[8]=supplyWord(p.aToken);return '0x'+words.join('');}
     const debt=(s.scaledDebt*s.debtIndex+10n**27n/2n)/10n**27n;
-    const collateral=((s.scaled*s.index+10n**27n/2n)/10n**27n)*s.price/1000000n,debtBase=debt*s.price/1000000n;
+    const collateral=((s.scaled*s.index+10n**27n/2n)/10n**27n)*s.price/scale,debtBase=debt*s.price/scale;
     if(data===supplyCall('getPriceOracle()')&&to===p.provider)return word(p.oracle);
     if(data===supplyCall('getAssetPrice(address)',p.asset)&&to===p.oracle)return word(s.price);
     if(data===supplyCall('BASE_CURRENCY_UNIT()')&&to===p.oracle)return word(100000000n);
@@ -50,7 +52,7 @@ export function createSupplyHarness(){
     if(data.startsWith(supplyCall('borrow(address,uint256,uint256,uint16,address)').slice(0,10))&&to===p.pool)return '0x';
     if(data.startsWith(supplyCall('withdraw(address,uint256,address)').slice(0,10))&&to===p.pool){const amount=BigInt('0x'+data.slice(74,138));if(amount>=(s.scaled*s.index+10n**27n/2n)/10n**27n)throw Error('MOCK_WITHDRAW_REVERT');return word(amount);}
     if(data.startsWith(supplyCall('repay(address,uint256,uint256,address)').slice(0,10))&&to===p.pool){const amount=BigInt('0x'+data.slice(74,138));if(effectiveAllowance<amount||s.balance<amount||debt<=amount)throw new Error('MOCK_REPAY_REVERT');return word(amount);}
-    if(data===supplyCall('decimals()')&&to===p.asset)return word(6);
+    if(data===supplyCall('decimals()')&&to===p.asset)return word(p.decimals);
     if(data===supplyCall('getPreviousIndex(address)',state.owner)&&to===p.aToken)return word(s.previousIndex);
     if(data===supplyCall('POOL()')&&to===p.aToken)return word(p.pool);
     if(data===supplyCall('UNDERLYING_ASSET_ADDRESS()')&&to===p.aToken)return word(p.asset);
@@ -90,7 +92,7 @@ export function createSupplyHarness(){
           logs.push({address:p.asset,topics:[supplyTopic('Approval(address,address,uint256)'),topicAddress(state.owner),topicAddress(p.pool)],data:word(amount)});
         }else if(tx.data.startsWith(supplyCall('borrow(address,uint256,uint256,uint16,address)').slice(0,10))){
           if(tx.data!==supplyCall('borrow(address,uint256,uint256,uint16,address)',p.asset,amount,2n,0n,state.owner))throw new Error('MOCK_BORROW_DENIED');
-          state.balance+=amount;state.userConfig|=1n;state.scaledDebt+=(amount*10n**27n+state.debtIndex/2n)/state.debtIndex+(state.mismatch?100n:0n);state.liquidity-=amount;
+          state.balance+=amount;state.userConfig|=1n<<shift;state.scaledDebt+=(amount*10n**27n+state.debtIndex/2n)/state.debtIndex+(state.mismatch?100n:0n);state.liquidity-=amount;
           logs.push({address:p.pool,topics:[supplyTopic('Borrow(address,address,address,uint256,uint8,uint256,uint16)'),topicAddress(p.asset),topicAddress(state.owner),word(0)],data:'0x'+supplyWord(state.owner)+supplyWord(amount)+supplyWord(2n)+supplyWord(100000000n)},
             {address:p.asset,topics:[supplyTopic('Transfer(address,address,uint256)'),topicAddress(p.aToken),topicAddress(state.owner)],data:word(amount)});
         }else if(tx.data.startsWith(supplyCall('withdraw(address,uint256,address)').slice(0,10))){
@@ -116,7 +118,7 @@ export function createSupplyHarness(){
         }
       }
       const mined={...tx,...signed,hash:txHash,input:tx.data,transactionIndex:'0x0',blockNumber:supplyHex(block),blockHash:hash(block+1000),gas:tx.gas};transactions.push(mined);
-      receipts.set(txHash,{transactionHash:txHash,from:tx.from,to:tx.to,transactionIndex:'0x0',blockNumber:supplyHex(block),blockHash:hash(block+1000),status:state.revert?'0x0':'0x1',gasUsed:supplyHex(tx.to===p.pool?140_000:45_000),effectiveGasPrice:supplyHex(1_000_000),l1Fee:'0x0',logs});
+      receipts.set(txHash,{transactionHash:txHash,from:tx.from,to:tx.to,transactionIndex:'0x0',blockNumber:supplyHex(block),blockHash:hash(block+1000),status:state.revert?'0x0':'0x1',gasUsed:supplyHex(tx.to===p.pool?140_000:45_000),effectiveGasPrice:supplyHex(1_000_000),...p.l1DataFee?{l1Fee:'0x0'}:{},logs});
       if(signed)state.nativeBalance-=BigInt(tx.to===p.pool?140_000:45_000)*1000000n;
       state.nonce++;state.block=block+2;history.set(block,snapshot());return txHash;
     }
@@ -125,14 +127,16 @@ export function createSupplyHarness(){
   return {state,rpc,transactions,receipts,history};
 }
 if(process.argv.includes('--serve')){
-  let model=createSupplyHarness();
+  // `/` serves the Base Sepolia USDC reserve; `/ethereum-sepolia` serves the Ethereum Sepolia WBTC reserve (separate state).
+  const profiles={'/':AAVE_V3_BASE_SEPOLIA,'/ethereum-sepolia':AAVE_V3_ETHEREUM_SEPOLIA},models={'/':createSupplyHarness(),'/ethereum-sepolia':createSupplyHarness(AAVE_V3_ETHEREUM_SEPOLIA)};
   const server=createServer(async(req,res)=>{
     try{
       if(req.method==='GET'&&req.url==='/'){res.end('MOCKED Supply harness');return;}
+      const route=req.url==='/ethereum-sepolia'?'/ethereum-sepolia':'/';
       let body='';for await(const chunk of req){body+=chunk.toString();if(Buffer.byteLength(body)>1_048_576)throw new Error('MOCK_INPUT_TOO_LARGE');}
       const value=JSON.parse(body);let result;
-      if(value.method==='MOCK_reset'){model=createSupplyHarness();const options=value.params?.[0]??{};for(const key of ['allowance','balance','nativeBalance','scaled','index','scaledDebt','debtIndex','previousIndex','price','userConfig','reserveConfig','liquidity'])if(options[key]!==undefined)options[key]=BigInt(options[key]);Object.assign(model.state,options);if(options.owner)model.state.allowanceSlot=mockAllowanceSlot(options.owner);model.history.set(model.state.block,{...model.state});result=true;}
-      else result=await model.rpc(value.method,value.params??[]);
+      if(value.method==='MOCK_reset'){const model=models[route]=createSupplyHarness(profiles[route]);const options=value.params?.[0]??{};for(const key of ['allowance','balance','nativeBalance','scaled','index','scaledDebt','debtIndex','previousIndex','price','userConfig','reserveConfig','liquidity'])if(options[key]!==undefined)options[key]=BigInt(options[key]);Object.assign(model.state,options);if(options.owner)model.state.allowanceSlot=mockAllowanceSlot(options.owner,profiles[route]);model.history.set(model.state.block,{...model.state});result=true;}
+      else result=await models[route].rpc(value.method,value.params??[]);
       res.setHeader('content-type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:value.id,result},(_,v)=>typeof v==='bigint'?v.toString():v));
     }catch{res.statusCode=400;res.end(JSON.stringify({error:{code:-32000,message:'MOCK_RPC_DENIED'}}));}
   });

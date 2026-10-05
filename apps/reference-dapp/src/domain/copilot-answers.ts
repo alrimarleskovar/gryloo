@@ -4,6 +4,7 @@ import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import type { Workflow } from './initial-workflow';
 import { ROUTER_NETWORK_OPTIONS, ROUTER_ROUTING_LABEL } from './router-authoring';
 import { workflowSteps, type WorkflowStep } from './workflow-steps';
+import { uniswapLiquidityProfileFor } from './uniswap-liquidity-authoring';
 import { copilotCopy, type CopilotLanguage } from './copilot-messages';
 import type { CopilotQuestionTopic } from './copilot-intent-v2';
 
@@ -41,7 +42,7 @@ export function simulationFlowOf(steps: readonly WorkflowStep[]): SimulationFlow
   if (types.has('UNISWAP_LIQUIDITY')) return 'UNISWAP';
   if (types.has('ORCA_LIQUIDITY')) return 'ORCA';
   if (types.has('SOLANA_SWAP')) return 'SOLANA_SWAP';
-  if (steps.some(step => step.detail.type === 'EVM_SWAP' && step.detail.network === 'Base Sepolia')) return 'PUBLIC_TESTNET';
+  if (steps.some(step => step.detail.type === 'EVM_SWAP' && step.detail.network !== 'Base')) return 'PUBLIC_TESTNET';
   if (steps.some(step => step.detail.type === 'OTHER' && step.detail.actionType === 'asset.transfer')) return 'TRANSFER';
   return 'MOCKED_CHAIN';
 }
@@ -62,9 +63,9 @@ export function stepSummary(step: WorkflowStep, language: CopilotLanguage): stri
     case 'EVM_SWAP': return `Swap ${d.amount} ${d.from} → ${d.to} · ${d.network}`;
     case 'SOLANA_SWAP': return `Swap ${d.input.amount} ${d.input.from} → ${d.input.to} · ${d.input.network} (${step.protocol})`;
     case 'ROUTER': return `Bridge ${d.input.amount} USDC · ${step.network}`;
-    case 'AAVE': return `${d.operation === 'SUPPLY' ? 'Supply' : d.operation === 'BORROW' ? 'Borrow' : 'Repay'} ${d.input.amount} USDC · Aave V3 · ${d.input.network}`;
-    case 'AAVE_WITHDRAW': return `Withdraw ${d.input.amount} USDC · Aave V3 · ${d.input.network}`;
-    case 'UNISWAP_LIQUIDITY': return `${pt ? 'Liquidez' : 'Liquidity'} ≤ ${d.input.maxUsdc} USDC + ${d.input.maxWeth} WETH · Uniswap v3 · Base Sepolia`;
+    case 'AAVE': return `${d.operation === 'SUPPLY' ? 'Supply' : d.operation === 'BORROW' ? 'Borrow' : 'Repay'} ${d.input.amount} ${d.input.asset} · Aave V3 · ${d.input.network}`;
+    case 'AAVE_WITHDRAW': return `Withdraw ${d.input.amount} ${d.input.asset} · Aave V3 · ${d.input.network}`;
+    case 'UNISWAP_LIQUIDITY': return `${pt ? 'Liquidez' : 'Liquidity'} ≤ ${d.input.maxUsdc} USDC + ${d.input.maxWeth} WETH · Uniswap v3 · ${d.input.network}`;
     case 'ORCA_LIQUIDITY': return `${pt ? 'Liquidez' : 'Liquidity'} ≤ ${d.input.maxSol} SOL + ${d.input.maxDevUsdc} devUSDC · Orca · Solana Devnet`;
     case 'LENDING_COMPOSITION': return d.role === 'SUPPLY' ? `Supply ${d.input.supply} USDC · Aave V3 (${pt ? 'composição' : 'composition'})`
       : d.role === 'BORROW' ? `Borrow ${d.input.borrow} USDC · Aave V3 (${pt ? 'composição' : 'composition'})`
@@ -86,16 +87,18 @@ export function stepSentence(step: WorkflowStep, language: CopilotLanguage): str
       return pt ? `Faz bridge de ${d.input.amount} USDC da ${option.sourceLabel} para a ${option.destinationLabel} pelo Flofi Cross-chain Router (${routing}), com slippage máximo de ${d.input.slippage} bps, para ${recipientOf(d.input.recipient, pt)}.`
         : `Bridges ${d.input.amount} USDC from ${option.sourceLabel} to ${option.destinationLabel} through the Flofi Cross-chain Router (${routing}), with at most ${d.input.slippage} bps slippage, to ${recipientOf(d.input.recipient, pt)}.`;
     }
-    case 'AAVE': return d.operation === 'SUPPLY' ? (pt ? `Faz supply de ${d.input.amount} USDC na Aave V3 na Base Sepolia para ${d.input.beneficiary}.`
-        : `Supplies ${d.input.amount} USDC to Aave V3 on Base Sepolia for ${d.input.beneficiary}.`)
-      : d.operation === 'BORROW' ? (pt ? `Pega emprestado ${d.input.amount} USDC da Aave V3 na Base Sepolia (taxa variável) para ${d.input.beneficiary}.`
-        : `Borrows ${d.input.amount} USDC from Aave V3 on Base Sepolia (variable rate) for ${d.input.beneficiary}.`)
-      : (pt ? `Paga ${d.input.amount} USDC de dívida variável na Aave V3 na Base Sepolia em nome de ${d.input.beneficiary}.`
-        : `Repays ${d.input.amount} USDC of variable debt to Aave V3 on Base Sepolia on behalf of ${d.input.beneficiary}.`);
-    case 'AAVE_WITHDRAW': return pt ? `Retira ${d.input.amount} USDC da Aave V3 na Base Sepolia para sua carteira conectada.`
-      : `Withdraws ${d.input.amount} USDC from Aave V3 on Base Sepolia to your connected wallet.`;
-    case 'UNISWAP_LIQUIDITY': return pt ? `Adiciona liquidez concentrada na Uniswap v3 (Base Sepolia, USDC/WETH 0.05%): até ${d.input.maxUsdc} USDC e ${d.input.maxWeth} WETH entre ${d.lowerPrice} e ${d.upperPrice} USDC por WETH, com slippage máximo de ${d.input.slippage} bps.`
-      : `Adds concentrated liquidity on Uniswap v3 (Base Sepolia, USDC/WETH 0.05%): up to ${d.input.maxUsdc} USDC and ${d.input.maxWeth} WETH between ${d.lowerPrice} and ${d.upperPrice} USDC per WETH, with at most ${d.input.slippage} bps slippage.`;
+    case 'AAVE': { const { amount, asset, network, beneficiary } = d.input;
+      return d.operation === 'SUPPLY' ? (pt ? `Faz supply de ${amount} ${asset} na Aave V3 na ${network} para ${beneficiary}.`
+        : `Supplies ${amount} ${asset} to Aave V3 on ${network} for ${beneficiary}.`)
+      : d.operation === 'BORROW' ? (pt ? `Pega emprestado ${amount} ${asset} da Aave V3 na ${network} (taxa variável) para ${beneficiary}.`
+        : `Borrows ${amount} ${asset} from Aave V3 on ${network} (variable rate) for ${beneficiary}.`)
+      : (pt ? `Paga ${amount} ${asset} de dívida variável na Aave V3 na ${network} em nome de ${beneficiary}.`
+        : `Repays ${amount} ${asset} of variable debt to Aave V3 on ${network} on behalf of ${beneficiary}.`); }
+    case 'AAVE_WITHDRAW': return pt ? `Retira ${d.input.amount} ${d.input.asset} da Aave V3 na ${d.input.network} para sua carteira conectada.`
+      : `Withdraws ${d.input.amount} ${d.input.asset} from Aave V3 on ${d.input.network} to your connected wallet.`;
+    case 'UNISWAP_LIQUIDITY': { const pool = `${d.input.network}, USDC/WETH ${uniswapLiquidityProfileFor(d.input.network).feeTier / 10_000}%`;
+      return pt ? `Adiciona liquidez concentrada na Uniswap v3 (${pool}): até ${d.input.maxUsdc} USDC e ${d.input.maxWeth} WETH entre ${d.lowerPrice} e ${d.upperPrice} USDC por WETH, com slippage máximo de ${d.input.slippage} bps.`
+      : `Adds concentrated liquidity on Uniswap v3 (${pool}): up to ${d.input.maxUsdc} USDC and ${d.input.maxWeth} WETH between ${d.lowerPrice} and ${d.upperPrice} USDC per WETH, with at most ${d.input.slippage} bps slippage.`; }
     case 'ORCA_LIQUIDITY': return pt ? `Adiciona liquidez concentrada na Orca Whirlpools (Solana Devnet, SOL/devUSDC): até ${d.input.maxSol} SOL e ${d.input.maxDevUsdc} devUSDC entre ${d.lowerPrice} e ${d.upperPrice} devUSDC por SOL, com slippage máximo de ${d.input.slippage} bps.`
       : `Adds concentrated liquidity on Orca Whirlpools (Solana Devnet, SOL/devUSDC): up to ${d.input.maxSol} SOL and ${d.input.maxDevUsdc} devUSDC between ${d.lowerPrice} and ${d.upperPrice} devUSDC per SOL, with at most ${d.input.slippage} bps slippage.`;
     case 'LENDING_COMPOSITION': return d.role === 'SUPPLY' ? (pt ? `Faz supply de ${d.input.supply} USDC na Aave V3 como colateral para ${d.input.owner}.`
@@ -114,12 +117,12 @@ function approvalLine(step: WorkflowStep, pt: boolean): string {
   switch (d.type) {
     case 'AAVE': return d.operation === 'BORROW'
       ? (pt ? 'Borrow: a Review lista cada transação deste passo antes de sua carteira assinar.' : 'Borrow: Review lists every transaction of this step before your wallet signs.')
-      : (pt ? `${d.operation === 'SUPPLY' ? 'Supply' : 'Repay'}: a Aave precisa de permissão para mover seu USDC, então o fluxo inclui uma transação de approval de USDC antes, mostrada na Review.`
-        : `${d.operation === 'SUPPLY' ? 'Supply' : 'Repay'}: Aave needs permission to move your USDC, so the flow includes a USDC approval transaction first, shown in Review.`);
+      : (pt ? `${d.operation === 'SUPPLY' ? 'Supply' : 'Repay'}: a Aave precisa de permissão para mover seu ${d.input.asset}, então o fluxo inclui uma transação de approval de ${d.input.asset} antes, mostrada na Review.`
+        : `${d.operation === 'SUPPLY' ? 'Supply' : 'Repay'}: Aave needs permission to move your ${d.input.asset}, so the flow includes a ${d.input.asset} approval transaction first, shown in Review.`);
     case 'AAVE_WITHDRAW': return pt ? 'Withdraw: a Review lista cada transação deste passo antes de sua carteira assinar.' : 'Withdraw: Review lists every transaction of this step before your wallet signs.';
     case 'ROUTER': return pt ? `Bridge: um approval exato de USDC (nunca ilimitado) para o spender da rota, depois o depósito na ${ROUTER_NETWORK_OPTIONS[d.network].sourceLabel}.`
       : `Bridge: an exact USDC approval (never unlimited) to the route's spender, then the deposit on ${ROUTER_NETWORK_OPTIONS[d.network].sourceLabel}.`;
-    case 'EVM_SWAP': return d.network === 'Base Sepolia'
+    case 'EVM_SWAP': return d.network !== 'Base'
       ? (pt ? `Swap: só pede approval se a allowance atual de ${d.from} for menor que o valor do swap; depois a transação de swap.` : `Swap: an approval only if your current ${d.from} allowance is below the swap amount, then the swap transaction.`)
       : (pt ? 'Swap na Base: a Review mostra cada transação antes de qualquer assinatura.' : 'Base swap: Review shows every transaction before any signature.');
     case 'SOLANA_SWAP': case 'ORCA_LIQUIDITY': return pt ? 'Solana: não há approvals ERC-20; você revisa e assina cada transação exata.' : 'Solana: there are no ERC-20 approvals; you review and sign each exact transaction.';

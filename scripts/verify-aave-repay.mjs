@@ -28,7 +28,7 @@ const official=await officialResponse.text();
 for(const field of ['pool','provider','oracle','asset','aToken','variableDebtToken'])if(!official.toLowerCase().includes(p[field]))throw Error('OFFICIAL_PROFILE_MISMATCH');
 let result;
 if(mode==='--prestate'){
-  const state=await readBorrowState(rpc,owner,owner);
+  const state=await readBorrowState(rpc,p,owner,owner);
   const prerequisites={debtExists:BigInt(state.borrow.debt)>0n,debtAbove5000:BigInt(state.borrow.debt)>5000n,walletAtLeast5000:BigInt(state.balance)>=5000n,verifiedDeployment:true};
   if(!Object.values(prerequisites).every(Boolean)){
     result={status:'STOP_PREREQUISITES_FAILED',readOnly:true,prerequisites,state};
@@ -69,7 +69,7 @@ if(mode==='--prestate'){
   const expectedReceipts=[...approval?[{receiptId:'repay-approval-receipt',contentHash:supplyHash(approval.receipt)}]:[],{receiptId:'repay-receipt',contentHash:supplyHash(repayment.receipt)}];
   if(supplyHash(expectedReceipts)!==supplyHash(bundle.receipts))throw Error('RECEIPT_COMMITMENT_MISMATCH');
   if(publicExecution.repayTransactionHash!==repayment.receipt.transactionHash||publicExecution.approvalTransactionHash!==(approval?.receipt.transactionHash??null)||publicExecution.transactionCost!==repayment.cost||publicExecution.totalNetworkCost!==(BigInt(repayment.cost)+BigInt(approval?.cost??'0')).toString()||supplyHash(stablePosition(publicExecution.prePosition))!==supplyHash(stablePosition(repayment.prePosition))||supplyHash(stablePosition(publicExecution.postPosition))!==supplyHash(stablePosition(repayment.postPosition)))throw Error('PUBLIC_OBSERVATION_MISMATCH');
-  const effects=verifyRepayEffects('5000',repayment.prePosition,repayment.postPosition);
+  const effects=verifyRepayEffects('5000',repayment.prePosition,repayment.postPosition,p);
   for(const field of ['walletDelta','debtDelta','normalizedRepayment'])if(effects[field]!==publicExecution[field])throw Error('ARCHIVED_ECONOMIC_MISMATCH');
   const ray=10n**27n,index=BigInt(repayment.postPosition.borrow.debtIndex),burn=BigInt(repayment.prePosition.borrow.scaledDebt)-BigInt(repayment.postPosition.borrow.scaledDebt);
   const floor=5000n*ray/index,nearest=(5000n*ray+index/2n)/index;

@@ -48,8 +48,8 @@ describe('Borrow semantics and conservative public-state review',()=>{
     expect(BigInt(borrowHealthFactor('100000000','8600','0'))).toBe((1n<<256n)-1n);
     for(const input of ['NaN','-1','1.5','01','1e18'])expect(()=>borrowHealthFactor(input,'8600','100')).toThrow('INVALID');
     expect(()=>borrowHealthFactor('100','10001','1')).toThrow('INVALID');
-    const m=supplyModel(),s=await readBorrowState(m.rpc,SUPPLY_OWNER,SUPPLY_OWNER);
-    expect(()=>estimateBorrow('10000',{...s.borrow!,baseCurrencyUnit:'0'})).toThrow();
+    const m=supplyModel(),s=await readBorrowState(m.rpc,p,SUPPLY_OWNER,SUPPLY_OWNER);
+    expect(()=>estimateBorrow('10000',{...s.borrow!,baseCurrencyUnit:'0'},p)).toThrow();
   });
   it.each(['price','collateral','debt','capacity','health','configuration','amount','owner','payload','expiry'])('invalidates stale Review for %s',async kind=>{
     const m=supplyModel(),w=borrowWorkflow(),r=await simulateSupply(w,SUPPLY_OWNER,m.rpc),s=structuredClone(r.state);

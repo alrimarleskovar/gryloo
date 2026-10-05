@@ -1,0 +1,423 @@
+{
+  "build": "BUILD-ETHEREUM-001",
+  "kind": "READ_ONLY_PUBLIC_VERIFICATION",
+  "evidenceClass": "PUBLIC_READ_ONLY",
+  "generatedAt": "2026-10-05T12:55:36.106Z",
+  "rpc": {
+    "host": "ethereum-sepolia-rpc.publicnode.com",
+    "methods": [
+      "eth_chainId",
+      "net_version",
+      "eth_getBlockByNumber",
+      "eth_getCode",
+      "eth_call"
+    ],
+    "requests": 51
+  },
+  "network": {
+    "chainId": "0xaa36a7",
+    "netVersion": "11155111",
+    "genesisHash": "0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9",
+    "block": {
+      "number": 11848941,
+      "hash": "0xcc4c8118a13b726dc6083a566ba284d151c2ed5652b4069c9cdbd9534c41e840",
+      "timestamp": "2026-10-05T12:54:48.000Z",
+      "headNumber": 11848944
+    }
+  },
+  "aave": {
+    "profile": {
+      "pool": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+      "provider": "0x012bac54348c0e635dcac9d5fb99f06f24136c9a",
+      "oracle": "0x2da88497588bf89281816106c7259e31af45a663",
+      "faucet": "0xc959483dba39aa9e78757139af0e9a2edeb3f42d",
+      "asset": "0x29f2d40b0605204364af54ec677bd022da425d03",
+      "aToken": "0x1804bf30507dc2eb3bdebbbdd859991eaef6eeff",
+      "variableDebtToken": "0xeb016dfd303f19fbddfb6300eb4aeb2da7ceac37"
+    },
+    "code": {
+      "pool": {
+        "bytes": 2333,
+        "sha256": "0759fc2d3982461ad44c299f0b23df1c1c73b99916a9db591a4855a78822bc88",
+        "keccak256": "0xdfd31513a60cc252ec0bbcf0e7bdb7f9ba35fab80c1bb9ce0543436b8fe92e49"
+      },
+      "provider": {
+        "bytes": 9779,
+        "sha256": "0e18c72785e7a05a0dbf56d2ec2119fcdf894e7b080883be0e97468c21ff08cb",
+        "keccak256": "0x22818496ed85629596372dcbe81fbc48c729489bdf829e198040b0f06fc4f58f"
+      },
+      "oracle": {
+        "bytes": 3405,
+        "sha256": "ae2937b26de6b2573aec354ad79e0f4eeb058352df1285e97180a00140afac5f",
+        "keccak256": "0xe740a209b3882eb2fdfc2a9460d6450551263d42fc3e4345edb9f29fc15086b2"
+      },
+      "faucet": {
+        "bytes": 3591,
+        "sha256": "66624cc1d26affba8e8ea3af0a208632cef7a3388a50d564e0d92d6e59f7649e",
+        "keccak256": "0xdbd77aed04a5a463268b1d9e0c2ba31f6701709204c59b07adfdc8e16356db7a"
+      },
+      "asset": {
+        "bytes": 5462,
+        "sha256": "583644aee778ddb688d4b61116b6259ef417b1a094dc8f8a578e0cfc099f4519",
+        "keccak256": "0xada27a4287f9171a4d23a4d5977c9a583d718906f6aa2d6d7f24739c397306f2"
+      },
+      "aToken": {
+        "bytes": 2333,
+        "sha256": "a7e1c15e6e732970ad331cb5f8238f3080886436e789b1ff505b37779e47591e",
+        "keccak256": "0xa8b85381059dc0fc47ae9cfd0d78fd81e0d0ef2fb09c34d3ad6f60a758d8c3e3"
+      },
+      "variableDebtToken": {
+        "bytes": 2333,
+        "sha256": "a7e1c15e6e732970ad331cb5f8238f3080886436e789b1ff505b37779e47591e",
+        "keccak256": "0xa8b85381059dc0fc47ae9cfd0d78fd81e0d0ef2fb09c34d3ad6f60a758d8c3e3"
+      }
+    },
+    "wbtcReserve": {
+      "id": 3,
+      "aToken": "0x1804bf30507dc2eb3bdebbbdd859991eaef6eeff",
+      "variableDebtToken": "0xeb016dfd303f19fbddfb6300eb4aeb2da7ceac37",
+      "liquidityIndex": "1000158332898387040960232603",
+      "variableBorrowIndex": "1002708162173834992494948072",
+      "decimals": 8,
+      "active": true,
+      "frozen": false,
+      "borrowingEnabled": true,
+      "paused": false,
+      "ltvBps": 7000,
+      "liquidationThresholdBps": 7500,
+      "borrowCap": 0,
+      "supplyCap": 0
+    },
+    "wbtcSupplied": "829768258201216",
+    "wbtcSupplyHeadroom": "UNCAPPED",
+    "wbtcOraclePriceBase8": "6000000000000",
+    "usdcReserve": {
+      "id": 2,
+      "aToken": "0x16da4541ad1807f4443d92d26044c1147406eb80",
+      "variableDebtToken": "0x36b5de936ef1710e1d22eabe5231b28581a92ecc",
+      "liquidityIndex": "3026356627364872786288499274",
+      "variableBorrowIndex": "3560905251888932033762710176",
+      "decimals": 6,
+      "active": true,
+      "frozen": false,
+      "borrowingEnabled": true,
+      "paused": false,
+      "ltvBps": 8000,
+      "liquidationThresholdBps": 8500,
+      "borrowCap": 0,
+      "supplyCap": 2000000000,
+      "supplied": "4496193033889420",
+      "capUnits": "2000000000000000",
+      "capReached": true
+    }
+  },
+  "uniswap": {
+    "profile": {
+      "factory": "0x0227628f3f023bb0b980b67d528571c95c6dac1c",
+      "positionManager": "0x1238536071e1c677a632429e3655c799b22cda52",
+      "quoter": "0xed1f6473345f45b75f8179591dd5ba1888cf2fb3",
+      "router": "0x3bfa4769fb09eefc5a80d6e87c3b9c650f7ae48e",
+      "pool": "0x9799b5edc1aa7d3fad350309b08df3f64914e244"
+    },
+    "code": {
+      "factory": {
+        "bytes": 24535,
+        "sha256": "f4e0ac5ddb8b0ed6b47df04645557d13af2a8b7a1bc9583acd08b0788440928b",
+        "keccak256": "0xacb5afea1f8877239fadd30358add13f2f9d4fb80175402c686d392295224fef"
+      },
+      "positionManager": {
+        "bytes": 24384,
+        "sha256": "09e92a098f75be4c322a523b5a9ec5d57f898dee34adaff353227eee8ba0951f",
+        "keccak256": "0x390d49631aefbf890c9415457b4639243ff16092ded43ce8f885fde8a5a34868"
+      },
+      "quoter": {
+        "bytes": 8273,
+        "sha256": "41807167ee6769e9848dc88cc44931db2c9d9f3fe320f8c10e5a588722f4496b",
+        "keccak256": "0xe4068c0e5f3f2d9980793dd4314d2222dca27d03fd999cb5dca580fd90ceea0e"
+      },
+      "router": {
+        "bytes": 24497,
+        "sha256": "e18dacff07368baa9974b34f1039c31726d374cd0838c7969232b9f287590562",
+        "keccak256": "0xe7f98ee73dfe6d5c96cbf8936920f496b1b82f24326d6a415b4144a2252271de"
+      },
+      "pool": {
+        "bytes": 22142,
+        "sha256": "755617824919a645475c55213f8a4a58e73b822e2a547e0cb6f834bd90648b76",
+        "keccak256": "0x54cecee030994b735285beae563059d3967b69cf26af880e333b08a9e139a35a"
+      }
+    },
+    "pool": {
+      "sqrtPriceX96": "12652087434586686436818820361995",
+      "tick": 101469,
+      "unlocked": true,
+      "liquidity": "167517958928882975"
+    },
+    "quote1Usdc": {
+      "amountIn": "1000000",
+      "amountOutWeth": "25424964749",
+      "initializedTicksCrossed": 1,
+      "gasEstimate": "74708"
+    }
+  },
+  "metamask": {
+    "manager": {
+      "address": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "keccak256": "0x49c7f94924ffb53300b7e8ee613814d5ba587fd886177f1e72b3203bf17da673",
+      "matchesPin": true,
+      "sameAsBaseSepolia": false
+    },
+    "implementation": {
+      "address": "0x63c0c19a282a1b52b07dd5a65b58948a07dae32b",
+      "keccak256": "0x9270f73d98e7ed6978677bf0550038289efd510e67e700d024502d62510fc1e4",
+      "matchesPin": true,
+      "sameAsBaseSepolia": false
+    },
+    "limited": {
+      "address": "0x04658b29f6b82ed55274221a06fc97d318e25416",
+      "keccak256": "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468",
+      "matchesPin": true,
+      "sameAsBaseSepolia": true
+    },
+    "exact": {
+      "address": "0x146713078d39ecc1f5338309c28405ccf85abfbb",
+      "keccak256": "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e",
+      "matchesPin": true,
+      "sameAsBaseSepolia": true
+    }
+  },
+  "sources": {
+    "aaveAddressBook": {
+      "repository": "aave-dao/aave-address-book",
+      "commit": "c8f1011decd03d50374e0eddce08b691de7f1395",
+      "fileCommit": "4ee7b505d40760f48bcfdc4edd5fe3d532ec88d2",
+      "path": "src/AaveV3Sepolia.sol",
+      "url": "https://github.com/aave-dao/aave-address-book/blob/c8f1011decd03d50374e0eddce08b691de7f1395/src/AaveV3Sepolia.sol"
+    },
+    "uniswapDeployments": {
+      "url": "https://developers.uniswap.org/deployments.json",
+      "sha256": "d8011c10fced310fab7340a06120613414dd294f55d76f30399ffe9df157c66c",
+      "recordsOnChain": 46
+    }
+  },
+  "limitations": [
+    "Read-only: no transaction, signature or wallet request was made.",
+    "Values are a snapshot at the pinned block; every execution re-reads them.",
+    "A passing report verifies identities and relationships; it is not execution evidence."
+  ],
+  "checks": [
+    {
+      "name": "eth_chainId is 0xaa36a7",
+      "ok": true,
+      "observed": "0xaa36a7"
+    },
+    {
+      "name": "net_version is 11155111",
+      "ok": true,
+      "observed": "11155111"
+    },
+    {
+      "name": "genesis hash matches the registry",
+      "ok": true,
+      "observed": "0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9"
+    },
+    {
+      "name": "Aave pool has code",
+      "ok": true,
+      "observed": 2333
+    },
+    {
+      "name": "Aave provider has code",
+      "ok": true,
+      "observed": 9779
+    },
+    {
+      "name": "Aave oracle has code",
+      "ok": true,
+      "observed": 3405
+    },
+    {
+      "name": "Aave faucet has code",
+      "ok": true,
+      "observed": 3591
+    },
+    {
+      "name": "Aave asset has code",
+      "ok": true,
+      "observed": 5462
+    },
+    {
+      "name": "Aave aToken has code",
+      "ok": true,
+      "observed": 2333
+    },
+    {
+      "name": "Aave variableDebtToken has code",
+      "ok": true,
+      "observed": 2333
+    },
+    {
+      "name": "provider.getPool() is the registered Pool",
+      "ok": true
+    },
+    {
+      "name": "provider.getPriceOracle() is the registered Oracle",
+      "ok": true
+    },
+    {
+      "name": "pool.ADDRESSES_PROVIDER() is the registered Provider",
+      "ok": true
+    },
+    {
+      "name": "WBTC is a listed reserve",
+      "ok": true,
+      "observed": 9
+    },
+    {
+      "name": "WBTC reserve id is the registered id",
+      "ok": true,
+      "observed": 3
+    },
+    {
+      "name": "WBTC reserve aToken and variable debt token match the profile",
+      "ok": true
+    },
+    {
+      "name": "WBTC reserve has 8 decimals",
+      "ok": true,
+      "observed": 8
+    },
+    {
+      "name": "WBTC reserve is active, not frozen, not paused, borrowable",
+      "ok": true
+    },
+    {
+      "name": "WBTC token reports 8 decimals",
+      "ok": true
+    },
+    {
+      "name": "aToken underlying is WBTC and its pool is the Pool",
+      "ok": true
+    },
+    {
+      "name": "variable debt token underlying is WBTC",
+      "ok": true
+    },
+    {
+      "name": "WBTC supply cap leaves headroom",
+      "ok": true,
+      "observed": "UNCAPPED"
+    },
+    {
+      "name": "oracle prices WBTC above zero",
+      "ok": true,
+      "observed": "6000000000000"
+    },
+    {
+      "name": "Uniswap factory code matches its SHA-256 pin",
+      "ok": true,
+      "observed": "f4e0ac5ddb8b0ed6b47df04645557d13af2a8b7a1bc9583acd08b0788440928b"
+    },
+    {
+      "name": "Uniswap positionManager code matches its SHA-256 pin",
+      "ok": true,
+      "observed": "09e92a098f75be4c322a523b5a9ec5d57f898dee34adaff353227eee8ba0951f"
+    },
+    {
+      "name": "Uniswap quoter code matches its SHA-256 pin",
+      "ok": true,
+      "observed": "41807167ee6769e9848dc88cc44931db2c9d9f3fe320f8c10e5a588722f4496b"
+    },
+    {
+      "name": "Uniswap router code matches its SHA-256 pin",
+      "ok": true,
+      "observed": "e18dacff07368baa9974b34f1039c31726d374cd0838c7969232b9f287590562"
+    },
+    {
+      "name": "Uniswap pool code matches its SHA-256 pin",
+      "ok": true,
+      "observed": "755617824919a645475c55213f8a4a58e73b822e2a547e0cb6f834bd90648b76"
+    },
+    {
+      "name": "positionManager.factory() is the Factory",
+      "ok": true
+    },
+    {
+      "name": "positionManager.WETH9() is the registered WETH",
+      "ok": true
+    },
+    {
+      "name": "quoter.factory() is the Factory",
+      "ok": true
+    },
+    {
+      "name": "quoter.WETH9() is the registered WETH",
+      "ok": true
+    },
+    {
+      "name": "router.factory() is the Factory",
+      "ok": true
+    },
+    {
+      "name": "router.WETH9() is the registered WETH",
+      "ok": true
+    },
+    {
+      "name": "factory.getPool(USDC, WETH, 3000) is the registered pool",
+      "ok": true
+    },
+    {
+      "name": "pool token0 is USDC and token1 is WETH",
+      "ok": true
+    },
+    {
+      "name": "pool fee is 3000 and tick spacing 60",
+      "ok": true
+    },
+    {
+      "name": "pool.factory() is the Factory",
+      "ok": true
+    },
+    {
+      "name": "USDC has 6 decimals and WETH 18",
+      "ok": true
+    },
+    {
+      "name": "pool is initialized, unlocked and has in-range liquidity",
+      "ok": true
+    },
+    {
+      "name": "QuoterV2 quotes 1 USDC → WETH above zero",
+      "ok": true,
+      "observed": "25424964749"
+    },
+    {
+      "name": "MetaMask manager code matches the Ethereum Sepolia pin",
+      "ok": true,
+      "observed": "0x49c7f94924ffb53300b7e8ee613814d5ba587fd886177f1e72b3203bf17da673"
+    },
+    {
+      "name": "MetaMask implementation code matches the Ethereum Sepolia pin",
+      "ok": true,
+      "observed": "0x9270f73d98e7ed6978677bf0550038289efd510e67e700d024502d62510fc1e4"
+    },
+    {
+      "name": "MetaMask limited code matches the Ethereum Sepolia pin",
+      "ok": true,
+      "observed": "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468"
+    },
+    {
+      "name": "MetaMask exact code matches the Ethereum Sepolia pin",
+      "ok": true,
+      "observed": "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e"
+    },
+    {
+      "name": "Aave address book lists the Pool, Provider, Oracle, Faucet, WBTC, aToken and variable debt token",
+      "ok": true
+    },
+    {
+      "name": "Uniswap deployments.json lists the Factory, NonfungiblePositionManager, QuoterV2 and SwapRouter02 on 11155111",
+      "ok": true
+    }
+  ],
+  "allChecksPassed": true
+}

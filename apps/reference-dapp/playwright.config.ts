@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test';
 import { basename, dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { E2E_APP_ORIGIN, E2E_APP_PORT } from './e2e/app-origin';
 
 const cache = process.env.BUILD002_BROWSER_CACHE;
 if (!cache || basename(cache) !== 'chromium_headless_shell-1243') {
@@ -87,7 +88,7 @@ export default defineConfig({
   expect: { timeout: 10_000, toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0 } },
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: E2E_APP_ORIGIN,
     browserName: 'chromium',
     headless: true,
     launchOptions: { executablePath },
@@ -115,10 +116,11 @@ export default defineConfig({
       ...(modeA === 'replay' && process.env.GRYLOO_MODE_A_SYNTHETIC_PINS ? { GRYLOO_MODE_A_SYNTHETIC_PINS: process.env.GRYLOO_MODE_A_SYNTHETIC_PINS } : {}) },
   }, {
     command: 'pnpm --filter @defi-workflow-engine/reference-dapp start',
-    url: 'http://127.0.0.1:3000',
+    url: E2E_APP_ORIGIN,
     reuseExistingServer: false,
     timeout: 60_000,
-    env: { NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',
+    // `next start` listens on PORT; FLOFI_E2E_APP_PORT isolates CI from another server on 3000 (default unchanged).
+    env: { PORT: String(E2E_APP_PORT), NEXT_TELEMETRY_DISABLED: '1', PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1', GRYLOO_BASE_OBSERVATION: 'replay',
       ...(supplyHarness ? { GRYLOO_SUPPLY_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: supplyJournal } : {}),
       ...(lendingHarness ? { GRYLOO_LENDING_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SUPPLY_JOURNAL: lendingJournal } : {}),
       ...(jupiterHarness ? { GRYLOO_JUPITER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_JUPITER_JOURNAL: jupiterJournal } : {}),

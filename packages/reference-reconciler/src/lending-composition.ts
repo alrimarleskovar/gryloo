@@ -37,7 +37,7 @@ export function verifyLendingStepEffects(review:LendingReview,call:LendingCall,p
     if(balance!==-amount||weth!==0n||transferAmount(logs,p.asset,f.owner,p.aToken)!==amount||
       !logs.some(l=>logMatches(l,p.pool,[supplyTopic('Supply(address,address,address,uint256,uint16)'),addressTopic(p.asset),addressTopic(f.owner),'0x'+supplyWord(0n)],'0x'+supplyWord(f.owner)+supplyWord(amount))))throw Error('LENDING_SUPPLY_SETTLEMENT_MISMATCH');
   } else if(call.id==='BORROW') {
-    verifyBorrowEffects(f.borrowAmount,pre.aave,post.aave);
+    verifyBorrowEffects(f.borrowAmount,pre.aave,post.aave,p);
     const events=logs.filter(l=>{const r=rpcRecord(l);return r.address===p.pool&&Array.isArray(r.topics)&&r.topics[0]===supplyTopic('Borrow(address,address,address,uint256,uint8,uint256,uint16)');});
     if(events.length!==1||weth!==0n||transferAmount(logs,p.asset,p.aToken,f.owner)!==amount)throw Error('LENDING_BORROW_SETTLEMENT_MISMATCH');
     const e=rpcRecord(events[0]), data=typeof e.data==='string'?e.data.slice(2):'';
@@ -78,7 +78,7 @@ export async function reconcileLendingAttempt(review:LendingReview,attempt:Lendi
     if(wrapped)o.ownerProof=await verifySupplyWalletEnvelope({account:review.fields.owner},{transaction:expected,nonce:attempt.nonce},tx,r,rpc);
     else {
       if(tx.from!==expected.from||tx.input!==expected.data||rpcUint(tx.nonce)!==BigInt(attempt.nonce))throw Error('LENDING_PAYLOAD_MISMATCH');
-      o.ownerProof=verifyRepayOwnerSignature(tx,expected.from);
+      o.ownerProof=verifyRepayOwnerSignature(tx,expected.from,p.chainId);
     }
     o.ownerNonceAfter=o.ownerProof.kind==='METAMASK_EIP7702'?o.ownerProof.ownerNonceAfter:rpcUint(await rpc('eth_getTransactionCount',[expected.from,supplyHex(n)])).toString();
     if(r.l1Fee===undefined)throw Error('LENDING_FEE_DATA_UNAVAILABLE');

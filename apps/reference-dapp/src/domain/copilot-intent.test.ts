@@ -42,7 +42,7 @@ describe('CopilotIntentV1 strict parsing', () => {
   });
 
   it('rejects undeclared actions, protocols, networks, assets and versions', () => {
-    for (const value of [{ ...supply, type: 'TRANSFER' }, { ...supply, type: 'STAKE' }, { ...supply, protocol: 'COMPOUND' }, { ...supply, network: 'ETHEREUM' },
+    for (const value of [{ ...supply, type: 'TRANSFER' }, { ...supply, type: 'STAKE' }, { ...supply, protocol: 'COMPOUND' }, { ...supply, network: 'POLYGON' }, { ...supply, network: 'ETHEREUM_MAINNET' },
       { ...supply, asset: 'DAI' }, { ...bridge, routing: 'STARGATE' }, { ...liquidity, protocol: 'CURVE' }, { ...liquidity, rangeUnit: 'PERCENT' }])
       expect(() => parseCopilotIntent(action(value))).toThrow();
     expect(() => parseCopilotIntent({ ...action(supply), version: '2' })).toThrow();
