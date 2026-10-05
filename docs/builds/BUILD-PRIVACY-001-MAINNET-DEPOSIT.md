@@ -51,14 +51,16 @@ FLOFI_CLOAK_OWNER_PROOF=0 node node_modules/next/dist/bin/next dev --hostname 12
 
 Open `http://127.0.0.1:3019/privacy/mainnet-proof`. **Connect Phantom — public key only** is available independently of the financial gate. Approve only connection/public-key sharing and verify the exact owner plus mainnet RPC genesis displayed. Then unlock a durable vault with a locally entered passphrase, click **Prepare 0.01 SOL deposit — no signature**, inspect/export Review and Manifest, and export the encrypted backup. The signing button remains disabled. Never share the passphrase or private backup contents.
 
-Future admitted launcher, only after dependency review and explicit owner confirmation:
+Owner-proof launcher, only after dependency review and explicit owner confirmation:
 
 ```bash
 cd /home/asus/projects/gryloo/.turbo/privacy001
 FLOFI_CLOAK_PROOF_OWNER=6NTyfs83wzEo7WkkhTuNSxXiyYM9x73icbdtQWVbhaRy node scripts/privacy-owner-proof.mjs
 ```
 
-Requires pinned pnpm 11.22.0 and a clean reviewed Privacy checkout. The unchanged dependency verifier, low-severity audit threshold and SBOM must pass before writing an expiring owner/HEAD/lockfile-bound admission. An environment switch cannot bypass admission. **The launcher currently fails dependency admission; do not bypass it.**
+Requires pinned pnpm 11.22.0, a clean reviewed Privacy checkout and an existing validated production build. The launcher uses `next start`: `next dev` rewrites tracked `next-env.d.ts`, which correctly revokes admission. The unchanged verifier and low-threshold audit still run; any residual must exactly match the registered findings and require explicit owner acceptance. SBOM must pass. Admission expires within one hour and binds owner/HEAD/lockfile/register. An environment switch cannot bypass these checks. Ordinary production financial execution and CI policy remain unchanged.
+
+On 2026-10-05 the owner explicitly accepted the 21 inventory/license findings and one LOW Elliptic advisory for this one owner/mainnet/program-bound 0.01 SOL deposit only. This is not release approval. The agent stops before requesting any real Phantom transaction signature. The owner enters the vault passphrase locally, prepares a fresh Review and exports the encrypted backup; only a later explicit owner action on the signing button opens Phantom. No signature/submission is implied by admission or preparation.
 
 After admission and confirmation: explicitly connect Phantom and match the owner/mainnet check, prepare fresh, review exact fee/message/Manifest, save encrypted backup, acknowledge Review and explicitly opt into ONE proof. **Sign and submit ONE reviewed 0.01 SOL Cloak deposit** opens the wallet for one transaction approval, followed by at most one application broadcast. Save updated encrypted backup, click **Inspect finalized mainnet and reconcile saved note**, and export public evidence plus final encrypted backup. No separate setup, token approval, swap or wallet-message signature is required by the currently measured path.
 

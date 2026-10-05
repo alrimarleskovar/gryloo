@@ -37,6 +37,8 @@ const assertReviewedCheckout = () => {
 const owner = process.env.FLOFI_CLOAK_PROOF_OWNER;
 if (!owner || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) throw new Error('PUBLIC_OWNER_ADDRESS_REQUIRED');
 const reviewed = assertReviewedCheckout();
+// next dev rewrites tracked next-env.d.ts and revokes clean-checkout admission. Use an existing production build.
+if (!existsSync(resolve(root, 'apps/reference-dapp/.next/BUILD_ID'))) throw new Error('OWNER_PROOF_PRODUCTION_BUILD_REQUIRED');
 const admissionPath = resolve(root, '.turbo/privacy-owner-proof-admission.json');
 if (!check && existsSync(admissionPath)) unlinkSync(admissionPath);
 // One wallet signature request and one submission per owner proof: any prior journal consumes it permanently.
@@ -88,6 +90,6 @@ const sessionExpiry = Date.now() + 60 * 60 * 1000;
 writeFileSync(admissionPath, JSON.stringify({ format: 'flofi.cloak-owner-proof-admission.v2', owner, head: reviewed.head, lockHash: reviewed.lockHash,
   expiresAt: acceptance ? Math.min(sessionExpiry, Date.parse(OWNER_PROOF_RESIDUALS.validUntil)) : sessionExpiry,
   admission: evaluation.admission, acceptance }), { mode: 0o600 });
-const result = spawnSync(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', '3019'], {
-  cwd: resolve(root, 'apps/reference-dapp'), stdio: 'inherit', env: { ...process.env, FLOFI_CLOAK_OWNER_PROOF: '1', FLOFI_CLOAK_PROOF_OWNER: owner } });
+const result = spawnSync(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', '3019'], {
+  cwd: resolve(root, 'apps/reference-dapp'), stdio: 'inherit', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1', FLOFI_CLOAK_OWNER_PROOF: '1', FLOFI_CLOAK_PROOF_OWNER: owner } });
 process.exitCode = result.status ?? 1;
