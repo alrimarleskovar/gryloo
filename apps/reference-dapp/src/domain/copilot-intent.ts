@@ -211,3 +211,10 @@ export const COPILOT_OUTPUT_SCHEMA = Object.freeze(object({ intent: { anyOf: [
     question: string('One short question in the user\'s language.'), options: { type: 'array', description: 'Up to 4 short answer options.', items: string('Option.') } }),
   object({ version: constant('1'), kind: constant('UNSUPPORTED'), reason: string('One short sentence in the user\'s language.') }),
 ] } }));
+
+/** BUILD-COPILOT-002: the V1 building blocks that CopilotIntentV2 reuses unchanged (same checks, same closed error codes). */
+export const COPILOT_V1_PARTS = Object.freeze({
+  exact, list, oneOf, nullableOneOf, text, amount, bps, address, parseAction, signedDecimal: (value: unknown) => pattern(value, SIGNED_DECIMAL, true),
+  depositAmount: (value: unknown) => pattern(value, AMOUNT, false)!, fail,
+  schema: Object.freeze({ string, nullableString, constant, choice, nullableChoice, object, actions: actionSchemas }),
+});

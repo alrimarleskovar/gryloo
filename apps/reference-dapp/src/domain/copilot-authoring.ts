@@ -8,6 +8,7 @@ import { UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE } from './uniswap-liquidity-authorin
 import { SOLANA_LIQUIDITY_DEFAULT_SLIPPAGE } from './solana-liquidity-authoring';
 import { CopilotIntentError, parseCopilotIntent, safeCopilotProse, type CopilotAction, type CopilotAsset, type CopilotBridgeAction,
   type CopilotLendingAction, type CopilotLiquidityAction, type CopilotMissingField, type CopilotNetwork, type CopilotSwapAction } from './copilot-intent';
+import { copilotCopy, type CopilotCopy, type CopilotLanguage, type NetworkSubject, type Subject } from './copilot-messages';
 
 /**
  * BUILD-COPILOT-001: the deterministic boundary between an untrusted AI intent and the existing authoring path.
@@ -15,6 +16,11 @@ import { CopilotIntentError, parseCopilotIntent, safeCopilotProse, type CopilotA
  * and parsing it with `parseLocalCommand`, so the Copilot can never author anything a user could not type.
  * Grounding: every amount, slippage, range bound and address must appear in the user's own words; every asset must be
  * named; a mainnet must be named explicitly with no test-network wording. Anything else becomes a clarification.
+ *
+ * BUILD-COPILOT-002: the planners take a grounding context. Besides the open request's text it may name fields whose
+ * values Flofi itself carried from a resolved referent (a canonical step, the visible pending proposal or an earlier
+ * proposal); those values have deterministic provenance and skip the text check, and nothing else does. It also selects
+ * the reply language and whether a network may default (V1) or must be asked for (V2).
  */
 export type CopilotOutcome =
   | { readonly kind: 'PROPOSAL'; readonly command: Command; readonly sentence: string; readonly notes: readonly string[] }
@@ -25,11 +31,17 @@ export type CopilotConversion = { readonly userText: string; readonly workflow: 
 /** The only Command types an AI interpretation can produce: new authoring proposals, never edits, removals or execution. */
 export const COPILOT_AUTHORING_COMMANDS = Object.freeze(['ADD_SWAP', 'ADD_TESTNET_SWAP', 'ADD_SOLANA_SWAP', 'ADD_ROUTER_BRIDGE', 'ADD_SUPPLY', 'ADD_BORROW',
   'ADD_REPAY', 'ADD_WITHDRAW', 'ADD_UNISWAP_LIQUIDITY', 'ADD_SOLANA_LIQUIDITY', 'AUTHOR_LENDING'] as const);
-export const COPILOT_CAPABILITIES = 'Flofi Copilot can author: swaps on Base, Base Sepolia, Solana and Solana Devnet; Cross-chain Router USDC bridges ' +
-  '(Base → Arbitrum One, Base Sepolia → Arbitrum Sepolia); Aave V3 Supply, Borrow, Repay and Withdraw of USDC on Base Sepolia; Uniswap v3 liquidity on ' +
-  'Base Sepolia and Orca liquidity on Solana Devnet; and Supply → Borrow → Swap the borrowed USDC to WETH on Base Sepolia.';
-const COMPOSITION_UNSUPPORTED = 'Flofi can combine steps only as Supply USDC → Borrow USDC → Swap the borrowed USDC to WETH (Aave V3, Base Sepolia). ' +
-  'Other combinations cannot share one workflow yet: author each action on its own.';
+export type CopilotAuthoringCommand = (typeof COPILOT_AUTHORING_COMMANDS)[number];
+export const COPILOT_CAPABILITIES = copilotCopy('EN').capabilities;
+
+/** How the planners treat unstated networks and which language they reply in. */
+export type PlanningPolicy = { readonly language: CopilotLanguage; readonly networkDefaults: boolean };
+export const V1_POLICY: PlanningPolicy = Object.freeze({ language: 'EN', networkDefaults: true });
+/** A field whose value Flofi carried from a resolved referent rather than read from the open request. */
+export type CarriedField = 'network' | 'sourceNetwork' | 'destinationNetwork' | 'inputAsset' | 'outputAsset' | 'asset' | 'amount' | 'supplyAmount' | 'borrowAmount'
+  | 'slippage' | 'recipient' | 'beneficiary' | 'routing' | 'protocol' | 'range' | `deposit:${string}`;
+export type Grounding = { readonly text: string; readonly carried: ReadonlySet<CarriedField>; readonly policy: PlanningPolicy };
+const NOTHING_CARRIED: ReadonlySet<CarriedField> = new Set();
 
 type Network = Exclude<CopilotNetwork, 'OTHER'>;
 type Family = 'base' | 'arbitrum' | 'solana';
@@ -44,7 +56,7 @@ const MENTIONS: readonly (readonly [Network, RegExp])[] = [
   ['SOLANA_DEVNET', /\bsolana[\s-]*devnet\b/i], ['SOLANA', /\bsolana\b(?![\s-]*devnet)/i],
 ];
 // Any test-network or test-token wording rules out a mainnet (real funds) interpretation.
-const TESTNET_WORDS = /\b(?:sepolia|devnet|testnets?|test\s?net(?:work)?|test\s+(?:usdc|tokens?|funds?|sol|eth)|dev\s?usdc|teste|testes|de\s+teste)\b/i;
+export const TESTNET_WORDS = /\b(?:sepolia|devnet|testnets?|test\s?net(?:work)?|test\s+(?:usdc|tokens?|funds?|sol|eth)|dev\s?usdc|teste|testes|de\s+teste)\b/i;
 const ASSET_MENTIONS: Readonly<Record<Exclude<CopilotAsset, 'OTHER'>, RegExp>> = {
   // `\busdc` does not match inside "devUSDC": there is no word boundary between "v" and "U".
   USDC: /\busdc\b/i, DEVUSDC: /\b(?:dev\s?usdc|test\s?usdc)\b/i, WETH: /\bw?eth\b|\bether\b/i, ETH: /\bw?eth\b|\bether\b/i,
@@ -53,20 +65,20 @@ const ASSET_MENTIONS: Readonly<Record<Exclude<CopilotAsset, 'OTHER'>, RegExp>> =
 
 /** Networks the user named, in any language that uses the network names. */
 export function mentionedNetworks(text: string): Network[] { return MENTIONS.filter(([, pattern]) => pattern.test(text)).map(([network]) => network); }
-const canonicalDecimal = (value: string): string => {
+export const canonicalDecimal = (value: string): string => {
   const [whole, fraction = ''] = value.split('.');
   const trimmed = fraction.replace(/0+$/, '');
   return whole!.replace(/^0+(?=\d)/, '') + (trimmed ? '.' + trimmed : '');
 };
 /** Every exact reading of one written number: 1.5 / 1,5 as decimals, 1,000 / 1.000 as grouped thousands, 1,000.50 and 1.000,50. */
-function readings(token: string): string[] {
+export function amountReadings(token: string): string[] {
   const out: string[] = [];
   if (/^\d+(?:\.\d+)?$/.test(token)) out.push(token);
   if (/^\d+,\d+$/.test(token)) out.push(token.replace(',', '.'));
   if (/^\d{1,3}(?:\.\d{3})+$/.test(token) || /^\d{1,3}(?:,\d{3})+$/.test(token)) out.push(token.replace(/[.,]/g, ''));
   if (/^\d{1,3}(?:,\d{3})+\.\d+$/.test(token)) out.push(token.replace(/,/g, ''));
   if (/^\d{1,3}(?:\.\d{3})+,\d+$/.test(token)) out.push(token.replace(/\./g, '').replace(',', '.'));
-  return out.map(canonicalDecimal);
+  return [...new Set(out.map(canonicalDecimal))];
 }
 type Reading = { readonly value: string; readonly negative: boolean; readonly percent: boolean };
 function numbersIn(text: string): Reading[] {
@@ -75,7 +87,7 @@ function numbersIn(text: string): Reading[] {
   const out: Reading[] = [];
   for (const match of clean.matchAll(/(?<![A-Za-z0-9_.,])\d(?:[\d.,]*\d)?/g)) {
     const before = clean[match.index - 1], after = clean.slice(match.index + match[0].length);
-    for (const value of readings(match[0])) out.push({ value, negative: before === '-' || before === '−', percent: /^\s?%/.test(after) });
+    for (const value of amountReadings(match[0])) out.push({ value, negative: before === '-' || before === '−', percent: /^\s?%/.test(after) });
   }
   return out;
 }
@@ -102,98 +114,102 @@ export function groundedAddress(text: string, address: string): boolean {
 const assetNamed = (text: string, asset: Exclude<CopilotAsset, 'OTHER'>) => ASSET_MENTIONS[asset].test(text);
 
 class Stop { constructor(readonly outcome: CopilotOutcome) {} }
-const FIELD_LABEL: Readonly<Record<CopilotMissingField, string>> = { amount: 'the amount', asset: 'the token', network: 'the network',
-  sourceNetwork: 'the source network', destinationNetwork: 'the destination network', protocol: 'the protocol', range: 'the price range',
-  slippage: 'the maximum slippage', beneficiary: 'a beneficiary (connect your wallet, or include the address in your message)', recipient: 'the recipient' };
-const questionFor = (missing: readonly CopilotMissingField[], what: string) => `To prepare this ${what}, Flofi still needs ${missing.map(m => FIELD_LABEL[m]).join(', ')}.`;
 const ask = (missing: CopilotMissingField[], question: string, options: readonly string[] = []): never => {
   throw new Stop({ kind: 'CLARIFICATION', missing, question, options });
 };
 const refuse = (message: string): never => { throw new Stop({ kind: 'UNSUPPORTED', message }); };
 const reject = (code: string, message: string): never => { throw new Stop({ kind: 'REJECTED', code, message }); };
 const labels = (networks: readonly Network[]) => networks.map(n => COPILOT_NETWORK_LABEL[n]);
+const copyOf = (g: Grounding): CopilotCopy => copilotCopy(g.policy.language);
+const stillNeeds = (m: CopilotCopy, missing: readonly CopilotMissingField[], subject: Subject) => m.stillNeeds(m.subject[subject], missing.map(field => m.field[field]));
 
 /** A network can only default when it is the action's single, test-token deployment and the user named no other network of that family. */
 function defaultNetwork(supported: readonly Network[], text: string): Network | null {
   const only = supported.length === 1 ? supported[0]! : null;
   return only && !MAINNETS.has(only) && !mentionedNetworks(text).some(n => FAMILY[n] === FAMILY[only]) ? only : null;
 }
-function resolveNetwork(value: CopilotNetwork | null, supported: readonly Network[], text: string, what: string, notes: string[]): Network {
-  const named = mentionedNetworks(text), options = labels(supported);
-  if (value === 'OTHER') return ask(['network'], `${what} is available in Flofi on ${options.join(', ')} only. Which network?`, options);
+function resolveNetwork(value: CopilotNetwork | null, supported: readonly Network[], g: Grounding, subject: NetworkSubject, notes: string[]): Network {
+  const m = copyOf(g), what = m.networkSubject[subject], named = mentionedNetworks(g.text), options = labels(supported);
+  const carried = value !== null && value !== 'OTHER' && g.carried.has('network');
+  if (value === 'OTHER') return ask(['network'], m.networkOnlyOn(what, options), options);
   let network: Network | null = value;
   if (network === null) { const candidates = supported.filter(n => named.includes(n)); network = candidates.length === 1 ? candidates[0]! : null; }
   if (network === null) {
-    const fallback = defaultNetwork(supported, text);
-    if (!fallback) return ask(['network'], `Which network should Flofi use for ${what}?`, options);
-    notes.push(`${what} is available only on ${COPILOT_NETWORK_LABEL[fallback]} (test tokens), so Flofi used it.`);
+    const fallback = g.policy.networkDefaults ? defaultNetwork(supported, g.text) : null;
+    if (!fallback) return ask(['network'], m.whichNetwork(what), options);
+    notes.push(m.defaultNetworkNote(what, COPILOT_NETWORK_LABEL[fallback]));
     return fallback;
   }
-  if (!supported.includes(network)) return ask(['network'], `${what} is available in Flofi on ${options.join(', ')} only. Which network?`, options);
+  if (!supported.includes(network)) return ask(['network'], m.networkOnlyOn(what, options), options);
   if (MAINNETS.has(network)) {
-    // Real funds are never inferred: the user must name the mainnet and use no test-network wording.
-    if (!named.includes(network) || TESTNET_WORDS.test(text)) return ask(['network'], `${COPILOT_NETWORK_LABEL[network]} uses real funds. Which network do you mean?`, options);
+    // Real funds are never inferred: the user must name the mainnet (or it is carried from a step they authored) and use no test-network wording.
+    if ((!named.includes(network) && !carried) || TESTNET_WORDS.test(g.text)) return ask(['network'], m.realFundsWhichNetwork(COPILOT_NETWORK_LABEL[network]), options);
     return network;
   }
-  if (named.includes(network)) return network;
-  if (defaultNetwork(supported, text) !== network) return ask(['network'], `Which network should Flofi use for ${what}?`, options);
-  notes.push(`${what} is available only on ${COPILOT_NETWORK_LABEL[network]} (test tokens), so Flofi used it.`);
+  if (named.includes(network) || carried) return network;
+  if (!g.policy.networkDefaults || defaultNetwork(supported, g.text) !== network) return ask(['network'], m.whichNetwork(what), options);
+  notes.push(m.defaultNetworkNote(what, COPILOT_NETWORK_LABEL[network]));
   return network;
 }
-function amountOf(value: string | null, text: string, what: string): string {
-  if (value === null) return ask(['amount'], questionFor(['amount'], what));
-  if (!groundedAmount(text, value)) return ask(['amount'], `Flofi could not find the amount ${value} in your message. How much exactly? Write it in digits.`);
+function amountOf(value: string | null, g: Grounding, subject: Subject, field: CarriedField = 'amount'): string {
+  const m = copyOf(g);
+  if (value === null) return ask(['amount'], stillNeeds(m, ['amount'], subject));
+  if (!g.carried.has(field) && !groundedAmount(g.text, value)) return ask(['amount'], m.amountNotFound(value));
   return value;
 }
-function slippageOf(value: string | null, fallback: string, text: string, notes: string[], maximum?: number): string {
-  if (value === null) { notes.push(`Slippage ${fallback} bps (Flofi default). Say, for example, "slippage 100 bps" to change it.`); return fallback; }
-  if (!groundedBps(text, value)) return ask(['slippage'], `Flofi could not find the slippage ${value} bps in your message. What maximum slippage should it use?`);
-  if (maximum !== undefined && Number(value) > maximum) return reject('COPILOT_SLIPPAGE_OUT_OF_RANGE', `Slippage must be at most ${maximum} bps for this action.`);
+function slippageOf(value: string | null, fallback: string, g: Grounding, notes: string[], maximum?: number): string {
+  const m = copyOf(g);
+  if (value === null) { notes.push(m.defaultSlippageNote(fallback)); return fallback; }
+  if (!g.carried.has('slippage') && !groundedBps(g.text, value)) return ask(['slippage'], m.slippageNotFound(value));
+  if (maximum !== undefined && Number(value) > maximum) return reject('COPILOT_SLIPPAGE_OUT_OF_RANGE', m.slippageAtMost(maximum));
   return value;
 }
-function addressOf(value: string | null, text: string, field: 'beneficiary' | 'recipient'): string | null {
-  if (value !== null && !groundedAddress(text, value)) return ask([field], `Flofi could not find that ${field} address in your message. Type the full address, or leave it out to use your connected wallet.`);
+function addressOf(value: string | null, g: Grounding, field: 'beneficiary' | 'recipient'): string | null {
+  if (value !== null && !g.carried.has(field) && !groundedAddress(g.text, value)) return ask([field], copyOf(g).addressNotFound(field));
   return value;
 }
-function needAsset(value: CopilotAsset | null, text: string, what: string): Exclude<CopilotAsset, 'OTHER'> {
-  if (value === null) return ask(['asset'], questionFor(['asset'], what));
-  if (value === 'OTHER') return refuse(`That token is not supported for ${what}. ${COPILOT_CAPABILITIES}`);
-  if (!assetNamed(text, value)) return ask(['asset'], `Flofi could not find the token ${value} in your message. Which token do you mean?`);
+function needAsset(value: CopilotAsset | null, g: Grounding, subject: Subject, field: CarriedField): Exclude<CopilotAsset, 'OTHER'> {
+  const m = copyOf(g);
+  if (value === null) return ask(['asset'], stillNeeds(m, ['asset'], subject));
+  if (value === 'OTHER') return refuse(m.tokenUnsupported(m.tokenSubject[subject]));
+  if (!g.carried.has(field) && !assetNamed(g.text, value)) return ask(['asset'], m.tokenNotFound(value));
   return value;
 }
 
-type Plan = { readonly sentence: string; readonly expect: (typeof COPILOT_AUTHORING_COMMANDS)[number]; readonly notes: string[] };
+export type Plan = { readonly sentence: string; readonly expect: CopilotAuthoringCommand; readonly notes: string[] };
 
-function planSwap(a: CopilotSwapAction, text: string): Plan {
-  const notes: string[] = [], supported: Network[] = ['BASE', 'BASE_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET'];
+function planSwap(a: CopilotSwapAction, g: Grounding): Plan {
+  const m = copyOf(g), notes: string[] = [], supported: Network[] = ['BASE', 'BASE_SEPOLIA', 'SOLANA', 'SOLANA_DEVNET'];
   const missing: CopilotMissingField[] = [...(a.amount === null ? ['amount' as const] : []), ...(a.inputAsset === null || a.outputAsset === null ? ['asset' as const] : []),
-    ...(a.network === null && !supported.some(n => mentionedNetworks(text).includes(n)) ? ['network' as const] : [])];
-  if (missing.length) ask(missing, questionFor(missing, 'swap'), missing.length === 1 && missing[0] === 'network' ? labels(supported) : []);
-  const network = resolveNetwork(a.network, supported, text, 'Swap', notes);
-  const input = needAsset(a.inputAsset, text, 'this swap'), output = needAsset(a.outputAsset, text, 'this swap');
-  const amount = amountOf(a.amount, text, 'swap');
-  const slippage = slippageOf(a.slippageBps, '50', text, notes);
+    ...(a.network === null && !supported.some(n => mentionedNetworks(g.text).includes(n)) ? ['network' as const] : [])];
+  if (missing.length) ask(missing, stillNeeds(m, missing, 'swap'), missing.length === 1 && missing[0] === 'network' ? labels(supported) : []);
+  const network = resolveNetwork(a.network, supported, g, 'swap', notes);
+  const input = needAsset(a.inputAsset, g, 'swap', 'inputAsset'), output = needAsset(a.outputAsset, g, 'swap', 'outputAsset');
+  const amount = amountOf(a.amount, g, 'swap');
+  const slippage = slippageOf(a.slippageBps, '50', g, notes);
   if (FAMILY[network] === 'base') {
-    const evm = (asset: string) => asset === 'USDC' ? 'USDC' : asset === 'WETH' || asset === 'ETH' ? 'WETH' : refuse('Flofi swaps USDC and WETH on Base and Base Sepolia.');
+    const evm = (asset: string) => asset === 'USDC' ? 'USDC' : asset === 'WETH' || asset === 'ETH' ? 'WETH' : refuse(m.evmSwapTokens);
     const from = evm(input), to = evm(output);
-    if (from === to) reject('INVALID_ASSET_PAIR', 'The input and output tokens must differ.');
-    if (input === 'ETH' || output === 'ETH') notes.push('Flofi swaps the ERC-20 WETH (wrapped ETH), not native ETH.');
+    if (from === to) reject('INVALID_ASSET_PAIR', m.differentTokens);
+    if (input === 'ETH' || output === 'ETH') notes.push(m.wethNote);
     return { sentence: `swap ${amount} ${from} to ${to} on ${COPILOT_NETWORK_LABEL[network]} slippage ${slippage} bps`,
       expect: network === 'BASE_SEPOLIA' ? 'ADD_TESTNET_SWAP' : 'ADD_SWAP', notes };
   }
   const devnet = network === 'SOLANA_DEVNET';
-  const solana = (asset: string) => asset === 'SOL' ? 'SOL' : devnet ? (asset === 'DEVUSDC' || asset === 'USDC' ? 'devUSDC' : refuse('Solana Devnet swaps support SOL and devUSDC.'))
-    : asset === 'USDC' || asset === 'USDT' ? asset : refuse('Solana swaps support SOL, USDC and USDT.');
+  const solana = (asset: string) => asset === 'SOL' ? 'SOL' : devnet ? (asset === 'DEVUSDC' || asset === 'USDC' ? 'devUSDC' : refuse(m.devnetSwapTokens))
+    : asset === 'USDC' || asset === 'USDT' ? asset : refuse(m.solanaSwapTokens);
   const from = solana(input), to = solana(output);
-  if (from === to) reject('INVALID_ASSET_PAIR', 'The input and output tokens must differ.');
+  if (from === to) reject('INVALID_ASSET_PAIR', m.differentTokens);
   return { sentence: `swap ${amount} ${from} to ${to} on ${devnet ? 'Solana Devnet' : 'Solana'} slippage ${slippage} bps`, expect: 'ADD_SOLANA_SWAP', notes };
 }
 
-function planBridge(a: CopilotBridgeAction, text: string): Plan {
-  const notes: string[] = [], named = mentionedNetworks(text);
+function planBridge(a: CopilotBridgeAction, g: Grounding): Plan {
+  const m = copyOf(g), notes: string[] = [], text = g.text;
+  const carriedSide = (value: CopilotNetwork | null, field: CarriedField): Network[] => value !== null && value !== 'OTHER' && g.carried.has(field) ? [value] : [];
+  const named = [...mentionedNetworks(text), ...carriedSide(a.sourceNetwork, 'sourceNetwork'), ...carriedSide(a.destinationNetwork, 'destinationNetwork')];
   // A side is the network the user named in that family; an unnamed test network is only a candidate, an unnamed mainnet is dropped.
   const side = (value: CopilotNetwork | null, family: Family): Network | null | 'OTHER' | 'CONFLICT' => {
-    const inFamily = named.filter(n => FAMILY[n] === family);
+    const inFamily = [...new Set(named.filter(n => FAMILY[n] === family))];
     if (value === null) return inFamily.length === 1 ? inFamily[0]! : inFamily.length > 1 ? 'CONFLICT' : null;
     if (value === 'OTHER' || FAMILY[value] !== family) return 'OTHER';
     if (inFamily.includes(value)) return value;
@@ -202,141 +218,162 @@ function planBridge(a: CopilotBridgeAction, text: string): Plan {
   };
   const pairs = ['Base Sepolia → Arbitrum Sepolia', 'Base → Arbitrum One'];
   let source = side(a.sourceNetwork, 'base'), destination = side(a.destinationNetwork, 'arbitrum');
-  if (source === 'OTHER' || destination === 'OTHER') refuse('The Cross-chain Router bridges USDC from Base to Arbitrum One, or from Base Sepolia to Arbitrum Sepolia.');
-  if (source === 'CONFLICT' || destination === 'CONFLICT') ask(['sourceNetwork', 'destinationNetwork'], 'Which route do you mean?', pairs);
-  // A test-network pair may complete itself; a mainnet side never implies the other one.
-  if (source === null && destination === 'ARBITRUM_SEPOLIA') { source = 'BASE_SEPOLIA'; notes.push('Source Base Sepolia: the only source for Arbitrum Sepolia.'); }
-  if (destination === null && source === 'BASE_SEPOLIA') { destination = 'ARBITRUM_SEPOLIA'; notes.push('Destination Arbitrum Sepolia: the only destination from Base Sepolia.'); }
+  if (source === 'OTHER' || destination === 'OTHER') refuse(m.routerRoutes);
+  if (source === 'CONFLICT' || destination === 'CONFLICT') ask(['sourceNetwork', 'destinationNetwork'], m.whichRoute, pairs);
+  // V1: a test-network pair may complete itself; a mainnet side never implies the other one. V2 asks instead.
+  if (g.policy.networkDefaults && source === null && destination === 'ARBITRUM_SEPOLIA') { source = 'BASE_SEPOLIA'; notes.push(m.routerSourceNote); }
+  if (g.policy.networkDefaults && destination === null && source === 'BASE_SEPOLIA') { destination = 'ARBITRUM_SEPOLIA'; notes.push(m.routerDestinationNote); }
   const missing: CopilotMissingField[] = [...(a.amount === null ? ['amount' as const] : []), ...(a.asset === null ? ['asset' as const] : []),
     ...(source === null ? ['sourceNetwork' as const] : []), ...(destination === null ? ['destinationNetwork' as const] : [])];
-  if (missing.length) ask(missing, questionFor(missing, 'bridge'), source === null && destination === null ? pairs
-    : source === null ? ['Base'] : destination === null ? ['Arbitrum One'] : []);
+  // Only the counterpart that forms a supported pair is offered.
+  if (missing.length) ask(missing, stillNeeds(m, missing, 'bridge'), source === null && destination === null ? pairs
+    : source === null ? [destination === 'ARBITRUM_SEPOLIA' ? 'Base Sepolia' : 'Base'] : destination === null ? [source === 'BASE_SEPOLIA' ? 'Arbitrum Sepolia' : 'Arbitrum One'] : []);
   const src = source as Network, dst = destination as Network;
   const network = src === 'BASE' && dst === 'ARBITRUM' ? 'mainnet' : src === 'BASE_SEPOLIA' && dst === 'ARBITRUM_SEPOLIA' ? 'testnet' : null;
-  if (!network) return ask(['sourceNetwork', 'destinationNetwork'], 'The Cross-chain Router does not mix mainnet and test networks. Which route do you mean?', pairs);
-  if (network === 'mainnet' && (!named.includes('BASE') || !named.includes('ARBITRUM') || TESTNET_WORDS.test(text)))
-    ask(['sourceNetwork', 'destinationNetwork'], 'Base → Arbitrum One uses real funds. Which route do you mean?', pairs);
-  if (network === 'testnet' && !named.includes(src) && !named.includes(dst)) ask(['sourceNetwork', 'destinationNetwork'], 'Which route do you mean?', pairs);
-  const asset = needAsset(a.asset, text, 'this bridge');
-  if (asset !== 'USDC') refuse('The Cross-chain Router bridges USDC only.');
-  const amount = amountOf(a.amount, text, 'bridge');
+  if (!network) return ask(['sourceNetwork', 'destinationNetwork'], m.routerMixed, pairs);
+  if (network === 'mainnet' && (!named.includes('BASE') || !named.includes('ARBITRUM') || TESTNET_WORDS.test(text))) ask(['sourceNetwork', 'destinationNetwork'], m.routerRealFunds, pairs);
+  if (network === 'testnet' && !named.includes(src) && !named.includes(dst)) ask(['sourceNetwork', 'destinationNetwork'], m.whichRoute, pairs);
+  const asset = needAsset(a.asset, g, 'bridge', 'asset');
+  if (asset !== 'USDC') refuse(m.routerUsdcOnly);
+  const amount = amountOf(a.amount, g, 'bridge');
   const profile = ROUTER_NETWORK_OPTIONS[network].profile;
-  const slippage = slippageOf(a.slippageBps, ROUTER_DEFAULT_SLIPPAGE, text, notes, profile.maximumSlippageBps);
-  if (a.routing === 'LIFI' && !/li\.?\s?fi/i.test(text)) ask([], 'Should Flofi use LI.FI only, Across only, or automatic routing?', ['Automatic routing', 'LI.FI only', 'Across only']);
-  if (a.routing === 'ACROSS' && !/\bacross\b/i.test(text)) ask([], 'Should Flofi use LI.FI only, Across only, or automatic routing?', ['Automatic routing', 'LI.FI only', 'Across only']);
+  const slippage = slippageOf(a.slippageBps, ROUTER_DEFAULT_SLIPPAGE, g, notes, profile.maximumSlippageBps);
+  const routingNamed = g.carried.has('routing');
+  if (a.routing === 'LIFI' && !routingNamed && !/li\.?\s?fi/i.test(text)) ask([], m.whichRouting, m.routingOptions);
+  if (a.routing === 'ACROSS' && !routingNamed && !/\bacross\b/i.test(text)) ask([], m.whichRouting, m.routingOptions);
   const routing = a.routing === 'LIFI' ? 'LI.FI' : a.routing === 'ACROSS' ? 'Across' : 'auto';
-  if (routing === 'auto') notes.push('Routing: automatic (LI.FI first, Across direct if LI.FI has no reconcilable route).');
-  const recipient = addressOf(a.recipient, text, 'recipient');
-  if (!recipient) notes.push('Recipient: your connected wallet, bound at Review.');
-  if (network === 'mainnet') notes.push(ROUTER_NETWORK_OPTIONS.mainnet.funds);
+  if (routing === 'auto') notes.push(m.autoRoutingNote);
+  const recipient = addressOf(a.recipient, g, 'recipient');
+  if (!recipient) notes.push(m.connectedRecipientNote);
+  if (network === 'mainnet') notes.push(m.mainnetFundsNote);
   return { sentence: `bridge ${amount} USDC from ${src === 'BASE' ? 'Base' : 'Base Sepolia'} to ${dst === 'ARBITRUM' ? 'Arbitrum' : 'Arbitrum Sepolia'}` +
     `${recipient ? ' to ' + recipient : ''} via ${routing} slippage ${slippage} bps`, expect: 'ADD_ROUTER_BRIDGE', notes };
 }
 
-function planLending(a: CopilotLendingAction, text: string, wallet: string | null): Plan {
-  const notes: string[] = [], what = a.type === 'SUPPLY' ? 'Aave Supply' : a.type === 'BORROW' ? 'Aave Borrow' : a.type === 'REPAY' ? 'Aave Repay' : 'Aave Withdraw';
+const LENDING_SUBJECT = { SUPPLY: 'supply', BORROW: 'borrow', REPAY: 'repay', WITHDRAW: 'withdraw' } as const;
+function planLending(a: CopilotLendingAction, g: Grounding, wallet: string | null): Plan {
+  const m = copyOf(g), notes: string[] = [], subject = LENDING_SUBJECT[a.type];
   const missing: CopilotMissingField[] = [...(a.amount === null ? ['amount' as const] : []), ...(a.asset === null ? ['asset' as const] : [])];
-  if (missing.length) ask(missing, questionFor(missing, what), missing.includes('asset') ? ['USDC'] : []);
-  resolveNetwork(a.network, ['BASE_SEPOLIA'], text, 'Aave V3', notes);
-  const asset = needAsset(a.asset, text, what);
-  if (asset !== 'USDC') refuse('Flofi supports Aave V3 with USDC only, on Base Sepolia.');
-  const amount = amountOf(a.amount, text, what);
+  if (missing.length) ask(missing, stillNeeds(m, missing, subject), missing.includes('asset') ? ['USDC'] : []);
+  resolveNetwork(a.network, ['BASE_SEPOLIA'], g, 'aave', notes);
+  const asset = needAsset(a.asset, g, subject, 'asset');
+  if (asset !== 'USDC') refuse(m.aaveOnly);
+  const amount = amountOf(a.amount, g, subject);
   if (a.type === 'WITHDRAW') {
-    if (a.beneficiary !== null) refuse('An Aave withdrawal always pays your connected wallet; Flofi cannot send it to another address.');
-    notes.push('Recipient: your connected wallet, bound at Review.');
+    if (a.beneficiary !== null) refuse(m.withdrawToWallet);
+    notes.push(m.connectedRecipientNote);
     return { sentence: `withdraw ${amount} USDC from Aave on Base Sepolia`, expect: 'ADD_WITHDRAW', notes };
   }
-  const beneficiary = addressOf(a.beneficiary, text, 'beneficiary');
-  if (!beneficiary && !wallet) ask(['beneficiary'], questionFor(['beneficiary'], what));
-  if (!beneficiary) notes.push(`Beneficiary: your connected wallet ${wallet}.`);
+  const beneficiary = addressOf(a.beneficiary, g, 'beneficiary');
+  if (!beneficiary && !wallet) ask(['beneficiary'], stillNeeds(m, ['beneficiary'], subject));
+  if (!beneficiary) notes.push(m.beneficiaryNote(wallet!));
   const suffix = beneficiary ? ` beneficiary ${beneficiary}` : '';
   return a.type === 'SUPPLY' ? { sentence: `supply ${amount} USDC to Aave on Base Sepolia${suffix}`, expect: 'ADD_SUPPLY', notes }
     : a.type === 'BORROW' ? { sentence: `borrow ${amount} USDC from Aave on Base Sepolia${suffix}`, expect: 'ADD_BORROW', notes }
     : { sentence: `repay ${amount} USDC to Aave on Base Sepolia${suffix}`, expect: 'ADD_REPAY', notes };
 }
 
-const POOLS = Object.freeze({
+export const COPILOT_POOLS = Object.freeze({
   UNISWAP_V3: { network: 'BASE_SEPOLIA' as const, base: 'WETH', quote: 'USDC', first: 'USDC', second: 'WETH', expect: 'ADD_UNISWAP_LIQUIDITY' as const,
     slippage: UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE, symbol: (asset: string) => asset === 'USDC' ? 'USDC' : asset === 'WETH' || asset === 'ETH' ? 'WETH' : null },
   ORCA: { network: 'SOLANA_DEVNET' as const, base: 'SOL', quote: 'devUSDC', first: 'SOL', second: 'devUSDC', expect: 'ADD_SOLANA_LIQUIDITY' as const,
     slippage: SOLANA_LIQUIDITY_DEFAULT_SLIPPAGE, symbol: (asset: string) => asset === 'SOL' ? 'SOL' : asset === 'DEVUSDC' || asset === 'USDC' ? 'devUSDC' : null },
 });
-function planLiquidity(a: CopilotLiquidityAction, text: string): Plan {
-  const notes: string[] = [];
-  const namedProtocols = (['UNISWAP_V3', 'ORCA'] as const).filter(p => (p === 'UNISWAP_V3' ? /uniswap/i : /\borca\b|whirlpool/i).test(text));
-  if (namedProtocols.length > 1) ask(['protocol'], 'Which pool do you mean?', ['Uniswap v3 on Base Sepolia', 'Orca on Solana Devnet']);
+function planLiquidity(a: CopilotLiquidityAction, g: Grounding): Plan {
+  const m = copyOf(g), notes: string[] = [], text = g.text;
+  const namedProtocols = (['UNISWAP_V3', 'ORCA'] as const).filter(p => (p === 'UNISWAP_V3' ? /uniswap/i : /\borca\b|whirlpool/i).test(text) ||
+    (g.carried.has('protocol') && a.protocol === p));
+  if (namedProtocols.length > 1) ask(['protocol'], m.whichPool, m.poolOptions);
   // The protocol is trusted only when the user named it or the named network determines it.
-  const supported: Network[] = namedProtocols.length ? [POOLS[namedProtocols[0]!].network] : ['BASE_SEPOLIA', 'SOLANA_DEVNET'];
-  const network = resolveNetwork(a.network, supported, text, 'Concentrated liquidity', notes);
+  const supported: Network[] = namedProtocols.length ? [COPILOT_POOLS[namedProtocols[0]!].network] : ['BASE_SEPOLIA', 'SOLANA_DEVNET'];
+  const network = resolveNetwork(a.network, supported, g, 'liquidity', notes);
   const protocol = network === 'BASE_SEPOLIA' ? 'UNISWAP_V3' : 'ORCA';
-  if (a.protocol !== null && a.protocol !== protocol) ask(['protocol'], 'Which pool do you mean?', ['Uniswap v3 on Base Sepolia', 'Orca on Solana Devnet']);
-  const pool = POOLS[protocol];
+  if (a.protocol !== null && a.protocol !== protocol) ask(['protocol'], m.whichPool, m.poolOptions);
+  const pool = COPILOT_POOLS[protocol];
   const deposits = new Map<string, string>();
   for (const deposit of a.deposits) {
     const symbol = pool.symbol(deposit.asset);
-    if (!symbol) refuse(`This pool takes ${pool.first} and ${pool.second} only.`);
-    if (deposits.has(symbol!)) reject('COPILOT_DUPLICATE_DEPOSIT', `Name each token of the pool once: ${pool.first} and ${pool.second}.`);
-    needAsset(deposit.asset, text, 'this liquidity position');
-    deposits.set(symbol!, amountOf(deposit.maxAmount, text, 'liquidity position'));
+    if (!symbol) refuse(m.poolTokens(pool.first, pool.second));
+    if (deposits.has(symbol!)) reject('COPILOT_DUPLICATE_DEPOSIT', m.poolTokenOnce(pool.first, pool.second));
+    needAsset(deposit.asset, g, 'liquidity', `deposit:${symbol}`);
+    deposits.set(symbol!, amountOf(deposit.maxAmount, g, 'liquidity', `deposit:${symbol}`));
   }
   const missing: CopilotMissingField[] = [...(deposits.size < 2 ? ['amount' as const] : []),
     ...(a.rangeUnit === null || a.lower === null || a.upper === null ? ['range' as const] : [])];
-  if (missing.length) ask(missing, `To prepare this liquidity position, Flofi still needs the maximum ${pool.first} and ${pool.second} amounts (0 for none) and ` +
-    `a range: prices in ${pool.quote} per ${pool.base}, or ticks.`);
+  if (missing.length) ask(missing, m.liquidityNeeds(pool.first, pool.second, pool.quote, pool.base));
   const lower = a.lower!, upper = a.upper!;
-  const grounded = a.rangeUnit === 'PRICE' ? !lower.startsWith('-') && !upper.startsWith('-') && groundedAmount(text, lower) && groundedAmount(text, upper)
+  const grounded = g.carried.has('range') ? true : a.rangeUnit === 'PRICE' ? !lower.startsWith('-') && !upper.startsWith('-') && groundedAmount(text, lower) && groundedAmount(text, upper)
     : /^-?\d+$/.test(lower) && /^-?\d+$/.test(upper) && groundedSigned(text, lower) && groundedSigned(text, upper);
-  if (!grounded) ask(['range'], `Flofi could not find that range in your message. Which range: prices in ${pool.quote} per ${pool.base}, or ticks?`);
-  const slippage = slippageOf(a.slippageBps, pool.slippage, text, notes);
+  if (!grounded) ask(['range'], m.rangeNotFound(pool.quote, pool.base));
+  const slippage = slippageOf(a.slippageBps, pool.slippage, g, notes);
   const range = a.rangeUnit === 'PRICE' ? `from ${lower} to ${upper} ${pool.quote} per ${pool.base}` : `ticks ${lower} to ${upper}`;
   return { sentence: `add liquidity ${deposits.get(pool.first)} ${pool.first} and ${deposits.get(pool.second)} ${pool.second} ${range} on ` +
     `${COPILOT_NETWORK_LABEL[network]} slippage ${slippage} bps`, expect: pool.expect, notes };
 }
 
-function planComposition(actions: readonly CopilotAction[], text: string, wallet: string | null): Plan {
-  if (actions.map(a => a.type).join('>') !== 'SUPPLY>BORROW>SWAP') return refuse(COMPOSITION_UNSUPPORTED);
+function planComposition(actions: readonly CopilotAction[], g: Grounding, wallet: string | null): Plan {
+  const m = copyOf(g);
+  if (actions.map(a => a.type).join('>') !== 'SUPPLY>BORROW>SWAP') return refuse(m.compositionUnsupported);
   const [supply, borrow, swap] = actions as [CopilotLendingAction, CopilotLendingAction, CopilotSwapAction];
-  const notes: string[] = [], what = 'Supply → Borrow → Swap workflow';
+  const notes: string[] = [];
   const missing: CopilotMissingField[] = [...(supply.amount === null || borrow.amount === null ? ['amount' as const] : []),
     ...(supply.asset === null || borrow.asset === null || swap.outputAsset === null ? ['asset' as const] : [])];
-  if (missing.length) ask(missing, questionFor(missing, what));
-  for (const network of new Set([supply.network, borrow.network, swap.network])) resolveNetwork(network, ['BASE_SEPOLIA'], text, 'The ' + what, notes);
-  if (needAsset(supply.asset, text, what) !== 'USDC' || needAsset(borrow.asset, text, what) !== 'USDC' ||
-    (swap.inputAsset !== null && needAsset(swap.inputAsset, text, what) !== 'USDC')) refuse(COMPOSITION_UNSUPPORTED);
-  if (!['WETH', 'ETH'].includes(needAsset(swap.outputAsset, text, what))) refuse(COMPOSITION_UNSUPPORTED);
-  const supplied = amountOf(supply.amount, text, what), borrowed = amountOf(borrow.amount, text, what);
-  if (swap.amount !== null && canonicalDecimal(swap.amount) !== canonicalDecimal(borrowed)) refuse('The swap must use exactly the borrowed USDC. ' + COMPOSITION_UNSUPPORTED);
-  const slippage = slippageOf(swap.slippageBps, '50', text, notes);
-  const owners = [...new Set([supply.beneficiary, borrow.beneficiary].filter((v): v is string => v !== null).map(v => addressOf(v, text, 'beneficiary')!))];
-  if (owners.length > 1) reject('COPILOT_OWNER_CONFLICT', 'Supply and Borrow must use the same owner.');
-  if (!owners.length && !wallet) ask(['beneficiary'], questionFor(['beneficiary'], what));
-  if (!owners.length) notes.push(`Owner: your connected wallet ${wallet}.`);
-  if (swap.outputAsset === 'ETH') notes.push('Flofi swaps to the ERC-20 WETH (wrapped ETH), not native ETH.');
-  notes.push('Debt remains after the swap. Review the health factor checkpoint before signing anything.');
+  if (missing.length) ask(missing, stillNeeds(m, missing, 'composition'));
+  for (const network of new Set([supply.network, borrow.network, swap.network])) resolveNetwork(network, ['BASE_SEPOLIA'], g, 'composition', notes);
+  if (needAsset(supply.asset, g, 'composition', 'asset') !== 'USDC' || needAsset(borrow.asset, g, 'composition', 'asset') !== 'USDC' ||
+    (swap.inputAsset !== null && needAsset(swap.inputAsset, g, 'composition', 'inputAsset') !== 'USDC')) refuse(m.compositionUnsupported);
+  if (!['WETH', 'ETH'].includes(needAsset(swap.outputAsset, g, 'composition', 'outputAsset'))) refuse(m.compositionUnsupported);
+  const supplied = amountOf(supply.amount, g, 'composition', 'supplyAmount'), borrowed = amountOf(borrow.amount, g, 'composition', 'borrowAmount');
+  if (swap.amount !== null && canonicalDecimal(swap.amount) !== canonicalDecimal(borrowed)) refuse(m.swapUsesBorrowed);
+  const slippage = slippageOf(swap.slippageBps, '50', g, notes);
+  const owners = [...new Set([supply.beneficiary, borrow.beneficiary].filter((v): v is string => v !== null).map(v => addressOf(v, g, 'beneficiary')!))];
+  if (owners.length > 1) reject('COPILOT_OWNER_CONFLICT', m.sameOwner);
+  if (!owners.length && !wallet) ask(['beneficiary'], stillNeeds(m, ['beneficiary'], 'composition'));
+  if (!owners.length) notes.push(m.ownerNote(wallet!));
+  if (swap.outputAsset === 'ETH') notes.push(m.compositionWethNote);
+  notes.push(m.debtNote);
   return { sentence: `compose supply ${supplied} USDC to Aave then borrow ${borrowed} USDC then swap borrowed USDC to WETH on Base Sepolia slippage ${slippage} bps` +
     `${owners.length ? ' owner ' + owners[0] : ''}`, expect: 'AUTHOR_LENDING', notes };
 }
 
-const REJECTION_MESSAGES: Readonly<Record<string, string>> = {
-  INVALID_AMOUNT: 'The amount is not a valid positive number.', SUPPLY_AMOUNT_INVALID: 'The amount is not a valid positive USDC amount.',
-  AMOUNT_PRECISION: 'The amount has more decimal places than the token supports.', AMOUNT_OUT_OF_RANGE: 'The amount is outside the range Flofi allows for this token.',
-  INVALID_SLIPPAGE: 'The slippage is not valid.', INVALID_ASSET_PAIR: 'The input and output tokens must differ.',
-  ROUTER_SLIPPAGE_OUT_OF_RANGE: 'The slippage is outside the range allowed for the Cross-chain Router.',
-  SOLANA_SLIPPAGE_OUT_OF_RANGE: 'The slippage is above the maximum allowed for Solana swaps and liquidity.',
-  UNISWAP_SLIPPAGE_OUT_OF_RANGE: 'The slippage is above the maximum allowed for Uniswap liquidity.',
-  UNISWAP_LIQUIDITY_RANGE_INVALID: 'The range is not valid: the lower bound must be below the upper bound, and ticks must align to the pool spacing.',
-  SOLANA_LIQUIDITY_RANGE_INVALID: 'The range is not valid: the lower bound must be below the upper bound, and ticks must align to the pool spacing.',
-  UNISWAP_LIQUIDITY_ZERO: 'At least one deposit must be above zero.', SOLANA_LIQUIDITY_ZERO: 'At least one deposit must be above zero.',
-  ROUTER_AMOUNT_OUT_OF_RANGE: 'The amount is outside the Cross-chain Router range: ' + (['testnet', 'mainnet'] as const).map(network => {
-    const option = ROUTER_NETWORK_OPTIONS[network], decimals = option.pair.source.decimals;
-    return `${option.sourceLabel} → ${option.destinationLabel} ${formatTokenAmount(option.pair.minimumAmount, decimals)}–${formatTokenAmount(option.pair.maximumAmount, decimals)} USDC`;
-  }).join('; ') + '.',
-  LENDING_INPUT_INVALID: 'The Supply → Borrow → Swap inputs are not valid: use positive USDC amounts and a slippage from 1 to 300 bps.',
-  COPILOT_INTENT_INVALID: 'Flofi Copilot returned an interpretation Flofi could not validate. Nothing changed.',
-  COPILOT_TOO_MANY_ACTIONS: 'Flofi Copilot returned more steps than a proposal may contain. Nothing changed.',
-};
-const rejected = (code: string): CopilotOutcome => ({ kind: 'REJECTED', code,
-  message: REJECTION_MESSAGES[code] ?? `Flofi could not author this request (${code}). Nothing changed.` });
+const ROUTER_RANGES = (['testnet', 'mainnet'] as const).map(network => {
+  const option = ROUTER_NETWORK_OPTIONS[network], decimals = option.pair.source.decimals;
+  return `${option.sourceLabel} → ${option.destinationLabel} ${formatTokenAmount(option.pair.minimumAmount, decimals)}–${formatTokenAmount(option.pair.maximumAmount, decimals)} USDC`;
+}).join('; ');
+/** A closed rejection code with deterministic copy; unknown codes are named, never explained by the model. */
+export function copilotRejection(code: string, language: CopilotLanguage = 'EN'): Extract<CopilotOutcome, { kind: 'REJECTED' }> {
+  const m = copilotCopy(language);
+  return { kind: 'REJECTED', code, message: m.rejection[code] ?? (code === 'ROUTER_AMOUNT_OUT_OF_RANGE' ? m.routerAmountRange(ROUTER_RANGES) : m.rejectedCode(code)) };
+}
+
+/**
+ * One validated action (or the lending composition) → the canonical sentence Flofi would type, or the clarification,
+ * refusal or rejection that stops it. Pure. Values come only from the grounding context.
+ */
+export function planCopilotActions(actions: readonly CopilotAction[], composition: boolean, g: Grounding, wallet: string | null):
+  { readonly kind: 'PLAN'; readonly plan: Plan } | Exclude<CopilotOutcome, { kind: 'PROPOSAL' }> {
+  try {
+    if (composition) return { kind: 'PLAN', plan: planComposition(actions, g, wallet) };
+    const action = actions[0]!;
+    return { kind: 'PLAN', plan: action.type === 'SWAP' ? planSwap(action, g) : action.type === 'BRIDGE' ? planBridge(action, g)
+      : action.type === 'LIQUIDITY' ? planLiquidity(action, g) : planLending(action, g, wallet) };
+  } catch (cause) {
+    if (cause instanceof Stop) return cause.outcome as Exclude<CopilotOutcome, { kind: 'PROPOSAL' }>;
+    return copilotRejection('COPILOT_CONVERSION_FAILED', g.policy.language);
+  }
+}
+/** The canonical sentence → the exact grammar → the planned authoring Command at the current revision, or a rejection. */
+export function proposalFromPlan(plan: Plan, input: Omit<CopilotConversion, 'userText'>, language: CopilotLanguage = 'EN'): CopilotOutcome {
+  let command: Command;
+  try { command = parseLocalCommand(plan.sentence, input.workflow, input.context, input.wallet); }
+  catch (cause) {
+    const code = cause instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(cause.message) ? cause.message : 'COPILOT_SENTENCE_UNMATCHED';
+    return copilotRejection(code, language);
+  }
+  // Defense in depth: the sentence must have produced exactly the planned authoring command at the current revision.
+  if (command.type !== plan.expect || command.source !== 'CHAT' || command.baseRevision !== input.workflow.revision) return copilotRejection('COPILOT_COMMAND_MISMATCH', language);
+  return { kind: 'PROPOSAL', command, sentence: plan.sentence, notes: [...new Set(plan.notes)] };
+}
 
 /**
  * Untrusted intent → existing typed `Command`, or a clarification / unsupported / rejected outcome. Pure: it reads the
@@ -345,31 +382,14 @@ const rejected = (code: string): CopilotOutcome => ({ kind: 'REJECTED', code,
  */
 export function copilotIntentToCommand(raw: unknown, input: CopilotConversion): CopilotOutcome {
   let intent;
-  try { intent = parseCopilotIntent(raw); } catch (cause) { return rejected(cause instanceof CopilotIntentError ? cause.message : 'COPILOT_INTENT_INVALID'); }
+  try { intent = parseCopilotIntent(raw); } catch (cause) { return copilotRejection(cause instanceof CopilotIntentError ? cause.message : 'COPILOT_INTENT_INVALID'); }
   const text = typeof input.userText === 'string' ? input.userText : '';
-  if (intent.kind === 'UNSUPPORTED') return { kind: 'UNSUPPORTED', message: safeCopilotProse(intent.reason) ?? 'Flofi Copilot cannot author that request.' };
+  const m = copilotCopy('EN');
+  if (intent.kind === 'UNSUPPORTED') return { kind: 'UNSUPPORTED', message: safeCopilotProse(intent.reason) ?? m.cannotAuthor };
   if (intent.kind === 'CLARIFICATION_REQUIRED') return { kind: 'CLARIFICATION', missing: intent.missing,
-    question: safeCopilotProse(intent.question) ?? questionFor(intent.missing.length ? intent.missing : ['amount'], 'request'),
+    question: safeCopilotProse(intent.question) ?? stillNeeds(m, intent.missing.length ? intent.missing : ['amount'], 'request'),
     options: intent.options.flatMap(option => safeCopilotProse(option) ?? []) };
-  let plan: Plan;
-  try {
-    if (intent.kind === 'COMPOSITION') plan = planComposition(intent.actions, text, input.wallet);
-    else {
-      const action = intent.action;
-      plan = action.type === 'SWAP' ? planSwap(action, text) : action.type === 'BRIDGE' ? planBridge(action, text)
-        : action.type === 'LIQUIDITY' ? planLiquidity(action, text) : planLending(action, text, input.wallet);
-    }
-  } catch (cause) {
-    if (cause instanceof Stop) return cause.outcome;
-    return rejected('COPILOT_CONVERSION_FAILED');
-  }
-  let command: Command;
-  try { command = parseLocalCommand(plan.sentence, input.workflow, input.context, input.wallet); }
-  catch (cause) {
-    const code = cause instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(cause.message) ? cause.message : 'COPILOT_SENTENCE_UNMATCHED';
-    return rejected(code);
-  }
-  // Defense in depth: the sentence must have produced exactly the planned authoring command at the current revision.
-  if (command.type !== plan.expect || command.source !== 'CHAT' || command.baseRevision !== input.workflow.revision) return rejected('COPILOT_COMMAND_MISMATCH');
-  return { kind: 'PROPOSAL', command, sentence: plan.sentence, notes: [...new Set(plan.notes)] };
+  const planned = planCopilotActions(intent.kind === 'COMPOSITION' ? intent.actions : [intent.action], intent.kind === 'COMPOSITION',
+    { text, carried: NOTHING_CARRIED, policy: V1_POLICY }, input.wallet);
+  return planned.kind === 'PLAN' ? proposalFromPlan(planned.plan, input) : planned;
 }
