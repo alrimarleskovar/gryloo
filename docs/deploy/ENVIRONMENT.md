@@ -48,7 +48,7 @@ answers `*_NOT_ENABLED`.
 | `GRYLOO_PUBLIC_TESTNET=record` | Uniswap v3 USDC/WETH swap — Base Sepolia, Ethereum Sepolia | recommended | as chosen |
 | `GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live` | Uniswap v3 concentrated liquidity — Base Sepolia, Ethereum Sepolia | recommended | as chosen |
 | `GRYLOO_UNISWAP_LIQUIDITY_EXECUTION=DISABLED` | keeps liquidity Simulate/Review-only | optional | optional |
-| `GRYLOO_SUPPLY_TESTNET=live` | Aave V3 Supply/Borrow/Repay/Withdraw — Base Sepolia USDC, Ethereum Sepolia WBTC | recommended | as chosen |
+| `GRYLOO_SUPPLY_TESTNET=live` | Aave V3 Supply/Borrow/Repay/Withdraw — Base Sepolia USDC, Ethereum Sepolia WBTC; and the Supply → Borrow → Swap composition (which also needs `GRYLOO_ALCHEMY_API_KEY`) | recommended | as chosen |
 | `GRYLOO_ROBINHOOD_TESTNET=live` | native test-ETH self-transfer — Robinhood Chain Testnet | recommended | as chosen |
 | `GRYLOO_ETHEREUM_SEPOLIA_TRANSFER=live` | native test-ETH self-transfer — Ethereum Sepolia | recommended | as chosen |
 | `GRYLOO_ROUTER_TESTNET=live` | Cross-chain Router — Base Sepolia → Arbitrum Sepolia test USDC (LI.FI or Across) | recommended | as chosen |
@@ -72,7 +72,7 @@ chain, to Mainnet or to localhost, and every response's chain identity is verifi
 | `GRYLOO_SOLANA_DEVNET_RPC_URL` | Solana Devnet (genesis-verified) | `https://api.devnet.solana.com` | if keyed |
 | `GRYLOO_BASE_RPC_URL`, `GRYLOO_ARBITRUM_RPC_URL` | Base 8453 / Arbitrum One 42161 — Router mainnet (read-only) | `https://mainnet.base.org`, `https://arb1.arbitrum.io/rpc` | if keyed |
 | `GRYLOO_SOLANA_RPC_URL` | Solana mainnet-beta (genesis-verified) — Jupiter (read-only) | `https://api.mainnet-beta.solana.com` | if keyed |
-| `GRYLOO_ALCHEMY_API_KEY` | Keyed Base Sepolia provider for the local-only lending composition (Bearer header); dev-only Base observation | — | **yes** |
+| `GRYLOO_ALCHEMY_API_KEY` | Keyed Base Sepolia provider the Supply → Borrow → Swap composition requires (public endpoints rate-limit its sequential `eth_simulateV1`; sent only as a server-side Bearer header); dev-only Base observation. Without it the composition fails closed with `LENDING_PUBLIC_CREDENTIAL_NOT_CONFIGURED` | — | **yes** |
 | `LIFI_API_KEY`, `ACROSS_API_KEY`, `ACROSS_INTEGRATOR_ID`, `JUPITER_API_KEY` | Provider quotas | — | **yes** (integrator id: no) |
 
 The Robinhood Chain Testnet endpoint has no override.

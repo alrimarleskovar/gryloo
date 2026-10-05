@@ -91,8 +91,9 @@ makes no blockchain request.
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
 keep their existing `GRYLOO_*` gates; leave those unset on Vercel. Since BUILD-CLOUD-PARITY-001 a hosted deployment also
 refuses them itself: local journals and `/tmp` state are never used, MOCKED harness gates leave a flow `off`, and the
-local-only rehearsals (lending composition, the BUILD-010 Across demo, CoW loopback, the BUILD-008 bridge, local forks)
-report themselves unavailable.
+local-only rehearsals (the BUILD-010 Across demo, CoW loopback, the BUILD-008 bridge, local forks) report themselves
+unavailable. The Supply → Borrow → Swap composition runs on the cloud runtime as flow `lending-composition` (enabled with
+`GRYLOO_SUPPLY_TESTNET=live`, on the Aave family's shared storage) and needs the keyed `GRYLOO_ALCHEMY_API_KEY`.
 
 ## Vercel Preview on the embedded runtime (BUILD-CLOUD-PARITY-001)
 
@@ -112,12 +113,16 @@ Owner setup, once (Vercel → Project `flofi` → Settings):
 3. **Capabilities** (Preview only): `GRYLOO_PUBLIC_TESTNET=record`, `GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live`,
    `GRYLOO_SUPPLY_TESTNET=live`, `GRYLOO_ETHEREUM_SEPOLIA_TRANSFER=live`, `GRYLOO_ROBINHOOD_TESTNET=live`,
    `GRYLOO_ROUTER_TESTNET=live`, `GRYLOO_SOLANA_DEVNET=live`; optionally `FLOFI_COPILOT=live` with `OPENAI_API_KEY` and
-   `OPENAI_COPILOT_MODEL`, and keyed RPC overrides. Make sure `API_BASE_URL` is **not** set for Preview.
+   `OPENAI_COPILOT_MODEL`, `GRYLOO_ALCHEMY_API_KEY` for the lending composition, and keyed RPC overrides (recommended:
+   the public Base Sepolia endpoint drops read bursts from Vercel's shared egress). Make sure `API_BASE_URL` is **not** set for
+   Preview.
 4. **Reachability**: Deployment Protection → disable Vercel Authentication for Preview deployments, or create a *Protection
    Bypass for Automation* secret for automated checks (keep it in your own shell as `VERCEL_AUTOMATION_BYPASS_SECRET`).
 5. Redeploy the Preview. Check `https://<preview>/api/flofi/readiness?probe=networks`: `runtime.status` must be `READY`, each
    enabled flow `live`, each network `REACHABLE`. `node scripts/cloud-preview-smoke.mjs https://<preview>` runs the same
-   read-only checks plus read-only server actions.
+   read-only checks plus read-only server actions; `FLOFI_CLOUD_PARITY_ORIGIN=https://<preview> pnpm test:cloud-remote` sweeps
+   every capability (no-signature Simulates and fail-closed probes). Previews are reachable on the branch alias
+   (`flofi-git-<branch>-…vercel.app`) when protection exempts it.
 
 A user then needs no terminal: open the Preview URL → connect a wallet → select the testnet → author → Simulate → Review the
 Manifest → sign in the wallet. Reconciliation is request-driven on the embedded runtime (reopening a run observes the chain);

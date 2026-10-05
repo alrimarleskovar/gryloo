@@ -76,17 +76,24 @@ ignored (the flow stays `off`), the filesystem evidence store is refused, and th
 `assertSchemaCurrent` accepts it. Migrations stay explicit (`main.ts migrate`); the Vercel build can optionally apply them to a
 Preview database when the owner sets `FLOFI_MIGRATE_ON_BUILD=preview` (never for Production).
 
-### 5. Lending composition (R7) — plan revised during the audit
+### 5. Lending composition (R7) — revised twice, final
 
-The first plan was to move only the service's I/O primitives onto the `ExecutionStorage` ports (the BUILD-CLOUD-001 pattern).
-Measuring the run format before changing it showed that this is not safe: every lending log line is a full snapshot that
-repeats every Review (the BUILD-013 pilot logged 15.9 MB by the first reconciled step and passed 100 MB by ROUTER_APPROVAL; the
-local bound is 512 MiB), while a cloud log is capped at 16 MiB by code and schema and is re-validated from its first byte by
-every cold serverless instance. With a 16 MiB bound the service's own capacity guard would refuse the second step of a real run.
-A compact (delta or content-addressed) lending log is a change to the financial core's validators and needs its own reviewed
-build. This build therefore keeps the composition local-only, makes it fail closed on hosted deployments
-(`LENDING_CLOUD_RUNTIME_UNAVAILABLE`, before any read or wallet request) and documents the blocker in the matrix. BUILD-013's
-separate public-provider blocker (sequential `eth_simulateV1` rate limits; keyed `GRYLOO_ALCHEMY_API_KEY`) is unchanged.
+First plan: move only the service's I/O primitives onto the `ExecutionStorage` ports (the BUILD-CLOUD-001 pattern). The pilot's
+figures (15.9 MB by the first reconciled step, more than 100 MB by ROUTER_APPROVAL; local bound 512 MiB) then suggested the
+16 MiB cloud log bound made this unsafe, and the first push kept it local-only. Measuring a straight-through MOCKED run settled
+it: 8.9 MB at completion (30 snapshots). The service's existing `begin()` guard requires room for 16 more snapshots before any
+wallet request, so with a 16 MiB bound a clean run completes and a retry-heavy run stops **before** its next wallet request,
+never mid-transaction. Final design (implemented after the Preview became reachable):
+
+* only the I/O primitives move to the ports; locally the file store keeps the same paths, bytes, fsyncs, PID locks and the
+  512 MiB bound;
+* a `lending-composition` cloud flow on the **`aave-supply` namespace** (new optional `FlowDefinition.namespace`), because locally
+  the composition shares the Aave journal directory and therefore its owner-nonce and economic-intent reservations;
+* the store's 16 MiB bound is passed as the run capacity; enabled with the Aave family's `GRYLOO_SUPPLY_TESTNET=live`; live reads
+  still need BUILD-013's keyed provider (`GRYLOO_ALCHEMY_API_KEY`);
+* `sweep()` addresses re-armed work by flow rather than by storage namespace (identical for every other flow).
+
+A compact lending log that would lift the capacity limit changes financial-core validators and needs its own reviewed build.
 
 ### 6. RPC parity (R8)
 
@@ -101,8 +108,16 @@ chain-bound like the Ethereum Sepolia one. No new RPC variable.
 
 ### 8. Remote verification
 
-`scripts/cloud-preview-smoke.mjs <origin>` performs only reads (page, readiness, network probe). The Preview SSO gate (R11)
-and the Preview environment variables are owner settings; the report states exactly what was and was not reachable.
+`scripts/cloud-preview-smoke.mjs <origin>` (page, CSP, readiness, network probe, read-only server actions, one no-signature
+Simulate) and `pnpm test:cloud-remote` (opt-in sweep: every capability authored with the app's editor, durable Simulate and
+read-back for public addresses, a disposable in-memory key for the Router session, fail-closed probes for every off/local-only
+capability). Nothing reviews, prepares, signs or sends. The Preview SSO gate (R11) and the Preview environment are owner settings.
+
+### 9. Found during remote validation (R12)
+
+Through the Preview, 2 of 6 Base Sepolia liquidity Simulates failed on the public endpoint (shared serverless egress). The live
+Base Sepolia swap and liquidity clients now use the Router's existing `pacedReadRpc` (spacing plus bounded retry of transport
+failures; a node's answer is never retried); 8 of 8 then succeeded.
 
 ## Non-goals
 
