@@ -56,7 +56,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   </div>;
 }
 
-export function SimulatePanel({ returnToBuild, reviewActionHost, children }: { returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode }) {
+export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, children }: { workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode }) {
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function SimulatePanel({ returnToBuild, reviewActionHost, children }: { r
     {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
     <div className="simulate-grid">
-      <WorkflowCanvas mode="simulate" overlay={overlay} primaryAction={<>
+      <WorkflowCanvas mode="simulate" workflowName={workflowName} overlay={overlay} primaryAction={<>
         {returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}
         {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
       </>}/>

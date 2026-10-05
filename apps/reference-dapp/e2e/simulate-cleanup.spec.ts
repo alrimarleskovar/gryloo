@@ -4,6 +4,10 @@ import { test, expect } from './fixtures';
 test('Simulate groups its existing review/return actions and zoom controls inside the graph', async ({ page }) => {
   await page.goto('/');
   const stages = page.getByRole('navigation', { name: 'Workflow stages' });
+  await page.getByRole('button', { name: 'Rename workflow', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Workflow name', exact: true }).fill('ESPARTACUS');
+  await page.getByRole('textbox', { name: 'Workflow name', exact: true }).press('Enter');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Mocked artifact chain' });
   const graph = panel.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true });
@@ -11,6 +15,9 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   const reviewSwap = graph.getByRole('button', { name: 'Review swap', exact: true });
   const technical = panel.locator('.simulation-technical');
   await expect(graph).toBeVisible();
+  await expect(panel.locator('.canvas-head').getByRole('heading', { name: 'ESPARTACUS', exact: true })).toBeVisible();
+  await expect(panel.locator('.canvas-head')).not.toContainText(/mock|read-only|synthetic/i);
+  await expect(panel.locator('.canvas-head').getByRole('heading', { name: 'Graph', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Return to Build', exact: true })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(1);
   await expect(reviewSwap).toBeDisabled();
@@ -31,7 +38,7 @@ test('Simulate groups its existing review/return actions and zoom controls insid
     const buttonBox = (await returnToBuild.boundingBox())!;
     const reviewBox = (await reviewSwap.boundingBox())!;
     const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
-    expect(Math.abs(graphBox.x + graphBox.width - reviewBox.x - reviewBox.width - 12)).toBeLessThan(1);
+    expect(Math.abs(graphBox.x + graphBox.width - reviewBox.x - reviewBox.width - 56)).toBeLessThan(1);
     expect(Math.abs(graphBox.y + graphBox.height - buttonBox.y - buttonBox.height - 12)).toBeLessThan(1);
     expect(buttonBox.x).toBeGreaterThanOrEqual(graphBox.x + 12);
     expect(Math.abs(reviewBox.x - buttonBox.x - buttonBox.width - 8)).toBeLessThan(1);
@@ -39,7 +46,8 @@ test('Simulate groups its existing review/return actions and zoom controls insid
     expect(reviewBox.height).toBe(buttonBox.height);
     expect(Math.abs(graphBox.x + graphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
     expect(controlsBox.y).toBeGreaterThan(graphBox.y);
-    expect(controlsBox.y + controlsBox.height + 12).toBeLessThanOrEqual(buttonBox.y);
+    expect(Math.abs(graphBox.y + graphBox.height - controlsBox.y - controlsBox.height - 12)).toBeLessThan(1);
+    expect(controlsBox.x - reviewBox.x - reviewBox.width).toBeGreaterThanOrEqual(12);
     expect((await technical.boundingBox())!.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
@@ -47,10 +55,16 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   await expect(stages.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByRole('heading', { name: 'ESPARTACUS', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Rename workflow', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Workflow name', exact: true }).fill('ETH Carry Strategy');
+  await page.getByRole('textbox', { name: 'Workflow name', exact: true }).press('Enter');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await expect(panel.locator('.canvas-head').getByRole('heading', { name: 'ETH Carry Strategy', exact: true })).toBeVisible();
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.flow-card')).toBeInViewport();
   const viewport = graph.locator('.react-flow__viewport');
@@ -80,7 +94,7 @@ test('Simulate groups its existing review/return actions and zoom controls insid
   await expect(panel).toHaveAttribute('data-technical-open', 'false');
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
   await returnToBuild.click();
-  await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ETH Carry Strategy', exact: true })).toBeVisible();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(page.locator('.flow-card')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(0);

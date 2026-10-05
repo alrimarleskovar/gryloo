@@ -216,6 +216,27 @@ The first browser attempts tried zoom-in at the existing maximum and then tested
 
 Browser traffic was restricted to the existing loopback preview/development HMR, with external requests blocked and zero wallet signing/transaction requests verified. Temporary fixture/config copies and diagnostics remain in untracked `.tmp/`, excluded from the commit. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. This presentation change does not upgrade artifact/evidence maturity.
 
+### Owner-directed Simulate control alignment and shared title
+
+Commit subject: `UX-001A: align Simulate canvas controls and workflow title`.
+
+Presentation changes:
+
+- Shifted the simulation canvas action row left: 56px from the right edge and 12px from the bottom. Return to Build remains left of Review swap with an 8px gap. On mobile, reduced only these buttons' horizontal padding from 16px to 12px, preserving their 44px minimum height and avoiding the canvas edge.
+- Existing React Flow controls now occupy the true bottom-right corner, 12px from both edges, with at least 12px horizontal clearance from the action row. Zoom/fit logic and all navigation/review handlers and gates remain unchanged.
+- Removed MOCKED OUTPUTS · READ-ONLY and Graph from the canvas header. Its heading now displays the same `workflowName` already held in AppShell and edited in Build, passed through SimulatePanel to the simulation canvas. No second title state, persistence or canonical title was added. The primary canvas title area contains no mock/read-only/synthetic labels; diagnostics, artifact provenance and evidence semantics elsewhere remain intact.
+- Preserved simulation/artifact generation, canonical IR and revisions, runtime, backend/API, Review/Manifest and wallet semantics, Build/Execute behavior, product-specific panels and Guided Chat. No Part B work.
+
+| Targeted validation | Result |
+| --- | --- |
+| Vitest: `components/simulate-panel.test.tsx` | Four tests passed: supplied workflow-name propagation without canonical edits, retained diagnostic access, generation eligibility/pending gates and hashing rejection feedback. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source/browser tests | Passed. |
+| Focused Chromium: `e2e/simulate-cleanup.spec.ts`, `e2e/simulate-shell.spec.ts` | Two tests passed. Build rename to ESPARTACUS and then ETH Carry Strategy reflected in Simulate and retained on return, with renaming leaving revision unchanged. Removed header labels, CTA order and spacing, 56px action offset and 12px control edge margins verified at 1440px/390px without overflow or overlap. Existing zoom/fit, artifact generation/proof access, disabled synthetic review, return navigation, Supply and Build/Execute views preserved. |
+| `git diff --check` | Passed. |
+
+The first layout check found insufficient left padding for the action row at 390px; scoped mobile button padding resolved it and the browser checks passed on rerun. Browser requests were limited to the existing loopback preview/development HMR, external traffic blocked, and zero wallet signing/transaction requests verified. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. The shared title remains session presentation state and resets on reload, as before.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

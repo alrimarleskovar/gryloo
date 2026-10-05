@@ -10,23 +10,31 @@ import { SimulatePanel } from './simulate-panel';
 
 const fixture = vi.hoisted(() => ({ store: null as unknown as ReturnType<typeof import('../state/workflow-store').useWorkflow> }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => fixture.store }));
-vi.mock('./workflow-canvas', () => ({ WorkflowCanvas: ({ primaryAction }: { primaryAction?: ReactNode }) =>
-  createElement('div', { 'aria-label': 'simulation graph fixture' }, primaryAction) }));
+vi.mock('./workflow-canvas', () => ({ WorkflowCanvas: ({ workflowName, primaryAction }: { workflowName: string; primaryAction?: ReactNode }) =>
+  createElement('div', { 'data-workflow-name': workflowName, 'aria-label': 'simulation graph fixture' }, primaryAction) }));
 
 beforeEach(() => {
   const state = initialEditor(), context = createBaseSepoliaReviewContext();
   fixture.store = { state, context, chain: initialChainState(), eligibility: generationEligibility(state.workflow, context),
     generateArtifacts: vi.fn(), refreshArtifacts: vi.fn(), accessCheck: vi.fn() } as unknown as typeof fixture.store;
 });
-function render() {
+function render(workflowName = 'Your Workflow') {
   const returnToBuild = vi.fn();
-  const html = renderToStaticMarkup(createElement(SimulatePanel, { returnToBuild }, createElement('div', {}, 'Existing diagnostic panels')));
+  const html = renderToStaticMarkup(createElement(SimulatePanel, { workflowName, returnToBuild }, createElement('div', {}, 'Existing diagnostic panels')));
   expect(returnToBuild).not.toHaveBeenCalled();
   expect(fixture.store.generateArtifacts).not.toHaveBeenCalled();
   expect(fixture.store.refreshArtifacts).not.toHaveBeenCalled();
   return html;
 }
 describe('Simulate control presentation', () => {
+  it('forwards the supplied workflow identity without editing the canonical workflow', () => {
+    const workflow = fixture.store.state.workflow;
+    expect(render('ESPARTACUS')).toContain('data-workflow-name="ESPARTACUS"');
+    expect(render('ETH Carry Strategy')).toContain('data-workflow-name="ETH Carry Strategy"');
+    expect(fixture.store.state.workflow).toBe(workflow);
+    expect(fixture.store.state.workflow.revision).toBe(0);
+  });
+
   it('removes the upper informational strip/toggle and retains technical access below the graph', () => {
     const html = render();
     expect(html).not.toMatch(/simulate-details-toggle|Show technical details|Hide technical details/);

@@ -155,7 +155,7 @@ function SimulationViewport({ onState }: { onState: (state: ViewportState) => vo
 }
 
 /** Read-only projection of the same IR with current mocked outputs only. */
-function SimulationCanvas({ overlay, primaryAction }: { overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
+function SimulationCanvas({ workflowName, overlay, primaryAction }: { workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
   const { state, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const nodes = useMemo(() => workflow.nodes.filter(node => !node.actionType.startsWith('mock-')).map((node, index) => {
@@ -193,7 +193,7 @@ function SimulationCanvas({ overlay, primaryAction }: { overlay: ReadonlyMap<str
   const bridges = workflow.nodes.filter(n => n.actionType === 'asset.bridge').length;
   const [viewportState, setViewportState] = useState<ViewportState>('pending');
   return <section className="canvas simulate-canvas panel" aria-label="Mocked outputs graph">
-    <div className="canvas-head"><div><p className="eyebrow">MOCKED OUTPUTS · READ-ONLY</p><h2>Graph</h2></div><span className="revision">{nodes.length} actions</span></div>
+    <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{nodes.length} actions</span></div>
     <div className="flow-surface" role="region" aria-label="Mocked outputs on the workflow graph" data-viewport={viewportState}>
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
@@ -207,8 +207,8 @@ function SimulationCanvas({ overlay, primaryAction }: { overlay: ReadonlyMap<str
 }
 
 type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
-export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
-  if ('mode' in props) return <SimulationCanvas overlay={props.overlay} primaryAction={props.primaryAction}/>;
+export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
+  if ('mode' in props) return <SimulationCanvas workflowName={props.workflowName} overlay={props.overlay} primaryAction={props.primaryAction}/>;
   return <BuildCanvas {...props}/>;
 }
 
