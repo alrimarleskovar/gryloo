@@ -40,13 +40,14 @@ export function CopilotPanel() {
       copilot.reset();
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: `Proposal: ${text}. Review against revision ${command.baseRevision} before applying.` }]);
     } catch {
-      dismissProposal();
+      // BUILD-COPILOT-002: the Copilot keeps the pending proposal visible while it interprets ("make it 2", questions about it).
       if (copilot.mayInterpret) {
         setMessages(old => [...old, { role: 'you', text }]);
         void copilot.respond(text).then(reply => setMessages(old => [...old,
           reply ? { role: 'ai', text: reply.text, notes: reply.notes, options: reply.options } : { role: 'system', text: guidance }]));
         return;
       }
+      dismissProposal();
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: guidance }]);
     }
   }

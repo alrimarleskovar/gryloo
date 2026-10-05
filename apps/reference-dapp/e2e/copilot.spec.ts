@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { installSupplyWallet, resetSupplyHarness, reviewSupply, supplySendCount, SUPPLY_OWNER } from './supply-fixtures';
 
-// BUILD-COPILOT-001: FLOFI_COPILOT=replay serves the committed answers in e2e/copilot/replay.json. No model is called and the
-// network guard refuses every non-loopback request. The MOCKED supply harness provides the downstream Simulate/Review.
+// BUILD-COPILOT-001: FLOFI_COPILOT=replay serves committed answers (protocol V2 since BUILD-COPILOT-002: e2e/copilot/replay-v2.json). No model is
+// called and the network guard refuses every non-loopback request. The MOCKED supply harness provides the downstream Simulate/Review.
 if (process.env.FLOFI_COPILOT !== 'replay') throw new Error('copilot.spec.ts requires FLOFI_COPILOT=replay');
 
 const conversation = (page: Page) => page.getByRole('log', { name: 'Conversation' });
@@ -45,7 +45,8 @@ test('Portuguese and mainnet requests are proposals with explicit notes, and Dis
   await installSupplyWallet(page);
   await page.goto('/');
   await ask(page, 'Coloca 1 USDC na Aave na Base Sepolia');
-  await expect(copilotSays(page)).toContainText('Interpreted as “supply 1 USDC to Aave on Base Sepolia”');
+  // BUILD-COPILOT-002: replies follow the language of the latest message; the canonical sentence stays the exact grammar.
+  await expect(copilotSays(page)).toContainText('Interpretado como “supply 1 USDC to Aave on Base Sepolia”');
   await ask(page, 'Swap 100 USDC to ETH on Base');
   await expect(copilotSays(page)).toContainText('Interpreted as “swap 100 USDC to WETH on Base slippage 50 bps”');
   await expect(copilotSays(page)).toContainText('Flofi swaps the ERC-20 WETH (wrapped ETH), not native ETH.');
@@ -93,7 +94,7 @@ test('unsupported requests are explained, not invented', async ({ page }) => {
   await expect(copilotSays(page)).toContainText('Staking is not supported by Flofi.');
   await expect(copilotSays(page)).toContainText('Flofi Copilot can author:');
   await ask(page, 'Tenho 500 USDC. Coloca 300 na Aave e troca 200 por ETH.');
-  await expect(copilotSays(page)).toContainText('Flofi can combine steps only as Supply USDC → Borrow USDC → Swap the borrowed USDC to WETH');
+  await expect(copilotSays(page)).toContainText('O Flofi só combina passos como Supply de USDC → Borrow de USDC → Swap do USDC emprestado para WETH');
   await expect(proposal(page)).toHaveCount(0);
   await revision(page, 0);
 });
