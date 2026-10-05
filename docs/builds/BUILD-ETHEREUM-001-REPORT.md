@@ -147,7 +147,7 @@ All local runs were on this branch at its final working tree (pinned Node 24.21.
 * Read-only public verification: 47/47 checks (§8).
 * `git diff --check` is clean; no bidirectional-control characters; no secrets. The only 64-hex values added are
   transaction, bundle and code hashes. No `.tmp` or scratch files are committed.
-* Governance-Lite ran on a clean `git archive` export (§13).
+* Governance-Lite passed on a clean `git archive` export, self-tests 17/17 (§13).
 
 ## 8. Public-chain verification
 
@@ -215,3 +215,11 @@ post-transaction verification (in-app reconciliation, Evidence Bundle, then
   is bounded by fresh quotes, ranges and minimums.
 * `build009.spec.ts` (2 tests) needs a live li.quest quote and cannot run in the offline network namespace used
   locally. This branch does not touch it; CI runs it with network access.
+
+## 13. Repository gates
+
+* Governance-Lite on a clean `git archive` export of `48e8b7a`: passed (938 text files). Self-tests
+  (`python3 -m unittest discover -s scripts -p 'test_governance_lite.py'`): 17/17 OK.
+* Dependency integrity: `pnpm-lock.yaml`, every workspace manifest's dependencies and the pinned toolchain are
+  unchanged. Root `package.json` only adds the three new scripts to the lint list. No new dependency.
+* Ancestry: `origin/main` `66d5843` is an ancestor; `main` was not modified.
