@@ -227,7 +227,7 @@
 .toolbox-mode-toggle:hover,.toolbox-mode-toggle:focus-visible{background:var(--blue-soft)}
 .toolbox-mode-toggle:focus-visible,.canvas-toolbox button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .build-flow-surface{position:relative;overflow:hidden}
-.floating-toolbox{position:absolute;z-index:5;left:8px;top:8px;max-height:calc(100% - 16px);overflow:auto;border:1px solid var(--line);border-radius:11px;background:var(--paper);box-shadow:0 8px 24px rgba(24,59,104,.16);padding:5px}
+.floating-toolbox{position:absolute;z-index:5;left:8px;top:8px;max-height:calc(100% - 16px);overflow:auto;border:1px solid var(--line);border-radius:11px;background:var(--paper);box-shadow:0 8px 24px rgba(24,59,104,.16);padding:5px 2px}
 .floating-toolbox .canvas-toolbox{display:flex;flex-direction:column;margin:0;gap:2px}
 .floating-toolbox .canvas-toolbox button{width:40px;height:40px;min-height:40px;justify-content:center;padding:0}
 .floating-toolbox .canvas-toolbox button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
@@ -310,6 +310,7 @@
 /* Build layout: canvas and existing assistant, with selected parameters below. */
 .build-grid{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
 .build-grid>.copilot{height:530px;min-width:0;grid-column:auto}
+.build-grid:has(.floating-toolbox)>.canvas:not(.lending-canvas),.build-grid:has(.floating-toolbox)>.copilot{height:620px}
 .build-grid:has(.lending-canvas)>.copilot{height:760px}
 .build-grid+.inspector{min-width:0;width:100%}
 .build-grid+.inspector .inspector-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
@@ -327,4 +328,4 @@
 .technical-authoring{margin:18px 0 0}
 .technical-workspace{margin-top:20px}.technical-workspace>.panel{margin-top:16px}
 .stage-empty{padding:26px;line-height:1.6}.stage-empty p{color:var(--muted)}
-@media(max-width:1100px){.build-grid{grid-template-columns:minmax(0,1fr)}.build-grid>.copilot,.build-grid:has(.lending-canvas)>.copilot{height:390px}}
+@media(max-width:1100px){.build-grid{grid-template-columns:minmax(0,1fr)}.build-grid>.copilot,.build-grid:has(.floating-toolbox)>.copilot,.build-grid:has(.lending-canvas)>.copilot{height:390px}}

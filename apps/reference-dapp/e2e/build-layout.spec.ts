@@ -39,6 +39,26 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
   const toolbar = graph.locator('.floating-toolbox');
   await expect(toolbar).toBeVisible();
+  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Duplicate selection', 'Undo', 'Redo'];
+  expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(buttonLabels);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => toolbar.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect((await toolbar.boundingBox())!.width).toBe(46);
+    expect((await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!.height).toBe(620);
+    for (const button of await toolbar.getByRole('button').all()) {
+      const buttonBox = (await button.boundingBox())!;
+      const iconBox = (await button.locator('svg').boundingBox())!;
+      expect(Math.abs(buttonBox.x + buttonBox.width / 2 - iconBox.x - iconBox.width / 2)).toBeLessThan(1);
+    }
+    const lastButton = (await toolbar.getByRole('button', { name: 'Redo', exact: true }).boundingBox())!;
+    const toolboxBox = (await toolbar.boundingBox())!;
+    expect(lastButton.y + lastButton.height).toBeLessThanOrEqual(toolboxBox.y + toolboxBox.height);
+    if (width === 1440) {
+      expect((await page.getByRole('complementary', { name: 'Workflow assistant' }).boundingBox())!.height).toBe(620);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   const graphBox = (await graph.boundingBox())!;
   const toolbarBox = (await toolbar.boundingBox())!;
   expect(toolbarBox.x - graphBox.x).toBe(8);
