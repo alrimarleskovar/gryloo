@@ -7,6 +7,21 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-COPILOT-002 — Conversational Flofi Copilot
+
+**Status: IMPLEMENTATION COMPLETE — LIVE MODEL NOT YET EXERCISED.** Branch `claude/build-copilot-002` from main `d58b535`
+(BUILD-COPILOT-001 merged). The Copilot now holds a bounded conversation: it asks for missing facts and takes the answer,
+revises a pending proposal ("actually make it 2"), edits, repeats or removes existing steps by kind and position ("the
+second swap", "o último passo"), and answers read-only questions about the workflow, approvals, Manifest, simulation
+status, blockers and failure handling, in English, Portuguese and mixed input. The model returns a strict, versioned
+`CopilotIntentV2` and never sees the workflow or wallet. Flofi resolves every reference, clarifies anything ambiguous,
+keeps deterministic provenance for every value (the open request, a resolved step or visible proposal, the connected
+wallet where the exact grammar already uses it, or a Flofi default), writes every factual answer from its own state, and
+still turns everything into an ordinary proposal that needs **Apply proposal**. No new protocol, dependency, wallet or
+execution capability. Evidence: MOCKED only (unit tests, a 198-case deterministic eval with zero safety-invariant
+violations, replay browser suites); no live OpenAI request and no transaction were made. See the
+[plan](builds/BUILD-COPILOT-002-PLAN.md) and [report](builds/BUILD-COPILOT-002-REPORT.md).
+
 ## BUILD-COPILOT-001 — AI natural-language interpretation for the Flofi Copilot
 
 **Status: IMPLEMENTATION COMPLETE — LIVE MODEL NOT YET EXERCISED.** Branch `claude/build-copilot-001` from main `1cf923f`.
