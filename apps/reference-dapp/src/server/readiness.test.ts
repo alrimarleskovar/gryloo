@@ -32,7 +32,7 @@ describe('BUILD-CLOUD-PARITY-001 readiness', () => {
     const report = await readiness({ env, networks: true, fetcher });
     expect(report).toMatchObject({ ok: false, runtime: { kind: 'unconfigured', status: 'NOT_CONFIGURED' }, session: { status: 'CONFIGURED' },
       deployment: { environment: 'preview', hosted: true, commit: 'a'.repeat(40), branch: 'claude/build-cloud-parity-001', region: 'iad1' },
-      copilot: { mode: 'unavailable' }, localOnly: { 'lending-composition': 'LENDING_CLOUD_RUNTIME_UNAVAILABLE' } });
+      copilot: { mode: 'unavailable' }, localOnly: { 'across-mocked-demo': 'ACROSS_MOCKED_DEMO_LOCAL_ONLY', 'cow-mocked-loopback': 'COW_OFF' } });
     // Every flow fails closed on an unconfigured hosted runtime.
     expect(new Set(Object.values(report.flows))).toEqual(new Set(['off']));
     expect(Object.values(report.networks!).every(n => n.status === 'UNREACHABLE')).toBe(true);

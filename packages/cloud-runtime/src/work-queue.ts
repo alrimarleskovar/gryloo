@@ -73,27 +73,30 @@ export function createPostgresWorkQueue(input: { db: Database; ownerId: string; 
   };
 }
 
-/** Defense in depth: re-creates missing reconcile/evidence items from durable run state, and prunes old rows. */
+/**
+ * Defense in depth: re-creates missing reconcile/evidence items from durable run state, and prunes old rows. Work is addressed by the
+ * run's FLOW (what the projectors enqueue and the handlers dispatch on), which differs from its storage namespace when flows share one.
+ */
 export async function sweep(db: Database, options: { completedRetentionDays?: number; tenantId?: string } = {}): Promise<{ reconcile: number; evidence: number }> {
   // BUILD-CLOUD-PARITY-001: a tenant-scoped deployment only re-arms and prunes its own tenant's rows.
   const tenant = [options.tenantId ?? null];
   const reconcile = await db.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at)
-    SELECT r.tenant_id, 'reconcile', r.namespace || ':' || r.run_id, r.run_id,
-      jsonb_build_object('namespace', r.namespace, 'runId', r.run_id), 'READY', now()
+    SELECT r.tenant_id, 'reconcile', r.flow || ':' || r.run_id, r.run_id,
+      jsonb_build_object('namespace', r.flow, 'runId', r.run_id), 'READY', now()
     FROM execution_runs r
     WHERE r.needs_observation AND NOT r.attention_required AND ($1::text IS NULL OR r.tenant_id = $1) AND NOT EXISTS (
       SELECT 1 FROM work_items w WHERE w.tenant_id = r.tenant_id AND w.kind = 'reconcile'
-        AND w.dedupe_key = r.namespace || ':' || r.run_id AND w.state IN ('READY', 'LEASED'))
+        AND w.dedupe_key = r.flow || ':' || r.run_id AND w.state IN ('READY', 'LEASED'))
     LIMIT 500
     ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`, tenant);
   const evidence = await db.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at)
-    SELECT r.tenant_id, 'evidence.archive', r.namespace || ':' || r.run_id, r.run_id,
-      jsonb_build_object('namespace', r.namespace, 'runId', r.run_id), 'READY', now()
+    SELECT r.tenant_id, 'evidence.archive', r.flow || ':' || r.run_id, r.run_id,
+      jsonb_build_object('namespace', r.flow, 'runId', r.run_id), 'READY', now()
     FROM execution_runs r
     WHERE r.has_evidence AND NOT r.attention_required AND ($1::text IS NULL OR r.tenant_id = $1)
       AND NOT EXISTS (SELECT 1 FROM evidence_objects e WHERE e.tenant_id = r.tenant_id AND e.run_id = r.run_id)
       AND NOT EXISTS (SELECT 1 FROM work_items w WHERE w.tenant_id = r.tenant_id AND w.kind = 'evidence.archive'
-        AND w.dedupe_key = r.namespace || ':' || r.run_id AND w.state IN ('READY', 'LEASED', 'DEAD'))
+        AND w.dedupe_key = r.flow || ':' || r.run_id AND w.state IN ('READY', 'LEASED', 'DEAD'))
     LIMIT 500
     ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`, tenant);
   const days = options.completedRetentionDays ?? 14;

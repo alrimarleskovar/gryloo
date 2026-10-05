@@ -48,9 +48,9 @@ export function createBackend(options: BackendOptions) {
     return { ...transport, ...router, mode, env, rpc: readOnly ? observeOnly(transport.rpc) : transport.rpc };
   };
   function storage(flow: FlowName, tenantId: string): ExecutionStorage {
-    const definition = FLOWS[flow];
-    return { log: createPostgresLogStore({ db, tenantId, namespace: flow, projector: definition.projector }),
-      leases: createPostgresLeaseStore({ db, tenantId, namespace: flow, busyCode: definition.busyCode, holderId: options.holderId,
+    const definition = FLOWS[flow], namespace = definition.namespace ?? flow;
+    return { log: createPostgresLogStore({ db, tenantId, namespace, projector: definition.projector }),
+      leases: createPostgresLeaseStore({ db, tenantId, namespace, busyCode: definition.busyCode, holderId: options.holderId,
         ...options.leaseTtlMs ? { ttlMs: options.leaseTtlMs } : {} }) };
   }
   /** `observer` services (workers) get a transport that cannot submit anything, whatever a handler does. */

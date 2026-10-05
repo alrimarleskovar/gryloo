@@ -27,7 +27,7 @@ type Env = Readonly<Record<string, string | undefined>>;
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 const code = (error: unknown, fallback: string) => error instanceof Error && CODE.test(error.message) ? error.message : fallback;
 export const READINESS_FLOWS: readonly FlowName[] = Object.freeze(['base-sepolia-swap', 'uniswap-liquidity', 'aave-supply', 'robinhood-transfer',
-  'crosschain-router-testnet', 'solana-devnet-swap', 'orca-liquidity', 'crosschain-router', 'jupiter-swap']);
+  'crosschain-router-testnet', 'solana-devnet-swap', 'orca-liquidity', 'lending-composition', 'crosschain-router', 'jupiter-swap']);
 
 export type NetworkStatus = { readonly status: 'REACHABLE' | 'WRONG_CHAIN' | 'UNREACHABLE' | 'RATE_LIMITED' | 'CONFIGURATION_INVALID';
   readonly chain: string; readonly endpoint: 'PUBLIC_DEFAULT' | 'DEPLOYMENT_OVERRIDE'; readonly block?: number; readonly latencyMs?: number };
@@ -96,7 +96,7 @@ async function probe(target: Probe, fetcher: typeof fetch, now: () => number): P
 }
 
 /** Capabilities that are user-facing locally but deliberately never run on a hosted deployment (see the cloud parity matrix). */
-const LOCAL_ONLY: Readonly<Record<string, string>> = Object.freeze({ 'lending-composition': 'LENDING_CLOUD_RUNTIME_UNAVAILABLE',
+const LOCAL_ONLY: Readonly<Record<string, string>> = Object.freeze({
   'across-mocked-demo': 'ACROSS_MOCKED_DEMO_LOCAL_ONLY', 'cow-mocked-loopback': 'COW_OFF', 'lifi-bridge-mocked': 'BRIDGE_OFF', 'local-fork-modes': 'LOCAL_FORK_ONLY' });
 
 export async function readiness(options: { readonly env?: Env; readonly networks?: boolean; readonly fetcher?: typeof fetch; readonly now?: () => number } = {}): Promise<Readiness> {

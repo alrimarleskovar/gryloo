@@ -15,7 +15,7 @@ describe('BUILD-CLOUD-001 backend entry point loads under plain Node', () => {
     const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e',
       "const f = await import('./backend/flows.ts'); await import('./backend/app.ts'); console.log(Object.keys(f.FLOWS).sort().join(','));"],
     { cwd, timeout: 60_000, env: { PATH: process.env.PATH ?? '', NODE_ENV: 'test' } });
-    expect(stdout.trim()).toBe('aave-supply,base-sepolia-swap,crosschain-router,crosschain-router-testnet,jupiter-swap,orca-liquidity,robinhood-transfer,solana-devnet-swap,uniswap-liquidity');
+    expect(stdout.trim()).toBe('aave-supply,base-sepolia-swap,crosschain-router,crosschain-router-testnet,jupiter-swap,lending-composition,orca-liquidity,robinhood-transfer,solana-devnet-swap,uniswap-liquidity');
   });
   it('refuses to start without configuration instead of running unconfigured', async () => {
     const cwd = fileURLToPath(new URL('..', import.meta.url));

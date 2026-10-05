@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomBytes } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import { mkdir, open, readFile, unlink, rmdir, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { validateAuthoringWorkflow, createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { SUPPLY_METAMASK, supplyCall, assertLendingReview, assertLendingReviewLifetime, assertLendingFresh, assertLendingPrincipalContinuity, lendingRootChain, simulateLendingComposition, readLendingSnapshot, readLendingRoute, rpcRecord, supplyHash, supplyHex,
   rpcHash, rpcUint, lendingFeeCeilings, assertLendingFeeBudgets, readLendingL1FeeUpperBound, type SupplyRpc, type LendingSnapshot } from '@defi-workflow-engine/reference-compiler';
 import { createLendingRun, validateLendingRun, currentLendingReview, prepareLendingAttempt, lendingAttemptTransition,
-  writeExtendingFile, reserveEconomicIntent, discoverSupplyTransaction, type LendingRun, type LendingNonSubmissionProof } from '@defi-workflow-engine/reference-executor';
+  writeExtendingFile, reserveEconomicIntentIn, discoverSupplyTransaction, createFileExecutionStorage, assertLogName, logMissing, utf8, type ExecutionStorage,
+  type LendingRun, type LendingNonSubmissionProof } from '@defi-workflow-engine/reference-executor';
 import { reconcileLendingAttempt, reconcileSupplyAttempt, buildLendingEvidence, verifyComposedLendingEffects, type LendingObservation } from '@defi-workflow-engine/reference-reconciler';
-import { createSupplyService } from './supply-service';
+import { createSupplyService } from './supply-service.ts';
 import { supplyAddress, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 export type LendingRecord = LendingRun & {observations:LendingObservation[];currentPosition:LendingSnapshot|null;evidence:ReturnType<typeof buildLendingEvidence>|null};
 // Every run line is a full snapshot whose evidence repeats every Review, so a run grows with each Fresh Simulate;
@@ -20,10 +20,23 @@ const completed=(r:LendingRecord)=>r.attempts.filter(a=>a.reconciled).map(a=>a.s
 const proofs=(r:LendingRecord)=>r.attempts.map(a=>r.observations.filter(o=>o.attemptId===a.id).at(-1)).filter((o):o is LendingObservation=>Boolean(o));
 // Append-only prefix check, element by element: one preimage per item stays far below the canonical 1 MiB hash bound.
 const samePrefix=(next:readonly unknown[],prior:readonly unknown[])=>prior.every((item,i)=>supplyHash(next[i])===supplyHash(item));
-export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:string;provenance:'MOCKED'|'PUBLIC_TESTNET';maxRunBytes?:number}) {
+/**
+ * BUILD-CLOUD-PARITY-001: like the Aave Supply family, the composition persists only through the storage ports. Locally they are the
+ * original journal directory (same paths, bytes, fsyncs and PID locks; run logs keep the 512 MiB bound). In the cloud the caller
+ * passes the Aave Supply family's shared durable storage, so owner-nonce and economic-intent reservations stay shared with single-step
+ * Aave runs exactly as the shared local directory shares them, and `maxRunBytes` is that store's bound: the begin() capacity guard
+ * then refuses a step BEFORE any wallet request when its submission and reconciliation might not fit.
+ */
+export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir?:string;storage?:ExecutionStorage;provenance:'MOCKED'|'PUBLIC_TESTNET';maxRunBytes?:number}) {
   const maxRunBytes=input.maxRunBytes??LENDING_RUN_MAX_BYTES;
-  if(!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/'))throw Error('LENDING_STORAGE_INVALID');
-  const path=(id:string)=>join(input.journalDir,idCheck(id)+'.jsonl');
+  if(!input.storage&&(!input.journalDir||!isAbsolute(input.journalDir)||input.journalDir.includes('/.git/')))throw Error('LENDING_STORAGE_INVALID');
+  const storage:ExecutionStorage=input.storage??(()=>{
+    const local=createFileExecutionStorage(input.journalDir!,'LENDING_BUSY'),dir=input.journalDir!;
+    // Run logs outgrow the shared 16 MiB default locally; every other primitive is the original file store.
+    return {leases:local.leases,log:{...local.log,extend:(name,next,validate)=>writeExtendingFile(join(dir,assertLogName(name)),next,validate,undefined,maxRunBytes)}};
+  })();
+  const {log,leases}=storage;
+  const path=(id:string)=>idCheck(id)+'.jsonl';
   // Cache only a fully validated, exact serialized prefix, never live authority or RPC proof.
   // Every load still reads the file; changed/truncated history is validated from scratch.
   // Keep the parsed predecessor private so callers cannot mutate the cached validation.
@@ -48,19 +61,11 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     // Publish only after the entire suffix and its predecessor links pass.
     validatedBytes=Buffer.from(bytes);validatedText=text;validatedRecord=prior;
   };
-  const load=async(id:string):Promise<LendingRecord>=>{const bytes=await readFile(path(id));validate(bytes);return JSON.parse(bytes.toString().trimEnd().split('\n').at(-1)!);};
-  const save=async(r:LendingRecord)=>{let previous='';try{previous=await readFile(path(r.id),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
-    await writeExtendingFile(path(r.id),new TextEncoder().encode(previous+JSON.stringify(r)+'\n'),validate,undefined,maxRunBytes);return r;};
-  async function locked<T>(key:string,action:()=>Promise<T>):Promise<T>{
-    await mkdir(input.journalDir,{recursive:true,mode:0o700});const directory=join(input.journalDir,key+'.lock');
-    try{await mkdir(directory,{mode:0o700});}catch(e){if((e as NodeJS.ErrnoException).code!=='EEXIST')throw e;
-      const before=await stat(directory),pid=Number(await readFile(join(directory,'pid'),'utf8'));
-      if(!Number.isSafeInteger(pid)||pid<=0)throw Error('LENDING_BUSY',{cause:e});
-      try{process.kill(pid,0);throw Error('LENDING_BUSY',{cause:e});}catch(cause){if((cause as NodeJS.ErrnoException).code!=='ESRCH')throw cause;}
-      if((await stat(directory)).ino!==before.ino)throw Error('LENDING_BUSY',{cause:e});await unlink(join(directory,'pid'));await rmdir(directory);await mkdir(directory,{mode:0o700});}
-    const handle=await open(join(directory,'pid'),'wx',0o600);try{await handle.writeFile(String(process.pid));await handle.sync();}finally{await handle.close();}
-    try{return await action();}finally{await unlink(join(directory,'pid'));await rmdir(directory);}
-  }
+  const load=async(id:string):Promise<LendingRecord>=>{const bytes=await log.read(path(id));if(!bytes)throw logMissing(path(id));validate(bytes);return JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!);};
+  const save=async(r:LendingRecord)=>{const previous=utf8(await log.read(path(r.id)));
+    await log.extend(path(r.id),new TextEncoder().encode(previous+JSON.stringify(r)+'\n'),validate);return r;};
+  // Cross-process exclusive section: the original PID lock directory locally, a fenced lease in shared storage.
+  const locked=<T,>(key:string,action:()=>Promise<T>):Promise<T>=>leases.hold(key,action);
   async function verifyPredecessors(r:LendingRecord) {
     for(const a of r.attempts.filter(a=>a.reconciled)){
       const review=r.reviews.find(v=>v.commitment===a.reviewCommitment)!;
@@ -69,8 +74,7 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       if(!old||supplyHash(old.receipt)!==supplyHash(proof.receipt)||old.output!==proof.output)throw Error('LENDING_PREDECESSOR_PROOF_CHANGED');
     }
   }
-  const lastEntry=async(path:string):Promise<{id?:unknown}|null>=>{try{return JSON.parse((await readFile(path,'utf8')).trimEnd().split('\n').at(-1)!);}
-    catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return null;throw e;}};
+  const lastEntry=async(name:string):Promise<{id?:unknown}|null>=>{const bytes=await log.read(name);return bytes===null?null:JSON.parse(utf8(bytes).trimEnd().split('\n').at(-1)!);};
   /**
    * A run may take a fresh starting state only while nothing ever reached a wallet: no completed step, no observation,
    * every attempt cancelled from PREPARED with no hash, and every nonce/economic reservation still held by this run.
@@ -80,9 +84,9 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     for(const a of r.attempts)if(a.state!=='CANCELLED'||a.notSubmitted!==true||a.hash!==null||a.reconciled||
       JSON.stringify(r.journal.entries.filter(e=>e.entityId===a.id).map(e=>e.toState))!==JSON.stringify(['PREPARED','CANCELLED']))return false;
     const owner=currentLendingReview(r).fields.owner;
-    for(const nonce of new Set(r.attempts.map(a=>a.nonce)))if((await lastEntry(join(input.journalDir,owner+'-'+nonce+'.intent')))?.id!==r.id)return false;
+    for(const nonce of new Set(r.attempts.map(a=>a.nonce)))if((await lastEntry(owner+'-'+nonce+'.intent'))?.id!==r.id)return false;
     for(const review of r.reviews)for(const call of review.calls){
-      const last=await lastEntry(join(input.journalDir,'economic-'+supplyHash(call.tx).slice(2)+'.intent'));if(last&&last.id!==r.id)return false;
+      const last=await lastEntry('economic-'+supplyHash(call.tx).slice(2)+'.intent');if(last&&last.id!==r.id)return false;
     }
     return true;
   }
@@ -115,9 +119,9 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
     if(!completed(r).includes('SWAP')){const route=await readLendingRoute(input.rpc,f.borrowAmount,f.slippageBps,Date.now(),'latest',review.route.minimumOut);
       if(route.codeHash!==review.route.codeHash||route.pool!==review.route.pool)throw Error('LENDING_REVIEW_STALE');}
     if(latest.aave.nonce!==a.nonce)throw Error('LENDING_NONCE_CHANGED');
-    const lease=await lastEntry(join(input.journalDir,owner+'-'+a.nonce+'.intent')) as {id?:unknown;attemptId?:unknown}|null;
+    const lease=await lastEntry(owner+'-'+a.nonce+'.intent') as {id?:unknown;attemptId?:unknown}|null;
     if(lease?.id!==r.id||lease.attemptId!==a.id)throw Error('LENDING_NONCE_ALREADY_RESERVED');
-    if((await lastEntry(join(input.journalDir,'economic-'+supplyHash(a.call.tx).slice(2)+'.intent')))?.id!==r.id)throw Error('ECONOMIC_EXISTING_INTENT_OBSERVE_ONLY');
+    if((await lastEntry('economic-'+supplyHash(a.call.tx).slice(2)+'.intent'))?.id!==r.id)throw Error('ECONOMIC_EXISTING_INTENT_OBSERVE_ONLY');
     const root=lendingRootChain(r.reviews).root,reconciled=proofs(r).filter(o=>o.verdict==='RECONCILED');
     const consumedNetwork=reconciled.reduce((sum,o)=>sum+BigInt(o.cost??'0'),0n),consumedL1=reconciled.reduce((sum,o)=>sum+rpcUint(o.receipt?.l1Fee??'0x0'),0n);
     const remaining=review.calls.filter(c=>!completed(r).includes(c.id)),execution=remaining.reduce((sum,c)=>sum+BigInt(c.gasLimit)*BigInt(review.gasPrice),0n);
@@ -207,16 +211,16 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
       account=supplyAddress(account);
       const r=await load(id),review=currentLendingReview(r);if(r.authorization!==review.commitment)throw Error('LENDING_REVIEW_REQUIRED');
       // Never hand a step to the wallet unless the run journal can still record its submission and reconciliation.
-      if((await stat(path(id))).size+LENDING_HANDOFF_HEADROOM_LINES*(JSON.stringify(r).length+1)>maxRunBytes)throw Error('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
+      if((await log.read(path(id)))!.length+LENDING_HANDOFF_HEADROOM_LINES*(JSON.stringify(r).length+1)>maxRunBytes)throw Error('LENDING_JOURNAL_CAPACITY_INSUFFICIENT');
       const state=await publicGate(r,workflow,account),prepared=prepareLendingAttempt(r,workflow,account,state.aave.block,state.aave.nonce),attempt=prepared.attempts.at(-1)!;
       await locked(account+'-'+attempt.nonce,async()=>{
-        const noncePath=join(input.journalDir,account+'-'+attempt.nonce+'.intent');
-        let previous:string|null=null;try{previous=await readFile(noncePath,'utf8');}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
+        const noncePath=account+'-'+attempt.nonce+'.intent';
+        const stored=await log.read(noncePath),previous:string|null=stored===null?null:utf8(stored);
         if(previous){const prior=JSON.parse(previous.trimEnd().split('\n').at(-1)!);
           if(typeof prior.id==='string'&&/^supply-[a-f0-9]{32}$/.test(prior.id)){
             // A previously completed BUILD-012 owner delegation can leave this nonce unchanged.
             // Accept only fresh canonical proof, never an absent or ambiguous old transaction.
-            const priorRun=await createSupplyService(input).load(prior.id),a=priorRun.attempts.find(a=>a.step===prior.step);
+            const priorRun=await createSupplyService({rpc:input.rpc,storage,provenance:input.provenance}).load(prior.id),a=priorRun.attempts.find(a=>a.step===prior.step);
             if(priorRun.verdict!=='RECONCILED'||!a?.reconciled||a.nonce!==attempt.nonce||supplyHash(a.transaction)!==supplyHash(prior.transaction))throw Error('LENDING_NONCE_ALREADY_RESERVED');
             const proof=await reconcileSupplyAttempt(priorRun.review,a,input.rpc);
             if(proof.verdict!=='RECONCILED'||proof.walletEnvelope?.owner!==account||proof.walletEnvelope.ownerNonceAfter!==attempt.nonce)throw Error('LENDING_NONCE_ALREADY_RESERVED');
@@ -227,12 +231,12 @@ export function createLendingCompositionService(input:{rpc:SupplyRpc;journalDir:
           }
         }
         const nonceEntry=JSON.stringify({id,attemptId:attempt.id,step:attempt.step,transaction:attempt.call.tx})+'\n';
-        if(previous)await writeExtendingFile(noncePath,new TextEncoder().encode(previous+nonceEntry),()=>undefined);
-        else {const handle=await open(noncePath,'wx',0o600);try{await handle.writeFile(nonceEntry);await handle.sync();}finally{await handle.close();}}
+        if(previous)await log.extend(noncePath,new TextEncoder().encode(previous+nonceEntry),()=>undefined);
+        else if(!await log.create(noncePath,new TextEncoder().encode(nonceEntry)))throw Error('LENDING_NONCE_ALREADY_RESERVED');
         // Reserve the whole remaining economic path BEFORE the first owner request.
         // An unrelated run cannot supply again and only later discover a borrowed-intent conflict.
-        for(const call of review.calls)await reserveEconomicIntent(input.journalDir,call.tx,id);
-        const dirHandle=await open(input.journalDir,'r');try{await dirHandle.sync();}finally{await dirHandle.close();}
+        // Each creation and extension is durable when it resolves (the file store fsyncs files and the directory).
+        for(const call of review.calls)await reserveEconomicIntentIn(log,call.tx,id);
         await save({...prepared,observations:r.observations,currentPosition:state,evidence:r.evidence});
       });
       return {record:await load(id),attemptId:attempt.id,transaction:{...attempt.call.tx,nonce:supplyHex(attempt.nonce),gas:supplyHex(attempt.call.gasLimit),gasPrice:supplyHex(review.gasPrice)}};

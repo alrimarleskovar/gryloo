@@ -65,13 +65,26 @@ for (const script of scripts) {
   for (const m of text.matchAll(/createServerReference\)\("([0-9a-f]{40,42})",[^,]+,void 0,[^,]+,"([A-Za-z0-9]+)"\)/g)) actions.set(m[2], m[1]);
 }
 record('server-actions-declared', actions.size > 0, { count: actions.size });
+/** The root value row of a React Flight reply. Long strings arrive as length-prefixed text rows (`<id>:T<hex bytes>,…`) with no newline. */
+function flightRoot(bytes) {
+  let at = 0;
+  while (at < bytes.length) {
+    const colon = bytes.indexOf(0x3a, at), id = bytes.subarray(at, colon).toString();
+    // Hint rows (`:HL[…]`) have no id; every other row id is hexadecimal.
+    if (colon < 0 || !/^[0-9a-f]*$/.test(id)) break;
+    if (bytes[colon + 1] === 0x54) { const comma = bytes.indexOf(0x2c, colon); at = comma + 1 + parseInt(bytes.subarray(colon + 2, comma).toString(), 16); continue; }
+    const end = bytes.indexOf(0x0a, colon), row = bytes.subarray(colon + 1, end < 0 ? bytes.length : end).toString();
+    if (id === '1') return JSON.parse(row);
+    at = end < 0 ? bytes.length : end + 1;
+  }
+  return null;
+}
 async function action(name, input) {
   const id = actions.get(name);
   if (!id) return { missing: true };
   const response = await globalThis.fetch(url('/'), { method: 'POST', redirect: 'manual', signal: globalThis.AbortSignal.timeout(300_000),
     headers: { ...base, 'next-action': id, 'content-type': 'text/plain;charset=UTF-8', accept: 'text/x-component' }, body: JSON.stringify(input) });
-  const text = await response.text(), row = text.split('\n').find(line => line.startsWith('1:'));
-  try { return { status: response.status, value: row ? JSON.parse(row.slice(2)) : null }; } catch { return { status: response.status, value: null }; }
+  try { return { status: response.status, value: flightRoot(globalThis.Buffer.from(await response.arrayBuffer())) }; } catch { return { status: response.status, value: null }; }
 }
 const summary = value => value && typeof value === 'object' && 'ok' in value ? (value.ok ? { ok: true } : { ok: false, code: value.code }) : value;
 for (const [name, input] of [['copilotStatus', []], ['walletSessionStatus', []], ['uniswapLiquidityMode', []],
