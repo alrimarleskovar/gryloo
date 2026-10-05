@@ -133,7 +133,7 @@ describe('stale context and safety', () => {
     expect(reply.kind).toBe('UNSUPPORTED');
     expect(session.turns.at(-1)!.request).toBeNull();
     expect(session.state.transcript).toEqual([]);
-    expect(looksSecret('abandon ability able about above absent absorb abstract absurd abuse access accident')).toBe(true);
+    expect(looksSecret('table river cloud stone light paper green music water house chair bread')).toBe(true);
     expect(looksSecret('Swap 2 USDC to WETH on Base Sepolia')).toBe(false);
   });
 });

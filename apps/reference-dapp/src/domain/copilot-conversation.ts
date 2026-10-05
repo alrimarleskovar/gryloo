@@ -317,8 +317,8 @@ function applyReuse(action: CopilotAction, from: Base, fields: readonly CopilotR
   let out = { ...action } as Record<string, unknown>;
   const fill = (key: string, value: unknown, field: CarriedField) => { if (value !== null && value !== undefined && key in out && out[key] === null) { out = { ...out, [key]: value }; carried.add(field); } };
   for (const field of fields) {
-    if (field === 'network') action.type === 'BRIDGE' ? fill('sourceNetwork', source.type === 'BRIDGE' ? source.sourceNetwork : sourceNetwork(), 'sourceNetwork')
-      : fill('network', sourceNetwork(), 'network');
+    if (field === 'network' && action.type === 'BRIDGE') fill('sourceNetwork', source.type === 'BRIDGE' ? source.sourceNetwork : sourceNetwork(), 'sourceNetwork');
+    else if (field === 'network') fill('network', sourceNetwork(), 'network');
     if (field === 'destination' && action.type === 'BRIDGE' && source.type === 'BRIDGE') fill('destinationNetwork', source.destinationNetwork, 'destinationNetwork');
     if (field === 'asset') {
       if (action.type === 'SWAP' && source.type === 'SWAP') { fill('inputAsset', source.inputAsset, 'inputAsset'); fill('outputAsset', source.outputAsset, 'outputAsset'); }
@@ -327,8 +327,8 @@ function applyReuse(action: CopilotAction, from: Base, fields: readonly CopilotR
     }
     if (field === 'amount') fill('amount', sourceAmount(), 'amount');
     if (field === 'slippage') fill('slippageBps', source.type === 'SWAP' || source.type === 'BRIDGE' || source.type === 'LIQUIDITY' ? source.slippageBps : null, 'slippage');
-    if (field === 'recipient') action.type === 'BRIDGE' ? fill('recipient', source.type === 'BRIDGE' ? source.recipient : null, 'recipient')
-      : fill('beneficiary', source.type !== 'SWAP' && source.type !== 'BRIDGE' && source.type !== 'LIQUIDITY' ? source.beneficiary : null, 'beneficiary');
+    if (field === 'recipient' && action.type === 'BRIDGE') fill('recipient', source.type === 'BRIDGE' ? source.recipient : null, 'recipient');
+    else if (field === 'recipient') fill('beneficiary', source.type !== 'SWAP' && source.type !== 'BRIDGE' && source.type !== 'LIQUIDITY' ? source.beneficiary : null, 'beneficiary');
   }
   return { action: out as CopilotAction, carried };
 }

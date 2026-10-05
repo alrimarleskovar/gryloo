@@ -18,7 +18,6 @@ const body = (output: unknown, extra: Record<string, unknown> = {}) => JSON.stri
 const answer = (output: unknown, status = 200, extra: Record<string, unknown> = {}): CopilotHttpResponse => ({ status, body: body(output, extra) });
 const request = (text = 'Na verdade muda para 2.') => ({ version: '2', messages: [{ role: 'user', text: 'Swap 3 USDC to ETH on Base Sepolia' },
   { role: 'assistant', text: 'Flofi proposed: swap 3 USDC to WETH on Base Sepolia slippage 50 bps' }, { role: 'user', text }] });
-const fixed = (response: CopilotHttpResponse): CopilotTransport => async () => response;
 
 describe('V2 configuration', () => {
   it('bounds the owner tuning and never invents a model', () => {
