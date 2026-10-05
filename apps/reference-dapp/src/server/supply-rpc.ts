@@ -48,12 +48,13 @@ export function createSupplyReadRpc(harness: boolean, profile: AaveLendingProfil
   return (method, params) => { const result = queue.then(() => read(method, params)); queue = result.catch(() => undefined); return result; };
 }
 /**
- * One read client per registered Aave profile. Base Sepolia keeps its existing public endpoint; Ethereum Sepolia accepts the
- * HTTPS override `GRYLOO_ETHEREUM_SEPOLIA_RPC_URL` (server-side only, never sent to the browser).
+ * One read client per registered Aave profile, each at its profile's public endpoint unless the deployment names an HTTPS
+ * override for that chain (server-side only, never sent to the browser): `GRYLOO_ETHEREUM_SEPOLIA_RPC_URL`, and
+ * (BUILD-CLOUD-PARITY-001) the same `GRYLOO_BASE_SEPOLIA_RPC_URL` every other Base Sepolia client already honours.
  */
 export function createLendingReadRpcs(harness: boolean, env: Readonly<Record<string, string | undefined>> = {}): Readonly<Record<AaveLendingProfile['chain'], SupplyRpc>> {
   return Object.freeze({
-    [AAVE_V3_BASE_SEPOLIA.chain]: createSupplyReadRpc(harness, AAVE_V3_BASE_SEPOLIA),
+    [AAVE_V3_BASE_SEPOLIA.chain]: createSupplyReadRpc(harness, AAVE_V3_BASE_SEPOLIA, env.GRYLOO_BASE_SEPOLIA_RPC_URL),
     [AAVE_V3_ETHEREUM_SEPOLIA.chain]: createSupplyReadRpc(harness, AAVE_V3_ETHEREUM_SEPOLIA, env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL),
   });
 }

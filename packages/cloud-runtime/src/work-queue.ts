@@ -23,8 +23,12 @@ type ItemRow = { id: string; tenant_id: string; kind: string; dedupe_key: string
   deliveries: number; lease_token: string; trace_parent: string | null; created_at: Date };
 const reasonText = (reason: string) => reason.replace(/[^A-Za-z0-9_:. -]/g, '').slice(0, 200) || 'UNSPECIFIED';
 
-export function createPostgresWorkQueue(input: { db: Database; ownerId: string; leaseMs?: number }): WorkQueue {
-  const { db, ownerId } = input, leaseMs = input.leaseMs ?? 60_000;
+/**
+ * BUILD-CLOUD-PARITY-001: `tenantId` scopes claims to one tenant, so deployments that share a database (for example a Preview
+ * and Production) never process each other's runs with their own code and configuration. Without it every tenant is claimed.
+ */
+export function createPostgresWorkQueue(input: { db: Database; ownerId: string; leaseMs?: number; tenantId?: string }): WorkQueue {
+  const { db, ownerId } = input, leaseMs = input.leaseMs ?? 60_000, tenantId = input.tenantId ?? null;
   const settle = async (item: WorkItem, sql: string, values: readonly unknown[]) =>
     (await db.query(sql + ' AND id = $1 AND lease_token = $2 AND state = \'LEASED\' RETURNING 1', [item.id, item.leaseToken, ...values])).rows.length === 1;
   return {
@@ -39,13 +43,14 @@ export function createPostgresWorkQueue(input: { db: Database; ownerId: string; 
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('WORK_CLAIM_LIMIT_INVALID');
       const { rows } = await db.query<ItemRow>(`WITH candidate AS (
           SELECT id FROM work_items
-          WHERE (state = 'READY' AND available_at <= now()) OR (state = 'LEASED' AND lease_expires_at < now())
+          WHERE ((state = 'READY' AND available_at <= now()) OR (state = 'LEASED' AND lease_expires_at < now()))
+            AND ($4::text IS NULL OR tenant_id = $4)
           ORDER BY available_at, id LIMIT $1 FOR UPDATE SKIP LOCKED)
         UPDATE work_items w SET state = 'LEASED', lease_owner = $2, lease_token = gen_random_uuid(),
           lease_expires_at = now() + make_interval(secs => $3::double precision / 1000), deliveries = w.deliveries + 1, updated_at = now()
         FROM candidate WHERE w.id = candidate.id
         RETURNING w.id::text AS id, w.tenant_id, w.kind, w.dedupe_key, w.run_id, w.payload, w.deliveries, w.lease_token::text AS lease_token,
-          w.trace_parent, w.created_at`, [limit, ownerId, leaseMs]);
+          w.trace_parent, w.created_at`, [limit, ownerId, leaseMs, tenantId]);
       return rows.map(row => Object.freeze({ id: row.id, tenantId: row.tenant_id, kind: row.kind, dedupeKey: row.dedupe_key, runId: row.run_id,
         payload: row.payload, deliveries: row.deliveries, leaseToken: row.lease_token, traceParent: row.trace_parent, createdAt: row.created_at }));
     },
@@ -68,29 +73,34 @@ export function createPostgresWorkQueue(input: { db: Database; ownerId: string; 
   };
 }
 
-/** Defense in depth: re-creates missing reconcile/evidence items from durable run state, and prunes old rows. */
-export async function sweep(db: Database, options: { completedRetentionDays?: number } = {}): Promise<{ reconcile: number; evidence: number }> {
+/**
+ * Defense in depth: re-creates missing reconcile/evidence items from durable run state, and prunes old rows. Work is addressed by the
+ * run's FLOW (what the projectors enqueue and the handlers dispatch on), which differs from its storage namespace when flows share one.
+ */
+export async function sweep(db: Database, options: { completedRetentionDays?: number; tenantId?: string } = {}): Promise<{ reconcile: number; evidence: number }> {
+  // BUILD-CLOUD-PARITY-001: a tenant-scoped deployment only re-arms and prunes its own tenant's rows.
+  const tenant = [options.tenantId ?? null];
   const reconcile = await db.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at)
-    SELECT r.tenant_id, 'reconcile', r.namespace || ':' || r.run_id, r.run_id,
-      jsonb_build_object('namespace', r.namespace, 'runId', r.run_id), 'READY', now()
+    SELECT r.tenant_id, 'reconcile', r.flow || ':' || r.run_id, r.run_id,
+      jsonb_build_object('namespace', r.flow, 'runId', r.run_id), 'READY', now()
     FROM execution_runs r
-    WHERE r.needs_observation AND NOT r.attention_required AND NOT EXISTS (
+    WHERE r.needs_observation AND NOT r.attention_required AND ($1::text IS NULL OR r.tenant_id = $1) AND NOT EXISTS (
       SELECT 1 FROM work_items w WHERE w.tenant_id = r.tenant_id AND w.kind = 'reconcile'
-        AND w.dedupe_key = r.namespace || ':' || r.run_id AND w.state IN ('READY', 'LEASED'))
+        AND w.dedupe_key = r.flow || ':' || r.run_id AND w.state IN ('READY', 'LEASED'))
     LIMIT 500
-    ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`);
+    ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`, tenant);
   const evidence = await db.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at)
-    SELECT r.tenant_id, 'evidence.archive', r.namespace || ':' || r.run_id, r.run_id,
-      jsonb_build_object('namespace', r.namespace, 'runId', r.run_id), 'READY', now()
+    SELECT r.tenant_id, 'evidence.archive', r.flow || ':' || r.run_id, r.run_id,
+      jsonb_build_object('namespace', r.flow, 'runId', r.run_id), 'READY', now()
     FROM execution_runs r
-    WHERE r.has_evidence AND NOT r.attention_required
+    WHERE r.has_evidence AND NOT r.attention_required AND ($1::text IS NULL OR r.tenant_id = $1)
       AND NOT EXISTS (SELECT 1 FROM evidence_objects e WHERE e.tenant_id = r.tenant_id AND e.run_id = r.run_id)
       AND NOT EXISTS (SELECT 1 FROM work_items w WHERE w.tenant_id = r.tenant_id AND w.kind = 'evidence.archive'
-        AND w.dedupe_key = r.namespace || ':' || r.run_id AND w.state IN ('READY', 'LEASED', 'DEAD'))
+        AND w.dedupe_key = r.flow || ':' || r.run_id AND w.state IN ('READY', 'LEASED', 'DEAD'))
     LIMIT 500
-    ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`);
+    ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`, tenant);
   const days = options.completedRetentionDays ?? 14;
-  await db.query(`DELETE FROM work_items WHERE state = 'DONE' AND completed_at < now() - make_interval(days => $1)`, [days]);
-  await db.query(`DELETE FROM api_idempotency WHERE expires_at < now()`);
+  await db.query(`DELETE FROM work_items WHERE state = 'DONE' AND completed_at < now() - make_interval(days => $1) AND ($2::text IS NULL OR tenant_id = $2)`, [days, ...tenant]);
+  await db.query(`DELETE FROM api_idempotency WHERE expires_at < now() AND ($1::text IS NULL OR tenant_id = $1)`, tenant);
   return { reconcile: reconcile.rowCount, evidence: evidence.rowCount };
 }

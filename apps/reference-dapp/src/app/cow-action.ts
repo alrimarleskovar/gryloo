@@ -3,6 +3,7 @@
 import { isAbsolute, join } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createCowService, discoverCow, type CowScenario } from '../server/cow-service';
+import { isHostedDeployment } from '../server/deployment';
 
 type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 type Service = ReturnType<typeof createCowService>;
@@ -11,7 +12,8 @@ const EXECUTION = /^cow-[0-9a-f]{24}$/;
 const SIGNATURE = /^0x[0-9a-f]{130}$/;
 const OWNER = /^0x[0-9a-f]{40}$/;
 function runtime(): Service | null {
-  if (process.env.GRYLOO_COW !== 'loopback') return null;
+  // BUILD-CLOUD-PARITY-001: a local rehearsal (loopback chain, MOCKED harness, local journal) is never enabled on a hosted deployment.
+  if (process.env.GRYLOO_COW !== 'loopback' || isHostedDeployment(process.env)) return null;
   const directory = process.env.GRYLOO_COW_RUNTIME;
   if (!directory || !isAbsolute(directory) || directory.includes('..')) throw new Error('COW_CONFIGURATION_INVALID');
   if (!cache || cache.directory !== directory) cache = { directory, service: createCowService(join(directory, 'cow')) };

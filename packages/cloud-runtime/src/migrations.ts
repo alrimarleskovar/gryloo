@@ -7,11 +7,26 @@
  */
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Database } from './db.js';
 
 export type Migration = { readonly version: number; readonly name: string; readonly sql: string; readonly sha256: string };
-export const MIGRATIONS_DIRECTORY = fileURLToPath(new URL('../migrations/', import.meta.url));
+/** What the schema check compares: a migration's identity without its SQL. */
+export type MigrationIdentity = Pick<Migration, 'version' | 'name' | 'sha256'>;
+// A path computation, not a bundler asset reference: bundled serverless functions never read it (they use SHIPPED_MIGRATIONS).
+export const MIGRATIONS_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+/**
+ * BUILD-CLOUD-PARITY-001: the identities of the migrations this package ships, so a bundled serverless function (where the
+ * `migrations/` directory is not next to the code) can still verify the schema. A unit test proves it equals the SQL files;
+ * migrating still reads the files.
+ */
+export const SHIPPED_MIGRATIONS: readonly MigrationIdentity[] = Object.freeze([
+  { version: 1, name: 'execution_core', sha256: '66f8f10018153ea96209c6d83e16dc8fc85649792b64c69cdbb217a34ab3890e' },
+  { version: 2, name: 'swap_attempt_states', sha256: 'ec0486c47f6ec6e1f24824e58eb92a1cf25f53457097c9e417da94a6a16733be' },
+  { version: 3, name: 'solana_identities', sha256: 'a79ac40c257d6618762ec56ffbfb54d0d5e40771a569da74051805dfb3a2c365' },
+  { version: 4, name: 'owner_run_history', sha256: 'be6edd07d29fd741a421c925a87f0bd0274904244e8a43c36be78e9d3b90bc9a' },
+].map(migration => Object.freeze(migration)));
 const FILE = /^(\d{4})_([a-z0-9_]+)\.sql$/;
 const LOCK_ID = 7_340_032_001; // Constant advisory lock key for migration runners.
 
@@ -31,7 +46,7 @@ const LEDGER = `CREATE TABLE IF NOT EXISTS schema_migrations (
   applied_at timestamptz NOT NULL DEFAULT now())`;
 
 type Applied = { version: number; name: string; sha256: string };
-function verifyPrefix(applied: readonly Applied[], migrations: readonly Migration[]): void {
+function verifyPrefix(applied: readonly Applied[], migrations: readonly MigrationIdentity[]): void {
   for (const [index, row] of applied.entries()) {
     const expected = migrations[index];
     if (!expected || row.version !== expected.version || row.name !== expected.name || row.sha256 !== expected.sha256)
@@ -61,7 +76,7 @@ export async function migrate(db: Database, migrations?: readonly Migration[]): 
 }
 
 /** Fails closed unless the database has exactly the migrations this build ships. */
-export async function assertSchemaCurrent(db: Database, migrations?: readonly Migration[]): Promise<number> {
+export async function assertSchemaCurrent(db: Database, migrations?: readonly MigrationIdentity[]): Promise<number> {
   const all = migrations ?? await loadMigrations();
   let applied: Applied[];
   try { applied = (await db.query<Applied>('SELECT version, name, sha256 FROM schema_migrations ORDER BY version')).rows; }

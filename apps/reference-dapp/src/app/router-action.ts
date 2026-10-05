@@ -6,7 +6,7 @@ import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts'
 import { createFileExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import { createRouterService, ROUTER_RUN_ID, type RouterService, type RouterWalletDiagnostic } from '../server/router-service';
 import { ROUTER_NETWORKS, routerNetworkMode, routerNetworkRuntime, type RouterMode, type RouterNetwork } from '../server/router-runtime';
-import { callCloudFlow, listCloudRuns } from '../server/cloud-api-client';
+import { cloudFlow, cloudFlowMode, cloudRuns } from '../server/flow-runtime';
 import { assertRunOwnership, ROUTER_OWNERSHIP } from '../server/run-ownership';
 import { currentWalletPrincipal } from '../server/session-principal';
 
@@ -19,7 +19,7 @@ import { currentWalletPrincipal } from '../server/session-principal';
  */
 type Result<T> = { ok: true; value: T } | { ok: false; code: string };
 export type RouterRunSummary = { runId: string; status: string; hasEvidence: boolean; updatedAt: string };
-const FLOW: Readonly<Record<RouterNetwork, string>> = { mainnet: 'crosschain-router', testnet: 'crosschain-router-testnet' };
+const FLOW = { mainnet: 'crosschain-router', testnet: 'crosschain-router-testnet' } as const satisfies Readonly<Record<RouterNetwork, string>>;
 const DISABLED: Readonly<Record<RouterNetwork, string>> = { mainnet: 'ROUTER_NOT_ENABLED', testnet: 'ROUTER_TESTNET_NOT_ENABLED' };
 const JOURNAL: Readonly<Record<RouterNetwork, string>> = { mainnet: 'GRYLOO_ROUTER_JOURNAL', testnet: 'GRYLOO_ROUTER_TESTNET_JOURNAL' };
 const isNetwork = (value: unknown): value is RouterNetwork => (ROUTER_NETWORKS as readonly unknown[]).includes(value);
@@ -45,8 +45,9 @@ async function run<T>(network: RouterNetwork, method: string, args: readonly unk
   if (!isNetwork(network)) return { ok: false, code: 'ROUTER_NETWORK_INVALID' };
   let principal: string | null;
   try { principal = await currentWalletPrincipal(); } catch (cause) { return { ok: false, code: classified(cause) }; }
-  // Cloud deployment (BUILD-CLOUD-001): forward the identical contract to the stateless Flofi API, which enforces ownership.
-  if (process.env.API_BASE_URL) return callCloudFlow<T>(FLOW[network], method, args, { principal });
+  // Cloud deployment (remote API or embedded PostgreSQL runtime): the same backend enforces ownership against the durable run.
+  const cloud = await cloudFlow<T>(FLOW[network], method, args, { principal });
+  if (cloud) return cloud;
   try {
     const service = current(network);
     await assertRunOwnership(ROUTER_OWNERSHIP, method, args, principal, async id => (await service.load(id)).owner);
@@ -55,11 +56,7 @@ async function run<T>(network: RouterNetwork, method: string, args: readonly unk
 }
 export async function crossChainRouterMode(network: RouterNetwork = 'mainnet'): Promise<RouterMode> {
   if (!isNetwork(network)) return 'off';
-  if (process.env.API_BASE_URL) {
-    const remote = await callCloudFlow<unknown>(FLOW[network], 'mode', []);
-    return remote.ok && (remote.value === 'live' || remote.value === 'harness') ? remote.value : 'off';
-  }
-  return routerNetworkMode(network, process.env);
+  return await cloudFlowMode(FLOW[network]) ?? routerNetworkMode(network, process.env);
 }
 export async function routerInfo(network: RouterNetwork) { return run(network, 'info', [], async s => ({ executionEnabled: s.executionEnabled })); }
 export async function routerSimulate(network: RouterNetwork, workflow: SemanticWorkflow, owner: string) { return run(network, 'simulate', [workflow, owner], s => s.simulate(workflow, owner)); }
@@ -88,10 +85,8 @@ export async function routerRuns(network: RouterNetwork): Promise<Result<RouterR
   let principal: string | null;
   try { principal = await currentWalletPrincipal(); } catch (cause) { return { ok: false, code: classified(cause) }; }
   if (!principal) return { ok: false, code: 'WALLET_SESSION_REQUIRED' };
-  if (process.env.API_BASE_URL) {
-    const listed = await listCloudRuns(FLOW[network], principal);
-    return listed.ok ? { ok: true, value: listed.value.map(r => ({ runId: r.runId, status: r.status, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })) } : listed;
-  }
+  const listed = await cloudRuns(FLOW[network], principal);
+  if (listed) return listed.ok ? { ok: true, value: listed.value.map(r => ({ runId: r.runId, status: r.status, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })) } : listed;
   try {
     const service = current(network), dir = journalDir(network);
     const names = (await readdir(dir).catch(() => [] as string[])).filter(name => name.endsWith('.jsonl') && ROUTER_RUN_ID.test(name.slice(0, -6)));

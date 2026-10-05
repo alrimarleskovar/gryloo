@@ -13,6 +13,7 @@
  */
 import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { checksumAddress, recoverPersonalSigner } from '@defi-workflow-engine/reference-reconciler';
+import { isHostedDeployment } from './deployment.ts';
 
 export { checksumAddress, recoverPersonalSigner };
 
@@ -23,7 +24,8 @@ export const WALLET_CHALLENGE_TTL_SECONDS = 300;
 export const WALLET_SIGN_IN_STATEMENT = 'Sign in to Flofi to operate your own workflow runs. This signature authorizes no transaction and moves no funds.';
 type Env = Readonly<Record<string, string | undefined>>;
 type Challenge = { readonly n: string; readonly i: number; readonly e: number; readonly d: string; readonly u: string };
-type Session = { readonly a: string; readonly i: number; readonly e: number; readonly s: string };
+/** `d`: the host that issued the session (BUILD-CLOUD-PARITY-001); a session is only accepted there. */
+type Session = { readonly a: string; readonly i: number; readonly e: number; readonly s: string; readonly d: string };
 export type WalletSession = { readonly account: string; readonly expiresAt: string };
 
 const ACCOUNT = /^0x[0-9a-f]{40}$/, DOMAIN = /^[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?$/;
@@ -33,15 +35,17 @@ const seconds = (now: Date) => Math.floor(now.getTime() / 1000);
 let processKey: Buffer | null = null;
 /**
  * The cookie MAC key: `FLOFI_SESSION_SECRET` (≥ 32 characters) when set, else derived from the server-only `API_AUTH_TOKEN` the
- * deployed BFF already holds (HKDF, separate label, so no new deployment secret), else — only without a cloud API — a random
- * per-process key (one local server; sessions end when it restarts). A forwarding BFF without a key fails closed.
+ * deployed BFF already holds (HKDF, separate label, so no new deployment secret), else — only on a local server — a random
+ * per-process key (one local process; sessions end when it restarts). A forwarding BFF, and any hosted deployment
+ * (BUILD-CLOUD-PARITY-001: serverless instances do not share memory, so a per-process key would reject every other
+ * instance's sessions), fail closed without a configured key.
  */
 export function walletSessionKey(env: Env): Buffer {
   const derive = (secret: string) => Buffer.from(hkdfSync('sha256', secret, 'flofi', 'flofi/wallet-session/v1', 32));
   const explicit = env.FLOFI_SESSION_SECRET;
   if (explicit !== undefined && explicit !== '') return explicit.length >= 32 ? derive(explicit) : fail('WALLET_SESSION_SECRET_INVALID');
   if (env.API_AUTH_TOKEN && env.API_AUTH_TOKEN.length >= 32) return derive(env.API_AUTH_TOKEN);
-  if (env.API_BASE_URL) fail('WALLET_SESSION_NOT_CONFIGURED');
+  if (env.API_BASE_URL || isHostedDeployment(env)) fail('WALLET_SESSION_NOT_CONFIGURED');
   return processKey ??= randomBytes(32);
 }
 function seal(kind: 'c1' | 's1', payload: Challenge | Session, key: Buffer): string {
@@ -88,13 +92,18 @@ export function verifyWalletSignIn(env: Env, input: { readonly challengeToken: s
   readonly address: string; readonly chainId: number; readonly signature: string; readonly now: Date }): { readonly token: string; readonly session: WalletSession } {
   const message = challengeMessage(env, input);
   if (recoverPersonalSigner(message, input.signature) !== input.address) fail('WALLET_SIGNATURE_INVALID');
-  const issued = seconds(input.now), session: Session = { a: input.address, i: issued, e: issued + WALLET_SESSION_TTL_SECONDS, s: randomBytes(12).toString('hex') };
+  const issued = seconds(input.now), session: Session = { a: input.address, i: issued, e: issued + WALLET_SESSION_TTL_SECONDS, s: randomBytes(12).toString('hex'),
+    d: input.domain };
   return { token: seal('s1', session, walletSessionKey(env)), session: { account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } };
 }
-/** The session in a cookie value, or null when absent, tampered, expired or sealed with another key. */
-export function readWalletSession(env: Env, token: string | undefined, now: Date): WalletSession | null {
+/**
+ * The session in a cookie value, or null when absent, tampered, expired, sealed with another key or issued for another host.
+ * Deployments that share a key (Production and its Previews) therefore never accept each other's sessions.
+ */
+export function readWalletSession(env: Env, token: string | undefined, now: Date, domain: string): WalletSession | null {
   let key: Buffer;
   try { key = walletSessionKey(env); } catch { return null; }
   const session = unseal<Session>('s1', token, key, now);
-  return session && ACCOUNT.test(session.a) ? { account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } : null;
+  return session && ACCOUNT.test(session.a) && typeof session.d === 'string' && session.d === domain
+    ? { account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } : null;
 }

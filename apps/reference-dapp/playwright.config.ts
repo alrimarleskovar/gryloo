@@ -75,12 +75,26 @@ if (process.env.GRYLOO_ROUTER_TESTNET_E2E && !routerTestnetHarness) throw new Er
 const routerTestnetJournal = process.env.GRYLOO_ROUTER_TESTNET_JOURNAL ?? join(tmpdir(), 'gryloo-router-testnet-' + Date.now() + '-' + process.pid);
 if (routerTestnetHarness) process.env.GRYLOO_ROUTER_TESTNET_JOURNAL = routerTestnetJournal;
 
+// BUILD-CLOUD-PARITY-001: the app on the embedded PostgreSQL runtime (the path a Vercel deployment runs) with the MOCKED loopback
+// Robinhood chain. A disposable LOOPBACK database is created for the run (e2e/cloud-runtime-setup.ts) and dropped afterwards; the
+// server gets no journal directory.
+const cloudRuntime = process.env.GRYLOO_CLOUD_RUNTIME_E2E === 'EMBEDDED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_CLOUD_RUNTIME_E2E && !cloudRuntime) throw new Error('Cloud runtime E2E permits only the embedded loopback runtime');
+if (cloudRuntime && !process.env.FLOFI_E2E_DATABASE_URL) {
+  const server = new URL(process.env.TEST_DATABASE_URL ?? 'invalid:');
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(server.hostname)) throw new Error('Cloud runtime E2E needs a loopback TEST_DATABASE_URL');
+  server.pathname = `/flofi_e2e_${Date.now()}_${process.pid}`;
+  // Test workers inherit it, so the setup, the server and the spec share one database.
+  process.env.FLOFI_E2E_DATABASE_URL = server.href;
+}
+
 // BUILD-COPILOT-001: the Copilot runs in browser tests only on committed replay answers; a live model is never called from tests.
 const copilot = process.env.FLOFI_COPILOT;
 if (copilot !== undefined && copilot !== 'off' && copilot !== 'replay') throw new Error('Copilot E2E permits only FLOFI_COPILOT=replay');
 
 export default defineConfig({
   testDir: './e2e',
+  ...(cloudRuntime ? { globalSetup: './e2e/cloud-runtime-setup.ts' } : {}),
   workers: 1,
   fullyParallel: false,
   retries: 0,
@@ -104,7 +118,7 @@ export default defineConfig({
     ...(lendingHarness ? [{ command: 'node e2e/lending-harness.mjs --serve', url: 'http://127.0.0.1:8554', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(devnetHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(robinhoodHarness ? [{ command: 'node e2e/robinhood-transfer-harness.mjs --serve', url: 'http://127.0.0.1:8553', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(robinhoodHarness || cloudRuntime ? [{ command: 'node e2e/robinhood-transfer-harness.mjs --serve', url: 'http://127.0.0.1:8553', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(routerHarness || routerTestnetHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
@@ -130,6 +144,7 @@ export default defineConfig({
       ...(routerHarness ? { GRYLOO_ROUTER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_JOURNAL: routerJournal } : {}),
       ...(routerTestnetHarness ? { GRYLOO_ROUTER_TESTNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_TESTNET_JOURNAL: routerTestnetJournal } : {}),
       ...(copilot === 'replay' ? { FLOFI_COPILOT: 'replay' } : {}),
+      ...(cloudRuntime ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {}),
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });

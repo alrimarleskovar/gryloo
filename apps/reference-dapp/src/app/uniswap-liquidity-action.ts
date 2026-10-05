@@ -4,9 +4,9 @@ import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createFileExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import { createUniswapLiquidityService, type UniswapLiquidityService, type UniswapWalletDiagnostic } from '../server/uniswap-liquidity-service';
-import { baseSepoliaRpcUrl, createBaseSepoliaReadRpc, ethereumSepoliaSwapRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../server/public-testnet-rpc';
+import { baseSepoliaLiquidityRpc, createBaseSepoliaReadRpc, ethereumSepoliaSwapRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../server/public-testnet-rpc';
 import { UNI_MOCK_CODE_PINS, UNI_MOCK_RPC_URL } from '../server/uniswap-liquidity-mock';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { cloudFlow, cloudFlowMode } from '../server/flow-runtime';
 
 /**
  * BUILD-UNISWAP-LIQUIDITY-PUBLIC: Uniswap v3 liquidity on Base Sepolia with test tokens. Simulation and Review are read-only;
@@ -25,7 +25,7 @@ function current(): UniswapLiquidityService {
   const journalDir = process.env.GRYLOO_UNISWAP_LIQUIDITY_JOURNAL;
   if (!journalDir || !isAbsolute(journalDir)) throw new Error('UNISWAP_LIQUIDITY_STORAGE_NOT_CONFIGURED');
   service ??= createUniswapLiquidityService({ storage: createFileExecutionStorage(journalDir, 'UNISWAP_LIQUIDITY_BUSY'),
-    rpc: createBaseSepoliaReadRpc(mode === 'harness' ? UNI_MOCK_RPC_URL : baseSepoliaRpcUrl(process.env.GRYLOO_BASE_SEPOLIA_RPC_URL), UNISWAP_LIQUIDITY_RPC_METHODS),
+    rpc: mode === 'harness' ? createBaseSepoliaReadRpc(UNI_MOCK_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS) : baseSepoliaLiquidityRpc(process.env.GRYLOO_BASE_SEPOLIA_RPC_URL),
     // BUILD-ETHEREUM-001: live Ethereum Sepolia reads use their own chain-bound client; the MOCKED harness is Base Sepolia only.
     ...mode === 'live' ? { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(process.env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS) } } : {},
     provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET', executionEnabled: process.env.GRYLOO_UNISWAP_LIQUIDITY_EXECUTION !== 'DISABLED',
@@ -33,17 +33,14 @@ function current(): UniswapLiquidityService {
   return service;
 }
 async function run<T>(method: string, args: readonly unknown[], action: (service: UniswapLiquidityService) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; code: string }> {
-  // Cloud deployment (BUILD-CLOUD-001): forward the identical contract to the stateless Flofi API.
-  if (process.env.API_BASE_URL) return callCloudFlow<T>('uniswap-liquidity', method, args);
+  // Cloud deployment: the remote Flofi API (BUILD-CLOUD-001) or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001).
+  const cloud = await cloudFlow<T>('uniswap-liquidity', method, args);
+  if (cloud) return cloud;
   try { return { ok: true, value: await action(current()) }; }
   catch (cause) { const code = cause instanceof Error ? cause.message : ''; return { ok: false, code: /^[A-Z][A-Z0-9_]{2,80}$/.test(code) ? code : 'UNISWAP_LIQUIDITY_SERVICE_UNAVAILABLE' }; }
 }
 export async function uniswapLiquidityMode(): Promise<Mode> {
-  if (process.env.API_BASE_URL) {
-    const remote = await callCloudFlow<unknown>('uniswap-liquidity', 'mode', []);
-    return remote.ok && (remote.value === 'live' || remote.value === 'harness') ? remote.value : 'off';
-  }
-  return localMode();
+  return await cloudFlowMode('uniswap-liquidity') ?? localMode();
 }
 export async function uniswapLiquidityInfo() { return run('info', [], async s => ({ executionEnabled: s.executionEnabled })); }
 export async function uniswapLiquidityPrice(chain?: 'eip155:84532' | 'eip155:11155111') { return run('price', chain ? [chain] : [], s => s.price(chain)); }

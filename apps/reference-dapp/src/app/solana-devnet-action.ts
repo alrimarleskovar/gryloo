@@ -4,7 +4,7 @@ import { ORCA_WHIRLPOOLS_DEVNET as profile } from '@defi-workflow-engine/action-
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createSolanaDevnetService, type SolanaSwapService, type SolanaSwapWalletDiagnostic } from '../server/jupiter-service';
 import { createSolanaRpc, solanaRpcOverride } from '../server/solana-rpc';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { cloudFlow } from '../server/flow-runtime';
 
 /**
  * Solana Devnet canonical swap through Orca Whirlpools with valueless test tokens. Simulation and Review are read-only.
@@ -25,8 +25,9 @@ function current(): SolanaSwapService {
   return service;
 }
 async function run<T>(method: string, args: readonly unknown[], action: (service: SolanaSwapService) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; code: string }> {
-  // Cloud deployment (BUILD-CLOUD-001): forward the identical contract to the stateless Flofi API.
-  if (process.env.API_BASE_URL) return callCloudFlow<T>('solana-devnet-swap', method, args);
+  // Cloud deployment: the remote Flofi API (BUILD-CLOUD-001) or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001).
+  const cloud = await cloudFlow<T>('solana-devnet-swap', method, args);
+  if (cloud) return cloud;
   try { return { ok: true, value: await action(current()) }; }
   catch (cause) { const code = cause instanceof Error ? cause.message : ''; return { ok: false, code: /^[A-Z][A-Z0-9_]{2,80}$/.test(code) ? code : 'DEVNET_SWAP_SERVICE_UNAVAILABLE' }; }
 }
