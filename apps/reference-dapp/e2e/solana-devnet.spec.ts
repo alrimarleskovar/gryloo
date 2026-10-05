@@ -12,7 +12,7 @@ test('canvas Swap on Solana Devnet → Simulate → Review → Execute → Resul
   await authorDevnetSwap(page, 'canvas');
   const card = page.locator('.react-flow__node[data-id="node-002"]');
   await expect(card).toContainText('SOL → devUSDC'); await expect(card).toContainText('SOLANA DEVNET · ORCA'); await expect(card).not.toContainText('JUPITER');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(panel(page));
   await expect(panel(page)).toContainText('Wallet connected · Solana Devnet');
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
@@ -46,7 +46,7 @@ test('chat “Swap 10 test USDC to test SOL on Solana Devnet” authors the same
   const wallet = await resetDevnetHarness(); await installDevnetWallet(page, wallet);
   await authorDevnetSwap(page, 'chat');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('10 devUSDC · Solana Devnet · 50 bps');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await expect(panel(page).getByRole('definition').filter({ hasText: '→ expected' })).toContainText('10 devUSDC (test) → expected');
@@ -117,7 +117,7 @@ test('Connect lists every compatible Wallet Standard provider and uses only the 
   await installDevnetWallet(page, wallet, { decoys: [{ name: 'MetaMask', chains: SOLANA }, { name: 'Brave Wallet', chains: SOLANA },
     { name: 'EVM Only', chains: ['eip155:1'] }, { name: 'Mainnet Only', chains: ['solana:mainnet'] }] });
   await authorDevnetSwap(page);
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await expect(panel(page).getByRole('status')).toContainText('Connect a Solana wallet first and choose which wallet to use.');
   await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();

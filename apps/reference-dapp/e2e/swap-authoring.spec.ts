@@ -105,7 +105,7 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   await selectSwap(page);
   await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('BLOCK');
   await expect(page.locator('.flow-card').nth(1)).toBeInViewport({ ratio: 1 });
-  await expect(page.getByRole('button', { name: 'Continue to Simulate' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simular Fees' })).toBeEnabled();
   await readyForVisualCapture(page);
   await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0 });
 });

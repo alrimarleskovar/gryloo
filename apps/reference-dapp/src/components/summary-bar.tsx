@@ -33,7 +33,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const actionCount = workflowShellContext(state.workflow).actionCount;
   return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
     <div><span className="eyebrow">WORKFLOW</span><strong>{actionCount} {actionCount === 1 ? 'action' : 'actions'}</strong></div>
-    {tab === 'Build' ? <button type="button" onClick={() => setTab('Simulate')}>Continue to Simulate</button>
+    {tab === 'Build' ? null
       : tab === 'Simulate' && transferPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!transfer.record || transfer.retired}>Review transfer</button>
       : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={()=>setTab('Execute')} disabled={!lending.record||lending.retired}>Review lending composition</button>
       : lendingPath ? <button type="button" onClick={()=>setTab('Simulate')}>Back to simulation</button>

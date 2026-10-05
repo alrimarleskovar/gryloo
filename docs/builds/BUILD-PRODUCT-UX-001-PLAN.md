@@ -65,3 +65,9 @@ Validate component/header/toolbar presentation, inline keyboard naming and exist
 ## Owner-directed Part A header controls and advanced expansion
 
 Box the existing wallet identity/network and Connect/Disconnect actions without changing their handlers, busy states or wallet/session semantics. Add a separate, aligned, icon-only Settings box with no functionality. Remove the outer Technical authoring tools disclosure; preserve its conditional workflow checks inside the existing Advanced action setup disclosure, together with all existing forms and provider-specific disclosures. Validate header/navigation presentation, wallet controls, single expansion access and preserved Build layout with targeted checks only. Commit `UX-001A: refine header controls and advanced section`, then stop without proceeding to Part B.
+
+## Owner-directed Part A canvas CTA and settings dropdown
+
+Move the existing Build navigation button into a floating bottom-right canvas action labeled exactly “Simular Fees”, retaining the `setTab('Simulate')` callback and leaving simulation/review/authorization gates unchanged. Preserve zoom controls at their existing bottom-right location and leave a clear gap beside the CTA. Retain footer workflow context without a duplicate Build button. Widen only the Build container slightly by reducing desktop horizontal padding and increasing its maximum width; preserve Copilot and Selected Action placement.
+
+Replace the inert gear with a toggled, absolutely positioned dropdown containing Language, Theme and Disconnect. Keep those options disabled/presentation-only; retain the real wallet Disconnect control and its existing handler. Support outside-click, Escape and focus-out dismissal without clearing canvas selection. Validate only relevant component, CTA/settings/browser UI, typecheck and touched-file lint checks. Commit `UX-001A: refine canvas CTA and settings menu`, then stop. Part B is not authorized.

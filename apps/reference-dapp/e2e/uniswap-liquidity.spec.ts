@@ -21,7 +21,7 @@ async function author(page: Page, options: UniswapWalletOptions = {}) {
   await form.getByRole('button', { name: 'Review position proposal' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('USDC/WETH v3 position');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await region(page).getByRole('button', { name: 'Simulate position', exact: true }).click();
   await expect(region(page).getByRole('definition').filter({ hasText: 'exact ticks' })).toBeVisible();
 }

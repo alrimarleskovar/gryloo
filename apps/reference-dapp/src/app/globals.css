@@ -289,13 +289,19 @@
 .header-wallet .wallet-connection{min-width:0}
 .header-wallet button{flex:none;min-height:30px;border:1px solid transparent;border-radius:5px;background:var(--soft);padding:5px 8px;color:var(--blue);font-size:11px;font-weight:600;white-space:nowrap}
 .header-wallet button:not(:disabled):hover{border-color:var(--line);background:var(--blue-soft)}
-.top-meta>.header-settings{flex:none;width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:8px;color:var(--muted)}
-.top-meta>.header-settings:disabled{opacity:1;cursor:default}
+.header-settings-control{position:relative;flex:none}
+.header-settings{width:40px;height:40px;padding:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--muted)}
+.header-settings:hover,.header-settings[aria-expanded=true]{background:var(--soft);color:var(--ink)}
+.header-settings-menu{position:absolute;z-index:20;top:calc(100% + 8px);right:0;width:176px;padding:6px;border:1px solid var(--line);border-radius:9px;background:var(--paper);box-shadow:0 8px 24px rgba(24,59,104,.12)}
+.header-settings-menu button{display:block;width:100%;min-height:36px;padding:8px 10px;border:0;border-radius:5px;background:transparent;text-align:left;color:var(--muted);font-size:12px}
+.header-settings-menu button:disabled{opacity:1;cursor:default}
 .shell-network-row{grid-column:1/-1;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;min-width:0;padding:10px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.5;color:var(--muted)}
 .shell-network-row:empty{display:none}.network-mismatch{color:var(--amber)}
 .shell-technical{margin-left:auto;min-width:0}.shell-technical summary{cursor:pointer;font-size:11px}
 .shell-technical>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0 2px;overflow-wrap:anywhere}
 .main{max-width:1600px;min-width:0;margin:0 auto;padding:28px}
+.main.build-workspace{max-width:1720px;padding-inline:20px}
+@media(max-width:800px){.main.build-workspace{padding-inline:16px}}
 .workspace-heading{margin-bottom:22px}
 .workflow-context{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin-bottom:24px;font-size:12px;line-height:1.5;color:var(--muted);font-variant-numeric:tabular-nums}
 .workflow-name{font-weight:600;color:var(--ink)}.workflow-chains{overflow-wrap:anywhere}
@@ -321,6 +327,7 @@
 
 /* Build layout: canvas and existing assistant, with selected parameters below. */
 .build-grid{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+.build-grid>.canvas{width:100%;min-width:0}
 .build-grid>.copilot{height:530px;min-width:0;grid-column:auto}
 .build-grid:has(.floating-toolbox)>.canvas:not(.lending-canvas),.build-grid:has(.floating-toolbox)>.copilot{height:620px}
 .build-grid:has(.lending-canvas)>.copilot{height:760px}
@@ -331,6 +338,9 @@
 .build-grid+.inspector p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 .build-grid+.inspector select{min-height:40px;border:1px solid var(--line);border-radius:6px;padding:0 10px;background:var(--paper);color:var(--ink);font:inherit}
 .build-flow-surface .react-flow__controls{margin:12px}
+.canvas-primary-action{position:absolute;z-index:5;right:56px;bottom:12px}
+.canvas-primary-action button{min-height:44px;padding:10px 16px;border:1px solid var(--blue);border-radius:9px;background:var(--blue);color:white;font-weight:700;box-shadow:0 5px 18px rgba(24,59,104,.2)}
+.canvas-primary-action button:hover{filter:brightness(.96)}
 .flow-card strong{text-transform:none}
 .canvas-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:30px;color:var(--muted)}
 .canvas-empty strong{font-size:20px;color:var(--ink);margin-bottom:10px}.canvas-empty p{max-width:340px;line-height:1.6}

@@ -13,7 +13,7 @@ async function author(page: Page, options: TransferWalletOptions = {}) {
   await form.getByRole('button', { name: 'Review transfer proposal' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Self-transfer test ETH');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await page.getByRole('button', { name: 'Simulate transfer', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Review transfer', exact: true })).toBeEnabled();
 }

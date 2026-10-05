@@ -32,13 +32,13 @@ beforeEach(() => {
 });
 
 describe('product shell rendering', () => {
-  it.each([false, true])('boxes the wallet and keeps Settings inert when connected=%s', connected => {
+  it.each([false, true])('boxes the wallet and renders Settings collapsed when connected=%s', connected => {
     if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
-    expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<button[^>]*>[\s\S]*?<\/button><\/div><button type="button" class="header-settings"/);
+    expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<button[^>]*>[\s\S]*?<\/button><\/div><div class="header-settings-control"><button type="button" class="header-settings"/);
     expect(html).toContain(connected ? 'Wallet: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
     expect(html).toContain(connected ? '>Disconnect</button>' : '>Connect Wallet</button>');
-    expect(html).toMatch(/class="header-settings" aria-label="Settings" title="Settings" disabled=""><svg[\s\S]*?<\/svg><\/button>/);
+    expect(html).toMatch(/class="header-settings" aria-label="Settings" title="Settings" aria-expanded="false"><svg[\s\S]*?<\/svg><\/button>/);
     expect(html).not.toMatch(/role="dialog"|role="menu"|aria-haspopup/);
     expect(wallet.connect).not.toHaveBeenCalled();
     expect(wallet.reset).not.toHaveBeenCalled();

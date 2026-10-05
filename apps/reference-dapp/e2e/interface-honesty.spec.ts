@@ -4,7 +4,7 @@ import { test, expect } from './fixtures';
 test('shows honest authorization and unavailable stage states', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Continue to Simulate' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simular Fees' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.getByText('Technical diagnostics', { exact: true }).click();
   await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();

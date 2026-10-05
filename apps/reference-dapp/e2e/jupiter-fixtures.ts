@@ -63,7 +63,7 @@ export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'can
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewSolanaSwap(page: Page) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   const panel = page.getByRole('region', { name: 'Jupiter swap' });
   await chooseSolanaWallet(panel);
   await panel.getByRole('button', { name: 'Simulate swap' }).click();

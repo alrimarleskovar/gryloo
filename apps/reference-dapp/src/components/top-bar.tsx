@@ -15,6 +15,7 @@ import { useRouter } from '../state/router-store';
 import { ROUTER_NETWORK_OPTIONS } from '../domain/router-authoring';
 import { useJupiter } from '../state/jupiter-store';
 import Image from 'next/image';
+import { HeaderSettings } from './header-settings';
 
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
@@ -52,9 +53,7 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
           <button type="button" onClick={build009.reset} disabled={build009.busy} title="Clear this app’s wallet connection. Wallet permissions are managed in your wallet.">Disconnect</button></>
           : <><span className="wallet-connection">Wallet not connected</span><button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button></>}
       </div>
-      <button type="button" className="header-settings" aria-label="Settings" title="Settings" disabled>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
+      <HeaderSettings/>
     </div>
     <div className="shell-network-row">
       {requiredChain && <span className="build009-required">Workflow network: {shellChainLabel(requiredChain)}</span>}

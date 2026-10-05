@@ -38,7 +38,7 @@ export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'can
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewDevnetSwap(page: Page) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(devnetPanel(page));
   await devnetPanel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await devnetPanel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();

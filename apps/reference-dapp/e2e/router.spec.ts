@@ -14,7 +14,7 @@ async function authorByChat(page: Page, text = 'Bridge 10 USDC from Base to Arbi
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base → Arbitrum USDC');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   await expect(region(page).getByRole('list', { name: 'Route steps' })).toBeVisible();
 }
@@ -104,7 +104,7 @@ test('Canvas authoring with an explicit recipient and Across-only routing reache
   await expect(page.locator('body')).toContainText(`Recipient on Arbitrum: ${recipient}`);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base → Arbitrum USDC');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   for (const text of ['Across (direct) · underlying protocol across', `${recipient} on Arbitrum One`, 'Amount in3 USDC on Base',
     'Exactly 3 USDC to 0x09aea4b2242abc8bb4bb78d537a67a245a7bec64 (never unlimited)']) await expect(region(page)).toContainText(text);

@@ -60,7 +60,7 @@ export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNE
   await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
 }
 export async function reviewSupply(page:Page){
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
   await page.getByRole('button',{name:'Review Supply',exact:true}).click();await page.getByRole('button',{name:'Accept Supply review'}).click();
 }
 export async function supplySendCount(page:Page):Promise<number>{return page.evaluate(()=>{

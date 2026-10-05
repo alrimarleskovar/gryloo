@@ -2,20 +2,27 @@
 import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 
-test('boxed wallet preserves connect/disconnect and aligns with an inert Settings control', async ({ page }) => {
+test('boxed wallet preserves connect/disconnect and aligns with the Settings toggle', async ({ page }) => {
   await installSupplyWallet(page, { connected: false });
   await page.goto('/');
   const header = page.getByRole('banner');
   const wallet = header.getByRole('group', { name: 'Wallet connection', exact: true });
   const settings = header.getByRole('button', { name: 'Settings', exact: true });
   await expect(wallet).toContainText('Wallet not connected');
-  await expect(settings).toBeDisabled();
+  await expect(settings).toBeEnabled();
+  await expect(settings).toHaveAttribute('aria-expanded', 'false');
   expect(await settings.innerText()).toBe('');
   await expect(settings.locator('svg')).toHaveCount(1);
-  await settings.dispatchEvent('click');
+  await settings.click();
+  const options = header.getByRole('group', { name: 'Settings options', exact: true });
+  await expect(options).toBeVisible();
+  expect(await options.getByRole('button').allTextContents()).toEqual(['Language', 'Theme', 'Disconnect']);
+  for (const option of await options.getByRole('button').all()) await expect(option).toBeDisabled();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(wallet).toContainText('Wallet not connected');
+  await settings.click();
+  await expect(options).toHaveCount(0);
   await wallet.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   await expect(wallet).toContainText('Wallet: 0x1111…1111 · Base Sepolia');
   for (const width of [1440, 900, 390]) {
@@ -35,6 +42,45 @@ test('boxed wallet preserves connect/disconnect and aligns with an inert Setting
   await expect(wallet).toContainText('Wallet not connected');
   await expect(wallet.getByRole('button', { name: 'Connect Wallet', exact: true })).toBeVisible();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+});
+
+test('Settings toggles without layout changes, closes outside/Escape/Tab and leaves wallet and node selection untouched', async ({ page }) => {
+  await installSupplyWallet(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  const options = page.getByRole('group', { name: 'Settings options', exact: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const headerBefore = await page.getByRole('banner').boundingBox();
+    const canvasBefore = await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox();
+    await settings.click();
+    await expect(settings).toHaveAttribute('aria-expanded', 'true');
+    await expect(options).toBeVisible();
+    const gearBox = (await settings.boundingBox())!;
+    const menuBox = (await options.boundingBox())!;
+    expect(Math.abs(menuBox.x + menuBox.width - gearBox.x - gearBox.width)).toBeLessThan(1);
+    expect(menuBox.y - gearBox.y - gearBox.height).toBe(8);
+    expect(await page.getByRole('banner').boundingBox()).toEqual(headerBefore);
+    expect(await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox()).toEqual(canvasBefore);
+    const disconnect = options.getByRole('button', { name: 'Disconnect', exact: true });
+    await expect(disconnect).toBeDisabled();
+    await disconnect.dispatchEvent('click');
+    await expect(page.getByRole('group', { name: 'Wallet connection' })).toContainText('0x1111…1111');
+    await settings.press('Escape');
+    await expect(options).toHaveCount(0);
+    await expect(settings).toBeFocused();
+    await expect(page.locator('.flow-card.active')).toHaveCount(1);
+    await settings.press('Enter');
+    await expect(options).toBeVisible();
+    await page.getByRole('heading', { name: 'Copilot', exact: true }).click();
+    await expect(options).toHaveCount(0);
+    await settings.click();
+    await settings.press('Tab');
+    await expect(options).toHaveCount(0);
+    await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  }
 });
 
 test('advanced setup has a single outer expansion and retains existing forms and workflow checks', async ({ page }) => {

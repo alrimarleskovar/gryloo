@@ -133,6 +133,32 @@ Visual/product changes:
 
 Browser checks allowed only the existing preview at 127.0.0.1:3001 and its development HMR, with external browser traffic blocked and zero wallet sign/send requests verified. Temporary fixture/config copies and artifacts remain in untracked `.tmp/`, excluded from the commit. No repository egress gate changed. The unrelated legacy interface-honesty scenarios were typechecked/linted; only their removed outer-disclosure click was adjusted. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. Settings remains an unavailable placeholder.
 
+### Owner-directed Part A canvas CTA and settings dropdown
+
+Commit subject: `UX-001A: refine canvas CTA and settings menu`.
+
+Visual/product changes:
+
+- Moved the primary Build button from SummaryBar into the graph surface. Its exact label is “Simular Fees”; its original navigation callback remains `setTab('Simulate')`. It does not generate quotes/simulations, change workflow revision or authorize execution. The footer keeps its workflow count/revision context. Simulate/Execute footer routing and review guards are unchanged.
+- The floating button sits 12px above the graph bottom and 56px from its right edge, beside the existing zoom controls with at least a 12px clear gap. It stays outside React Flow's transformed node layer and does not change pan/zoom, selection or node commands. Existing control positions are retained.
+- Build's maximum container width increases from 1600px to 1720px; desktop horizontal padding decreases from 28px to 20px, with 16px mobile padding retained. This adds 16px to the canvas column at a 1440px viewport and 136px at 1920px. Copilot remains 340px wide on desktop with the existing responsive stacking; Selected Action remains below. The canvas now fills its existing column on mobile rather than shrinking to intrinsic content width. Canvas/Copilot heights remain unchanged. Simulate/Execute containers are untouched.
+- Settings now toggles an absolute dropdown aligned beneath the gear's right edge with an 8px gap. It contains only Language, Theme and Disconnect. These are visibly disabled placeholders with no language/theme/wallet behavior. The existing wallet-box Disconnect remains functional and unchanged. Outside pointer clicks, Escape and focus leaving the settings control close the dropdown; Escape restores gear focus without clearing the selected canvas node. Opening the menu does not change header/canvas geometry.
+- Updated existing browser CTA selectors to the requested label, preserving financial assertions, and added focused CTA/footer/dropdown coverage.
+
+Untouched guarantees: canonical IR, runtime, API/backend/provider adapters, Manifest and wallet/session semantics, simulation/execution gates and behavior, durable recovery/reconciliation/evidence, canvas action semantics/card presentation, inspector forms, Copilot logic, Privacy entry/integration and Guided Chat. Part B remains pending.
+
+| Targeted validation | Result |
+| --- | --- |
+| Vitest: `components/product-shell.test.tsx`, `components/build-correction.test.tsx`, `components/summary-bar.test.tsx` | 21 tests passed across three files and focused runs. Header/navigation, selected canonical cards, graph-contained CTA rendering, absence of duplicate Build footer action, preserved Supply review gating. An initially incomplete test-only Supply record fixture was corrected and its three-test file rerun successfully; no runtime code was changed for it. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source and browser tests | Passed; reran on the corrected footer fixture and updated CTA test. |
+| Focused Chromium: `e2e/canvas-cta.spec.ts`, `e2e/header-controls.spec.ts`, `e2e/build-layout.spec.ts` | Seven tests passed against the existing loopback development preview. CTA placement/spacing and default-card non-overlap in docked/floating modes at 1920px/1440px/390px, wider canvas, retained Copilot/inspector, unchanged authoring/zoom, navigation-only continuation and disabled unsimulated Supply review, settings options/toggle/outside/Escape/Tab, preserved wallet connection/node selection/revision, no dropdown layout shift or document overflow, and preserved single advanced expansion/content. |
+| `git diff --check` | Passed. |
+
+The first browser pass found the mobile canvas shrinking to intrinsic width, causing CTA/toolbox overlap. Filling its existing column resolved the layout failure without changing heights, controls or semantics. Browser checks permitted only the existing preview at 127.0.0.1:3001 and its development HMR; external traffic was blocked, and all seven tests verified zero wallet sign/send requests. Temporary fixture/config copies and diagnostics remain in untracked `.tmp/`, excluded from the commit. Repository browser gates were not changed.
+
+Limitations: settings options are presentation-only; “Simular Fees” opens the existing Simulate view and does not imply fees are known or automatically calculated. Browser files with only CTA-selector updates were typechecked/linted, not execution-certified. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

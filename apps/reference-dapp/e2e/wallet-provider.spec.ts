@@ -60,7 +60,7 @@ for (const mode of ['legacy', 'eip6963'] as const) {
     await install(page, mode); await page.goto('/');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
-    await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+    await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
     await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
     await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();
     await panel(page).getByRole('button', { name: 'Execute pool approval', exact: true }).click(); await expect(panel(page)).toContainText('POOL_APPROVAL: reconciled');
@@ -139,7 +139,7 @@ test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
   await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
   await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();
   await panel(page).getByRole('button', { name: 'Execute pool approval', exact: true }).click(); await expect(panel(page)).toContainText('POOL_APPROVAL: reconciled');

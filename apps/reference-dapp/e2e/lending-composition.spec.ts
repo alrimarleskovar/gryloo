@@ -8,7 +8,7 @@ async function author(page:Page,options:Parameters<typeof installLendingWallet>[
   if(chat){await page.locator('#mock-prompt').fill(`compose supply 0.1 USDC to Aave then borrow 0.01 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner ${LENDING_OWNER}`);await page.getByRole('button',{name:'Send',exact:true}).click();}
   else {await expect(page.locator('.build009-wallet-info')).toContainText(LENDING_OWNER.slice(0,6));await page.getByRole('button',{name:'Add Supply → Borrow → Swap',exact:true}).click();}
   await page.getByRole('button',{name:'Apply proposal'}).click();await expect(page.locator('.react-flow__node[data-id="lending-borrow"]')).toContainText('Borrow');
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click();
 }
 async function review(page:Page){await page.getByRole('button',{name:'Simulate lending composition',exact:true}).click();await expect(panel(page)).toContainText('Expected output:');await page.getByRole('button',{name:'Review lending composition',exact:true}).click();await page.getByRole('button',{name:'Accept composed Review'}).click();await expect(panel(page).getByRole('button',{name:'Execute pool approval',exact:true})).toBeEnabled();}
 const execute=(page:Page,step:string)=>panel(page).getByRole('button',{name:`Execute ${step}`,exact:true}).click();
@@ -38,7 +38,7 @@ test('three separate Canvas editors preserve the typed Borrow input and approval
   await expect(page.getByRole('form',{name:'Edit Uniswap Swap'})).toContainText('exactly 0.02 borrowed USDC');
   await expect(page.getByRole('combobox',{name:'Swap output asset'})).toHaveValue('WETH');
   await expect(page.locator('.react-flow__edge')).toHaveCount(2);
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();await review(page);
+  await page.getByRole('button',{name:'Simular Fees'}).click();await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.reviews[0].workflow.nodes[2].inputs[0]).toEqual({name:'amount-in',kind:'OUTPUT_REFERENCE',value:{nodeId:'lending-borrow',outputId:'borrowed-amount'}});
   expect(record.reviews[0].fields).toMatchObject({supplyAmount:'200000',borrowAmount:'20000',slippageBps:100});
@@ -52,7 +52,7 @@ test('cancelled preparation is historical, survives reload, and fresh Simulate/R
   expect(await lendingSends(page)).toBe(0);
   await page.reload();await expect(page.locator('.react-flow__node')).toHaveCount(3);
   await expect(page.locator('.react-flow__node[data-id="lending-supply"]')).toContainText('Aave Supply');
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click();
   await expect(page.getByRole('button',{name:'Simulate lending composition',exact:true})).toBeEnabled();await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.id).toBe(prior);expect(record.attempts).toHaveLength(1);expect(record.attempts[0]).toMatchObject({state:'CANCELLED',notSubmitted:true});

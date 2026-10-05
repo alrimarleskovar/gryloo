@@ -57,6 +57,17 @@ describe('corrected Build workspace presentation', () => {
     expect(fixture.store.addCanvasCommand).not.toHaveBeenCalled();
   });
 
+  it('renders the supplied primary action inside the graph without triggering authoring or navigation', () => {
+    setWorkflow();
+    const navigate = vi.fn();
+    const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn(),
+      primaryAction: createElement('button', { type: 'button', onClick: navigate }, 'Simular Fees') }));
+    expect(html).toMatch(/aria-label="Workflow graph"[\s\S]*?<div class="canvas-primary-action"><button type="button">Simular Fees<\/button><\/div><\/div><div class="canvas-foot"/);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.store.dispatch).not.toHaveBeenCalled();
+    expect(fixture.store.addCanvasCommand).not.toHaveBeenCalled();
+  });
+
   it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s is a compact selected card; its parameters live only in the inspector', action => {
     const selectedId = setWorkflow(action);
     const before = JSON.stringify(fixture.store.state.workflow);

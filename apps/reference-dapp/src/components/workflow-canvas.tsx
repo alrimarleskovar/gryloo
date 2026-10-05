@@ -5,7 +5,7 @@ import {lendingDetails,lendingCanvasEdges} from '../domain/lending-authoring';
 import {useBuild009Wallet} from '../state/build009-wallet-store';
 import { transferDetails } from '../domain/robinhood-transfer-authoring';
 import { supplyDetails, borrowDetails, repayDetails, withdrawDetails } from '../domain/supply-authoring';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ReactFlow, Background, Controls, Handle, Position, useNodesInitialized, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
@@ -205,13 +205,13 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
   </section>;
 }
 
-type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void };
+type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
 export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay> }) {
   if ('mode' in props) return <SimulationCanvas overlay={props.overlay}/>;
   return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renameWorkflow = () => {} }: BuildCanvasProps) {
+function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renameWorkflow = () => {}, primaryAction }: BuildCanvasProps) {
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const wallet=useBuild009Wallet();
@@ -437,6 +437,7 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
       {projectedNodes.length === 0 && <div className="canvas-empty"><strong>Start your workflow</strong><p>Add an action from the toolbar, then select its card to configure it.</p></div>}
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
       {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
+      {primaryAction && <div className="canvas-primary-action">{primaryAction}</div>}
     </div>
     <div className="canvas-foot"><span>{isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Drag steps to arrange your workflow.'}</span><span>{isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Select a step or connection to edit.'}</span></div>
   </section>;
