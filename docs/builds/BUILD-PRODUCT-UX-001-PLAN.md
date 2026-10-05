@@ -75,3 +75,7 @@ Replace the inert gear with a toggled, absolutely positioned dropdown containing
 ## Owner-directed Simulate shell cleanup
 
 Remove the entire Simulate WorkspaceHeading: draft/action/revision/chain metadata, eyebrow/title/subtitle, current-stage badge and guidance strip. Add no visible replacement. Correct the main landmark's accessible labeling after removing its title. Preserve existing content routing, empty states, artifacts, simulation/review/Manifest/authorization logic and Build/Execute presentation. Validate with focused shell tests, one browser smoke check, app typecheck and touched-file lint; commit `UX-001A: simplify Simulate workspace shell`, then stop without proceeding to Part B.
+
+## Owner-directed Simulate control and return-action cleanup
+
+Remove the upper eligibility-message strip and Show/Hide technical details button. Make the existing fallback simulation graph directly visible instead of hiding it beneath the preparation card/outer disclosure. Move its existing Return to Build callback into a floating bottom-right canvas action. Preserve generation controls, eligibility/binding/expiry checks and error/status feedback. Keep explanations and existing diagnostic panels accessible in one disclosure below the graph, using the existing technical-presentation state. Leave product-specific simulation panels, Build and Execute unchanged. Run only targeted UI/artifact, browser, typecheck and touched-file lint checks; commit `UX-001A: simplify Simulate controls and move return CTA`, then stop before Part B.

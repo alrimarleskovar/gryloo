@@ -1,33 +1,62 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 
-test('Simulate keeps the workflow visible and reveals technical views on request', async ({ page }) => {
+test('Simulate keeps its graph and return action primary, with technical views available below', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-
+  const stages = page.getByRole('navigation', { name: 'Workflow stages' });
+  await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Mocked artifact chain' });
-  const details = panel.getByRole('button', { name: 'Show technical details' });
-  await expect(panel.locator('.simulate-canvas')).toBeVisible();
-  await expect(panel.locator('.simulate-empty')).toBeVisible();
-  await expect(details).toHaveAttribute('aria-expanded', 'false');
+  const graph = panel.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true });
+  const returnToBuild = graph.getByRole('button', { name: 'Return to Build', exact: true });
+  const technical = panel.locator('.simulation-technical');
+  await expect(graph).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Return to Build', exact: true })).toHaveCount(1);
+  await expect(panel.locator(':scope > .simulate-note, :scope > .simulate-details-toggle')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Show technical details', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Hide technical details', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Add a Base swap in Build before generating mocked artifacts.', { exact: true })).toBeHidden();
+  await expect(panel.getByRole('button', { name: 'Generate mocked artifacts for revision 0', exact: true })).toBeDisabled();
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toBeHidden();
-
-  await details.click();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(graph).toHaveAttribute('data-viewport', 'fitted');
+    const graphBox = (await graph.boundingBox())!;
+    const buttonBox = (await returnToBuild.boundingBox())!;
+    const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
+    expect(Math.abs(graphBox.x + graphBox.width - buttonBox.x - buttonBox.width - 12)).toBeLessThan(1);
+    expect(Math.abs(graphBox.y + graphBox.height - buttonBox.y - buttonBox.height - 12)).toBeLessThan(1);
+    expect(buttonBox.x).toBeGreaterThanOrEqual(controlsBox.x + controlsBox.width);
+    expect((await technical.boundingBox())!.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  }
+  await returnToBuild.click();
+  await expect(stages.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await panel.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
+  await expect(panel.locator('.simulate-swap')).toBeVisible();
+  await expect(panel.locator('.simulate-swap')).toContainText('2.25 USDC');
+  await expect(panel.locator('.chain-strip')).toBeHidden();
+  await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review swap', exact: true })).toBeDisabled();
+  await technical.locator(':scope > summary').click();
+  await expect(panel).toHaveAttribute('data-technical-open', 'true');
+  await expect(panel.locator('.chain-strip')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toBeVisible();
-  await panel.getByRole('button', { name: 'Hide technical details' }).click();
+  const jsonButton = panel.getByRole('button', { name: 'Show JSON · Artifact Set', exact: true });
+  await jsonButton.click();
+  const proof = await panel.locator('[data-artifact-json="artifact-set"]').innerText();
+  expect(JSON.parse(proof)).toBeTruthy();
+  await technical.locator(':scope > summary').click();
+  await expect(panel).toHaveAttribute('data-technical-open', 'false');
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
-
-  const stages = page.getByRole('navigation', { name: 'Workflow stages' });
-  await stages.getByRole('button', { name: 'Build' }).click();
-  await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
-  await page.getByRole('button', { name: 'Send' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await stages.getByRole('button', { name: 'Simulate' }).click();
-  await panel.getByRole('button', { name: /^Generate mocked artifacts for revision \d+$/ }).click();
-  await expect(panel.locator('.simulate-swap')).toBeVisible();
-  await expect(panel.locator('.chain-strip')).toBeHidden();
-  await panel.getByRole('button', { name: 'Show technical details' }).click();
-  await expect(panel.locator('.chain-strip')).toBeVisible();
+  await returnToBuild.click();
+  await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+  await expect(page.locator('.flow-card')).toHaveCount(1);
 });

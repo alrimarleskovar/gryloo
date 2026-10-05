@@ -72,7 +72,7 @@ export async function authorComposition(page: Page) {
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.getByText('WETH output reference')).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const panel = page.getByRole('region', { name: 'Mode B swap to liquidity composition' });
   await panel.getByRole('button', { name: 'Prepare chained review' }).click();
   await expect(panel).toContainText('Permission hash', { timeout: 30_000 });

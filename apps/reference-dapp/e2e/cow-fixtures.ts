@@ -16,7 +16,7 @@ export const cowPanel = (page: Page, stage: 'simulation' | 'execution') =>
 export const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') =>
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 export const openTechnicalDetails = (page: Page) =>
-  page.getByRole('button', { name: 'Show technical details' }).click();
+  page.locator('.simulation-technical > summary').click();
 export async function authorCowSwap(page: Page): Promise<void> {
   await stage(page, 'Build');
   if (!(await page.getByLabel('Direction').isVisible())) await page.getByText('Advanced action setup', { exact: true }).click();

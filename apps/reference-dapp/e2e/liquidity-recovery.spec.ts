@@ -6,7 +6,7 @@ test('lost wallet response freezes submission, restart readback finds exact nonc
   await page.goto('/');
   await authorLiquidity(page, liquidity);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const simulate = page.getByRole('region', { name: 'Local fork liquidity simulation' });
   await simulate.getByLabel('Next operation').selectOption('APPROVE_WETH');
   await simulate.getByRole('button', { name: 'Simulate exact local operation' }).click();

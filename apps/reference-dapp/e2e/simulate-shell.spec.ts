@@ -10,7 +10,9 @@ test('Simulate opens directly on existing content without a workspace introducti
   const main = page.getByRole('main', { name: 'Simulation workspace', exact: true });
   await expect(main).toBeVisible();
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
-  await expect(main.getByRole('heading', { name: 'Prepare your workflow', exact: true })).toBeVisible();
+  await expect(main.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true })).toBeVisible();
+  await expect(main.getByRole('heading', { name: 'Prepare your workflow', exact: true })).toHaveCount(0);
+  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Mocked artifact chain');
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();

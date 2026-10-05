@@ -169,6 +169,29 @@ Only heading presentation and landmark labeling changed. Build/Execute behavior 
 
 Validation: 12 focused `components/product-shell.test.tsx` tests passed; reference-dapp typecheck, touched-file ESLint and `git diff --check` passed. One focused `e2e/simulate-shell.spec.ts` browser check passed against the existing loopback preview: intro absent in empty and authored flows, existing Aave Supply content first, simulation action still available, unsimulated review disabled, unchanged revision/selection on navigation, and retained Build/Execute UI. External browser traffic was blocked, only the preview/development HMR allowed, and zero wallet sign/send requests verified. Temporary loopback fixture/config copies remain in untracked `.tmp/`, excluded from the commit. No full CI, financial execution, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run.
 
+### Owner-directed Simulate control and return-action cleanup
+
+Commit subject: `UX-001A: simplify Simulate controls and move return CTA`.
+
+Visual/product changes:
+
+- Removed the upper eligibility-information bar and Show/Hide technical details button. No replacement strip/banner/toggle was added above the graph. The fallback simulation graph is directly visible; the redundant preparation card/outer technical wrapper no longer hides it. Existing product-specific simulation panels are unchanged.
+- Moved Return to Build into the simulation graph, outside React Flow's transformed node layer, 12px from the right and bottom edges. It uses the original `setTab('Build')` navigation through a presentation callback. Simulation zoom controls remain at their original bottom-left position; Build's CTA/controls and Execute return controls are unchanged.
+- Preserved generation/refresh buttons, eligibility disabling, rejection/pending/superseded feedback, artifact values and proof access. Eligibility explanations and all existing observation/fork/Mode B/composition/CoW/liquidity panels remain accessible through a single Technical diagnostics disclosure below the graph/results. Its native toggle updates the existing technical-presentation state; no technical functionality was removed.
+- Updated affected technical-disclosure browser selectors without changing financial assertions. Added focused rendering coverage and expanded the Simulate layout/browser checks.
+
+Untouched guarantees: simulation/generation algorithms, artifact bytes and bindings, expiry/invalidation rules and access-time checks, canonical IR/runtime, API/backend/provider adapters, Review/Manifest/authorization semantics, wallet/session behavior, durable recovery/reconciliation/evidence, Build/Execute behavior, Copilot and Guided Chat. No Part B work.
+
+| Minimal targeted validation | Result |
+| --- | --- |
+| Vitest: `components/simulate-panel.test.tsx`, `domain/artifact-chain.test.ts` | 10 tests passed across two files. Presentation/CTA/technical access, unchanged eligibility and pending-generation gates, hashing-rejection feedback; existing chain transition, race, exact revision/IR binding, invalidation and wall/monotonic expiry checks. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source/browser tests | Passed. |
+| Focused Chromium: `e2e/simulate-cleanup.spec.ts`, `e2e/simulate-shell.spec.ts` | Two tests passed against the existing loopback preview. Graph/return visible without opening diagnostics, removed upper controls/message, 12px CTA placement without zoom-control collision at 1440px/390px, no document overflow, original return navigation and retained revision/cards, local synthetic artifact generation/results/JSON access, diagnostic reveal/hide, unsimulated/mocked review still disabled, and preserved product-specific Supply/Build/Execute views. |
+| `git diff --check` | Passed. |
+
+Browser checks allowed only the existing loopback preview and its development HMR, blocked external traffic, and verified zero wallet sign/send requests. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. Financial browser files with selector-only changes were typechecked/linted, not fork/execution-certified. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. Existing synthetic artifact provenance remains explicit; this presentation cleanup makes no live-execution or evidence-maturity claim.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

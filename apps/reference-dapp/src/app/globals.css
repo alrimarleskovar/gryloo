@@ -178,13 +178,9 @@
 .liquidity-panel [role='alert'] { overflow-wrap: anywhere; }
 /* BUILD-UX-002B: keep the workflow and simulated values in view; reveal engineering detail on request. */
 .main:has(> .simulate-panel) > .page-heading p:last-child{font-size:11px;max-width:620px;line-height:1.35}
-.simulate-details-toggle{justify-self:start;min-height:28px;padding:3px 9px;border-radius:6px;font-size:11px;color:var(--muted)!important;font-weight:600}
-.simulate-details-toggle::after{content:'⌄';display:inline-block;margin-left:7px}
-.simulate-details-toggle[aria-expanded='true']::after{transform:rotate(180deg)}
 .simulate-panel[data-technical-open='false'] :is(.simulate-head .muted,.chain-retired,.chain-strip,.enforcement-table,.chain-findings,.simulate-validity,.simulate-next,.simulate-empty p){display:none}
 .simulate-panel[data-technical-open='false'] .artifact-json{display:flex;gap:6px;flex-wrap:wrap}
 .simulate-panel[data-technical-open='false'] .artifact-json button{min-height:28px;padding:2px 7px;font-size:10px;font-weight:600}
-.main:has(> .simulate-panel[data-technical-open='false']) > :is(.observation-panel,.fork-panel,.mode-b-panel,.cow-panel,.liquidity-panel,[aria-label='Mode B swap to liquidity composition']){display:none}
 @media (max-width: 720px) { .liquidity-buttons { display: grid; grid-template-columns: 1fr; } .liquidity-buttons button { width: 100%; } }
 
 /* BUILD-008 bridge review follows the existing panel language and remains visibly MOCKED. */
@@ -341,6 +337,9 @@
 .canvas-primary-action{position:absolute;z-index:5;right:56px;bottom:12px}
 .canvas-primary-action button{min-height:44px;padding:10px 16px;border:1px solid var(--blue);border-radius:9px;background:var(--blue);color:white;font-weight:700;box-shadow:0 5px 18px rgba(24,59,104,.2)}
 .canvas-primary-action button:hover{filter:brightness(.96)}
+.simulate-canvas .flow-surface{position:relative;overflow:hidden}
+.simulation-return-action{right:12px}
+.simulation-technical{margin:20px 0 0}
 .flow-card strong{text-transform:none}
 .canvas-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:30px;color:var(--muted)}
 .canvas-empty strong{font-size:20px;color:var(--ink);margin-bottom:10px}.canvas-empty p{max-width:340px;line-height:1.6}

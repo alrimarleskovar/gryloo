@@ -179,7 +179,7 @@ export async function authorSwap(page: Page, direction: 'WETH_TO_USDC' | 'USDC_T
 export const forkPanel = (page: Page) => page.getByRole('region', { name: 'Local fork Mode A simulation' });
 export const executionPanel = (page: Page) => page.getByRole('region', { name: 'Mode A execution' });
 export async function openTechnicalDetails(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
 }
 export async function simulateOnFork(page: Page): Promise<void> {
   await stage(page, 'Simulate');

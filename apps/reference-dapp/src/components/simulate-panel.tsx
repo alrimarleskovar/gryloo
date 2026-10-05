@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MOCKED_CHAIN_PROFILE, type ReviewContext, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { INVALIDATION_V1, chainStatus, checkChainAccess, type ChainRecord } from '../domain/artifact-chain';
 import { formatHumanAmount, swapDetails } from '../domain/swap-authoring';
@@ -56,7 +56,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   </div>;
 }
 
-export function SimulatePanel() {
+export function SimulatePanel({ returnToBuild, children }: { returnToBuild?: () => void; children?: ReactNode }) {
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
@@ -88,18 +88,14 @@ export function SimulatePanel() {
           : <button type="button" onClick={generateArtifacts} disabled={!eligibility.eligible || status === 'GENERATING'}>Generate mocked artifacts for revision {workflow.revision}</button>}
       </div>
     </div>
-    {!current && !eligibility.eligible && <p className="simulate-note">{eligibility.reason}</p>}
     {status === 'REJECTED' && chain.rejected && <p className="simulate-alert" role="alert">{chain.rejected === 'DIGEST_UNAVAILABLE'
       ? 'Artifact hashing self-check failed (DIGEST_UNAVAILABLE). No mocked artifacts were generated.'
       : `Mocked artifact generation failed (${chain.rejected}). No mocked artifacts were generated.`}</p>}
     {chain.notice && <p className="simulate-note" role="status">Generation finished for a superseded revision and was discarded.</p>}
     {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
-    <button type="button" className="simulate-details-toggle quiet" aria-expanded={showTechnical} onClick={() => setShowTechnical(!showTechnical)}>
-      {showTechnical ? 'Hide technical details' : 'Show technical details'}
-    </button>
     <div className="simulate-grid">
-      <WorkflowCanvas mode="simulate" overlay={overlay}/>
+      <WorkflowCanvas mode="simulate" overlay={overlay} primaryAction={returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}/>
       <div className="simulate-results">
         {current ? <>
           <ol className="chain-strip" aria-label="Artifact links">
@@ -142,5 +138,10 @@ export function SimulatePanel() {
         <p className="simulate-next">Next step: Manifest review is unavailable for mocked artifacts; they cannot authorize execution and the workflow stays DRAFT. Local-fork Mode A uses its own separate artifacts, never these.</p>
       </div>
     </div>
+    <details className="shell-details technical-workspace simulation-technical" onToggle={event => setShowTechnical(event.currentTarget.open)}>
+      <summary>Technical diagnostics</summary>
+      {!current && !eligibility.eligible && <p className="simulate-note">{eligibility.reason}</p>}
+      {children}
+    </details>
   </section>;
 }

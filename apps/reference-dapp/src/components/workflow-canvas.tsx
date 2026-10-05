@@ -155,7 +155,7 @@ function SimulationViewport({ onState }: { onState: (state: ViewportState) => vo
 }
 
 /** Read-only projection of the same IR with current mocked outputs only. */
-function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, SimulationOverlay> }) {
+function SimulationCanvas({ overlay, primaryAction }: { overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
   const { state, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const nodes = useMemo(() => workflow.nodes.filter(node => !node.actionType.startsWith('mock-')).map((node, index) => {
@@ -200,14 +200,15 @@ function SimulationCanvas({ overlay }: { overlay: ReadonlyMap<string, Simulation
         <SimulationViewport onState={setViewportState} />
         <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
       </ReactFlow>
+      {primaryAction && <div className="canvas-primary-action simulation-return-action">{primaryAction}</div>}
     </div>
     <div className="canvas-foot"><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} {workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base'} swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></div>
   </section>;
 }
 
 type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
-export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay> }) {
-  if ('mode' in props) return <SimulationCanvas overlay={props.overlay}/>;
+export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
+  if ('mode' in props) return <SimulationCanvas overlay={props.overlay} primaryAction={props.primaryAction}/>;
   return <BuildCanvas {...props}/>;
 }
 
