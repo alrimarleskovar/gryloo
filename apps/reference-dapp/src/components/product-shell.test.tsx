@@ -27,10 +27,31 @@ vi.mock('../state/jupiter-store', () => ({ useJupiter: () => ({ record: null, re
 beforeEach(() => {
   fixture.workflow = initialWorkflow();
   wallet.account = null; wallet.chainId = null;
+  wallet.busy = false;
   vi.clearAllMocks();
 });
 
 describe('product shell rendering', () => {
+  it.each([false, true])('boxes the wallet and keeps Settings inert when connected=%s', connected => {
+    if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
+    const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
+    expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<button[^>]*>[\s\S]*?<\/button><\/div><button type="button" class="header-settings"/);
+    expect(html).toContain(connected ? 'Wallet: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
+    expect(html).toContain(connected ? '>Disconnect</button>' : '>Connect Wallet</button>');
+    expect(html).toMatch(/class="header-settings" aria-label="Settings" title="Settings" disabled=""><svg[\s\S]*?<\/svg><\/button>/);
+    expect(html).not.toMatch(/role="dialog"|role="menu"|aria-haspopup/);
+    expect(wallet.connect).not.toHaveBeenCalled();
+    expect(wallet.reset).not.toHaveBeenCalled();
+    expect(wallet.switchTo).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('preserves busy disabling for boxed wallet actions when connected=%s', connected => {
+    wallet.busy = true;
+    if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
+    const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
+    expect(html).toMatch(new RegExp(`<button type="button" disabled=""[^>]*>${connected ? 'Disconnect' : 'Connect Wallet'}</button>`));
+  });
+
   it.each(WORKFLOW_STAGES)('marks %s as the current view without performing wallet actions', stage => {
     const setTab = vi.fn();
     const html = renderToStaticMarkup(createElement(TopBar, { tab: stage, setTab }));

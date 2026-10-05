@@ -17,7 +17,8 @@ test('Build places the existing assistant beside the canvas and selected setting
   expect(assistantBox.width).toBeLessThan(canvasBox.width);
   expect(inspectorBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height);
   expect(inspectorBox.width).toBeGreaterThan(canvasBox.width);
-  await expect(page.locator('.technical-authoring .copilot')).toHaveCount(0);
+  await expect(page.locator('.library .copilot')).toHaveCount(0);
+  await expect(page.getByText('Technical authoring tools', { exact: true })).toHaveCount(0);
   await assistant.locator('.chat-form input').fill('explain');
   await assistant.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(assistant.locator('.message.you')).toHaveText('YOUexplain');

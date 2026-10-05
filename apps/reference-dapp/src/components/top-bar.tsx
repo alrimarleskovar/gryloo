@@ -46,10 +46,15 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
     <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={tab === 'Dashboard' ? 'page' : undefined} className={tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
+      <div className="header-wallet" role="group" aria-label="Wallet connection">
       {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
         : build009.account ? <><span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>
           <button type="button" onClick={build009.reset} disabled={build009.busy} title="Clear this app’s wallet connection. Wallet permissions are managed in your wallet.">Disconnect</button></>
           : <><span className="wallet-connection">Wallet not connected</span><button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button></>}
+      </div>
+      <button type="button" className="header-settings" aria-label="Settings" title="Settings" disabled>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
     </div>
     <div className="shell-network-row">
       {requiredChain && <span className="build009-required">Workflow network: {shellChainLabel(requiredChain)}</span>}

@@ -112,6 +112,27 @@ The first browser pass caught scrolling after the extra toolbar entry; the scope
 
 Limitations: the workflow name is session-only presentation identity; Privacy remains unavailable; Copilot still accepts its existing supported command grammar without a new model or Guided Chat. Older mock-scaffold browser scenarios remain pending alignment during later UX work. Selector updates outside the two focused browser files were typechecked/linted, not browser-certified. No full CI, PostgreSQL, Anvil/fork, dependency audit, SBOM or final certification was run.
 
+### Owner-directed Part A header controls and advanced expansion
+
+Commit subject: `UX-001A: refine header controls and advanced section`.
+
+Visual/product changes:
+
+- Wrapped the existing concise wallet address/network text and Connect/Disconnect button in a bordered, rounded wallet control. Kept the original text, full-address tooltip, disconnect explanation, handlers and busy disabling. Network requirements, mismatch warnings and switching remain in their existing header row. The box can shrink and its text wrap at narrow widths.
+- Added a separate 40×40px bordered Settings control beside the wallet box, vertically centered. It contains only a gear icon, with accessible name/tooltip Settings. It is disabled and has no handler, dropdown, modal or destination.
+- Removed the outer Technical authoring tools disclosure and its obsolete style. Advanced action setup is now the single outer expandable section, collapsed by default. All existing forms/provider-specific disclosures remain intact. Conditional ReviewPanel content is passed into that same section without changing its gating, findings or IR disclosure. Selected Action, workflow edit review and Journey controls retain their existing positions and behavior.
+- Updated the affected browser assertions and added focused header/advanced-section checks. No Copilot, canvas, runtime, IR, API, wallet/session, Manifest, reconciliation/evidence or Simulate/Execute behavior changes. No Guided Chat work. Part B remains pending.
+
+| Targeted validation | Result |
+| --- | --- |
+| Vitest: `components/product-shell.test.tsx` | 11 tests passed. Connected/disconnected wallet boxing, inert icon-only Settings, preserved busy disabling, lifecycle navigation, wallet/workflow networks and existing headings. |
+| Reference-dapp typecheck | Passed. |
+| ESLint on touched TS/TSX source and browser tests | Passed. |
+| Focused Chromium: `e2e/header-controls.spec.ts`, `e2e/build-layout.spec.ts` | Four tests passed against the existing loopback development preview. Connect/disconnect, Settings inertness, boxed-control alignment at 1440px/900px/390px without document overflow; direct single expansion access to preserved forms and workflow findings; unchanged IR/revision when toggling; existing canvas/Copilot/inspector layout, authoring edits, toolbar fit and zoom behavior. |
+| `git diff --check` | Passed. |
+
+Browser checks allowed only the existing preview at 127.0.0.1:3001 and its development HMR, with external browser traffic blocked and zero wallet sign/send requests verified. Temporary fixture/config copies and artifacts remain in untracked `.tmp/`, excluded from the commit. No repository egress gate changed. The unrelated legacy interface-honesty scenarios were typechecked/linted; only their removed outer-disclosure click was adjusted. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. Settings remains an unavailable placeholder.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

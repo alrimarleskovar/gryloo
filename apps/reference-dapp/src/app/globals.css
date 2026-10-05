@@ -282,9 +282,15 @@
 .tabs button:hover{background:var(--soft)}.tabs button.selected{background:var(--blue-soft);border-color:#c9ddff;color:var(--blue)}
 .stage-number{width:20px;height:20px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:10px;font-variant-numeric:tabular-nums}
 .tabs button.selected .stage-number{background:var(--blue);border-color:var(--blue);color:white}
-.top-meta{min-width:0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;white-space:normal;color:var(--ink)}
+.top-meta{min-width:0;display:flex;justify-content:flex-end;gap:8px;flex-wrap:nowrap;white-space:normal;color:var(--ink)}
 .top-meta .wallet-connection{display:inline;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 .top-meta>button,.shell-network-row>button{min-height:36px;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:7px 10px;color:var(--blue);font-weight:600;font-size:12px}
+.header-wallet{min-width:0;max-width:100%;min-height:40px;display:flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.header-wallet .wallet-connection{min-width:0}
+.header-wallet button{flex:none;min-height:30px;border:1px solid transparent;border-radius:5px;background:var(--soft);padding:5px 8px;color:var(--blue);font-size:11px;font-weight:600;white-space:nowrap}
+.header-wallet button:not(:disabled):hover{border-color:var(--line);background:var(--blue-soft)}
+.top-meta>.header-settings{flex:none;width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:8px;color:var(--muted)}
+.top-meta>.header-settings:disabled{opacity:1;cursor:default}
 .shell-network-row{grid-column:1/-1;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;min-width:0;padding:10px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.5;color:var(--muted)}
 .shell-network-row:empty{display:none}.network-mismatch{color:var(--amber)}
 .shell-technical{margin-left:auto;min-width:0}.shell-technical summary{cursor:pointer;font-size:11px}
@@ -331,7 +337,6 @@
 .flow-card-risk{align-self:start;font-size:10px;border:1px solid #f2dfb3;border-radius:5px;padding:4px 6px;background:var(--amber-soft);color:var(--amber)}
 .workflow-edit-review{padding:18px;margin-top:16px;font-size:12px;line-height:1.6}.workflow-edit-review p{margin:8px 0}.workflow-edit-review>div{display:flex;gap:8px}
 .workflow-edit-review button,.stage-empty button{min-height:40px;border:1px solid var(--blue);border-radius:6px;background:var(--blue);color:white;padding:8px 14px;font-weight:600}
-.technical-authoring{margin:18px 0 0}
 .technical-workspace{margin-top:20px}.technical-workspace>.panel{margin-top:16px}
 .stage-empty{padding:26px;line-height:1.6}.stage-empty p{color:var(--muted)}
 @media(max-width:1100px){.build-grid{grid-template-columns:minmax(0,1fr)}.build-grid>.copilot,.build-grid:has(.floating-toolbox)>.copilot,.build-grid:has(.lending-canvas)>.copilot{height:390px}}

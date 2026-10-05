@@ -61,3 +61,7 @@ Add inline naming beside the existing canvas title. No canonical title persisten
 Place a disabled shield labeled Privacy immediately after Withdraw, outside the canonical action definitions. It has no handler or execution claim. Keep the existing toolbar width, icon sizes, canvas/Copilot heights, inspector and zoom positions; fit the extra entry by tightening floating-toolbar vertical spacing if necessary. Cloak/Zcash integration remains deferred to final integration/certification after the UX parts.
 
 Validate component/header/toolbar presentation, inline keyboard naming and existing Copilot proposal handling with targeted unit/browser checks, app typecheck and touched-file lint. Commit `UX-001A: refine workflow identity and privacy affordance`, then stop. Part B is not authorized.
+
+## Owner-directed Part A header controls and advanced expansion
+
+Box the existing wallet identity/network and Connect/Disconnect actions without changing their handlers, busy states or wallet/session semantics. Add a separate, aligned, icon-only Settings box with no functionality. Remove the outer Technical authoring tools disclosure; preserve its conditional workflow checks inside the existing Advanced action setup disclosure, together with all existing forms and provider-specific disclosures. Validate header/navigation presentation, wallet controls, single expansion access and preserved Build layout with targeted checks only. Commit `UX-001A: refine header controls and advanced section`, then stop without proceeding to Part B.
