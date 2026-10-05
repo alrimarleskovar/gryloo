@@ -1,0 +1,12 @@
+.demo { max-width: 1100px; margin: 20px auto; padding: 24px; }
+.banner { position: sticky; top: 10px; z-index: 1; padding: 12px; background: #fff5dd; color: #684500; border: 1px solid #edcf8d; border-radius: 8px; font-weight: 700; }
+.demo ol { display: flex; flex-wrap: wrap; gap: 12px 32px; padding-left: 20px; color: var(--muted); }
+.demo dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.demo dl > div { padding: 14px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; }
+.demo dt { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.demo dd { margin: 0; font-size: 17px; font-weight: 700; }
+.demo button { min-height: 40px; margin: 6px 10px 12px 0; padding: 8px 16px; border: 1px solid var(--blue); border-radius: 7px; color: white; background: var(--blue); font-weight: 700; }
+.demo label { display: block; margin: 16px 0 8px; }
+.demo pre { max-height: 240px; overflow: auto; background: var(--soft); padding: 12px; font-size: 11px; }
+.demo p { line-height: 1.5; }
+@media (max-width: 700px) { .demo dl { grid-template-columns: 1fr; } .demo { padding: 16px; } }

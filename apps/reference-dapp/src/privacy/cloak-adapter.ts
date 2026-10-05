@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-'use client';
 import {
   CLOAK_PROGRAM_ID, CLOAK_PRODUCTION_RELAY_URL, NATIVE_SOL_MINT, computeUtxoCommitment, computeUtxoNullifier,
   createRecoverableChangeUtxo, deriveSwapRefundAuthorization, deserializeUtxo, serializeUtxo,
@@ -7,7 +6,7 @@ import {
 } from '@cloak.dev/sdk';
 import type { PrivateNote, PrivateState, PrivateStateIdentity, PrivateRefund, PrivateStateVault, VaultReference } from './vault';
 
-/** The published Kit SDK, pinned by lockfile. Browser-only: do not import this in a server action. */
+/** Published Kit SDK, pinned by lockfile. Live owner material stays browser-local; the server demo uses synthetic fixtures only. */
 export const CLOAK_RUNTIME = Object.freeze({ sdkVersion: '0.2.5', programId: CLOAK_PROGRAM_ID,
   relayUrl: CLOAK_PRODUCTION_RELAY_URL, nativeMint: NATIVE_SOL_MINT, circuitsVersion: '0.2.0',
   genesisHash: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',

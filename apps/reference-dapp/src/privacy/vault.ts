@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-'use client';
 import { digestRawResponse } from '@defi-workflow-engine/reference-linter';
-/** Browser-only custody boundary. No private state is sent to server actions or public evidence. */
+/** Owner custody stays browser-local. The isolated server demo constructs only public synthetic fixtures. */
 export type PrivateNote = { bytes: string; index: number | null; commitment: string };
 export type PrivateRefund = { privateKey: string; publicKey: string; blinding: string; derivedFromNk: boolean };
 export type PrivateStateIdentity = { runId: string; owner: string; genesisHash: string; programId: string; manifestHash: string };

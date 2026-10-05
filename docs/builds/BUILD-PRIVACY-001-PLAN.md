@@ -1,5 +1,11 @@
 # BUILD-PRIVACY-001 — Cloak private execution for Flofi
 
+## Product demo slice — 2026-10-05
+
+After independent confirmation of the existing 40 LOCAL lifecycle tests, expose that engine through one **Run Privacy Demo** control on the canonical Cloak workflow. Use deterministic public synthetic SDK notes, existing fixture arithmetic and the unchanged compiler/authorization/ledger/encrypted-vault/reconciler. Require separate simulation, Review, Manifest, explicit acknowledgment and LOCAL execution steps. Recreate the controller for a visible encrypted-checkpoint recovery without resubmission, and export redacted mocked evidence. Label every stage **LOCAL DEMO / MOCKED EXECUTION — NO MAINNET TRANSACTION**.
+
+The isolated demo uses server-memory checkpoints and an independent local ledger; a server restart loses the session and fails closed. No owner data or wallet, no relay/RPC, no financial gate change, no public fallback, and no new engine/protocol. Validate replay, binding, corruption, reservations, reconciliation and the full browser sequence locally; commit/push only to the existing Privacy branch after checks pass. Keep PR #55 draft and do not merge or claim challenge acceptance.
+
 ## Objective and accepted demonstration
 
 Add privacy to Flofi's existing canonical swap workflow, without a separate application or general privacy runtime. The original request was `Swap 5 USDC to SOL privately`. Discovery established that the published Cloak SDK does not support that direction or shielded swap proceeds. The owner subsequently selected the alternative demonstration: **SOL → public USDC, with private SOL change**. Never label the USDC proceeds private. Preserve a fail-closed response to the original request.

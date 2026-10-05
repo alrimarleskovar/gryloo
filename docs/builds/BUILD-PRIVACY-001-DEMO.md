@@ -1,5 +1,47 @@
 # BUILD-PRIVACY-001 — demonstration and owner instructions
 
+## Product recording: existing LOCAL/MOCKED lifecycle
+
+**Run Privacy Demo** exposes the already-tested LOCAL compiler, authorization, encrypted vault, in-process ledger and reconciler, separately from the live vault. No recovery bundle, passphrase, owner notes, wallet, funding, ceremony download, relay or mainnet access is required. The banner remains visible throughout: **LOCAL DEMO / MOCKED EXECUTION — NO MAINNET TRANSACTION**.
+
+Launch the current production build directly with the installed Node 24.21.0, without changing the pnpm version pin. Stop the previous process on port 3017 with Ctrl+C in its terminal, then run:
+
+```sh
+cd /home/asus/projects/gryloo/.turbo/privacy001/apps/reference-dapp
+API_BASE_URL= API_AUTH_TOKEN= NEXT_TELEMETRY_DISABLED=1 node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3017
+```
+
+Open **http://127.0.0.1:3017** in a fresh browser session:
+
+1. Enter **swap 0.02 SOL to USDC privately** in Guided chat, click **Send**, then **Apply proposal**. This proves the existing canonical intent is **PRIVACY REQUIRED / CLOAK**, public USDC output with private SOL change.
+2. Select **Simulate**, then **Run Privacy Demo**. The isolated surface has no production execution or wallet controls.
+3. Click **Simulate local privacy swap**. The existing compiler calculates 0.02 SOL gross input from a synthetic 0.03 SOL note; **2.985 USDC** expected public output; **2.970075 USDC** minimum at 50 bps; **0.01 SOL** private change; included local fee 0.0001 SOL and ceiling 0.0002 SOL. These are deterministic fixture values, not live prices or fees.
+4. Click **Review privacy and simulated amounts**, then **Show bound Manifest**. Inspect actual Manifest/review hashes and optional bound-artifact details. The same workflow, simulation, privacy, amounts, provider, recipient and recovery limits enter the frozen-v1 chain.
+5. Check **I approve this LOCAL simulation, privacy policy and Manifest.**, then click **Authorize LOCAL demo**. This calls the existing digest-bound acknowledgment, without a wallet signature. Original freshness remains 60 seconds; if it expires, use **Simulate again for a fresh review** and repeat Review/Manifest/authorization.
+6. Click **Execute in LOCAL DEMO**. The existing engine writes encrypted intent and atomic note/nonce reservations, submits once to its local ledger, persists encrypted result/evidence and invokes its reconciler. Ledger submissions: **1**; wallet signatures: **0**. No retry control is provided.
+7. Click **Simulate restart & recover**. Authorization is discarded; a new vault/controller reads authenticated encrypted checkpoints against the retained independent mocked ledger. The existing reconciler returns **RECONCILED — LOCAL / MOCKED**. Submissions stay **1**, including repeated recovery.
+8. Click **Export LOCAL demo evidence**. The JSON includes actual public review/Manifest, encrypted checkpoint hashes/status, mocked observations, verdict and submission/restart/signature counts. It excludes serialized private notes, keys, viewing material, salts, refund secrets and the fixture vault passphrase.
+
+For recording, finish Review → Manifest → authorization → execution within the displayed 60-second window. Recovery works after expiry because it inspects the original attempt.
+
+**Recovery scope:** simulated controller restart, not full server restart or durable financial custody. Encrypted checkpoints and the independent ledger remain in isolated server memory. Server restart loses the session; unknown runs fail closed and cannot reconstruct success or resubmit. The production IndexedDB vault and all financial/linter/capability/dependency gates are unchanged. Shared pure note/vault/guard helpers no longer declare React client entry points; live owner material stays in the browser. Demo Server Actions accept only workflow/run identifier/acknowledgment, never owner private notes or keys.
+
+Safe regression (leaves the UI server running):
+
+```sh
+cd /home/asus/projects/gryloo/.turbo/privacy001
+node node_modules/vitest/vitest.mjs run apps/reference-dapp/src/privacy/local-demo.test.ts apps/reference-dapp/src/privacy/local-execution.test.ts --maxWorkers=2 --testTimeout=30000
+```
+
+Browser validation uses another localhost port:
+
+```sh
+cd /home/asus/projects/gryloo/.turbo/privacy001/apps/reference-dapp
+PLAYWRIGHT_BROWSERS_PATH=/home/asus/projects/gryloo/.turbo/privacy001/.turbo/privacy-demo-browser BUILD_PRIVACY_TEST_PORT=3018 node node_modules/@playwright/test/cli.js test --config playwright.privacy.config.ts
+```
+
+The test aborts non-loopback requests, registers a forbidden real wallet to catch connection/signing, verifies the complete sequence/redacted evidence and repeat recovery, then checks the still-disabled production authorization. Recording-reference screenshots are saved under `apps/reference-dapp/.turbo/privacy001-demo-{simulation,manifest,reconciled}.png`.
+
 ## Available demonstration: authoring and fail-closed feasibility
 
 This draft demonstrates privacy as a policy on Flofi's existing swap IR. **It does not execute a financial swap.** No owner wallet, funding, deposit, message signature or transaction signature is needed for this demonstration.
@@ -40,7 +82,7 @@ pnpm --filter @defi-workflow-engine/reference-compiler build
 pnpm exec vitest run apps/reference-dapp/src/privacy/local-execution.test.ts --maxWorkers=2 --testTimeout=30000
 ```
 
-The 40 lifecycle cases use actual SDK note codecs, synthetic note authority, an encrypted local backend, a simulated wallet acknowledgment and a closed in-process ledger. They exercise tampering, replay, lost responses and failed checkpoints as well as successful reload/reconciliation. They perform no wallet signing or public-chain transaction. The LOCAL ledger remains restricted to tests; the genuine candidate browser path described below stays behind the existing release gate. See the [report](BUILD-PRIVACY-001-REPORT.md) for the remaining engineering gates and [dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md) for the audit/license blockers.
+The 40 lifecycle cases use actual SDK note codecs, synthetic note authority, an encrypted local backend, a simulated wallet acknowledgment and a closed in-process ledger. They exercise tampering, replay, lost responses and failed checkpoints as well as successful reload/reconciliation. They perform no wallet signing or public-chain transaction. The same LOCAL ledger now serves the isolated product demo above; it has no financial transport. The genuine candidate browser path below remains behind the existing release gate. See the [report](BUILD-PRIVACY-001-REPORT.md) for remaining engineering gates and [dependency investigation](BUILD-PRIVACY-001-DEPENDENCIES.md) for audit/license blockers.
 
 ## Genuine SDK path available behind the existing release gate
 

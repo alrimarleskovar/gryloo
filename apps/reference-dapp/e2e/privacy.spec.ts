@@ -52,6 +52,72 @@ test('unsupported original request cannot become a public Jupiter swap', async (
   await expect(page.getByRole('button', { name: 'Apply proposal', exact: true })).toHaveCount(0);
 });
 
+test('product LOCAL demo records the existing lifecycle, encrypted restart and reconciliation without network or a wallet', async ({ page }) => {
+  test.setTimeout(90_000);
+  const external: string[] = [];
+  await page.route('**/*', async route => {
+    if (new URL(route.request().url()).hostname !== '127.0.0.1') { external.push(route.request().url()); return route.abort(); }
+    return route.continue();
+  });
+  await page.addInitScript(() => {
+    (window as unknown as { demoWalletRequests: number }).demoWalletRequests = 0;
+    window.addEventListener('wallet-standard:app-ready', event => {
+      const app = (event as CustomEvent).detail;
+      const account = { address: '11111111111111111111111111111111', chains: ['solana:mainnet'], features: ['solana:signMessage', 'solana:signTransaction'] };
+      const forbidden = () => { (window as unknown as { demoWalletRequests: number }).demoWalletRequests++; throw new Error('NO_REAL_WALLET'); };
+      app.register({ name: 'Forbidden real wallet', accounts: [account], chains: account.chains, features: {
+        'standard:connect': { connect: forbidden }, 'solana:signMessage': { signMessage: forbidden }, 'solana:signTransaction': { signTransaction: forbidden } } });
+    });
+  });
+  await page.goto('/');
+  await page.getByLabel(/Describe a mock edit/).fill('swap 0.02 SOL to USDC privately');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByText('Privacy: REQUIRED / Cloak. USDC proceeds are public. Remaining SOL change stays private.')).toBeVisible();
+  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Run Privacy Demo', exact: true }).click();
+  const demo = page.getByRole('region', { name: 'Privacy local demo' });
+  await expect(demo.getByText('LOCAL DEMO / MOCKED EXECUTION — NO MAINNET TRANSACTION', { exact: true })).toBeVisible();
+  await demo.getByRole('button', { name: 'Simulate local privacy swap' }).click();
+  await expect(demo.getByRole('status').first()).toContainText('SIMULATED', { timeout: 30_000 });
+  await expect(demo.getByText('2.985 USDC', { exact: true })).toBeVisible();
+  await expect(demo.getByText('2.970075 USDC', { exact: true })).toBeVisible();
+  await expect(demo.getByText('0.01 SOL', { exact: true })).toBeVisible();
+  const captureStyle = '[aria-label="Privacy local demo"] > p:first-child { position: static !important; }';
+  await demo.screenshot({ path: '.turbo/privacy001-demo-simulation.png', style: captureStyle });
+  await expect(demo.getByRole('button', { name: 'Execute in LOCAL DEMO' })).toHaveCount(0);
+  await demo.getByRole('button', { name: 'Review privacy and simulated amounts' }).click();
+  await demo.getByRole('button', { name: 'Show bound Manifest' }).click();
+  await expect(demo.getByText(/Manifest hash: 0x/)).toBeVisible();
+  await demo.screenshot({ path: '.turbo/privacy001-demo-manifest.png', style: captureStyle });
+  await expect(demo.getByRole('button', { name: 'Authorize LOCAL demo' })).toBeDisabled();
+  await demo.getByRole('checkbox', { name: 'I approve this LOCAL simulation, privacy policy and Manifest.' }).check();
+  await demo.getByRole('button', { name: 'Authorize LOCAL demo' }).click();
+  await demo.getByRole('button', { name: 'Execute in LOCAL DEMO' }).click();
+  await expect(demo.getByRole('status').first()).toContainText('EXECUTED');
+  await expect(demo.getByText('Encrypted intent and input/nonce reservations: committed.')).toBeVisible();
+  await demo.getByRole('button', { name: 'Simulate restart & recover' }).click();
+  await expect(demo.getByRole('heading', { name: 'RECONCILED — LOCAL / MOCKED' })).toBeVisible();
+  await demo.screenshot({ path: '.turbo/privacy001-demo-reconciled.png', style: captureStyle });
+  await expect(demo.getByRole('status').first()).toContainText('Ledger submissions: 1 · Wallet signatures: 0');
+  await expect(demo.getByRole('button', { name: 'Execute in LOCAL DEMO' })).toHaveCount(0);
+  const downloading = page.waitForEvent('download'); await demo.getByRole('button', { name: 'Export LOCAL demo evidence' }).click();
+  const download = await downloading; await download.saveAs('.turbo/privacy001-local-demo-evidence.json');
+  const text = await readFile('.turbo/privacy001-local-demo-evidence.json', 'utf8');
+  expect(JSON.parse(text)).toMatchObject({ format: 'flofi.cloak-local-demo-evidence.v1', phase: 'RECOVERED', submissions: 1, signatureRequests: 0, restarts: 1,
+    review: { environment: 'LOCAL', evidence: 'MOCKED', expectedOutput: '2985000', minimumOutput: '2970075', privateChange: '10000000' },
+    outcome: { state: 'RECONCILED' }, checkpoints: { intent: true, reconciled: true }, evidence: { verdict: { verdict: 'RECONCILED' } } });
+  expect(text).not.toMatch(/inputNotes|outputNotes|privateKey|viewingKeyNk|noteSalt|blinding|passphrase|rawResult/);
+  await demo.getByRole('button', { name: 'Simulate restart & recover' }).click();
+  await expect(demo.getByText(/Controller restarts: 2/)).toBeVisible();
+  await expect(demo.getByRole('status').first()).toContainText('Ledger submissions: 1');
+  await demo.getByRole('button', { name: 'Close local demo' }).click();
+  await page.getByRole('button', { name: 'Execute', exact: true }).first().click();
+  await expect(page.getByRole('button', { name: 'Review and authorize Cloak execution' })).toBeDisabled();
+  expect(await page.evaluate(() => (window as unknown as { demoWalletRequests: number }).demoWalletRequests)).toBe(0);
+  expect(external).toEqual([]);
+});
+
 test('actual browser ceremony proof and Manifest with SYNTHETIC notes and MOCKED mainnet reads, no signing/submission', async ({ page }) => {
   test.skip(!process.env.CLOAK_VERIFIED_CIRCUITS_DIRECTORY, 'Requires SDK-verified offline ceremony bytes; never substitutes circuits.');
   test.setTimeout(120_000);

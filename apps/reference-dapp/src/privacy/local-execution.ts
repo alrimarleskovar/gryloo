@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Local engineering harness. Never import into the financial UI or replace the live acceptance gate. */
+/** LOCAL harness. The isolated product demo may use it; it never replaces the live acceptance gate. */
 import { verifyCloakLocalReview, type CloakLocalReview } from '@defi-workflow-engine/reference-compiler';
 import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 import { digestRawResponse } from '@defi-workflow-engine/reference-linter';

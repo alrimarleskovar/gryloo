@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-'use client';
 import type { SolanaSession } from '../wallet/solana-wallet';
 type Events = { on(event: 'change', callback: (event: { accounts?: readonly { address: string }[]; chains?: readonly string[]; features?: unknown }) => void): () => void };
 /** Latches any session change, including a change away and back. Guard every asynchronous boundary. */

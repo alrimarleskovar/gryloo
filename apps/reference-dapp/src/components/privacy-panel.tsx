@@ -8,6 +8,7 @@ import { useWorkflow } from '../state/workflow-store';
 import { solanaSwapDetails } from '../domain/jupiter-authoring';
 import { CLOAK_ROUTING_DISCLOSURE } from '../privacy/disclosure';
 const CloakLivePanel = dynamic(() => import('./cloak-live-panel'), { ssr: false });
+const PrivacyDemoPanel = dynamic(() => import('./privacy-demo-panel'), { ssr: false });
 
 /** Same Flofi tabs/IR/revision boundary. A capability check cannot impersonate a transaction simulation. */
 export function PrivacyPanel({ view }: { view: 'build' | 'simulate' | 'execute' }) {
@@ -17,6 +18,7 @@ export function PrivacyPanel({ view }: { view: 'build' | 'simulate' | 'execute' 
   const [checked, setChecked] = useState<{ revision: number; workflowHash: string } | null>(null);
   const [error, setError] = useState('');
   const [openVault, setOpenVault] = useState(false);
+  const [openDemo, setOpenDemo] = useState(false);
   const current = checked?.revision === state.workflow.revision ? checked : null;
   async function check() {
     try {
@@ -38,6 +40,7 @@ export function PrivacyPanel({ view }: { view: 'build' | 'simulate' | 'execute' 
     const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = url; link.download = 'BUILD-PRIVACY-001-feasibility.json'; link.click(); URL.revokeObjectURL(url);
   }
+  if (openDemo) return <PrivacyDemoPanel workflow={state.workflow as SemanticWorkflow} close={() => setOpenDemo(false)}/>;
   return <section className="panel" aria-label="Cloak privacy workflow">
     <p className="eyebrow">PRIVACY: REQUIRED / CLOAK</p><h2>{view === 'execute' ? 'Owner authorization blocked' : 'SOL → USDC with private SOL change'}</h2>
     {fields && <p>Swap {fields.amount} SOL to USDC on Solana mainnet. Slippage limit: {fields.slippage} bps.</p>}
@@ -48,6 +51,7 @@ export function PrivacyPanel({ view }: { view: 'build' | 'simulate' | 'execute' 
       {current && <p>Policy check complete for revision {current.revision}. Financial simulation not performed. Acceptance blocked.</p>}
       {current && <button type="button" className="quiet" onClick={exportEvidence}>Export non-executed feasibility report</button>}</>}
     {view === 'execute' && <button type="button" disabled>Review and authorize Cloak execution</button>}
+    <button type="button" className="quiet" onClick={() => setOpenDemo(true)}>Run Privacy Demo</button>
     <button type="button" onClick={() => setOpenVault(true)}>Open encrypted vault and live preparation</button>
     {openVault && <CloakLivePanel workflow={state.workflow as SemanticWorkflow}/>}
     {error && <p role="alert">{error}</p>}
