@@ -206,6 +206,8 @@ Problems found by these checks and fixed before delivery:
 * Portuguese contractions in edit and provenance replies; the local secret refusal now answers in Portuguese for
   Portuguese wording;
 * a test input shaped like a seed phrase tripped governance-lite's detector; it is now ordinary words;
+* three test inputs meant to contain a bidirectional override were written with the literal character instead of a
+  `\u202e` escape (the same hazard BUILD-COPILOT-001 hit); they are escapes now and a scan of every changed file is clean;
 * running governance-lite in the worktree rewrites the tracked `scripts/__pycache__/*.pyc`; they were restored and are not
   part of this change.
 
