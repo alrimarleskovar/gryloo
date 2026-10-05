@@ -1,5 +1,11 @@
 # BUILD-PRIVACY-001 — dependency investigation
 
+## Owner-requested admission continuation — 2026-10-05
+
+The [concrete admission review](BUILD-PRIVACY-001-ADMISSION-REVIEW.md) now records all 149 exact added identities/SRIs and the archive-based legal evidence. The prior 262-identity baseline was authenticated against the unchanged verifier's resolved-section hash. No baseline identity was removed or its SRI changed; all additions are reachable from Cloak/prover roots and their registry SRIs/release ages verified. SRI-verified archives were inspected for the 14 license findings plus the SDK's Apache-2.0 legal text. Three GPL archives omit standalone legal text/source grant headers; their metadata was not treated as approval. This advances the evidence review, **not admission**.
+
+Fresh pinned-pnpm audit still fails on one low Elliptic advisory. Stable and staging Cloak both retain circomlibjs 0.1.7 → Ethers 5 → signing-key 5.8.0 → exact Elliptic 6.6.1; no published 6.6.2 exists. The unchanged verifier still reports 21 findings, and financial actions remain disabled. No compatible published fix, advisory exception, license relabelling, legal-text fabrication, policy change or wallet action was substituted.
+
 Investigated on 2026-10-04 against the unchanged privacy lockfile, SHA-256 `0dab416ebfcf01acfbf727abee9eb56c676cfe897f7ca2dc02edcb6935f805b1`. This is investigation evidence, **not approved inventory, license clearance or an audit exception**. No package pin, override, legal text, dependency verifier or CI file changed during this continuation.
 
 The local npm audit reports **one low advisory**, [GHSA-848j-6mx2-7j84](https://github.com/advisories/GHSA-848j-6mx2-7j84), for Elliptic 6.6.1. Its path is Cloak → circomlibjs → ethers 5 → `@ethersproject/signing-key` → elliptic. npm's advisory response suggests `>=6.6.2`; GitHub's current advisory page says no patched version. A fresh read of the official npm registry confirms latest Elliptic is **6.6.1** and **6.6.2 is not published**. Cloak's latest stable remains **0.2.5**; the only newer tag is `0.2.6-staging.6c85601`. Switching to an unreviewed staging SDK or locally replacing cryptographic signing code is not a safe scoped remedy. The existing low-severity gate stays failing. The existing Underscore and WebSocket scoped patches remain intact.

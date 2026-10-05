@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PrivateStateVault, openPrivateVault, type PrivateStateIdentity } from '../privacy/vault';
 import { prepareOwnerDeposit, recoverOwnerDeposit, submitOwnerDeposit, type OwnerDepositPreparation } from '../privacy/owner-proof-deposit';
 import { authorizeOwnerDeposit, OWNER_PROOF_LABEL, type OwnerProofConfiguration } from '../privacy/owner-proof-gate';
-import { connectSolanaWallet, solanaWalletNames } from '../wallet/solana-wallet';
+import { connectProofPhantom, detectProofPhantom, type OwnerProofWalletCheck } from '../privacy/owner-proof-wallet';
 const pointerKey = 'flofi.cloak.owner-deposit.reference.v1';
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -14,10 +14,25 @@ export default function CloakOwnerDepositPanel({ configuration }: { configuratio
   const [secret, setSecret] = useState(''), [vault, setVault] = useState<PrivateStateVault | null>(null);
   const [prepared, setPrepared] = useState<OwnerDepositPreparation | null>(null), [identity, setIdentity] = useState<PrivateStateIdentity | null>(null);
   const [backup, setBackup] = useState(false), [reviewed, setReviewed] = useState(false), [enabled, setEnabled] = useState(false);
-  const [wallet, setWallet] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [latched, setLatched] = useState(false);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [latched, setLatched] = useState(false);
+  const [detected, setDetected] = useState<ReturnType<typeof detectProofPhantom> | null>(null);
+  const [connected, setConnected] = useState<OwnerProofWalletCheck | null>(null);
+  const walletCheck = useRef<OwnerProofWalletCheck | null>(null);
+  const invalidateWallet = () => {
+    walletCheck.current?.close(); walletCheck.current = null; setConnected(null);
+    setPrepared(null); setReviewed(false); setEnabled(false); setBackup(false);
+  };
+  useEffect(() => {
+    const detect = () => setDetected(detectProofPhantom());
+    const registration = () => queueMicrotask(detect);
+    detect(); window.addEventListener('wallet-standard:register-wallet', registration);
+    return () => { window.removeEventListener('wallet-standard:register-wallet', registration); walletCheck.current?.close(); };
+  }, []);
   const [evidence, setEvidence] = useState<Awaited<ReturnType<typeof recoverOwnerDeposit>> | null>(null);
   const operation = async (fn: () => Promise<void>) => { setBusy(true); setError(''); try { await fn(); } catch (e) {
-    setError(e instanceof Error && /^CLOAK_|^PRIVACY_|^RESERVATION_/.test(e.message) ? e.message :
+    if (e instanceof Error && e.message === 'CLOAK_OWNER_CHANGED') invalidateWallet();
+    setError(typeof e === 'object' && e !== null && 'code' in e && e.code === 4001 ? 'CLOAK_WALLET_REQUEST_REJECTED — no submission or automatic retry' :
+      e instanceof Error && /^CLOAK_|^PRIVACY_|^RESERVATION_/.test(e.message) ? e.message :
       e instanceof Error && e.message === 'Buffer is not defined' ? 'CLOAK_DEPOSIT_BROWSER_BUFFER_UNAVAILABLE' :
       e instanceof Error && /Failed to fetch|fetch failed|NetworkError/.test(e.message) ? 'CLOAK_DEPOSIT_PUBLIC_RPC_UNAVAILABLE' : 'CLOAK_DEPOSIT_INSPECTION_REQUIRED');
   } finally { setBusy(false); } };
@@ -27,6 +42,26 @@ export default function CloakOwnerDepositPanel({ configuration }: { configuratio
     <h1>Minimum Cloak shield deposit</h1>
     <p>This distinct proof deposits exactly 0.01 SOL into Cloak. It does not execute a swap or enable production trading. No mainnet proof exists until a real transaction is finalized and its shielded output note is saved and reloaded.</p>
     <p>Expected owner: <code>{configuration.owner}</code></p>
+    <section aria-label="Phantom connection check">
+      <h2>Phantom connection — no signing</h2>
+      <p>Wallet Standard Phantom: {detected?.walletStandard === 1 ? 'Detected' : detected?.walletStandard ? 'Ambiguous — blocked' : 'Not detected'}. Injected Phantom provider: {detected?.injected ? 'Detected' : 'Not detected'}.</p>
+      <button disabled={busy} onClick={() => setDetected(detectProofPhantom())}>Detect Phantom</button>
+      <button disabled={busy || detected?.walletStandard !== 1} onClick={() => void operation(async () => {
+        invalidateWallet();
+        const check = await connectProofPhantom(configuration.owner, () => { invalidateWallet(); setError('CLOAK_OWNER_CHANGED — new connection and Review required'); });
+        walletCheck.current = check; setConnected(check);
+      })}>Connect Phantom — public key only</button>
+      {connected ? <><p>PHANTOM CONNECTION: PASS — connected owner matches exactly.</p>
+        <p>Connected public key: <code>{connected.owner}</code></p>
+        <p>FloFi execution network: Solana MAINNET ({connected.network}); public RPC genesis verified: <code>{connected.genesisHash}</code>.</p>
+        <p>Phantom advertises mainnet support. Its internal testnet toggle is not exposed by Wallet Standard; the transaction request explicitly specifies solana:mainnet.</p>
+        <button disabled={busy} onClick={() => void operation(async () => {
+          const session = walletCheck.current?.session; invalidateWallet();
+          const disconnect = session?.wallet.features['standard:disconnect'] as { disconnect(): Promise<void> } | undefined;
+          if (disconnect) await disconnect.disconnect();
+        })}>Disconnect Phantom and invalidate Review</button></> : <p>PHANTOM CONNECTION: NOT VERIFIED. Reload requires an explicit fresh connection and exact owner check.</p>}
+      <p>Connection requests permission to share a public key only. FloFi never asks for a seed phrase or wallet private key. No message or transaction signature is requested here. Connecting or changing accounts invalidates the previous Review.</p>
+    </section>
     <p>The deposit amount, owner wallet, pool, time, fee and output commitment are public. Note spending secrets and viewing material remain inside your encrypted local vault and encrypted backup. A deposit cannot be rolled back; uncertain submission allows inspection only.</p>
     {!admitted && <p role="status">Financial actions disabled. Owner opt-in and audit/SBOM/inventory/license admission are required. Read-only preparation is available.</p>}
     {!vault && <><label>Local vault passphrase <input type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)}/></label>
@@ -47,7 +82,10 @@ export default function CloakOwnerDepositPanel({ configuration }: { configuratio
     }}/></label>
     <button disabled={busy || latched} onClick={() => void operation(async () => {
       setPrepared(null); setReviewed(false); setBackup(false); setEnabled(false); setEvidence(null);
-      const p = await prepareOwnerDeposit(vault, configuration.owner); setPrepared(p); setIdentity(p.identity);
+      const originalWallet = walletCheck.current; originalWallet?.assertCurrent();
+      const p = await prepareOwnerDeposit(vault, configuration.owner);
+      if (originalWallet !== walletCheck.current) throw new Error('CLOAK_OWNER_CHANGED');
+      originalWallet?.assertCurrent(); setPrepared(p); setIdentity(p.identity);
       localStorage.setItem(pointerKey, JSON.stringify(p.identity));
     })}>Prepare 0.01 SOL deposit — no signature</button>
     {prepared && <><h2>Preflight → Review → bound Manifest</h2>
@@ -62,12 +100,12 @@ export default function CloakOwnerDepositPanel({ configuration }: { configuratio
         manifestHash: prepared.manifestHash, reviewDigest: prepared.reviewDigest, simulation: prepared.simulation }, null, 2))}>Export public Review and Manifest</button>
       <label><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)}/>I reviewed this exact deposit, transaction, fees and Manifest.</label>
       <label><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/>I explicitly enable ONE owner-controlled MAINNET PROOF deposit.</label>
-      <label>Owner wallet <select value={wallet} onChange={e => setWallet(e.target.value)}><option value="">Choose wallet</option>{solanaWalletNames().map(n => <option key={n}>{n}</option>)}</select></label>
       <p>The next button opens your wallet for this exact Solana transaction. Only you can approve its signature. FloFi submits the verified signed bytes once; it never signs automatically or retries after uncertainty.</p>
-      <button disabled={!admitted || busy || latched || !reviewed || !enabled || !backup || !wallet || prepared.simulation !== 'PASSED'} onClick={() => void operation(async () => {
+      <button disabled={!admitted || busy || latched || !reviewed || !enabled || !backup || !connected || prepared.simulation !== 'PASSED'} onClick={() => void operation(async () => {
+        const check = walletCheck.current; if (!check) throw new Error('CLOAK_OWNER_CHANGED'); check.assertCurrent();
         const permit = authorizeOwnerDeposit(configuration, prepared, prepared.reviewDigest, enabled);
-        setLatched(true); const session = await connectSolanaWallet(wallet, 'solana:mainnet', 'CLOAK_DEPOSIT');
-        const result = await submitOwnerDeposit(vault, prepared, permit, session, prepared.reviewDigest);
+        setLatched(true);
+        const result = await submitOwnerDeposit(vault, prepared, permit, check.session, prepared.reviewDigest);
         setError(`CLOAK_DEPOSIT_INSPECT_FINALIZED_CHAIN: ${result.signature}`);
       })}>Sign and submit ONE reviewed 0.01 SOL Cloak deposit</button></>}
     {identity && <><button disabled={busy} onClick={() => void operation(async () => {

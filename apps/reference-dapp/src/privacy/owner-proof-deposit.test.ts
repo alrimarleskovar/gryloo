@@ -115,6 +115,29 @@ describe('one controlled SDK deposit, release gates preserved', () => {
     await expect(f.execute()).rejects.toThrow('CLOAK_DEPOSIT_REPLAY_OR_CHECKPOINT_CHANGED');
     expect(f.sign).toHaveBeenCalledTimes(1); expect(m.send).toHaveBeenCalledTimes(1);
   });
+  it('hands the exact reviewed wire to the test wallet once with explicit mainnet, without a message signature', async () => {
+    const f = await fixture(); await f.execute();
+    const input = f.sign.mock.calls[0]![0] as { transaction: Uint8Array; account: object; chain: string };
+    expect(btoa(Array.from(input.transaction, b => String.fromCharCode(b)).join(''))).toBe(f.prepared.unsignedTransaction);
+    expect(input.chain).toBe('solana:mainnet'); expect(input.account).toBe(f.session.account); expect(f.sign).toHaveBeenCalledTimes(1);
+    expect((f.session.wallet.features['solana:signMessage'] as { signMessage: ReturnType<typeof vi.fn> }).signMessage).not.toHaveBeenCalled();
+  });
+  it('wallet rejection/cancel preserves intent and causes no submission or second signature request', async () => {
+    const f = await fixture(); f.sign.mockRejectedValue(Object.assign(new Error('TEST_WALLET_REJECTED'), { code: 4001 }));
+    await expect(f.execute()).rejects.toThrow('TEST_WALLET_REJECTED');
+    expect(await f.vault.loadExecution(f.prepared.identity, 'execution.intent')).not.toBeNull();
+    await expect(f.execute()).rejects.toThrow('CLOAK_DEPOSIT_REPLAY_OR_CHECKPOINT_CHANGED');
+    expect(f.sign).toHaveBeenCalledTimes(1); expect(m.send).not.toHaveBeenCalled();
+  });
+  it('concurrent execution attempts can open only one transaction signature request', async () => {
+    const f = await fixture(), results = await Promise.allSettled([f.execute(), f.execute()]);
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    expect(f.sign).toHaveBeenCalledTimes(1); expect(m.send).toHaveBeenCalledTimes(1);
+  });
+  it('disconnect before signing fails closed with no wallet request or broadcast', async () => {
+    const f = await fixture(); Object.assign(f.session.wallet, { accounts: [] });
+    await expect(f.execute()).rejects.toThrow('CLOAK_OWNER_CHANGED'); expect(f.sign).not.toHaveBeenCalled(); expect(m.send).not.toHaveBeenCalled();
+  });
   it('verifies the exact wallet-returned message before submission', async () => {
     const f = await fixture(), original = f.sign.getMockImplementation()!;
     f.sign.mockImplementation(async input => { const result = await original(input); result[0]!.signedTransaction[result[0]!.signedTransaction.length - 1]! ^= 1; return result; });
