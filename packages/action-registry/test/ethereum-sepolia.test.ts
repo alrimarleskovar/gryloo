@@ -73,7 +73,8 @@ describe('Ethereum Sepolia capability registry', () => {
   it('lists only the implemented actions, on PUBLIC_TESTNET, owner wallet, with no demonstrated evidence', () => {
     const rows = executionCapabilityRegistry.filter(row => row.chainId === ETH);
     expect(rows.map(row => `${row.actionType}:${row.adapterId}`).sort()).toEqual(
-      ['asset.swap.exact-input:uniswap.v3', 'asset.transfer:evm.native-transfer', 'borrow:aave-v3', 'repay:aave-v3', 'supply:aave-v3', 'withdraw:aave-v3']);
+      ['asset.liquidity.concentrated:uniswap.v3', 'asset.swap.exact-input:uniswap.v3', 'asset.transfer:evm.native-transfer', 'borrow:aave-v3', 'repay:aave-v3',
+        'supply:aave-v3', 'withdraw:aave-v3']);
     for (const row of rows) {
       expect(row).toMatchObject({ environment: 'PUBLIC_TESTNET', evidenceMaturity: null, authorizationModes: ['A'], executionKind: 'DIRECT_TRANSACTION' });
       expect(row.requirements).toContain('INJECTED_WALLET');

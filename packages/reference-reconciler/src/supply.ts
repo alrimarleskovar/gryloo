@@ -5,7 +5,7 @@ import { reconcileBorrowAttempt, buildBorrowEvidence } from './borrow.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { lendingProfile, readSupplyState, rpcRecord, rpcHash, rpcUint, rpcHex, supplyHex, supplyCall, supplyTopic,
-  SUPPLY_METAMASK, decodeSupplyWalletEnvelope, supplySelector, rlpEncode, rlpInteger, fromHex, toHex, type SupplyWalletEnvelope, supplyWord, supplyHash, supplyArtifactHash, type SupplyRpc, type SupplyReview, type SupplyTransaction, type SupplyState } from '@defi-workflow-engine/reference-compiler';
+  SUPPLY_METAMASK, SUPPLY_METAMASK_CODE_HASHES, decodeSupplyWalletEnvelope, supplySelector, rlpEncode, rlpInteger, fromHex, toHex, type SupplyWalletEnvelope, supplyWord, supplyHash, supplyArtifactHash, type SupplyRpc, type SupplyReview, type SupplyTransaction, type SupplyState } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type EvidenceBundle, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|'WITHDRAW'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
 export type SupplyObservation = { verdict:'RECONCILED'|'DIVERGENT'|'INCONCLUSIVE'; reason:string; transaction:Record<string,unknown>|null;
@@ -51,7 +51,9 @@ export async function verifySupplyWalletEnvelope(review:Pick<SupplyReview,'accou
   const e=decodeSupplyWalletEnvelope(transaction.input),m=SUPPLY_METAMASK,block=rpcUint(receipt.blockNumber),tag=supplyHex(block),preTag=supplyHex(block-1n);
   if(transaction.to!==m.manager||e.owner!==review.account||e.call.to!==attempt.transaction.to||e.call.data!==attempt.transaction.data||e.call.value!=='0'||transaction.from===review.account)throw new Error('SUPPLY_ENVELOPE_MISMATCH');
   const hashes=await Promise.all([m.manager,m.implementation,m.limited,m.exact].map(async address=>hashHex(rpcHex(await rpc('eth_getCode',[address,tag])))));
-  if(JSON.stringify(hashes)!==JSON.stringify(m.codeHashes))throw new Error('SUPPLY_WALLET_CODE_MISMATCH');
+  // Pinned per chain: the reviewed transaction's chain selects the expected code (BUILD-ETHEREUM-001); an unpinned chain fails closed.
+  const pins=SUPPLY_METAMASK_CODE_HASHES[Number(chainId)];
+  if(!pins||JSON.stringify(hashes)!==JSON.stringify(pins))throw new Error('SUPPLY_WALLET_CODE_MISMATCH');
   const {domain,delegationHash,digest}=supplyWalletDelegationDigest(e,chainId);
   if(signatureOwner(digest,e.signature)!==review.account)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
   const call=async(to:string,data:string,at=tag)=>rpcHex(await rpc('eth_call',[{to,data},at]));

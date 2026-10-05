@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { useWorkflow } from './workflow-store';
-import { injected, useBuild009Wallet, BASE_SEPOLIA_HEX } from './build009-wallet-store';
+import { injected, useBuild009Wallet } from './build009-wallet-store';
+import { uniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 import { uniswapLiquidityBegin, uniswapLiquidityHandoff, uniswapLiquidityInvalidate, uniswapLiquidityMode, uniswapLiquidityObserve, uniswapLiquidityPrice,
   uniswapLiquidityRefresh, uniswapLiquidityReport, uniswapLiquidityReview, uniswapLiquiditySimulate, uniswapLiquidityStatus, uniswapLiquidityWalletFailure,
   uniswapLiquidityInfo } from '../app/uniswap-liquidity-action';
@@ -14,7 +15,7 @@ const REFUSALS = [4001, 4100, 4200];
 type Store = { available: boolean; executionEnabled: boolean; record: UniswapLiquidityRecord | null; busy: boolean; signing: boolean; error: string | null;
   retired: boolean; recovered: boolean; price: UniswapLiquidityPrice | null;
   simulate(): Promise<void>; refresh(): Promise<void>; review(): Promise<void>; execute(): Promise<void>; observe(): Promise<void>;
-  switchNetwork(): Promise<void>; fetchPrice(): Promise<UniswapLiquidityPrice | null> };
+  switchNetwork(): Promise<void>; fetchPrice(chain?: 'eip155:84532' | 'eip155:11155111'): Promise<UniswapLiquidityPrice | null> };
 const Context = createContext<Store | null>(null);
 function quantity(value: unknown): bigint {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return BigInt(value);
@@ -75,11 +76,14 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
     if (!session) throw new Error('UNISWAP_WALLET_REQUIRED');
     return session;
   }
-  async function fetchPrice(): Promise<UniswapLiquidityPrice | null> {
+  /** The pool price of a liquidity network (Base Sepolia unless the form names Ethereum Sepolia). */
+  async function fetchPrice(chain?: 'eip155:84532' | 'eip155:11155111'): Promise<UniswapLiquidityPrice | null> {
     let value: UniswapLiquidityPrice | null = null;
-    await operation(async () => { value = unwrap(await uniswapLiquidityPrice()); setPrice(value); });
+    await operation(async () => { value = unwrap(await uniswapLiquidityPrice(chain)); setPrice(value); });
     return value;
   }
+  /** The reviewed run's chain (else the authored position's) is the only network the wallet may be on. */
+  const chainHexOf = (chain: string | number | undefined) => uniswapLiquidityProfile(chain)?.chainHex;
   async function simulate() { await operation(async () => {
     if (record && !retired && record.verdict === 'PENDING' && record.attempts.some(a => ['PREPARED', 'SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(a.state)))
       throw new Error('UNISWAP_ATTEMPT_ACTIVE_OBSERVE_EXISTING');
@@ -94,12 +98,18 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
     accept(unwrap(await uniswapLiquidityReview(record.id, record.review.commitment, record.workflow)));
   }); }
   async function observe() { await operation(async () => { if (!record) throw new Error('UNISWAP_RUN_MISSING'); accept(unwrap(await uniswapLiquidityObserve(record.id))); }); }
-  async function switchNetwork() { await operation(async () => { await wallet.switchTo(BASE_SEPOLIA_HEX); }); }
+  async function switchNetwork() { await operation(async () => {
+    const target = chainHexOf(record?.review.chainId ?? latest.current.nodes.find(n => n.actionType === 'asset.liquidity.concentrated')?.chainId);
+    if (!target) throw new Error('UNISWAP_REVIEW_REQUIRED');
+    await wallet.switchTo(target);
+  }); }
   /** One Execute click = one exact wallet request (the next approval or the mint). */
   async function execute() { await operation(async () => {
     if (!record || retired || record.authorization !== record.review.commitment) throw new Error('UNISWAP_REVIEW_REQUIRED');
+    const reviewedChain = chainHexOf(record.review.chainId);
+    if (!reviewedChain) throw new Error('UNISWAP_WRONG_CHAIN');
     const session = await ownerSession();
-    if (session.chainId !== BASE_SEPOLIA_HEX) throw new Error('UNISWAP_WRONG_CHAIN');
+    if (session.chainId !== reviewedChain) throw new Error('UNISWAP_WRONG_CHAIN');
     if (session.account !== record.owner) throw new Error('UNISWAP_WRONG_OWNER');
     const provider = injected(); if (!provider) throw new Error('UNISWAP_WALLET_REQUIRED');
     // The reviewed IR is the server-held run's (it survives reloads; `begin` re-validates it). The editor must not change mid-operation.
@@ -116,7 +126,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
       if (latest.current !== editing) throw new Error('UNISWAP_SEMANTIC_REVISION_CHANGED');
       if (injected() !== provider) throw new Error('UNISWAP_WALLET_PROVIDER_CHANGED');
       if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== record.owner) throw new Error('UNISWAP_WRONG_OWNER');
-      if (typeof chain !== 'string' || chain.toLowerCase() !== BASE_SEPOLIA_HEX) throw new Error('UNISWAP_WRONG_CHAIN');
+      if (typeof chain !== 'string' || chain.toLowerCase() !== reviewedChain) throw new Error('UNISWAP_WRONG_CHAIN');
       if (nonce !== null && quantity(await request('eth_getTransactionCount', [record.owner, 'pending'])) !== BigInt(nonce)) throw new Error('UNISWAP_WALLET_NONCE_MISMATCH');
     };
     let prepared = false;
@@ -124,7 +134,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
       await validateSession(null);
       const begun = unwrap(await uniswapLiquidityBegin(id, session.account, snapshot)); accept(begun.record); prepared = true;
       const tx = begun.transaction;
-      if (tx.from !== record.owner || tx.chainId !== BASE_SEPOLIA_HEX || tx.value !== '0x0' ||
+      if (tx.from !== record.owner || tx.chainId !== reviewedChain || tx.value !== '0x0' ||
           !record.review.calls.some(c => c.step === begun.attempt.step && c.to === tx.to && c.data === tx.data)) throw new Error('UNISWAP_TRANSACTION_ARTIFACT_CHANGED');
       await validateSession(begun.attempt.nonce);
       accept(unwrap(await uniswapLiquidityHandoff(id)));

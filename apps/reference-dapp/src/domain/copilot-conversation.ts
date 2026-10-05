@@ -198,23 +198,25 @@ const SWAP_FIELDS: readonly CarriedField[] = ['network', 'inputAsset', 'outputAs
 const BRIDGE_FIELDS: readonly CarriedField[] = ['sourceNetwork', 'destinationNetwork', 'asset', 'amount', 'slippage', 'routing', 'recipient'];
 const LENDING_FIELDS: readonly CarriedField[] = ['network', 'asset', 'amount', 'beneficiary'];
 const COMPOSITION_FIELDS: readonly CarriedField[] = ['network', 'asset', 'inputAsset', 'outputAsset', 'supplyAmount', 'borrowAmount', 'slippage', 'beneficiary'];
+/** The two EVM test networks a step can name (Aave and Uniswap liquidity): never a mainnet. */
+const lendingNetworkOf = (network: 'Base Sepolia' | 'Ethereum Sepolia'): CopilotNetwork => network === 'Ethereum Sepolia' ? 'ETHEREUM_SEPOLIA' : 'BASE_SEPOLIA';
 /** A step's typed IR fields as the V1 action that would author it again; null for steps the Copilot does not re-author. */
 function stepAction(step: WorkflowStep): Base | null {
   const d = step.detail;
   const solana = (symbol: string) => (symbol === 'devUSDC' ? 'DEVUSDC' : symbol) as CopilotSwapAction['inputAsset'];
   switch (d.type) {
-    case 'EVM_SWAP': return { composition: false, role: null, actions: [{ type: 'SWAP', network: d.network === 'Base' ? 'BASE' : 'BASE_SEPOLIA', inputAsset: d.from,
+    case 'EVM_SWAP': return { composition: false, role: null, actions: [{ type: 'SWAP', network: d.network === 'Base' ? 'BASE' : d.network === 'Ethereum Sepolia' ? 'ETHEREUM_SEPOLIA' : 'BASE_SEPOLIA', inputAsset: d.from,
       outputAsset: d.to, amount: d.amount, slippageBps: d.slippage }] };
     case 'SOLANA_SWAP': return { composition: false, role: null, actions: [{ type: 'SWAP', network: d.input.network === 'Solana' ? 'SOLANA' : 'SOLANA_DEVNET',
       inputAsset: solana(d.input.from), outputAsset: solana(d.input.to), amount: d.input.amount, slippageBps: d.input.slippage }] };
     case 'ROUTER': return { composition: false, role: null, actions: [{ type: 'BRIDGE', sourceNetwork: d.input.source === 'Base' ? 'BASE' : 'BASE_SEPOLIA',
       destinationNetwork: d.input.destination === 'Arbitrum' ? 'ARBITRUM' : 'ARBITRUM_SEPOLIA', asset: 'USDC', amount: d.input.amount, slippageBps: d.input.slippage,
       routing: d.input.routing === 'AUTO' ? null : d.input.routing, recipient: d.input.recipient ? d.input.recipient.toLowerCase() : null }] };
-    case 'AAVE': return { composition: false, role: null, actions: [{ type: d.operation, protocol: 'AAVE_V3', network: 'BASE_SEPOLIA', asset: 'USDC', amount: d.input.amount,
+    case 'AAVE': return { composition: false, role: null, actions: [{ type: d.operation, protocol: 'AAVE_V3', network: lendingNetworkOf(d.input.network), asset: d.input.asset, amount: d.input.amount,
       beneficiary: d.input.beneficiary.toLowerCase() }] };
-    case 'AAVE_WITHDRAW': return { composition: false, role: null, actions: [{ type: 'WITHDRAW', protocol: 'AAVE_V3', network: 'BASE_SEPOLIA', asset: 'USDC',
+    case 'AAVE_WITHDRAW': return { composition: false, role: null, actions: [{ type: 'WITHDRAW', protocol: 'AAVE_V3', network: lendingNetworkOf(d.input.network), asset: d.input.asset,
       amount: d.input.amount, beneficiary: null }] };
-    case 'UNISWAP_LIQUIDITY': return { composition: false, role: null, actions: [{ type: 'LIQUIDITY', protocol: 'UNISWAP_V3', network: 'BASE_SEPOLIA',
+    case 'UNISWAP_LIQUIDITY': return { composition: false, role: null, actions: [{ type: 'LIQUIDITY', protocol: 'UNISWAP_V3', network: lendingNetworkOf(d.input.network),
       deposits: [{ asset: 'USDC', maxAmount: d.input.maxUsdc }, { asset: 'WETH', maxAmount: d.input.maxWeth }], rangeUnit: d.input.rangeUnit, lower: d.input.lower,
       upper: d.input.upper, slippageBps: d.input.slippage }] };
     case 'ORCA_LIQUIDITY': return { composition: false, role: null, actions: [{ type: 'LIQUIDITY', protocol: 'ORCA', network: 'SOLANA_DEVNET',
@@ -353,10 +355,12 @@ function actionFills(intent: CopilotIntentV2, missing: readonly string[], option
       }
       if (action.type === 'LIQUIDITY') {
         const pool = [en.poolOptions, pt.poolOptions].map(list => list.map(normalize).indexOf(normalize(label))).find(index => index >= 0);
-        if (pool !== undefined) return pool === 0 ? { protocol: 'UNISWAP_V3', network: 'BASE_SEPOLIA' } : { protocol: 'ORCA', network: 'SOLANA_DEVNET' };
+        if (pool !== undefined) return pool === 0 ? { protocol: 'UNISWAP_V3', network: 'BASE_SEPOLIA' } : pool === 2 ? { protocol: 'UNISWAP_V3', network: 'ETHEREUM_SEPOLIA' }
+          : { protocol: 'ORCA', network: 'SOLANA_DEVNET' };
       }
       if (networks.length === 1 && networks[0] && missing.includes('network')) return { network: networks[0] };
-      if (normalize(label) === 'usdc' && missing.includes('asset') && action.type !== 'SWAP' && action.type !== 'LIQUIDITY') return { asset: 'USDC' };
+      if (/^(?:usdc|wbtc)$/.test(normalize(label)) && missing.includes('asset') && action.type !== 'SWAP' && action.type !== 'LIQUIDITY')
+        return { asset: normalize(label) === 'wbtc' ? 'WBTC' : 'USDC' };
       return null;
     })();
     if (patch) out.push({ label, fill: { kind: 'ACTION', patch } });

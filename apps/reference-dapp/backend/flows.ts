@@ -410,7 +410,7 @@ const uniswapLiquidity: FlowDefinition = {
   name: 'uniswap-liquidity', busyCode: 'UNISWAP_LIQUIDITY_BUSY', runId: UNISWAP_LIQUIDITY_RUN_ID, unavailableCode: 'UNISWAP_LIQUIDITY_SERVICE_UNAVAILABLE',
   methods: {
     info: { mutates: false, validate: shape() },
-    price: { mutates: false, validate: shape() },
+    price: { mutates: false, validate: optionalShape(0, v => v === 'eip155:84532' || v === 'eip155:11155111') },
     simulate: { mutates: true, validate: shape(workflow, account) },
     refresh: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
     review: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), commitment, workflow) },
@@ -422,14 +422,15 @@ const uniswapLiquidity: FlowDefinition = {
     observe: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
     status: { mutates: false, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
   },
+  // BUILD-ETHEREUM-001: the live deployment also reads Ethereum Sepolia through its own chain-bound client; the MOCKED harness serves Base Sepolia only.
   transport: (mode, env) => ({ rpc: createBaseSepoliaReadRpc(mode === 'harness' ? UNI_MOCK_RPC_URL : baseSepoliaRpcUrl(env.GRYLOO_BASE_SEPOLIA_RPC_URL),
-    UNISWAP_LIQUIDITY_RPC_METHODS) }),
-  create(storage, { rpc, mode, env }) {
-    const s = createUniswapLiquidityService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET',
+    UNISWAP_LIQUIDITY_RPC_METHODS), ...mode === 'live' ? { chains: { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS) } } } : {} }),
+  create(storage, { rpc, mode, env, chains }) {
+    const s = createUniswapLiquidityService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {}, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET',
       executionEnabled: env.GRYLOO_UNISWAP_LIQUIDITY_EXECUTION !== 'DISABLED', ...mode === 'harness' ? { mockedCodePins: UNI_MOCK_CODE_PINS } : {} });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
       info: async () => ({ executionEnabled: s.executionEnabled }),
-      price: () => s.price(),
+      price: ([chain]) => s.price(chain as string | undefined),
       simulate: ([w, a]) => s.simulate(w, a as string),
       refresh: ([i]) => s.refresh(i as string),
       review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),

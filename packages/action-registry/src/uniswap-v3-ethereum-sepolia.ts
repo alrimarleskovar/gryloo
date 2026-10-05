@@ -32,3 +32,23 @@ export const UNISWAP_V3_ETHEREUM_SEPOLIA = Object.freeze({
     router: 'e18dacff07368baa9974b34f1039c31726d374cd0838c7969232b9f287590562',
   }),
 });
+
+/**
+ * The canonical `asset.liquidity.concentrated` runtime on Ethereum Sepolia: the same Uniswap v3 path as Base Sepolia on the
+ * verified USDC/WETH 0.3% pool (tick spacing 60). Ethereum is an L1, so there is no L1 data-fee oracle and no `l1Fee`.
+ */
+export const UNISWAP_V3_ETHEREUM_SEPOLIA_LIQUIDITY = Object.freeze({
+  network: ETHEREUM_SEPOLIA.name, chain: ETHEREUM_SEPOLIA.chain, chainId: ETHEREUM_SEPOLIA.chainId, chainHex: ETHEREUM_SEPOLIA.chainHex,
+  protocol: 'uniswap-v3', adapterId: 'uniswap.v3', providerLabel: 'Uniswap v3',
+  rpc: ETHEREUM_SEPOLIA.rpc, explorer: `${ETHEREUM_SEPOLIA.explorer}/`, officialSource: UNISWAP_V3_ETHEREUM_SEPOLIA.officialSource,
+  factory: UNISWAP_V3_ETHEREUM_SEPOLIA.factory, positionManager: UNISWAP_V3_ETHEREUM_SEPOLIA.positionManager, pool: UNISWAP_V3_ETHEREUM_SEPOLIA.pool,
+  /** No OP Stack GasPriceOracle on Ethereum L1: the L1 data fee is zero by construction. */
+  gasPriceOracle: null,
+  token0: Object.freeze({ symbol: 'USDC', address: UNISWAP_V3_ETHEREUM_SEPOLIA.usdc, decimals: 6, maximumAmount: '1000000000' }),
+  token1: Object.freeze({ symbol: 'WETH', address: UNISWAP_V3_ETHEREUM_SEPOLIA.weth, decimals: 18, maximumAmount: '1000000000000000000' }),
+  codeSha256: Object.freeze({ factory: UNISWAP_V3_ETHEREUM_SEPOLIA.codeSha256.factory, positionManager: UNISWAP_V3_ETHEREUM_SEPOLIA.codeSha256.positionManager,
+    pool: UNISWAP_V3_ETHEREUM_SEPOLIA.codeSha256.pool }),
+  feeTier: 3000, tickSpacing: 60,
+  maximumSlippageBps: 300, defaultSlippageBps: 100,
+  reviewTtlSeconds: 120, mintDeadlineSeconds: 900,
+});

@@ -107,7 +107,7 @@ describe('swaps', () => {
   });
   it('never infers the network, and never real funds from test-network wording', () => {
     expect(convert(action(swap({ network: null })), 'Swap 100 USDC to ETH')).toMatchObject({ kind: 'CLARIFICATION', missing: ['network'],
-      options: ['Base', 'Base Sepolia', 'Solana', 'Solana Devnet'] });
+      options: ['Base', 'Base Sepolia', 'Ethereum Sepolia', 'Solana', 'Solana Devnet'] });
     expect(convert(action(swap()), 'Swap 100 USDC to ETH').kind).toBe('CLARIFICATION');
     expect(convert(action(swap()), 'Swap 100 USDC to ETH on Base testnet').kind).toBe('CLARIFICATION');
     expect(convert(action(swap({ network: 'BASE_SEPOLIA' })), 'Swap 100 USDC to ETH').kind).toBe('CLARIFICATION');
@@ -270,5 +270,55 @@ describe('the AI boundary', () => {
     expect(start.workflow.revision).toBe(0);
     const moved = editorReducer(start, { type: 'ADD', kind: 'read', source: 'CANVAS', baseRevision: 0 }, context);
     expect(editorReducer(moved, command, context).error).toContain('BASE_REVISION_CONFLICT');
+  });
+});
+
+describe('Ethereum Sepolia (BUILD-ETHEREUM-001)', () => {
+  const liquidity = (fields: Record<string, unknown> = {}) => ({ type: 'LIQUIDITY', protocol: 'UNISWAP_V3', network: 'ETHEREUM_SEPOLIA',
+    deposits: [{ asset: 'USDC', maxAmount: '10' }, { asset: 'WETH', maxAmount: '0.005' }], rangeUnit: 'PRICE', lower: '2000', upper: '3000', slippageBps: null, ...fields });
+  it('authors the Ethereum Sepolia swap, WBTC lending and Uniswap liquidity exactly as typed', () => {
+    expect(COPILOT_AUTHORING_COMMANDS).toContain('ADD_ETHEREUM_SEPOLIA_SWAP');
+    const swapped = sameAsTyped(convert(action(swap({ network: 'ETHEREUM_SEPOLIA', outputAsset: 'WETH', amount: '2' })), 'Please swap 2 USDC for WETH on Ethereum Sepolia'),
+      'swap 2 USDC to WETH on Ethereum Sepolia slippage 50 bps');
+    expect(swapped.command.type).toBe('ADD_ETHEREUM_SEPOLIA_SWAP');
+    for (const [type, text, typed] of [['SUPPLY', 'Put 0.001 WBTC into Aave on Ethereum Sepolia', 'supply 0.001 WBTC to Aave on Ethereum Sepolia'],
+      ['BORROW', 'Borrow 0.001 WBTC from Aave on Ethereum Sepolia please', 'borrow 0.001 WBTC from Aave on Ethereum Sepolia'],
+      ['REPAY', 'Pay back 0.001 WBTC on Aave Ethereum Sepolia', 'repay 0.001 WBTC to Aave on Ethereum Sepolia'],
+      ['WITHDRAW', 'Take 0.001 WBTC out of Aave on Ethereum Sepolia', 'withdraw 0.001 WBTC from Aave on Ethereum Sepolia']] as const)
+      sameAsTyped(convert(action(lending(type, { network: 'ETHEREUM_SEPOLIA', asset: 'WBTC', amount: '0.001' })), text), typed);
+    sameAsTyped(convert(action(liquidity()), 'Add Uniswap liquidity with 10 USDC and 0.005 WETH between 2000 and 3000 USDC per WETH on Ethereum Sepolia'),
+      'add liquidity 10 USDC and 0.005 WETH from 2000 to 3000 USDC per WETH on Ethereum Sepolia slippage 100 bps');
+  });
+  it('never reads "Ethereum" as Ethereum Mainnet, nor silently as Ethereum Sepolia', () => {
+    for (const [network, text] of [['ETHEREUM', 'Please swap 2 USDC for WETH on Ethereum'], ['ETHEREUM', 'Please swap 2 USDC for WETH on Ethereum mainnet'],
+      ['ETHEREUM_SEPOLIA', 'Please swap 2 USDC for WETH on Ethereum'], [null, 'Please swap 2 USDC for WETH on Ethereum']] as const) {
+      const outcome = convert(action(swap({ network, outputAsset: 'WETH', amount: '2' })), text);
+      expect(outcome, `${network} / ${text}`).toMatchObject({ kind: 'CLARIFICATION', missing: ['network'] });
+      if (outcome.kind !== 'CLARIFICATION') throw new Error('unreachable');
+      expect(outcome.question).toContain('Flofi never uses Ethereum Mainnet');
+      expect(outcome.options).not.toContain('Ethereum');
+    }
+    expect(convert(action(lending('SUPPLY', { network: 'ETHEREUM', asset: 'WBTC', amount: '0.001' })), 'Supply 0.001 WBTC to Aave on Ethereum'))
+      .toMatchObject({ kind: 'CLARIFICATION', options: ['Ethereum Sepolia'] });
+    expect(convert(action(liquidity({ network: 'ETHEREUM' })), 'Add Uniswap liquidity with 10 USDC and 0.005 WETH between 2000 and 3000 USDC per WETH on Ethereum'))
+      .toMatchObject({ kind: 'CLARIFICATION', options: ['Base Sepolia', 'Ethereum Sepolia'] });
+    // A model claiming Ethereum Sepolia without the user's words cannot pick it: five networks swap, so none is a default.
+    expect(convert(action(swap({ network: 'ETHEREUM_SEPOLIA', outputAsset: 'WETH', amount: '2' })), 'Please swap 2 USDC for WETH').kind).toBe('CLARIFICATION');
+    expect(mentionedNetworks('on Ethereum')).toEqual(['ETHEREUM']);
+    expect(mentionedNetworks('on Ethereum Sepolia')).toEqual(['ETHEREUM_SEPOLIA']);
+  });
+  it('binds each Aave asset to its one deployment: USDC on Base Sepolia, WBTC on Ethereum Sepolia', () => {
+    expect(convert(action(lending('SUPPLY', { network: 'ETHEREUM_SEPOLIA', amount: '10' })), 'Supply 10 USDC to Aave on Ethereum Sepolia'))
+      .toMatchObject({ kind: 'CLARIFICATION', options: ['Base Sepolia'] });
+    expect(convert(action(lending('SUPPLY', { asset: 'WBTC', amount: '0.001' })), 'Supply 0.001 WBTC to Aave on Base Sepolia'))
+      .toMatchObject({ kind: 'CLARIFICATION', options: ['Ethereum Sepolia'] });
+    // WBTC must be named: "BTC" or an unnamed token never becomes WBTC.
+    expect(convert(action(lending('SUPPLY', { network: 'ETHEREUM_SEPOLIA', asset: 'WBTC', amount: '0.001' })), 'Supply 0.001 BTC to Aave on Ethereum Sepolia'))
+      .toMatchObject({ kind: 'CLARIFICATION', missing: ['asset'] });
+    expect(convert(action(lending('SUPPLY', { network: 'ETHEREUM_SEPOLIA', asset: 'WETH', amount: '1' })), 'Supply 1 WETH to Aave on Ethereum Sepolia').kind).toBe('CLARIFICATION');
+    // The lending composition stays Base Sepolia only.
+    const ethereumComposition = { version: '1', kind: 'COMPOSITION', actions: [lending('SUPPLY', { network: 'ETHEREUM_SEPOLIA', asset: 'WBTC', amount: '0.01' }),
+      lending('BORROW', { network: 'ETHEREUM_SEPOLIA', asset: 'USDC', amount: '1' }), swap({ network: 'ETHEREUM_SEPOLIA', amount: '1', outputAsset: 'WETH' })] };
+    expect(convert(ethereumComposition, 'Supply 0.01 WBTC, borrow 1 USDC and swap the borrowed USDC to WETH on Ethereum Sepolia').kind).not.toBe('PROPOSAL');
   });
 });

@@ -244,6 +244,17 @@ export const SUPPLY_METAMASK = Object.freeze({
   limited:'0x04658b29f6b82ed55274221a06fc97d318e25416',exact:'0x146713078d39ecc1f5338309c28405ccf85abfbb',
   codeHashes:Object.freeze(['0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a','0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2','0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468','0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e'])
 });
+/**
+ * BUILD-ETHEREUM-001: runtime code hashes of [manager, implementation, limited, exact] per EVM chain id. The manager and the
+ * EIP-7702 delegator embed EIP-712 immutables (cached chain id and domain separator), so on Ethereum Sepolia their code is
+ * the Base Sepolia code with exactly those 35 bytes recomputed for chain 11155111 (byte diff and recomputed separators,
+ * 2026-10-05, block 11,848,917); the two enforcers are byte-identical. A chain without pins fails closed.
+ */
+export const SUPPLY_METAMASK_CODE_HASHES:Readonly<Record<number,readonly string[]>>=Object.freeze({
+  84532:SUPPLY_METAMASK.codeHashes,
+  11155111:Object.freeze(['0x49c7f94924ffb53300b7e8ee613814d5ba587fd886177f1e72b3203bf17da673','0x9270f73d98e7ed6978677bf0550038289efd510e67e700d024502d62510fc1e4',
+    SUPPLY_METAMASK.codeHashes[2]!,SUPPLY_METAMASK.codeHashes[3]!]),
+});
 export type SupplyWalletEnvelope={owner:string;delegate:string;salt:string;signature:string;call:{to:string;value:string;data:string};
   caveats:{enforcer:string;terms:string;args:string}[];delegationTuple:string};
 const abiBytes=(hex:string)=>supplyWord(BigInt((hex.length-2)/2))+hex.slice(2).padEnd(Math.ceil((hex.length-2)/64)*64,'0');

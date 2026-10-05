@@ -93,7 +93,7 @@ protocols, autonomous agents, price monitoring, scheduling, custody, server sign
 Unit tests per layer (network, wallet switching/adding, RPC guard, assets and cross-network collisions, Aave identity,
 calldata, approvals, beneficiary, simulation, staleness, wrong chain, owner refusal, uncertain submission, recovery,
 reconciliation, capability honesty, swap/LP if enabled, Copilot). Anvil fork of Ethereum Sepolia for an end-to-end
-WBTC Supply → Borrow → Repay → Withdraw run through the real compiler, executor model and reconcilers
-(FORK_REPRODUCED-level evidence, labelled as local). Full `pnpm check`, Governance-Lite, browser suites, and a
+WBTC Supply → Borrow → Repay → Withdraw run through the real compiler, executor model and reconcilers (evidence class
+MOCKED per `docs/EVIDENCE_LEVELS.md`: a live fork is not a closed byte-identical replay, so it is not FORK_REPRODUCED). Full `pnpm check`, Governance-Lite, browser suites, and a
 read-only public verification artefact. Owner execution, if requested, is delivered as a bounded
 READY_FOR_OWNER_EXECUTION package.

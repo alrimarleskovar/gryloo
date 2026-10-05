@@ -153,7 +153,7 @@ jobs:
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           # Visual/default-state specs run before local-fork execution writes a recovery journal.
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts public-testnet.spec.ts robinhood-network.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
-          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts withdraw.spec.ts
+          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts withdraw.spec.ts ethereum-sepolia-supply.spec.ts
           # BUILD-COPILOT-001/002: Flofi Copilot on committed replay answers (no model, no external request) with the MOCKED supply harness.
           FLOFI_COPILOT=replay GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test copilot.spec.ts copilot-conversation.spec.ts
           # BUILD-013: complete lending sequence and recovery, MOCKED loopback only; no public broadcasts.
@@ -165,7 +165,7 @@ jobs:
           # BUILD-015: Solana Devnet / Orca liquidity on the same MOCKED loopback harness; never public Devnet or a broadcast.
           GRYLOO_SOLANA_DEVNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test solana-liquidity.spec.ts
           # RH-DEMO-001: Robinhood Testnet self-transfer on a MOCKED loopback chain; never the public network or a broadcast.
-          GRYLOO_ROBINHOOD_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test robinhood-transfer.spec.ts
+          GRYLOO_ROBINHOOD_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test robinhood-transfer.spec.ts ethereum-sepolia-transfer.spec.ts
           # BUILD-UNISWAP-LIQUIDITY-PUBLIC: Base Sepolia Uniswap v3 liquidity on a MOCKED loopback chain; never the public network or a broadcast.
           GRYLOO_UNISWAP_LIQUIDITY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test uniswap-liquidity.spec.ts
           # BUILD-ROUTER-001: Cross-chain Router on MOCKED loopback Base/Arbitrum chains and providers; never a public network or a broadcast.

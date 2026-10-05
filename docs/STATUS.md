@@ -7,6 +7,21 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-ETHEREUM-001 — Ethereum Sepolia as a first-class execution network
+
+**Status: IMPLEMENTATION COMPLETE — READY_FOR_OWNER_EXECUTION (no public transaction made; `TESTNET_EXECUTED` not
+claimed).** Branch `claude/build-ethereum-001` from main `66d5843`. Ethereum Sepolia (`eip155:11155111`, `0xaa36a7`)
+is a `PUBLIC_TESTNET` network for Aave V3 WBTC Supply/Borrow/Repay/Withdraw (USDC, USDT and DAI are above their supply
+caps; the owner chose WBTC), the native test-ETH self-transfer, the Uniswap v3 USDC ↔ WETH swap and USDC/WETH 0.3%
+concentrated liquidity. All of them run on the existing Review → owner wallet → reconcile → evidence path through
+chain-selected profiles (no copied flows). Chain-bound read RPCs, chain-qualified nonce leases, per-chain MetaMask
+delegation code pins. Ethereum Mainnet is recognised only to stop a wallet that is on it; it is never switched to or
+added and has no capability row. Copilot: `ETHEREUM_SEPOLIA`/`WBTC` added; "Ethereum" alone always asks. Evidence:
+`PUBLIC_READ_ONLY` verification (47/47 checks, block 11,848,941), a `MOCKED` local-fork rehearsal on the official
+contracts (7/7 reconciled, block 11,849,026), unit and browser suites. Owner action: the
+[WBTC Supply package](builds/BUILD-ETHEREUM-001-OWNER-EXECUTION-PACKAGE-AAVE-WBTC-SUPPLY.json). See the
+[plan](builds/BUILD-ETHEREUM-001-PLAN.md) and [report](builds/BUILD-ETHEREUM-001-REPORT.md).
+
 ## BUILD-COPILOT-002 — Conversational Flofi Copilot
 
 **Status: IMPLEMENTATION COMPLETE — LIVE MODEL NOT YET EXERCISED.** Branch `claude/build-copilot-002` from main `d58b535`

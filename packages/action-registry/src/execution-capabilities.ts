@@ -101,6 +101,8 @@ for (const action of ['supply', 'borrow', 'repay', 'withdraw'])
 add('asset.transfer', 'evm.native-transfer', 'eip155:11155111', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Uniswap v3 USDC ↔ WETH exact-input swap on Ethereum Sepolia (0.3% pool), owner wallet only; no execution demonstrated yet.
 add('asset.swap.exact-input', 'uniswap.v3', 'eip155:11155111', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
+// The canonical concentrated-liquidity action on Ethereum Sepolia via Uniswap v3 (USDC/WETH 0.3%), owner wallet only; none demonstrated yet.
+add('asset.liquidity.concentrated', 'uniswap.v3', 'eip155:11155111', 'PUBLIC_TESTNET', fork, null, 'DIRECT_TRANSACTION', ['INJECTED_WALLET', 'QUOTE_PROVIDER', 'REVIEWED_ARTIFACTS'], ['A']);
 // Public execution and demonstrated evidence are limited to the exact Base Sepolia Uniswap swap profile.
 export const executionCapabilityRegistry: readonly ExecutionCapabilityProfile[] = Object.freeze(rows);
 

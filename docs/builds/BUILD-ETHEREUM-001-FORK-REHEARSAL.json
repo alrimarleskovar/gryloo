@@ -1,0 +1,228 @@
+{
+  "evidenceClass": "MOCKED",
+  "boundary": "Local Anvil fork of public Ethereum Sepolia state with the official Aave v3.0 and Uniswap v3 contracts. Not a closed replay (so not FORK_REPRODUCED); never public execution.",
+  "checkedAt": "2026-10-05T13:14:15.287Z",
+  "forkSource": "https://ethereum-sepolia-rpc.publicnode.com",
+  "forkBlock": 11849026,
+  "anvil": "anvil/v1.8.3",
+  "owner": "0xc88d18d3cd8123e122e522a49fa195cf650f358f",
+  "steps": [
+    {
+      "label": "Supply 0.001 WBTC",
+      "verdict": "RECONCILED",
+      "reason": "SUPPLY_TRANSACTION_AND_POSITION_VERIFIED",
+      "transactions": [
+        {
+          "step": "APPROVAL",
+          "hash": "0x98d19772c6bd01ff106ef0f862e067c7a2871bd12b7e006e3d15e6022267c0a6",
+          "to": "0x29f2d40b0605204364af54ec677bd022da425d03",
+          "data": "0x095ea7b30000000000000000000000006ae43d3271ff6888e7fc43fd7321a503ff73895100000000000000000000000000000000000000000000000000000000000186a0",
+          "gasLimit": "69323",
+          "gasUsed": "46215"
+        },
+        {
+          "step": "SUPPLY",
+          "hash": "0x29051ea563889e15b4ef890c06538b63b74381845c710b73122d3f43a16a9393",
+          "to": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+          "data": "0x617ba03700000000000000000000000029f2d40b0605204364af54ec677bd022da425d0300000000000000000000000000000000000000000000000000000000000186a0000000000000000000000000c88d18d3cd8123e122e522a49fa195cf650f358f0000000000000000000000000000000000000000000000000000000000000000",
+          "gasLimit": "324861",
+          "gasUsed": "206044"
+        }
+      ],
+      "reviewBlock": 11849029,
+      "healthFactorAfter": null,
+      "position": "100000",
+      "debt": null,
+      "walletBalance": "900000",
+      "evidence": {
+        "environment": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0x6abec2019bae6b756f640791cd0c10d053fdcbfc36465df4a06dd2ae4cf55fd9"
+      }
+    },
+    {
+      "label": "Borrow 0.0001 WBTC",
+      "verdict": "RECONCILED",
+      "reason": "BORROW_TRANSACTION_DEBT_BALANCE_AND_HEALTH_VERIFIED",
+      "transactions": [
+        {
+          "step": "BORROW",
+          "hash": "0x76dc287ff840bfb054ccd967f9bfb97aad613c008147c2d9bec6e77091dffbcc",
+          "to": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+          "data": "0xa415bcad00000000000000000000000029f2d40b0605204364af54ec677bd022da425d03000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c88d18d3cd8123e122e522a49fa195cf650f358f",
+          "gasLimit": "338879",
+          "gasUsed": "229021"
+        }
+      ],
+      "reviewBlock": 11849040,
+      "healthFactorAfter": "7500000000000000000",
+      "position": "100000",
+      "debt": "10000",
+      "walletBalance": "910000",
+      "evidence": {
+        "environment": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0x33d65fa51507fdaee3194109276be8aa413e9c54a757759943ecaeb49915ed40"
+      }
+    },
+    {
+      "label": "Repay 0.00005 WBTC",
+      "verdict": "RECONCILED",
+      "reason": "REPAY_TRANSACTION_DEBT_BALANCE_ALLOWANCE_AND_HEALTH_VERIFIED",
+      "transactions": [
+        {
+          "step": "APPROVAL",
+          "hash": "0x07fb6270580c6b9851cdf8241e81437f9563000758d5444f9aab65aee63d322c",
+          "to": "0x29f2d40b0605204364af54ec677bd022da425d03",
+          "data": "0x095ea7b30000000000000000000000006ae43d3271ff6888e7fc43fd7321a503ff7389510000000000000000000000000000000000000000000000000000000000001388",
+          "gasLimit": "69305",
+          "gasUsed": "46203"
+        },
+        {
+          "step": "REPAY",
+          "hash": "0x37e88cdcc89364727234ba18ad3daeb4855e61f4921eb755dde6937fd6f545ae",
+          "to": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+          "data": "0x573ade8100000000000000000000000029f2d40b0605204364af54ec677bd022da425d0300000000000000000000000000000000000000000000000000000000000013880000000000000000000000000000000000000000000000000000000000000002000000000000000000000000c88d18d3cd8123e122e522a49fa195cf650f358f",
+          "gasLimit": "269306",
+          "gasUsed": "179244"
+        }
+      ],
+      "reviewBlock": 11849045,
+      "healthFactorAfter": "14997000599880023995",
+      "position": "100000",
+      "debt": "5001",
+      "walletBalance": "905000",
+      "evidence": {
+        "environment": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0x99eb986ac8ccd13af648b633298886534aed3a5f9f8aae6206a57fef6acc8357"
+      }
+    },
+    {
+      "label": "Withdraw 0.0002 WBTC",
+      "verdict": "RECONCILED",
+      "reason": "WITHDRAW_TRANSACTION_COLLATERAL_WALLET_DEBT_AND_HEALTH_VERIFIED",
+      "transactions": [
+        {
+          "step": "WITHDRAW",
+          "hash": "0xb8c11b48aaba592680948c5f0a4552eed6fdc08abd251d58078d24f568c94e6b",
+          "to": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951",
+          "data": "0x69328dec00000000000000000000000029f2d40b0605204364af54ec677bd022da425d030000000000000000000000000000000000000000000000000000000000004e20000000000000000000000000c88d18d3cd8123e122e522a49fa195cf650f358f",
+          "gasLimit": "323973",
+          "gasUsed": "210601"
+        }
+      ],
+      "reviewBlock": 11849055,
+      "healthFactorAfter": "11997600479904019196",
+      "position": "80000",
+      "debt": "5001",
+      "walletBalance": "925000",
+      "evidence": {
+        "environment": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0x557802b8c8d87aaa37fdea5698c0b1440c03370a33e8493a68c7b269374394f4"
+      }
+    },
+    {
+      "label": "Native self-transfer 0.000001 test ETH",
+      "verdict": "RECONCILED",
+      "reason": "NATIVE_TRANSFER_VERIFIED",
+      "transactions": [
+        {
+          "step": "TRANSFER",
+          "hash": "0x006d62f9b2b3b001c9fda3d74f8cbf25c19a260b2002afea1c5220ce2e4a8e63",
+          "gasLimit": "31500",
+          "gasUsed": "21000"
+        }
+      ],
+      "fee": "225505245000",
+      "evidence": {
+        "environment": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0xa579e3c0094cb15dbf19e759bc2f12d97682a2bd0cd17d1c67c5ca9be32f30c5"
+      }
+    },
+    {
+      "label": "Swap 2 USDC → WETH (Uniswap v3 0.3%)",
+      "verdict": "RECONCILED",
+      "transactions": [
+        {
+          "step": "approval",
+          "hash": "0xb263c8cf37f11968b7e07ed08c27bce387f154d3e110644b2dcf8b0fdd379442",
+          "to": "0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8",
+          "gasLimit": "55458",
+          "gasUsed": "46215"
+        },
+        {
+          "step": "swap",
+          "hash": "0xe472f3ed083fd4d206a9a375c25a5de5f6f6bbe05449c795862ba5d7318c3024",
+          "to": "0x3bfa4769fb09eefc5a80d6e87c3b9c650f7ae48e",
+          "gasLimit": "131179",
+          "gasUsed": "101571"
+        }
+      ],
+      "quote": {
+        "pool": "0x9799b5edc1aa7d3fad350309b08df3f64914e244",
+        "fee": 3000,
+        "amountIn": "2000000",
+        "expectedOut": "50849929450",
+        "minimumOut": "50341430155"
+      },
+      "outcome": {
+        "inputSpent": "2000000",
+        "outputReceived": "50849929450"
+      },
+      "evidence": {
+        "outcome": "RECONCILED"
+      }
+    },
+    {
+      "label": "Uniswap v3 USDC/WETH 0.3% position (±10%)",
+      "verdict": "RECONCILED",
+      "reason": null,
+      "transactions": [
+        {
+          "step": "APPROVE_TOKEN0",
+          "hash": "0x515beb7749939f410223eece3b211927e02c8025df86d01b8e893a80920adea6",
+          "to": "0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8",
+          "gasLimit": "85079",
+          "gasUsed": "46215"
+        },
+        {
+          "step": "APPROVE_TOKEN1",
+          "hash": "0xb0b8c41ef8e45ccf194408d99ad1cbeab9d614c18545b57b2146d5deb46db3ed",
+          "to": "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
+          "gasLimit": "84867",
+          "gasUsed": "46052"
+        },
+        {
+          "step": "MINT",
+          "hash": "0x97ce347ebe99043db5914f6d92de6eea7cfdf758080b0bb1b14a23b1ded1ab66",
+          "to": "0x1238536071e1c677a632429e3655c799b22cda52",
+          "gasLimit": "587724",
+          "gasUsed": "432865"
+        }
+      ],
+      "review": {
+        "chainId": 11155111,
+        "fee": 3000,
+        "tickSpacing": 60,
+        "tickLower": 100500,
+        "tickUpper": 102540,
+        "l1FeeUpperBoundWei": "0"
+      },
+      "position": {
+        "tokenId": "233194",
+        "owner": "0xc88d18d3cd8123e122e522a49fa195cf650f358f",
+        "amount0": "10000000",
+        "amount1": "231749301604"
+      },
+      "evidence": {
+        "evidenceClass": "MOCKED",
+        "outcome": "RECONCILED",
+        "bundleHash": "0x56d51217bfead69c6de22a7a6a77dcf383027b3fd12005b37e87b0ee9c621650"
+      }
+    }
+  ],
+  "allReconciled": true
+}

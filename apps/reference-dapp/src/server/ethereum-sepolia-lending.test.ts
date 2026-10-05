@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createBorrowNode, createRepayNode, createSupplyNode, createWithdrawNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { AAVE_V3_BASE_SEPOLIA as base, AAVE_V3_ETHEREUM_SEPOLIA as eth, type AaveLendingProfile } from '@defi-workflow-engine/action-registry';
-import { supplyCall } from '@defi-workflow-engine/reference-compiler';
+import { modeBCodeHash, supplyCall, supplyTopic, supplyWord, SUPPLY_METAMASK, SUPPLY_METAMASK_CODE_HASHES } from '@defi-workflow-engine/reference-compiler';
+import { realWrappedApprovalFixture } from '../../e2e/supply-fixtures';
 import { createSupplyService, type SupplyRecord } from './supply-service';
 // @ts-expect-error The MOCKED loopback harness is plain JavaScript shared with the browser suite.
 import { createSupplyHarness, mockAllowanceSlot, REPAY_OWNER as OWNER } from '../../e2e/supply-harness.mjs';
@@ -150,4 +151,34 @@ describe('Ethereum Sepolia lending fails closed before any owner submission', ()
     await expect(service.review(run.id, run.review.commitment, edited)).rejects.toThrow();
     expect(model.transactions).toHaveLength(0);
   }));
+});
+
+describe('MetaMask delegation code pins on Ethereum Sepolia', () => {
+  // The captured Base Sepolia runtime code, with only its EIP-712 immutables (cached chain id, cached domain separator)
+  // recomputed for chain 11155111, must hash to the Ethereum Sepolia pins: same code, different chain binding.
+  const domain = (name: string, chainId: bigint, contract: string) => modeBCodeHash(supplyTopic('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)') +
+    supplyTopic(name).slice(2) + supplyTopic('1').slice(2) + supplyWord(chainId) + supplyWord(contract)).slice(2);
+  const captured = (address: string) => {
+    const entry = Object.entries(realWrappedApprovalFixture.responses as Record<string, unknown>).find(([key]) => key.startsWith(JSON.stringify(['eth_getCode', [address]]).slice(0, -2)));
+    if (!entry || typeof entry[1] !== 'string') throw new Error('CAPTURED_CODE_MISSING');
+    return entry[1].toLowerCase();
+  };
+  const once = (code: string, needle: string) => code.split(needle).length - 1;
+  it('derives the Ethereum Sepolia manager and delegator code from the Base Sepolia code by the chain binding alone', () => {
+    for (const [index, name, address] of [[0, 'DelegationManager', SUPPLY_METAMASK.manager], [1, 'EIP7702StatelessDeleGator', SUPPLY_METAMASK.implementation]] as const) {
+      const code = captured(address), baseDomain = domain(name, 84532n, address), ethDomain = domain(name, 11155111n, address);
+      expect(modeBCodeHash(code)).toBe(SUPPLY_METAMASK_CODE_HASHES[84532]![index]);
+      // PUSH32 <cached chain id> CHAINID: the immutable compared with block.chainid before reusing the cached separator.
+      const baseChain = '7f' + supplyWord(84532n) + '46', ethChain = '7f' + supplyWord(11155111n) + '46';
+      expect(once(code, baseChain)).toBe(1);
+      expect(once(code, '7f' + baseDomain)).toBe(1);
+      const derived = code.replace(baseChain, ethChain).replace('7f' + baseDomain, '7f' + ethDomain);
+      expect(modeBCodeHash(derived)).toBe(SUPPLY_METAMASK_CODE_HASHES[11155111]![index]);
+    }
+    for (const index of [2, 3]) expect(SUPPLY_METAMASK_CODE_HASHES[11155111]![index]).toBe(SUPPLY_METAMASK.codeHashes[index]);
+    expect(SUPPLY_METAMASK_CODE_HASHES[84532]).toBe(SUPPLY_METAMASK.codeHashes);
+    // No other chain (Ethereum Mainnet included) has pins: a relayed submission there fails closed.
+    expect(SUPPLY_METAMASK_CODE_HASHES[1]).toBeUndefined();
+    expect(Object.keys(SUPPLY_METAMASK_CODE_HASHES).sort()).toEqual(['11155111', '84532']);
+  });
 });
