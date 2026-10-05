@@ -22,7 +22,7 @@ describe('bounded multi-turn conversation', () => {
     const revised = session.say('Na verdade muda para 2.', intent.edit({ amount: '2' }, {}, 'PT'))!;
     expect(revised).toMatchObject({ kind: 'PROPOSAL', command: { type: 'ADD_SUPPLY', input: { amount: '2', beneficiary: TEST_WALLET } } });
     expect(revised.text).toContain('nova versão da proposta pendente');
-    expect(revised.notes.join(' ')).toContain('Mantido de a proposta pendente');
+    expect(revised.notes.join(' ')).toContain('Mantido da proposta pendente: rede, token, beneficiário.');
     expect(session.workflow.revision).toBe(0);
     session.apply();
     expect(workflowSteps(session.workflow, session.context)[1]).toMatchObject({ kind: 'SUPPLY', detail: { input: { amount: '2' } } });

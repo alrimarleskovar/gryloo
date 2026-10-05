@@ -10,7 +10,7 @@ import { COPILOT_AUTHORING_COMMANDS, COPILOT_NETWORK_LABEL, COPILOT_POOLS, amoun
   type CarriedField, type CopilotOutcome, type Grounding } from './copilot-authoring';
 import { COPILOT_LIMITS, hasUnsafeCharacters, safeCopilotProse, type CopilotAction, type CopilotLendingAction, type CopilotNetwork,
   type CopilotSwapAction } from './copilot-intent';
-import { COPILOT_V2_LIMITS, isCopilotIntentError, parseCopilotIntentV2, type CopilotChanges, type CopilotIntentV2, type CopilotOrdinal, type CopilotQuestionTopic,
+import { COPILOT_TRANSCRIPT, COPILOT_V2_LIMITS, isCopilotIntentError, parseCopilotIntentV2, type CopilotChanges, type CopilotIntentV2, type CopilotOrdinal, type CopilotQuestionTopic,
   type CopilotReuseField, type CopilotTarget } from './copilot-intent-v2';
 import { copilotCopy, type CarriedLabel, type CopilotCopy, type CopilotLanguage } from './copilot-messages';
 import { answerQuestion, stepSummary, type CopilotFacts } from './copilot-answers';
@@ -56,8 +56,6 @@ type Result = { readonly reply: CopilotReply; readonly next: CopilotConversation
 /** Every Command the Copilot may hand to `propose`: new authoring, typed edits of existing steps, and removal. */
 export const COPILOT_V2_COMMANDS: ReadonlySet<string> = new Set([...COPILOT_AUTHORING_COMMANDS, 'SET_SUPPLY', 'SET_BORROW', 'SET_REPAY', 'SET_WITHDRAW',
   'SET_SOLANA_SWAP', 'SET_ROUTER_BRIDGE', 'SET_UNISWAP_LIQUIDITY', 'SET_SOLANA_LIQUIDITY', 'SET_SWAP_AMOUNT', 'SET_SLIPPAGE', 'REMOVE']);
-/** Transcript entries Flofi writes; the server's replay key starts after the last entry that is not a question. */
-export const COPILOT_TRANSCRIPT = Object.freeze({ proposed: 'Flofi proposed: ', asked: 'Flofi asked: ', declined: 'Flofi declined: ' });
 export const emptyConversation = (): CopilotConversation => ({ transcript: [], segment: [], clarifications: 0, draft: null, referents: [], language: 'EN' });
 export const snapshotOf = (env: CopilotEnvironment): ContextSnapshot =>
   ({ workflow: env.workflow, pending: env.pending, wallet: env.wallet, walletChainId: env.walletChainId });
@@ -135,8 +133,8 @@ function appliedStep(referent: CopilotReferent | undefined, steps: readonly Work
   return step && JSON.stringify(step.detail) === JSON.stringify(referent.step.detail) ? step : null;
 }
 const stepLabel = (m: CopilotCopy, step: WorkflowStep, language: CopilotLanguage) => m.stepLabel(step.index, stepSummary(step, language));
-const sourceLabel = (m: CopilotCopy, resolved: Resolved, language: CopilotLanguage) => resolved.source === 'PENDING' ? m.sourcePending
-  : resolved.source === 'REFERENT' ? m.sourceEarlier(resolved.referent.sentence) : m.sourceStep(stepLabel(m, resolved.step, language));
+const sourceLabel = (m: CopilotCopy, resolved: Resolved, language: CopilotLanguage) => resolved.source === 'PENDING' ? m.fromPending
+  : resolved.source === 'REFERENT' ? m.fromEarlier(resolved.referent.sentence) : m.fromStep(resolved.step.index, stepSummary(resolved.step, language));
 
 type Purpose = 'EDIT' | 'REMOVE' | 'REPEAT' | 'REUSE' | 'QUESTION' | 'ANCHOR';
 type Resolution = { readonly ok: true; readonly resolved: Resolved } | { readonly ok: false; readonly result: Result };

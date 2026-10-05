@@ -26,6 +26,7 @@ const PT_CAPABILITIES = 'O Flofi Copilot pode criar: swaps na Base, Base Sepolia
 const PT_COMPOSITION = 'O Flofi só combina passos como Supply de USDC → Borrow de USDC → Swap do USDC emprestado para WETH (Aave V3, Base Sepolia). ' +
   'Outras combinações ainda não podem ficar no mesmo fluxo: crie cada ação separadamente.';
 
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const EN = {
   capabilities: EN_CAPABILITIES,
   compositionUnsupported: EN_COMPOSITION,
@@ -110,8 +111,9 @@ const EN = {
   carriedLabel: { network: 'network', token: 'token', amount: 'amount', destination: 'destination', recipient: 'recipient', beneficiary: 'beneficiary',
     slippage: 'slippage', routing: 'routing', range: 'range', maxima: 'maximum deposits', owner: 'owner' } as Record<CarriedLabel, string>,
   sourcePending: 'the pending proposal',
-  sourceStep: (step: string) => step,
-  sourceEarlier: (sentence: string) => `your earlier proposal “${sentence}”`,
+  fromPending: 'the pending proposal',
+  fromStep: (index: number, summary: string) => `step ${index} (${summary})`,
+  fromEarlier: (sentence: string) => `your earlier proposal “${sentence}”`,
   stepLabel: (index: number, summary: string) => `step ${index} (${summary})`,
   stepOption: (index: number, summary: string) => `Step ${index} · ${summary}`,
   pendingOption: (summary: string) => `The pending proposal · ${summary}`,
@@ -130,16 +132,16 @@ const EN = {
   pendingOnly: 'That step is only proposed. Use Dismiss to discard the proposal.',
   refusal: {
     UNKNOWN_STEP: () => 'That step is no longer in the workflow. Nothing changed.',
-    STEP_NOT_EDITABLE: (step: string) => `${step} cannot be changed through the Copilot. Edit it on the canvas.`,
+    STEP_NOT_EDITABLE: (step: string) => `${capitalize(step)} cannot be changed through the Copilot. Edit it on the canvas.`,
     STEP_KIND_MISMATCH: (step: string) => `That change does not fit ${step}. Nothing changed.`,
     SWAP_TOKENS_OR_NETWORK_FIXED: () => 'Flofi can change this swap\'s amount or slippage. To swap other tokens or on another network, remove it and describe the new swap.',
     ONE_CHANGE_AT_A_TIME: () => 'Change this swap\'s amount and its slippage in two separate proposals.',
-    NO_CHANGE: (step: string) => `${step} already has these values. Nothing to change.`,
+    NO_CHANGE: (step: string) => `${capitalize(step)} already has these values. Nothing to change.`,
     FIRST_STEP_PROTECTED: () => 'Step 1 is the workflow\'s starting template and cannot be removed.',
-    LAST_STEP_PROTECTED: (step: string) => `${step} is the only step, and a workflow keeps at least one. Author another action to replace it, or use Undo on the canvas.`,
-    COMPOSITION_STEP_PROTECTED: (step: string) => `${step} is part of the Supply → Borrow → Swap composition and cannot be removed on its own.`,
+    LAST_STEP_PROTECTED: (step: string) => `${capitalize(step)} is the only step, and a workflow keeps at least one. Author another action to replace it, or use Undo on the canvas.`,
+    COMPOSITION_STEP_PROTECTED: (step: string) => `${capitalize(step)} is part of the Supply → Borrow → Swap composition and cannot be removed on its own.`,
     STEP_HAS_DEPENDANTS: (step: string) => `Another step depends on ${step}, so it cannot be removed first.`,
-    STEP_LOCKED: (step: string) => `${step} has a locked amount. Unlock it on the canvas first.`,
+    STEP_LOCKED: (step: string) => `${capitalize(step)} has a locked amount. Unlock it on the canvas first.`,
   },
   insertUnsupported: 'Flofi cannot insert a step into this workflow. Aave actions, Solana actions and Uniswap liquidity each stay in their own workflow, and the only ' +
     'combined workflow is Supply USDC → Borrow USDC → Swap the borrowed USDC to WETH on Base Sepolia. Describe that whole sequence to author it.',
@@ -173,7 +175,6 @@ const EN = {
 };
 export type CopilotCopy = typeof EN;
 
-const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const PT: CopilotCopy = {
   capabilities: PT_CAPABILITIES,
   compositionUnsupported: PT_COMPOSITION,
@@ -253,12 +254,13 @@ const PT: CopilotCopy = {
   interpretedRevision: sentence => `Interpretado como uma nova versão da proposta pendente: “${sentence}”. Revise abaixo: nada muda até você aplicá-la.`,
   interpretedEdit: (step, change) => `Interpretado como uma mudança em ${step}: ${change}. Revise a proposta abaixo: nada muda até você aplicá-la.`,
   interpretedRemove: step => `Interpretado como remover ${step}. Revise a proposta abaixo: nada muda até você aplicá-la.`,
-  carried: (source, labels) => `Mantido de ${source}: ${labels.join(', ')}.`,
+  carried: (source, labels) => `Mantido ${source}: ${labels.join(', ')}.`,
   carriedLabel: { network: 'rede', token: 'token', amount: 'valor', destination: 'destino', recipient: 'destinatário', beneficiary: 'beneficiário',
     slippage: 'slippage', routing: 'roteamento', range: 'faixa', maxima: 'depósitos máximos', owner: 'dono' },
   sourcePending: 'a proposta pendente',
-  sourceStep: step => step,
-  sourceEarlier: sentence => `sua proposta anterior “${sentence}”`,
+  fromPending: 'da proposta pendente',
+  fromStep: (index, summary) => `do passo ${index} (${summary})`,
+  fromEarlier: sentence => `da sua proposta anterior “${sentence}”`,
   stepLabel: (index, summary) => `o passo ${index} (${summary})`,
   stepOption: (index, summary) => `Passo ${index} · ${summary}`,
   pendingOption: summary => `A proposta pendente · ${summary}`,
@@ -281,12 +283,12 @@ const PT: CopilotCopy = {
     STEP_KIND_MISMATCH: step => `Essa mudança não se aplica a ${step}. Nada mudou.`,
     SWAP_TOKENS_OR_NETWORK_FIXED: () => 'O Flofi pode mudar o valor ou o slippage deste swap. Para trocar outros tokens ou usar outra rede, remova-o e descreva o novo swap.',
     ONE_CHANGE_AT_A_TIME: () => 'Mude o valor e o slippage deste swap em duas propostas separadas.',
-    NO_CHANGE: step => `${step} já tem esses valores. Nada a mudar.`,
+    NO_CHANGE: step => `${capitalize(step)} já tem esses valores. Nada a mudar.`,
     FIRST_STEP_PROTECTED: () => 'O passo 1 é o template inicial do fluxo e não pode ser removido.',
-    LAST_STEP_PROTECTED: step => `${step} é o único passo, e um fluxo mantém pelo menos um. Crie outra ação para substituí-lo, ou use Undo no canvas.`,
-    COMPOSITION_STEP_PROTECTED: step => `${step} faz parte da composição Supply → Borrow → Swap e não pode ser removido sozinho.`,
+    LAST_STEP_PROTECTED: step => `${capitalize(step)} é o único passo, e um fluxo mantém pelo menos um. Crie outra ação para substituí-lo, ou use Undo no canvas.`,
+    COMPOSITION_STEP_PROTECTED: step => `${capitalize(step)} faz parte da composição Supply → Borrow → Swap e não pode ser removido sozinho.`,
     STEP_HAS_DEPENDANTS: step => `Outro passo depende de ${step}, então ele não pode ser removido primeiro.`,
-    STEP_LOCKED: step => `${step} tem um valor travado. Destrave no canvas primeiro.`,
+    STEP_LOCKED: step => `${capitalize(step)} tem um valor travado. Destrave no canvas primeiro.`,
   },
   insertUnsupported: 'O Flofi não consegue inserir um passo neste fluxo. Ações da Aave, ações na Solana e liquidez Uniswap ficam cada uma no seu próprio fluxo, e o único ' +
     'fluxo combinado é Supply de USDC → Borrow de USDC → Swap do USDC emprestado para WETH na Base Sepolia. Descreva essa sequência completa para criá-la.',

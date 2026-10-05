@@ -21,6 +21,9 @@ export const COPILOT_V2_MISSING_FIELDS = [...COPILOT_MISSING_FIELDS, 'target'] a
 export const COPILOT_V2_LIMITS = Object.freeze({ ...COPILOT_LIMITS, maxDeposits: 2, maxReuseFields: COPILOT_REUSE_FIELDS.length,
   maxTranscriptMessages: 16, maxUserTurns: 8, maxSegmentUserTurns: 6, maxClarifications: 3, maxReferents: 4, maxRequestCharacters: 12_000 });
 
+/** Prefixes of the transcript entries Flofi writes; a replayed answer is keyed by the user turns after the last non-question entry. */
+export const COPILOT_TRANSCRIPT = Object.freeze({ proposed: 'Flofi proposed: ', asked: 'Flofi asked: ', declined: 'Flofi declined: ' });
+
 export type CopilotStepKind = (typeof COPILOT_STEP_KINDS)[number];
 export type CopilotOrdinal = (typeof COPILOT_ORDINALS)[number];
 export type CopilotReuseField = (typeof COPILOT_REUSE_FIELDS)[number];
