@@ -48,7 +48,7 @@ describe('UX-003A same canonical workflow in Simulate', () => {
     const html = render();
     expect(html).toContain('flow-card composer-card'); expect(html).toContain('Step 1');
     for (const value of [summary.action, summary.provider, summary.chain, summary.amount]) expect(html).toContain(value);
-    expect(html).not.toMatch(/<form|<input|Select to edit|Editing in Selected Action|composer-card-state|Expected |Minimum |MOCK|LOCAL|SYNTHETIC|Confirmed|Authorized|Success|health factor/i);
+    expect(html).not.toMatch(/<form|<input|Select to edit|Editing in Selected Action|Advanced Settings|composer-token-chip|composer-fiat-value|composer-card-state|Expected |Minimum |MOCK|LOCAL|SYNTHETIC|Confirmed|Authorized|Success|health factor/i);
   });
 
   it('preserves lending order, linkage and current authored amounts without inferred simulation results', () => {

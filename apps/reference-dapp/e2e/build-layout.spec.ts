@@ -69,7 +69,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const currentGraphBox = (await graph.boundingBox())!;
   const controlsBox = (await controls.boundingBox())!;
   expect(Math.abs(currentGraphBox.x + currentGraphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
-  expect(Math.abs(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height - 70)).toBeLessThan(1);
+  expect(Math.abs(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height - 82)).toBeLessThan(1);
   const nodeBox = (await graph.locator('.flow-card').boundingBox())!;
   expect(controlsBox.x >= nodeBox.x + nodeBox.width || controlsBox.y >= nodeBox.y + nodeBox.height ||
     controlsBox.x + controlsBox.width <= nodeBox.x || controlsBox.y + controlsBox.height <= nodeBox.y).toBe(true);

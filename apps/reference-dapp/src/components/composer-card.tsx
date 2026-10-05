@@ -10,6 +10,33 @@ const actionIcons: Record<string, CanvasAction | 'transfer'> = {
   Supply: 'supply', Lending: 'lending', Borrow: 'borrow', Repay: 'repay', Withdraw: 'withdraw', Transfer: 'transfer',
 };
 
+function TokenChip({ symbol }: { symbol: string }) {
+  return <span className="composer-token-chip">
+    <span className="composer-token-avatar" data-token={symbol} aria-hidden="true">
+      {symbol === 'USDC' ? <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M6 4a7 7 0 0 0 0 12m8-12a7 7 0 0 1 0 12M12.5 6.5h-3a2 2 0 0 0 0 4h1a2 2 0 0 1 0 4h-3M10 5v1.5m0 8V16"/></svg>
+        : symbol === 'WETH' ? <svg viewBox="0 0 20 20" fill="currentColor"><path d="m10 2-5 8 5 3 5-3-5-8Zm0 12-5-3 5 7 5-7-5 3Z"/></svg>
+          : symbol === '—' ? '?' : symbol.slice(0, 1)}
+    </span>
+    <span className="composer-amount-token">{symbol}</span>
+  </span>;
+}
+
+/** Draft amounts only; zeros for unavailable values are visibly identified as placeholders. */
+function ValueBox({ amount, token, source, hint }: { amount?: string | undefined; token: string; source?: boolean; hint: string }) {
+  return <span className={`numeric composer-amount-box ${source ? 'composer-amount' : 'composer-destination-box'}`}
+    role="group" aria-label={source ? 'Source amount' : 'Destination amount (unquoted placeholder)'}
+    data-symbolic={!amount || undefined} title={hint}>
+    <span className="composer-value-column">
+      <span className="composer-value-line">
+        <span className="composer-amount-value">{amount ?? '0'}</span>
+        {source && <svg className="composer-value-edit" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6Z"/></svg>}
+      </span>
+      <span className="composer-fiat-value" aria-label="Fiat estimate unavailable (placeholder)" title="Fiat estimate not quoted">US$ 0,00</span>
+    </span>
+    <TokenChip symbol={token}/>
+  </span>;
+}
+
 export type ComposerCardData = {
   composer: true; step: number; selected: boolean; vertical: boolean;
   summary: ReturnType<typeof composerSummary>;
@@ -37,20 +64,18 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
         <span className="composer-provider">{card.summary.provider.replace(/Cross-chain Router/g, 'Router') || 'Provider not specified'}</span>
         {' · '}<span className="composer-chain">{card.summary.chain}</span>
       </span>}
-      {amountBox ? <><span className="numeric composer-amount composer-amount-box" aria-label="Source amount" data-symbolic={!amountParts || undefined} title="Edit amount in Selected Action">
-        <span className="composer-amount-value">{amountParts ? amountParts[1] : card.summary.amount}</span>
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6Z"/></svg>
-        {' '}<span className="composer-amount-token">{amountParts?.[2] ?? pairSource ?? '—'}</span>
-      </span>
-        <span className="numeric composer-amount-box composer-destination-box" aria-label="Destination amount" data-symbolic title="Destination amount is available after quoting">
-          <span className="composer-amount-value">Not quoted</span>
-          {' '}<span className="composer-amount-token">{pairDestination ?? '—'}</span>
-        </span>
+      {amountBox ? <>
+        <ValueBox source amount={amountParts?.[1]} token={amountParts?.[2] ?? pairSource ?? '—'}
+          hint={amountParts ? 'Edit amount in Advanced Settings' : card.summary.amount}/>
+        <ValueBox token={pairDestination ?? '—'} hint="Destination amount not quoted; zero is a placeholder"/>
+        <span className="composer-quote-note">{!amountParts && <>{card.summary.amount} · </>}Output / fiat not quoted</span>
       </> : <span className="numeric composer-amount">{card.summary.amount}</span>}
       {!amountBox && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{pair}</span>}
       {!card.inspection && card.validation.message && <span className="composer-warning" title={card.validation.message}>Check settings</span>}
       {card.summary.risk && <span className="flow-card-risk">{card.summary.risk}</span>}
-      {!card.inspection && <span className="composer-selected">{card.selected ? 'Editing in Selected Action' : 'Select to edit below'}</span>}
+      {!card.inspection && <span className="composer-selected" title="Open Advanced Settings">Advanced Settings
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </span>}
       <Handle type="source" position={card.vertical ? Position.Bottom : Position.Right} isConnectable={false}/>
     </div>;
 }

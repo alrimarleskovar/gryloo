@@ -19,7 +19,7 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       const graphBox = (await graph.boundingBox())!;
       const ctaBox = (await cta.boundingBox())!;
       const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
-      expect(Math.abs(graphBox.y + graphBox.height - ctaBox.y - ctaBox.height - 12)).toBeLessThan(1);
+      expect(Math.abs(graphBox.y + graphBox.height - ctaBox.y - ctaBox.height - 24)).toBeLessThan(1);
       expect(Math.abs(graphBox.x + graphBox.width - ctaBox.x - ctaBox.width - 12)).toBeLessThan(1);
       expect(ctaBox.x).toBeGreaterThanOrEqual(graphBox.x);
       expect(ctaBox.y - controlsBox.y - controlsBox.height).toBeGreaterThanOrEqual(12);
@@ -44,6 +44,21 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     }
   }
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('build-cta-pulse');
+  const pulse = await cta.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { duration: parseFloat(style.animationDuration), timing: style.animationTimingFunction,
+      opacity: style.opacity, transform: style.transform };
+  });
+  expect(pulse.duration).toBeGreaterThanOrEqual(3);
+  expect(pulse.timing).toBe('ease-in-out');
+  expect(pulse.opacity).toBe('1'); expect(pulse.transform).toBe('none');
+  await cta.focus();
+  await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  await cta.evaluate(element => element.blur());
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
 });
 
 test('Simular Fees keeps the same navigation-only action and guarded Supply review', async ({ page }) => {

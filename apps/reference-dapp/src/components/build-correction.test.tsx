@@ -116,7 +116,8 @@ describe('corrected Build workspace presentation', () => {
     expect(canvas).toContain('class="flow-card composer-card active"');
     expect(canvas).toContain('Aave V3');
     expect(canvas).toContain('Base Sepolia');
-    expect(canvas).toContain('Editing in Selected Action');
+    expect(canvas).toContain('Advanced Settings');
+    expect(canvas).toMatch(/class="composer-selected"[^>]*>Advanced Settings<svg/);
     const name = action[0]!.toUpperCase() + action.slice(1);
     expect(canvas).toMatch(new RegExp(`class="composer-action-title"><span>1\\. ${name}</span><svg[^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg></strong>`));
     expect(canvas).not.toMatch(/Step 1|Configured/);

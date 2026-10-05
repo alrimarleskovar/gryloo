@@ -12,9 +12,13 @@ const summaries = (page: Page, surface: string) => page.locator(`${surface} .com
   const detail = destination && title.includes('Swap')
     ? `${card.querySelector('.composer-amount .composer-amount-token')?.textContent} → ${destination}`
     : (card.querySelector('.composer-detail')?.textContent ?? '').replace(/^Borrowed /, '');
+  const amount = card.querySelector('.composer-amount .composer-amount-value')?.textContent;
+  const sourceAmount = amount
+    ? `${amount} ${card.querySelector('.composer-amount .composer-amount-token')?.textContent}`
+    : card.querySelector('.composer-amount')?.textContent ?? '';
   return [number ? `Step ${number}` : card.querySelector('.composer-step')?.textContent ?? '', title.replace(/^\d+\. /, ''),
-    ...['.composer-provider', '.composer-chain', '.composer-amount'].map(selector =>
-      (card.querySelector(selector)?.textContent ?? '').replace(/Cross-chain Router/g, 'Router')), detail];
+    ...['.composer-provider', '.composer-chain'].map(selector =>
+      (card.querySelector(selector)?.textContent ?? '').replace(/Cross-chain Router/g, 'Router')), sourceAmount, detail];
 }));
 
 test.beforeEach(async ({ page }) => {

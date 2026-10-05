@@ -156,3 +156,12 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Rename the existing top-toolbar Delete card action to Delete, preserving its guards, handler, history and single-row layout.
 - Replace only Build Swap/Bridge amount/pair presentation with stacked source/destination boxes, values on the left and known tokens on the right. Use existing summary data only; preserve symbolic source amounts and show Not quoted for unavailable destination amounts. Retain the blue title, compact provider/network metadata and pinned editing footer without inline editing or quote logic.
 - Validate focused component/browser regressions, wallet menu interaction, card value/token alignment, footer/selection/history, canvas/control geometry and narrow/zoomed toolbar reachability. Run app typecheck, touched-file lint and diff checks only. Commit `UX-003A: refine canvas controls and swap-bridge value cards`, then stop before UX-003B.
+
+
+### UX-003A refinement — card value boxes and canvas CTA emphasis
+
+- Raise only Build's Simular Fees and zoom/fit controls another 12px (24px CTA bottom inset, 82px controls bottom inset), preserving the CTA's 12px right inset and clearance between controls, attribution and footer.
+- Add a restrained 3.6-second shadow pulse to the Build CTA only, without blinking text, opacity changes, scaling or layout movement. Disable it for reduced motion and while hovered/focused.
+- Give only Build Swap/Bridge boxes a large numeric amount and smaller fiat line underneath, with a compact rounded token chip and local icon/avatar on the right. Keep actual authored source numbers; use 0 and US$ 0,00 placeholders for unavailable values. Preserve visible unquoted/symbolic context, and add no quote state or runtime logic.
+- Rename Build card footers to Advanced Settings with a gear icon, retaining bottom anchoring and the existing card → editor selection path.
+- Validate focused card/selection/history/projection and CTA geometry/motion cases, app typecheck, touched-file lint and diff checks. Commit `UX-003A: refine card value boxes and canvas CTA emphasis`, then stop before UX-003B.

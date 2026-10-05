@@ -83,7 +83,8 @@ test('connected lending steps select one editor, update linked summaries after a
   await expect(step(page, 'lending-borrow')).toContainText('0.01 USDC');
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(step(page, 'lending-borrow')).toContainText('0.025 USDC');
-  await expect(step(page, 'lending-swap')).toContainText('0.025 USDC');
+  await expect(step(page, 'lending-swap').locator('.composer-amount .composer-amount-value')).toHaveText('0.025');
+  await expect(step(page, 'lending-swap').locator('.composer-amount-token').first()).toHaveText('USDC');
   await expect(step(page, 'lending-borrow').locator('.composer-card')).toHaveClass(/active/);
   await step(page, 'lending-borrow').scrollIntoViewIfNeeded();
   const box = await step(page, 'lending-borrow').boundingBox();
@@ -112,9 +113,11 @@ test('accepted settings update the card and existing warnings link to Selected A
   await open(page); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await inspector(page).getByLabel('Input amount (USDC)').fill('2.5');
   await inspector(page).getByRole('button', { name: 'Review amount change' }).click();
-  await expect(cards(page)).toContainText('1 USDC');
+  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('1');
+  await expect(cards(page).locator('.composer-amount .composer-amount-token')).toHaveText('USDC');
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(cards(page)).toContainText('2.5 USDC');
+  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('2.5');
+  await expect(cards(page).locator('.composer-amount .composer-amount-token')).toHaveText('USDC');
   await inspector(page).getByLabel('Slippage (bps)').fill('200');
   await inspector(page).getByRole('button', { name: 'Review slippage change' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
@@ -209,16 +212,25 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     const destination = card.locator('.composer-destination-box');
     await expect(amount.locator('.composer-amount-value')).toHaveText('1');
     await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
-    await expect(amount.locator('svg')).toBeVisible();
+    await expect(amount.locator('.composer-value-edit')).toBeVisible();
     await expect(card.locator('.composer-amount-box')).toHaveCount(2);
-    await expect(destination.locator('.composer-amount-value')).toHaveText('Not quoted');
+    await expect(destination.locator('.composer-amount-value')).toHaveText('0');
+    await expect(destination).toHaveAttribute('data-symbolic');
+    await expect(card.locator('.composer-quote-note')).toHaveText('Output / fiat not quoted');
     await expect(destination.locator('.composer-amount-token')).toHaveText(action === 'swap' ? 'WETH' : 'USDC');
     const sourceBox = (await amount.boundingBox())!, destinationBox = (await destination.boundingBox())!;
     expect(destinationBox.y).toBeGreaterThanOrEqual(sourceBox.y + sourceBox.height + 3);
     expect(destinationBox.width).toBe(sourceBox.width);
     for (const valueBox of [amount, destination]) {
-      const value = (await valueBox.locator('.composer-amount-value').boundingBox())!;
-      const token = (await valueBox.locator('.composer-amount-token').boundingBox())!;
+      await expect(valueBox.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
+      await expect(valueBox.locator('.composer-fiat-value')).toHaveAttribute('aria-label', /unavailable.*placeholder/);
+      await expect(valueBox.locator('.composer-token-avatar')).toBeVisible();
+      const value = (await valueBox.locator('.composer-value-column').boundingBox())!;
+      const token = (await valueBox.locator('.composer-token-chip').boundingBox())!;
+      const numeric = (await valueBox.locator('.composer-amount-value').boundingBox())!;
+      const fiat = (await valueBox.locator('.composer-fiat-value').boundingBox())!;
+      expect(fiat.y).toBeGreaterThan(numeric.y + numeric.height);
+      expect(fiat.height).toBeLessThan(numeric.height);
       expect(value.x + value.width).toBeLessThan(token.x);
       expect(Math.abs(value.y + value.height / 2 - token.y - token.height / 2)).toBeLessThan(1);
     }
@@ -233,7 +245,11 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     await amount.click();
     await expect(card).toHaveClass(/active/);
     await expect(inspector(page).locator('.inspector-body')).toBeVisible();
-    await expect(card.locator('.composer-selected')).toHaveText('Editing in Selected Action');
+    await expect(card.locator('.composer-selected')).toHaveText('Advanced Settings');
+    await expect(card.locator('.composer-selected svg')).toBeVisible();
+    await inspector(page).locator('.inspector-toggle').click();
+    await card.locator('.composer-selected').click();
+    await expect(inspector(page).locator('.inspector-body')).toBeVisible();
     const utilities = page.getByRole('group', { name: 'Workflow utilities', exact: true });
     // The inspector toggle can scroll a narrow page below the canvas header; history lives in that header.
     await page.getByRole('toolbar', { name: 'Canvas tools', exact: true }).scrollIntoViewIfNeeded();
