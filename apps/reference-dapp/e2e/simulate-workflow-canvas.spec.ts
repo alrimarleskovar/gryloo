@@ -4,8 +4,13 @@ import type { Page } from '@playwright/test';
 const owner = '0x1111111111111111111111111111111111111111';
 const graph = (page: Page) => page.getByRole('region', { name: 'Simulation workflow graph', exact: true });
 const stages = (page: Page) => page.getByRole('navigation', { name: 'Workflow stages' });
-const summaries = (page: Page, surface: string) => page.locator(`${surface} .composer-card`).evaluateAll(cards => cards.map(card =>
-  ['.composer-step', 'strong', '.composer-provider', '.composer-chain', '.composer-amount', '.composer-detail'].map(selector => card.querySelector(selector)?.textContent ?? '')));
+const summaries = (page: Page, surface: string) => page.locator(`${surface} .composer-card`).evaluateAll(cards => cards.map(card => {
+  const title = card.querySelector('strong')?.textContent ?? '';
+  const number = title.match(/^(\d+)\. /)?.[1];
+  return [number ? `Step ${number}` : card.querySelector('.composer-step')?.textContent ?? '', title.replace(/^\d+\. /, ''),
+    ...['.composer-provider', '.composer-chain', '.composer-amount', '.composer-detail'].map(selector =>
+      (card.querySelector(selector)?.textContent ?? '').replace(/Cross-chain Router/g, 'Router'))];
+}));
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(account => {

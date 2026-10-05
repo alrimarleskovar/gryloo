@@ -21,6 +21,7 @@ import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/c
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
 import { ComposerCard, type ComposerCardData } from './composer-card';
+import { ActionIcon } from './action-icon';
 import { SimulateWorkflowCanvas } from './simulate-workflow-canvas';
 import { composerActions, composerSummary, composerNodeState, composerConnections } from '../domain/composer-presentation';
 import { canDeleteCanvasEdge, deletableCanvasNodes, isTextEntry } from '../domain/canvas-keyboard';
@@ -90,19 +91,6 @@ function LendingCanvasViewport() {
 }
 const actions = CANVAS_ACTIONS;
 function actionLabel(action: typeof actions[number]) { return action === 'lending' ? 'Lending' : action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
-function ActionIcon({ action }: { action: typeof actions[number] }) {
-  const paths = {
-    swap: <><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4"/></>,
-    bridge: <><path d="M3 18h18M5 18V9m14 9V9M5 9c4 0 4 6 7 6s3-6 7-6M3 7h4m10 0h4"/></>,
-    pool: <><path d="M12 3c-3 5-7 9-7 13a7 7 0 0 0 14 0c0-4-4-8-7-13Z"/></>,
-    supply: <><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></>,
-    lending: <><path d="m3 10 9-6 9 6M5 10v9m5-9v9m4-9v9m5-9v9M3 20h18"/></>,
-    withdraw: <><path d="M3 8l9-5 9 5M4 20h16M6 17V9m12 8V9M12 11v6m-3-3 3 3 3-3"/></>,
-    repay: <><path d="M3 8l9-5 9 5M4 20h16M6 17V9m12 8V9M12 17v-6m-3 3 3-3 3 3"/></>,
-    borrow: <><path d="M4 20h16M6 17V9m4 8V9m4 8V9m4 8V9M3 8l9-5 9 5M12 11v6m-3-3 3 3 3-3"/></>,
-  };
-  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[action]}</svg>;
-}
 function HistoryIcon({ direction }: { direction: 'undo' | 'redo' }) {
   return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {direction === 'undo' ? <><path d="m10 8-4 4 4 4"/><path d="M6 12h9a5 5 0 0 1 0 10"/></>
@@ -428,7 +416,7 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
   </div>;
   return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label="Workflow canvas">
-    <div className="canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}/>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div>
+    <div className="canvas-head build-canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{toolboxMode === 'top' && toolbox}<button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button><span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div></div>
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView fitViewOptions={{ padding: COMPOSER_FIT_PADDING }} minZoom={0.35} maxZoom={1.4}

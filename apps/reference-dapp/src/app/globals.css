@@ -365,6 +365,11 @@
 .composer-card[data-state="invalid"]{border-color:var(--red)}
 .composer-card[data-state="invalid"] .composer-card-state{color:var(--red);background:#fff1f2}
 .build-flow-surface .composer-card strong{font-size:16px;font-weight:750}
+.build-flow-surface .composer-action-title{display:flex;align-items:center;gap:7px;margin-bottom:3px;color:var(--blue)}
+.build-flow-surface .composer-action-title svg{flex-shrink:0}
+.build-flow-surface .composer-card-state{align-self:start}
+.build-flow-surface .composer-metadata{font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.build-flow-surface .composer-selected{margin-top:auto;padding-top:6px;border-top:1px solid var(--line)}
 .composer-provider,.composer-chain,.composer-detail{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .composer-provider{font-weight:600;color:var(--ink)}
 .composer-amount{font-size:13px;font-weight:650;margin-top:3px;overflow-wrap:anywhere}
@@ -389,3 +394,23 @@
 @media(max-width:700px){.simulation-lending-canvas{height:760px}}
 .simulation-workflow-canvas .simulation-canvas-actions{max-width:calc(100% - 68px)}
 .simulation-workflow-canvas .simulation-review-action{min-width:0}
+
+/* UX-003A refinement: single-row top tools and the existing editor disclosure. */
+.build-canvas-head{container-type:inline-size}
+.canvas-toolbar-row{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;width:100%;min-width:0}
+.canvas-toolbar-utilities{display:flex;align-items:center;gap:8px;margin-left:auto}
+.canvas-toolbar-row>.revision{flex:none;white-space:nowrap}
+.canvas-head .canvas-toolbar-row .canvas-toolbox{flex:1;min-width:0;width:auto;order:0;margin:0;padding:4px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-padding-inline:4px;scrollbar-width:none}
+.canvas-toolbar-row .canvas-toolbox::-webkit-scrollbar{display:none}
+.canvas-toolbar-row .canvas-toolbox button{flex:none;justify-content:center}
+.canvas-toolbar-row .canvas-toolbox button span{display:inline}
+.canvas-toolbar-row .toolbox-divider{flex:none}
+@container(max-width:1200px){.canvas-toolbar-row{gap:5px}.canvas-toolbar-row .canvas-toolbox{gap:2px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:4px;gap:4px}}
+@container(max-width:1100px){.canvas-toolbar-row{gap:3px}.canvas-toolbar-row .canvas-toolbox{gap:1px}.canvas-toolbar-row .canvas-toolbox button{padding-inline:2px;gap:3px}.canvas-toolbar-row .toolbox-divider{margin-inline:2px}}
+.inspector.inspector-disclosure{padding:0;min-height:0;overflow:hidden}
+.inspector-disclosure .inspector-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:12px 16px;border:0;border-radius:0;background:var(--paper);color:var(--blue);text-align:left;font-size:12px;font-weight:700}
+.inspector-disclosure .inspector-toggle svg{flex:none}
+.inspector-disclosure .inspector-toggle:disabled{opacity:1;cursor:default}
+.inspector-disclosure .inspector-toggle:focus-visible{outline-offset:-3px}
+.inspector-selection-hint{margin-left:auto;color:var(--muted);font-weight:400}
+.inspector-body{padding:18px;border-top:1px solid var(--line)}

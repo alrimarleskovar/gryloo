@@ -124,3 +124,11 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Show compact empty/incomplete messaging from the existing draft/validation result, without fabricated nodes or workspace introductions. Reserve enough graph-fit space for existing canvas actions and controls.
 - Validate only projection/order/branching, shared title, read-only behavior, existing diagnostics and Review gates, relevant Chromium desktop/mobile checks, app typecheck, touched-file lint and diff checks. Keep Build/Execute regression coverage focused.
 - Commit `UX-003A: project workflow into Simulate canvas`. Do not start UX-003B/C/D/E.
+
+### UX-003A refinement — responsive toolbar and Selected Action
+
+- Keep all top toolbar tools in their current order on one non-wrapping row. Use canvas container queries to reduce spacing before horizontal overflow; retain labels, blue icons, utility controls and the existing floating toolbar behavior.
+- Make Selected Action a compact disclosure below the canvas, initially collapsed. Existing node selection opens it, including clicks on the already-selected card and Enter/Space selection. Manual collapse changes only the disclosure flag; retain the same selected ID, canonical editor and mounted form drafts.
+- Include the previously requested Build card presentation refinements: numbered blue titles with trailing toolbar icons, combined provider/network metadata, compact amount/pair content, no Configured badge and a bottom-anchored selection footer. Preserve the Simulate card presentation.
+- Validate toolbar geometry/reachability at multiple viewport widths, CSS page zoom and independently reduced canvas width; disclosure collapse/reopen, keyboard selection and retained drafts; focused Build/Simulate regressions, app typecheck, touched-file lint and diff checks.
+- Commit `UX-003A: refine responsive toolbar and action inspector`, then stop. UX-003B remains out of scope.

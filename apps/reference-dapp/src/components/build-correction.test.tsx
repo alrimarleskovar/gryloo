@@ -117,11 +117,12 @@ describe('corrected Build workspace presentation', () => {
     expect(canvas).toContain('Aave V3');
     expect(canvas).toContain('Base Sepolia');
     expect(canvas).toContain('Editing in Selected Action');
-    expect(canvas).toContain('Step 1');
+    const name = action[0]!.toUpperCase() + action.slice(1);
+    expect(canvas).toMatch(new RegExp(`class="composer-action-title"><span>1\\. ${name}</span><svg[^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg></strong>`));
+    expect(canvas).not.toMatch(/Step 1|Configured/);
     expect(canvas).toContain('USDC');
     expect(canvas).not.toMatch(/<form|role="dialog"|MOCK ACTION|Template.*no execution/i);
-    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId, select: vi.fn() }));
-    const name = action[0]!.toUpperCase() + action.slice(1);
+    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId, select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
     expect(inspector).toContain(`aria-label="Edit ${name}"`);
     expect(inspector).toContain(`aria-label="${name} amount (USDC)"`);
     expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
@@ -156,10 +157,10 @@ describe('UX-002 canonical composer projections', () => {
     ]);
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: 'lending-borrow', select: vi.fn() }));
     expect(canvas.match(/composer-card active/g)).toHaveLength(1);
-    expect(canvas).toContain('Step 1'); expect(canvas).toContain('Step 2'); expect(canvas).toContain('Step 3');
+    expect(canvas).toContain('1. Supply'); expect(canvas).toContain('2. Borrow'); expect(canvas).toContain('3. Swap');
     expect(canvas).not.toMatch(/Completed|Runtime:|Confirmed|<form/);
-    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: 'lending-borrow', select: vi.fn() }));
-    expect(inspector).toContain('SELECTED ACTION · STEP 2');
+    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: 'lending-borrow', select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
+    expect(inspector).toContain('Selected Action · 2. Borrow');
     expect(inspector).toContain('aria-label="Edit Aave Borrow"');
     fixture.store.state = editorReducer(fixture.store.state, { type: 'AUTHOR_LENDING', source: 'CANVAS', baseRevision: workflow.revision,
       input: { supply: '0.1', borrow: '0.025', slippage: '50', owner: '0x1111111111111111111111111111111111111111' } }, fixture.store.context);
@@ -181,7 +182,7 @@ describe('UX-002 canonical composer projections', () => {
     expect(state.next).toBe('Simulation / review required');
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: node.nodeId, select: vi.fn() }));
     expect(canvas).toContain('data-state="warning"'); expect(canvas).toContain('Check settings');
-    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: node.nodeId, select: vi.fn() }));
+    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: node.nodeId, select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
     expect(inspector).toContain('Selected action checks'); expect(inspector).toContain(state.message);
     const missingSlippage = { ...fixture.store.state.workflow, nodes: fixture.store.state.workflow.nodes.map(item => item.nodeId === node.nodeId ? { ...item, userConstraints: item.userConstraints.filter(constraint => constraint.kind !== 'MAXIMUM_SLIPPAGE_BPS') } : item) };
     expect(composerNodeState(lintWorkflow(missingSlippage, fixture.store.context), node.nodeId).tone).toBe('invalid');
@@ -192,7 +193,7 @@ describe('UX-002 canonical composer projections', () => {
     expect(composerConnections(fixture.store.state.workflow)).toEqual([]);
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn() }));
     expect(canvas).not.toContain('composer-card active');
-    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: null, select: vi.fn() }));
+    const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: null, select: vi.fn(), onExpandedChange: vi.fn() }));
     expect(inspector).toContain('Select a step'); expect(inspector).not.toContain('Edit Supply');
   });
 });

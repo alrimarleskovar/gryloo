@@ -45,11 +45,18 @@ test('supported toolbar actions create real selected nodes and bind their editor
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
     await expect(cards(page)).toHaveCount(1);
     await expect(cards(page)).toHaveClass(/active/);
-    await expect(cards(page)).toContainText('Step 1');
+    await expect(cards(page).locator('.composer-action-title')).toHaveText(`1. ${action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1)}`);
+    await expect(cards(page).locator('.composer-action-title svg')).toHaveCount(1);
+    await expect(cards(page)).not.toContainText('Configured');
+    await expect(cards(page).locator('.composer-step')).toHaveCount(0);
+    if (action === 'bridge') {
+      await expect(cards(page)).not.toContainText('Cross-chain');
+      await expect(cards(page).locator('.composer-chain')).toHaveText('Base Sepolia → Arbitrum Sepolia');
+    }
     await expect(cards(page)).toContainText('USDC');
     await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
     await expect(cards(page).locator('input, form')).toHaveCount(0);
-    await expect(inspector(page)).toContainText('STEP 1');
+    await expect(inspector(page).getByRole('button', { name: /Selected Action · 1\./ })).toHaveAttribute('aria-expanded', 'true');
     if (form) await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
     else await expect(inspector(page).getByLabel('Input amount (USDC)')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Privacy', exact: true })).toBeDisabled();
@@ -66,7 +73,7 @@ test('connected lending steps select one editor, update linked summaries after a
   ] as const) {
     await step(page, id).locator('.composer-card').click();
     await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
-    await expect(inspector(page)).toContainText(`STEP ${number}`);
+    await expect(inspector(page).getByRole('button', { name: new RegExp(`Selected Action · ${number}\\.`) })).toHaveAttribute('aria-expanded', 'true');
     await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
   }
   await step(page, 'lending-borrow').click();
@@ -83,7 +90,7 @@ test('connected lending steps select one editor, update linked summaries after a
   await page.mouse.move(box.x + 30, box.y + 25); await page.mouse.down();
   await page.mouse.move(box.x + 90, box.y + 25, { steps: 8 }); await page.mouse.up();
   expect((await step(page, 'lending-borrow').boundingBox())!.x - box.x).toBeGreaterThan(30);
-  await expect(step(page, 'lending-borrow')).toContainText('Step 2');
+  await expect(step(page, 'lending-borrow').locator('.composer-action-title')).toHaveText('2. Borrow');
   await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   const edge = page.locator('.build-flow-surface .react-flow__edge').first();
   await step(page, 'lending-supply').scrollIntoViewIfNeeded();
@@ -96,7 +103,7 @@ test('connected lending steps select one editor, update linked summaries after a
   await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(0);
   await expect(inspector(page)).toContainText('Select a step');
   await step(page, 'lending-swap').focus(); await page.keyboard.press('Enter');
-  await expect(inspector(page)).toContainText('STEP 3');
+  await expect(inspector(page).getByRole('button', { name: 'Selected Action · 3. Swap', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await expect(step(page, 'lending-swap').locator('.composer-card')).toHaveClass(/active/);
 });
 
@@ -137,4 +144,91 @@ test('desktop and mobile composer keep compact cards, editor placement and appro
     const dimensions = await cards(page).first().evaluate(element => ({ width: (element as HTMLElement).offsetWidth, height: (element as HTMLElement).offsetHeight }));
     expect(dimensions.width).toBeLessThanOrEqual(224); expect(dimensions.height).toBeLessThan(230);
   }
+});
+
+test('top toolbar stays in one row with every action reachable at narrow widths and page zoom', async ({ page }) => {
+  await open(page);
+  const toolbar = page.getByRole('toolbar', { name: 'Canvas tools', exact: true });
+  const labels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap',
+    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo'];
+  async function checkRow() {
+    expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(labels);
+    const centers = await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => {
+      const box = button.getBoundingClientRect();
+      return box.y + box.height / 2;
+    }));
+    expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(1);
+    const dock = (await page.getByRole('button', { name: 'Undock toolbar', exact: true }).boundingBox())!;
+    expect(Math.abs(dock.y + dock.height / 2 - centers[0]!)).toBeLessThan(1);
+    for (const button of await toolbar.getByRole('button').all()) {
+      await expect(button.locator('span')).toBeVisible();
+      await button.scrollIntoViewIfNeeded();
+      const box = (await button.boundingBox())!, region = (await toolbar.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(region.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(region.x + region.width);
+    }
+    const row = (await page.locator('.canvas-toolbar-row').boundingBox())!;
+    const canvas = (await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!;
+    expect(row.x + row.width).toBeLessThanOrEqual(canvas.x + canvas.width);
+  }
+  for (const width of [1920, 1440, 1200, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await checkRow();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // CSS page zoom exercises scaled layout; smaller CSS viewports above also cover browser zoom's width reduction.
+  for (const zoom of [1.25, 1.5, 2]) {
+    await page.evaluate(value => { document.documentElement.style.zoom = String(value); }, zoom);
+    await checkRow();
+  }
+  await page.evaluate(() => { document.documentElement.style.zoom = ''; });
+  // Available canvas width can change independently of the browser viewport.
+  await page.getByRole('region', { name: 'Workflow canvas', exact: true }).evaluate(element => { element.style.maxWidth = '360px'; });
+  await checkRow();
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+});
+
+test('Selected Action stays compact until selection and reopens for clicks and keyboard selection without losing drafts', async ({ page }) => {
+  await open(page);
+  const panel = inspector(page), toggle = panel.locator('.inspector-toggle'), body = panel.locator('.inspector-body');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeDisabled();
+  await expect(body).toBeHidden();
+  expect((await panel.boundingBox())!.height).toBeLessThan(60);
+  await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await expect(toggle).toHaveText('Selected Action · 1. Supply');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const supplyAmount = panel.getByLabel('Supply amount USDC', { exact: true });
+  await supplyAmount.fill('0.25');
+  await toggle.click();
+  await expect(body).toBeHidden();
+  expect((await panel.boundingBox())!.height).toBeLessThan(60);
+  await expect(step(page, 'lending-supply').locator('.composer-card')).toHaveClass(/active/);
+  await step(page, 'lending-supply').locator('.composer-card').click();
+  await expect(body).toBeVisible();
+  await expect(supplyAmount).toHaveValue('0.25');
+  await toggle.click();
+  await step(page, 'lending-borrow').locator('.composer-card').click();
+  await expect(toggle).toHaveText('Selected Action · 2. Borrow');
+  await expect(panel.getByRole('form', { name: 'Edit Aave Borrow', exact: true })).toBeVisible();
+  for (const key of ['Enter', 'Space']) {
+    await toggle.click();
+    await expect(body).toBeHidden();
+    await step(page, 'lending-swap').focus();
+    await page.keyboard.press(key);
+    await expect(toggle).toHaveText('Selected Action · 3. Swap');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel.getByRole('form', { name: 'Edit Uniswap Swap', exact: true })).toBeVisible();
+    await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
+  }
+  await step(page, 'lending-swap').focus();
+  await page.keyboard.press('Escape');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeDisabled();
+  await expect(body).toBeHidden();
+  await expect(panel).toContainText('Select a step');
+  expect((await panel.boundingBox())!.height).toBeLessThan(60);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });
