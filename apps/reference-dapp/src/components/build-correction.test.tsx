@@ -10,7 +10,7 @@ import { ArtifactInspector } from './artifact-inspector';
 import { createCrossChainLiquidityWorkflow } from '../domain/cross-chain-liquidity';
 import { createSolanaSwapNode } from '../domain/jupiter-authoring';
 import { createSolanaLiquidityNode } from '../domain/solana-liquidity-authoring';
-import { composerSummary, composerConnections, composerNodeState } from '../domain/composer-presentation';
+import { composerSummary, composerConnections, composerNodeState, supplyProposalTarget } from '../domain/composer-presentation';
 
 const fixture = vi.hoisted(() => ({ store: null as unknown as ReturnType<typeof import('../state/workflow-store').useWorkflow> }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => fixture.store }));
@@ -109,7 +109,7 @@ describe('corrected Build workspace presentation', () => {
     expect(fixture.store.addCanvasCommand).not.toHaveBeenCalled();
   });
 
-  it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s is a compact selected card; its parameters live only in the inspector', action => {
+  it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s is a compact selected card with its existing editor binding', action => {
     const selectedId = setWorkflow(action);
     const before = JSON.stringify(fixture.store.state.workflow);
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId, select: vi.fn() }));
@@ -117,15 +117,26 @@ describe('corrected Build workspace presentation', () => {
     expect(canvas).toContain('Aave V3');
     expect(canvas).toContain('Base Sepolia');
     expect(canvas).toContain('Advanced Settings');
-    expect(canvas).toMatch(/class="composer-selected"[^>]*>Advanced Settings<svg/);
+    expect(canvas).toMatch(/<button type="button" class="composer-selected nodrag nopan"[^>]*>Advanced Settings<svg/);
     const name = action[0]!.toUpperCase() + action.slice(1);
     expect(canvas).toMatch(new RegExp(`class="composer-action-title"><span>1\\. ${name}</span><svg[^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg></strong>`));
     expect(canvas).not.toMatch(/Step 1|Configured/);
     expect(canvas).toContain('USDC');
     expect(canvas).not.toMatch(/<form|role="dialog"|MOCK ACTION|Template.*no execution/i);
+    expect(canvas.match(/class="numeric composer-amount-box/g)).toHaveLength(1);
+    expect(canvas).toContain('class="composer-token-chip"');
+    expect(canvas).toContain('aria-label="Base Sepolia network"');
+    expect(canvas).toContain('US$ 0,00');
+    expect(canvas).not.toMatch(/composer-destination-box|composer-value-arrow/);
+    expect(canvas).not.toContain('Liquidity range view');
+    expect(canvas).toMatch(/aria-label="Source amount \(USDC\)"[^>]*value="1"/);
+    expect(canvas).toMatch(/type="submit" form="composer-supply-review-[^"]+"[^>]*>Review (Supply|Borrow|Repay|Withdraw) change<\/button>/);
+    expect(canvas).not.toContain('Apply proposal');
     const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId, select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
     expect(inspector).toContain(`aria-label="Edit ${name}"`);
     expect(inspector).toContain(`aria-label="${name} amount (USDC)"`);
+    expect(inspector).toContain(`id="composer-supply-review-${selectedId}"`);
+    expect(inspector).not.toContain(`Review ${name} change`);
     expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
     expect(fixture.store.dispatch).not.toHaveBeenCalled();
     expect(fixture.store.propose).not.toHaveBeenCalled();
@@ -134,6 +145,19 @@ describe('corrected Build workspace presentation', () => {
 
 
 describe('UX-002 canonical composer projections', () => {
+  it('scopes Supply acceptance to its existing command, including only the Supply edit in a lending composition', () => {
+    const id = setWorkflow('supply')!;
+    const input = { network: 'Base Sepolia' as const, asset: 'USDC' as const, amount: '2', beneficiary: owner };
+    expect(supplyProposalTarget(fixture.store.state.workflow, { type: 'SET_SUPPLY', nodeId: id, input, source: 'CANVAS', baseRevision: 1 })).toBe(id);
+    expect(supplyProposalTarget(fixture.store.state.workflow, { type: 'SET_BORROW', nodeId: id, input, source: 'CANVAS', baseRevision: 1 })).toBeNull();
+    fixture.store.state = editorReducer(initialEditor(), { type: 'AUTHOR_LENDING', source: 'CANVAS', baseRevision: 0, input: { supply: '0.1', borrow: '0.01', slippage: '50', owner } }, fixture.store.context);
+    const before = JSON.stringify(fixture.store.state.workflow);
+    const command = { type: 'AUTHOR_LENDING' as const, source: 'CANVAS' as const, baseRevision: 1, input: { supply: '0.2', borrow: '0.01', slippage: '50', owner } };
+    expect(supplyProposalTarget(fixture.store.state.workflow, command)).toBe('lending-supply');
+    expect(supplyProposalTarget(fixture.store.state.workflow, { ...command, input: { ...command.input, supply: '0.1', borrow: '0.02' } })).toBeNull();
+    expect(supplyProposalTarget(fixture.store.state.workflow, { ...command, input: { ...command.input, slippage: '75' } })).toBeNull();
+    expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+  });
   it.each(['swap', 'bridge', 'pool', 'supply', 'borrow', 'repay', 'withdraw'] as const)('summarizes the real %s toolbar node without modifying it', action => {
     setWorkflow();
     fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, '0x1111111111111111111111111111111111111111', '1'), fixture.store.context);
@@ -147,6 +171,45 @@ describe('UX-002 canonical composer projections', () => {
     expect(summary.amount).toContain('USDC');
     expect(summary.amount).not.toMatch(/undefined|sample|mock/i);
     expect(JSON.stringify(workflow)).toBe(before);
+  });
+
+  it('projects actual Uniswap and Orca contributions into two liquidity boxes without Swap authoring', () => {
+    for (const node of [
+      editorReducer(initialEditor(), canvasAddCommand('pool', 0, null), fixture.store.context).workflow.nodes.find(node => !node.actionType.startsWith('mock-'))!,
+      createSolanaLiquidityNode('orca-position', { network: 'Solana Devnet', maxSol: '0.01', maxDevUsdc: '0.3', rangeUnit: 'TICK', lower: '-443584', upper: '443584', slippage: '100' }),
+    ]) {
+      setWorkflow();
+      fixture.store.state = { ...fixture.store.state, workflow: { ...fixture.store.state.workflow, nodes: [node] } };
+      const before = JSON.stringify(fixture.store.state.workflow);
+      const values = composerSummary(fixture.store.state.workflow, node, fixture.store.context).liquidityValues!;
+      expect(values.map(value => value.token)).toEqual(node.chainId === 'eip155:84532' ? ['USDC', 'WETH'] : ['SOL', 'devUSDC']);
+      const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: node.nodeId, select: vi.fn() }));
+      expect(canvas.match(/class="numeric composer-amount-box/g)).toHaveLength(2);
+      for (const value of values) {
+        expect(canvas).toContain(`<span class="composer-amount-value">${value.amount}</span>`);
+        expect(canvas).toContain(`<span class="composer-amount-token">${value.token}</span>`);
+      }
+      expect(canvas).toContain('composer-value-arrow');
+      expect(canvas).toContain('aria-label="Liquidity provider"');
+      expect(canvas).toContain(`<button type="button" aria-pressed="true">${node.chainId === 'eip155:84532' ? 'Uniswap' : 'Solana'}</button>`);
+      expect(canvas).not.toContain('<select');
+      expect(canvas).not.toContain('aria-label="Custom range percentage"');
+      expect(canvas).not.toContain('composer-price-range');
+      expect(canvas).not.toContain('composer-pool-range-line');
+      expect(canvas).not.toContain('composer-pool-thin-control');
+      expect(canvas).not.toContain('>Range<');
+      expect(canvas).toContain('composer-pool-control-row');
+      expect(canvas).toContain('>Review</button>');
+      expect(canvas).toContain('>Apply</button>');
+      expect(canvas).not.toContain('Price range:');
+      expect(canvas).not.toContain('class="composer-detail"');
+      expect(canvas.match(/<input/g) ?? []).toHaveLength(0);
+      expect(canvas).toContain('aria-label="Liquidity range view"');
+      expect(canvas).toContain('<button type="button" aria-pressed="true">Tick</button><button type="button" aria-pressed="false">Price</button>');
+      expect(canvas).not.toContain('Price strategies');
+      expect(canvas).not.toMatch(/<form|Review amount|Apply amount|unquoted placeholder/);
+      expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+    }
   });
 
   it('keeps dependency arrows, order, active editor and linked summaries on the same lending IR', () => {
@@ -183,7 +246,8 @@ describe('UX-002 canonical composer projections', () => {
     expect(state.findings.map(finding => finding.code)).toContain('ELEVATED_SLIPPAGE');
     expect(state.next).toBe('Simulation / review required');
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: node.nodeId, select: vi.fn() }));
-    expect(canvas).toContain('data-state="warning"'); expect(canvas).toContain('Check settings');
+    expect(canvas).not.toContain('data-state="warning"'); expect(canvas).not.toContain('Check settings');
+    expect(canvas).not.toMatch(/composer-card-state|composer-warning|composer-value-edit/);
     const inspector = renderToStaticMarkup(createElement(ArtifactInspector, { selectedId: node.nodeId, select: vi.fn(), expanded: true, onExpandedChange: vi.fn() }));
     expect(inspector).toContain('Selected action checks'); expect(inspector).toContain(state.message);
     const missingSlippage = { ...fixture.store.state.workflow, nodes: fixture.store.state.workflow.nodes.map(item => item.nodeId === node.nodeId ? { ...item, userConstraints: item.userConstraints.filter(constraint => constraint.kind !== 'MAXIMUM_SLIPPAGE_BPS') } : item) };

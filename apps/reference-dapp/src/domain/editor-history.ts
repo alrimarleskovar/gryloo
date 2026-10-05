@@ -14,7 +14,7 @@ export type EditorHistory = { readonly editor: EditorState; readonly layout: Can
 export type HistoryAction =
   | { readonly type: 'RESTORE_LENDING_CANVAS'; readonly workflow: SemanticWorkflow }
   | { readonly type: 'COMMAND'; readonly command: Command; readonly context: ReviewContext; readonly position?: { x: number; y: number }; readonly authoringId?: string; readonly authoringAmount?: string }
-  | { readonly type: 'START_ACTION_SETUP'; readonly action: 'swap' | 'bridge'; readonly position: { x: number; y: number } }
+  | { readonly type: 'START_ACTION_SETUP'; readonly action: CanvasActionSetup['action']; readonly position: { x: number; y: number }; readonly beneficiary?: string }
   | { readonly type: 'EDIT_CANVAS_AMOUNT'; readonly id: string; readonly amount: string; readonly context: ReviewContext }
   | { readonly type: 'CANCEL_CANVAS_AMOUNT'; readonly id: string }
   | { readonly type: 'REMOVE_ACTION_SETUP' }
@@ -66,16 +66,17 @@ export function planCanvasDuplicate(workflow: Workflow, layout: CanvasLayout, no
 export function editorHistoryReducer(state: EditorHistory, action: HistoryAction): EditorHistory {
   if (action.type === 'START_ACTION_SETUP') {
     // Configure one new action at a time so the existing canonical sequence never changes on acceptance.
-    if (state.actionSetup || !Number.isFinite(action.position.x) || !Number.isFinite(action.position.y)) return state;
+    if (state.actionSetup || !Number.isFinite(action.position.x) || !Number.isFinite(action.position.y) || (['supply', 'borrow', 'repay'].includes(action.action) && !action.beneficiary)) return state;
     const id = `action-setup-${state.setupSerial + 1}`;
-    return { ...state, actionSetup: { id, action: action.action, amount: '0' }, setupSerial: state.setupSerial + 1,
-      layout: { ...state.layout, [id]: { ...action.position, actionType: action.action === 'swap' ? 'asset.swap.exact-input' : 'asset.bridge' } },
+    const actionSetup: CanvasActionSetup = action.action === 'supply' || action.action === 'borrow' || action.action === 'repay' ? { id, action: action.action, amount: '0', beneficiary: action.beneficiary! } : { id, action: action.action, amount: '0' };
+    return { ...state, actionSetup, setupSerial: state.setupSerial + 1,
+      layout: { ...state.layout, [id]: { ...action.position, actionType: action.action === 'swap' ? 'asset.swap.exact-input' : action.action === 'bridge' ? 'asset.bridge' : action.action } },
       past: [...state.past, snapshot(state)], future: [] };
   }
   if (action.type === 'EDIT_CANVAS_AMOUNT') {
     if (state.actionSetup?.id === action.id) return { ...state, actionSetup: { ...state.actionSetup, amount: action.amount }, future: [] };
     const node = state.editor.workflow.nodes.find(item => item.nodeId === action.id);
-    if (!node || !canEditCanvasAmount(node, action.context)) return state;
+    if (!node || !canEditCanvasAmount(node, action.context, state.editor.workflow)) return state;
     return { ...state, amountInputs: { ...state.amountInputs, [action.id]: action.amount },
       past: state.amountInputs[action.id] === undefined ? [...state.past, snapshot(state)] : state.past, future: [] };
   }
@@ -124,7 +125,7 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
     let changed = false;
     for (const [id, position] of Object.entries(action.positions)) {
       const node = state.editor.workflow.nodes.find(item => item.nodeId === id) ?? (state.actionSetup?.id === id
-        ? { actionType: state.actionSetup.action === 'swap' ? 'asset.swap.exact-input' : 'asset.bridge' } : undefined);
+        ? { actionType: state.actionSetup.action === 'swap' ? 'asset.swap.exact-input' : state.actionSetup.action === 'bridge' ? 'asset.bridge' : state.actionSetup.action } : undefined);
       if (!node || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
       const before = layout[id];
       if (before?.x === position.x && before?.y === position.y) continue;
@@ -141,7 +142,7 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
         if (JSON.stringify(canvasAmountCommand(state.editor, state.actionSetup, state.amountInputs, action.authoringId, action.context)) !== JSON.stringify(action.command)) return state;
       } catch { return state; }
     } else {
-      const target = amountCommandTarget(action.command);
+      const target = amountCommandTarget(action.command, state.editor.workflow, action.authoringId);
       if (target?.id !== action.authoringId || target.amount !== amount) return state;
     }
   }
@@ -151,7 +152,7 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
   if (action.authoringId) delete amountInputs[action.authoringId];
   for (const id of Object.keys(amountInputs)) {
     const node = editor.workflow.nodes.find(node => node.nodeId === id);
-    if (!node || !canEditCanvasAmount(node, action.context)) delete amountInputs[id];
+    if (!node || !canEditCanvasAmount(node, action.context, state.editor.workflow)) delete amountInputs[id];
   }
   const actionSetup = state.actionSetup?.id === action.authoringId ? null : state.actionSetup;
   if (editor.workflow === state.editor.workflow && actionSetup === state.actionSetup && Object.keys(amountInputs).length === Object.keys(state.amountInputs).length) return { ...state, editor };

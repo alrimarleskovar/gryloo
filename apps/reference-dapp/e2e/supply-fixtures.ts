@@ -52,11 +52,16 @@ export async function resetSupplyHarness(options:Record<string,unknown>={}){
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
   await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();
+  const card=page.locator('.build-flow-surface .composer-card.active');
+  await card.getByRole('textbox',{name:'Source amount (USDC)',exact:true}).fill(amount);
+  await card.getByRole('button',{name:'Review Supply change',exact:true}).click();
+  await card.getByRole('button',{name:'Apply proposal',exact:true}).click();
+  await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Advanced Settings',exact:true}).click();
   const form=page.getByRole('form',{name:'Edit Supply'});
   const unchanged = await form.getByLabel('Supply amount (USDC)').inputValue() === amount && await form.getByLabel('Supply beneficiary').inputValue() === beneficiary;
   await form.getByLabel('Supply amount (USDC)').fill(amount);await form.getByLabel('Supply beneficiary').fill(beneficiary);
   if (unchanged) return;
-  await form.getByRole('button',{name:'Review Supply change',exact:true}).click();
+  await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Review Supply change',exact:true}).click();
   await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
 }
 export async function reviewSupply(page:Page){

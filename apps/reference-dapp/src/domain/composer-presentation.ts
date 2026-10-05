@@ -2,6 +2,7 @@
 import type { ReviewContext, ReviewResult } from '@defi-workflow-engine/reference-linter';
 import { liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import type { Workflow } from './initial-workflow';
+import type { Command } from './commands';
 import { shellChainLabel } from './product-shell';
 import { swapDetails, formatHumanAmount } from './swap-authoring';
 import { supplyDetails, borrowDetails, repayDetails, withdrawDetails } from './supply-authoring';
@@ -16,6 +17,30 @@ import { transferDetails } from './robinhood-transfer-authoring';
 /** Display projections only. No editable values, validation rules or execution states live here. */
 export function composerActions(workflow: Workflow) {
   return workflow.nodes.filter(node => !node.actionType.startsWith('mock-'));
+}
+/** Identify the card for an existing Supply edit without changing proposal acceptance. */
+export function supplyProposalTarget(workflow: Workflow, command: Command): string | null {
+  if (command.type === 'SET_SUPPLY') return workflow.nodes.find(node => node.nodeId === command.nodeId && node.actionType === 'supply')?.nodeId ?? null;
+  const lending = command.type === 'AUTHOR_LENDING' ? lendingDetails(workflow) : null;
+  if (command.type === 'AUTHOR_LENDING' && lending && command.input.borrow === lending.borrow
+    && command.input.slippage === lending.slippage && command.input.owner === lending.owner) return 'lending-supply';
+  return null;
+}
+/** Match single-amount card proposals while retaining the original commands and linkage. */
+export function singleAmountProposalTarget(workflow: Workflow, command: Command, preferredId?: string): string | null {
+  const composition = command.type === 'AUTHOR_LENDING' ? lendingDetails(workflow) : null;
+  if (preferredId === 'lending-borrow' && command.type === 'AUTHOR_LENDING' && composition
+    && command.input.supply === composition.supply && command.input.slippage === composition.slippage
+    && command.input.owner === composition.owner) return 'lending-borrow';
+  const supply = supplyProposalTarget(workflow, command);
+  if (supply) return supply;
+  if (command.type === 'SET_BORROW' || command.type === 'SET_REPAY' || command.type === 'SET_WITHDRAW') {
+    const action = command.type === 'SET_BORROW' ? 'borrow' : command.type === 'SET_REPAY' ? 'repay' : 'withdraw';
+    return workflow.nodes.find(node => node.nodeId === command.nodeId && node.actionType === action)?.nodeId ?? null;
+  }
+  const lending = command.type === 'AUTHOR_LENDING' ? lendingDetails(workflow) : null;
+  return command.type === 'AUTHOR_LENDING' && lending && command.input.supply === lending.supply
+    && command.input.slippage === lending.slippage && command.input.owner === lending.owner ? 'lending-borrow' : null;
 }
 const actionLabels: Record<string, string> = {
   'asset.swap.exact-input': 'Swap', 'asset.bridge': 'Bridge',
@@ -61,7 +86,10 @@ export function composerSummary(workflow: Workflow, node: Workflow['nodes'][numb
     uni ? 'USDC / WETH' : orca ? 'SOL / devUSDC' : position ? 'WETH / USDC' : undefined;
   // Supported router and legacy bridge readers describe USDC on both ends. Build alone displays this token route.
   const bridgePair = router ? `${router.token} → ${router.token}` : bridge ? 'USDC → USDC' : undefined;
-  return { action, provider, chain, amount, detail, bridgePair, linked,
+  const liquidityValues = uni ? [{ amount: uni.maxUsdc, token: 'USDC' }, { amount: uni.maxWeth, token: 'WETH' }]
+    : orca ? [{ amount: orca.maxSol, token: 'SOL' }, { amount: orca.maxDevUsdc, token: 'devUSDC' }]
+    : position ? [{ amount: formatHumanAmount(position.amountWeth, 'WETH', context), token: 'WETH' }, { amount: formatHumanAmount(position.amountUsdc, 'USDC', context), token: 'USDC' }] : undefined;
+  return { action, provider, chain, amount, detail, bridgePair, linked, ...(liquidityValues ? { liquidityValues } : {}),
     risk: node.actionType === 'borrow' ? 'Variable debt' : node.actionType === 'withdraw' ? 'Collateral change' : undefined };
 }
 

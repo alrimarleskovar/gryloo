@@ -37,7 +37,7 @@ describe('footer after Build CTA relocation', () => {
   });
 
   it.each([false, true])('preserves the Supply review gate when a simulation record exists=%s', ready => {
-    fixture.state = editorReducer(initialEditor(), canvasAddCommand('supply', 0, '0x1111111111111111111111111111111111111111'), createBaseSepoliaReviewContext());
+    fixture.state = editorReducer(initialEditor(), canvasAddCommand('supply', 0, '0x1111111111111111111111111111111111111111', '1'), createBaseSepoliaReviewContext());
     fixture.supply.record = ready ? { review: {} } : null;
     const setTab = vi.fn();
     const html = renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab }));

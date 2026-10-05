@@ -8,6 +8,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { liquidityDetails, validateCrossChainLiquidityWorkflow } from '@defi-workflow-engine/reference-linter';
 import { createCrossChainLiquidityWorkflow, type CrossChainLiquidityInput } from '../domain/cross-chain-liquidity';
 import { amountOf } from '../domain/commands';
+import { TokenAmountInput } from './token-amount-input';
 import { bridgeDetails, createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
@@ -26,7 +27,8 @@ import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
 import { uniswapLiquidityDetails } from '../domain/uniswap-liquidity-authoring';
 import { RouterForm } from './router-panel';
 import { routerDetails } from '../domain/router-authoring';
-import { setupSummary } from '../domain/canvas-action-setup';
+import { canEditCanvasAmount, setupSummary } from '../domain/canvas-action-setup';
+import { supplyReviewFormId, poolReviewFormId } from './composer-card';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
@@ -115,47 +117,48 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
       <span>Advanced Settings</span>
     </button>
     <div id={contentId} className="inspector-body" hidden={!open}>
-    <h2>{setup ? `${setup.action === 'swap' ? 'Swap' : 'Bridge'} settings` : node ? `${label} settings` : 'Settings'}</h2>
+    <h2>{setup ? `${setupSummary(setup, context).action} settings` : node ? `${label} settings` : 'Settings'}</h2>
     {summary && <p className="composer-editor-context">{summary.action} · {summary.provider} · {summary.chain} · {displayAmount}</p>}
     {validation && validation.findings.length > 0 && <div className="composer-findings" aria-label="Selected action checks">
       {validation.findings.map(finding => <p key={`${finding.code}:${finding.field}`}><span aria-hidden="true">⚠ </span>{finding.message}</p>)}
     </div>}
-    {setup && <form className="inspector-form" aria-label={`Configure ${setup.action === 'swap' ? 'Swap' : 'Bridge'}`} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
+    {setup && <form id={setup.action !== 'swap' && setup.action !== 'bridge' ? supplyReviewFormId(setup.id) : undefined} className="inspector-form" aria-label={`Configure ${setupSummary(setup, context).action}`} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
       <label htmlFor="configure-action-amount">Source amount (USDC)</label>
-      <input id="configure-action-amount" value={setup.amount} inputMode="decimal" autoComplete="off" onChange={event => { setError(''); editCanvasAmount(setup.id, event.target.value); }}/>
+      <TokenAmountInput id="configure-action-amount" value={setup.amount} maxLength={80} onValueChange={value => { setError(''); editCanvasAmount(setup.id, value); }}/>
       <p className="muted">Enter an amount greater than 0 to configure this action.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button type="submit">Review amount</button>
+      <p className="muted">Review and apply the amount in the card.</p>
       <button type="button" className="quiet" onClick={() => { removeActionSetup(); select(null); }}>Remove step</button>
     </form>}
     {node ? <>
       {node.actionType==='asset.transfer'&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {node.actionType==='repay'&&<RepayAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {lending&&<LendingNodeEditor key={`${node.nodeId}:${state.workflow.revision}`} nodeId={node.nodeId}/>}
-      {!lending&&node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
-      {!lending && supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/>}
+      {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
+      {node.actionType==='repay'&&<RepayAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
+      {lending&&<LendingNodeEditor key={`${node.nodeId}:${state.workflow.revision}`} nodeId={node.nodeId} {...(supply || node.actionType === 'borrow' ? { reviewFormId: supplyReviewFormId(node.nodeId) } : {})}/>}
+      {!lending&&node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
+      {!lending && supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
       {solana && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
       {routed && <><p className="muted">{routed.source} USDC → {routed.network === 'testnet' ? 'Arbitrum Sepolia' : 'Arbitrum One'} USDC through the Cross-chain Router · {routed.network === 'testnet' ? 'test USDC' : 'real funds'} · a fresh route, simulation and Review are required after changes.</p><RouterForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
-      {uniPosition && <><p className="muted">{uniPosition.network} USDC / WETH via {uniPosition.provider} · fee 0.05% · test tokens · simulate against the live pool. Changes require review.</p><UniswapLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
-      {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
+      {uniPosition && <><p className="muted">{uniPosition.network} USDC / WETH via {uniPosition.provider} · fee 0.05% · test tokens · simulate against the live pool. Changes require review.</p><UniswapLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
+      {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
       {swap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}
       {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
       {liquidity && <p className="muted">Base WETH/USDC position. Pool conditions require separate simulation.</p>}
       {(swap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>
-        <input id="sample-amount" type="text" value={node ? amountInputs[node.nodeId] ?? amount : amount} onChange={event => swap && node ? editCanvasAmount(node.nodeId, event.target.value) : setAmount(event.target.value)} inputMode={swap ? 'decimal' : 'numeric'} autoComplete="off" spellCheck={false} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
-        <button type="submit" disabled={locked || (node ? amountInputs[node.nodeId] ?? amount : amount) === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button></form>}
+        <TokenAmountInput id="sample-amount" value={node ? amountInputs[node.nodeId] ?? amount : amount} onValueChange={value => swap && node ? editCanvasAmount(node.nodeId, value) : setAmount(value)} inputMode={swap ? 'decimal' : 'numeric'} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
+        {node && canEditCanvasAmount(node, context, state.workflow) ? <p className="muted">Review and apply the amount in the card.</p>
+          : <button type="submit" disabled={locked || (node ? amountInputs[node.nodeId] ?? amount : amount) === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button>}</form>}
       {swap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (bps)</label>
         <input id="swap-edit-slippage" type="text" value={slippage} onChange={event => setSlippage(event.target.value)} inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} aria-invalid={Boolean(error)}/>
         <button type="submit" disabled={slippage === (swap.slippage?.toString() ?? '')}>Review slippage change</button></form>}
-      {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<input type="text" inputMode="decimal" value={amountInputs[node.nodeId] ?? bridgeInput.amount} onChange={event => editCanvasAmount(node.nodeId, event.target.value)}/></label>
+      {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<TokenAmountInput value={amountInputs[node.nodeId] ?? bridgeInput.amount} onValueChange={value => editCanvasAmount(node.nodeId, value)}/></label>
         <label>Maximum slippage (bps)<input type="text" inputMode="numeric" value={bridgeInput.slippageBps} onChange={event => setBridgeInput(current => ({ ...current, slippageBps: event.target.value }))}/></label><button type="submit">Review bridge change</button></form>}
-      {liquidity && <form onSubmit={saveLiquidity} className="inspector-fields">{([
+      {liquidity && <form id={poolReviewFormId(node.nodeId)} onSubmit={saveLiquidity} className="inspector-fields">{([
         ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
         ['tickLower', 'Lower tick'], ['tickUpper', 'Upper tick'], ['recipient', 'Recipient'],
-      ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}<button type="submit">Review pool change</button></form>}
+      ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}</form>}
       {!lending && !cross && !swap && !bridge && !liquidity && !template && !supply && !solana && !uniPosition && <p className="muted">This step is configured through its workflow review.</p>}
       {error && <p role="alert" className="form-error">{error}. Check the parameters and try again.</p>}
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}

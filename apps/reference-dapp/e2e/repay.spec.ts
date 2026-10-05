@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {test,expect} from './fixtures';
+import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 import type {Page} from '@playwright/test';
 import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc} from './supply-fixtures';
 import {REPAY_OWNER,repayOptions} from './supply-fixtures';
 async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1]={}){
   await installSupplyWallet(page,{account:REPAY_OWNER,...options});await page.goto('/');await page.getByRole('button',{name:'Add repay',exact:true}).click();
-  const form=page.getByRole('form',{name:'Edit Repay'});await form.getByLabel('Repay amount (USDC)').fill('0.005');
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Repay to Aave V3');
+  await configureCanvasAction(page,'0.005');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Repay');
   await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(page.getByRole('button',{name:'Review Repay',exact:true})).toBeEnabled();
 }
 async function review(page:Page){await page.getByRole('button',{name:'Review Repay',exact:true}).click();await page.getByRole('button',{name:'Accept Repay review'}).click();await expect(region(page).getByRole('button',{name:/^(Approve exactly 5000 raw USDC|Execute)$/})).toBeVisible();}
@@ -43,8 +44,8 @@ test('wrong owner prevents owner request',async({page})=>{
 });
 test('debt change invalidates Review at Execute',async({page})=>{await author(page);await review(page);await supplyHarnessRpc('MOCK_reset',[{...repayOptions,scaledDebt:'8002'}]);await approve(page);await expect(region(page)).toContainText('changed');expect(await supplySendCount(page)).toBe(0);});
 test('semantic amount edit removes Repay authorization',async({page})=>{
-  await author(page);await review(page);await page.getByRole('button',{name:'Build',exact:true}).click();await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click();const form=page.getByRole('form',{name:'Edit Repay'});await form.getByLabel('Repay amount (USDC)').fill('0.004');await form.getByRole('button',{name:'Review Repay change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();await expect(region(page)).toContainText('The workflow changed');await expect(region(page).getByRole('button',{name:'Approve exactly 5000 raw USDC'})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
+  await author(page);await review(page);await page.getByRole('button',{name:'Build',exact:true}).click();await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click();await openCanvasSettings(page);const form=page.getByRole('form',{name:'Edit Repay'});await form.getByLabel('Repay amount (USDC)').fill('0.004');await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Review Repay change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();await expect(region(page)).toContainText('The workflow changed');await expect(region(page).getByRole('button',{name:'Approve exactly 5000 raw USDC'})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });
 test('insufficient debt blocks read-only simulation',async({page})=>{
-  await resetSupplyHarness({...repayOptions,scaledDebt:'4000'});await installSupplyWallet(page,{account:REPAY_OWNER});await page.goto('/');await page.getByRole('button',{name:'Add repay',exact:true}).click();await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(region(page)).toContainText('Current variable debt must exceed');await expect(page.getByRole('button',{name:'Review Repay',exact:true})).toBeDisabled();expect(await supplySendCount(page)).toBe(0);
+  await resetSupplyHarness({...repayOptions,scaledDebt:'4000'});await installSupplyWallet(page,{account:REPAY_OWNER});await page.goto('/');await page.getByRole('button',{name:'Add repay',exact:true}).click();await configureCanvasAction(page,'0.005');await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(region(page)).toContainText('Current variable debt must exceed');await expect(page.getByRole('button',{name:'Review Repay',exact:true})).toBeDisabled();expect(await supplySendCount(page)).toBe(0);
 });

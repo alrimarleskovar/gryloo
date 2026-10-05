@@ -17,7 +17,7 @@ import { browserFailureMessage, initialObservationState, observationReducer, rec
 type Pending = { valid: boolean; command: Command; diff: readonly string[]; review: ReviewResult | null; authoringId?: string; authoringAmount?: string };
 type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
   actionSetup: CanvasActionSetup | null; amountInputs: CanvasAmountInputs; authoringIncomplete: boolean;
-  startActionSetup(action: 'swap' | 'bridge', position: { x: number; y: number }): string;
+  startActionSetup(action: CanvasActionSetup['action'], position: { x: number; y: number }, beneficiary?: string): string;
   editCanvasAmount(id: string, amount: string): void; cancelCanvasAmount(id: string): void;
   reviewCanvasAmount(id: string): string | null; removeActionSetup(): void;
   restoreLendingCanvas(workflow:SemanticWorkflow):void;
@@ -107,7 +107,7 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     if (!preview.error) {
       try { review = lintWorkflow(preview.workflow, context); } catch { /* Invalid draft is already rejected by reducer. */ }
     }
-    const target = amountCommandTarget(command);
+    const target = amountCommandTarget(command, state.workflow);
     const amountEdit = target && history.amountInputs[target.id] === target.amount ? { authoringId: target.id, authoringAmount: target.amount } : undefined;
     setPending({ valid: !preview.error, command, diff, review, ...(authoring ?? amountEdit) });
   }
@@ -117,9 +117,9 @@ export function WorkflowProvider({ children, initialContext }: { children: React
       ...(pending.authoringId ? { authoringId: pending.authoringId, authoringAmount: pending.authoringAmount! } : {}) });
     setPending(null);
   }
-  function startActionSetup(action: 'swap' | 'bridge', position: { x: number; y: number }) {
+  function startActionSetup(action: CanvasActionSetup['action'], position: { x: number; y: number }, beneficiary?: string) {
     if (history.actionSetup) return history.actionSetup.id;
-    dispatchHistory({ type: 'START_ACTION_SETUP', action, position });
+    dispatchHistory({ type: 'START_ACTION_SETUP', action, position, ...(beneficiary ? { beneficiary } : {}) });
     return `action-setup-${history.setupSerial + 1}`;
   }
   function editCanvasAmount(id: string, amount: string) {

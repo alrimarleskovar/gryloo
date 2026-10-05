@@ -6,6 +6,7 @@ import { createRouterNode, routerDetails, routerInputOf, ROUTER_DEFAULT_SLIPPAGE
   type RouterNetwork, type RouterRouting } from '../domain/router-authoring';
 import { formatTokenAmount } from '../domain/jupiter-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { TokenAmountInput } from './token-amount-input';
 import { useRouter } from '../state/router-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 
@@ -50,7 +51,7 @@ export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId
     <label>Source chain<select aria-label="Cross-chain source chain" value={input.source} onChange={() => set({ source: option.source })}><option value={option.source}>{l.src}</option></select></label>
     <label>Destination chain<select aria-label="Cross-chain destination chain" value={input.destination} onChange={() => set({ destination: option.destination })}><option value={option.destination}>{l.dst}</option></select></label>
     <label>Token<select aria-label="Cross-chain token" value={input.token} onChange={() => set({ token: 'USDC' })}><option value="USDC">USDC → USDC</option></select></label>
-    <label>Amount (USDC)<input aria-label="Cross-chain amount (USDC)" inputMode="decimal" autoComplete="off" maxLength={40} value={fields.amount} onChange={e => set({ amount: e.target.value })}/></label>
+    <label>Amount (USDC)<TokenAmountInput aria-label="Cross-chain amount (USDC)" maxLength={40} value={fields.amount} onValueChange={amount => set({ amount })}/></label>
     <label>Recipient on {l.dstShort}<input aria-label="Cross-chain recipient" autoComplete="off" spellCheck={false} maxLength={42} placeholder="Your connected wallet" value={input.recipient}
       onChange={e => set({ recipient: e.target.value })}/></label>
     <label>Routing<select aria-label="Cross-chain routing policy" value={input.routing} onChange={e => set({ routing: e.target.value as RouterRouting })}>

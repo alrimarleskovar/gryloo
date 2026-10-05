@@ -5,23 +5,25 @@ import { createAuthoredSupply, supplyDetails, type SupplyInput } from '../domain
 import { useWorkflow } from '../state/workflow-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useSupply } from '../state/supply-store';
-export function SupplyAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string;onDone?:()=>void;direct?:boolean}){
-  const {state,propose,dispatch}=useWorkflow(),wallet=useBuild009Wallet();
+import { TokenAmountInput } from './token-amount-input';
+export function SupplyAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{nodeId?:string;onDone?:()=>void;direct?:boolean;reviewFormId?:string}){
+  const {state,propose,dispatch,amountInputs={},editCanvasAmount}=useWorkflow(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.nodeId===nodeId);
   const existing=node?supplyDetails(node as Parameters<typeof supplyDetails>[0]):null;
-  const [amount,setAmount]=useState(existing?.amount??'1'),[beneficiary,setBeneficiary]=useState(existing?.beneficiary??wallet.account??''),[error,setError]=useState('');
+  const [localAmount,setAmount]=useState(existing?.amount??'1'),[beneficiary,setBeneficiary]=useState(existing?.beneficiary??wallet.account??''),[error,setError]=useState('');
+  const amount = reviewFormId && nodeId ? amountInputs[nodeId] ?? existing?.amount ?? localAmount : localAmount;
   function submit(event:FormEvent){event.preventDefault();try{
     const input:SupplyInput={network:'Base Sepolia',asset:'USDC',amount,beneficiary:beneficiary||wallet.account||''};createAuthoredSupply(nodeId??'node-preview',input);
     const command=nodeId?{type:'SET_SUPPLY' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_SUPPLY' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
   }catch(cause){setError(cause instanceof Error?cause.message:'SUPPLY_INPUT_INVALID');}}
-  return <form className="inspector-fields" aria-label={nodeId?'Edit Supply':'Create Supply'} onSubmit={submit}>
+  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Supply':'Create Supply'} onSubmit={submit}>
     <strong>Supply to Aave V3</strong>
     <label>Supply network<select aria-label="Supply network" value="Base Sepolia" onChange={()=>undefined}><option>Base Sepolia</option></select></label>
     <label>Supply asset<select aria-label="Supply asset" value="USDC" onChange={()=>undefined}><option>USDC</option></select></label>
-    <label>Supply amount (USDC)<input aria-label="Supply amount (USDC)" inputMode="decimal" value={amount} maxLength={80} onChange={e=>setAmount(e.target.value)}/></label>
+    <label>Supply amount (USDC)<TokenAmountInput aria-label="Supply amount (USDC)" value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
     <label>Supply beneficiary<input aria-label="Supply beneficiary" autoComplete="off" value={beneficiary||wallet.account||''} maxLength={42} onChange={e=>setBeneficiary(e.target.value)}/></label>
-    {error&&<p role="alert">{error}</p>}<button type="submit">{nodeId?'Review Supply change':direct?'Add Supply':'Review Supply proposal'}</button>
+    {error&&<p role="alert">{error}</p>}{!reviewFormId&&<button type="submit">{nodeId?'Review Supply change':direct?'Add Supply':'Review Supply proposal'}</button>}
     {onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }

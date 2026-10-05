@@ -17,8 +17,9 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
   await settings.click();
   const options = header.getByRole('group', { name: 'Settings options', exact: true });
   await expect(options).toBeVisible();
-  expect(await options.getByRole('button').allTextContents()).toEqual(['Language', 'Theme', 'Disconnect']);
-  for (const option of await options.getByRole('button').all()) await expect(option).toBeDisabled();
+  expect(await options.getByRole('group', { name: 'Language', exact: true }).getByRole('button').allTextContents()).toEqual(['PT', 'EN']);
+  await expect(options.getByRole('group', { name: 'Theme', exact: true }).getByRole('button')).toHaveCount(2);
+  await expect(options.getByRole('button', { name: 'Disconnect', exact: true })).toBeDisabled();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(wallet).toContainText('Wallet not connected');
@@ -40,8 +41,8 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   await settings.click();
-  await expect(options.getByRole('button', { name: 'Language', exact: true })).toBeVisible();
-  await expect(options.getByRole('button', { name: 'Theme', exact: true })).toBeVisible();
+  await expect(options.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
+  await expect(options.getByRole('group', { name: 'Theme', exact: true })).toBeVisible();
   await expect(options.getByRole('button', { name: 'Disconnect', exact: true })).toBeEnabled();
   await options.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(options).toHaveCount(0);
@@ -83,13 +84,55 @@ test('Settings toggles without layout changes, closes outside/Escape/Tab and lea
     await expect(options).toHaveCount(0);
     await settings.click();
     await settings.press('Tab');
+    await expect(options.getByRole('button', { name: 'PT', exact: true })).toBeFocused();
+    for (const name of ['EN', 'Light theme', 'Dark theme', 'Disconnect']) {
+      await page.keyboard.press('Tab');
+      await expect(options.getByRole('button', { name, exact: true })).toBeFocused();
+    }
     await expect(disconnect).toBeFocused();
     await expect(options).toBeVisible();
     await disconnect.press('Tab');
     await expect(options).toHaveCount(0);
-    await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+    await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
+});
+
+test('language and theme choices update menu selection only and fit narrow headers', async ({ page }) => {
+  await installSupplyWallet(page); await page.goto('/');
+  await expect(page.locator('.build009-wallet-info')).toBeVisible();
+  const header = page.getByRole('banner');
+  const settings = header.getByRole('button', { name: 'Settings', exact: true });
+  const options = header.getByRole('group', { name: 'Settings options', exact: true });
+  const wallet = header.getByRole('group', { name: 'Wallet connection', exact: true });
+  const environment = header.getByRole('combobox', { name: 'Environment', exact: true });
+  const walletBefore = await wallet.innerText(), environmentBefore = await environment.inputValue();
+  const pageStyle = await page.locator('body').evaluate(element => ({ background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color, language: document.documentElement.lang }));
+  await settings.click();
+  const pt = options.getByRole('button', { name: 'PT', exact: true }), en = options.getByRole('button', { name: 'EN', exact: true });
+  const sun = options.getByRole('button', { name: 'Light theme', exact: true }), moon = options.getByRole('button', { name: 'Dark theme', exact: true });
+  await expect(en).toHaveAttribute('aria-pressed', 'true'); await expect(pt).toHaveAttribute('aria-pressed', 'false');
+  await expect(sun).toHaveAttribute('aria-pressed', 'true'); await expect(moon).toHaveAttribute('aria-pressed', 'false');
+  await expect(sun.locator('svg')).toBeVisible(); await expect(moon.locator('svg')).toBeVisible();
+  await pt.click(); await expect(pt).toHaveAttribute('aria-pressed', 'true'); await expect(en).toHaveAttribute('aria-pressed', 'false');
+  await moon.focus(); await moon.press('Space');
+  await expect(moon).toHaveAttribute('aria-pressed', 'true'); await expect(sun).toHaveAttribute('aria-pressed', 'false');
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await options.scrollIntoViewIfNeeded();
+    for (const button of [pt, en, sun, moon]) await expect(button).toBeInViewport();
+    const menuBox = (await options.boundingBox())!;
+    expect(menuBox.x).toBeGreaterThanOrEqual(0); expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  }
+  await settings.press('Escape'); await settings.click();
+  await expect(pt).toHaveAttribute('aria-pressed', 'true'); await expect(moon).toHaveAttribute('aria-pressed', 'true');
+  await en.click(); await sun.click();
+  await expect(en).toHaveAttribute('aria-pressed', 'true'); await expect(sun).toHaveAttribute('aria-pressed', 'true');
+  expect(await wallet.innerText()).toBe(walletBefore); expect(await environment.inputValue()).toBe(environmentBefore);
+  expect(await page.locator('body').evaluate(element => ({ background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color, language: document.documentElement.lang }))).toEqual(pageStyle);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+  expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /sign|send|switch|addEthereumChain/i.test(request.method)))).toEqual([]);
 });
 
 test('advanced setup has a single outer expansion and retains existing forms and workflow checks', async ({ page }) => {

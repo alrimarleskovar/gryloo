@@ -33,6 +33,7 @@ import { SimulatePanel } from './simulate-panel';
 import { ObservationPanel } from './observation-panel';
 import { TopBar, type ProductSection } from './top-bar';
 import { WorkflowCanvas } from './workflow-canvas';
+import { PoolPriceRangeProvider } from './pool-price-range';
 import { WorkflowEditReview } from './workflow-edit-review';
 import { CapabilityProvider, useWorkflowCapability } from '../state/capability-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
@@ -56,7 +57,7 @@ import { JourneyCard, RouterPanel } from './router-panel';
 import { useRouter } from '../state/router-store';
 import { routerDetails } from '../domain/router-authoring';
 
-export function AppShell() { return <ModeBProvider><CompositionProvider><CapabilityProvider><AppShellContent/></CapabilityProvider></CompositionProvider></ModeBProvider>; }
+export function AppShell() { return <ModeBProvider><CompositionProvider><CapabilityProvider><PoolPriceRangeProvider><AppShellContent/></PoolPriceRangeProvider></CapabilityProvider></CompositionProvider></ModeBProvider>; }
 
 function AppShellContent() {
   const { state, authoringIncomplete } = useWorkflow();
@@ -108,7 +109,11 @@ function AppShellContent() {
   const [inspectorExpanded, setInspectorExpanded] = useState(false);
   const selectAction = useCallback((id: string | null) => {
     select(id);
-    setInspectorExpanded(Boolean(id));
+    if (!id) setInspectorExpanded(false);
+  }, []);
+  const openActionSettings = useCallback((id: string) => {
+    select(id);
+    setInspectorExpanded(true);
   }, []);
   const { environment, result: capability } = useWorkflowCapability();
   const blocker = primaryExecutionBlocker(capability, selectedId);
@@ -130,7 +135,7 @@ function AppShellContent() {
   </div>;
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
   if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;
-  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={selectAction} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><WorkflowEditReview/><JourneyCard/>
+  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><WorkflowEditReview/><JourneyCard/>
           <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
         : tab === 'Simulate' ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost}><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :

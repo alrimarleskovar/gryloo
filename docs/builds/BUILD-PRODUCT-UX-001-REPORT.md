@@ -513,3 +513,279 @@ Targeted validation:
 - App-only `tsc --noEmit`, ESLint on all touched TypeScript/TSX files and `git diff --check` passed. Final touched-file checks were repeated only after subsequent changes.
 
 No full repository CI or backend certification suite was run. UX-003B/C/D/E were not started.
+
+
+## UX-003B — Product card and settings cleanup
+
+Swap/Bridge cards omit visible authoring badges (including Amount required), warning text/borders, technical validation details, dashed/dotted amount styling and the pencil. They retain editable source amounts, shared Advanced Settings fields and the exact existing acceptance/validation path. Detailed lint findings and amount feedback remain in Advanced Settings. Failed inline review keeps a visually hidden, product-worded alert for assistive technology; it takes no card space. Invalid amounts still cannot reach canonical IR or either later stage.
+
+Value boxes now use the product font with tabular numbers, 26px primary token amounts, stronger weight and spacing, 10px fiat sublines and clean borderless fields with keyboard focus treatment. Fiat-priority toggles, known token/chain badges and symbolic output values are preserved. The neutral note reads Estimate unavailable; no USD conversion, quote or output is fabricated. Provider and authored chain/route summaries remain factual, without separate Testnet/Mainnet environment labels inside cards.
+
+Selecting a card, adding an action, or selecting with Enter/Space no longer expands the editor. The lower Advanced Settings disclosure and the card's real, keyboard-accessible Advanced Settings/gear button are the only opening controls. The gear selects its own card and opens the same editor. Selecting another node while settings are already open updates that editor; manually collapsing it remains respected. Canonical acceptance transfers selection without an intermediate deselection that would close an explicitly opened panel. Deleting/clearing selection collapses settings, and Undo/Redo restoration does not automatically reopen it. No new selection/editor model is introduced.
+
+A compact header selector next to the wallet exposes Testnet and Mainnet through `useExecutionEnvironment`'s existing selection callback and capability checks. It changes neither authored chains/amounts nor wallet networks, sessions or authorization. Existing nonpublic simulation modes initially show neutral Network rather than falsely claiming a public environment. Header spacing, wallet truncation and disconnected-wallet wrapping adapt at narrow widths; the settings menu, wallet controls and approved shell remain intact.
+
+Affected product files: `src/components/composer-card.tsx`, `src/components/workflow-canvas.tsx`, `src/components/app-shell.tsx`, `src/components/top-bar.tsx`, and `src/app/globals.css`. All paths here are under `apps/reference-dapp`. Test/fixture updates: `src/components/build-correction.test.tsx`, `e2e/composer-product-cleanup.spec.ts` (new), `e2e/workflow-composer.spec.ts`, `e2e/canvas-action-setup.spec.ts`, `e2e/simulate-workflow-canvas.spec.ts`, `e2e/build-layout.spec.ts`, `e2e/composer-authoring-fixtures.ts` and `e2e/supply-fixtures.ts`. This plan/report pair is also updated. The pre-existing generated `next-env.d.ts` modification is excluded from this work.
+
+Targeted validation:
+
+- **49 unit/component tests passed** across Build presentation, Simulate projection and the contained authoring-model safeguards, retaining exact validator, order/connection, editor binding, read-only and invalid-zero checks. The existing slippage test now asserts warnings stay out of the Swap card while the original findings remain in Advanced Settings.
+- **27 unique focused Chromium cases passed across the targeted runs**: three new product-cleanup cases plus the existing composer (eight), incomplete-authoring (five), Simulate projection (four), layout (two), CTA (two) and header (three) cases. They retain invalid/positive acceptance, stale review, history, selection, protected actions, footer placement, wallet menu behavior, title/graph continuity and one-row toolbar checks down to 320px and at 125/150/200% CSS page zoom.
+- New cases verify borderless, pencil-free, badge-free Swap/Bridge cards; stronger product-font amounts with smaller fiat lines; collapsed settings on selection; explicit mouse/keyboard opening; existing validation in the editor; header options and alignment; unchanged canonical IR/revision and wallet display; and zero signing, transaction or network-switch requests when selecting environments.
+- Initial regressions expecting automatic expansion were changed to explicit settings interactions while preserving their original financial assertions. Acceptance exposed an intermediate deselection closing manually opened settings; the selection transfer was fixed. The environment case now waits for wallet initialization and scrolls the existing header into view before geometry checks. Failed cases passed focused reruns without skipped tests or weakened validators.
+- App-only `tsc --noEmit`, touched-file ESLint and `git diff --check` passed. An additional visual capture case passed; Swap/Bridge source/destination values, fiat-priority display and the wallet-adjacent selector were reviewed at 1440px and 390px from untracked `.tmp/` captures. The neutral selector placeholder was shortened to Network to fit narrow headers cleanly.
+
+No full CI or provider/backend certification suite was run. Canonical IR, authoring validators/history, simulation/runtime semantics, providers, backend APIs, wallet/session, execution, privacy and Copilot/Guided Chat logic are unchanged. Only the requested UX-003B cleanup was implemented; subsequent parts remain out of scope.
+
+### UX-003B refinement — in-card amount review and apply
+
+Build Swap/Bridge cards now place Review amount and Apply amount on one compact row. Apply starts disabled and enables only for a valid existing proposal belonging to that card, matching its current source field and the current workflow revision. Review still uses the existing authoring validators and changes no canonical values; explicit Apply invokes the same acceptance callback and guarded history reducer. Editing the field, reviewing a different card or changing the workflow invalidates the previous acceptance. Configured cards retain Cancel to restore the existing amount, and both amount buttons disappear after acceptance until another edit.
+
+The redundant standalone amount review panel is removed. Advanced Settings retains the same shared amount fields and Enter-to-review validation, with a short direction to review/apply in the card instead of duplicated amount-only buttons. Full parameter reviews, including bridge settings and slippage, and the generic proposed-edit review panel remain available through their existing paths. No selection, disclosure, proposal state, validation, canonical IR, simulation, authorization or runtime behavior changes.
+
+Both in-card buttons have a restrained blue hover glow and 160ms color/shadow transition, with explicit keyboard focus outlines. Reduced motion removes transitions. Disabled Apply has a subdued appearance and no hover glow. No blinking, scaling, animation or layout shift is introduced; the Advanced Settings footer remains at the bottom of the card.
+
+Affected files for this refinement (under `apps/reference-dapp`): `src/components/composer-card.tsx`, `src/components/workflow-canvas.tsx`, `src/components/workflow-edit-review.tsx`, `src/components/artifact-inspector.tsx`, `src/app/globals.css`, `e2e/card-amount-review.spec.ts` (new), `e2e/composer-authoring-fixtures.ts`, `e2e/canvas-action-setup.spec.ts`, `e2e/composer-product-cleanup.spec.ts`, `e2e/workflow-composer.spec.ts`, and `e2e/simulate-workflow-canvas.spec.ts`. This plan/report pair is also updated. Shared integration touches only project existing proposal metadata into the card, suppress its redundant lower review surface, and remove duplicated amount-only buttons from the existing inspector. The earlier cleanup changes and pre-existing generated `next-env.d.ts` modification are preserved.
+
+Targeted validation:
+
+- **49 unit/component tests passed** across Build, Simulate projection and required-field authoring safeguards, including invalid-zero rejection and exact canonical quantity assertions.
+- **23 focused Chromium cases passed**: three new amount-interaction cases plus incomplete authoring (five), product cleanup (three), workflow composer (eight) and Simulate projection (four). New cases verify disabled/invalid acceptance, explicit review without mutation, field-change invalidation, action/revision scoping across two cards, a single amount interaction, adjacent buttons at 1440/390/320px, hover/focus without geometry changes, reduced motion, shared Advanced Settings values and the accepted amount in Simulate. Existing composer cases retain toolbar checks through 200% CSS page zoom, protection, history, footer and selection assertions.
+- App-only `tsc --noEmit`, touched-file ESLint and `git diff --check` passed. No full CI was run.
+- An additional visual capture case passed. Reviewed Swap/Bridge cards at 1440px and 390px confirm the adjacent controls, hover glow, disabled Apply, existing Cancel and bottom-anchored Advanced Settings footer; captures stay in untracked `.tmp/`.
+
+This is only the requested amount review/apply refinement. Runtime, validation, IR, simulation, authorization and execution semantics remain unchanged; no additional UX phase was started.
+
+
+### UX-003B refinement — inline Supply proposal controls
+
+Supply cards now expose Review Supply change and, when the corresponding proposal exists, Apply proposal beside it using the Bridge interaction row and blue hover/focus treatment. Small spacing adjustments accommodate the longer labels within the existing card width. Editing fields remain in Advanced Settings. The inline Review button submits that same form through native HTML form association, including when the disclosure is collapsed; it creates no second editor or duplicated field state. Apply projects the existing valid proposal and revision, then calls the unchanged acceptance function. The card amount remains the existing workflow amount until Apply.
+
+The lower proposal surface retains its diff, explanation and Dismiss action; Supply acceptance moves into its card without a duplicate Apply control. Both standalone SET_SUPPLY and a Supply-only AUTHOR_LENDING edit use this presentation. Borrow, slippage, multi-parameter lending proposals and Bridge retain their existing controls. The lending editor's unchanged-value guard remains effective with its external submit button.
+
+Contained integration touchpoints: `composer-card.tsx` and `workflow-canvas.tsx` render derived controls; `artifact-inspector.tsx`, `supply-panel.tsx` and `lending-node-editor.tsx` provide optional HTML form association; `composer-presentation.ts` identifies an existing Supply command target solely for display; `workflow-edit-review.tsx` suppresses the duplicate Supply CTA. Existing creation forms retain their original submit buttons. No workflow store, proposal commands, IR schemas, validation engine, Copilot logic, provider, simulation, authorization or execution code changes.
+
+Targeted validation passed: 38 component tests covering Build and Simulate projection; 18 focused Chromium cases across product cleanup, amount review/apply, composer and Build layout, including Supply amount rejection, native keyboard review with collapsed settings, Dismiss, acceptance without premature mutation, 1440/390/320px controls, lending Supply versus Borrow targeting, and unchanged Bridge checks. App-only typecheck, touched-file ESLint and git diff check passed. An additional desktop/mobile Supply visual capture case passed; artifacts remain in ignored `.tmp/`. No full CI or additional UX work was run.
+
+### UX-003B refinement — inline Supply amount and larger token pills
+
+Supply now uses the same integrated, borderless source input as Bridge. Its card and Advanced Settings share the existing amount buffer; editing either updates the other without changing workflow amounts before explicit acceptance. Native HTML form association submits the existing Supply form on Enter, preserving beneficiary handling, validation and Review Supply change / Apply proposal. Supply-only lending edits use the existing AUTHOR_LENDING command and preserve Borrow and its linked Swap input. Editing invalidates the previous proposal; required-field stage gates and stale acceptance safeguards remain in effect. The lower Supply diff and Dismiss action remain available, without duplicate Apply controls.
+
+Shared token pills now have a 30px minimum height, 20px avatar, 11px ticker and increased horizontal padding. The small network badge remains intact. Supply retains one value box; Swap and Bridge retain their two boxes and circular connector. Desktop, 390px and 320px checks confirm pills and proposal controls stay within the cards, including fiat-priority display.
+
+Contained integration touchpoints: `composer-card.tsx`, `workflow-canvas.tsx` and `globals.css` provide the shared input and pill presentation; `supply-panel.tsx` and the Supply branch of `lending-node-editor.tsx` bind existing forms to the same amount buffer. `canvas-action-setup.ts` recognizes the existing Supply commands, while `editor-history.ts` and `workflow-store.tsx` pass the workflow into existing proposal-target matching. `composer-presentation.ts` identifies Supply-only lending proposals, including an explicitly reviewed return to the original value; `workflow-edit-review.tsx` retains their lower details. No second editing system, new commands, IR schema, validators, provider/runtime changes or Copilot architecture changes were introduced. Creation forms and other lending parameter editors retain their original state and controls.
+
+Targeted validation passed: **53 unit/component tests** covering amount acceptance, invalid/zero rejection, stale reviews, history, lending linkage, Build presentation and read-only Simulate projection; **18 unique focused Chromium cases** across product cleanup, in-card amount review/apply, workflow composer and Build layout. New assertions cover direct Supply editing, shared settings values, Enter-to-review, explicit acceptance, proposal dismissal/invalidation, unchanged Bridge behavior, and larger-pill geometry at 1440/390/320px. Three additional visual capture cases passed; desktop/mobile Supply, Bridge and fiat-priority Swap captures were inspected. App-only typecheck, touched-file ESLint and git diff check passed. Captures remain in ignored `.tmp/`; the pre-existing generated `next-env.d.ts` modification is excluded. No full CI or further UX work was run.
+
+### UX-003B refinement — consistent numeric entry
+
+`TokenAmountInput` now provides one entry behavior for editable card amounts and their shared Advanced Settings fields. Zero is replaced when typing or pasting begins, including with the caret before it. Integer leading zeros are removed losslessly (`005050` → `5050`, `0007` → `7`), while fractional zeros/digits, trailing decimal entry and large integers remain intact. Empty input is allowed while focused and returns to zero on blur. Invalid syntax is left for the original validators; no Number conversion, rounding, decimal-limit changes or financial parsing changes occur. Fiat-priority display uses the same source input; unavailable output values remain read-only placeholders.
+
+New standalone Supply cards now use the existing unconfigured-card path, starting at zero rather than silently authoring one USDC. The known connected-wallet beneficiary is retained in that same authoring setup. Review Supply change invokes the unchanged ADD_SUPPLY constructor/validator; explicit Apply proposal creates the positive canonical action. Full existing Supply settings remain available after acceptance. Existing authored Supply amounts and lending compositions keep their actual values. Zero/empty input cannot create an executable node or enable later stages; all existing stage gates, proposal invalidation and acceptance guards are reused. The lower Supply diff/Dismiss surface and card CTA pattern remain intact.
+
+Integration touches are confined to the shared input/card and its bound inspector, Supply, lending and Router forms; the existing canvas authoring defaults/setup/history/store extend their supported setup action to Supply and carry its known beneficiary. The existing React Flow node projection updates in a layout effect to prevent outdated controlled input values during rapid typing, without local duplicate amount state or a second editor. Canonical commands/schemas, validators, provider bounds, token decimals, raw-unit conversion, runtime, simulation/execution semantics, wallet behavior and Copilot logic are unchanged. Existing workflow fixtures now explicitly provide/apply Supply amounts rather than relying on the removed one-USDC creation default.
+
+Targeted validation: **104 unit/component tests** covering input formatting, precision preservation, invalid syntax, Supply/Swap/Bridge zero rejection and positive acceptance, exact raw units, beneficiary/history, Build presentation and read-only Simulate projection; **28 unique focused Chromium cases** across numeric entry, existing composer/amount/setup/layout/product interactions and the affected settings/navigation fixtures. The new cases cover rapid typing, zero replacement, decimal entry, temporary empty values and blur, shared settings, fiat-priority mode, incomplete Simulate/Execute gates and explicit acceptance/projection. Bridge acceptance fixtures respect its unchanged minimum/maximum; rejected amounts remain rejected. App-only typecheck, touched-file lint and git diff check passed. No full CI or additional UX phase was run.
+
+### UX-003B refinement — token pill sizing and compact value stacks
+
+The shared card token pill increases from 30px to 34px minimum height, with a 22px avatar (previously 20px), 18px token icon, 12px ticker (previously 11px) and slightly more horizontal padding. Rounded shape, colors and the small network badge are preserved. The number/USD stack gap decreases from 4px to 2px without changing amount or USD typography. Supply and both Swap/Bridge boxes use the same CSS; editing, Review/Apply, Advanced Settings, canvas positioning and all financial/backend logic remain unchanged.
+
+This pass changes only `apps/reference-dapp/src/app/globals.css`, the focused geometry assertions in `e2e/composer-product-cleanup.spec.ts`, and this plan/report pair. Checks confirm the larger pills, tighter stacks and nonoverlapping values/pills inside the existing card bounds at 1440/390/320px, including fiat-priority display. Targeted validation passed: 38 Build/Simulate component tests, three focused Supply/Swap/Bridge browser cases, app typecheck, touched-test ESLint and git diff check. A separate visual capture case covers all three cards at those widths; captures remain in ignored `.tmp/`. No full CI or further UX work was run.
+
+### UX-003B refinement — readable network badges and paired display mode
+
+The shared Supply/Swap/Bridge network overlay increases from 9px to 12px, with 8px lettering instead of 6px. It retains the circular shape, border, network label/tooltip and position over the 22px token avatar. Geometry checks confirm it remains smaller than the main avatar, within the pill and clear of the ticker.
+
+Each Swap/Bridge ComposerCard now owns one display-mode boolean. Both ValueBoxes receive that controlled mode and have no independent display state. Clicking either fiat subline switches both to fiat-primary; either primary fiat line or token return control restores both to token-primary. Source amounts remain editable through the same input and proposal path, destination/fiat values remain truthful unquoted placeholders, and toggling changes no workflow amounts or revision. Supply retains its existing single value block with the shared enlarged badge.
+
+Affected files for this pass: `src/components/composer-card.tsx`, `src/app/globals.css`, `e2e/composer-product-cleanup.spec.ts` and `e2e/canvas-action-setup.spec.ts`, under `apps/reference-dapp`, plus this plan/report pair. No authoring store, IR, backend, provider, quote, simulation or runtime changes were made.
+
+Targeted validation passed: 38 Build/Simulate component tests and 13 focused Chromium cases covering synchronized mouse/keyboard toggles from either box, retained settings/Simulate amounts and workflow revision, larger badge geometry at 1440/390/320px, inline numeric entry, invalid/positive acceptance and incomplete-stage guards. App typecheck, touched-file ESLint and git diff check passed. A separate visual capture case checks all three cards at those widths; captures remain in ignored `.tmp/`. No full CI or additional UX work was run.
+
+### UX-003B refinement — badge and value-stack proportions
+
+Shared network badges increase from 12px to 14px with 9px lettering, remaining secondary to the 18px token glyph/22px avatar. Primary token amounts decrease from 26px to 24px; primary fiat values decrease from 22px to 21px. Primary input height becomes 28px, fiat line height tightens slightly, and the main/subline gap decreases from 2px to 1px. Existing primary weights and supporting text sizes remain readable and unchanged.
+
+Production changes are confined to `apps/reference-dapp/src/app/globals.css`. Focused assertions in `e2e/composer-product-cleanup.spec.ts` verify badge hierarchy, smaller primary typography, tight stack geometry and nonoverlap at 1440/390/320px in both display modes; this plan/report pair records the pass. The shared fiat/token toggle, input behavior, canonical values, quotes, simulation and runtime are unchanged.
+
+Targeted validation passed: 38 Build/Simulate component tests, five focused Supply/Swap/Bridge browser cases, app typecheck, touched-test ESLint and git diff check. A separate visual capture case checks the three card types and both pair display modes at desktop/narrow widths; captures remain in ignored `.tmp/`. No full CI or further UX work was run.
+
+
+### UX-003B refinement — single lending value blocks and compact fiat sublines
+
+Build Borrow, Repay and Withdraw now reuse Supply's single value/token block, showing only the actual amount/token supplied by their existing summaries. They retain their action titles, protocol/network row, action-specific risk content and Advanced Settings footer. Their existing settings forms remain the editing surface; this visual pass introduces no inline authoring or additional proposal controls. Supply editing and Swap/Bridge dual-box presentation remain intact, as does read-only Simulate projection.
+
+Primary token amounts reduce from 24px to 22px and primary fiat values from 21px to 20px, with a 26px primary input height. Supporting text, the 1px stack gap and existing pill/badge proportions are unchanged. Fiat-priority source inputs now size to their visible character count and align against the token symbol, replacing the fixed 45px blank space. Read-only token sublines use a single label with one separator space (`0 WETH`). The same editable input and shared paired display-mode state remain in use; toggling never changes amounts.
+
+Affected files for this pass: `apps/reference-dapp/src/components/composer-card.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/composer-product-cleanup.spec.ts`, `e2e/canvas-action-setup.spec.ts`, and this plan/report pair. No authoring model, validators, canonical IR, provider, backend, quote, simulation or execution logic changed.
+
+Targeted validation passed: **38 Build/Simulate component tests** and **16 focused Chromium cases** covering all six affected cards, tighter subline geometry, synchronized mouse/keyboard toggles, retained action-specific editor bindings, no value/pill/footer overlap at 1440/390/320px, existing numeric-entry normalization, incomplete-stage gates and guarded amount acceptance. Two additional visual capture cases cover those six card types and both paired display modes at desktop/narrow widths; selected Swap/Borrow/Repay/Withdraw captures were inspected. App typecheck, touched-file ESLint and git diff check passed. Captures remain in ignored `.tmp/`; earlier owner-directed changes and the generated `next-env.d.ts` modification are preserved. No full CI or further UX phase was run.
+
+
+### UX-003B refinement — editable lending cards and paired liquidity layout
+
+New standalone Borrow, Repay and Withdraw cards now share Supply's zero-based unconfigured authoring path and single editable amount/token block. Adding them creates no financial canonical node or default positive quantity. Borrow/Repay preserve the known wallet beneficiary; Withdraw preserves CONNECTED_OWNER recipient behavior. Zero/empty/invalid amounts cannot be applied, generate artifacts or enter later stages. Existing authored quantities remain visible and editable, with the previous canonical action retained while a replacement is reviewed. No zero amount reaches executable IR.
+
+Card inputs and Advanced Settings now bind the same existing amount buffer and normalized input component. The in-card Review Borrow/Repay/Withdraw change buttons submit the corresponding existing settings form; Apply proposal accepts the same guarded proposal. The lower details/Dismiss surface remains, with acceptance offered once in the relevant card. All existing Add/Set validators, beneficiaries, debt mode and withdrawal policy remain unchanged. Linked Borrow uses the existing AUTHOR_LENDING constructor, retaining Supply, slippage/owner and the typed Borrow-to-Swap edge. Explicit node identity disambiguates unchanged Borrow acceptance, which clears the authoring buffer instead of accidentally matching an unchanged Supply proposal.
+
+Pool / Liquidity uses the shared two-box presentation, token pills/network badges and circular connector. It projects both actual contribution amounts/assets from the existing Uniswap, Orca or liquidity readers; no Swap commands or business logic are used. Both boxes share one display mode and retain unavailable fiat placeholders. Position editing/review stays in its existing settings form, including original range/slippage behavior. No output quantity, fiat valuation or live quote is invented.
+
+Production touchpoints: `composer-card.tsx`, `workflow-canvas.tsx`, `artifact-inspector.tsx`, `lending-node-editor.tsx`, the Borrow/Repay/Withdraw authoring form portions and `workflow-edit-review.tsx` under `apps/reference-dapp/src/components`; `canvas-action-setup.ts`, `canvas-authoring.ts`, `composer-presentation.ts` and `editor-history.ts` under its domain directory. These extend existing UI authoring setup, amount bindings, proposal matching and display projections. No IR schemas/semantics, command types, financial parsing, provider adapters, APIs, runtime, simulation/execution, wallet authorization or Copilot logic changed. Shell/CSS and unrelated cards were preserved.
+
+Targeted validation passed: **117 unit/component tests** across setup/authoring/history, normalized numeric entry and Build/Simulate projections; **18 unique focused Chromium cases** covering zero/empty/precision rejection, explicit positive acceptance, stale review invalidation, shared settings, all six inline card input types, Supply/Swap/Bridge regressions, actual Pool values and paired display mode, toolbar creation, and linked Borrow/order/selection. Card geometry is checked at 1440/390/320px. One additional visual capture case covers Borrow/Repay/Withdraw/Pool and proposal/display variants at those widths; selected captures were inspected. App typecheck, touched-file ESLint and git diff check passed.
+
+Focused test updates are in `canvas-action-setup.test.ts`, `canvas-authoring.test.ts`, `build-correction.test.tsx`, `composer-product-cleanup.spec.ts`, `card-numeric-entry.spec.ts`, `workflow-composer.spec.ts` and the shared composer authoring fixture. Borrow/Repay/Withdraw lifecycle fixtures now explicitly configure their prior positive amounts and locate the relocated card review control; their complete execution suites were not run. Existing unrelated changes and generated `next-env.d.ts` remain preserved. Captures stay in ignored `.tmp/`. Existing limitations remain: one new action is configured at a time, isolated actions obey their existing combination guards, liquidity edits use position settings, and no live fiat valuation is available. No full CI or further UX work was performed.
+
+
+### UX-003B refinement — Pool Tick/Price selector and strategy tiles
+
+The Build Pool / Liquidity card now has a compact Range selector below its existing asset-pair line, with Tick selected initially. Tick retains the existing compact two-contribution card. Price reveals four selectable tiles with the exact requested ranges and Portuguese descriptions: Estável (± 0.03%), Amplo (–50% — +100%), Unilateral inferior (–50%) and Unilateral superior (+100%). Native radio inputs provide exclusive selection, keyboard arrow navigation and visible focus/selected styling. Selection persists locally while switching between the two views, without creating another workflow model or editing position data.
+
+Only the Price-expanded Pool card widens to 300px to keep the two-column strategy box readable; Tick retains the approved 224px width. After React Flow measures the expansion, its existing fit operation brings the card into view without animation, with bottom space reserved for the existing CTA. Shell, canvas height/control placement, contribution amounts, token pills/badges and Advanced Settings remain intact. Simulate cards do not expose this selector.
+
+Production changes are confined to `apps/reference-dapp/src/components/composer-card.tsx` and `src/app/globals.css`. Focused assertions are updated in `src/components/build-correction.test.tsx` and `e2e/composer-product-cleanup.spec.ts`, plus this plan/report pair. No authoring commands, validation/review/apply behavior, IR, backend, provider, wallet, simulation or execution logic changed. Presets are a product presentation surface only; applying a real price strategy through validated bounds/observed pool prices is intentionally deferred.
+
+Targeted validation passed: **39 Build/Simulate component tests**, **eight focused Chromium cases** covering Pool's selector/tiles and existing contribution editor, plus Swap/Bridge/Supply/Borrow/Repay/Withdraw interactions. Checks cover default Tick, Price-only reveal, exact copy, exclusive mouse/keyboard selection, unchanged amounts/range/slippage/workflow revision, no authoring proposal or wallet handoff, and fit/CTA clearance at 1440/390/320px. One additional visual capture case covers both views at those widths; final desktop/mobile Price captures were inspected. App typecheck, touched-file ESLint and git diff check passed. Captures remain in ignored `.tmp/`; earlier changes are preserved. No full CI or further UX work was run.
+
+### UX-003B refinement — Pool segmented mode control and Amplo default
+
+Pool's Range selector now uses compact rounded Tick / Price buttons with native keyboard interaction, accessible pressed states and visible focus. Tick remains the initial mode. The active segment uses FloFi blue with white text; the inactive segment stays neutral with a subtle hover treatment. Price reveals the existing two-column, four-preset grid with the requested names, ranges and Portuguese descriptions. Strategy names are the strongest labels, followed by ranges and smaller muted explanations. Selected tiles show a blue border/background and a reserved check indicator; neutral tiles gain subtle hover emphasis without layout shift. Reduced-motion preferences disable transitions.
+
+Every transition from Tick to Price selects Amplo (–50% — +100%) as the UI default. Clicking an already-active Price segment preserves the user's chosen preset. Tick hides the grid. Mode and preset selection remain local presentation state, with no mapping into position parameters, authoring commands or executable workflow data. Existing Price-expanded card width, React Flow fit behavior and CTA clearance are preserved. No canonical IR, validation/review/apply, provider, wallet, simulation or runtime changes were made.
+
+Affected files for this pass: `apps/reference-dapp/src/components/composer-card.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/composer-product-cleanup.spec.ts`, and this plan/report pair. Earlier owner-directed changes remain preserved.
+
+Targeted validation passed: **39 Build/Simulate component tests**, **eight focused Chromium cases**, app typecheck, touched-file ESLint and git diff check. Browser checks cover the default and repeated mode transitions, Amplo default, retained selection on active Price clicks, exact preset copy, exclusive mouse/keyboard selection, blue selected checks, hover without layout shift, typography hierarchy, unchanged position values and proposal state, and unrelated Swap/Bridge/Supply/Borrow/Repay/Withdraw interactions. One additional visual capture case covers Tick and Price at 1440/390/320px; desktop/mobile captures were inspected for card bounds and footer/CTA clearance. Captures remain in ignored `.tmp/`. No full CI or further UX work was run.
+
+### UX-003B refinement — Pool provider selector and Custom range preview
+
+The Build Pool / Liquidity card now replaces its static provider/network row with a compact native selector offering Uniswap and Solana. The initial choice reflects the authored protocol: Uniswap positions select Uniswap; Orca/Solana positions select Solana. Any other existing provider remains available as its initial option rather than being relabeled. Actual network badges and liquidity contribution assets remain unchanged. Selector changes are local UI previews, with no protocol migration, provider command or wallet interaction.
+
+The redundant token-pair chip below the two contribution blocks is replaced by a compact Custom percentage input, initially 10%, and a muted Price range: 10% line beneath it. The line reflects this local percentage setting only; editing it does not map to authored liquidity bounds, prices or proposals. Existing validated position editing remains in Advanced Settings. Tick/Price modes, Amplo defaults, presets, card width/fit behavior, contribution values and the footer remain intact. Read-only projection and unrelated cards are unchanged.
+
+Affected files: `apps/reference-dapp/src/components/composer-card.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/composer-product-cleanup.spec.ts`, and this plan/report pair. No authoring semantics, canonical IR, backend, adapter, runtime, simulation/execution or wallet behavior changes were made. Earlier owner-directed changes remain preserved.
+
+Targeted validation passed: **39 Build/Simulate component tests**, **eight focused Chromium cases**, app typecheck, touched-file ESLint and git diff check. Assertions cover Uniswap/Solana defaults and options, removal of the pair chip, Custom/price-line interaction, unchanged contribution values and workflow revision, no generated proposal or wallet handoff, preserved position Review/Apply, existing Tick/Price preset behavior and Swap/Bridge/Supply/Borrow/Repay/Withdraw regressions. Geometry checks cover selector placement, card bounds and footer spacing at 1440/390/320px. One additional visual capture case covers both Tick and Price at those widths; desktop Tick and narrow Price captures were inspected. Captures remain in ignored `.tmp/`. No full CI or further UX refinement was run.
+
+### UX-003B refinement — attached right-side Pool presets
+
+Price now reveals the four existing strategy tiles in a 270px panel attached to the right of the compact Pool card, with a short blue connector and a 180ms horizontal reveal. The presets retain their exact copy, 2x2 layout, native keyboard radio selection, blue selected state and Amplo entry default. The card stays 224px wide and retains the same height in Tick and Price. A Pool-only presentation wrapper lets React Flow measure both surfaces and fit them inside the canvas with bottom CTA clearance; it creates no additional workflow node or edge. Reduced-motion preferences suppress the reveal. Preset selection remains local UI state.
+
+Uniswap/Solana now uses the same rounded blue/neutral segmented buttons as Tick/Price, with accessible pressed states and keyboard focus. Initial selection still reflects the actual provider; switching remains a UI preview and leaves contribution assets/network badges and the authored provider untouched. A thin decorative placeholder sits immediately above the compact Custom percentage box. The Price range text line is removed without replacement. Advanced Settings, position Review/Apply, all unrelated cards and read-only projections are preserved.
+
+Affected files: `apps/reference-dapp/src/components/composer-card.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/composer-product-cleanup.spec.ts`, and this plan/report pair. No canonical IR, provider adapter, runtime, wallet, simulation/execution, validation or proposal semantics changed. Earlier owner-directed changes remain preserved.
+
+Targeted validation passed: **39 Build/Simulate component tests**, **eight focused Chromium cases**, app typecheck, touched-file ESLint and git diff check. Browser assertions cover segmented defaults/keyboard selection, unchanged workflow and position data, placeholder/Custom alignment, absence of price text, constant card dimensions, right-side panel attachment and 2x2 layout, exclusive preset mouse/keyboard selection, Amplo defaults, and canvas/CTA containment at 1440/390/320px. Existing Swap/Bridge/Supply/Borrow/Repay/Withdraw interaction checks pass. One additional visual capture case covers both modes at all three widths; desktop and narrow Price captures were inspected. Captures remain in ignored `.tmp/`. No full CI or further refinement was run.
+
+
+### UX-003B refinement — compact Pool controls and remembered Price presets
+
+The Pool-only lower controls now show a decorative horizontal line with two outlined endpoints and a blue center marker, followed by Custom and Tick/Price on one vertically centered row. The percentage remains a local editable preview with no nested input frame; keyboard focus is indicated on the containing Custom control. The old thin rectangle and visible Range label are removed. The percentage and preset choices remain presentation state, independent of authored liquidity bounds.
+
+The attached right-side 2x2 Price panel adds a compact double-chevron hide button. Hiding leaves Price selected; clicking Price again reopens it. Preset selection is held by the existing card and survives panel collapse, Tick/Price switches and reopening. Amplo remains the first-entry default. The panel still fits within the canvas and does not increase the compact card height.
+
+Review and Apply now appear directly below the Custom/mode row and above Advanced Settings. Review submits the selected Pool's existing position form through a native form association. Apply uses the existing proposal acceptance callback and is disabled unless the matching proposal is valid and its base revision matches the workflow. The standalone lower proposal surface is hidden for Pool position edits; other proposal surfaces remain unchanged. Parameter editing and validation still live in the same Advanced Settings form. No new financial commands or range/preset mappings are introduced.
+
+Integration touchpoints: optional reviewFormId on UniswapLiquidityForm/SolanaLiquidityForm associates the in-card Review button with the existing submit handlers and suppresses only their duplicate edit CTA. ArtifactInspector supplies these IDs (and the existing legacy Pool form ID); WorkflowCanvas projects the current proposal eligibility; WorkflowEditReview suppresses the redundant Pool proposal panel. Creation forms without reviewFormId preserve their previous controls. Runtime, adapters, canonical IR, validators, authoring reducers, simulation/execution and unrelated card interactions are unchanged.
+
+Affected files: apps/reference-dapp/src/components/composer-card.tsx, workflow-canvas.tsx, artifact-inspector.tsx, uniswap-liquidity-panel.tsx, solana-liquidity-panel.tsx, workflow-edit-review.tsx, build-correction.test.tsx; apps/reference-dapp/src/app/globals.css; apps/reference-dapp/e2e/composer-product-cleanup.spec.ts; this plan/report pair.
+
+Targeted validation passed: 39 Build/Simulate component tests, eight focused Chromium cases, app typecheck, touched-file ESLint and git diff check. Browser checks cover borderless percentage focus, three range markers, same-row alignment, inline Review/Apply, disabled Apply before review, unchanged values until acceptance, valid position application, invalid position rejection without revision change, no duplicate lower proposal panel, right-side panel containment, collapse/reopen preset persistence and keyboard selection at 1440/390/320px. Existing Swap/Bridge/Supply/Borrow/Repay/Withdraw checks pass. One additional visual capture case covers Tick/Price at all three widths; desktop Tick and narrow Price were inspected. Captures remain ignored in .tmp. No full CI or further refinement was run. Stopped after this refinement.
+
+
+### UX-003B refinement — symmetric custom Price range
+
+Price mode now presents the Pool's reference price above a fixed dark center marker, two draggable white boundary handles, a highlighted symmetric interval, live -X%/+X% labels and Custom ±X%. The available track represents ±100%; a ±10% selection places handles at 45%/55% rather than its endpoints. Pointer capture supports dragging either side, with the opposite boundary mirrored immediately; arrow keys, Shift+arrow, Home/End and the compact percentage input update the same shared value. Tick remains the default native configuration view and hides the Price slider/Custom input. Switching back to Tick returns editing to the native form. Entering Price again binds the remembered percentage to the shared editable configuration, so Review always validates the visible range; reopening the already active Price panel preserves any current review. The four right-side preset tiles, collapse control and remembered selection remain unchanged and are not mapped to financial commands.
+
+A small PoolPriceRangeProvider holds only per-node UI editing buffers (one percentage, a price reference and review eligibility), shared by each card and its existing selected position form. It introduces no alternate workflow graph or persisted financial model. The reference comes from the existing Uniswap/Orca price stores and existing read-only fetchPrice paths, matched to the actual authored node rather than the preview provider segment. Until a genuine reference is available the label shows --; editing the custom percentage then keeps Review/Apply unavailable. Known prices retain their actual USDC/devUSDC quote denomination, without inventing a USD conversion. An edit captures its reference so the reviewed range stays tied to the price displayed.
+
+Uniswap custom percentages reuse uniswapBandInput; only the existing rangeUnit/lower/upper editing fields enter the proposal. Solana derives exact decimal percentage bounds from its existing price string; the existing Orca authoring validator performs protocol alignment. The current Uniswap band limit (0.01%–90%) bounds this first symmetric control. Amount parsing, token units, schemas, adapters and runtime are unchanged. Manual native-bound editing restores the existing editor path. Dragging creates no canonical edit or proposal; Review submits the existing validated position form, and only explicit Apply accepts the matching valid proposal. Changing the percentage again dismisses its previous position proposal and requires a new Review. No zero/invalid range is silently accepted.
+
+Integration touchpoints: AppShell adds the UI-only provider wrapper without shell/Copilot redesign; ComposerCard and WorkflowCanvas bind the Pool node identity and editor controls; UniswapLiquidityForm/SolanaLiquidityForm derive their editable range from the shared buffer before their existing validation/proposal calls. ResizeObserver watches both the available canvas size and measured Pool surfaces, and refits only the Pool Price view when these dimensions change, keeping handles and the attached preset panel accessible. A 56px right fitting gutter keeps the expanded panel clear of the unchanged lower-right zoom controls. No other card interaction or lifecycle behavior changes.
+
+Affected files: apps/reference-dapp/src/components/pool-price-range.tsx (new), pool-price-range.test.tsx (new), composer-card.tsx, workflow-canvas.tsx, app-shell.tsx, uniswap-liquidity-panel.tsx, solana-liquidity-panel.tsx, build-correction.test.tsx; apps/reference-dapp/src/app/globals.css; apps/reference-dapp/e2e/composer-product-cleanup.spec.ts; this plan/report pair.
+
+Targeted validation: 39 existing Build/Simulate component tests plus 11 symmetric-range tests passed; nine focused browser regression cases passed, covering both mouse handles, keyboard and input synchronization, reference-marker stability, close-to-center proportional positions, mirrored live labels, Price-only display, missing-price safeguards, unchanged revision during editing, inline position validation/acceptance, preset collapse persistence and Swap/Bridge/Supply/Borrow/Repay/Withdraw regressions. A further test-only browser price-response fixture in ignored .tmp verifies quoted-source display, existing Review/Apply acceptance, review invalidation after another range edit, stored position bounds after Apply and no wallet signing/broadcast. Typecheck, touched-file ESLint and git diff check passed. Visual captures cover Tick/Price at 1440/390/320px; browser geometry waits for measured React Flow transforms before comparing bounds. No full CI, schema/runtime/API changes or subsequent UX work were performed. Stopped after this refinement.
+
+
+### UX-003B refinement — linked Pool presets and stronger range control
+
+The Build Pool Price range now uses a 3px track, 4px highlighted interval, 14px white boundary handles with 2px blue outlines, and an 8px fixed dark reference marker. The reference legend increases to 11px and boundary labels to 9px. The panel's double-chevron hide control is vertically centered on its left edge, overlapping the connector toward the Pool card. The existing attached 2x2 tiles, blue selected state, provider segments, contribution blocks, inline Review/Apply and Advanced Settings remain intact.
+
+Preset selection and range projection now share the same per-node UI editing buffer: Estável displays −0.03%/+0.03%, Amplo −50%/+100%, Unilateral inferior −50%/0%, and Unilateral superior 0%/+100%. Handles and boundary labels update immediately; the reference marker stays fixed. The stable preset uses a closer visual scale so its small interval remains legible; wide presets retain track headroom. The initial Custom ±10% does not highlight an unrelated preset. Asymmetric selections show their exact range in the compact Custom area rather than a false symmetric percentage; activating that Custom control, editing the percentage or dragging a handle returns to the existing symmetric Custom model. Panel collapse/reopen and Tick/Price changes retain the selected strategy.
+
+The two existing Pool authoring forms consume the same selected range through their existing PRICE editing fields. Exact decimal price boundaries pass through the unchanged native Uniswap/Orca validation/alignment and existing proposal path. Selection and dragging never apply a workflow change. A preset change dismisses the preceding position proposal and requires fresh Review before Apply. No reference price is invented: unavailable reference remains -- and prevents Price Review/Apply; real source labels retain their actual quote-token denomination. No runtime, adapter, schema, API, simulation/execution, wallet or unrelated card behavior changes.
+
+Files affected by this refinement: apps/reference-dapp/src/components/pool-price-range.tsx, pool-price-range.test.tsx, composer-card.tsx, uniswap-liquidity-panel.tsx, solana-liquidity-panel.tsx; apps/reference-dapp/src/app/globals.css; apps/reference-dapp/e2e/composer-product-cleanup.spec.ts; this plan/report pair. Earlier owner-directed uncommitted work is preserved.
+
+Targeted validation passed: **54 component/range tests** (including all four exact preset projections and both native protocol constructors), **nine focused browser cases**, app typecheck, touched-file ESLint and git diff check. Browser assertions cover preset handle positions/labels, exclusive highlighted selection, collapse geometry/persistence, stronger computed styles, existing symmetric pointer/keyboard editing, missing-price safeguards and adjacent Swap/Bridge/Supply/Borrow/Repay/Withdraw regressions. Width checks cover 1440/390/320px and verify panel attachment, canvas containment and clearance from CTA/zoom controls. An additional ignored test-only price-response browser case verifies all four presets can be reviewed and explicitly applied through the existing authoring flow, and selecting a different preset invalidates the preceding review without changing workflow revision or requesting wallet signing. A separate visual capture case covers Tick/Price at those three widths; desktop and narrow Price captures were inspected. No full CI or subsequent UX work was performed. Stopped after this refinement.
+
+
+### UX-003B session recovery and final targeted verification
+
+Resumed `codex/build-product-ux-001` from committed HEAD `ae2bc45`. Inspected status, the accumulated diff/stat, whitespace checks, recent history and every untracked file. Preserved the accumulated productized cards, inline amount editing, token/network pills, synchronized fiat/token display, Supply/Borrow/Repay/Withdraw model, Swap/Bridge dual boxes, Pool contribution boxes, Uniswap/Solana and Tick/Price segments, attached Price panel, shared Custom range buffer, in-card Review/Apply, Advanced Settings, floating toolbox and header/settings refinements. The new range and amount components/tests, browser tests, generated Next.js agent guidance and generated `next-env.d.ts` are included. No reset, restore, checkout from HEAD, deletion of inherited files or history rewrite was performed.
+
+Finished the interrupted range emphasis: the track grows from 3px to 5px and highlighted interval from 4px to 6px; white handles grow from 14px to 16px with a 3px outline; the fixed center marker grows from 8px to 10px; reference text grows from 11px to 12px and boundary legends from 9px to 10px. Preserved and verified the inherited four-preset mapping and selected highlight: Estável −0.03%/+0.03%, Amplo −50%/+100%, Unilateral inferior −50%/0%, Unilateral superior 0%/+100%. The collapse button is centered on the expanded panel's left edge, with chevrons pointing toward the Pool card. Preset persistence, custom pointer/keyboard editing and native position proposal acceptance remain intact.
+
+Targeted validation completed in this recovered session:
+
+- 136 Vitest tests passed across seven files: `pool-price-range.test.tsx`, `token-amount-input.test.tsx`, `build-correction.test.tsx`, `simulate-workflow-canvas.test.tsx`, `summary-bar.test.tsx`, `canvas-action-setup.test.ts` and `canvas-authoring.test.ts`.
+- 32 focused Chromium cases passed across the current product-cleanup, numeric-entry, amount-review and workflow-composer tests, plus the inherited ignored quoted-price fixture. Coverage includes all four strategies, highlighted/persistent selection, collapse placement, computed range styles, symmetric dragging, genuine/missing price handling, proposal invalidation and explicit acceptance, adjacent cards, toolbar, selection and history. One initially stale composer assertion expected Pool's removed network text; it now verifies both accessible network badges, and the corrected case passed on rerun.
+- One additional visual capture case passed for all four presets at 1440/390/320px. Desktop and 320px captures were inspected. Temporary configs, guarded development-fixture copies, quoted-price response fixture and screenshots remain ignored in `.tmp/`.
+- App TypeScript typecheck passed. ESLint passed for all 42 touched TS/TSX files; final test-only corrections were checked again. `git diff --check` passed.
+
+The remaining insufficient-debt Repay lifecycle fixture now configures its original `0.005` amount before navigating to simulation, matching the inherited zero-based authoring model. Its full financial lifecycle suite was not run. No full repository CI or live financial execution was run. The installed pnpm launcher reported version 12.9.1 against the repository's 11.22.0 pin, so checks used the existing local Vitest, TypeScript, ESLint and Playwright binaries without dependency changes. No further UX phase was started.
+
+Accumulated commit file manifest (48 files):
+
+```text
+apps/reference-dapp/AGENTS.md
+apps/reference-dapp/CLAUDE.md
+apps/reference-dapp/e2e/borrow.spec.ts
+apps/reference-dapp/e2e/build-layout.spec.ts
+apps/reference-dapp/e2e/canvas-action-setup.spec.ts
+apps/reference-dapp/e2e/canvas-cta.spec.ts
+apps/reference-dapp/e2e/card-amount-review.spec.ts
+apps/reference-dapp/e2e/card-numeric-entry.spec.ts
+apps/reference-dapp/e2e/composer-authoring-fixtures.ts
+apps/reference-dapp/e2e/composer-product-cleanup.spec.ts
+apps/reference-dapp/e2e/header-controls.spec.ts
+apps/reference-dapp/e2e/repay.spec.ts
+apps/reference-dapp/e2e/simulate-workflow-canvas.spec.ts
+apps/reference-dapp/e2e/supply-fixtures.ts
+apps/reference-dapp/e2e/withdraw.spec.ts
+apps/reference-dapp/e2e/workflow-composer.spec.ts
+apps/reference-dapp/next-env.d.ts
+apps/reference-dapp/src/app/globals.css
+apps/reference-dapp/src/components/app-shell.tsx
+apps/reference-dapp/src/components/artifact-inspector.tsx
+apps/reference-dapp/src/components/borrow-panel.tsx
+apps/reference-dapp/src/components/build-correction.test.tsx
+apps/reference-dapp/src/components/composer-card.tsx
+apps/reference-dapp/src/components/header-settings.tsx
+apps/reference-dapp/src/components/lending-node-editor.tsx
+apps/reference-dapp/src/components/pool-price-range.test.tsx
+apps/reference-dapp/src/components/pool-price-range.tsx
+apps/reference-dapp/src/components/repay-panel.tsx
+apps/reference-dapp/src/components/router-panel.tsx
+apps/reference-dapp/src/components/solana-liquidity-panel.tsx
+apps/reference-dapp/src/components/summary-bar.test.tsx
+apps/reference-dapp/src/components/supply-panel.tsx
+apps/reference-dapp/src/components/token-amount-input.test.tsx
+apps/reference-dapp/src/components/token-amount-input.tsx
+apps/reference-dapp/src/components/top-bar.tsx
+apps/reference-dapp/src/components/uniswap-liquidity-panel.tsx
+apps/reference-dapp/src/components/withdraw-panel.tsx
+apps/reference-dapp/src/components/workflow-canvas.tsx
+apps/reference-dapp/src/components/workflow-edit-review.tsx
+apps/reference-dapp/src/domain/canvas-action-setup.test.ts
+apps/reference-dapp/src/domain/canvas-action-setup.ts
+apps/reference-dapp/src/domain/canvas-authoring.test.ts
+apps/reference-dapp/src/domain/canvas-authoring.ts
+apps/reference-dapp/src/domain/composer-presentation.ts
+apps/reference-dapp/src/domain/editor-history.ts
+apps/reference-dapp/src/state/workflow-store.tsx
+docs/builds/BUILD-PRODUCT-UX-001-PLAN.md
+docs/builds/BUILD-PRODUCT-UX-001-REPORT.md
+```

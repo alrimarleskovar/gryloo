@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { configureCanvasAction } from './composer-authoring-fixtures';
+import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 const owner = '0x1111111111111111111111111111111111111111';
 const graph = (page: Page) => page.getByRole('region', { name: 'Simulation workflow graph', exact: true });
 const stages = (page: Page) => page.getByRole('navigation', { name: 'Workflow stages' });
@@ -99,8 +99,9 @@ test('accepted Build edits refresh Simulate while current diagnostic artifacts a
   await details.locator(':scope > summary').click();
   expect(await page.getByRole('main', { name: 'Simulation workspace', exact: true }).innerText()).not.toMatch(/MOCK|SYNTHETIC|Artifact Set|LOCAL/);
   await graph(page).getByRole('button', { name: 'Return to Build', exact: true }).click();
+  await openCanvasSettings(page);
   await page.getByRole('region', { name: 'Action inspector' }).getByLabel('Input amount (USDC)').fill('2.5');
-  await page.getByRole('button', { name: 'Review amount change', exact: true }).click();
+  await page.locator('.build-flow-surface .composer-card').getByRole('button', { name: 'Review amount', exact: true }).click();
   await page.getByRole('button', { name: 'Apply amount', exact: true }).click();
   await rename(page, 'Updated Strategy');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();

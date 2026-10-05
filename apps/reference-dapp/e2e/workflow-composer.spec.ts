@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { configureCanvasAction } from './composer-authoring-fixtures';
+import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 const owner = '0x1111111111111111111111111111111111111111';
 const cards = (page: Page) => page.locator('.build-flow-surface .composer-card');
 const step = (page: Page, id: string) => page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`);
@@ -35,6 +35,7 @@ async function lending(page: Page) {
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   await expect(cards(page)).toHaveCount(3);
   await expect(step(page, 'lending-supply')).toBeVisible();
+  await openCanvasSettings(page);
 }
 
 test('supported toolbar actions create real selected nodes and bind their editors', async ({ page }) => {
@@ -46,6 +47,8 @@ test('supported toolbar actions create real selected nodes and bind their editor
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
     await expect(cards(page)).toHaveCount(1);
     await expect(cards(page)).toHaveClass(/active/);
+    await expect(inspector(page).locator('.inspector-toggle')).toHaveAttribute('aria-expanded', 'false');
+    await openCanvasSettings(page);
     await expect(cards(page).locator('.composer-action-title')).toHaveText(`1. ${action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1)}`);
     await expect(cards(page).locator('.composer-action-title svg')).toHaveCount(1);
     await expect(cards(page)).not.toContainText('Configured');
@@ -55,10 +58,16 @@ test('supported toolbar actions create real selected nodes and bind their editor
       await expect(cards(page).locator('.composer-chain')).toHaveText('Base Sepolia → Arbitrum Sepolia');
     }
     await expect(cards(page)).toContainText('USDC');
-    await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
+    if (action === 'pool') await expect(cards(page).getByRole('img', { name: 'Base Sepolia network', exact: true })).toHaveCount(2);
+    else await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
     if (action === 'swap' || action === 'bridge') {
       await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0');
       await expect(inspector(page).getByRole('form', { name: `Configure ${action === 'swap' ? 'Swap' : 'Bridge'}`, exact: true })).toBeVisible();
+      await configureCanvasAction(page, '1');
+    } else if (action === 'supply' || action === 'borrow' || action === 'repay' || action === 'withdraw') {
+      await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0');
+      await expect(inspector(page).getByRole('form', { name: `Configure ${action[0]!.toUpperCase() + action.slice(1)}`, exact: true })).toBeVisible();
+      await expect(cards(page).locator('form')).toHaveCount(0);
       await configureCanvasAction(page, '1');
     } else await expect(cards(page).locator('input, form')).toHaveCount(0);
     await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
@@ -73,6 +82,24 @@ test('connected lending steps select one editor, update linked summaries after a
   await expect(step(page, 'lending-supply').locator('.composer-card')).toHaveClass(/active/);
   await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   await expect(page.locator('.build-flow-surface .react-flow__edge-path').first()).toHaveAttribute('marker-end', /.+/);
+  const supplyCard = step(page, 'lending-supply');
+  const inlineSupply = supplyCard.getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
+  const supplyBefore = await inlineSupply.inputValue();
+  const beforeSupplyEdit = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
+  await supplyCard.getByRole('button', { name: 'Review Supply change', exact: true }).click();
+  await expect(supplyCard.getByRole('button', { name: 'Apply proposal', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Workflow edit review' })).toHaveCount(0);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', beforeSupplyEdit!);
+  await inlineSupply.click(); await inlineSupply.fill('0.2');
+  await expect(inspector(page).getByLabel('Supply amount USDC', { exact: true })).toHaveValue('0.2');
+  await supplyCard.getByRole('button', { name: 'Review Supply change', exact: true }).click();
+  await expect(inlineSupply).toHaveValue('0.2');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', beforeSupplyEdit!);
+  expect(supplyBefore).not.toBe('0.2');
+  await expect(page.getByRole('region', { name: 'Workflow edit review' }).getByRole('button', { name: 'Apply proposal', exact: true })).toHaveCount(0);
+  await supplyCard.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await expect(inlineSupply).toHaveValue('0.2');
+  await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   for (const [id, number, form] of [
     ['lending-supply', 1, 'Edit Aave Supply'], ['lending-borrow', 2, 'Edit Aave Borrow'], ['lending-swap', 3, 'Edit Uniswap Swap'],
   ] as const) {
@@ -83,11 +110,13 @@ test('connected lending steps select one editor, update linked summaries after a
     await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
   }
   await step(page, 'lending-borrow').click();
+  const beforeBorrowRevision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
   await inspector(page).getByLabel('Borrow amount USDC').fill('0.025');
-  await inspector(page).getByRole('button', { name: 'Review Aave Borrow change' }).click();
-  await expect(step(page, 'lending-borrow')).toContainText('0.01 USDC');
+  await step(page, 'lending-borrow').getByRole('button', { name: 'Review Borrow change', exact: true }).click();
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', beforeBorrowRevision!);
+  await expect(step(page, 'lending-swap').locator('.composer-amount .composer-amount-value')).toHaveText('0.01');
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(step(page, 'lending-borrow')).toContainText('0.025 USDC');
+  await expect(step(page, 'lending-borrow').getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0.025');
   await expect(step(page, 'lending-swap').locator('.composer-amount .composer-amount-value')).toHaveText('0.025');
   await expect(step(page, 'lending-swap').locator('.composer-amount-token').first()).toHaveText('USDC');
   await expect(step(page, 'lending-borrow').locator('.composer-card')).toHaveClass(/active/);
@@ -110,6 +139,8 @@ test('connected lending steps select one editor, update linked summaries after a
   await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(0);
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
   await step(page, 'lending-swap').focus(); await page.keyboard.press('Enter');
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await openCanvasSettings(page);
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await expect(step(page, 'lending-swap').locator('.composer-card')).toHaveClass(/active/);
 });
@@ -117,8 +148,9 @@ test('connected lending steps select one editor, update linked summaries after a
 test('accepted settings update the card and existing warnings link to Selected Action', async ({ page }) => {
   await open(page); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
+  await openCanvasSettings(page);
   await inspector(page).getByLabel('Input amount (USDC)').fill('2.5');
-  await inspector(page).getByRole('button', { name: 'Review amount change' }).click();
+  await cards(page).getByRole('button', { name: 'Review amount', exact: true }).click();
   await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2.5');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(cards(page).locator('.composer-amount .composer-amount-token')).toHaveText('USDC');
@@ -128,8 +160,8 @@ test('accepted settings update the card and existing warnings link to Selected A
   await inspector(page).getByLabel('Slippage (bps)').fill('200');
   await inspector(page).getByRole('button', { name: 'Review slippage change' }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(cards(page)).toHaveAttribute('data-state', 'warning');
-  await expect(cards(page)).toContainText('Warning');
+  await expect(cards(page)).not.toHaveAttribute('data-state', 'warning');
+  await expect(cards(page)).not.toContainText('Warning');
   await expect(inspector(page).getByLabel('Selected action checks')).toContainText('Review the prototype slippage limit.');
   await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(0);
   await page.getByRole('button', { name: 'Remove step', exact: true }).click();
@@ -220,11 +252,11 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     const destination = card.locator('.composer-destination-box');
     await expect(amount.locator('.composer-token-value')).toHaveValue('1');
     await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
-    await expect(amount.locator('.composer-value-edit')).toBeVisible();
+    await expect(amount.locator('.composer-value-edit')).toHaveCount(0);
     await expect(card.locator('.composer-amount-box')).toHaveCount(2);
     await expect(destination.locator('.composer-amount-value')).toHaveText('0');
     await expect(destination).toHaveAttribute('data-symbolic');
-    await expect(card.locator('.composer-quote-note')).toHaveText('Output / fiat not quoted');
+    await expect(card.locator('.composer-quote-note')).toHaveText('Estimate unavailable');
     await expect(destination.locator('.composer-amount-token')).toHaveText(action === 'swap' ? 'WETH' : 'USDC');
     const sourceBox = (await amount.boundingBox())!, destinationBox = (await destination.boundingBox())!;
     expect(destinationBox.y).toBeGreaterThanOrEqual(sourceBox.y + sourceBox.height + 3);
@@ -249,14 +281,14 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
       return (element as HTMLElement).clientHeight - footer.offsetTop - footer.offsetHeight;
     });
     expect(footerGap).toBeGreaterThanOrEqual(11); expect(footerGap).toBeLessThanOrEqual(13);
+    await openCanvasSettings(page);
     await inspector(page).locator('.inspector-toggle').click();
     await expect(inspector(page).locator('.inspector-body')).toBeHidden();
     await amount.click();
     await expect(card).toHaveClass(/active/);
-    await expect(inspector(page).locator('.inspector-body')).toBeVisible();
+    await expect(inspector(page).locator('.inspector-body')).toBeHidden();
     await expect(card.locator('.composer-selected')).toHaveText('Advanced Settings');
     await expect(card.locator('.composer-selected svg')).toBeVisible();
-    await inspector(page).locator('.inspector-toggle').click();
     await card.locator('.composer-selected').click();
     await expect(inspector(page).locator('.inspector-body')).toBeVisible();
     const utilities = page.getByRole('group', { name: 'Workflow utilities', exact: true });
@@ -273,11 +305,13 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
     await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
     await expect(amount.locator('.composer-token-value')).toHaveValue('1');
+    await expect(inspector(page).locator('.inspector-body')).toBeHidden();
+    await openCanvasSettings(page);
     await expect(inspector(page).locator('.inspector-body')).toBeVisible();
   }
 });
 
-test('Selected Action stays compact until selection and reopens for clicks and keyboard selection without losing drafts', async ({ page }) => {
+test('Advanced Settings opens only from its controls while card and keyboard selection stay independent', async ({ page }) => {
   await open(page);
   const panel = inspector(page), toggle = panel.locator('.inspector-toggle'), body = panel.locator('.inspector-body');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -286,38 +320,37 @@ test('Selected Action stays compact until selection and reopens for clicks and k
   expect((await panel.boundingBox())!.height).toBeLessThan(60);
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeEnabled();
+  await step(page, 'lending-borrow').locator('.composer-card').click();
+  await expect(body).toBeHidden();
+  for (const key of ['Enter', 'Space']) {
+    await step(page, 'lending-supply').focus(); await page.keyboard.press(key);
+    await expect(step(page, 'lending-supply').locator('.composer-card')).toHaveClass(/active/);
+    await expect(body).toBeHidden();
+  }
+  await openCanvasSettings(page);
   await expect(toggle).toHaveText('Advanced Settings');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const supplyAmount = panel.getByLabel('Supply amount USDC', { exact: true });
   await supplyAmount.fill('0.25');
-  await toggle.click();
-  await expect(body).toBeHidden();
-  expect((await panel.boundingBox())!.height).toBeLessThan(60);
-  await expect(step(page, 'lending-supply').locator('.composer-card')).toHaveClass(/active/);
+  await toggle.click(); await expect(body).toBeHidden();
   await step(page, 'lending-supply').locator('.composer-card').click();
-  await expect(body).toBeVisible();
-  await expect(supplyAmount).toHaveValue('0.25');
-  await toggle.click();
-  await step(page, 'lending-borrow').locator('.composer-card').click();
-  await expect(toggle).toHaveText('Advanced Settings');
-  await expect(panel.getByRole('form', { name: 'Edit Aave Borrow', exact: true })).toBeVisible();
-  for (const key of ['Enter', 'Space']) {
-    await toggle.click();
-    await expect(body).toBeHidden();
-    await step(page, 'lending-swap').focus();
-    await page.keyboard.press(key);
-    await expect(toggle).toHaveText('Advanced Settings');
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(panel.getByRole('form', { name: 'Edit Uniswap Swap', exact: true })).toBeVisible();
-    await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
-  }
-  await step(page, 'lending-swap').focus();
-  await page.keyboard.press('Escape');
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(toggle).toBeDisabled();
   await expect(body).toBeHidden();
-  await expect(panel.locator('.inspector-toggle')).toHaveText('Advanced Settings');
-  expect((await panel.boundingBox())!.height).toBeLessThan(60);
+  await openCanvasSettings(page);
+  await expect(supplyAmount).toHaveValue('0.25');
+  await step(page, 'lending-borrow').locator('.composer-card').click();
+  await expect(panel.getByRole('form', { name: 'Edit Aave Borrow', exact: true })).toBeVisible();
+  await toggle.click();
+  await step(page, 'lending-swap').locator('.composer-card').click();
+  await expect(body).toBeHidden();
+  const gear = step(page, 'lending-swap').getByRole('button', { name: 'Advanced Settings', exact: true });
+  await gear.focus(); await page.keyboard.press('Enter');
+  await expect(panel.getByRole('form', { name: 'Edit Uniswap Swap', exact: true })).toBeVisible();
+  await expect(page.locator('.build-flow-surface .composer-card.active')).toHaveCount(1);
+  await step(page, 'lending-swap').focus(); await page.keyboard.press('Escape');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeDisabled(); await expect(body).toBeHidden();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });
 
@@ -327,6 +360,7 @@ test('Delete uses the current selection, honors locks/protected steps and remain
   await expect(remove).toBeDisabled();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
+  await openCanvasSettings(page);
   await expect(remove).toBeEnabled();
   await inspector(page).getByRole('button', { name: 'Lock amount', exact: true }).click();
   await expect(remove).toBeDisabled();
@@ -340,6 +374,8 @@ test('Delete uses the current selection, honors locks/protected steps and remain
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(cards(page).locator('.composer-amount .composer-token-value')).toHaveValue('1');
   await expect(cards(page)).toHaveClass(/active/);
+  await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await openCanvasSettings(page);
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect(cards(page)).toHaveCount(0);

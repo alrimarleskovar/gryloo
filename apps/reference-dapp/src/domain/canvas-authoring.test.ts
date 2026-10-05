@@ -12,7 +12,7 @@ const context = createBaseSepoliaReviewContext();
 describe('canvas authoring through existing canonical commands', () => {
   it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('adds %s as an owner-bound canonical node and keeps connection guards', action => {
     const before = initialEditor();
-    const after = editorReducer(before, canvasAddCommand(action, before.workflow.revision, owner), context);
+    const after = editorReducer(before, canvasAddCommand(action, before.workflow.revision, owner, '1'), context);
     expect(after.error).toBeNull();
     const node = after.workflow.nodes.find(node => node.actionType === action)!;
     expect(node.chainId).toBe('eip155:84532');

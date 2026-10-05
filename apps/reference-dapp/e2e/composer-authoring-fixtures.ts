@@ -5,6 +5,13 @@ import type { Page } from '@playwright/test';
 export async function configureCanvasAction(page: Page, amount: string) {
   const card = page.locator('.build-flow-surface .composer-card').last();
   await card.getByRole('textbox', { name: 'Source amount (USDC)', exact: true }).fill(amount);
-  await card.getByRole('button', { name: 'Review amount', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply amount', exact: true }).click();
+  const title = await card.locator('.composer-action-title').innerText();
+  const single = ['Supply', 'Borrow', 'Repay', 'Withdraw'].find(action => title.includes(action));
+  await card.getByRole('button', { name: single ? `Review ${single} change` : 'Review amount', exact: true }).click();
+  await card.getByRole('button', { name: single ? 'Apply proposal' : 'Apply amount', exact: true }).click();
+}
+
+/** Opening settings is an explicit user action, independent of node selection. */
+export async function openCanvasSettings(page: Page) {
+  await page.locator('.build-flow-surface .composer-card.active').getByRole('button', { name: 'Advanced Settings', exact: true }).click();
 }

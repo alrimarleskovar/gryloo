@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { TokenAmountInput } from './token-amount-input';
 import { useState,type FormEvent } from 'react';
 import { createAuthoredWithdraw,withdrawDetails,type WithdrawInput } from '../domain/supply-authoring';
 import { useWorkflow } from '../state/workflow-store';
@@ -7,20 +8,21 @@ import { useSupply } from '../state/supply-store';
 import type { WithdrawObservation } from '@defi-workflow-engine/reference-reconciler';
 const human=(value:string,decimals:number)=>(Number(value)/10**decimals).toLocaleString('en-US',{maximumFractionDigits:decimals});
 const hf=(value:string)=>BigInt(value)===(1n<<256n)-1n?'No debt (∞)':human(value,18);
-export function WithdrawAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string;onDone?:()=>void;direct?:boolean}){
-  const {state,propose,dispatch}=useWorkflow(),node=state.workflow.nodes.find(n=>n.nodeId===nodeId),existing=node?withdrawDetails(node as Parameters<typeof withdrawDetails>[0]):null;
-  const [amount,setAmount]=useState(existing?.amount??'0.1'),[error,setError]=useState('');
+export function WithdrawAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{nodeId?:string;onDone?:()=>void;direct?:boolean;reviewFormId?:string}){
+  const {state,propose,dispatch,amountInputs={},editCanvasAmount}=useWorkflow(),node=state.workflow.nodes.find(n=>n.nodeId===nodeId),existing=node?withdrawDetails(node as Parameters<typeof withdrawDetails>[0]):null;
+  const [localAmount,setAmount]=useState(existing?.amount??'0.1'),[error,setError]=useState('');
+  const amount = reviewFormId && nodeId ? amountInputs[nodeId] ?? existing?.amount ?? localAmount : localAmount;
   function submit(event:FormEvent){event.preventDefault();try{
     const input:WithdrawInput={network:'Base Sepolia',asset:'USDC',amount,recipient:'CONNECTED_OWNER'};createAuthoredWithdraw(nodeId??'node-preview',input);
     const command=nodeId?{type:'SET_WITHDRAW' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_WITHDRAW' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
   }catch{setError('Enter an exact positive partial USDC amount with at most six decimal places.');}}
-  return <form className="inspector-fields" aria-label={nodeId?'Edit Withdraw':'Create Withdraw'} onSubmit={submit}><strong>Withdraw from Aave V3</strong>
+  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Withdraw':'Create Withdraw'} onSubmit={submit}><strong>Withdraw from Aave V3</strong>
     <label>Withdraw network<select aria-label="Withdraw network" value="Base Sepolia" onChange={()=>undefined}><option>Base Sepolia</option></select></label>
     <label>Withdraw asset<select aria-label="Withdraw asset" value="USDC" onChange={()=>undefined}><option>USDC</option></select></label>
-    <label>Withdraw amount (USDC)<input aria-label="Withdraw amount (USDC)" inputMode="decimal" value={amount} maxLength={80} onChange={e=>setAmount(e.target.value)}/></label>
+    <label>Withdraw amount (USDC)<TokenAmountInput aria-label="Withdraw amount (USDC)" value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
     <p>Recipient: your connected owner wallet, bound at Review. Partial withdrawal only.</p>{error&&<p role="alert">{error}</p>}
-    <button type="submit">{nodeId?'Review Withdraw change':direct?'Add Withdraw':'Review Withdraw proposal'}</button>{onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+    {!reviewFormId&&<button type="submit">{nodeId?'Review Withdraw change':direct?'Add Withdraw':'Review Withdraw proposal'}</button>}{onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }
 const messages:Record<string,string>={WITHDRAW_INSUFFICIENT_COLLATERAL:'Supplied collateral must exceed the exact partial withdrawal.',WITHDRAW_UNSAFE_HEALTH_FACTOR:'Withdrawal would leave an unsafe position. Choose a smaller partial amount.',WITHDRAW_AUTHORIZATION_STALE:'The reviewed collateral, debt or price changed. Simulate and review again.',SUPPLY_AUTHORIZATION_STALE:'Review expired or wallet state changed. Prepare a fresh review.',SUPPLY_WRONG_CHAIN:'Switch your wallet to Base Sepolia.',SUPPLY_WRONG_ACCOUNT:'Select the owner wallet shown in Review.',SUPPLY_INSUFFICIENT_ETH:'The owner wallet needs Base Sepolia ETH for gas.',SUPPLY_RPC_RATE_LIMITED:'The public provider is busy. Try the read again.',SUPPLY_REJECTED:'The Withdraw request was declined.',AWAITING_CONFIRMATIONS:'Waiting for network confirmations.'};

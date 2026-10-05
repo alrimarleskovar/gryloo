@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 
 test('Build CTA floats inside the wider canvas without colliding with existing controls', async ({ page }) => {
   await installSupplyWallet(page);
@@ -65,6 +66,7 @@ test('Simular Fees keeps the same navigation-only action and guarded Supply revi
   await installSupplyWallet(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simular Fees', exact: true }).click();
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');

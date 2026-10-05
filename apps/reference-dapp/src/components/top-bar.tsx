@@ -16,10 +16,12 @@ import { ROUTER_NETWORK_OPTIONS } from '../domain/router-authoring';
 import { useJupiter } from '../state/jupiter-store';
 import Image from 'next/image';
 import { HeaderSettings } from './header-settings';
+import { useExecutionEnvironment } from '../state/capability-store';
 
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
 export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: ProductSection) => void }) {
+  const { environment, selectEnvironment } = useExecutionEnvironment();
   const { info, wallet } = useModeA();
   const modeB = useModeB();
   const build009 = useBuild009Wallet();
@@ -48,6 +50,11 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
     <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={tab === 'Dashboard' ? 'page' : undefined} className={tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
+      <select className="header-environment" aria-label="Environment" value={environment === 'PUBLIC_TESTNET' || environment === 'MAINNET' ? environment : ''}
+        onChange={event => selectEnvironment(event.target.value === 'MAINNET' ? 'MAINNET' : 'PUBLIC_TESTNET')}>
+        <option value="" disabled hidden>Network</option>
+        <option value="PUBLIC_TESTNET">Testnet</option><option value="MAINNET">Mainnet</option>
+      </select>
       <div className="header-wallet" role="group" aria-label="Wallet connection">
       {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
         : build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>

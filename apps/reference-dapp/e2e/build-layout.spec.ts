@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
+import { openCanvasSettings } from './composer-authoring-fixtures';
 
 test('Build places the existing assistant beside the canvas and selected settings below', async ({ page }) => {
   await installSupplyWallet(page);
@@ -24,13 +25,16 @@ test('Build places the existing assistant beside the canvas and selected setting
   await expect(assistant.locator('.message.you')).toHaveText('YOUexplain');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
-  const form = inspector.getByRole('form', { name: 'Edit Supply' });
-  await expect(form.getByLabel('Supply amount (USDC)')).toHaveValue('1');
-  await form.getByLabel('Supply amount (USDC)').fill('2');
-  await form.getByRole('button', { name: 'Review Supply change', exact: true }).click();
+  await expect(inspector.locator('.inspector-body')).toBeHidden();
+  await openCanvasSettings(page);
+  const form = inspector.getByRole('form', { name: 'Configure Supply' });
+  await expect(form.getByLabel('Source amount (USDC)')).toHaveValue('0');
+  await form.getByLabel('Source amount (USDC)').fill('2');
+  await canvas.getByRole('button', { name: 'Review Supply change', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
-  await expect(canvas.locator('.numeric')).toContainText('2 USDC');
-  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '2');
+  await expect(canvas.getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2');
+  await expect(canvas.locator('.composer-amount-token')).toHaveText('USDC');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });
 
 test('Build keeps existing toolbar actions and zoom behavior at their new positions', async ({ page }) => {
@@ -40,7 +44,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
   const toolbar = graph.locator('.floating-toolbox');
   await expect(toolbar).toBeVisible();
-  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo'];
+  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete'];
   expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(buttonLabels);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
@@ -52,7 +56,7 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
       const iconBox = (await button.locator('svg').boundingBox())!;
       expect(Math.abs(buttonBox.x + buttonBox.width / 2 - iconBox.x - iconBox.width / 2)).toBeLessThan(1);
     }
-    const lastButton = (await toolbar.getByRole('button', { name: 'Redo', exact: true }).boundingBox())!;
+    const lastButton = (await toolbar.getByRole('button', { name: 'Delete', exact: true }).boundingBox())!;
     const toolboxBox = (await toolbar.boundingBox())!;
     expect(lastButton.y + lastButton.height).toBeLessThanOrEqual(toolboxBox.y + toolboxBox.height);
     if (width === 1440) {
