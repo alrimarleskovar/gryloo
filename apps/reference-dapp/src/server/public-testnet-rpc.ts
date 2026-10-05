@@ -34,10 +34,15 @@ const PUBLIC_SWAP_RPC_METHODS = Object.freeze(['eth_chainId', 'eth_blockNumber',
   'eth_call', 'eth_getBalance', 'eth_estimateGas', 'eth_gasPrice', 'eth_getTransactionReceipt', 'eth_getTransactionByHash']);
 /**
  * BUILD-CLOUD-PARITY-001: the Base Sepolia read client of the public swap, at the public endpoint or the deployment's HTTPS override
- * `GRYLOO_BASE_SEPOLIA_RPC_URL` (the one Base Sepolia endpoint setting every Base Sepolia flow shares), bound to chain 84532.
+ * `GRYLOO_BASE_SEPOLIA_RPC_URL` (the one Base Sepolia endpoint setting every Base Sepolia flow shares), bound to chain 84532 and paced
+ * like the Router's: from a serverless platform's shared egress the public endpoint drops read bursts (measured on the Preview).
  */
 export function baseSepoliaSwapRpc(override: string | undefined): Rpc {
-  return chainBoundRpc(createBaseSepoliaReadRpc(httpsRpcUrl(override, BASE_SEPOLIA.rpcUrl, 'PUBLIC_RPC_CONFIGURATION_INVALID'), PUBLIC_SWAP_RPC_METHODS), BASE_SEPOLIA.chainId);
+  return chainBoundRpc(pacedReadRpc(createBaseSepoliaReadRpc(httpsRpcUrl(override, BASE_SEPOLIA.rpcUrl, 'PUBLIC_RPC_CONFIGURATION_INVALID'), PUBLIC_SWAP_RPC_METHODS)), BASE_SEPOLIA.chainId);
+}
+/** The live Base Sepolia read client of the Uniswap liquidity flow: the same endpoint setting, paced (see `pacedReadRpc`). */
+export function baseSepoliaLiquidityRpc(override: string | undefined): Rpc {
+  return pacedReadRpc(createBaseSepoliaReadRpc(baseSepoliaRpcUrl(override), UNISWAP_LIQUIDITY_RPC_METHODS));
 }
 /** The liquidity flow additionally simulates call sequences and discovers owner transactions by nonce. */
 export const UNISWAP_LIQUIDITY_RPC_METHODS = Object.freeze(['eth_chainId', 'eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call',
@@ -71,4 +76,31 @@ export function baseSepoliaRpcUrl(override: string | undefined): string {
   try { url = new URL(override); } catch { throw new Error('UNISWAP_LIQUIDITY_RPC_CONFIGURATION_INVALID'); }
   if (url.protocol !== 'https:' || url.username || url.password || url.hash) throw new Error('UNISWAP_LIQUIDITY_RPC_CONFIGURATION_INVALID');
   return url.href;
+}
+/**
+ * Public endpoints rate-limit bursts (public Base answered HTTP 429 "over rate limit" to the router's parallel Review reads
+ * during the BUILD-ROUTER-001 preflight). Every router RPC is a read, so calls are paced through one queue per transport and
+ * transport failures are retried with backoff. An answer the node gave (including a JSON-RPC error) is never retried.
+ */
+export function pacedReadRpc(rpc: Rpc, options: { minIntervalMs?: number; retries?: number; sleep?: (ms: number) => Promise<void> } = {}): Rpc {
+  // Measured on public Base (2026-10-04): a burst of ~5 eth_call succeeds, then HTTP 429 for several seconds.
+  const minIntervalMs = options.minIntervalMs ?? 250, retries = options.retries ?? 6;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
+  let queue: Promise<unknown> = Promise.resolve(), last = 0;
+  return (method, params) => {
+    const run = queue.then(async () => {
+      for (let attempt = 0; ; attempt++) {
+        const wait = last + minIntervalMs - Date.now();
+        if (wait > 0) await sleep(wait);
+        last = Date.now();
+        try { return await rpc(method, params); }
+        catch (cause) {
+          if (!(cause instanceof Error && cause.message === 'PUBLIC_RPC_UNAVAILABLE') || attempt >= retries) throw cause;
+          await sleep(500 * 2 ** attempt);
+        }
+      }
+    });
+    queue = run.catch(() => undefined);
+    return run;
+  };
 }

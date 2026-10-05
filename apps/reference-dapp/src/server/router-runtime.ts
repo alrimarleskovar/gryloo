@@ -14,7 +14,7 @@
  */
 import { CROSSCHAIN_ROUTER_BASE_ARBITRUM as profile, CROSSCHAIN_ROUTER_BASE_SEPOLIA_ARBITRUM_SEPOLIA as TESTNET, type RouterProfile } from '@defi-workflow-engine/action-registry';
 import type { RoutingProvider } from '@defi-workflow-engine/workflow-contracts';
-import { createBaseSepoliaReadRpc } from './public-testnet-rpc.ts';
+import { createBaseSepoliaReadRpc, pacedReadRpc } from './public-testnet-rpc.ts';
 import type { Rpc } from './public-testnet-service.ts';
 import { createRouteProviders, createRouterHttp, type RouteProvider } from './router-providers.ts';
 import { ROUTER_MOCK_ACROSS_API, ROUTER_MOCK_ARBITRUM_RPC_URL, ROUTER_MOCK_BASE_RPC_URL, ROUTER_MOCK_CODE_PINS, ROUTER_MOCK_LIFI_API, ROUTER_TESTNET_MOCK } from './router-mock.ts';
@@ -46,33 +46,8 @@ export function routerRpcUrl(override: string | undefined, fallback: string): st
   if (url.protocol !== 'https:' || url.username || url.password || url.hash) throw new Error('ROUTER_RPC_CONFIGURATION_INVALID');
   return url.href;
 }
-/**
- * Public endpoints rate-limit bursts (public Base answered HTTP 429 "over rate limit" to the router's parallel Review reads
- * during the BUILD-ROUTER-001 preflight). Every router RPC is a read, so calls are paced through one queue per transport and
- * transport failures are retried with backoff. An answer the node gave (including a JSON-RPC error) is never retried.
- */
-export function pacedReadRpc(rpc: Rpc, options: { minIntervalMs?: number; retries?: number; sleep?: (ms: number) => Promise<void> } = {}): Rpc {
-  // Measured on public Base (2026-10-04): a burst of ~5 eth_call succeeds, then HTTP 429 for several seconds.
-  const minIntervalMs = options.minIntervalMs ?? 250, retries = options.retries ?? 6;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
-  let queue: Promise<unknown> = Promise.resolve(), last = 0;
-  return (method, params) => {
-    const run = queue.then(async () => {
-      for (let attempt = 0; ; attempt++) {
-        const wait = last + minIntervalMs - Date.now();
-        if (wait > 0) await sleep(wait);
-        last = Date.now();
-        try { return await rpc(method, params); }
-        catch (cause) {
-          if (!(cause instanceof Error && cause.message === 'PUBLIC_RPC_UNAVAILABLE') || attempt >= retries) throw cause;
-          await sleep(500 * 2 ** attempt);
-        }
-      }
-    });
-    queue = run.catch(() => undefined);
-    return run;
-  };
-}
+// BUILD-CLOUD-PARITY-001: shared with every Base Sepolia read client (moved to public-testnet-rpc.ts; same behavior).
+export { pacedReadRpc };
 export type RouterRuntime = { readonly sourceRpc: Rpc; readonly destinationRpc: Rpc; readonly providers: Readonly<Record<RoutingProvider, RouteProvider>>;
   readonly provenance: RouterProvenance; readonly executionEnabled: boolean; readonly mockedCodePins?: RouterCodePins; readonly profile: RouterProfile };
 export function routerRuntime(mode: 'live' | 'harness', env: Env): RouterRuntime {
