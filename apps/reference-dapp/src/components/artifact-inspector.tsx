@@ -13,6 +13,7 @@ import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
 import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
+import { composerActions, composerSummary, composerNodeState } from '../domain/composer-presentation';
 
 import { RepayAuthoringForm } from './repay-panel';
 import { BorrowAuthoringForm } from './borrow-panel';
@@ -29,7 +30,7 @@ import { routerDetails } from '../domain/router-authoring';
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
 export function ArtifactInspector({ selectedId, select }: { selectedId: string | null; select: (id: string | null) => void }) {
-  const { state, dispatch, context, propose } = useWorkflow();
+  const { state, dispatch, context, propose, review } = useWorkflow();
   const lending=isLendingComposition(state.workflow);
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId && !item.actionType.startsWith('mock-'));
   const cross = useMemo(() => {
@@ -96,7 +97,14 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
   const uniPosition = node ? uniswapLiquidityDetails(node) : null;
   const routed = node ? routerDetails(node) : null;
   const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
-  return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
+  const summary = node ? composerSummary(state.workflow, node, context) : null;
+  const validation = node ? composerNodeState(review, node.nodeId) : null;
+  const step = node ? composerActions(state.workflow).findIndex(item => item.nodeId === node.nodeId) + 1 : null;
+  return <section className="inspector panel" aria-label="Action inspector"><div><p className="eyebrow">SELECTED ACTION{step ? ` · STEP ${step}` : ''}</p><h2>{node ? `${label} settings` : 'Settings'}</h2></div>
+    {summary && <p className="composer-editor-context">{summary.action} · {summary.provider} · {summary.chain} · {summary.amount}</p>}
+    {validation && validation.findings.length > 0 && <div className="composer-findings" aria-label="Selected action checks">
+      {validation.findings.map(finding => <p key={`${finding.code}:${finding.field}`}><span aria-hidden="true">⚠ </span>{finding.message}</p>)}
+    </div>}
     {node ? <>
       {node.actionType==='asset.transfer'&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
@@ -130,8 +138,8 @@ export function ArtifactInspector({ selectedId, select }: { selectedId: string |
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}
         <button type="button" className="quiet" disabled={!deletable} onClick={() => { dispatch({ type: 'REMOVE', nodeId: node.nodeId, source: 'CANVAS', baseRevision: state.workflow.revision }); select(null); }}>Remove step</button></div>
       {!deletable && <p className="muted">This step is required by the workflow or protected.</p>}
-    </> : !cross && <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
-    {cross && <form className="inspector-fields" onSubmit={saveCross} aria-label="Compose cross-chain liquidity">
+    </> : <div className="inspector-empty"><strong>Select a step</strong><p>Choose a canvas step to edit its parameters.</p></div>}
+    {cross && node && <form className="inspector-fields" onSubmit={saveCross} aria-label="Compose cross-chain liquidity">
       <p className="eyebrow">BASE → ARBITRUM · UNISWAP V3</p>
       <label>Source USDC amount<input value={crossInput.amount} onChange={e => setCrossInput(v => ({ ...v, amount: e.target.value }))} inputMode="decimal" /></label>
       <label>Bridge provider<select value={crossInput.provider} onChange={e => setCrossInput(v => ({ ...v, provider: e.target.value as CrossChainLiquidityInput['provider'] }))}><option value="lifi.rest">LI.FI</option><option value="across.direct">Across direct</option></select></label>

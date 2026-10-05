@@ -296,3 +296,50 @@ Pending. Run the full repository gates specified in the plan after integrating a
 - Standalone Supply/Borrow/Repay/Withdraw remain isolated by existing runtime rules. Connecting arbitrary lending nodes is not introduced; the supported connected flow is Supply → Borrow → Swap. Supply/Borrow/Repay still require a connected beneficiary wallet before authoring.
 - Guided Chat is outside this branch. Future authoring surfaces must continue to feed the same canonical IR and existing proposal/command boundary.
 - BUILD-JOURNEY-001's deployment/public permissionless execution limitations are unchanged. This phase does not establish deployed Journey completion or upgrade evidence maturity.
+
+## UX-002 — Workflow Composer
+
+Implemented on owner-approved UX-001 HEAD `c753ff3`, branch `codex/build-product-ux-001`. UX-001 remains closed. The approved shell and runtime are unchanged.
+
+### Node/card model
+
+Build uses the existing React Flow `workflow` node registration with a Build-specific compact card. Cards are 224px wide, with step number, authoring status, prominent action, actual provider constraints, chain or bridge route, authored amount/assets, optional destination pair and restrained existing risk labels. Selection uses a blue border and subtle shadow; keyboard focus is visible. Cards contain no forms. The internal starting mock scaffold remains hidden. Existing React Flow fitting reserves bottom space for the approved CTA and controls; desktop/mobile checks assert clearance without moving either control.
+
+`domain/composer-presentation.ts` is a read-only projection of canonical IR and existing action readers. It covers Swap (EVM/Solana), Bridge (router/LI.FI/Across), Pool/Liquidity, Supply, Borrow, Repay, Withdraw, the supported lending composition, cross-chain preparation and existing transfer nodes. Lending uses the composition reader because linked Borrow declarations differ from isolated Borrow declarations. Unknown linked amounts read “Amount from linked step”; no quote/output amount is invented. Build no longer subscribes to cross-chain runtime status for card presentation.
+
+### Connection/order model
+
+Smooth directional edges with closed arrowheads represent existing resource links and dependencies; lending retains the existing health-factor checkpoint and Borrow-to-Swap link. Labels describe existing linkage. Multiple resource links between a pair share an edge/label; branching remains visible. Independent actions do not get invented sequence edges. Selected edges receive restrained emphasis, and required edges retain the existing deletion guard.
+
+Step numbers follow the existing visible canonical node array. Dependency/resource arrows show linked sequencing; numbers do not impose an execution schedule on independent actions. Dragging remains layout-only through the existing persisted layout/history store. Semantic reordering is intentionally deferred: there is no safe canonical reorder command. Freehand connections are inactive for real action cards; compositions remain authored through existing commands/constructors.
+
+### Selection and Selected Action
+
+The existing AppShell `selectedId` is the sole active editor selection and drives both card emphasis and Selected Action below Canvas. Existing auxiliary group-selection IDs serve layout/bulk operations only; dashed group styling distinguishes them from the active editor. External selection changes synchronize the auxiliary selection. Mouse click or Enter/Space selects a node; Escape/pane click clears it. Selecting a connection clears the editor selection.
+
+Toolbar actions use unchanged canonical commands, preview/rejection handling and authoring defaults. A new accepted node becomes selected. Lending retains its existing proposal acceptance and then selects Supply. Existing editors, proposal review and Apply proposal controls remain. Selected Action adds the step number, matching card summary and node-specific findings. Clearing selection shows the existing empty editor; the cross-chain composition editor now requires a selected node.
+
+Accepted parameter changes immediately reproject card summaries from the same canonical draft. Unsaved form values and unaccepted proposals do not mutate cards. Changing lending Borrow updates its card and the linked Swap amount through the existing composition constructor. No duplicated editable workflow data, schema, runtime, adapter, API, database, Manifest, authorization, execution, recovery, reconciliation, evidence or simulation semantics were introduced.
+
+### Validation/warnings
+
+Cards consume the existing workflow-store `review.findings` scoped by node ID. Existing authoring blockers show “Needs attention”; warnings show a small warning badge and “Check settings”, with detailed finding messages in Selected Action. Quote/output and simulation requirements stay distinct from authoring errors and remain visible in the editor. “Configured” means draft parameters are saved; it does not mean simulated, authorized, confirmed or executable. When lint has no result, cards say “Draft”. Rejected local form inputs retain their existing form feedback and never create a second invalid canonical draft.
+
+### Targeted validation
+
+- Vitest: `components/build-correction.test.tsx`, `domain/canvas-authoring.test.ts`, `domain/lending-authoring.test.ts`, `domain/editor-history.test.ts`: **67 passed across four files**. Includes real toolbar summaries, unchanged IR, single active editor/card, lending link/amount updates, existing warning/block findings, no invented independent edges, cross-chain output-reference summaries, Solana swap/liquidity assets and existing history behavior. Existing compact-card assertions were updated to the new presentation while retaining form absence, canonical immutability and inspector-binding checks.
+- Focused Chromium: `e2e/workflow-composer.spec.ts`: **4 passed**. Four scenarios cover all supported toolbar actions/editors, lending selection and accepted linked edits, keyboard selection, layout-only dragging, protected edge selection/deletion, saved Swap amount/warnings, removal, and 1440px/390px compact card/editor/control placement. Browser requests are restricted to loopback preview and development HMR; external traffic is blocked and zero wallet signing/transaction requests are asserted. Temporary config/fixture copies and visual-review captures live in untracked `.tmp/`.
+- App-only TypeScript `tsc --noEmit`, ESLint on all five touched TypeScript/TSX files and `git diff --check`: **passed**.
+
+Initial checks caught and fixed a composition-vs-isolated Borrow reader mismatch. Browser setup initially hit sandbox restrictions and an existing preview lifecycle; final checks use a Playwright-managed loopback development preview. New test selectors were corrected to match the existing default Base Swap chain, lending editor labels and the clickable edge-label background. The preview cold-start wallet assertion allows hydration time; all assertions remain mandatory. Visual review found mobile CTA overlap, resolved with asymmetric graph-fit padding and verified by card/CTA clearance assertions at both widths. No existing test or safety gate was disabled. No full CI, fork suite, PostgreSQL suite, dependency audit, SBOM, financial execution or full browser matrix was run.
+
+### Limitations and future integration touchpoints
+
+- Semantic reordering is deferred. Existing isolated-action restrictions still reject unsupported mixed strategies; the composer does not imply arbitrary action composition.
+- Future runtime-dependent amounts remain symbolic until existing reconciliation/quote stages supply them. Validation exceptions without node attribution do not get assigned to guessed nodes.
+- Cross-chain composition settings retain the existing whole-composition authoring form when one of its nodes is selected. No new per-field cross-chain canonical commands were added.
+- Privacy retains the approved disabled shield/accessible label; actual privacy integration is UX-005 work.
+- Shared integration touchpoints are limited to `components/workflow-canvas.tsx` (Build projection/selection; Simulate/Execute branches unchanged), `components/artifact-inspector.tsx` (selected-node context/findings) and appended composer-scoped CSS. `app-shell.tsx`, workflow store, Copilot panel, Guided Chat and chat-to-IR logic were not edited. Future Copilot proposals enter through the same existing draft; newly accepted nodes are selected by the Build projection.
+- Final visual baselines and broader financial/runtime certification remain UX-005 work. UX-003 was not started.
+
+Changed files: `src/domain/composer-presentation.ts`, `src/components/workflow-canvas.tsx`, `src/components/artifact-inspector.tsx`, `src/app/globals.css`, `src/components/build-correction.test.tsx`, `e2e/workflow-composer.spec.ts`, and both `docs/builds/BUILD-PRODUCT-UX-001-{PLAN,REPORT}.md`.

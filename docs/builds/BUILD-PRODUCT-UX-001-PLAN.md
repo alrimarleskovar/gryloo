@@ -97,3 +97,18 @@ Remove the complete Execute introductory block: draft/action/revision/chain meta
 ## Owner-directed Execute workflow surface
 
 Replace the fallback Execute preparation/unavailable blocks and their inner Return to Build buttons with a read-only workflow overview. Reuse the existing simulation graph projection of canonical editor IR, with neutral overview cards showing authored inputs and no simulation outputs, execution status or financial actions. Use the same AppShell title already shared by Build/Simulate; introduce no workflow/title state or persistence. Keep necessary capability explanations and existing real execution/recovery panels in Technical diagnostics below, with unchanged routing/authorization gates. Preserve product-specific execution panels, global navigation, footer, Build and Simulate. Validate canonical read-only rendering, shared title, desktop/mobile layout, retained unprepared-execution gates and shared-canvas regressions, plus app typecheck/touched-file lint. Commit `UX-001A: replace Execute placeholder with workflow surface`, then stop before Part B.
+
+## UX-002 — Workflow Composer
+
+Owner-approved UX-001 is closed. This section supersedes older Part B scheduling only for the expressly authorized composer work; UX-003 is not authorized.
+
+- Keep the approved header, navigation, title behavior, Build columns, right-side Copilot, Selected Action below Canvas, CTA/control placement and Simulate/Execute shells.
+- Project compact React Flow cards from the existing canonical `state.workflow.nodes`. Show action, actual provider constraints, chain/route, known authored assets/amounts and draft order. Hide the internal mock scaffold. Use existing action readers, including the composition reader for lending; never create an editable UI workflow model.
+- Project directional, non-animated edges from canonical dependencies/resource edges and the existing lending checkpoint projection. Preserve branching; never connect independent adjacent steps. Keep protected connection deletion guards.
+- Use AppShell's existing `selectedId` for the active card and Selected Action. Preserve auxiliary group-selection IDs only for existing layout/bulk operations, with distinct understated group styling. Synchronize external selection; support mouse and Enter/Space selection, Escape and deletion.
+- Keep canonical/proposal creation and edits. Select newly accepted real nodes, including the first step of an accepted lending composition. Identify the selected step in the editor and refresh card summaries only when the existing draft accepts an edit.
+- Show existing node-specific lint findings. Distinguish authoring warnings/errors from later quote/simulation/review requirements. Configured means saved draft parameters, never execution readiness. Preserve form-local rejected-input feedback.
+- Preserve layout dragging and history. Intentionally defer semantic reordering and freehand connections: the real action graph is constrained by existing canonical constructors; no reorder command exists. Step numbers reflect the draft array; dependency arrows define linked sequencing.
+- Keep Privacy disabled and accessible. No Cloak/Zcash/Manifest integration. Keep Copilot architecture and chat-to-IR logic externally owned.
+- Validate only the changed composer: targeted component/canonical projection and existing authoring/history tests, focused Chromium interactions and desktop/mobile review, app typecheck, touched-file ESLint and `git diff --check`.
+- Update this report with results, limitations and shared-file integration touchpoints; commit `UX-002: productize workflow composer`, then stop.
