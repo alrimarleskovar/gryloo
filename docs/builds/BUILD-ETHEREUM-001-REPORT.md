@@ -223,3 +223,43 @@ post-transaction verification (in-app reconciliation, Evidence Bundle, then
 * Dependency integrity: `pnpm-lock.yaml`, every workspace manifest's dependencies and the pinned toolchain are
   unchanged. Root `package.json` only adds the three new scripts to the lint list. No new dependency.
 * Ancestry: `origin/main` `66d5843` is an ancestor; `main` was not modified.
+
+## 14. Browser CI app port (infrastructure)
+
+The first PR #61 CI run failed before any test ran: `Error: http://127.0.0.1:3000 is already used`. The self-hosted
+WSL runner also hosts the Codex UX app server on port 3000. That server was not stopped or touched.
+
+* `apps/reference-dapp/e2e/app-origin.ts` derives one loopback origin from `FLOFI_E2E_APP_PORT`. Unset means 3000, so
+  local behaviour is unchanged. Otherwise the value must be plain decimal digits without sign, spaces or leading zeros,
+  in the unprivileged range 1024–65535, and not one of the suites' own harness or fork ports.
+* That origin drives Playwright `use.baseURL`, the reference-app `webServer.url` and the Next.js `PORT`. It also drives
+  the four fixtures/specs that had a literal `127.0.0.1:3000` (the network guard, the journey guard, the liquidity-fork
+  request filter and the Mode A action route). `reuseExistingServer` stays `false`.
+* The CI browser step sets `FLOFI_E2E_APP_PORT: '3100'`.
+* `src/server/e2e-app-origin.test.ts` covers the parser (accepted values; 19 malformed or out-of-range forms and the 10 reserved ports rejected). It also checks that the
+  config derives all three uses from the one origin and never reuses a server, that no e2e file keeps a literal app
+  origin, and that CI sets exactly one valid non-default port.
+* The manual owner tool `e2e/fork/owner-recording.mjs g7-session` keeps its own documented port 3000 (not used by
+  Playwright or CI).
+* Validation reproduced the CI condition on the same host: the Codex server held 127.0.0.1:3000 throughout (same
+  process, untouched), and every browser group ran on the host network with `FLOFI_E2E_APP_PORT=3100`. Results:
+
+  | Group | Result |
+  | --- | --- |
+  | default | 53 passed, 4 skipped (the same conditional skips as before; includes `build009.spec.ts`, which reached li.quest this time) |
+  | supply / borrow / repay / withdraw / Ethereum Sepolia supply | 49 passed |
+  | Copilot | 13 passed |
+  | lending | 17 passed |
+  | Jupiter | 9 passed |
+  | Solana Devnet | 13 passed |
+  | transfer (incl. Ethereum Sepolia) | 9 passed |
+  | Uniswap liquidity | 4 passed |
+  | router | 4 passed |
+  | journey | 3 passed |
+  | Mode A | 13 passed |
+  | CoW | 9 passed |
+
+  No `already used` error. With the variable unset (private network namespace), the app listened on 3000 and
+  `ethereum-sepolia-supply.spec.ts` passed 5/5.
+* After the fix, `pnpm check` passes again: unit tests 186 files passed / 2 skipped, **1,800 tests passed / 2 skipped**
+  (5 new). Governance-Lite was re-run on a clean export.

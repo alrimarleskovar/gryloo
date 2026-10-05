@@ -144,6 +144,10 @@ jobs:
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         id: browser
         shell: bash
+        env:
+          # The self-hosted runner may host another app server on 3000; the browser suites serve the reference app on
+          # an isolated loopback port (validated by apps/reference-dapp/e2e/app-origin.ts).
+          FLOFI_E2E_APP_PORT: '3100'
         run: |
           set -euo pipefail
           export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
