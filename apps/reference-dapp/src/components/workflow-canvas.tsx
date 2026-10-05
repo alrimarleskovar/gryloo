@@ -427,7 +427,7 @@ function BuildCanvas({ selectedId, select }: { selectedId: string | null; select
         onEdgeClick={(_event, edge) => { selectNodes([], null); setSelectedEdge({ from: edge.source, to: edge.target }); }}
         onPaneClick={() => { if (ignorePaneClick.current) return; selectNodes([], null); }} onConnect={({ source, target }) => connect(source, target)}>
         {isLendingComposition(workflow)&&<LendingCanvasViewport/>}
-        <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
+        <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} position="bottom-right"/>
       </ReactFlow>
       {projectedNodes.length === 0 && <div className="canvas-empty"><strong>Start your workflow</strong><p>Add an action from the toolbar, then select its card to configure it.</p></div>}
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
