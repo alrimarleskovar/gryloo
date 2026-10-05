@@ -40,7 +40,9 @@ export const V1_POLICY: PlanningPolicy = Object.freeze({ language: 'EN', network
 /** A field whose value Flofi carried from a resolved referent rather than read from the open request. */
 export type CarriedField = 'network' | 'sourceNetwork' | 'destinationNetwork' | 'inputAsset' | 'outputAsset' | 'asset' | 'amount' | 'supplyAmount' | 'borrowAmount'
   | 'slippage' | 'recipient' | 'beneficiary' | 'routing' | 'protocol' | 'range' | `deposit:${string}`;
-export type Grounding = { readonly text: string; readonly carried: ReadonlySet<CarriedField>; readonly policy: PlanningPolicy };
+export type Grounding = { readonly text: string; readonly carried: ReadonlySet<CarriedField>; readonly policy: PlanningPolicy;
+  /** V2: the latest user message alone, so an explicit answer to Flofi's own question can settle a choice the request left open. */
+  readonly latest?: string };
 const NOTHING_CARRIED: ReadonlySet<CarriedField> = new Set();
 
 type Network = Exclude<CopilotNetwork, 'OTHER'>;
@@ -281,8 +283,10 @@ export const COPILOT_POOLS = Object.freeze({
 });
 function planLiquidity(a: CopilotLiquidityAction, g: Grounding): Plan {
   const m = copyOf(g), notes: string[] = [], text = g.text;
-  const namedProtocols = (['UNISWAP_V3', 'ORCA'] as const).filter(p => (p === 'UNISWAP_V3' ? /uniswap/i : /\borca\b|whirlpool/i).test(text) ||
+  const named = (source: string) => (['UNISWAP_V3', 'ORCA'] as const).filter(p => (p === 'UNISWAP_V3' ? /uniswap/i : /\borca\b|whirlpool/i).test(source) ||
     (g.carried.has('protocol') && a.protocol === p));
+  const answered = g.latest === undefined ? [] : named(g.latest);
+  const namedProtocols = answered.length === 1 ? answered : named(text);
   if (namedProtocols.length > 1) ask(['protocol'], m.whichPool, m.poolOptions);
   // The protocol is trusted only when the user named it or the named network determines it.
   const supported: Network[] = namedProtocols.length ? [COPILOT_POOLS[namedProtocols[0]!].network] : ['BASE_SEPOLIA', 'SOLANA_DEVNET'];

@@ -77,8 +77,10 @@ const REPEAT_CUE = /\b(?:same|again|repeat|once more|as before|like before|mesm[
 
 const normalize = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
 const segmentText = (state: CopilotConversation) => state.segment.join('\n');
+/** Flofi's own transcript entries never carry an address (a carried beneficiary, a connected wallet): the model needs none. */
+const redact = (text: string) => text.replace(/0x[0-9a-fA-F]{40}/g, '[address]').slice(0, COPILOT_LIMITS.maxAssistantMessageLength);
 function bounded(entries: readonly TranscriptEntry[]): TranscriptEntry[] {
-  let out = entries.map(entry => entry.role === 'assistant' ? { role: entry.role, text: entry.text.slice(0, COPILOT_LIMITS.maxAssistantMessageLength) } : entry)
+  let out = entries.map(entry => entry.role === 'assistant' ? { role: entry.role, text: redact(entry.text) } : entry)
     .slice(-COPILOT_V2_LIMITS.maxTranscriptMessages);
   const size = (list: readonly TranscriptEntry[]) => list.reduce((total, entry) => total + entry.text.length, 0);
   while (out.filter(entry => entry.role === 'user').length > COPILOT_V2_LIMITS.maxUserTurns || size(out) > COPILOT_V2_LIMITS.maxRequestCharacters) out = out.slice(1);
@@ -380,7 +382,9 @@ export function startTurn(state: CopilotConversation, raw: string, env: CopilotE
   const text = typeof raw === 'string' ? raw.trim() : '', m = copilotCopy(state.language);
   if (!text || text.length > COPILOT_LIMITS.maxUserMessageLength || hasUnsafeCharacters(text))
     return { kind: 'LOCAL', reply: reply('FAILED', failureText('COPILOT_INPUT_INVALID', state.language)), next: state };
-  if (looksSecret(text)) return { kind: 'LOCAL', reply: reply('UNSUPPORTED', m.secret), next: state };
+  // No model runs for a secret, so its language comes from the conversation or from the Portuguese wording that matched.
+  if (looksSecret(text)) return { kind: 'LOCAL', reply: reply('UNSUPPORTED', /chaves?\s+privad|frases?\s+(?:semente|secreta|de\s+recupera)|palavras\s+secretas/i.test(text)
+    ? copilotCopy('PT').secret : m.secret), next: state };
   const draft = state.draft;
   if (draft) {
     const option = draft.options.find(item => normalize(item.label) === normalize(text));
@@ -469,7 +473,7 @@ function resolveIntent(intent: CopilotIntentV2, state: CopilotConversation, env:
       if (resolved.source === 'PENDING') return refused(state, m, m.pendingOnly);
       const plan = removeCommandFor(env.workflow, env.context, resolved.step.nodeId, env.workflow.revision);
       if (!plan.ok) return refused(state, m, m.refusal[plan.code as keyof typeof m.refusal]?.(label) ?? m.rejectedCode(plan.code));
-      return propose(state, env, plan.command, `remove ${resolved.step.nodeId}`, m.interpretedRemove(label), [], label);
+      return propose(state, env, plan.command, `remove ${stepLabel(copilotCopy('EN'), resolved.step, 'EN')}`, m.interpretedRemove(label), [], label);
     }
     case 'INSERT': {
       const resolution = target(intent.anchor, 'ANCHOR');
@@ -483,7 +487,7 @@ function resolveIntent(intent: CopilotIntentV2, state: CopilotConversation, env:
 function author(intent: CopilotIntentV2, actions: readonly CopilotAction[], composition: boolean, carried: ReadonlySet<CarriedField>, state: CopilotConversation,
   env: CopilotEnvironment, notes: readonly string[], describe: (sentence: string) => string, label: string, editNodeId: string | null = null): Result {
   const language = intent.language, m = copilotCopy(language);
-  const grounding: Grounding = { text: segmentText(state), carried, policy: { language, networkDefaults: false } };
+  const grounding: Grounding = { text: segmentText(state), carried, policy: { language, networkDefaults: false }, latest: state.segment.at(-1) ?? '' };
   const planned = planCopilotActions(actions, composition, grounding, env.wallet);
   if (planned.kind !== 'PLAN') return stopped(planned, intent, state, env, m);
   const outcome = proposalFromPlan(planned.plan, env, language);
