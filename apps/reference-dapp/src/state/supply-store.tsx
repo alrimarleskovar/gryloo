@@ -2,7 +2,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import { supplyWalletNonce, supplyWalletTransaction } from '../domain/supply-authoring';
+import { lendingProfileOfChain, supplyWalletNonce, supplyWalletTransaction } from '../domain/supply-authoring';
 import { useWorkflow } from './workflow-store';
 import { injected, useBuild009Wallet } from './build009-wallet-store';
 import { supplySimulate, supplyReview, supplyBegin, supplyReport, supplyObserve, supplyStatus, supplyInvalidate, supplyRecoverReview, supplyWalletFailure, supplyWalletTrace, supplyHandoff } from '../app/supply-action';
@@ -25,7 +25,7 @@ function walletValue(value:unknown,depth=0,seen=new Set<object>()):unknown{
 }
 const key='gryloo:build012a:supply';
 type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|'WITHDRAW';hash?:string};
-type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
+type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>;switchNetwork():Promise<void>};
 const Context=createContext<Store|null>(null);
 export function SupplyProvider({children}:{children:ReactNode}){
   const {state}=useWorkflow(),wallet=useBuild009Wallet();
@@ -82,11 +82,18 @@ export function SupplyProvider({children}:{children:ReactNode}){
     const snapshot=pristineRecovery?record.review.workflow:latest.current;
     const result=await supplyReview(record.id,record.review.commitment,snapshot);if(!result.ok)throw new Error(result.code);accept(result.value);
   });}
+  // Switching only asks the wallet to move to the reviewed network (adding it from official parameters on 4902); it never signs or sends.
+  async function switchNetwork(){await operation(async()=>{
+    const profile=record&&lendingProfileOfChain(record.review.chain);if(!profile)throw new Error('SUPPLY_REVIEW_REQUIRED');
+    await wallet.switchTo(profile.chainHex);
+  });}
   async function execute(){await operation(async()=>{
     if(!record||retired||record.authorization!==record.review.commitment)throw new Error('SUPPLY_REVIEW_REQUIRED');
+    // The reviewed chain fixes the only chain the wallet may be on; it is checked again before the single send.
+    const reviewedChain=lendingProfileOfChain(record.review.chain)?.chainHex;if(!reviewedChain)throw new Error('SUPPLY_WRONG_CHAIN');
     let session=await wallet.session();if(!session)session=await wallet.connect();
     if(!session)throw new Error('SUPPLY_WALLET_REQUIRED');
-    if(session.chainId!=='0x14a34')throw new Error('SUPPLY_WRONG_CHAIN');
+    if(session.chainId!==reviewedChain)throw new Error('SUPPLY_WRONG_CHAIN');
     if(session.account!==record.review.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
     const provider=injected();if(!provider)throw new Error('SUPPLY_WALLET_REQUIRED');
     const snapshot=latest.current,executionWorkflow=pristineRecovery?record.review.workflow:snapshot;
@@ -103,7 +110,7 @@ export function SupplyProvider({children}:{children:ReactNode}){
       if(JSON.stringify(latest.current)!==JSON.stringify(snapshot))throw new Error('SUPPLY_SEMANTIC_REVISION_CHANGED');
       if(injected()!==provider)throw new Error('SUPPLY_WALLET_PROVIDER_CHANGED');
       if(!Array.isArray(accounts)||typeof accounts[0]!=='string'||accounts[0].toLowerCase()!==session.account)throw new Error('SUPPLY_WRONG_ACCOUNT');
-      if(typeof chain!=='string'||chain.toLowerCase()!=='0x14a34')throw new Error('SUPPLY_WRONG_CHAIN');
+      if(typeof chain!=='string'||chain.toLowerCase()!==reviewedChain)throw new Error('SUPPLY_WRONG_CHAIN');
       if(supplyWalletNonce(pendingNonce)!==BigInt(nonce))throw new Error('SUPPLY_WALLET_NONCE_MISMATCH');
     };
     try{
@@ -145,6 +152,6 @@ export function SupplyProvider({children}:{children:ReactNode}){
     }
     const observed=await supplyObserve(record.id);if(observed.ok)accept(observed.value);
   });}
-  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe,recoverReview}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
+  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe,recoverReview,switchNetwork}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
 }
 export function useSupply(){const value=useContext(Context);if(!value)throw new Error('SUPPLY_PROVIDER_MISSING');return value;}

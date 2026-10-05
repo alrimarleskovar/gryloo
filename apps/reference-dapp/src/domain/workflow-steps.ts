@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createBaseSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { reviewContextForChain, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { isLendingComposition, LENDING_NODE_IDS } from '@defi-workflow-engine/workflow-contracts';
 import type { Workflow } from './initial-workflow';
 import { canDeleteCanvasNode } from './canvas-keyboard';
@@ -17,7 +17,7 @@ import { lendingDetails, type LendingInput } from './lending-authoring';
  */
 export type StepKind = 'SWAP' | 'BRIDGE' | 'SUPPLY' | 'BORROW' | 'REPAY' | 'WITHDRAW' | 'LIQUIDITY' | 'TEMPLATE' | 'OTHER';
 export type StepDetail =
-  | { readonly type: 'EVM_SWAP'; readonly network: 'Base' | 'Base Sepolia'; readonly from: 'USDC' | 'WETH'; readonly to: 'USDC' | 'WETH'; readonly amount: string;
+  | { readonly type: 'EVM_SWAP'; readonly network: 'Base' | 'Base Sepolia' | 'Ethereum Sepolia'; readonly from: 'USDC' | 'WETH'; readonly to: 'USDC' | 'WETH'; readonly amount: string;
       readonly slippage: string }
   | { readonly type: 'SOLANA_SWAP'; readonly input: SolanaSwapInput }
   | { readonly type: 'ROUTER'; readonly input: RouterBridgeInput; readonly network: RouterNetwork }
@@ -37,8 +37,8 @@ export type WorkflowStep = {
 };
 
 const CHAIN_LABEL: Readonly<Record<string, string>> = { 'eip155:8453': 'Base', 'eip155:84532': 'Base Sepolia', 'eip155:42161': 'Arbitrum One',
-  'eip155:421614': 'Arbitrum Sepolia', 'mock:local': 'local template' };
-const TEST_CHAINS: ReadonlySet<string> = new Set(['eip155:84532', 'eip155:421614', 'mock:local']);
+  'eip155:421614': 'Arbitrum Sepolia', 'eip155:11155111': 'Ethereum Sepolia', 'mock:local': 'local template' };
+const TEST_CHAINS: ReadonlySet<string> = new Set(['eip155:84532', 'eip155:421614', 'eip155:11155111', 'mock:local']);
 const MAIN_CHAINS: ReadonlySet<string> = new Set(['eip155:8453', 'eip155:42161']);
 const LENDING_ROLE = { 'lending-supply': 'SUPPLY', 'lending-borrow': 'BORROW', 'lending-swap': 'SWAP' } as const;
 
@@ -77,9 +77,9 @@ function describe(node: Node, workflow: Workflow, context: ReviewContext): Descr
   const network = CHAIN_LABEL[node.chainId] ?? node.chainId;
   const testFunds = TEST_CHAINS.has(node.chainId) ? true : MAIN_CHAINS.has(node.chainId) ? false : null;
   // CoW swaps and the legacy bridges, compositions and transfers keep their own panels; they are described, not typed.
-  if (node.actionType === SWAP_ACTION && node.adapterConstraints.protocols.join() === 'uniswap' && (node.chainId === 'eip155:8453' || node.chainId === 'eip155:84532')) {
-    const swap = read(() => swapDetails(node, node.chainId === 'eip155:84532' ? createBaseSepoliaReviewContext() : context));
-    if (swap && swap.slippage !== null) return { kind: 'SWAP', detail: { type: 'EVM_SWAP', network: network as 'Base' | 'Base Sepolia', from: swap.from, to: swap.to,
+  if (node.actionType === SWAP_ACTION && node.adapterConstraints.protocols.join() === 'uniswap' && ['eip155:8453', 'eip155:84532', 'eip155:11155111'].includes(node.chainId)) {
+    const swap = read(() => swapDetails(node, reviewContextForChain(node.chainId, context)));
+    if (swap && swap.slippage !== null) return { kind: 'SWAP', detail: { type: 'EVM_SWAP', network: network as 'Base' | 'Base Sepolia' | 'Ethereum Sepolia', from: swap.from, to: swap.to,
       amount: swap.amount, slippage: String(swap.slippage) }, protocol: 'Uniswap v3', network, testFunds };
   }
   if (node.actionType.startsWith('mock-')) return { kind: 'TEMPLATE', detail: { type: 'TEMPLATE', template: node.actionType.slice(5) }, protocol: 'Template (authoring only)',

@@ -2,11 +2,14 @@
 'use server';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createRobinhoodTransferService, type RobinhoodTransferService, type TransferWalletDiagnostic } from '../server/robinhood-transfer-service';
-import { createRobinhoodReadRpc } from '../server/robinhood-rpc';
+import { nativeTransferReadRpcs } from '../server/robinhood-rpc';
 import { callCloudFlow } from '../server/cloud-api-client';
 
 let service: RobinhoodTransferService | null = null;
-/** Live public reads need an explicit local development flag; automated tests use only the loopback harness. */
+/**
+ * Live public reads need an explicit local development flag per network (`GRYLOO_ROBINHOOD_TESTNET=live`,
+ * `GRYLOO_ETHEREUM_SEPOLIA_TRANSFER=live`); automated tests use only the loopback harness.
+ */
 export async function robinhoodTransferMode(): Promise<'live' | 'harness' | 'off'> {
   // Cloud deployment: the separately deployed backend owns the flow and its explicit enablement.
   if (process.env.API_BASE_URL) {
@@ -14,14 +17,14 @@ export async function robinhoodTransferMode(): Promise<'live' | 'harness' | 'off
     return remote.ok && (remote.value === 'live' || remote.value === 'harness') ? remote.value : 'off';
   }
   if (process.env.GRYLOO_ROBINHOOD_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
-  return process.env.GRYLOO_ROBINHOOD_TESTNET === 'live' && process.env.NODE_ENV === 'development' ? 'live' : 'off';
+  return (process.env.GRYLOO_ROBINHOOD_TESTNET === 'live' || process.env.GRYLOO_ETHEREUM_SEPOLIA_TRANSFER === 'live') && process.env.NODE_ENV === 'development' ? 'live' : 'off';
 }
 async function current(): Promise<RobinhoodTransferService> {
   const mode = await robinhoodTransferMode();
   if (mode === 'off') throw new Error('TRANSFER_PUBLIC_TESTNET_NOT_ENABLED');
   const journalDir = process.env.GRYLOO_ROBINHOOD_JOURNAL;
   if (!journalDir) throw new Error('TRANSFER_STORAGE_NOT_CONFIGURED');
-  service ??= createRobinhoodTransferService({ journalDir, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET', rpc: createRobinhoodReadRpc(mode) });
+  service ??= createRobinhoodTransferService({ journalDir, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET', ...nativeTransferReadRpcs(mode, process.env) });
   return service;
 }
 async function run<T>(method: string, args: readonly unknown[], action: (service: RobinhoodTransferService) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; code: string }> {

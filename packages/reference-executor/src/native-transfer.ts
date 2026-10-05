@@ -2,9 +2,10 @@
 /**
  * RH-DEMO-001 durable run for one owner-signed native self-transfer. One run has at most one attempt,
  * so it can make at most one economic submission. Recovery only reads; no send function exists here.
+ * The chain is always the reviewed transaction's own chain (Robinhood Testnet or Ethereum Sepolia).
  */
 import { createJournal, appendJournalState } from './journal.js';
-import { supplyArtifactHash, supplyHash, rpcRecord, rpcUint, rpcHash, supplyHex, ROBINHOOD_TESTNET_TRANSFER as profile,
+import { supplyArtifactHash, supplyHash, rpcRecord, rpcUint, rpcHash, supplyHex,
   type NativeTransferReview, type NativeTransferTransaction, type TransferRpc } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 
@@ -58,7 +59,7 @@ export function matchTransferTransaction(attempt: Pick<TransferAttempt, 'nonce' 
   const tx = rpcRecord(value), expected = attempt.transaction;
   return typeof tx.from === 'string' && typeof tx.to === 'string' && tx.from.toLowerCase() === expected.from && tx.to.toLowerCase() === expected.to &&
     rpcUint(tx.value) === BigInt(expected.value) && tx.input === '0x' && rpcUint(tx.nonce) === BigInt(attempt.nonce) &&
-    rpcUint(tx.chainId) === BigInt(profile.chainId);
+    rpcUint(tx.chainId) === BigInt(expected.chainId);
 }
 /**
  * Read-only discovery of the transaction that consumed the reviewed nonce. The owner's nonce is monotonic,
@@ -66,7 +67,7 @@ export function matchTransferTransaction(attempt: Pick<TransferAttempt, 'nonce' 
  */
 export async function discoverTransferByNonce(attempt: Pick<TransferAttempt, 'nonce' | 'transaction' | 'preparedAtBlock' | 'transactionHash'>, rpc: TransferRpc):
   Promise<{ hash: string | null; mismatch: boolean; consumed: boolean }> {
-  if (rpcUint(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) throw new Error('TRANSFER_WRONG_CHAIN');
+  if (rpcUint(await rpc('eth_chainId', [])) !== BigInt(attempt.transaction.chainId)) throw new Error('TRANSFER_WRONG_CHAIN');
   if (attempt.transactionHash) return { hash: attempt.transactionHash, mismatch: false, consumed: true };
   const owner = attempt.transaction.from, nonce = BigInt(attempt.nonce);
   const count = async (block: number) => rpcUint(await rpc('eth_getTransactionCount', [owner, supplyHex(block)]));

@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { useWorkflow } from './workflow-store';
-import { injected, useBuild009Wallet, ROBINHOOD_TESTNET_HEX } from './build009-wallet-store';
+import { injected, useBuild009Wallet } from './build009-wallet-store';
+import { TRANSFER_NETWORKS } from '../domain/robinhood-transfer-authoring';
 import { transferBegin, transferHandoff, transferInvalidate, transferObserve, transferRecoverReview, transferReport, transferReview,
   transferSimulate, transferStatus, transferWalletFailure } from '../app/robinhood-transfer-action';
 import type { TransferRecord, TransferWalletDiagnostic } from '../server/robinhood-transfer-service';
@@ -69,12 +70,19 @@ export function RobinhoodTransferProvider({ children }: { children: ReactNode })
   }); }
   async function observe() { await operation(async () => { if (!record) throw new Error('TRANSFER_RUN_MISSING'); accept(unwrap(await transferObserve(record.id))); }); }
   async function recoverReview() { await operation(async () => { if (!record) throw new Error('TRANSFER_RUN_MISSING'); accept(unwrap(await transferRecoverReview(record.id))); }); }
-  async function switchNetwork() { await operation(async () => { await wallet.switchTo(ROBINHOOD_TESTNET_HEX); }); }
+  /** The reviewed transaction's chain (else the authored node's) is the only network the wallet is asked to switch to. */
+  const chainHexOf = (chain: string | undefined) => Object.values(TRANSFER_NETWORKS).find(profile => profile.chain === chain)?.chainHex as '0xb626' | '0xaa36a7' | undefined;
+  async function switchNetwork() { await operation(async () => {
+    const target = chainHexOf(record?.review.chain ?? latest.current.nodes.find(n => n.actionType === 'asset.transfer')?.chainId);
+    if (!target) throw new Error('TRANSFER_REVIEW_REQUIRED');
+    await wallet.switchTo(target);
+  }); }
   async function execute() { await operation(async () => {
     if (!record || retired || record.authorization !== record.review.commitment) throw new Error('TRANSFER_REVIEW_REQUIRED');
     let session = await wallet.session(); if (!session) session = await wallet.connect();
     if (!session) throw new Error('TRANSFER_WALLET_REQUIRED');
-    if (session.chainId !== ROBINHOOD_TESTNET_HEX) throw new Error('TRANSFER_WRONG_CHAIN');
+    const reviewedChain = record.review.transaction.chainId.toLowerCase();
+    if (chainHexOf(record.review.chain) !== reviewedChain || session.chainId !== reviewedChain) throw new Error('TRANSFER_WRONG_CHAIN');
     if (session.account !== record.review.account) throw new Error('TRANSFER_WRONG_ACCOUNT');
     const provider = injected(); if (!provider) throw new Error('TRANSFER_WALLET_REQUIRED');
     const snapshot = latest.current;
@@ -91,7 +99,7 @@ export function RobinhoodTransferProvider({ children }: { children: ReactNode })
       if (JSON.stringify(latest.current) !== JSON.stringify(snapshot)) throw new Error('TRANSFER_SEMANTIC_REVISION_CHANGED');
       if (injected() !== provider) throw new Error('TRANSFER_WALLET_PROVIDER_CHANGED');
       if (!Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== session.account) throw new Error('TRANSFER_WRONG_ACCOUNT');
-      if (typeof chain !== 'string' || chain.toLowerCase() !== ROBINHOOD_TESTNET_HEX) throw new Error('TRANSFER_WRONG_CHAIN');
+      if (typeof chain !== 'string' || chain.toLowerCase() !== reviewedChain) throw new Error('TRANSFER_WRONG_CHAIN');
       if (quantity(pending) !== BigInt(record.review.nonce)) throw new Error('TRANSFER_WALLET_NONCE_MISMATCH');
     };
     let prepared = false;

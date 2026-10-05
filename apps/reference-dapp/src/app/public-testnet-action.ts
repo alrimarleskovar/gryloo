@@ -3,7 +3,7 @@
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createPublicTestnetService, publicRecordingEnabled,
   type PublicTestnetService, type PublicRun, type PublicBegin } from '../server/public-testnet-service';
-import { publicTestnetRpc as rpc } from '../server/public-testnet-rpc';
+import { ethereumSepoliaSwapRpc, publicTestnetRpc as rpc } from '../server/public-testnet-rpc';
 import { callCloudFlow } from '../server/cloud-api-client';
 
 export type PublicResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
@@ -12,7 +12,8 @@ let serviceDir: string | null = null;
 function current(): PublicTestnetService {
   if (!publicRecordingEnabled(process.env)) throw new Error('PUBLIC_RECORDING_OFF');
   const dir = process.env.GRYLOO_PUBLIC_TESTNET_JOURNAL!;
-  if (!service || serviceDir !== dir) { service = createPublicTestnetService({ rpc, journalDir: dir }); serviceDir = dir; }
+  // Base Sepolia and Ethereum Sepolia each have their own chain-bound read client; the authored chain selects one.
+  if (!service || serviceDir !== dir) { service = createPublicTestnetService({ rpc, rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(process.env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL) }, journalDir: dir }); serviceDir = dir; }
   return service;
 }
 function code(error: unknown): string {

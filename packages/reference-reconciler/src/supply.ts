@@ -4,7 +4,7 @@ import { reconcileRepayAttempt, buildRepayEvidence } from './repay.js';
 import { reconcileBorrowAttempt, buildBorrowEvidence } from './borrow.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
-import { AAVE_V3_BASE_SEPOLIA as profile, readSupplyState, rpcRecord, rpcHash, rpcUint, rpcHex, supplyHex, supplyCall, supplyTopic,
+import { lendingProfile, readSupplyState, rpcRecord, rpcHash, rpcUint, rpcHex, supplyHex, supplyCall, supplyTopic,
   SUPPLY_METAMASK, decodeSupplyWalletEnvelope, supplySelector, rlpEncode, rlpInteger, fromHex, toHex, type SupplyWalletEnvelope, supplyWord, supplyHash, supplyArtifactHash, type SupplyRpc, type SupplyReview, type SupplyTransaction, type SupplyState } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes, type EvidenceBundle, type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 export type SupplyChainAttempt = { step:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|'WITHDRAW'; nonce:string; transaction:SupplyTransaction; transactionHash:string|null; preparedAtBlock:number };
@@ -31,10 +31,11 @@ export type SupplyWalletProof={kind:'METAMASK_EIP7702';owner:string;outerSender:
   ownerAuthorizationNonce:string|null;ownerNonceBefore:string;ownerNonceAfter:string;implementation:string;delegationHash:string;signingDigest:string;
   authorization:unknown;delegation:SupplyWalletEnvelope;codeHashes:string[];callCountBefore:string;callCountAfter:string;feePayer:string;ownerNativeCost:'0'};
 const hashHex=(hex:string)=>toHex(keccak_256(fromHex(hex)));
-export function supplyWalletDelegationDigest(e:SupplyWalletEnvelope):{domain:string;delegationHash:string;digest:string} {
+/** EIP-712 digest the owner signs for the delegation, bound to the reviewed chain id. */
+export function supplyWalletDelegationDigest(e:SupplyWalletEnvelope,chainId:number|bigint):{domain:string;delegationHash:string;digest:string} {
   const caveatHashes=e.caveats.map(c=>hashHex(supplyTopic('Caveat(address enforcer,bytes terms)')+supplyWord(c.enforcer)+hashHex(c.terms).slice(2)));
   const delegationHash=hashHex(supplyTopic('Delegation(address delegate,address delegator,bytes32 authority,Caveat[] caveats,uint256 salt)Caveat(address enforcer,bytes terms)')+supplyWord(e.delegate)+supplyWord(e.owner)+'f'.repeat(64)+hashHex('0x'+caveatHashes.map(h=>h.slice(2)).join('')).slice(2)+supplyWord(BigInt(e.salt)));
-  const domain=hashHex(supplyTopic('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')+supplyTopic('DelegationManager').slice(2)+supplyTopic('1').slice(2)+supplyWord(BigInt(profile.chainId))+supplyWord(SUPPLY_METAMASK.manager));
+  const domain=hashHex(supplyTopic('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')+supplyTopic('DelegationManager').slice(2)+supplyTopic('1').slice(2)+supplyWord(BigInt(chainId))+supplyWord(SUPPLY_METAMASK.manager));
   return {domain,delegationHash,digest:hashHex('0x1901'+domain.slice(2)+delegationHash.slice(2))};
 }
 function signatureOwner(digest:string,signature:string):string {
@@ -45,11 +46,13 @@ function signatureOwner(digest:string,signature:string):string {
   }catch{throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');}
 }
 export async function verifySupplyWalletEnvelope(review:Pick<SupplyReview,'account'>,attempt:Pick<SupplyChainAttempt,'transaction'|'nonce'>,transaction:Record<string,unknown>,receipt:Record<string,unknown>,rpc:SupplyRpc):Promise<SupplyWalletProof> {
+  // The reviewed transaction's own chain binds the delegation domain and any EIP-7702 authorization.
+  const chainId=rpcUint(attempt.transaction.chainId);
   const e=decodeSupplyWalletEnvelope(transaction.input),m=SUPPLY_METAMASK,block=rpcUint(receipt.blockNumber),tag=supplyHex(block),preTag=supplyHex(block-1n);
   if(transaction.to!==m.manager||e.owner!==review.account||e.call.to!==attempt.transaction.to||e.call.data!==attempt.transaction.data||e.call.value!=='0'||transaction.from===review.account)throw new Error('SUPPLY_ENVELOPE_MISMATCH');
   const hashes=await Promise.all([m.manager,m.implementation,m.limited,m.exact].map(async address=>hashHex(rpcHex(await rpc('eth_getCode',[address,tag])))));
   if(JSON.stringify(hashes)!==JSON.stringify(m.codeHashes))throw new Error('SUPPLY_WALLET_CODE_MISMATCH');
-  const {domain,delegationHash,digest}=supplyWalletDelegationDigest(e);
+  const {domain,delegationHash,digest}=supplyWalletDelegationDigest(e,chainId);
   if(signatureOwner(digest,e.signature)!==review.account)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
   const call=async(to:string,data:string,at=tag)=>rpcHex(await rpc('eth_call',[{to,data},at]));
   if(await call(m.manager,supplyCall('getDomainHash()'))!==domain||rpcUint(await call(m.implementation,supplyCall('delegationManager()')))!==BigInt(m.manager))throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
@@ -59,8 +62,8 @@ export async function verifySupplyWalletEnvelope(review:Pick<SupplyReview,'accou
   let ownerAuthorizationNonce:string|null=null;
   const authorizations=transaction.authorizationList??[];if(!Array.isArray(authorizations)||authorizations.length>1)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
   if(authorizations.length){const a=rpcRecord(authorizations[0]);
-    if(rpcUint(transaction.type)!==4n||rpcUint(a.chainId)!==BigInt(profile.chainId)||a.address!==m.implementation||rpcUint(a.nonce)!==rpcUint(preNonce)||rpcUint(postNonce)!==rpcUint(preNonce)+1n||rpcUint(a.yParity)>1n)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
-    const authDigest=hashHex('0x05'+toHex(rlpEncode([rlpInteger(BigInt(profile.chainId)),fromHex(m.implementation),rlpInteger(rpcUint(a.nonce))])).slice(2));
+    if(rpcUint(transaction.type)!==4n||rpcUint(a.chainId)!==chainId||a.address!==m.implementation||rpcUint(a.nonce)!==rpcUint(preNonce)||rpcUint(postNonce)!==rpcUint(preNonce)+1n||rpcUint(a.yParity)>1n)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
+    const authDigest=hashHex('0x05'+toHex(rlpEncode([rlpInteger(chainId),fromHex(m.implementation),rlpInteger(rpcUint(a.nonce))])).slice(2));
     const sig='0x'+supplyWord(rpcUint(a.r))+supplyWord(rpcUint(a.s))+(27+Number(rpcUint(a.yParity))).toString(16);
     if(signatureOwner(authDigest,sig)!==review.account)throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');ownerAuthorizationNonce=rpcUint(a.nonce).toString();
   }else if(preCode!==pointer||rpcUint(postNonce)!==rpcUint(preNonce))throw new Error('SUPPLY_OWNER_AUTHORIZATION_MISMATCH');
@@ -83,7 +86,9 @@ export async function reconcileSupplyAttempt(review: SupplyReview, attempt: Supp
   const base: SupplyObservation = {verdict:'INCONCLUSIVE',reason:'TRANSACTION_NOT_OBSERVED',transaction:null,receipt:null,prePosition:null,postPosition:null,delta:null,scaledDelta:null,cost:null};
   if (!attempt.transactionHash) return base;
   try {
-    if (rpcUint(await rpc('eth_chainId',[]))!==BigInt(profile.chainId)) throw new Error('SUPPLY_WRONG_CHAIN');
+    // The reviewed chain selects the deployment; the RPC and the reviewed transaction must both be on it.
+    const profile=lendingProfile(review.chain,'SUPPLY_WRONG_CHAIN');
+    if (rpcUint(await rpc('eth_chainId',[]))!==BigInt(profile.chainId)||attempt.transaction.chainId!==profile.chainHex) throw new Error('SUPPLY_WRONG_CHAIN');
     const [txValue,receiptValue]=await Promise.all([rpc('eth_getTransactionByHash',[attempt.transactionHash]),rpc('eth_getTransactionReceipt',[attempt.transactionHash])]);
     if (!txValue || !receiptValue) return base;
     const transaction=rpcRecord(txValue), receipt=rpcRecord(receiptValue);
@@ -109,7 +114,7 @@ export async function reconcileSupplyAttempt(review: SupplyReview, attempt: Supp
     if(wrapped)base.walletEnvelope=await verifySupplyWalletEnvelope(review,attempt,transaction,receipt,rpc);
     if (!Array.isArray(receipt.logs)) throw new Error('SUPPLY_LOGS_INVALID');
     base.cost=(rpcUint(receipt.gasUsed)*rpcUint(receipt.effectiveGasPrice)+(receipt.l1Fee===undefined?0n:rpcUint(receipt.l1Fee))).toString();
-    const post=await readSupplyState(rpc,review.account,review.beneficiary,supplyHex(block));
+    const post=await readSupplyState(rpc,profile,review.account,review.beneficiary,supplyHex(block));
     if(post.blockHash!==rpcHash(receipt.blockHash))throw new Error('SUPPLY_REORG');
     if (post.deploymentHash!==review.state.deploymentHash) throw new Error('SUPPLY_DEPLOYMENT_MISMATCH');
     base.postPosition=post;
@@ -119,7 +124,7 @@ export async function reconcileSupplyAttempt(review: SupplyReview, attempt: Supp
     }
     if (!receipt.logs.some(l => logMatches(l,profile.pool,[supplyTopic('Supply(address,address,address,uint256,uint16)'),addressTopic(profile.asset),addressTopic(review.beneficiary),'0x'+supplyWord(0n)],'0x'+supplyWord(review.account)+supplyWord(BigInt(review.amount))))) throw new Error('SUPPLY_EVENT_MISMATCH');
     if (!receipt.logs.some(l => logMatches(l,profile.asset,[supplyTopic('Transfer(address,address,uint256)'),addressTopic(review.account),addressTopic(profile.aToken)],'0x'+supplyWord(BigInt(review.amount))))) throw new Error('SUPPLY_TRANSFER_MISMATCH');
-    const pre=await readSupplyState(rpc,review.account,review.beneficiary,supplyHex(block-1));
+    const pre=await readSupplyState(rpc,profile,review.account,review.beneficiary,supplyHex(block-1));
     base.prePosition=pre;
     const finalBlock=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(block),false]));
     if(rpcHash(finalBlock.hash)!==rpcHash(receipt.blockHash)||rpcHash(finalBlock.parentHash)!==pre.blockHash)throw new Error('SUPPLY_REORG');
@@ -139,6 +144,7 @@ export function buildSupplyEvidence(input:{id:string;review:SupplyReview;journal
   const supply=input.observations.at(-1), approval=input.approval??(input.review.approvalRequired?input.observations.find(o=>o.verdict==='RECONCILED'):null);
   if (!supply||supply.verdict!=='RECONCILED'||!supply.prePosition||!supply.postPosition||!supply.receipt||!supply.transaction||
       (input.review.approvalRequired&&approval?.verdict!=='RECONCILED') || !input.ownerInitiated) throw new Error('SUPPLY_EVIDENCE_NOT_RECONCILED');
+  const profile=lendingProfile(input.review.chain,'SUPPLY_EVIDENCE_NOT_RECONCILED');
   const publicExecution={network:profile.network,chainId:profile.chainId,explorer:profile.explorer,officialSource:profile.officialSource,
     account:input.review.account,beneficiary:input.review.beneficiary,pool:profile.pool,token:profile.asset,aToken:profile.aToken,amount:input.review.amount,
     approvalTransactionHash:approval?.receipt?.transactionHash??null,approvalNonce:approval?.walletEnvelope?.relayNonce??(approval?.transaction?rpcUint(approval.transaction.nonce).toString():null),approvalBlock:approval?.receipt?Number(rpcUint(approval.receipt.blockNumber)):null,approvalEnvelope:approval?.walletEnvelope??null,supplyNonce:supply.walletEnvelope?.relayNonce??rpcUint(supply.transaction.nonce).toString(),supplyEnvelope:supply.walletEnvelope??null,supplyTransactionHash:supply.receipt.transactionHash,
@@ -153,9 +159,9 @@ export function buildSupplyEvidence(input:{id:string;review:SupplyReview;journal
     policyHash:review.manifest.policyHash,manifestHash:supplyArtifactHash('strategy-manifest',review.manifest),executionPlanHash:supplyArtifactHash('execution-plan',review.plan),
     journalHeadHash:head,observedAt:new Date().toISOString(),environment:input.provenance==='PUBLIC_TESTNET'?'TESTNET_EXECUTED':'MOCKED',outcome:'RECONCILED',
     receipts:(approval&&!input.observations.includes(approval)?[approval,...input.observations]:input.observations).map((o,i)=>({receiptId:`supply-receipt-${i}`,contentHash:supplyHash(o.receipt)})),differences:[],
-    reconciliation:{balances:[{asset:{chainId:profile.chain,address:profile.asset,decimals:6},amount:supply.postPosition.balance}],
-      allowances:[{asset:{chainId:profile.chain,address:profile.asset,decimals:6},amount:supply.postPosition.allowance}],debt:[],
-      positions:[{asset:{chainId:profile.chain,address:profile.aToken,decimals:6},amount:supply.postPosition.position}],fees:[],residualAssets:[],
+    reconciliation:{balances:[{asset:{chainId:profile.chain,address:profile.asset,decimals:profile.decimals},amount:supply.postPosition.balance}],
+      allowances:[{asset:{chainId:profile.chain,address:profile.asset,decimals:profile.decimals},amount:supply.postPosition.allowance}],debt:[],
+      positions:[{asset:{chainId:profile.chain,address:profile.aToken,decimals:profile.decimals},amount:supply.postPosition.position}],fees:[],residualAssets:[],
       ownership:[{chainId:profile.chain,address:review.beneficiary}],limitations:['Position delta uses scaled balances and the post-block liquidity index, with bounded ray rounding.','Block snapshots include all transactions in the block; inconsistent position effects fail closed.']},
     evidence:[{evidenceId:'supply-public-observations',kind:'EXTERNAL_REFERENCE',contentHash:supplyHash(publicExecution)}]};
   return {bundle,bundleHash:supplyArtifactHash('evidence-bundle',bundle),publicExecution,

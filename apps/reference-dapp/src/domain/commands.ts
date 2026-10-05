@@ -1,6 +1,6 @@
 import {createAuthoredLending,lendingDetails,type LendingInput} from './lending-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createBaseSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, createEthereumSepoliaReviewContext, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { actionKinds, type ActionKind } from './mock-actions';
 import type { Workflow } from './initial-workflow';
 import { SWAP_ACTION, directionLabel, parseHumanAmount, parseSlippage, swapDetails, type Direction } from './swap-authoring';
@@ -20,6 +20,8 @@ import { createUniswapLiquidityNode, parseUniswapLiquidityChat, uniswapLiquidity
 import { createRouterNode, parseRouterChat, routerDetails, ROUTER_ROUTING_LABEL, type RouterBridgeInput } from './router-authoring';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
+const lendingNetwork = (text: string): SupplyInput['network'] => /^base sepolia$/i.test(text) ? 'Base Sepolia' : 'Ethereum Sepolia';
+const lendingAsset = (text: string): SupplyInput['asset'] => text.toUpperCase() === 'WBTC' ? 'WBTC' : 'USDC';
 export type Command = Base & (
   | {readonly type:'AUTHOR_LENDING';readonly input:LendingInput}
   | { readonly type: 'ADD_RH_TRANSFER'; readonly input: RobinhoodTransferInput }
@@ -49,6 +51,7 @@ export type Command = Base & (
   | { readonly type: 'REMOVE_MANY'; readonly nodeIds: readonly string[] }
   | { readonly type: 'ADD_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_TESTNET_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
+  | { readonly type: 'ADD_ETHEREUM_SEPOLIA_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'ADD_COW_SWAP'; readonly direction: Direction; readonly amount: string; readonly slippage: string }
   | { readonly type: 'SET_SWAP_AMOUNT'; readonly nodeId: string; readonly amount: string }
   | { readonly type: 'SET_SLIPPAGE'; readonly nodeId: string; readonly slippage: string }
@@ -77,29 +80,31 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
   const input = text.trim();
   const lending=/^compose supply ([0-9]+(?:\.[0-9]+)?) USDC to Aave then borrow ([0-9]+(?:\.[0-9]+)?) USDC then swap borrowed USDC to WETH on Base Sepolia slippage ([0-9]+) bps(?: owner (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if(lending){const owner=lending[4]??defaultBeneficiary;if(!owner)throw Error('LENDING_OWNER_REQUIRED');const fields={supply:lending[1]!,borrow:lending[2]!,slippage:lending[3]!,owner};createAuthoredLending(workflow.workflowId,workflow.revision+1,fields);return {type:'AUTHOR_LENDING',input:fields,source:'CHAT',baseRevision:workflow.revision};}
-  const withdraw = /^withdraw ([0-9]+(?:\.[0-9]+)?) USDC from Aave on Base Sepolia$/i.exec(input);
-  if(withdraw){const fields:WithdrawInput={network:'Base Sepolia',asset:'USDC',amount:withdraw[1]!,recipient:'CONNECTED_OWNER'};createAuthoredWithdraw('node-preview',fields);return {type:'ADD_WITHDRAW',input:fields,source:'CHAT',baseRevision:workflow.revision};}
-  const repay = /^repay ([0-9]+(?:\.[0-9]+)?) USDC to Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  // Aave V3: each network has exactly one verified asset (Base Sepolia USDC, Ethereum Sepolia WBTC). The pair is checked
+  // against the profile, so a symbol can never carry one network's asset onto another.
+  const withdraw = /^withdraw ([0-9]+(?:\.[0-9]+)?) (USDC|WBTC) from Aave on (Base Sepolia|Ethereum Sepolia)$/i.exec(input);
+  if(withdraw){const fields:WithdrawInput={network:lendingNetwork(withdraw[3]!),asset:lendingAsset(withdraw[2]!),amount:withdraw[1]!,recipient:'CONNECTED_OWNER'};createAuthoredWithdraw('node-preview',fields);return {type:'ADD_WITHDRAW',input:fields,source:'CHAT',baseRevision:workflow.revision};}
+  const repay = /^repay ([0-9]+(?:\.[0-9]+)?) (USDC|WBTC) to Aave on (Base Sepolia|Ethereum Sepolia)(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if (repay) {
-    const beneficiary=repay[2]??defaultBeneficiary;
+    const beneficiary=repay[4]??defaultBeneficiary;
     if(!beneficiary)throw new Error('REPAY_BENEFICIARY_REQUIRED');
-    const fields:SupplyInput={network:'Base Sepolia',asset:'USDC',amount:repay[1]!,beneficiary};
+    const fields:SupplyInput={network:lendingNetwork(repay[3]!),asset:lendingAsset(repay[2]!),amount:repay[1]!,beneficiary};
     createAuthoredRepay('node-preview',fields);
     return {type:'ADD_REPAY',input:fields,source:'CHAT',baseRevision:workflow.revision};
   }
-  const borrow = /^borrow ([0-9]+(?:\.[0-9]+)?) USDC from Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  const borrow = /^borrow ([0-9]+(?:\.[0-9]+)?) (USDC|WBTC) from Aave on (Base Sepolia|Ethereum Sepolia)(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if (borrow) {
-    const beneficiary=borrow[2]??defaultBeneficiary;
+    const beneficiary=borrow[4]??defaultBeneficiary;
     if(!beneficiary)throw new Error('BORROW_BENEFICIARY_REQUIRED');
-    const fields:SupplyInput={network:'Base Sepolia',asset:'USDC',amount:borrow[1]!,beneficiary};
+    const fields:SupplyInput={network:lendingNetwork(borrow[3]!),asset:lendingAsset(borrow[2]!),amount:borrow[1]!,beneficiary};
     createAuthoredBorrow('node-preview',fields);
     return {type:'ADD_BORROW',input:fields,source:'CHAT',baseRevision:workflow.revision};
   }
-  const supply = /^supply ([0-9]+(?:\.[0-9]+)?) USDC to Aave on Base Sepolia(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
+  const supply = /^supply ([0-9]+(?:\.[0-9]+)?) (USDC|WBTC) to Aave on (Base Sepolia|Ethereum Sepolia)(?: (?:beneficiary|on behalf of) (0x[0-9a-fA-F]{40}))?$/i.exec(input);
   if (supply) {
-    const beneficiary = supply[2] ?? defaultBeneficiary;
+    const beneficiary = supply[4] ?? defaultBeneficiary;
     if (!beneficiary) throw new Error('SUPPLY_BENEFICIARY_REQUIRED');
-    const fields: SupplyInput = { network: 'Base Sepolia', asset: 'USDC', amount: supply[1]!, beneficiary };
+    const fields: SupplyInput = { network: lendingNetwork(supply[3]!), asset: lendingAsset(supply[2]!), amount: supply[1]!, beneficiary };
     createAuthoredSupply('node-preview', fields);
     return { type: 'ADD_SUPPLY', input: fields, source: 'CHAT', baseRevision: workflow.revision };
   }
@@ -163,15 +168,16 @@ export function parseLocalCommand(text: string, workflow: Workflow, context: Rev
     return liquidity[2] ? { type: 'SET_LIQUIDITY', nodeId: liquidity[2], input: details, source: 'CHAT', baseRevision: workflow.revision }
       : { type: 'ADD_LIQUIDITY', input: details, source: 'CHAT', baseRevision: workflow.revision };
   }
-  const swap = /^swap ([0-9]+(?:\.[0-9]+)?) (USDC|WETH) to (USDC|WETH) on (Base|Base Sepolia) slippage ([0-9]+) bps$/i.exec(input);
+  const swap = /^swap ([0-9]+(?:\.[0-9]+)?) (USDC|WETH) to (USDC|WETH) on (Base|Base Sepolia|Ethereum Sepolia) slippage ([0-9]+) bps$/i.exec(input);
   if (swap) {
     const from = swap[2]!.toUpperCase(), to = swap[3]!.toUpperCase();
     if (from === to) throw new Error('INVALID_ASSET_PAIR');
     const direction: Direction = from === 'USDC' && to === 'WETH' ? 'USDC_TO_WETH' : from === 'WETH' && to === 'USDC' ? 'WETH_TO_USDC' : (() => { throw new Error('INVALID_ASSET_PAIR'); })();
-    const testnet = swap[4]!.toLowerCase() === 'base sepolia';
-    parseHumanAmount(swap[1], from as 'USDC' | 'WETH', testnet ? createBaseSepoliaReviewContext() : context);
+    const network = swap[4]!.toLowerCase(), testnet = network === 'base sepolia', ethereum = network === 'ethereum sepolia';
+    // Each network's own trusted assets bound the amount; a symbol never borrows another network's identity.
+    parseHumanAmount(swap[1], from as 'USDC' | 'WETH', ethereum ? createEthereumSepoliaReviewContext() : testnet ? createBaseSepoliaReviewContext() : context);
     parseSlippage(swap[5]);
-    return { type: testnet ? 'ADD_TESTNET_SWAP' : 'ADD_SWAP', direction, amount: swap[1]!, slippage: swap[5]!, source: 'CHAT', baseRevision: workflow.revision };
+    return { type: ethereum ? 'ADD_ETHEREUM_SEPOLIA_SWAP' : testnet ? 'ADD_TESTNET_SWAP' : 'ADD_SWAP', direction, amount: swap[1]!, slippage: swap[5]!, source: 'CHAT', baseRevision: workflow.revision };
   }
   const amount = /^set (node-\d+) amount (\S+)$/i.exec(input);
   if (amount && workflow.nodes.find(n => n.nodeId === amount[1])?.actionType === SWAP_ACTION) {
@@ -201,7 +207,7 @@ export function commandIsValid(input: unknown): input is Command {
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
     AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD_UNISWAP_LIQUIDITY: ['input'], SET_UNISWAP_LIQUIDITY: ['nodeId','input'], ADD_ROUTER_BRIDGE: ['input'], SET_ROUTER_BRIDGE: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
-    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
+    CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_ETHEREUM_SEPOLIA_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
   };
   if (typeof command.type !== 'string' || !fields[command.type]
@@ -326,6 +332,7 @@ export function commandIsValid(input: unknown): input is Command {
     }
     case 'ADD_SWAP':
     case 'ADD_TESTNET_SWAP':
+    case 'ADD_ETHEREUM_SEPOLIA_SWAP':
     case 'ADD_COW_SWAP': return ['USDC_TO_WETH', 'WETH_TO_USDC'].includes(command.direction as string)
       && typeof command.amount === 'string' && command.amount.length <= 80
       && typeof command.slippage === 'string' && command.slippage.length <= 5;
@@ -348,17 +355,17 @@ export function summarize(workflow: Workflow, context?: ReviewContext): string {
     const transfer=transferDetails(node as Parameters<typeof transferDetails>[0]);
     if(transfer)return `${node.nodeId}: Self-transfer ${transfer.amount} test ETH on ${transfer.network} to the connected owner; chain execution proof, not DeFi.`;
     const withdrawn=withdrawDetails(node as Parameters<typeof withdrawDetails>[0]);
-    if(withdrawn)return `${node.nodeId}: Withdraw ${withdrawn.amount} USDC from Aave V3 on ${withdrawn.network}, recipient connected owner at Review.`;
+    if(withdrawn)return `${node.nodeId}: Withdraw ${withdrawn.amount} ${withdrawn.asset} from Aave V3 on ${withdrawn.network}, recipient connected owner at Review.`;
     const repaid=repayDetails(node as Parameters<typeof repayDetails>[0]);
-    if(repaid)return `${node.nodeId}: Repay ${repaid.amount} USDC to Aave V3 on ${repaid.network}, variable debt mode 2, onBehalfOf ${repaid.beneficiary}.`;
+    if(repaid)return `${node.nodeId}: Repay ${repaid.amount} ${repaid.asset} to Aave V3 on ${repaid.network}, variable debt mode 2, onBehalfOf ${repaid.beneficiary}.`;
     const uni = uniswapLiquidityDetails(node);
     if (uni) return `${node.nodeId}: Concentrated liquidity on ${uni.network} via ${uni.provider}, up to ${uni.maxUsdc} USDC and ${uni.maxWeth} WETH, ${uni.lowerPrice}–${uni.upperPrice} USDC per WETH (ticks ${uni.tickLower} to ${uni.tickUpper}, fee 0.05%), ${uni.slippage} bps, simulation required.`;
     const orca = solanaLiquidityDetails(node);
     if (orca) return `${node.nodeId}: Concentrated liquidity on ${orca.network} via ${orca.provider}, up to ${orca.maxSol} SOL and ${orca.maxDevUsdc} devUSDC, ${orca.lowerPrice}–${orca.upperPrice} devUSDC per SOL (ticks ${orca.tickLower} to ${orca.tickUpper}), ${orca.slippage} bps, simulation required.`;
     const borrowed = borrowDetails(node as Parameters<typeof borrowDetails>[0]);
-    if(borrowed)return `${node.nodeId}: Borrow ${borrowed.amount} USDC from Aave V3 on ${borrowed.network}, variable rate, borrower ${borrowed.beneficiary}.`;
+    if(borrowed)return `${node.nodeId}: Borrow ${borrowed.amount} ${borrowed.asset} from Aave V3 on ${borrowed.network}, variable rate, borrower ${borrowed.beneficiary}.`;
     const supply = supplyDetails(node as Parameters<typeof supplyDetails>[0]);
-    if (supply) return `${node.nodeId}: Supply ${supply.amount} USDC to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
+    if (supply) return `${node.nodeId}: Supply ${supply.amount} ${supply.asset} to Aave V3 on ${supply.network}, beneficiary ${supply.beneficiary}.`;
     const routed = routerDetails(node);
     if (routed) return `${node.nodeId}: Cross-chain bridge ${routed.amount} USDC from ${routed.source} to ${routed.destination}, recipient ${routed.recipientLabel}, ${routed.slippage} bps, routing ${ROUTER_ROUTING_LABEL[routed.routing]}; quote, simulation and route review required.`;
     const bridge = bridgeDetails(node);

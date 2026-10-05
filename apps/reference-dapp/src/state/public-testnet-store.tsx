@@ -4,8 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { publicAvailability, publicBegin, publicObserve, publicPrepare, publicRefresh, publicReport, publicReview, publicStatus } from '../app/public-testnet-action';
 import type { PublicRun } from '../server/public-testnet-service';
-import { BASE_SEPOLIA } from '../domain/public-testnet-swap';
-import { BASE_SEPOLIA_HEX, injected, useBuild009Wallet } from './build009-wallet-store';
+import { publicSwapProfile } from '../domain/public-testnet-swap';
+import { injected, useBuild009Wallet } from './build009-wallet-store';
 import { useWorkflow } from './workflow-store';
 
 const KEY = 'gryloo:public-testnet-execution-id';
@@ -24,9 +24,9 @@ function message(error: unknown): string {
     QUOTE_CHANGED_REVIEW_REQUIRED: 'The quote changed. Review the updated amounts before executing.',
     QUOTE_EXPIRED_REVIEW_REQUIRED: 'Quote expired. Review a fresh quote.',
     REVIEW_EXPIRED: 'Quote expired. Simulate again.', REVIEW_REQUIRED: 'Review the current swap first.',
-    INSUFFICIENT_INPUT: 'Insufficient test token balance.', INSUFFICIENT_TEST_ETH: 'Insufficient Base Sepolia ETH for network fees.',
+    INSUFFICIENT_INPUT: 'Insufficient test token balance.', INSUFFICIENT_TEST_ETH: 'Insufficient test ETH for network fees on this network.',
     POOL_UNUSABLE: 'The selected pool is unavailable. Try again later.', POOL_FACTORY_MISMATCH: 'The selected pool could not be verified.',
-    WRONG_PROVIDER_CHAIN: 'Base Sepolia is unavailable from this provider.',
+    WRONG_PROVIDER_CHAIN: 'The provider is not on the reviewed network.', PUBLIC_NETWORK_UNAVAILABLE: 'This network is not enabled on this app instance.',
     ATTEMPT_ALREADY_ACTIVE: 'A transaction is already in progress. Check its result before trying again.',
     SWAP_ALREADY_ATTEMPTED: 'This swap was already submitted. Check its result before trying again.',
     RECONCILIATION_MISMATCH: 'The transaction needs manual review. The observed balances did not match the swap bounds.',
@@ -98,18 +98,24 @@ export function PublicTestnetProvider({ children }: { children: ReactNode }) {
     if (!run) throw new Error('EXECUTION_NOT_FOUND');
     setRun(unwrap(await publicObserve(run.quote.executionId)));
   }), [guarded, run]);
+  // Switching only asks the wallet to move to the quoted (else the authored) swap's chain; it never signs or sends.
   const switchNetwork = useCallback(() => guarded('Switching wallet network', async () => {
-    await wallet.switchTo(BASE_SEPOLIA_HEX);
-  }), [guarded, wallet]);
+    const profile = publicSwapProfile(run?.quote.chainId ?? workflowRef.current.nodes.find(n => n.actionType === 'asset.swap.exact-input')?.chainId);
+    if (!profile) throw new Error('REVIEW_REQUIRED');
+    await wallet.switchTo(profile.chainHex);
+  }), [guarded, wallet, run]);
   const execute = useCallback(() => guarded('Preparing transaction', async () => {
     if (!run || retired) throw new Error('REVIEW_REQUIRED');
     if (run.reviewedManifestHash !== run.quote.manifestHash) throw new Error('REVIEW_REQUIRED');
     const provider = injected();
     if (!provider) throw new Error('WALLET_NOT_FOUND');
+    // The quoted chain fixes the only chain the wallet may be on; it is read again just before the single send.
+    const profile = publicSwapProfile(run.quote.chainId);
+    if (!profile) throw new Error('WRONG_WALLET_CHAIN');
     let session = await wallet.session();
     if (!session) session = await wallet.connect();
     if (!session) throw new Error('WALLET_CONNECTION_REJECTED');
-    if (session.chainId !== BASE_SEPOLIA_HEX) throw new Error('WRONG_WALLET_CHAIN');
+    if (session.chainId !== profile.chainHex) throw new Error('WRONG_WALLET_CHAIN');
     const begun = await publicBegin(run.quote.executionId, session.account);
     if (!begun.ok) {
       const current = await publicStatus(run.quote.executionId);
@@ -118,15 +124,15 @@ export function PublicTestnetProvider({ children }: { children: ReactNode }) {
     }
     const { attempt, tx } = begun.value;
     setRun(unwrap(await publicStatus(run.quote.executionId)));
-    if (tx.chainId !== BASE_SEPOLIA_HEX || tx.from !== session.account || tx.value !== '0x0' ||
-        tx.to !== (attempt.step === 'approval' ? run.quote.inputToken : BASE_SEPOLIA.router) ||
+    if (tx.chainId !== profile.chainHex || tx.from !== session.account || tx.value !== '0x0' ||
+        tx.to !== (attempt.step === 'approval' ? run.quote.inputToken : profile.router) ||
         await calldataDigest(tx.data) !== attempt.calldataDigest) {
       unwrap(await publicReport(run.quote.executionId, attempt.attemptId, { kind: 'UNKNOWN' }));
       throw new Error('TRANSACTION_ARTIFACT_CHANGED');
     }
     const actualChain = await provider.request({ method: 'eth_chainId' });
     const accounts = await provider.request({ method: 'eth_accounts' });
-    if (typeof actualChain !== 'string' || actualChain.toLowerCase() !== BASE_SEPOLIA_HEX ||
+    if (typeof actualChain !== 'string' || actualChain.toLowerCase() !== profile.chainHex ||
         !Array.isArray(accounts) || typeof accounts[0] !== 'string' || accounts[0].toLowerCase() !== session.account) {
       unwrap(await publicReport(run.quote.executionId, attempt.attemptId, { kind: 'UNKNOWN' }));
       throw new Error('WRONG_WALLET_CHAIN');

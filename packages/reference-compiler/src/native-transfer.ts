@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * RH-DEMO-001: read-only simulation and Review of one native test-ETH self-transfer on Robinhood Testnet.
- * Every value is read at one block; nothing is signed or sent. The Review commitment binds the exact
+ * RH-DEMO-001: read-only simulation and Review of one native test-ETH self-transfer on a public test network with a
+ * transfer profile (Robinhood Testnet; BUILD-ETHEREUM-001 adds Ethereum Sepolia). The authored chain selects the
+ * profile. Every value is read at one block; nothing is signed or sent. The Review commitment binds the exact
  * transaction, nonce, fee bounds, balances and freshness.
  */
-import { ROBINHOOD_TESTNET_TRANSFER as profile } from '@defi-workflow-engine/action-registry';
-export { ROBINHOOD_TESTNET_TRANSFER } from '@defi-workflow-engine/action-registry';
+import { nativeTransferProfile, type NativeTransferProfile } from '@defi-workflow-engine/action-registry';
+export { ROBINHOOD_TESTNET_TRANSFER, ETHEREUM_SEPOLIA_TRANSFER, NATIVE_TRANSFER_PROFILES, nativeTransferProfile, type NativeTransferProfile } from '@defi-workflow-engine/action-registry';
 import { readNativeTransferNode, supplyAddress, hashSupplyValue, TRANSFER_ACTION, type SemanticWorkflow, type ArtifactSet,
   type SimulationBundle, type AuthorizationPolicy, type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
 import { rpcRecord, rpcHex, rpcUint, rpcHash, supplyHex, supplyHash, supplyArtifactHash } from './supply.js';
@@ -22,10 +23,9 @@ export type NativeTransferReview = { format: 'gryloo.native-transfer-review.v1';
   balanceBefore: string; expectedBalanceAfter: string; minimumBalanceAfter: string; simulationResult: '0x';
   state: TransferState; expiresAt: string; artifactSet: ArtifactSet; simulation: SimulationBundle; policy: AuthorizationPolicy;
   manifest: StrategyManifest; plan: ExecutionPlan; commitment: string };
-const native = { chainId: profile.chain, nativeId: 'ETH', decimals: 18 };
-const adapter = { id: profile.adapterId, version: '1.0.0' };
+const adapter = { id: 'evm.native-transfer', version: '1.0.0' };
 
-export async function readTransferState(rpc: TransferRpc, accountInput: string, now = Date.now()): Promise<TransferState> {
+export async function readTransferState(rpc: TransferRpc, profile: NativeTransferProfile, accountInput: string, now = Date.now()): Promise<TransferState> {
   const account = supplyAddress(accountInput);
   if (rpcUint(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) throw new Error('TRANSFER_WRONG_CHAIN');
   const block = rpcRecord(await rpc('eth_getBlockByNumber', ['latest', false]));
@@ -50,12 +50,14 @@ function transferFields(workflow: SemanticWorkflow) {
   if (nodes.length !== 1 || workflow.nodes.some(n => n.actionType !== TRANSFER_ACTION && !n.actionType.startsWith('mock-')) ||
       workflow.resourceEdges.length || workflow.nodes.some(n => n.dependencies.length)) throw new Error('TRANSFER_ISOLATED_ONLY');
   const fields = readNativeTransferNode(nodes[0]!);
-  if (fields.chain !== profile.chain || BigInt(fields.amount) > BigInt(profile.maximumValueWei)) throw new Error('TRANSFER_PROFILE_UNSUPPORTED');
-  return { node: nodes[0]!, fields };
+  let profile: NativeTransferProfile;
+  try { profile = nativeTransferProfile(fields.chain); } catch { throw new Error('TRANSFER_PROFILE_UNSUPPORTED'); }
+  if (BigInt(fields.amount) > BigInt(profile.maximumValueWei)) throw new Error('TRANSFER_PROFILE_UNSUPPORTED');
+  return { node: nodes[0]!, fields, profile };
 }
 /** The exact self-transfer for the connected owner. */
 export function compileNativeTransfer(workflow: SemanticWorkflow, accountInput: string, gasLimit: string, maxFeePerGas: string): NativeTransferTransaction {
-  const { fields } = transferFields(workflow), owner = supplyAddress(accountInput);
+  const { fields, profile } = transferFields(workflow), owner = supplyAddress(accountInput);
   return { from: owner, to: owner, value: supplyHex(fields.amount), data: '0x', chainId: profile.chainHex,
     gas: supplyHex(gasLimit), maxFeePerGas: supplyHex(maxFeePerGas), maxPriorityFeePerGas: '0x0' };
 }
@@ -63,8 +65,8 @@ export function compileNativeTransfer(workflow: SemanticWorkflow, accountInput: 
 /** Only reads. eth_call and eth_estimateGas execute the exact transfer against ephemeral state. */
 export async function simulateNativeTransfer(workflow: SemanticWorkflow, accountInput: string, rpc: TransferRpc, now = Date.now()): Promise<NativeTransferReview> {
   const semanticHash = supplyArtifactHash('semantic-workflow', workflow);
-  const { node, fields } = transferFields(workflow);
-  const state = await readTransferState(rpc, accountInput, now), account = state.account, tag = supplyHex(state.block);
+  const { node, fields, profile } = transferFields(workflow), native = { chainId: profile.chain, nativeId: 'ETH', decimals: 18 };
+  const state = await readTransferState(rpc, profile, accountInput, now), account = state.account, tag = supplyHex(state.block);
   // A queued transaction would make the wallet's nonce assignment ambiguous.
   if (state.pendingNonce !== state.nonce) throw new Error('TRANSFER_PENDING_TRANSACTION');
   if (BigInt(state.balance) <= BigInt(fields.amount)) throw new Error('TRANSFER_INSUFFICIENT_TEST_ETH');
@@ -87,7 +89,8 @@ export async function simulateNativeTransfer(workflow: SemanticWorkflow, account
   const artifactHash = supplyArtifactHash('artifact-set', artifactSet);
   const simulation: SimulationBundle = { schemaVersion: '1.0.0', simulationId: 'native-transfer-simulation', semanticWorkflowRevision: workflow.revision,
     semanticWorkflowHash: semanticHash, artifactSetHash: artifactHash, adapters: [adapter], contracts: [], outputs: [], propagatedOutputs: [],
-    failurePaths: [], uncertainty: [{ code: 'L2_SOFT_CONFIRMATION', description: 'Inclusion is first a Robinhood Chain sequencer confirmation; L1 finality follows later.' }],
+    failurePaths: [], uncertainty: profile.settlement === 'L2' ? [{ code: 'L2_SOFT_CONFIRMATION', description: 'Inclusion is first a Robinhood Chain sequencer confirmation; L1 finality follows later.' }] :
+      [{ code: 'L1_REORG_WINDOW', description: `Inclusion is an ${profile.network} block; reconciliation waits for ${profile.minimumConfirmations} confirmations.` }],
     unsupportedAssumptions: [], freshness: { observedAt: state.observedAt, expiresAt, maximumAgeSeconds: profile.reviewTtlSeconds } };
   const simulationHash = supplyArtifactHash('simulation-bundle', simulation), owner = { chainId: profile.chain, address: account };
   const spendLimits = [{ asset: native, maximumAmount: fields.amount, maximumPerStepAmount: fields.amount, maximumCumulativeAmount: fields.amount }];
@@ -124,8 +127,9 @@ export function assertNativeTransferReview(review: NativeTransferReview, workflo
   if (supplyHash(content) !== commitment || review.format !== 'gryloo.native-transfer-review.v1') throw new Error('TRANSFER_AUTHORIZATION_INVALID');
   if (supplyArtifactHash('semantic-workflow', workflow) !== review.manifest.semanticWorkflowHash ||
       JSON.stringify(workflow) !== JSON.stringify(review.workflow)) throw new Error('TRANSFER_SEMANTIC_REVISION_CHANGED');
-  const { fields } = transferFields(workflow), owner = supplyAddress(account);
-  if (fields.amount !== review.value || owner !== review.account || review.recipient !== review.account || review.chain !== profile.chain) throw new Error('TRANSFER_AUTHORIZATION_INVALID');
+  const { fields, profile } = transferFields(workflow), owner = supplyAddress(account);
+  if (fields.amount !== review.value || owner !== review.account || review.recipient !== review.account || review.chain !== profile.chain ||
+      review.chainId !== profile.chainId) throw new Error('TRANSFER_AUTHORIZATION_INVALID');
   if (now >= Date.parse(review.expiresAt) || now < Date.parse(review.state.observedAt)) throw new Error('TRANSFER_REVIEW_EXPIRED');
   if (state.account !== review.account || state.nonce !== review.nonce || state.pendingNonce !== review.nonce || state.block < review.state.block ||
       BigInt(state.gasPrice) > BigInt(review.maxFeePerGas) || BigInt(state.balance) < BigInt(review.value) + BigInt(review.feeBudget)) throw new Error('TRANSFER_AUTHORIZATION_STALE');
