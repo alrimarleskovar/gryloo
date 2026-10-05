@@ -16,7 +16,7 @@ import { useJupiter } from '../state/jupiter-store';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
 
 export function SummaryBar({ tab, setTab, simulationActionHost }: { tab: Tab; setTab: (value: Tab) => void; simulationActionHost?: HTMLDivElement | null }) {
-  const { state } = useWorkflow();
+  const { state, actionSetup } = useWorkflow();
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
   const supply = useSupply(),lending=useLending();
@@ -31,7 +31,7 @@ export function SummaryBar({ tab, setTab, simulationActionHost }: { tab: Tab; se
   const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
   const reviewable = Boolean(info?.available && prepared && !retired && !verifyError && verified['step-approve'] && verified['step-swap']);
-  const actionCount = workflowShellContext(state.workflow).actionCount;
+  const actionCount = workflowShellContext(state.workflow).actionCount + (actionSetup ? 1 : 0);
   const action = tab === 'Build' ? null
       : tab === 'Simulate' && transferPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!transfer.record || transfer.retired}>Review transfer</button>
       : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={()=>setTab('Execute')} disabled={!lending.record||lending.retired}>Review lending composition</button>

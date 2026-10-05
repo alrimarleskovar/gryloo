@@ -24,7 +24,8 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
   const modeB = useModeB();
   const build009 = useBuild009Wallet();
   const bridgeSwap = useBridgeSwap();
-  const workflow = useWorkflow().state.workflow;
+  const { state, authoringIncomplete } = useWorkflow();
+  const workflow = state.workflow;
   const context = workflowShellContext(workflow);
   const router = useRouter();
   const jupiter = useJupiter();
@@ -45,7 +46,7 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
   return <header className="top-bar">
     <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1062} height={299} unoptimized/></span></div>
     <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={tab === 'Dashboard' ? 'page' : undefined} className={tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
-      <button key={value} type="button" onClick={() => setTab(value)} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
+      <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
       <div className="header-wallet" role="group" aria-label="Wallet connection">
       {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>

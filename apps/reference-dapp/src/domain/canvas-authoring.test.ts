@@ -27,11 +27,11 @@ describe('canvas authoring through existing canonical commands', () => {
   });
 
   it.each(['supply', 'borrow', 'repay', 'lending'] as const)('requires a real beneficiary for %s without inventing an address', action => {
-    expect(() => canvasAddCommand(action, 0, null)).toThrow('Connect your wallet');
+    expect(() => canvasAddCommand(action, 0, null, '1')).toThrow('Connect your wallet');
   });
 
   it.each(['bridge', 'pool'] as const)('%s produces a canonical action rather than a placeholder', action => {
-    const result = editorReducer(initialEditor(), canvasAddCommand(action, 0, null), context);
+    const result = editorReducer(initialEditor(), canvasAddCommand(action, 0, null, '1'), context);
     expect(result.error).toBeNull();
     const nodes = result.workflow.nodes.filter(node => !node.actionType.startsWith('mock-'));
     expect(nodes).toHaveLength(1);

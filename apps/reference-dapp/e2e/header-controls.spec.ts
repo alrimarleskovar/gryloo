@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 
 test('boxed wallet preserves connect/disconnect and aligns with the Settings toggle', async ({ page }) => {
   await installSupplyWallet(page, { connected: false });
@@ -100,6 +101,7 @@ test('advanced setup has a single outer expansion and retains existing forms and
   expect(await advanced.evaluate(element => element.parentElement?.closest('details') !== null)).toBe(false);
   await expect(advanced).not.toHaveAttribute('open');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await expect(page.locator('.flow-card')).toHaveCount(1);
   const findings = advanced.getByRole('region', { name: 'Deterministic review findings' });
   await expect(findings).toBeHidden();

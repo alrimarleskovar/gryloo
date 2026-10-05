@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 const owner = '0x1111111111111111111111111111111111111111';
 const graph = (page: Page) => page.getByRole('region', { name: 'Simulation workflow graph', exact: true });
 const stages = (page: Page) => page.getByRole('navigation', { name: 'Workflow stages' });
@@ -12,7 +13,8 @@ const summaries = (page: Page, surface: string) => page.locator(`${surface} .com
   const detail = destination && title.includes('Swap')
     ? `${card.querySelector('.composer-amount .composer-amount-token')?.textContent} → ${destination}`
     : (card.querySelector('.composer-detail')?.textContent ?? '').replace(/^Borrowed /, '');
-  const amount = card.querySelector('.composer-amount .composer-amount-value')?.textContent;
+  const amount = (card.querySelector('.composer-amount .composer-token-value') as HTMLInputElement | null)?.value
+    ?? card.querySelector('.composer-amount .composer-amount-value')?.textContent;
   const sourceAmount = amount
     ? `${amount} ${card.querySelector('.composer-amount .composer-amount-token')?.textContent}`
     : card.querySelector('.composer-amount')?.textContent ?? '';
@@ -81,6 +83,7 @@ test('lending projects the same authored strategy, shared title and links above 
 
 test('accepted Build edits refresh Simulate while current diagnostic artifacts and Review gates stay intact', async ({ page }) => {
   await open(page); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await rename(page, 'ETH Carry Strategy');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await expect(graph(page).locator('.composer-amount')).toHaveText('1 USDC');
@@ -98,7 +101,7 @@ test('accepted Build edits refresh Simulate while current diagnostic artifacts a
   await graph(page).getByRole('button', { name: 'Return to Build', exact: true }).click();
   await page.getByRole('region', { name: 'Action inspector' }).getByLabel('Input amount (USDC)').fill('2.5');
   await page.getByRole('button', { name: 'Review amount change', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply amount', exact: true }).click();
   await rename(page, 'Updated Strategy');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await expect(graph(page).locator('.composer-amount')).toHaveText('2.5 USDC');
@@ -110,6 +113,7 @@ test('empty workflows and supported isolated actions keep the same graph and ori
   for (const action of [null, 'supply', 'bridge', 'pool', 'borrow', 'repay', 'withdraw'] as const) {
     await open(page);
     if (action) await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
+    if (action === 'bridge') await configureCanvasAction(page, '1');
     const build = await summaries(page, '.build-flow-surface');
     await stages(page).getByRole('button', { name: 'Simulate', exact: true }).click();
     await expect(graph(page)).toBeVisible();

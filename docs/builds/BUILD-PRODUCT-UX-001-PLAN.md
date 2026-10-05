@@ -165,3 +165,16 @@ UX-001 and UX-002 (`8c9337354612fc5a08f18107621e0786e1558bda`) are owner-approve
 - Give only Build Swap/Bridge boxes a large numeric amount and smaller fiat line underneath, with a compact rounded token chip and local icon/avatar on the right. Keep actual authored source numbers; use 0 and US$ 0,00 placeholders for unavailable values. Preserve visible unquoted/symbolic context, and add no quote state or runtime logic.
 - Rename Build card footers to Advanced Settings with a gear icon, retaining bottom anchoring and the existing card → editor selection path.
 - Validate focused card/selection/history/projection and CTA geometry/motion cases, app typecheck, touched-file lint and diff checks. Commit `UX-003A: refine card value boxes and canvas CTA emphasis`, then stop before UX-003B.
+
+
+### UX-003A authoring correction — unconfigured Swap/Bridge and inline amounts
+
+The owner explicitly authorizes a contained authoring-model extension: adding Swap/Bridge must start at 0 without creating an executable amount of 1. This supersedes the earlier presentation-only restriction for this correction, while preserving canonical IR, runtime and provider semantics.
+
+- Extend the existing editor history with required-field setup for one new Swap/Bridge and shared amount-input buffers for editable existing actions. Keep unfinished actions out of canonical IR; create the validated node only through the existing add/edit commands and proposal acceptance.
+- Render the unfinished card in the existing React Flow projection, with an editable source 0, unquoted destination 0, Advanced Settings bound to the same field, normal selection/deletion/layout/history, and product-level amount validation feedback.
+- Refuse zero, empty, malformed and negative amounts through the existing validators. Prevent stale reviewed amounts from being accepted after the field changes. Disable and guard both Simulate and Execute, including the Build CTA and artifact/observation generation, while any action amount needs acceptance.
+- Keep the canonical workflow valid while an existing amount is being replaced; allow Cancel to restore its previous value. Do not duplicate action parameters, change canonical schemas or introduce zero-valued executable nodes.
+- Add a small network badge to token avatars from known chain summaries and local token/fiat display-priority toggles. Fiat/output zero remains visibly unquoted; toggling never changes financial values or requests quotes. Preserve linked/protected amounts as non-editable.
+- Keep user-facing wording focused on configuring amounts, reviewing changes and applying them. Implementation state and IR diagnostics remain in existing diagnostic surfaces.
+- Validate new-action creation, invalid/positive amounts, stale acceptance, shared editor binding, incomplete-stage gates, history/selection, card display toggles/badges, existing composer/Simulate/header/layout regressions, app typecheck, touched-file lint and diff checks only. Document the one-new-action-at-a-time limitation, isolated Bridge safety and shared-file integration touchpoints. Commit `UX-003A: refine card amount toggle and network token badges`, then stop before UX-003B.

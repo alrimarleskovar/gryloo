@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 const owner = '0x1111111111111111111111111111111111111111';
 const cards = (page: Page) => page.locator('.build-flow-surface .composer-card');
 const step = (page: Page, id: string) => page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`);
@@ -55,7 +56,11 @@ test('supported toolbar actions create real selected nodes and bind their editor
     }
     await expect(cards(page)).toContainText('USDC');
     await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
-    await expect(cards(page).locator('input, form')).toHaveCount(0);
+    if (action === 'swap' || action === 'bridge') {
+      await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0');
+      await expect(inspector(page).getByRole('form', { name: `Configure ${action === 'swap' ? 'Swap' : 'Bridge'}`, exact: true })).toBeVisible();
+      await configureCanvasAction(page, '1');
+    } else await expect(cards(page).locator('input, form')).toHaveCount(0);
     await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
     if (form) await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
     else await expect(inspector(page).getByLabel('Input amount (USDC)')).toBeVisible();
@@ -111,12 +116,14 @@ test('connected lending steps select one editor, update linked summaries after a
 
 test('accepted settings update the card and existing warnings link to Selected Action', async ({ page }) => {
   await open(page); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await inspector(page).getByLabel('Input amount (USDC)').fill('2.5');
   await inspector(page).getByRole('button', { name: 'Review amount change' }).click();
-  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('1');
+  await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2.5');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(cards(page).locator('.composer-amount .composer-amount-token')).toHaveText('USDC');
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('2.5');
+  await page.getByRole('button', { name: 'Apply amount' }).click();
+  await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2.5');
   await expect(cards(page).locator('.composer-amount .composer-amount-token')).toHaveText('USDC');
   await inspector(page).getByLabel('Slippage (bps)').fill('200');
   await inspector(page).getByRole('button', { name: 'Review slippage change' }).click();
@@ -208,9 +215,10 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     await page.setViewportSize({ width, height: 900 });
     await open(page);
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
+    await configureCanvasAction(page, '1');
     const card = cards(page), amount = card.locator('.composer-amount');
     const destination = card.locator('.composer-destination-box');
-    await expect(amount.locator('.composer-amount-value')).toHaveText('1');
+    await expect(amount.locator('.composer-token-value')).toHaveValue('1');
     await expect(amount.locator('.composer-amount-token')).toHaveText('USDC');
     await expect(amount.locator('.composer-value-edit')).toBeVisible();
     await expect(card.locator('.composer-amount-box')).toHaveCount(2);
@@ -223,7 +231,7 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     expect(destinationBox.width).toBe(sourceBox.width);
     for (const valueBox of [amount, destination]) {
       await expect(valueBox.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
-      await expect(valueBox.locator('.composer-fiat-value')).toHaveAttribute('aria-label', /unavailable.*placeholder/);
+      await expect(valueBox.locator('.composer-fiat-value')).toHaveAttribute('aria-label', /unavailable/);
       await expect(valueBox.locator('.composer-token-avatar')).toBeVisible();
       const value = (await valueBox.locator('.composer-value-column').boundingBox())!;
       const token = (await valueBox.locator('.composer-token-chip').boundingBox())!;
@@ -234,7 +242,8 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
       expect(value.x + value.width).toBeLessThan(token.x);
       expect(Math.abs(value.y + value.height / 2 - token.y - token.height / 2)).toBeLessThan(1);
     }
-    await expect(card.locator('input, form')).toHaveCount(0);
+    await expect(card.locator('input')).toHaveCount(1);
+    await expect(card.locator('form')).toHaveCount(1);
     const footerGap = await card.evaluate(element => {
       const footer = element.querySelector('.composer-selected') as HTMLElement;
       return (element as HTMLElement).clientHeight - footer.offsetTop - footer.offsetHeight;
@@ -255,10 +264,15 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     await page.getByRole('toolbar', { name: 'Canvas tools', exact: true }).scrollIntoViewIfNeeded();
     await expect(utilities.getByRole('button', { name: 'Undo', exact: true })).toBeInViewport();
     await utilities.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(amount.locator('.composer-token-value')).toHaveValue('1');
+    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+    await utilities.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(card).toHaveCount(0);
     await expect(utilities.getByRole('button', { name: 'Redo', exact: true })).toBeInViewport();
     await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
-    await expect(amount.locator('.composer-amount-value')).toHaveText('1');
+    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+    await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect(amount.locator('.composer-token-value')).toHaveValue('1');
     await expect(inspector(page).locator('.inspector-body')).toBeVisible();
   }
 });
@@ -312,6 +326,7 @@ test('Delete uses the current selection, honors locks/protected steps and remain
   const remove = page.getByRole('button', { name: 'Delete', exact: true });
   await expect(remove).toBeDisabled();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await expect(remove).toBeEnabled();
   await inspector(page).getByRole('button', { name: 'Lock amount', exact: true }).click();
   await expect(remove).toBeDisabled();
@@ -323,7 +338,7 @@ test('Delete uses the current selection, honors locks/protected steps and remain
   await expect(remove).toBeDisabled();
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(cards(page).locator('.composer-amount .composer-amount-value')).toHaveText('1');
+  await expect(cards(page).locator('.composer-amount .composer-token-value')).toHaveValue('1');
   await expect(cards(page)).toHaveClass(/active/);
   await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('button', { name: 'Redo', exact: true }).click();

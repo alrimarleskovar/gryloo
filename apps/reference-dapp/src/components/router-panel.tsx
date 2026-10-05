@@ -20,21 +20,25 @@ const explorerTx = (network: RouterNetwork, chain: 'source' | 'destination', has
 
 /** Canvas form for the canonical cross-chain bridge node (USDC → USDC through the Cross-chain Router, mainnet or testnet). */
 export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId?: string; onDone?: () => void; network?: RouterNetwork }) {
-  const { state, propose } = useWorkflow();
+  const { state, propose, amountInputs = {}, editCanvasAmount } = useWorkflow();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId), existing = node ? routerDetails(node) : null;
   const start = ROUTER_NETWORK_OPTIONS[existing?.network ?? initialNetwork ?? 'mainnet'];
   const [input, setInput] = useState<RouterBridgeInput>(existing ? routerInputOf(existing)
     : { source: start.source, destination: start.destination, token: 'USDC', amount: '', recipient: '', slippage: ROUTER_DEFAULT_SLIPPAGE, routing: 'AUTO' });
   const [error, setError] = useState('');
-  const set = (patch: Partial<RouterBridgeInput>) => setInput(value => ({ ...value, ...patch }));
+  const set = (patch: Partial<RouterBridgeInput>) => {
+    if (patch.amount !== undefined && nodeId) editCanvasAmount(nodeId, patch.amount);
+    setInput(value => ({ ...value, ...patch, amount: nodeId ? value.amount : patch.amount ?? value.amount }));
+  };
+  const fields = { ...input, amount: nodeId ? amountInputs[nodeId] ?? input.amount : input.amount };
   const network: RouterNetwork = input.source === 'Base Sepolia' ? 'testnet' : 'mainnet', option = ROUTER_NETWORK_OPTIONS[network], l = LABELS[network];
   const choose = (next: RouterNetwork) => set({ source: ROUTER_NETWORK_OPTIONS[next].source, destination: ROUTER_NETWORK_OPTIONS[next].destination });
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      createRouterNode(nodeId ?? 'node-preview', input); setError('');
-      propose(nodeId ? { type: 'SET_ROUTER_BRIDGE', nodeId, input, source: 'CANVAS', baseRevision: state.workflow.revision }
-        : { type: 'ADD_ROUTER_BRIDGE', input, source: 'CANVAS', baseRevision: state.workflow.revision });
+      createRouterNode(nodeId ?? 'node-preview', fields); setError('');
+      propose(nodeId ? { type: 'SET_ROUTER_BRIDGE', nodeId, input: fields, source: 'CANVAS', baseRevision: state.workflow.revision }
+        : { type: 'ADD_ROUTER_BRIDGE', input: fields, source: 'CANVAS', baseRevision: state.workflow.revision });
       onDone?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'ROUTER_INPUT_INVALID'); }
   }
@@ -46,7 +50,7 @@ export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId
     <label>Source chain<select aria-label="Cross-chain source chain" value={input.source} onChange={() => set({ source: option.source })}><option value={option.source}>{l.src}</option></select></label>
     <label>Destination chain<select aria-label="Cross-chain destination chain" value={input.destination} onChange={() => set({ destination: option.destination })}><option value={option.destination}>{l.dst}</option></select></label>
     <label>Token<select aria-label="Cross-chain token" value={input.token} onChange={() => set({ token: 'USDC' })}><option value="USDC">USDC → USDC</option></select></label>
-    <label>Amount (USDC)<input aria-label="Cross-chain amount (USDC)" inputMode="decimal" autoComplete="off" maxLength={40} value={input.amount} onChange={e => set({ amount: e.target.value })}/></label>
+    <label>Amount (USDC)<input aria-label="Cross-chain amount (USDC)" inputMode="decimal" autoComplete="off" maxLength={40} value={fields.amount} onChange={e => set({ amount: e.target.value })}/></label>
     <label>Recipient on {l.dstShort}<input aria-label="Cross-chain recipient" autoComplete="off" spellCheck={false} maxLength={42} placeholder="Your connected wallet" value={input.recipient}
       onChange={e => set({ recipient: e.target.value })}/></label>
     <label>Routing<select aria-label="Cross-chain routing policy" value={input.routing} onChange={e => set({ routing: e.target.value as RouterRouting })}>

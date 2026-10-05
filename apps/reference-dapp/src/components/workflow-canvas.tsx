@@ -21,6 +21,7 @@ import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/c
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
 import { ComposerCard, type ComposerCardData } from './composer-card';
+import { canEditCanvasAmount, setupSummary } from '../domain/canvas-action-setup';
 import { ActionIcon } from './action-icon';
 import { SimulateWorkflowCanvas } from './simulate-workflow-canvas';
 import { composerActions, composerSummary, composerNodeState, composerConnections } from '../domain/composer-presentation';
@@ -215,7 +216,8 @@ export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; wor
 }
 
 function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renameWorkflow = () => {}, primaryAction }: BuildCanvasProps) {
-  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review } = useWorkflow();
+  const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review,
+    actionSetup = null, amountInputs = {}, startActionSetup, editCanvasAmount, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const wallet=useBuild009Wallet();
   const [selectedIds, setSelectedIds] = useState<readonly string[]>(() => selectedId ? [selectedId] : []);
@@ -250,25 +252,30 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
   // Proposal-based compositions become selectable only after the canonical edit is applied.
   const previousNodeIds = useRef(new Set(workflow.nodes.map(node => node.nodeId)));
   useEffect(() => {
+    if (selectedEdge && !composerConnections(workflow).some(edge => edge.source === selectedEdge.from && edge.target === selectedEdge.to)) setSelectedEdge(null);
+  }, [workflow, selectedEdge]);
+  useEffect(() => {
+    const remaining = selectedIdsRef.current.filter(id => actionSetup?.id === id || workflow.nodes.some(node => node.nodeId === id));
+    if (remaining.length !== selectedIdsRef.current.length) { selectedIdsRef.current = remaining; setSelectedIds(remaining); }
+    if (selectedId && selectedId !== actionSetup?.id && !workflow.nodes.some(node => node.nodeId === selectedId)) select(null);
+  }, [workflow, actionSetup, selectedId, select]);
+  const previousSetupId = useRef(actionSetup?.id);
+  useEffect(() => {
+    if (actionSetup && previousSetupId.current !== actionSetup.id) selectNodes([actionSetup.id], actionSetup.id);
+    previousSetupId.current = actionSetup?.id;
+  }, [actionSetup]);
+  useEffect(() => {
     const added = composerActions(workflow).find(node => !previousNodeIds.current.has(node.nodeId));
     previousNodeIds.current = new Set(workflow.nodes.map(node => node.nodeId));
     if (added) selectNodes([added.nodeId], added.nodeId);
   }, [workflow]);
-  useEffect(() => {
-    if (selectedEdge && !composerConnections(workflow).some(edge => edge.source === selectedEdge.from && edge.target === selectedEdge.to)) setSelectedEdge(null);
-  }, [workflow, selectedEdge]);
-  useEffect(() => {
-    const remaining = selectedIdsRef.current.filter(id => workflow.nodes.some(node => node.nodeId === id));
-    if (remaining.length !== selectedIdsRef.current.length) { selectedIdsRef.current = remaining; setSelectedIds(remaining); }
-    if (selectedId && !workflow.nodes.some(node => node.nodeId === selectedId)) select(null);
-  }, [workflow, selectedId, select]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.isComposing || event.key === 'Process' || event.keyCode === 229 || event.altKey || event.metaKey) return;
       const textEntry = isTextEntry(event.target);
       if (event.key === 'Escape' && (selectedIdsRef.current.length || selectedEdge)) { event.preventDefault(); selectNodes([], null); return; }
       if (textEntry) return;
-      if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof Element) {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof Element && !event.target.closest('button')) {
         const id = event.target.closest('.react-flow__node')?.getAttribute('data-id');
         if (id) { event.preventDefault(); selectNodes([id], id); return; }
       }
@@ -292,19 +299,24 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
       const selected = selectedIdsRef.current;
       if (!selected.length) return;
       event.preventDefault();
-      const removable = deletableCanvasNodes(workflow, selected);
+      const removingSetup = Boolean(actionSetup && selected.includes(actionSetup.id));
+      const canonicalSelection = selected.filter(id => id !== actionSetup?.id);
+      const removable = deletableCanvasNodes(workflow, canonicalSelection);
+      if (removingSetup) removeActionSetup();
       if (removable.length) {
         dispatch({ type: 'REMOVE_MANY', nodeIds: removable, source: 'CANVAS', baseRevision: workflow.revision });
         selectNodes(selected.filter(id => !removable.includes(id)), null);
       }
-      if (removable.length !== selected.length) setFeedback(removable.length
+      if (removingSetup && !removable.length) selectNodes([], null);
+      if (removable.length !== canonicalSelection.length) setFeedback(removable.length
         ? 'Some selected steps are required by another step or are protected.'
         : 'This step is required by another step or is protected.');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, workflow, selectedEdge, select, undo, redo]);
-  const projectedNodes = useMemo<Node[]>(() => composerActions(workflow).map((node, index) => ({
+  }, [dispatch, workflow, actionSetup, removeActionSetup, selectedEdge, select, undo, redo]);
+  const projectedNodes = useMemo<Node[]>(() => {
+    const projected: Node[] = composerActions(workflow).map((node, index) => ({
     id: node.nodeId, type: 'workflow',
     ariaLabel: `Step ${index + 1}: ${composerSummary(workflow, node, context).action}`,
     position: canvasLayout[node.nodeId] ? canvasPosition(canvasLayout, node, index) :
@@ -312,8 +324,26 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     selected: selectedIds.includes(node.nodeId) || selectedId === node.nodeId,
     data: { composer: true, step: index + 1, selected: selectedId === node.nodeId,
       vertical: isLendingComposition(workflow), summary: composerSummary(workflow, node, context),
-      validation: composerNodeState(review, node.nodeId) },
-  })), [workflow, selectedId, selectedIds, context, canvasLayout, review]);
+      validation: amountInputs[node.nodeId] !== undefined
+        ? { ...composerNodeState(review, node.nodeId), status: 'Check amount', tone: 'warning' }
+        : composerNodeState(review, node.nodeId),
+      ...(canEditCanvasAmount(node, context) ? { amountEditor: {
+        value: amountInputs[node.nodeId] ?? composerSummary(workflow, node, context).amount.split(' ')[0]!,
+        changed: amountInputs[node.nodeId] !== undefined,
+        onChange: (value: string) => editCanvasAmount(node.nodeId, value),
+        onReview: () => reviewCanvasAmount(node.nodeId), onCancel: () => cancelCanvasAmount(node.nodeId),
+      } } : {}) },
+    }));
+    if (actionSetup) projected.push({ id: actionSetup.id, type: 'workflow', ariaLabel: `Step ${projected.length + 1}: ${actionSetup.action === 'swap' ? 'Swap' : 'Bridge'}`,
+      position: canvasLayout[actionSetup.id] ?? defaultCanvasPosition(projected.length), selected: selectedId === actionSetup.id,
+      data: { composer: true, step: projected.length + 1, selected: selectedId === actionSetup.id, vertical: false,
+        summary: setupSummary(actionSetup, context),
+        validation: { findings: [], status: 'Amount required', tone: 'warning', message: undefined, next: undefined },
+        amountEditor: { value: actionSetup.amount, changed: true, onChange: (value: string) => editCanvasAmount(actionSetup.id, value),
+          onReview: () => reviewCanvasAmount(actionSetup.id) },
+      } });
+    return projected;
+  }, [workflow, actionSetup, amountInputs, selectedId, selectedIds, context, canvasLayout, review, editCanvasAmount, reviewCanvasAmount, cancelCanvasAmount]);
   // Live pointer positions stay in React Flow state; layout is committed on release.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(projectedNodes);
   useEffect(() => {
@@ -330,6 +360,14 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     labelStyle: { fontSize: 10, fill: '#536780' }, labelBgStyle: { fill: '#f8fafd' },
   })), [workflow, selectedEdge]);
   function addAction(action: CanvasAction) {
+    if (actionSetup) { selectNodes([actionSetup.id], actionSetup.id); setFeedback('Configure this action before adding another.'); return; }
+    if (action === 'swap' || action === 'bridge') {
+      let slot = composerActions(workflow).length;
+      let position = defaultCanvasPosition(slot);
+      while (nodes.some(node => Math.abs(node.position.x - position.x) < 220 && Math.abs(node.position.y - position.y) < 140)) position = defaultCanvasPosition(++slot);
+      const id = startActionSetup(action, position);
+      selectNodes([id], id); setFeedback(''); return;
+    }
     let command;
     try { command = canvasAddCommand(action, workflow.revision, wallet.account); }
     catch (cause) { setFeedback(cause instanceof Error ? cause.message : 'Connect your wallet to add this action.'); return; }
@@ -357,7 +395,7 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     const moved = draggedNodes.length ? draggedNodes : [dragged];
     moveCanvasNodes(Object.fromEntries(moved.map(node => [node.id, node.position])));
   }
-  const duplicatePlan = planCanvasDuplicate(workflow, canvasLayout, selectedIds, context);
+  const duplicatePlan = actionSetup || Object.keys(amountInputs).length ? null : planCanvasDuplicate(workflow, canvasLayout, selectedIds, context);
   function duplicateSelection() {
     if (!duplicatePlan) return;
     duplicateCanvasNodes(selectedIdsRef.current);
@@ -403,9 +441,10 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
     }
     dispatch(command); setFeedback('');
   }
-  const deleteAllowed = canDeleteCanvasNode(workflow, selectedId);
+  const deleteAllowed = Boolean(selectedId && selectedId === actionSetup?.id) || canDeleteCanvasNode(workflow, selectedId);
   function deleteSelectedCard() {
     if (!selectedId || !deleteAllowed) return;
+    if (selectedId === actionSetup?.id) { removeActionSetup(); selectNodes([], null); return; }
     dispatch({ type: 'REMOVE', nodeId: selectedId, source: 'CANVAS', baseRevision: workflow.revision });
     selectNodes(selectedIdsRef.current.filter(id => id !== selectedId), null);
   }
@@ -456,6 +495,6 @@ function BuildCanvas({ selectedId, select, workflowName = 'Your Workflow', renam
       {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
       {primaryAction && <div className="canvas-primary-action">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot"><span>{isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Step numbers follow draft order. Dragging changes layout only.'}</span><span>{isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Arrows show linked steps. Select a step to edit below.'}</span></div>
+    <div className="canvas-foot"><span>{isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Step numbers show workflow order. Dragging changes layout only.'}</span><span>{isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Arrows show linked steps. Select a step to edit below.'}</span></div>
   </section>;
 }

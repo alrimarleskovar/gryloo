@@ -5,11 +5,12 @@ export const CANVAS_ACTIONS = ['swap', 'bridge', 'pool', 'supply', 'lending', 'b
 export type CanvasAction = (typeof CANVAS_ACTIONS)[number];
 
 /** Authoring defaults only. Existing commands validate the IR and invalidate previous reviews. */
-export function canvasAddCommand(action: CanvasAction, revision: number, owner: string | null): Command {
+export function canvasAddCommand(action: CanvasAction, revision: number, owner: string | null, amount?: string): Command {
   const base = { source: 'CANVAS' as const, baseRevision: revision };
-  if (action === 'swap') return { ...base, type: 'ADD_SWAP', direction: 'USDC_TO_WETH', amount: '1', slippage: '50' };
+  if ((action === 'swap' || action === 'bridge') && amount === undefined) throw new Error('Enter an amount to configure this action.');
+  if (action === 'swap') return { ...base, type: 'ADD_SWAP', direction: 'USDC_TO_WETH', amount: amount!, slippage: '50' };
   if (action === 'bridge') return { ...base, type: 'ADD_ROUTER_BRIDGE', input: {
-    source: 'Base Sepolia', destination: 'Arbitrum Sepolia', token: 'USDC', amount: '1', recipient: '', slippage: '50', routing: 'AUTO',
+    source: 'Base Sepolia', destination: 'Arbitrum Sepolia', token: 'USDC', amount: amount!, recipient: '', slippage: '50', routing: 'AUTO',
   } };
   if (action === 'pool') return { ...base, type: 'ADD_UNISWAP_LIQUIDITY', input: {
     network: 'Base Sepolia', maxUsdc: '1', maxWeth: '0.0001', rangeUnit: 'TICK', lower: '-887270', upper: '887270', slippage: '50',

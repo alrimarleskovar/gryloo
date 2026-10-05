@@ -37,7 +37,7 @@ function render() {
   return html;
 }
 function author(action: Parameters<typeof canvasAddCommand>[0]) {
-  fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, owner), fixture.store.context);
+  fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, owner, '1'), fixture.store.context);
   expect(fixture.store.state.error).toBeNull();
 }
 describe('UX-003A same canonical workflow in Simulate', () => {

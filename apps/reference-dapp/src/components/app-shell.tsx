@@ -59,7 +59,7 @@ import { routerDetails } from '../domain/router-authoring';
 export function AppShell() { return <ModeBProvider><CompositionProvider><CapabilityProvider><AppShellContent/></CapabilityProvider></CompositionProvider></ModeBProvider>; }
 
 function AppShellContent() {
-  const { state } = useWorkflow();
+  const { state, authoringIncomplete } = useWorkflow();
   const modeA = useModeA();
   const { prepared, info } = modeA;
   const modeB = useModeB();
@@ -69,7 +69,11 @@ function AppShellContent() {
   const bridge = useBridge();
   const bridgeSwap = useBridgeSwap();
   const across = useAcross();
-  const [tab, setTab] = useState<ProductSection>('Build');
+  const [tab, setSection] = useState<ProductSection>('Build');
+  const setTab = useCallback((section: ProductSection) => {
+    if (authoringIncomplete && (section === 'Simulate' || section === 'Execute')) return;
+    setSection(section);
+  }, [authoringIncomplete]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
   const [simulationActionHost, setSimulationActionHost] = useState<HTMLDivElement | null>(null);
   const supply = useSupply();
@@ -125,7 +129,8 @@ function AppShellContent() {
     <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"/>
   </div>;
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
-  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={selectAction} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><WorkflowEditReview/><JourneyCard/>
+  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;
+  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas selectedId={selectedId} select={selectAction} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><WorkflowEditReview/><JourneyCard/>
           <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
         : tab === 'Simulate' ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost}><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :

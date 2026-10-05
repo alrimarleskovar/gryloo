@@ -67,7 +67,7 @@ describe('Execute workflow overview', () => {
 const owner = '0x1111111111111111111111111111111111111111';
 function setWorkflow(action?: 'supply' | 'borrow' | 'repay' | 'withdraw') {
   const context = createBaseSepoliaReviewContext();
-  const state = action ? editorReducer(initialEditor(), canvasAddCommand(action, 0, owner), context) : initialEditor();
+  const state = action ? editorReducer(initialEditor(), canvasAddCommand(action, 0, owner, '1'), context) : initialEditor();
   fixture.store = { state, context, canvasLayout: {}, canUndo: false, canRedo: false,
     dispatch: vi.fn(), propose: vi.fn(), undo: vi.fn(), redo: vi.fn(), moveCanvasNodes: vi.fn(), addCanvasCommand: vi.fn(), duplicateCanvasNodes: vi.fn(),
   } as unknown as typeof fixture.store;
@@ -136,7 +136,7 @@ describe('corrected Build workspace presentation', () => {
 describe('UX-002 canonical composer projections', () => {
   it.each(['swap', 'bridge', 'pool', 'supply', 'borrow', 'repay', 'withdraw'] as const)('summarizes the real %s toolbar node without modifying it', action => {
     setWorkflow();
-    fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, '0x1111111111111111111111111111111111111111'), fixture.store.context);
+    fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, '0x1111111111111111111111111111111111111111', '1'), fixture.store.context);
     const workflow = fixture.store.state.workflow;
     const node = workflow.nodes.find(item => !item.actionType.startsWith('mock-'))!;
     const before = JSON.stringify(workflow);

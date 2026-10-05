@@ -10,11 +10,16 @@ import { chainReducer, checkChainAccess, initialChainState, type ChainState } fr
 import { generateMockedChain, generationEligibility, type Eligibility } from '../domain/mock-artifacts';
 import type { Command } from '../domain/commands';
 import type {SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
+import { amountCommandTarget, canvasAmountCommand, canvasAmountMessage, canvasAuthoringIncomplete, type CanvasActionSetup, type CanvasAmountInputs } from '../domain/canvas-action-setup';
 import { readBaseQuote } from '../app/observation-action';
 import { browserFailureMessage, initialObservationState, observationReducer, receiveObservation, type ObservationState } from '../domain/base-observation';
 
-type Pending = { command: Command; diff: readonly string[]; review: ReviewResult | null };
+type Pending = { valid: boolean; command: Command; diff: readonly string[]; review: ReviewResult | null; authoringId?: string; authoringAmount?: string };
 type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
+  actionSetup: CanvasActionSetup | null; amountInputs: CanvasAmountInputs; authoringIncomplete: boolean;
+  startActionSetup(action: 'swap' | 'bridge', position: { x: number; y: number }): string;
+  editCanvasAmount(id: string, amount: string): void; cancelCanvasAmount(id: string): void;
+  reviewCanvasAmount(id: string): string | null; removeActionSetup(): void;
   restoreLendingCanvas(workflow:SemanticWorkflow):void;
   canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
   moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
@@ -28,6 +33,9 @@ const Context = createContext<Store | null>(null);
 export function WorkflowProvider({ children, initialContext }: { children: ReactNode; initialContext: unknown }) {
   const [history, dispatchHistory] = useReducer(editorHistoryReducer, undefined, initialEditorHistory);
   const state = history.editor;
+  const authoringIncomplete = canvasAuthoringIncomplete(history.actionSetup, history.amountInputs);
+  const incompleteRef = useRef(authoringIncomplete);
+  incompleteRef.current = authoringIncomplete;
   const context = useMemo(() => state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
     ? createBaseSepoliaReviewContext() : createReviewContext(initialContext), [state.workflow, initialContext]);
   const dispatch = useCallback((command: Command) => {
@@ -48,6 +56,14 @@ export function WorkflowProvider({ children, initialContext }: { children: React
   const undo = useCallback(() => dispatchHistory({ type: 'UNDO' }), []);
   const redo = useCallback(() => dispatchHistory({ type: 'REDO' }), []);
   const [pending, setPending] = useState<Pending | null>(null);
+  useEffect(() => {
+    // History/restoration can change a reviewed field without invoking its input handler.
+    setPending(current => {
+      if (!current?.authoringId) return current;
+      const amount = history.actionSetup?.id === current.authoringId ? history.actionSetup.amount : history.amountInputs[current.authoringId];
+      return amount === current.authoringAmount && current.command.baseRevision === state.workflow.revision ? current : null;
+    });
+  }, [history.actionSetup, history.amountInputs, state.workflow.revision]);
   const [chain, dispatchChain] = useReducer(chainReducer, undefined, initialChainState);
   const workflowRef = useRef(state.workflow);
   const chainRef = useRef(chain);
@@ -58,7 +74,8 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     try { return { review: lintWorkflow(state.workflow, context), reviewError: null }; }
     catch (cause) { return { review: null, reviewError: cause instanceof Error ? cause.message : 'INVALID_WORKFLOW' }; }
   }, [state.workflow, context]);
-  const eligibility = useMemo(() => generationEligibility(state.workflow, context), [state.workflow, context]);
+  const eligibility: Eligibility = useMemo(() => authoringIncomplete ? { eligible: false, reason: 'Configure the amount in Build before simulating.' }
+    : generationEligibility(state.workflow, context), [state.workflow, context, authoringIncomplete]);
 
   // An accepted semantic edit replaces the immutable IR object and invalidates the chain.
   useEffect(() => { dispatchChain({ type: 'REVISION_ACCEPTED', workflow: state.workflow }); }, [state.workflow]);
@@ -83,23 +100,45 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     return () => clearTimeout(timer);
   }, [chain.record, chain.retired, accessCheck]);
 
-  function propose(command: Command) {
+  function propose(command: Command, authoring?: { authoringId: string; authoringAmount: string }) {
     const preview = editorReducer(state, command, context);
     const diff = describeProposal(state, preview, command, context);
     let review: ReviewResult | null = null;
     if (!preview.error) {
       try { review = lintWorkflow(preview.workflow, context); } catch { /* Invalid draft is already rejected by reducer. */ }
     }
-    setPending({ command, diff, review });
+    const target = amountCommandTarget(command);
+    const amountEdit = target && history.amountInputs[target.id] === target.amount ? { authoringId: target.id, authoringAmount: target.amount } : undefined;
+    setPending({ valid: !preview.error, command, diff, review, ...(authoring ?? amountEdit) });
   }
   function applyProposal() {
-    if (!pending) return;
-    dispatch(pending.command);
+    if (!pending || !pending.valid) return;
+    dispatchHistory({ type: 'COMMAND', command: pending.command, context,
+      ...(pending.authoringId ? { authoringId: pending.authoringId, authoringAmount: pending.authoringAmount! } : {}) });
     setPending(null);
+  }
+  function startActionSetup(action: 'swap' | 'bridge', position: { x: number; y: number }) {
+    if (history.actionSetup) return history.actionSetup.id;
+    dispatchHistory({ type: 'START_ACTION_SETUP', action, position });
+    return `action-setup-${history.setupSerial + 1}`;
+  }
+  function editCanvasAmount(id: string, amount: string) {
+    dispatchHistory({ type: 'EDIT_CANVAS_AMOUNT', id, amount, context });
+    setPending(current => current?.authoringId === id ? null : current);
+  }
+  function cancelCanvasAmount(id: string) { dispatchHistory({ type: 'CANCEL_CANVAS_AMOUNT', id }); setPending(current => current?.authoringId === id ? null : current); }
+  function removeActionSetup() { dispatchHistory({ type: 'REMOVE_ACTION_SETUP' }); setPending(current => current?.authoringId === history.actionSetup?.id ? null : current); }
+  function reviewCanvasAmount(id: string) {
+    try {
+      const command = canvasAmountCommand(state, history.actionSetup, history.amountInputs, id, context);
+      const amount = history.actionSetup?.id === id ? history.actionSetup.amount : history.amountInputs[id]!;
+      propose(command, { authoringId: id, authoringAmount: amount });
+      return null;
+    } catch (cause) { return canvasAmountMessage(cause); }
   }
   const generateArtifacts = useCallback(() => {
     const workflow = workflowRef.current;
-    if (chainRef.current.pending || !generationEligibility(workflow, context).eligible) return;
+    if (incompleteRef.current || chainRef.current.pending || !generationEligibility(workflow, context).eligible) return;
     generationRef.current += 1;
     const generation = generationRef.current;
     const nowMs = Date.now(), monotonicStartMs = performance.now();
@@ -119,6 +158,8 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
   return <Context.Provider value={{ state, dispatch, context, restoreLendingCanvas, canvasLayout: history.layout, canUndo: history.past.length > 0,
+    actionSetup: history.actionSetup, amountInputs: history.amountInputs, authoringIncomplete,
+    startActionSetup, editCanvasAmount, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup,
     canRedo: history.future.length > 0, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes,
     pending, propose, applyProposal, dismissProposal: () => setPending(null), ...reviewState,
     chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck }}>
@@ -134,7 +175,8 @@ const ObservationContext = createContext<Observations | null>(null);
  * of the workflow state, never feed an edit and never reach authorization.
  */
 function BaseObservationProvider({ children }: { children: ReactNode }) {
-  const { state, context } = useWorkflow();
+  const { state, context, authoringIncomplete } = useWorkflow();
+  const incompleteRef = useRef(authoringIncomplete); incompleteRef.current = authoringIncomplete;
   const [observations, dispatchObservation] = useReducer(observationReducer, undefined, initialObservationState);
   const workflowRef = useRef(state.workflow);
   const observationsRef = useRef(observations);
@@ -163,6 +205,7 @@ function BaseObservationProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [observations, accessCheck]);
   const readQuote = useCallback((nodeId: string) => {
+    if (incompleteRef.current) return;
     if (observationsRef.current[nodeId]?.status === 'READING') return;
     const workflow = workflowRef.current;
     tokenRef.current += 1;

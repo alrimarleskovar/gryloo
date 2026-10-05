@@ -26,6 +26,7 @@ import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
 import { uniswapLiquidityDetails } from '../domain/uniswap-liquidity-authoring';
 import { RouterForm } from './router-panel';
 import { routerDetails } from '../domain/router-authoring';
+import { setupSummary } from '../domain/canvas-action-setup';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
@@ -33,10 +34,11 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   selectedId: string | null; select: (id: string | null) => void;
   expanded?: boolean; onExpandedChange: (expanded: boolean) => void;
 }) {
-  const { state, dispatch, context, propose, review } = useWorkflow();
+  const { state, dispatch, context, propose, review, actionSetup = null, amountInputs = {}, editCanvasAmount, reviewCanvasAmount, removeActionSetup } = useWorkflow();
   const contentId = useId();
   const lending=isLendingComposition(state.workflow);
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId && !item.actionType.startsWith('mock-'));
+  const setup = actionSetup?.id === selectedId ? actionSetup : null;
   const cross = useMemo(() => {
     if (!state.workflow.nodes.some(item => item.actionType === 'asset.liquidity.prepare')) return null;
     try { return validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]); } catch { return null; }
@@ -69,6 +71,7 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   const deletable = canDeleteCanvasNode(state.workflow, selectedId);
   function saveAmount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!node) return;
+    if (swap && amountInputs[node.nodeId] !== undefined) { setError(reviewCanvasAmount(node.nodeId) ?? ''); return; }
     if (swap) {
       try { parseHumanAmount(amount, swap.from, context); setError(''); propose({ type: 'SET_SWAP_AMOUNT', nodeId: node.nodeId, amount, source: 'CANVAS', baseRevision: state.workflow.revision }); }
       catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid amount'); }
@@ -81,7 +84,8 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   }
   function saveBridge(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!node || !bridge) return;
-    try { createBridgeNode(node.nodeId, bridgeInput); setError(''); propose({ type: 'SET_BRIDGE', nodeId: node.nodeId, input: bridgeInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    const input = { ...bridgeInput, amount: amountInputs[node.nodeId] ?? bridgeInput.amount };
+    try { createBridgeNode(node.nodeId, input); setError(''); propose({ type: 'SET_BRIDGE', nodeId: node.nodeId, input, source: 'CANVAS', baseRevision: state.workflow.revision }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid bridge parameters'); }
   }
   function saveLiquidity(event: FormEvent<HTMLFormElement>) {
@@ -101,20 +105,29 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   const uniPosition = node ? uniswapLiquidityDetails(node) : null;
   const routed = node ? routerDetails(node) : null;
   const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
-  const summary = node ? composerSummary(state.workflow, node, context) : null;
+  const summary = node ? composerSummary(state.workflow, node, context) : setup ? setupSummary(setup, context) : null;
+  const displayAmount = node && amountInputs[node.nodeId] !== undefined ? `${amountInputs[node.nodeId] || '0'} ${swap?.from ?? 'USDC'}` : summary?.amount;
   const validation = node ? composerNodeState(review, node.nodeId) : null;
-  const open = Boolean(node && expanded);
+  const open = Boolean((node || setup) && expanded);
   return <section className="inspector panel inspector-disclosure" aria-label="Action inspector">
-    <button type="button" className="inspector-toggle" aria-expanded={open} aria-controls={contentId} disabled={!node} onClick={() => onExpandedChange(!open)}>
+    <button type="button" className="inspector-toggle" aria-expanded={open} aria-controls={contentId} disabled={!node && !setup} onClick={() => onExpandedChange(!open)}>
       <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" style={{ transform: open ? 'rotate(90deg)' : undefined }}><path d="m6 3 5 5-5 5"/></svg>
       <span>Advanced Settings</span>
     </button>
     <div id={contentId} className="inspector-body" hidden={!open}>
-    <h2>{node ? `${label} settings` : 'Settings'}</h2>
-    {summary && <p className="composer-editor-context">{summary.action} · {summary.provider} · {summary.chain} · {summary.amount}</p>}
+    <h2>{setup ? `${setup.action === 'swap' ? 'Swap' : 'Bridge'} settings` : node ? `${label} settings` : 'Settings'}</h2>
+    {summary && <p className="composer-editor-context">{summary.action} · {summary.provider} · {summary.chain} · {displayAmount}</p>}
     {validation && validation.findings.length > 0 && <div className="composer-findings" aria-label="Selected action checks">
       {validation.findings.map(finding => <p key={`${finding.code}:${finding.field}`}><span aria-hidden="true">⚠ </span>{finding.message}</p>)}
     </div>}
+    {setup && <form className="inspector-form" aria-label={`Configure ${setup.action === 'swap' ? 'Swap' : 'Bridge'}`} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
+      <label htmlFor="configure-action-amount">Source amount (USDC)</label>
+      <input id="configure-action-amount" value={setup.amount} inputMode="decimal" autoComplete="off" onChange={event => { setError(''); editCanvasAmount(setup.id, event.target.value); }}/>
+      <p className="muted">Enter an amount greater than 0 to configure this action.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button type="submit">Review amount</button>
+      <button type="button" className="quiet" onClick={() => { removeActionSetup(); select(null); }}>Remove step</button>
+    </form>}
     {node ? <>
       {node.actionType==='asset.transfer'&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
@@ -132,12 +145,12 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
       {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
       {liquidity && <p className="muted">Base WETH/USDC position. Pool conditions require separate simulation.</p>}
       {(swap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>
-        <input id="sample-amount" type="text" value={amount} onChange={event => setAmount(event.target.value)} inputMode={swap ? 'decimal' : 'numeric'} autoComplete="off" spellCheck={false} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
-        <button type="submit" disabled={locked || amount === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button></form>}
+        <input id="sample-amount" type="text" value={node ? amountInputs[node.nodeId] ?? amount : amount} onChange={event => swap && node ? editCanvasAmount(node.nodeId, event.target.value) : setAmount(event.target.value)} inputMode={swap ? 'decimal' : 'numeric'} autoComplete="off" spellCheck={false} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
+        <button type="submit" disabled={locked || (node ? amountInputs[node.nodeId] ?? amount : amount) === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button></form>}
       {swap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (bps)</label>
         <input id="swap-edit-slippage" type="text" value={slippage} onChange={event => setSlippage(event.target.value)} inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} aria-invalid={Boolean(error)}/>
         <button type="submit" disabled={slippage === (swap.slippage?.toString() ?? '')}>Review slippage change</button></form>}
-      {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<input type="text" inputMode="decimal" value={bridgeInput.amount} onChange={event => setBridgeInput(current => ({ ...current, amount: event.target.value }))}/></label>
+      {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<input type="text" inputMode="decimal" value={amountInputs[node.nodeId] ?? bridgeInput.amount} onChange={event => editCanvasAmount(node.nodeId, event.target.value)}/></label>
         <label>Maximum slippage (bps)<input type="text" inputMode="numeric" value={bridgeInput.slippageBps} onChange={event => setBridgeInput(current => ({ ...current, slippageBps: event.target.value }))}/></label><button type="submit">Review bridge change</button></form>}
       {liquidity && <form onSubmit={saveLiquidity} className="inspector-fields">{([
         ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
