@@ -7,7 +7,7 @@ import { cookies, headers } from 'next/headers';
 import { readWalletSession, WALLET_SESSION_COOKIE, type WalletSession } from './wallet-session.ts';
 
 export async function currentWalletSession(): Promise<WalletSession | null> {
-  return readWalletSession(process.env, (await cookies()).get(WALLET_SESSION_COOKIE)?.value, new Date());
+  return readWalletSession(process.env, (await cookies()).get(WALLET_SESSION_COOKIE)?.value, new Date(), (await requestOrigin()).domain);
 }
 export async function currentWalletPrincipal(): Promise<string | null> {
   return (await currentWalletSession())?.account ?? null;

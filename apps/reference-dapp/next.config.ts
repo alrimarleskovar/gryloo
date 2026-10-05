@@ -5,6 +5,9 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
+  // BUILD-CLOUD-PARITY-001: committed, read-only replay fixtures read at runtime (`FLOFI_COPILOT=replay`, recorded Base observation
+  // replay) ship with the serverless functions, so those modes behave on a Vercel deployment as they do locally.
+  outputFileTracingIncludes: { '/': ['./e2e/copilot/replay.json', './e2e/copilot/replay-v2.json', './e2e/observations/base-recorded-observations.json'] },
   // The browser may connect only to its own origin; read-only Base reads run on the local server.
   async headers() {
     return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self'" }] }];

@@ -3,7 +3,7 @@
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createSupplyService, type SupplyWalletDiagnostic, type SupplyService } from '../server/supply-service';
 import { createLendingReadRpcs } from '../server/supply-rpc';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { cloudFlow } from '../server/flow-runtime';
 let service:SupplyService|null=null;
 function current():SupplyService {
   const harness=process.env.GRYLOO_SUPPLY_HARNESS==='MOCKED_LOOPBACK_ONLY';
@@ -15,8 +15,8 @@ function current():SupplyService {
   return service;
 }
 async function run<T>(method:string,args:readonly unknown[],action:(service:SupplyService)=>Promise<T>):Promise<{ok:true;value:T}|{ok:false;code:string}>{
-  // Cloud deployment: forward the identical contract to the stateless Flofi API.
-  if(process.env.API_BASE_URL)return callCloudFlow<T>('aave-supply',method,args);
+  // Cloud deployment: the remote Flofi API or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001); never a local journal.
+  const cloud=await cloudFlow<T>('aave-supply',method,args);if(cloud)return cloud;
   try{return{ok:true,value:await action(current())};}catch(cause){const code=cause instanceof Error?cause.message:'';return{ok:false,code:/^[A-Z][A-Z0-9_]{2,80}$/.test(code)?code:'SUPPLY_SERVICE_UNAVAILABLE'};}
 }
 export async function supplySimulate(workflow:SemanticWorkflow,account:string){return run('simulate',[workflow,account],service=>service.simulate(workflow,account));}

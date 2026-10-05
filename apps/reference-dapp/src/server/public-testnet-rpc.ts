@@ -32,7 +32,13 @@ export function createBaseSepoliaReadRpc(url: string, methods: readonly string[]
 }
 const PUBLIC_SWAP_RPC_METHODS = Object.freeze(['eth_chainId', 'eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode',
   'eth_call', 'eth_getBalance', 'eth_estimateGas', 'eth_gasPrice', 'eth_getTransactionReceipt', 'eth_getTransactionByHash']);
-export const publicTestnetRpc: Rpc = createBaseSepoliaReadRpc(BASE_SEPOLIA.rpcUrl, PUBLIC_SWAP_RPC_METHODS);
+/**
+ * BUILD-CLOUD-PARITY-001: the Base Sepolia read client of the public swap, at the public endpoint or the deployment's HTTPS override
+ * `GRYLOO_BASE_SEPOLIA_RPC_URL` (the one Base Sepolia endpoint setting every Base Sepolia flow shares), bound to chain 84532.
+ */
+export function baseSepoliaSwapRpc(override: string | undefined): Rpc {
+  return chainBoundRpc(createBaseSepoliaReadRpc(httpsRpcUrl(override, BASE_SEPOLIA.rpcUrl, 'PUBLIC_RPC_CONFIGURATION_INVALID'), PUBLIC_SWAP_RPC_METHODS), BASE_SEPOLIA.chainId);
+}
 /** The liquidity flow additionally simulates call sequences and discovers owner transactions by nonce. */
 export const UNISWAP_LIQUIDITY_RPC_METHODS = Object.freeze(['eth_chainId', 'eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call',
   'eth_getBalance', 'eth_getTransactionCount', 'eth_maxPriorityFeePerGas', 'eth_simulateV1', 'eth_getTransactionReceipt', 'eth_getTransactionByHash']);

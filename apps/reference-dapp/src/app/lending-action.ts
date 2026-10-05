@@ -2,9 +2,13 @@
 'use server';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createLendingCompositionService, type LendingCompositionService } from '../server/lending-composition-service';
+import { isHostedDeployment } from '../server/deployment';
 const methods=new Set(['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getCode','eth_call','eth_simulateV1','eth_getBalance','eth_getTransactionCount','eth_gasPrice','eth_getTransactionByHash','eth_getTransactionReceipt']);
 let service:LendingCompositionService|null=null;
 function current(){
+  // BUILD-CLOUD-PARITY-001: the composition's append-only full-snapshot run log (BUILD-013) outgrows the cloud log store's bound,
+  // so it runs only on a local journal; a hosted deployment fails closed before any read or wallet request.
+  if(isHostedDeployment(process.env))throw Error('LENDING_CLOUD_RUNTIME_UNAVAILABLE');
   if(service)return service;
   const harness=process.env.GRYLOO_LENDING_HARNESS==='MOCKED_LOOPBACK_ONLY', journalDir=process.env.GRYLOO_SUPPLY_JOURNAL;
   if(!journalDir)throw Error('LENDING_STORAGE_NOT_CONFIGURED');

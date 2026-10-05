@@ -20,7 +20,7 @@ import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, ORCA_WHIRLPOOLS_DEVNET_
 import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
 import { nativeTransferReadRpcs } from '../src/server/robinhood-rpc.ts';
 import { createLendingReadRpcs } from '../src/server/supply-rpc.ts';
-import { ethereumSepoliaSwapRpc, publicTestnetRpc } from '../src/server/public-testnet-rpc.ts';
+import { baseSepoliaSwapRpc, ethereumSepoliaSwapRpc } from '../src/server/public-testnet-rpc.ts';
 import { createSolanaRpc, solanaRpcOverride } from '../src/server/solana-rpc.ts';
 import { createJupiterHttp } from '../src/server/jupiter-http.ts';
 import { createJupiterService, createSolanaDevnetService, type JupiterRecord, type JupiterWalletDiagnostic } from '../src/server/jupiter-service.ts';
@@ -34,6 +34,7 @@ import { routerNetworkMode, routerNetworkRuntime, type RouterNetwork } from '../
 import { ROUTER_OWNERSHIP, type OwnershipPolicy } from '../src/server/run-ownership.ts';
 import type { RouteProvider } from '../src/server/router-providers.ts';
 import type { RoutingProvider } from '@defi-workflow-engine/workflow-contracts';
+import { isHostedDeployment } from '../src/server/deployment.ts';
 
 export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap' | 'uniswap-liquidity' | 'crosschain-router'
   | 'crosschain-router-testnet';
@@ -242,7 +243,7 @@ const swap: FlowDefinition = {
     observe: { mutates: true, validate: shape(id(SWAP_ID)) },
     status: { mutates: false, validate: shape(id(SWAP_ID)) },
   },
-  transport: (_mode, env) => ({ rpc: publicTestnetRpc, chains: { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL) } } }),
+  transport: (_mode, env) => ({ rpc: baseSepoliaSwapRpc(env.GRYLOO_BASE_SEPOLIA_RPC_URL), chains: { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL) } } }),
   create(storage, { rpc, chains }) {
     const s = createDurablePublicTestnetService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {} });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
@@ -537,9 +538,14 @@ export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FL
 /**
  * Backend enablement is explicit per flow and independent of NODE_ENV (a deployed backend is never in
  * development mode). The MOCKED loopback harness takes precedence so automated tests can never reach a
- * public network.
+ * public network. BUILD-CLOUD-PARITY-001: a hosted deployment (Vercel, Railway) never talks to a loopback harness; a harness
+ * gate set there by mistake leaves the flow off instead of pointing it at 127.0.0.1.
  */
 export function flowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
+  const mode = configuredFlowMode(flow, env);
+  return mode === 'harness' && isHostedDeployment(env) ? 'off' : mode;
+}
+function configuredFlowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
   // The existing public-swap gate value; in the separately deployed backend it does not also require NODE_ENV=development.
   if (flow === 'base-sepolia-swap') return env.GRYLOO_PUBLIC_TESTNET === 'record' ? 'live' : 'off';
   // Solana Devnet (valueless test tokens): explicit backend enablement; the MOCKED loopback harness wins.

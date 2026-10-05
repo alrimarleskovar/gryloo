@@ -5,13 +5,15 @@ import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createForkRpc } from '../server/fork-rpc';
 import { createCompositionService, type CompositionServerProfile } from '../server/composition-service';
+import { isHostedDeployment } from '../server/deployment';
 type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 type Service = ReturnType<typeof createCompositionService>;
 let cache: { key: string; service: Service; profile: CompositionServerProfile } | null = null;
 const EXECUTION = /^exec-[0-9a-f]{24}$/;
 const HASH = /^0x[0-9a-f]{64}$/;
 function runtime() {
-  if (process.env.GRYLOO_COMPOSITION_MODE !== 'fork') return null;
+  // BUILD-CLOUD-PARITY-001: a local rehearsal (loopback chain, MOCKED harness, local journal) is never enabled on a hosted deployment.
+  if (process.env.GRYLOO_COMPOSITION_MODE !== 'fork' || isHostedDeployment(process.env)) return null;
   const path = process.env.GRYLOO_COMPOSITION_PROFILE;
   if (!path || !isAbsolute(path)) throw new Error('COMPOSITION_CONFIGURATION_INVALID');
   const source = readFileSync(path, 'utf8'), key = `${path}\n${source}`;

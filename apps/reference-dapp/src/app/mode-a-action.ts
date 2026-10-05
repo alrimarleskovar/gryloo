@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createForkRpc } from '../server/fork-rpc';
+import { isHostedDeployment } from '../server/deployment';
 import {
   createModeAService, parseModeAProfile, type ExecutionStatus, type ModeAProfile, type ModeAService,
   type PreparedExecution, type RevocationRecord, type StepId, type SubmissionReport,
@@ -24,7 +25,8 @@ type Runtime = { readonly key: string; readonly profile: ModeAProfile; readonly 
 let runtime: Runtime | null = null;
 
 function loadRuntime(): Runtime | null {
-  if (process.env.GRYLOO_MODE_A !== 'fork') return null;
+  // BUILD-CLOUD-PARITY-001: a local rehearsal (loopback chain, MOCKED harness, local journal) is never enabled on a hosted deployment.
+  if (process.env.GRYLOO_MODE_A !== 'fork' || isHostedDeployment(process.env)) return null;
   const profilePath = process.env.GRYLOO_MODE_A_PROFILE;
   const journalDir = process.env.GRYLOO_MODE_A_JOURNAL;
   if (!profilePath || !isAbsolute(profilePath) || !journalDir || !isAbsolute(journalDir)) throw new Error('MODE_A_CONFIGURATION_INVALID');
