@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 
-test('Simulate keeps its graph and return action primary, with technical views available below', async ({ page }) => {
+test('Simulate groups its existing review/return actions and zoom controls inside the graph', async ({ page }) => {
   await page.goto('/');
   const stages = page.getByRole('navigation', { name: 'Workflow stages' });
   await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Mocked artifact chain' });
   const graph = panel.getByRole('region', { name: 'Mocked outputs on the workflow graph', exact: true });
   const returnToBuild = graph.getByRole('button', { name: 'Return to Build', exact: true });
+  const reviewSwap = graph.getByRole('button', { name: 'Review swap', exact: true });
   const technical = panel.locator('.simulation-technical');
   await expect(graph).toBeVisible();
   await expect(page.getByRole('button', { name: 'Return to Build', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(1);
+  await expect(reviewSwap).toBeDisabled();
+  await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(0);
+  await expect(panel.getByText('SIMULATE', { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('heading', { name: 'Simulation', exact: true })).toHaveCount(0);
   await expect(panel.locator(':scope > .simulate-note, :scope > .simulate-details-toggle')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Show technical details', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Hide technical details', exact: true })).toHaveCount(0);
@@ -23,10 +29,17 @@ test('Simulate keeps its graph and return action primary, with technical views a
     await expect(graph).toHaveAttribute('data-viewport', 'fitted');
     const graphBox = (await graph.boundingBox())!;
     const buttonBox = (await returnToBuild.boundingBox())!;
+    const reviewBox = (await reviewSwap.boundingBox())!;
     const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
-    expect(Math.abs(graphBox.x + graphBox.width - buttonBox.x - buttonBox.width - 12)).toBeLessThan(1);
+    expect(Math.abs(graphBox.x + graphBox.width - reviewBox.x - reviewBox.width - 12)).toBeLessThan(1);
     expect(Math.abs(graphBox.y + graphBox.height - buttonBox.y - buttonBox.height - 12)).toBeLessThan(1);
-    expect(buttonBox.x).toBeGreaterThanOrEqual(controlsBox.x + controlsBox.width);
+    expect(buttonBox.x).toBeGreaterThanOrEqual(graphBox.x + 12);
+    expect(Math.abs(reviewBox.x - buttonBox.x - buttonBox.width - 8)).toBeLessThan(1);
+    expect(reviewBox.y).toBe(buttonBox.y);
+    expect(reviewBox.height).toBe(buttonBox.height);
+    expect(Math.abs(graphBox.x + graphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
+    expect(controlsBox.y).toBeGreaterThan(graphBox.y);
+    expect(controlsBox.y + controlsBox.height + 12).toBeLessThanOrEqual(buttonBox.y);
     expect((await technical.boundingBox())!.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
@@ -38,11 +51,22 @@ test('Simulate keeps its graph and return action primary, with technical views a
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await expect(graph).toHaveAttribute('data-viewport', 'fitted');
+  await expect(graph.locator('.flow-card')).toBeInViewport();
+  const viewport = graph.locator('.react-flow__viewport');
+  const beforeZoom = await viewport.getAttribute('style');
+  await graph.locator('.react-flow__controls-zoomout').click();
+  await expect(viewport).not.toHaveAttribute('style', beforeZoom!);
+  const afterZoom = await viewport.getAttribute('style');
+  await graph.locator('.react-flow__controls-zoomin').click();
+  await expect(viewport).not.toHaveAttribute('style', afterZoom!);
+  await graph.locator('.react-flow__controls-fitview').click();
+  await expect(graph.locator('.flow-card')).toBeInViewport();
   await panel.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
   await expect(panel.locator('.simulate-swap')).toBeVisible();
   await expect(panel.locator('.simulate-swap')).toContainText('2.25 USDC');
   await expect(panel.locator('.chain-strip')).toBeHidden();
-  await expect(page.locator('.summary-bar').getByRole('button', { name: 'Review swap', exact: true })).toBeDisabled();
+  await expect(reviewSwap).toBeDisabled();
   await technical.locator(':scope > summary').click();
   await expect(panel).toHaveAttribute('data-technical-open', 'true');
   await expect(panel.locator('.chain-strip')).toBeVisible();
@@ -59,4 +83,5 @@ test('Simulate keeps its graph and return action primary, with technical views a
   await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(page.locator('.flow-card')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(0);
 });

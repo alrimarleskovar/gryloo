@@ -79,3 +79,9 @@ Remove the entire Simulate WorkspaceHeading: draft/action/revision/chain metadat
 ## Owner-directed Simulate control and return-action cleanup
 
 Remove the upper eligibility-message strip and Show/Hide technical details button. Make the existing fallback simulation graph directly visible instead of hiding it beneath the preparation card/outer disclosure. Move its existing Return to Build callback into a floating bottom-right canvas action. Preserve generation controls, eligibility/binding/expiry checks and error/status feedback. Keep explanations and existing diagnostic panels accessible in one disclosure below the graph, using the existing technical-presentation state. Leave product-specific simulation panels, Build and Execute unchanged. Run only targeted UI/artifact, browser, typecheck and touched-file lint checks; commit `UX-001A: simplify Simulate controls and move return CTA`, then stop before Part B.
+
+## Owner-directed Simulate canvas actions
+
+Remove the fallback Simulate panel's SIMULATE eyebrow and Simulation title without replacing either. Keep artifact controls and graph/results intact. Move the existing React Flow controls to the bottom-right with a 12px right margin, above a floating action row 12px from the bottom/right edges. Keep Return to Build on the left and Review swap on the right with an 8px gap.
+
+Relocate the existing SummaryBar action through a presentation-only portal into the mounted simulation canvas; preserve its exact review eligibility, route precedence and navigation handler. Remove its footer rendering when the canvas host exists. Preserve footer context and existing product-specific panels without that canvas, plus Build/Execute behavior. Validate only focused Simulate/footer unit tests, desktop/mobile browser layout and controls, app typecheck and touched-file lint. Commit `UX-001A: refine Simulate canvas actions`, then stop. Part B remains unauthorized.

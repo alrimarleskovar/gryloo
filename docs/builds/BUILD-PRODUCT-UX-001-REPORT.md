@@ -192,6 +192,30 @@ Untouched guarantees: simulation/generation algorithms, artifact bytes and bindi
 
 Browser checks allowed only the existing loopback preview and its development HMR, blocked external traffic, and verified zero wallet sign/send requests. Temporary fixture/config copies remain in untracked `.tmp/`, excluded from the commit. Financial browser files with selector-only changes were typechecked/linted, not fork/execution-certified. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. Existing synthetic artifact provenance remains explicit; this presentation cleanup makes no live-execution or evidence-maturity claim.
 
+### Owner-directed Simulate canvas actions
+
+Commit subject: `UX-001A: refine Simulate canvas actions`.
+
+Visual/product changes:
+
+- Removed the fallback Simulate panel's SIMULATE eyebrow and Simulation title, without a replacement heading. Existing artifact controls, generation/status/error feedback, graph, results and lower diagnostics remain intact.
+- Positioned the existing React Flow zoom-in, zoom-out and fit controls at bottom-right, 12px from the right edge and 68px above the canvas bottom. Their logic is unchanged.
+- Grouped Return to Build on the left and Review swap on the right, with an 8px gap, in a floating canvas row 12px from its bottom/right edges. Controls sit above the row with a 12px clear gap.
+- Moved the original SummaryBar action through a React portal into the mounted simulation graph. There is one Review swap button, with the same handler, disabled conditions and routing precedence; no second review implementation or eligibility model was added. Footer workflow context remains. Existing product-specific panels without this graph and their footer actions are unchanged.
+- Updated focused rendering/review-gate and browser layout checks. No simulation/artifact logic, canonical IR, runtime, backend/API, Review/Manifest or wallet authorization semantics, Build/Execute behavior, Copilot or Guided Chat changes. No Part B work.
+
+| Targeted validation | Result |
+| --- | --- |
+| Vitest: `components/simulate-panel.test.tsx`, `components/summary-bar.test.tsx` | 14 tests passed. Removed labels and retained diagnostics/generation guards; canvas review remains disabled for unavailable/unprepared/retired/unverified/error states; ready review uses the existing Execute callback; unchanged footer behavior when no graph host exists and on Execute; preserved Supply review gating. |
+| Reference-dapp typecheck | Passed. An initial test-only unchecked mock-call access was corrected before the successful rerun. |
+| ESLint on touched TS/TSX source/browser tests | Passed. |
+| Focused Chromium: `e2e/simulate-cleanup.spec.ts`, `e2e/simulate-shell.spec.ts` | Two tests passed against the existing loopback preview. 1440px/390px canvas action order/alignment/margins, control clearance, no document overflow, single graph-contained Review swap and no footer duplicate; zoom-out/zoom-in/fit on the fitted authored graph; preserved return navigation, revision/cards, artifact generation/JSON/technical access, disabled synthetic review, product-specific Supply and Build/Execute views. |
+| `git diff --check` | Passed. |
+
+The first browser attempts tried zoom-in at the existing maximum and then tested zoom during artifact-driven node remeasurement. The final check waits for the authored graph to fit and tests zoom-out first, before generating artifacts. All existing artifact/review assertions remain; no controls, fitting logic or safety gates were altered to pass checks.
+
+Browser traffic was restricted to the existing loopback preview/development HMR, with external requests blocked and zero wallet signing/transaction requests verified. Temporary fixture/config copies and diagnostics remain in untracked `.tmp/`, excluded from the commit. No full CI, PostgreSQL, Anvil/fork, audit, SBOM or final certification was run. This presentation change does not upgrade artifact/evidence maturity.
+
 ### Further Parts B–D
 
 Further Part B implementation and Parts C–D remain pending; no full phase completion or certification is claimed.

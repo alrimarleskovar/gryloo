@@ -198,9 +198,9 @@ function SimulationCanvas({ overlay, primaryAction }: { overlay: ReadonlyMap<str
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
         <SimulationViewport onState={setViewportState} />
-        <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} />
+        <Background gap={18} size={1} color="var(--grid)" /><Controls position="bottom-right" showInteractive={false} />
       </ReactFlow>
-      {primaryAction && <div className="canvas-primary-action simulation-return-action">{primaryAction}</div>}
+      {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
     <div className="canvas-foot"><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} {workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base'} swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></div>
   </section>;

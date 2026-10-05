@@ -30,6 +30,7 @@ describe('Simulate control presentation', () => {
   it('removes the upper informational strip/toggle and retains technical access below the graph', () => {
     const html = render();
     expect(html).not.toMatch(/simulate-details-toggle|Show technical details|Hide technical details/);
+    expect(html).not.toMatch(/>SIMULATE<|<h2>Simulation<\/h2>/);
     expect(html).toMatch(/aria-label="simulation graph fixture"><button type="button">Return to Build<\/button>/);
     expect(html.indexOf('Add a Base swap')).toBeGreaterThan(html.indexOf('simulation-technical'));
     expect(html.indexOf('simulation-technical')).toBeGreaterThan(html.indexOf('simulate-grid'));

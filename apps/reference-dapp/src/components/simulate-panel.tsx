@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { MOCKED_CHAIN_PROFILE, type ReviewContext, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { INVALIDATION_V1, chainStatus, checkChainAccess, type ChainRecord } from '../domain/artifact-chain';
 import { formatHumanAmount, swapDetails } from '../domain/swap-authoring';
@@ -56,7 +56,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   </div>;
 }
 
-export function SimulatePanel({ returnToBuild, children }: { returnToBuild?: () => void; children?: ReactNode }) {
+export function SimulatePanel({ returnToBuild, reviewActionHost, children }: { returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode }) {
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
@@ -79,8 +79,7 @@ export function SimulatePanel({ returnToBuild, children }: { returnToBuild?: () 
 
   return <section className="simulate-panel panel" aria-label="Mocked artifact chain" data-technical-open={showTechnical}>
     <div className="simulate-head">
-      <div><p className="eyebrow">SIMULATE</p><h2>Simulation</h2>
-        <p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
+      <div><p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
       <div className="simulate-controls">
         <span className={`chain-status chain-${shown.toLowerCase()}`}>ARTIFACTS: {shown}</span>
         {current
@@ -95,7 +94,10 @@ export function SimulatePanel({ returnToBuild, children }: { returnToBuild?: () 
     {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
     <div className="simulate-grid">
-      <WorkflowCanvas mode="simulate" overlay={overlay} primaryAction={returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}/>
+      <WorkflowCanvas mode="simulate" overlay={overlay} primaryAction={<>
+        {returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}
+        {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
+      </>}/>
       <div className="simulate-results">
         {current ? <>
           <ol className="chain-strip" aria-label="Artifact links">

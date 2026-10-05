@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { createPortal } from 'react-dom';
 import { useModeA } from '../state/mode-a-store';
 import { useModeB } from '../state/mode-b-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
@@ -14,7 +15,7 @@ import { useRobinhoodTransfer } from '../state/robinhood-transfer-store';
 import { useJupiter } from '../state/jupiter-store';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
 
-export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => void }) {
+export function SummaryBar({ tab, setTab, simulationActionHost }: { tab: Tab; setTab: (value: Tab) => void; simulationActionHost?: HTMLDivElement | null }) {
   const { state } = useWorkflow();
   const { info, prepared, retired, verifyError, verified } = useModeA();
   const modeB = useModeB();
@@ -31,9 +32,7 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
   const reviewable = Boolean(info?.available && prepared && !retired && !verifyError && verified['step-approve'] && verified['step-swap']);
   const actionCount = workflowShellContext(state.workflow).actionCount;
-  return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
-    <div><span className="eyebrow">WORKFLOW</span><strong>{actionCount} {actionCount === 1 ? 'action' : 'actions'}</strong></div>
-    {tab === 'Build' ? null
+  const action = tab === 'Build' ? null
       : tab === 'Simulate' && transferPath ? <button type="button" className="primary" onClick={() => setTab('Execute')} disabled={!transfer.record || transfer.retired}>Review transfer</button>
       : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={()=>setTab('Execute')} disabled={!lending.record||lending.retired}>Review lending composition</button>
       : lendingPath ? <button type="button" onClick={()=>setTab('Simulate')}>Back to simulation</button>
@@ -51,6 +50,10 @@ export function SummaryBar({ tab, setTab }: { tab: Tab; setTab: (value: Tab) => 
       : publicPath ? <button type="button" onClick={() => setTab('Simulate')}>Back to simulation</button>
       : modeB.info?.available ? <button type="button" onClick={() => setTab('Simulate')}>Back to simulation</button>
       : prepared && info?.available ? <button type="button" onClick={() => setTab('Simulate')}>Back to simulation</button>
-      : <button type="button" onClick={() => setTab('Build')}>Back to Build</button>}
+      : <button type="button" onClick={() => setTab('Build')}>Back to Build</button>;
+  return <footer className="summary-bar" data-workflow-revision={state.workflow.revision}>
+    <div><span className="eyebrow">WORKFLOW</span><strong>{actionCount} {actionCount === 1 ? 'action' : 'actions'}</strong></div>
+    {/* Relocate the existing action without duplicating its review gates or handler. */}
+    {tab === 'Simulate' && simulationActionHost ? createPortal(action, simulationActionHost) : action}
   </footer>;
 }

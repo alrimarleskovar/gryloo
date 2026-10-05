@@ -338,7 +338,9 @@
 .canvas-primary-action button{min-height:44px;padding:10px 16px;border:1px solid var(--blue);border-radius:9px;background:var(--blue);color:white;font-weight:700;box-shadow:0 5px 18px rgba(24,59,104,.2)}
 .canvas-primary-action button:hover{filter:brightness(.96)}
 .simulate-canvas .flow-surface{position:relative;overflow:hidden}
-.simulation-return-action{right:12px}
+.simulation-canvas-actions{right:12px;display:flex;align-items:center;gap:8px}
+.simulation-review-action{display:flex}
+.simulate-canvas .react-flow__controls{margin:12px 12px 68px}
 .simulation-technical{margin:20px 0 0}
 .flow-card strong{text-transform:none}
 .canvas-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:30px;color:var(--muted)}
