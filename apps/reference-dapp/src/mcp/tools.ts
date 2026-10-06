@@ -19,6 +19,7 @@ import { codeCapabilities, supportedAssets, supportedNetworks } from '../engine/
 import { composeBound, reviewComposition, type Composition } from '../engine/strategy-engine';
 import { compileSchema, NETWORK_IDS, STRATEGY_ACTIONS, strategySpecIssues, StrategySpecSchema, type StrategySpec } from '../engine/strategy-spec';
 import { principalScopes, type McpPrincipal } from './config.ts';
+import { evaluateGates, readHandoffPolicy, type HandoffPolicy } from './execution.ts';
 import type { McpScope, OAuthConfig } from './oauth/config.ts';
 import type { McpState } from './oauth/state.ts';
 import type { McpRuntime } from './runtime.ts';
@@ -78,12 +79,24 @@ export const TOOL_SCOPES: Readonly<Record<(typeof MCP_TOOL_NAMES)[number], McpSc
 export type ToolEvent = { readonly tool: string; readonly outcome: string; readonly durationMs: number };
 export type ToolContext = { readonly principal: McpPrincipal; readonly runtime: McpRuntime; readonly onTool?: (event: ToolEvent) => void; readonly now?: () => number;
   /** BUILD-MCP-002: present for OAuth deployments. */
-  readonly oauth?: OAuthConfig; readonly state?: McpState };
+  readonly oauth?: OAuthConfig; readonly state?: McpState;
+  /** BUILD-MCP-002: the MCP handoff policy (default: test funds only, every mainnet off). */
+  readonly policy?: HandoffPolicy };
 type Output = Record<string, unknown>;
 class ToolFailure extends Error {}
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 const failWith = (code: string, extra: Output = {}): never => { throw Object.assign(new ToolFailure(code), { extra }); };
 const AUTHORITY = 'NONE: this result authorizes nothing. Only the owner, in the FloFi app, can review the Strategy Manifest and sign with their own wallet.';
+
+const DEFAULT_POLICY = readHandoffPolicy({});
+/** BUILD-MCP-002: an approval handoff needs an OAuth account with the `flofi.approval` scope (a static credential has no account). */
+const canRequestApproval = (ctx: ToolContext) => ctx.principal.kind === 'mcp-oauth' && ctx.principal.scopes.includes('flofi.approval') && Boolean(ctx.state);
+/** One mode/info lookup per flow per call. */
+function memoizedRuntime(runtime: McpRuntime): McpRuntime {
+  const modes = new Map<string, ReturnType<McpRuntime['mode']>>(), infos = new Map<string, ReturnType<NonNullable<McpRuntime['info']>>>();
+  return { ...runtime, mode: flow => { if (!modes.has(flow)) modes.set(flow, runtime.mode(flow)); return modes.get(flow)!; },
+    info: flow => { if (!infos.has(flow)) infos.set(flow, runtime.info?.(flow) ?? Promise.resolve(null)); return infos.get(flow)!; } };
+}
 
 /** Simulations reach public chains and providers: a small per-instance cap protects them (best effort, never a correctness rule). */
 const MAX_CONCURRENT_SIMULATIONS = 2;
@@ -145,24 +158,28 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
   args => ({ ok: true, assets: supportedAssets(args.network) }));
 
   register('get_capabilities', 'Capabilities', 'For each action × network: what FloFi code supports (from the execution capability registry on the composed IR), the evidence ' +
-    'it has actually demonstrated, whether this deployment enables it, and what this MCP server can do (compose, validate, review, preview — never execute).',
+    'it has actually demonstrated, whether this deployment enables it, whether policy allows handing it to its owner for approval, and what this MCP server can do ' +
+    '(compose, validate, review, preview, request the owner\'s approval — never execute). Mainnet may be supported by code yet disabled by policy.',
   Schemas.capabilities, { ...pure, idempotentHint: false }, async args => {
     const rows = codeCapabilities().filter(r => (!args.network || r.network === args.network || r.destinationNetwork === args.network) && (!args.action || r.action === args.action));
-    const flows = [...new Set(rows.map(r => strategyFlow(r.example)).filter((f): f is NonNullable<typeof f> => f !== null))];
-    const modes = new Map(await Promise.all(flows.map(async flow => [flow, await ctx.runtime.mode(flow)] as const)));
-    const cloud = ctx.runtime.kind === 'remote' || ctx.runtime.kind === 'embedded';
-    return { ok: true, runtime: ctx.runtime.kind, mcpExecution: 'NOT_AVAILABLE', capabilities: rows.map(r => {
-      const plan = previewPlan(r.example), flow = strategyFlow(r.example), mode = flow ? modes.get(flow) ?? null : null;
-      const previewable = 'flow' in plan && cloud && (mode === 'live' || mode === 'harness');
-      return { action: r.action, network: r.network, destinationNetwork: r.destinationNetwork, funds: r.funds, actionTypes: r.actionTypes, adapters: r.adapters,
-        supportedByCode: { publicEnvironment: r.publicEnvironment, dimensions: r.supportedByCode, ownerWalletExecutionImplemented: r.ownerWalletExecutionImplemented,
-          registryEnvironments: r.registryEnvironments },
-        demonstratedEvidence: r.demonstratedEvidence ?? 'NONE_DEMONSTRATED',
-        deployment: { flow, mode: mode ?? 'UNKNOWN_IN_LOCAL_RUNTIME', enabled: mode === 'live' || mode === 'harness', mockedHarness: mode === 'harness' },
-        mcp: { compose: true, validate: true, review: true, simulate: previewable, simulateUnavailableReason: previewable ? null : 'code' in plan ? plan.code
-          : !cloud ? (ctx.runtime.kind === 'local' ? 'MCP_CLOUD_RUNTIME_REQUIRED' : 'CLOUD_RUNTIME_NOT_CONFIGURED') : 'FLOW_NOT_ENABLED_IN_DEPLOYMENT', execute: false },
-        example: r.example };
-    }) };
+    const runtime = memoizedRuntime(ctx.runtime), cloud = ctx.runtime.kind === 'remote' || ctx.runtime.kind === 'embedded', approvals = canRequestApproval(ctx);
+    return { ok: true, runtime: ctx.runtime.kind, mcpExecution: 'NOT_AVAILABLE', ownerExecution: 'IN_FLOFI_WITH_THE_OWNER_WALLET_ONLY',
+      capabilities: await Promise.all(rows.map(async r => {
+        const plan = previewPlan(r.example), flow = strategyFlow(r.example), mode = flow ? await runtime.mode(flow) : null;
+        const previewable = 'flow' in plan && cloud && (mode === 'live' || mode === 'harness');
+        const composition = composed(r.example, undefined), gates = await evaluateGates(composition, runtime, ctx.policy ?? DEFAULT_POLICY);
+        return { action: r.action, network: r.network, destinationNetwork: r.destinationNetwork, funds: r.funds, actionTypes: r.actionTypes, adapters: r.adapters,
+          supportedByCode: { publicEnvironment: r.publicEnvironment, dimensions: r.supportedByCode, ownerWalletExecutionImplemented: r.ownerWalletExecutionImplemented,
+            registryEnvironments: r.registryEnvironments, execute: gates.supportedByCode.execute, executionPlan: gates.plan.kind, steps: gates.plan.steps.length,
+            reason: gates.supportedByCode.reason },
+          enabledByDeployment: gates.enabledByDeployment, enabledByPolicy: gates.enabledByPolicy,
+          demonstratedEvidence: r.demonstratedEvidence ?? 'NONE_DEMONSTRATED',
+          deployment: { flow, mode: mode ?? 'UNKNOWN_IN_LOCAL_RUNTIME', enabled: mode === 'live' || mode === 'harness', mockedHarness: mode === 'harness' },
+          mcp: { compose: true, validate: true, review: true, simulate: previewable, simulateUnavailableReason: previewable ? null : 'code' in plan ? plan.code
+            : !cloud ? (ctx.runtime.kind === 'local' ? 'MCP_CLOUD_RUNTIME_REQUIRED' : 'CLOUD_RUNTIME_NOT_CONFIGURED') : 'FLOW_NOT_ENABLED_IN_DEPLOYMENT', execute: false,
+            approvalHandoff: approvals && gates.handoff.allowed, approvalHandoffUnavailableReason: !approvals ? 'MCP_ACCOUNT_REQUIRED' : gates.handoff.reason },
+          example: r.example };
+      })) };
   });
 
   register('compose_strategy', 'Compose strategy', 'Deterministically turn structured intent into FloFi\'s canonical Semantic Workflow IR (revision 1), using the same ' +

@@ -22,6 +22,11 @@ export type McpRuntime = {
   readonly kind: FlowRuntimeKind;
   /** The flow's enablement on this deployment; `null` when it cannot be known here (local). */
   readonly mode: (flow: FlowName) => Promise<FlowRuntimeMode | null>;
+  /**
+   * BUILD-MCP-002: the flow's own owner-execution switch (`info.executionEnabled`, e.g. a mainnet flow whose Simulate/Review are on
+   * but whose owner execution needs a separate opt-in). Only called for flows that expose `info`; `null` when unknown.
+   */
+  readonly info?: (flow: FlowName) => Promise<{ readonly executionEnabled: boolean } | null>;
   readonly preview: (flow: FlowName, args: readonly unknown[]) => Promise<Result<unknown>>;
   readonly run: (runId: string, owner: string) => Promise<Result<CloudRun | null>>;
   readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<Result<CloudJournalPage | null>>;
@@ -40,11 +45,17 @@ async function evidenceOf(flow: FlowName, record: Result<unknown> | null): Promi
     content: JSON.parse(new TextDecoder().decode(evidence.bytes)) as unknown } };
 }
 
+const infoOf = (result: { ok: boolean; value?: unknown } | null) => {
+  const value = result?.ok ? result.value as { executionEnabled?: unknown } | null : null;
+  return value && typeof value.executionEnabled === 'boolean' ? { executionEnabled: value.executionEnabled } : null;
+};
+
 /** The deployment's runtime through the existing selection (`flow-runtime.ts`). */
 export function deploymentRuntime(env: Env = process.env): McpRuntime {
   return {
     kind: flowRuntimeKind(env),
     mode: flow => cloudFlowMode(flow, env),
+    info: async flow => infoOf(await cloudFlow<unknown>(flow, 'info', [], { env })),
     preview: async (flow, args) => await cloudPreview(flow, args, { env }) ?? REQUIRED,
     run: async (runId, owner) => await cloudRun(runId, owner, { env }) ?? REQUIRED,
     journal: async (runId, owner, after, limit) => await cloudRunJournal(runId, owner, after, limit, { env }) ?? REQUIRED,
@@ -61,6 +72,7 @@ export function embeddedMcpRuntime(runtime: Pick<EmbeddedRuntime, 'backend' | 'r
   return {
     kind: 'embedded',
     mode: async flow => { const r = await runtime.backend.callFlow(flow, 'mode', []); return r.ok && (r.value === 'live' || r.value === 'harness') ? r.value : 'off'; },
+    info: async flow => infoOf(await runtime.backend.callFlow(flow, 'info', []).catch(() => null)),
     preview: async (flow, args) => { const r = await guard(() => runtime.backend.previewFlow(flow, args)); return r.ok ? r.value : r; },
     run: (runId, owner) => guard(() => runtime.run(runId, owner)),
     journal: (runId, owner, after, limit) => guard(() => runtime.journal(runId, owner, after, limit)),

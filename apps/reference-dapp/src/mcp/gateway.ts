@@ -16,6 +16,7 @@
  */
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import { authenticate, principalScopes, readMcpConfig, type McpOAuthPrincipal, type McpPrincipal } from './config.ts';
+import { readHandoffPolicy } from './execution.ts';
 import { DEFAULT_SCOPES, readOAuthConfig, type McpScope, type OAuthConfig } from './oauth/config.ts';
 import { credentialDigest, credentialOf } from './oauth/crypto.ts';
 import { mcpState, type McpState } from './oauth/state.ts';
@@ -90,7 +91,8 @@ export async function handleMcpRequest(request: Request, options: GatewayOptions
       ? { 'www-authenticate': challenge(oauth, [...new Set([...held, ...missing])], 'insufficient_scope') } : {});
   }
   const runtime = options.runtime ?? deploymentRuntime(env), active = principal;
-  const handler = createMcpHandler(() => createFlofiMcpServer({ principal: active, runtime, ...state ? { state } : {}, ...oauth ? { oauth } : {},
+  const policy = readHandoffPolicy(env);
+  const handler = createMcpHandler(() => createFlofiMcpServer({ principal: active, runtime, policy, ...state ? { state } : {}, ...oauth ? { oauth } : {},
     onTool: event => logger?.info('mcp.tool', { principal: active.id, tenant: active.tenantId, tool: event.tool, outcome: event.outcome, duration_ms: event.durationMs }) }),
   // `auto` answers with one JSON body: no tool emits a notification before its result.
   { legacy: 'stateless', maxRequestBodySize: MCP_MAX_BODY_BYTES, onerror: () => logger?.warn('mcp.protocol_error', { principal: active.id }) });
