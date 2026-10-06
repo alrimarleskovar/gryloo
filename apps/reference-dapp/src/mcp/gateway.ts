@@ -21,7 +21,7 @@ import { DEFAULT_SCOPES, readOAuthConfig, type McpScope, type OAuthConfig } from
 import { credentialDigest, credentialOf } from './oauth/crypto.ts';
 import { mcpState, type McpState } from './oauth/state.ts';
 import { deploymentRuntime, type McpRuntime } from './runtime.ts';
-import { createFlofiMcpServer, TOOL_SCOPES } from './tools.ts';
+import { APPROVAL_TOOL_NAMES, createFlofiMcpServer, TOOL_SCOPES } from './tools.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type GatewayLogger = { readonly info: (event: string, fields?: Readonly<Record<string, string | number | boolean | null>>) => void;
@@ -36,8 +36,12 @@ const reject = (status: number, code: string, extra: Record<string, string> = {}
 function challenge(oauth: OAuthConfig, scopes: readonly McpScope[], error?: 'invalid_token' | 'insufficient_scope'): string {
   return `Bearer ${error ? `error="${error}", ` : ''}resource_metadata="${oauth.resourceMetadataUrl}", scope="${scopes.join(' ')}"`;
 }
-/** The scopes a JSON-RPC message (or batch) needs: only `tools/call` of a known tool needs one; everything else needs a token. */
-function requiredScopes(body: string): readonly McpScope[] {
+/**
+ * The scopes a JSON-RPC message (or batch) needs: only `tools/call` of a tool that exists for this principal needs one; everything
+ * else needs a token. A tool the principal does not have at all (e.g. an approval tool for a static credential) is left to the SDK,
+ * which reports it as unknown: a 403 would wrongly suggest that a step-up could grant it.
+ */
+function requiredScopes(body: string, principal: McpPrincipal): readonly McpScope[] {
   let message: unknown;
   try { message = JSON.parse(body); } catch { return []; }
   const needed = new Set<McpScope>();
@@ -45,7 +49,9 @@ function requiredScopes(body: string): readonly McpScope[] {
     if (!entry || typeof entry !== 'object') continue;
     const { method, params } = entry as { method?: unknown; params?: { name?: unknown } };
     const name = method === 'tools/call' && params && typeof params === 'object' && typeof params.name === 'string' ? params.name : null;
-    if (name && Object.hasOwn(TOOL_SCOPES, name)) needed.add(TOOL_SCOPES[name as keyof typeof TOOL_SCOPES]);
+    if (!name || !Object.hasOwn(TOOL_SCOPES, name)) continue;
+    if (principal.kind !== 'mcp-oauth' && (APPROVAL_TOOL_NAMES as readonly string[]).includes(name)) continue;
+    needed.add(TOOL_SCOPES[name as keyof typeof TOOL_SCOPES]);
   }
   return [...needed];
 }
@@ -84,7 +90,7 @@ export async function handleMcpRequest(request: Request, options: GatewayOptions
   if (Number.isFinite(declared) && declared > MCP_MAX_BODY_BYTES) return reject(413, 'MCP_REQUEST_TOO_LARGE');
   const body = request.method === 'POST' ? await request.text() : null;
   if (body !== null && Buffer.byteLength(body, 'utf8') > MCP_MAX_BODY_BYTES) return reject(413, 'MCP_REQUEST_TOO_LARGE');
-  const held = principalScopes(principal), missing = body === null ? [] : requiredScopes(body).filter(s => !held.includes(s));
+  const held = principalScopes(principal), missing = body === null ? [] : requiredScopes(body, principal).filter(s => !held.includes(s));
   if (missing.length) {
     logger?.warn('mcp.insufficient_scope', { principal: principal.id, scope: missing.join(' ') });
     return reject(403, 'MCP_INSUFFICIENT_SCOPE', oauth && principal.kind === 'mcp-oauth'

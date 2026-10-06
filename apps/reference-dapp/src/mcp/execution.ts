@@ -28,6 +28,21 @@ export const ENGINE_VERSION = 'flofi-engine-2';
 export const FLOWS_WITH_EXECUTION_SWITCH: readonly FlowName[] = Object.freeze(['solana-devnet-swap', 'jupiter-swap', 'orca-liquidity', 'uniswap-liquidity',
   'crosschain-router', 'crosschain-router-testnet']);
 
+/**
+ * Review findings that are not defects but the owner's own pre-execution steps in FloFi: every executable flow quotes, simulates
+ * and reviews before anything can be signed (the linter BLOCKs execution until then; the capability registry needs the runtime
+ * facts the flow measures at Simulate). A handoff exists precisely so the owner can do that; any OTHER blocker refuses it.
+ */
+export const OWNER_PRE_EXECUTION_FINDINGS: ReadonlySet<string> = new Set(['LINTER:ROUTER_ROUTE_REQUIRED', 'LINTER:SOLANA_SWAP_QUOTE_REQUIRED',
+  'LINTER:SUPPLY_SIMULATION_REQUIRED', 'LINTER:UNISWAP_LIQUIDITY_SIMULATION_REQUIRED', 'LINTER:SOLANA_LIQUIDITY_SIMULATION_REQUIRED',
+  'LINTER:UNQUOTED_EXECUTION_UNAVAILABLE', 'CAPABILITY:RUNTIME_UNAVAILABLE']);
+/** The review's BLOCK findings split into the owner's pre-execution steps and genuine blockers. */
+export function handoffFindings(composition: Composition) {
+  const blocks = reviewComposition(composition).findings.filter(f => f.level === 'BLOCK');
+  const pre = blocks.filter(f => OWNER_PRE_EXECUTION_FINDINGS.has(`${f.source}:${f.code}`));
+  return { preExecution: [...new Set(pre.map(f => f.code))], blockers: blocks.filter(f => !pre.includes(f)) };
+}
+
 export type HandoffPolicy = { readonly ok: true; readonly testFunds: boolean; readonly mainnetNetworks: readonly NetworkId[] } | { readonly ok: false; readonly code: 'MCP_HANDOFF_POLICY_INVALID' };
 /** The MCP handoff policy. Any malformed value disables every handoff (fail closed). */
 export function readHandoffPolicy(env: Env): HandoffPolicy {

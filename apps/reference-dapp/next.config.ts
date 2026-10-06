@@ -10,7 +10,11 @@ const config: NextConfig = {
   outputFileTracingIncludes: { '/': ['./e2e/copilot/replay.json', './e2e/copilot/replay-v2.json', './e2e/observations/base-recorded-observations.json'] },
   // The browser may connect only to its own origin; read-only Base reads run on the local server.
   async headers() {
-    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self'" }] }];
+    // BUILD-MCP-002: the approval and connections pages hold a handoff secret or account choices: never framed, cached, indexed or referred.
+    const sensitive = [{ key: 'X-Frame-Options', value: 'DENY' }, { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+      { key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'X-Robots-Tag', value: 'noindex, nofollow' }, { key: 'Cache-Control', value: 'no-store' }];
+    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: "connect-src 'self'" }] },
+      { source: '/approve', headers: sensitive }, { source: '/connections', headers: sensitive }];
   },
 };
 

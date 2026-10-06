@@ -18,8 +18,10 @@ import { validateArtifact } from '@defi-workflow-engine/workflow-contracts/schem
 import { codeCapabilities, supportedAssets, supportedNetworks } from '../engine/capability-catalog';
 import { composeBound, reviewComposition, type Composition } from '../engine/strategy-engine';
 import { compileSchema, NETWORK_IDS, STRATEGY_ACTIONS, strategySpecIssues, StrategySpecSchema, type StrategySpec } from '../engine/strategy-spec';
-import { principalScopes, type McpPrincipal } from './config.ts';
+import { principalScopes, type McpOAuthPrincipal, type McpPrincipal } from './config.ts';
 import { evaluateGates, readHandoffPolicy, type HandoffPolicy } from './execution.ts';
+import { APPROVAL_SESSION_SECONDS, approvalStatus, approvalUrl, AUTHORITY_NONE, requestApproval } from './handoff/service.ts';
+import { credentialDigest, newCredential } from './oauth/crypto.ts';
 import type { McpScope, OAuthConfig } from './oauth/config.ts';
 import type { McpState } from './oauth/state.ts';
 import type { McpRuntime } from './runtime.ts';
@@ -50,6 +52,7 @@ function standard<T>(schema: TSchema): StandardSchemaWithJSON<T, T> {
     jsonSchema: { input: () => json, output: () => json } } };
 }
 const strict = { additionalProperties: false } as const;
+const pure = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 const Hash = Type.String({ pattern: '^0x[0-9a-f]{64}$', description: 'The workflowHash returned by compose_strategy.' });
 const ExecutionId = Type.String({ pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$', description: 'A FloFi execution (run) id. It is a lookup key, not an access grant.' });
 const NetworkFilter = Type.Union(NETWORK_IDS.map(n => Type.Literal(n)), { description: 'Network identifier.' });
@@ -72,16 +75,27 @@ const Schemas = {
  * BUILD-MCP-002: the OAuth scope each tool needs. The gateway enforces it at the HTTP level (403 `insufficient_scope`); each
  * handler checks it again. A static developer credential holds `flofi.strategy` and `flofi.runs` (BUILD-MCP-001's surface).
  */
-export const TOOL_SCOPES: Readonly<Record<(typeof MCP_TOOL_NAMES)[number], McpScope>> = Object.freeze({
+/**
+ * BUILD-MCP-002: the approval tools, registered only for an OAuth account (a static credential has no account to hand anything to).
+ * `open_approval_session` and `get_execution_progress` are app-only (MCP Apps visibility `["app"]`): the in-chat panel calls them,
+ * the model never sees them.
+ */
+export const APPROVAL_TOOL_NAMES = Object.freeze(['request_user_approval', 'get_approval_status', 'open_approval_session', 'get_execution_progress'] as const);
+export const APP_ONLY_TOOLS: readonly ToolName[] = Object.freeze(['open_approval_session', 'get_execution_progress']);
+export type ToolName = (typeof MCP_TOOL_NAMES)[number] | (typeof APPROVAL_TOOL_NAMES)[number];
+export const TOOL_SCOPES: Readonly<Record<ToolName, McpScope>> = Object.freeze({
   get_supported_networks: 'flofi.strategy', get_supported_assets: 'flofi.strategy', get_capabilities: 'flofi.strategy', compose_strategy: 'flofi.strategy',
-  validate_strategy: 'flofi.strategy', simulate_strategy: 'flofi.strategy', review_strategy: 'flofi.strategy', get_execution_status: 'flofi.runs', get_evidence: 'flofi.runs' });
+  validate_strategy: 'flofi.strategy', simulate_strategy: 'flofi.strategy', review_strategy: 'flofi.strategy', get_execution_status: 'flofi.runs', get_evidence: 'flofi.runs',
+  request_user_approval: 'flofi.approval', get_approval_status: 'flofi.approval', open_approval_session: 'flofi.approval', get_execution_progress: 'flofi.approval' });
 
 export type ToolEvent = { readonly tool: string; readonly outcome: string; readonly durationMs: number };
 export type ToolContext = { readonly principal: McpPrincipal; readonly runtime: McpRuntime; readonly onTool?: (event: ToolEvent) => void; readonly now?: () => number;
   /** BUILD-MCP-002: present for OAuth deployments. */
   readonly oauth?: OAuthConfig; readonly state?: McpState;
   /** BUILD-MCP-002: the MCP handoff policy (default: test funds only, every mainnet off). */
-  readonly policy?: HandoffPolicy };
+  readonly policy?: HandoffPolicy;
+  /** BUILD-MCP-002: the in-chat MCP App panel attached to request_user_approval, when enabled. */
+  readonly ui?: { readonly resourceUri: string } | null };
 type Output = Record<string, unknown>;
 class ToolFailure extends Error {}
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
@@ -126,11 +140,12 @@ const pickRow = (value: unknown, keys: readonly string[]) => {
 export function createFlofiMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer({ name: 'flofi', title: 'FloFi', version: MCP_SERVER_VERSION }, { instructions: MCP_INSTRUCTIONS });
   const now = ctx.now ?? (() => performance.now());
-  const register = <S extends TSchema>(name: (typeof MCP_TOOL_NAMES)[number], title: string, description: string, schema: S, annotations: ToolAnnotations,
-    run: (args: Static<S>) => Promise<Output> | Output) => {
+  const register = <S extends TSchema>(name: ToolName, title: string, description: string, schema: S, annotations: ToolAnnotations,
+    run: (args: Static<S>) => Promise<Output> | Output, toolMeta: Record<string, unknown> = {}) => {
     const scope = TOOL_SCOPES[name];
     // OAuth clients read `securitySchemes` to know which scope to request before calling (ChatGPT reads the `_meta` mirror).
-    const meta = ctx.oauth ? { _meta: { securitySchemes: [{ type: 'oauth2', scopes: [scope] }] } } : {};
+    const security = ctx.oauth ? { securitySchemes: [{ type: 'oauth2', scopes: [scope] }] } : {};
+    const meta = Object.keys(security).length || Object.keys(toolMeta).length ? { _meta: { ...security, ...toolMeta } } : {};
     server.registerTool(name, { title, description, inputSchema: standard<Static<S>>(schema), annotations: { title, ...annotations }, ...meta }, async (args: Static<S>): Promise<CallToolResult> => {
       const started = now();
       let result: CallToolResult, outcome = 'OK';
@@ -148,7 +163,6 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
       return result;
     });
   };
-  const pure = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 
   register('get_supported_networks', 'Supported networks', 'Networks FloFi can author strategies for, with CAIP-2 ids, mainnet/testnet/devnet class and the actions available. ' +
     'Derived from FloFi\'s registries.', Schemas.none, pure, () => ({ ok: true, networks: supportedNetworks() }));
@@ -266,5 +280,57 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
     return { ...base, evidence: { bundleHash: record.value.bundleHash, environment: record.value.environment, outcome: record.value.outcome,
       canonicalBundle: bundle, canonical: bundle !== null }, notes: ['Environment and outcome are copied from the Evidence Bundle; MCP never upgrades them.'] };
   });
+  if (ctx.principal.kind === 'mcp-oauth' && ctx.state && ctx.oauth) registerApprovalTools(ctx, register);
   return server;
+}
+
+type Register = <S extends TSchema>(name: ToolName, title: string, description: string, schema: S, annotations: ToolAnnotations,
+  run: (args: Static<S>) => Promise<Output> | Output, toolMeta?: Record<string, unknown>) => void;
+const ApprovalId = Type.String({ pattern: '^apr_[a-z2-7]{26}$', description: 'The approvalId returned by request_user_approval.' });
+const ApprovalSchemas = {
+  request: Type.Object({ strategy: StrategySpecSchema, workflowHash: Hash }, strict),
+  byId: Type.Object({ approvalId: ApprovalId }, strict),
+};
+/** BUILD-MCP-002: the bridge to the owner's own wallet in FloFi. Every result carries authority NONE. */
+function registerApprovalTools(ctx: ToolContext, register: Register) {
+  const deps = () => ({ config: ctx.oauth!, state: ctx.state!, runtime: ctx.runtime, policy: ctx.policy ?? DEFAULT_POLICY, now: new Date() });
+  const principal = ctx.principal as McpOAuthPrincipal;
+  const owned = async (approvalId: string) => await ctx.state!.handoffs.forAccount(approvalId, principal.accountId, new Date()) ?? failWith('APPROVAL_NOT_FOUND');
+  const ui = ctx.ui ?? null, appOnly = { ui: { visibility: ['app'] } };
+
+  register('request_user_approval', 'Request the owner\'s approval', 'Hand a composed strategy (with its workflowHash) to its owner for execution in FloFi. ' +
+    'FloFi re-composes and re-checks it, then returns an approval link with authority NONE. Nothing is authorized, signed or sent: the owner must open FloFi, ' +
+    'prove their wallet, run a fresh simulation, review the Strategy Manifest and sign with their own wallet. Show the user the approvalUrl (or the FloFi panel). ' +
+    'Mainnet may be disabled by policy; general multi-step sequences are not executable yet.', ApprovalSchemas.request,
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async args => {
+    const result = await requestApproval(deps(), principal, args.strategy, args.workflowHash);
+    if (!result.ok) return failWith(result.code, result.extra ?? {});
+    return { ok: true, ...result.value, message: 'Nothing is authorized yet. Open the FloFi link to prove your wallet, re-simulate, review the Strategy Manifest ' +
+      'and sign with your own wallet. The link expires soon and works once.' };
+  }, ui ? { ui: { resourceUri: ui.resourceUri }, 'openai/outputTemplate': ui.resourceUri, 'openai/toolInvocation/invoking': 'Preparing approval…',
+    'openai/toolInvocation/invoked': 'Approval ready' } : {});
+
+  register('get_approval_status', 'Approval status', 'The status of an approval request this account created: PENDING, CLAIMED, APPLIED, EXPIRED, SUPERSEDED, ' +
+    'REVOKED or STALE. It never reveals the wallet that claimed it and never authorizes anything.', ApprovalSchemas.byId, { ...pure, idempotentHint: false },
+  async args => ({ ok: true, ...approvalStatus(await owned(args.approvalId)) }));
+
+  register('open_approval_session', 'Open FloFi approval', 'App-only: a fresh, short-lived FloFi link for this approval (for the signing window or a wallet ' +
+    'in-app browser). The link only shows the proposal; it authorizes nothing.', ApprovalSchemas.byId, { readOnlyHint: false, destructiveHint: false,
+    idempotentHint: false, openWorldHint: false }, async args => {
+    const secret = newCredential('handoff'), expiresAt = new Date(Date.now() + APPROVAL_SESSION_SECONDS * 1000);
+    const h = await ctx.state!.handoffs.openSession(args.approvalId, principal.accountId, credentialDigest(ctx.oauth!.keys.handoff, secret), expiresAt, new Date());
+    if (!h) return failWith('APPROVAL_NOT_FOUND');
+    if (h.status !== 'PENDING' && h.status !== 'CLAIMED') return failWith(`APPROVAL_${h.status}`);
+    const url = approvalUrl(ctx.oauth!, secret);
+    return { ok: true, approvalId: h.handoffId, approvalUrl: url, expiresAt: expiresAt.toISOString(), authority: AUTHORITY_NONE,
+      walletLinks: walletDeepLinks(url, ctx.oauth!.origin) };
+  }, appOnly);
+
+  register('get_execution_progress', 'Execution progress', 'App-only: the approval\'s state and, when its owner shares it, the status of the runs started from it.',
+    ApprovalSchemas.byId, { ...pure, idempotentHint: false }, async args => ({ ok: true, ...approvalStatus(await owned(args.approvalId)) }), appOnly);
+}
+/** Mobile wallets open FloFi in their own in-app browser, where their provider is injected. The fragment stays inside the encoded URL. */
+export function walletDeepLinks(url: string, origin: string) {
+  return { phantom: `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(origin)}`,
+    metamask: `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, '')}` };
 }

@@ -195,7 +195,10 @@ describe('BUILD-MCP-001 gateway: no FloFi-owned model is ever called', () => {
       const root = join(__dirname, '..', '..', dir);
       for (const file of readdirSync(root).filter(f => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
         const source = readFileSync(join(root, file), 'utf8');
-        expect(source, file).not.toMatch(/openai|anthropic|copilot-service|copilot-action|OPENAI_API_KEY|ANTHROPIC_API_KEY/i);
+        // BUILD-MCP-002: `openai/…` is the MCP Apps metadata namespace ChatGPT reads (`_meta["openai/outputTemplate"]`), not a model
+        // client; the guard targets model clients precisely (SDK imports, API hosts, API keys, the Copilot). See also
+        // `oauth/no-model.test.ts`, which scans every MCP-002 source recursively.
+        expect(source, file).not.toMatch(/from ['"](openai|@anthropic-ai\/[a-z-]+|@ai-sdk\/[a-z-]+)['"]|api\.openai\.com|api\.anthropic\.com|copilot-service|copilot-action|OPENAI_API_KEY|ANTHROPIC_API_KEY/i);
       }
     }
   });
