@@ -183,7 +183,12 @@ function PoolPricePanel({ strategy, onSelect, onCollapse }: { strategy: PoolPric
 }
 
 /** Display priority is shared by all value boxes in the card; token inputs keep their denomination. */
-function ValueBox({ amount, token, network, source, label, hint, editor, inputLabel, equity, picker, fiatFirst, onFiatFirstChange }: { amount?: string | undefined; token: string; network: string; source?: boolean; label?: string; hint: string; editor?: Pick<CanvasAmountEditor, 'value' | 'formId' | 'onChange'> | undefined; inputLabel?: string; equity?: { symbol: StockEquity; onToggle(): void; expanded: boolean; controls: string }; picker?: TokenPickerControl; fiatFirst: boolean; onFiatFirstChange: (fiatFirst: boolean) => void }) {
+function ValueBox({ amount, token, network, source, label, hint, editor, inputLabel, equity, picker, fiatFirst, onFiatFirstChange, readOnly = false }: { readOnly?: boolean; amount?: string | undefined; token: string; network: string; source?: boolean; label?: string; hint: string; editor?: Pick<CanvasAmountEditor, 'value' | 'formId' | 'onChange'> | undefined; inputLabel?: string; equity?: { symbol: StockEquity; onToggle(): void; expanded: boolean; controls: string }; picker?: TokenPickerControl; fiatFirst: boolean; onFiatFirstChange: (fiatFirst: boolean) => void }) {
+  if (readOnly) return <span className={`numeric composer-amount-box ${source ? 'composer-amount' : 'composer-destination-box'}`}
+    role="group" aria-label={label ?? (source ? 'Source amount' : 'Destination amount')} data-symbolic={!amount || undefined} title={hint}>
+    <span className="composer-value-column"><span className="composer-amount-value">{amount ?? '—'}</span></span>{' '}
+    <TokenChip symbol={token} network={network.replace(/ \(\d+\)$/, '').replace('Robinhood Chain Testnet', 'Robinhood Chain')}/>
+  </span>;
   const tokenValue = editor ? <TokenAmountInput className={`composer-token-value ${fiatFirst ? 'composer-fiat-value' : 'composer-amount-value'}`}
     aria-label={inputLabel ?? `Source amount (${token})`} inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80}
     form={editor.formId} value={editor.value} style={fiatFirst ? { width: `${Math.max(editor.value.length, 1)}ch` } : undefined}
@@ -276,7 +281,7 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
   const poolValues = poolCard ? poolContributions.values ?? card.summary.liquidityValues : undefined;
   const quietAmount = Boolean(card.stocks) || amountBox || (!card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (Boolean(card.amountEditor?.changed) || card.validation.status === 'Draft'));
   const amountParts = card.summary.amount.match(/^(\d+(?:\.\d+)?) (\S+)$/);
-  const pair = card.summary.detail ?? (!card.inspection ? card.summary.bridgePair : undefined);
+  const pair = card.summary.detail ?? card.summary.bridgePair;
   const [pairSource, pairDestination] = pair?.split(' → ') ?? [];
   const [sourceNetwork = 'Network not specified', destinationNetwork = sourceNetwork] = card.summary.chain.split(' → ');
   const editor = card.amountEditor ? { ...card.amountEditor, onChange: (value: string) => { setAmountError(null); card.amountEditor!.onChange(value); } } : undefined;
@@ -300,21 +305,23 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
   const AmountContainer = editor ? 'form' : 'div';
   const content = <div className={`flow-card composer-card ${card.selected ? 'active' : ''}`} data-state={card.inspection || quietAmount ? undefined : card.validation.tone}>
       <Handle type="target" position={card.vertical ? Position.Top : Position.Left} isConnectable={false}/>
-      {card.inspection ? <>
-        <div className="composer-card-head"><span className="composer-step">Step {card.step}</span></div>
-        <strong>{card.summary.action}</strong>
-      </> : <>
-        <strong className="composer-action-title"><span>{card.step}. {card.summary.action}</span><ActionIcon action={actionIcons[card.summary.action] ?? 'action'}/></strong>
-        {!quietAmount && card.validation.status !== 'Configured' && <span className="composer-card-state" title={card.validation.message}>{card.validation.tone !== 'neutral' && '⚠ '}{card.validation.status === 'Draft' ? 'Check settings' : card.validation.status}</span>}
-      </>}
-      {card.inspection ? <>
-        <span className="composer-provider">{card.summary.provider || 'Provider not specified'}</span>
-        <span className="composer-chain">{card.summary.chain}</span>
-      </> : poolCard ? <PoolProviderSelector provider={card.summary.provider} chain={card.summary.chain}/> : <span className="composer-metadata">
+      <strong className="composer-action-title"><span>{card.step}. {card.summary.action}</span><ActionIcon action={actionIcons[card.summary.action] ?? 'action'}/></strong>
+      {!card.inspection && !quietAmount && card.validation.status !== 'Configured' && <span className="composer-card-state" title={card.validation.message}>{card.validation.tone !== 'neutral' && '⚠ '}{card.validation.status === 'Draft' ? 'Check settings' : card.validation.status}</span>}
+      {poolCard ? <PoolProviderSelector provider={card.summary.provider} chain={card.summary.chain}/> : <span className="composer-metadata">
         <span className="composer-provider">{card.summary.provider.replace(/Cross-chain Router/g, 'Router') || 'Provider not specified'}</span>
         {!card.stocks && !bridgeCard && <>{' · '}<span className="composer-chain">{card.summary.chain}</span></>}
       </span>}
-      {card.stocks ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} label="Stocks amount" inputLabel="Stocks amount" amount={card.stocks.amount} token={card.stocks.equity} network={sourceNetwork}
+      {card.inspection ? <>
+        {card.summary.liquidityValues ? <div className="composer-value-pair">
+          {card.summary.liquidityValues.map((value, index) => <ValueBox key={value.token} readOnly source={index === 0} amount={value.amount} token={value.token} network={sourceNetwork}
+            label={`${index === 0 ? 'First' : 'Second'} liquidity asset amount`} hint="Configured liquidity contribution" fiatFirst={false} onFiatFirstChange={setFiatFirst}/>)}
+        </div> : <div className={pairDestination ? 'composer-value-pair' : undefined}>
+          {amountParts ? <ValueBox readOnly source amount={amountParts[1]} token={amountParts[2]!} network={sourceNetwork} hint={card.summary.amount} fiatFirst={false} onFiatFirstChange={setFiatFirst}/>
+            : <span className="numeric composer-amount">{card.summary.amount}</span>}
+          {pairDestination && <><span className="composer-value-arrow" aria-hidden="true">↓</span><ValueBox readOnly token={pairDestination} network={destinationNetwork} hint="Output estimate unavailable" fiatFirst={false} onFiatFirstChange={setFiatFirst}/></>}
+        </div>}
+        {pairDestination && <span className="composer-quote-note">Estimate unavailable</span>}
+      </> : card.stocks ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} label="Stocks amount" inputLabel="Stocks amount" amount={card.stocks.amount} token={card.stocks.equity} network={sourceNetwork}
         hint="Stocks amount" editor={{ value: card.stocks.amount, onChange: card.stocks.onAmountChange }} equity={{ symbol: card.stocks.equity, onToggle: () => setStocksPanelOpen(open => !open), expanded: stocksPanelOpen, controls: stocksPanelId }}/>
         : amountBox ? <AmountContainer className="composer-amount-form nodrag nopan" onKeyDown={event => event.stopPropagation()} onSubmit={event => { event.preventDefault(); if (editor) setAmountError(editor.onReview()); }}>
         <div className="composer-value-pair">
@@ -343,7 +350,7 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
         <button type="submit" form={card.supplyProposal.formId} className="composer-amount-review" disabled={!card.supplyProposal.canReview || card.actionSelection?.valid === false}>{card.supplyProposal.reviewLabel ?? 'Review Supply change'}</button>
         {card.supplyProposal.hasProposal && <button type="button" className="composer-amount-apply" disabled={!card.supplyProposal.canApply} onClick={card.supplyProposal.onApply}>Apply proposal</button>}
       </div>}
-      {!amountBox && !poolCard && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{pair}</span>}
+      {!amountBox && !poolCard && (!card.inspection || !pairDestination) && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{pair}</span>}
       {poolCard && <div className="composer-pool-controls">
         {poolMode === 'Price' && <PoolPriceRange percent={poolRange.percent} preset={poolRange.preset} extent={poolRange.extent} reference={poolRange.reference} onChange={poolRange.edit}/>}
         <div className="composer-pool-control-row">{poolMode === 'Price' && (poolRange.preset && poolRange.preset !== 'Estável'

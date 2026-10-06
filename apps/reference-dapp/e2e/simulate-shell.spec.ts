@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 
 test('Simulate and Execute open directly on existing content without a workspace introduction', async ({ page }) => {
@@ -25,17 +26,20 @@ test('Simulate and Execute open directly on existing content without a workspace
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
   await expect(main.getByRole('region', { name: 'Simulation workflow graph', exact: true })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Prepare your workflow', exact: true })).toHaveCount(0);
-  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation details');
+  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation workspace');
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  await configureCanvasAction(page, '1');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await expect(main).toBeVisible();
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
   expect(await main.innerText()).not.toMatch(/Draft · Untitled workflow|SIMULATE \/ WORKFLOW|Current stage · Simulate|Understand the outcome|No chain selected/);
+  await expect(main.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeHidden();
+  await main.locator('.simulation-technical > summary').click();
   await expect(main.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeVisible();
-  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation');
+  await expect(main.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Workflow simulation workspace');
   await expect(main.getByRole('region', { name: 'Aave Supply', exact: true })).toBeVisible();
-  await expect(main.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
+  await expect(main.getByRole('complementary', { name: 'Simulation Summary', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(execution).toBeVisible();

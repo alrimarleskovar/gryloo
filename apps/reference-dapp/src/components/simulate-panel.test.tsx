@@ -10,7 +10,7 @@ import { SimulatePanel } from './simulate-panel';
 
 const fixture = vi.hoisted(() => ({ store: null as unknown as ReturnType<typeof import('../state/workflow-store').useWorkflow> }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => fixture.store }));
-vi.mock('./workflow-canvas', () => ({ WorkflowCanvas: ({ workflowName, primaryAction }: { workflowName: string; primaryAction?: ReactNode }) =>
+vi.mock('./simulate-workflow-canvas', () => ({ SimulateWorkflowCanvas: ({ workflowName, primaryAction }: { workflowName: string; primaryAction?: ReactNode }) =>
   createElement('div', { 'data-workflow-name': workflowName, 'aria-label': 'simulation graph fixture' }, primaryAction) }));
 
 beforeEach(() => {
@@ -39,9 +39,10 @@ describe('Simulate control presentation', () => {
     const html = render();
     expect(html).not.toMatch(/simulate-details-toggle|Show technical details|Hide technical details/);
     expect(html).not.toMatch(/>SIMULATE<|<h2>Simulation<\/h2>/);
-    expect(html).toMatch(/aria-label="simulation graph fixture"><button type="button">Return to Build<\/button>/);
+    expect(html).toContain('class="simulation-back">Back to Build</button>');
+    expect(html).toContain('aria-label="Simulation Summary"');
     expect(html.indexOf('Add a Base swap')).toBeGreaterThan(html.indexOf('simulation-technical'));
-    expect(html.indexOf('simulation-technical')).toBeGreaterThan(html.indexOf('simulate-grid'));
+    expect(html.indexOf('simulation-technical')).toBeGreaterThan(html.indexOf('simulate-workspace-grid'));
     expect(html).toContain('Existing diagnostic panels');
     expect(html).toMatch(/disabled="">Generate mocked artifacts for revision 0/);
     expect(html).toContain('USD values: not modeled.');

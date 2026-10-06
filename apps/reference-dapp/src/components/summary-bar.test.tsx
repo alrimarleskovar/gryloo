@@ -54,8 +54,8 @@ describe('footer after Build CTA relocation', () => {
     if (condition === 'verification error') fixture.modeA.verifyError = 'Payload verification failed';
     if (condition === 'unverified approval') fixture.modeA.verified['step-approve'] = false;
     if (condition === 'unverified swap') fixture.modeA.verified['step-swap'] = false;
-    const simulationActionHost = {} as HTMLDivElement, setTab = vi.fn();
-    const html = renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab, simulationActionHost }));
+    const simulationActionHost = {} as HTMLDivElement, setTab = vi.fn(), focusReview = vi.fn();
+    const html = renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab, simulationActionHost, focusReview }));
     expect(html).not.toContain('Review swap');
     expect(createPortal).toHaveBeenCalledTimes(1);
     const [action, host] = vi.mocked(createPortal).mock.calls[0]!;
@@ -66,10 +66,25 @@ describe('footer after Build CTA relocation', () => {
     expect(setTab).not.toHaveBeenCalled();
     if (condition === 'ready') {
       button.props.onClick();
-      expect(setTab).toHaveBeenCalledExactlyOnceWith('Execute');
+      expect(focusReview).toHaveBeenCalledOnce(); expect(setTab).not.toHaveBeenCalled();
     }
   });
 
+  it('focuses embedded Review without navigating or executing', () => {
+    const setTab = vi.fn(), focusReview = vi.fn(), simulationActionHost = {} as HTMLDivElement;
+    renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab, simulationActionHost, focusReview, reviewAvailable: true }));
+    const [action] = vi.mocked(createPortal).mock.calls[0]!;
+    const button = action as ReactElement<{ onClick(): void; children: string }>;
+    expect(button.props.children).toBe('Review authorization'); button.props.onClick();
+    expect(focusReview).toHaveBeenCalledOnce(); expect(setTab).not.toHaveBeenCalled();
+  });
+
+  it('does not present an unavailable Review CTA or navigate to Execute before simulation', () => {
+    const setTab = vi.fn(), focusReview = vi.fn(), simulationActionHost = {} as HTMLDivElement;
+    renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab, focusReview, simulationActionHost, reviewAvailable: false }));
+    expect(vi.mocked(createPortal).mock.calls[0]?.[0]).toBeNull();
+    expect(setTab).not.toHaveBeenCalled(); expect(focusReview).not.toHaveBeenCalled();
+  });
   it('retains footer actions when no simulation canvas is mounted and on Execute', () => {
     const setTab = vi.fn();
     expect(renderToStaticMarkup(createElement(SummaryBar, { tab: 'Simulate', setTab }))).toMatch(/disabled="">Review swap/);

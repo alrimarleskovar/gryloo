@@ -7,7 +7,8 @@ import { formatHumanAmount, swapDetails } from '../domain/swap-authoring';
 import type { Workflow } from '../domain/initial-workflow';
 import { useWorkflow } from '../state/workflow-store';
 import { StatusBadge } from './status-badge';
-import { WorkflowCanvas, type SimulationOverlay } from './workflow-canvas';
+import type { SimulationSource } from '../domain/simulation-presentation';
+import { SimulateWorkspace } from './simulate-workspace';
 
 /** Every generated amount is rendered only through this element (R-1). */
 export function MockedValue({ units, symbol, context }: { units: string; symbol: Symbol; context: ReviewContext }) {
@@ -56,7 +57,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   </div>;
 }
 
-export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, children }: { workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode }) {
+export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, simulationSource, review, simulateAction, children }: { workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode; review?: ReactNode; simulateAction?: ReactNode; simulationSource?: SimulationSource | undefined }) {
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
@@ -68,7 +69,6 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
   const shown = status === 'CURRENT' && !access.ok ? (access.code === 'ARTIFACTS_STALE' ? 'INVALIDATED' : 'EXPIRED') : status;
   useEffect(() => { if (status === 'CURRENT' && !access.ok) accessCheck(); });
   const views = current ? swapViews(current, context) : [];
-  const overlay: ReadonlyMap<string, SimulationOverlay> = new Map(views.map(view => [view.nodeId, { symbol: view.to, expected: view.expected, minimum: view.minimum }]));
   function toggleJson(key: string) {
     // Opening JSON is a use of the chain, so the guard runs again at that moment.
     if (!checkChainAccess(chain, workflow, Date.now(), performance.now()).ok) { setOpenJson(null); accessCheck(); return; }
@@ -77,15 +77,9 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
   const jsonKeys = current ? [...current.chain.quotes.map(quote => [`quote:${quote.nodeId}`, `mocked quote · ${quote.nodeId}`] as const),
     ['artifact-set', 'Artifact Set'] as const, ['simulation-bundle', 'mocked simulation'] as const] : [];
 
-  return <section className="simulate-panel panel" aria-label="Workflow simulation details" data-technical-open={showTechnical}>
-    <div className="simulate-grid">
-      <WorkflowCanvas mode="simulate" workflowName={workflowName} overlay={overlay} primaryAction={<>
-        {returnToBuild && <button type="button" onClick={returnToBuild}>Return to Build</button>}
-        {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
-      </>}/>
-    </div>
-    <details className="shell-details technical-workspace simulation-technical" onToggle={event => setShowTechnical(event.currentTarget.open)}>
-      <summary>Technical diagnostics</summary>
+  return <SimulateWorkspace workflowName={workflowName} returnToBuild={returnToBuild} reviewActionHost={reviewActionHost} simulationSource={simulationSource} review={review} simulateAction={simulateAction}>
+    <details className="shell-details technical-workspace simulation-technical" data-technical-open={showTechnical} onToggle={event => setShowTechnical(event.currentTarget.open)}>
+      <summary>View technical details</summary>
     <div className="simulate-head">
       <div><p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
       <div className="simulate-controls">
@@ -146,5 +140,5 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, c
       {!current && !eligibility.eligible && <p className="simulate-note">{eligibility.reason}</p>}
       {children}
     </details>
-  </section>;
+  </SimulateWorkspace>;
 }

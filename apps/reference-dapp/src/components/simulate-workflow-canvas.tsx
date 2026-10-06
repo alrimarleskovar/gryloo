@@ -8,7 +8,7 @@ import { canvasPosition } from '../domain/canvas-layout';
 import { useWorkflow } from '../state/workflow-store';
 import { ComposerCard, type ComposerCardData } from './composer-card';
 
-const FIT_PADDING = { top: '32px', bottom: '96px', left: '32px', right: '32px' } as const;
+const FIT_PADDING = { top: '32px', bottom: '136px', left: '32px', right: '32px' } as const;
 function InspectionCard({ data }: NodeProps) { return <ComposerCard data={data as ComposerCardData}/>; }
 const nodeTypes = { workflow: InspectionCard };
 
@@ -77,6 +77,6 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction }: { workfl
       {nodes.length === 0 && <div className="simulation-workflow-empty"><strong>{incomplete ? 'Check your workflow' : 'Add an action to your workflow'}</strong><p>{incomplete ? 'Complete its configuration in Build before simulating.' : 'Create your strategy in Build, then return here to simulate it.'}</p></div>}
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot"><span>Authored workflow</span><span>Parameters shown are from Build.</span></div>
+    <div className="canvas-foot"><span>Workflow preview</span><span>Configured in Build</span></div>
   </section>;
 }

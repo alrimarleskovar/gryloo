@@ -393,7 +393,8 @@
 .composer-fiat-value{font-size:10px;font-weight:400;line-height:1.3;color:var(--muted)}
 .composer-token-chip{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:4px 9px 4px 5px;border:1px solid var(--accent-line);border-radius:999px;background:var(--paper);color:var(--blue)}
 .composer-amount-box .composer-amount-token{font-size:12px;font-weight:650}
-.composer-token-avatar{position:relative;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:transparent;font-size:11px;font-weight:700}
+.composer-token-avatar{position:relative;flex:none;width:22px;height:22px;border-radius:50%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);place-items:center;background:transparent;font-size:11px;font-weight:700}
+.composer-token-avatar>.brand-icon{min-width:0;min-height:0;max-width:100%;max-height:100%}
 .brand-icon{display:block;width:100%;height:100%;object-fit:contain;filter:none}
 .brand-icon-fallback{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:#e4e4e7;color:#52525b;font:inherit}
 .composer-equity-pill{position:relative;color:var(--blue);font:inherit;cursor:pointer}
@@ -503,7 +504,9 @@
 .simulate-panel>.simulate-grid{display:block}
 .simulation-technical>.simulate-results{margin-top:14px}
 @media(max-width:700px){.simulation-lending-canvas{height:760px}}
-.simulation-workflow-canvas .simulation-canvas-actions{max-width:calc(100% - 68px)}
+.simulation-workflow-canvas .simulation-canvas-actions{right:64px;bottom:20px;width:330px;max-width:calc(100% - 84px)}
+.simulation-workflow-canvas .simulation-workspace-actions{margin:0;gap:8px;width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr)}
+@media(max-width:480px){.simulation-workflow-canvas .simulation-workspace-actions button{font-size:12px;padding-inline:8px}}
 .simulation-workflow-canvas .simulation-review-action{min-width:0}
 
 /* UX-003A refinement: single-row top tools and the existing editor disclosure. */
@@ -668,6 +671,34 @@
 .copilot .chat-form label{font-size:13px}
 .copilot .chat-form :is(input,button){font-size:15px}
 .copilot .chat-form small{font-size:12px}
+
+/* UX-004A: Simulate inherits the product shell and card language without authoring tools. */
+.simulate-workspace{min-width:0}
+.simulate-workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.simulate-workspace-grid>.simulation-workflow-canvas{height:clamp(560px,calc(100vh - 180px),760px);margin:0}
+.simulate-workspace-grid>.simulation-summary{margin:0;padding:22px;min-width:0}
+.simulation-summary-heading h2{font-size:18px;margin:0 0 8px;color:var(--blue)}
+.simulation-summary-heading p,.simulation-summary-note{font-size:13px;line-height:1.5;color:var(--muted);margin:0}
+.simulation-summary-values{margin:22px 0 16px}
+.simulation-summary-values>div{display:flex;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5}
+.simulation-summary-values dt{color:var(--muted)}
+.simulation-summary-values dd{margin:0;display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-align:right;font-weight:600;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.simulation-summary-values dd small{font-size:11px;font-weight:400;color:var(--muted)}
+.simulation-summary-network{display:flex;align-items:center;gap:7px}
+.simulation-summary-network>span{width:18px;height:18px;flex:none}
+.simulation-workspace-actions{display:grid;gap:10px;margin-top:24px}
+.simulation-workspace-actions button{width:100%;min-height:42px;padding:10px 14px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--blue);font:600 14px Arial,Helvetica,sans-serif;cursor:pointer}
+.simulation-workspace-actions .primary{background:var(--blue);border-color:var(--blue);color:var(--on-accent)}
+.simulation-workspace-actions button:disabled{opacity:.5;cursor:default}
+.simulation-workspace-actions button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.simulate-flow-surface .composer-action-title{display:flex;align-items:center;gap:7px;margin-bottom:3px;color:var(--blue)}
+.simulate-flow-surface .composer-action-title svg{flex:none}
+.simulate-flow-surface .composer-metadata{font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.simulate-flow-surface .composer-amount-box{display:flex;align-items:center;gap:6px;min-height:58px;margin:4px 0;padding:8px 10px;border:1px solid var(--accent-line);border-radius:7px;background:var(--blue-soft)}
+.simulate-flow-surface .composer-destination-box{margin-top:0}
+.simulate-flow-surface .composer-value-pair .composer-amount-box{margin:0}
+.simulate-flow-surface .composer-value-pair>.composer-amount-box+.composer-amount-box{grid-row:3}
+@media(max-width:900px){.simulate-workspace-grid{grid-template-columns:minmax(0,1fr)}.simulate-workspace-grid>.simulation-summary{padding:20px}.simulation-workspace-grid>.simulation-workflow-canvas{height:660px}}
 .copilot .proposal :is(p,li){font-size:14px;line-height:1.5}
 
 /* Raised, crisp dark canvas controls with the existing anchor and interactions. */
@@ -683,3 +714,110 @@
 :root[data-theme="dark"] .react-flow__controls-button{width:32px;height:32px;border-radius:5px}
 :root[data-theme="dark"] .react-flow__controls-button svg{width:14px;height:14px;max-width:14px;max-height:14px}
 :root[data-theme="dark"] .react-flow__controls-button:disabled svg{fill-opacity:.8}
+
+/* UX-004B: compact product results, scoped to the existing Simulate summary. */
+.simulation-validity{margin-top:18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
+.simulation-validity strong{display:flex;align-items:center;gap:7px;font-size:12px}
+.simulation-status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.simulation-tone-ready strong{color:var(--blue)}
+.simulation-tone-attention strong{color:var(--amber)}
+.simulation-tone-blocked strong{color:var(--red)}
+.simulation-validity p{font-size:12px;line-height:1.5;color:var(--muted);margin:7px 0 0}
+.simulation-validity small{display:block;margin-top:7px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.simulation-summary-section{border-bottom:1px solid var(--line);padding:18px 0}
+.simulation-summary-section h3{font-size:12px;line-height:1.4;font-weight:650;color:var(--muted);margin:0 0 12px}
+.simulation-summary-section .simulation-summary-values{margin:0}
+.simulation-summary-section .simulation-summary-values>div{padding:6px 0;border:0;font-size:12px;gap:10px}
+.simulation-summary-section .simulation-summary-values dt{flex:1;min-width:65px}
+.simulation-summary-section .simulation-summary-values dd{max-width:66%;font-size:12px}
+.simulation-summary-section .simulation-summary-values dd small{font-size:10px;line-height:1.45}
+.simulation-results,.simulation-route,.simulation-attention{list-style:none;margin:0;padding:0}
+.simulation-results>li+li{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.simulation-step-title{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px}
+.simulation-step-number{width:18px;height:18px;display:grid;place-items:center;flex:none;border-radius:50%;background:var(--blue-soft);color:var(--blue);font-size:10px}
+.simulation-input{color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:10px}
+.simulation-result-label{color:var(--muted);font-size:10px;line-height:1.5}
+.simulation-result{display:flex;align-items:flex-start;gap:8px;font-size:16px;font-weight:650;line-height:1.5;margin-top:4px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.simulation-result>span:first-child{color:var(--blue);font-weight:400;flex:none}
+.simulation-token-amount{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
+.simulation-summary .brand-icon{width:18px;height:18px;min-width:18px;min-height:18px;flex:none;object-fit:contain;filter:none}
+.simulation-minimum{color:var(--muted);font-size:10px;line-height:1.5;margin:7px 0}
+.simulation-route>li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px 10px;font-size:12px;line-height:1.5;padding:6px 0}
+.simulation-route>li>small{flex-basis:100%;color:var(--muted);font-size:11px}
+.simulation-route-context{color:var(--muted)}
+.simulation-route-context small{display:block;font-size:10px}
+.simulation-network{padding-top:10px}
+.simulation-empty-value{font-size:14px;margin:0;color:var(--muted)}
+.simulation-market-step{color:var(--muted);font-size:11px;margin:10px 0 5px}
+.simulation-attention{display:grid;gap:12px}
+.simulation-attention>li{font-size:12px;line-height:1.5;border-left:2px solid var(--accent-line);padding-left:10px;color:var(--muted)}
+.simulation-warning-label{display:block;font-size:10px;font-weight:650;color:var(--blue);margin-bottom:3px}
+.simulation-attention>.simulation-warning-attention{border-left-color:var(--warning-border)}
+.simulation-warning-attention .simulation-warning-label{color:var(--amber)}
+.simulation-attention>.simulation-warning-blocking{border-left-color:var(--danger-line)}
+.simulation-warning-blocking .simulation-warning-label{color:var(--red)}
+
+.simulate-workspace-grid>.simulation-summary{display:flex;flex-direction:column;max-height:none}
+.simulation-summary-content{min-height:0;overflow:visible}
+.simulation-summary .simulation-workspace-actions{flex:none;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.simulation-summary-section:last-child{border-bottom:0;padding-bottom:0}
+
+/* UX-004C: authorization review shares the product theme and original brand images. */
+.review-workspace{max-width:none;margin:28px auto 0;padding-top:24px;border-top:1px solid var(--line);scroll-margin-top:24px}
+.review-heading{margin:8px 0 24px}
+.review-heading h2{font-size:28px;letter-spacing:-.7px;margin:6px 0 10px;color:var(--ink)}
+.review-heading p:not(.eyebrow){color:var(--muted);font-size:13px;margin:0;line-height:1.6}
+.review-workspace-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(340px,.8fr);gap:20px;align-items:start}
+.review-strategy,.review-confirmation{padding:24px;min-width:0}
+.review-section{padding:20px 0;border-bottom:1px solid var(--line)}
+.review-section:first-child{padding-top:0}
+.review-section:last-child{border-bottom:0;padding-bottom:0}
+.review-section h2{font-size:15px;letter-spacing:-.2px;margin:0 0 16px;color:var(--ink)}
+.review-caption{font-size:11px;line-height:1.7;color:var(--muted);margin:12px 0 0}
+.review-limits>div{padding:7px 0}
+.review-limits dd{overflow-wrap:anywhere}
+.review-permissions{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+.review-permissions li{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--ink);background:var(--soft)}
+.review-permissions li span{color:var(--blue)}
+.review-approvals{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.review-approvals article{padding:16px;background:var(--soft);border:1px solid var(--line);border-radius:9px;min-width:0}
+.review-approvals h3{display:flex;align-items:center;gap:8px;font-size:14px;margin:0}
+.review-approval-amount,.review-unlimited{font-size:14px;font-weight:650;margin:12px 0;font-variant-numeric:tabular-nums}
+.review-unlimited{color:var(--amber)}
+.review-confirmation .review-section{padding:20px 0}
+.review-wallet-address{font-variant-numeric:tabular-nums}
+.review-authorization-preview{padding-left:17px;margin:0;display:grid;gap:10px;font-size:12px;line-height:1.6;color:var(--ink)}
+.review-final-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:12px;margin-top:22px}
+.review-confirmation-note{text-align:center}
+.review-technical{margin-top:20px}
+.review-technical pre{max-height:360px;overflow:auto;font-size:11px}
+@media(max-width:900px){.review-strategy,.review-confirmation{padding:20px}.review-heading h2{font-size:24px}}
+
+.review-locked{padding:24px;background:var(--soft)}
+.review-locked .review-heading{margin-top:0;margin-bottom:12px}
+
+.review-workspace button.primary{min-height:40px;border:0;border-radius:6px;background:var(--blue);color:var(--on-accent);padding:0 16px;font-weight:700}
+.review-workspace:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+
+/* UX-004D: one page scroll, compact inactive states, and resilient authorization values. */
+.simulation-tone-neutral strong{color:var(--muted)}
+.simulate-workspace .simulation-summary-values :is(dt,dd){min-width:0;overflow-wrap:anywhere}
+.simulate-workspace .simulation-summary-values dd{max-width:70%}
+.simulation-token-amount>span{min-width:0;overflow-wrap:anywhere}
+.simulation-route-context,.simulation-route strong{min-width:0;overflow-wrap:anywhere}
+.review-heading,.review-authorization-preview li,.review-caption,.review-approval-amount,.review-unlimited{overflow-wrap:anywhere}
+.review-workspace .simulation-summary-values{margin-top:0;margin-bottom:0}
+.review-workspace button.simulation-back{min-height:38px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--blue);font-weight:600}
+.review-caption button.simulation-back{min-height:0;padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px}
+.review-workspace .brand-icon{width:18px;height:18px;flex:none;object-fit:contain}
+.simulate-workspace .technical-workspace{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.simulate-workspace .technical-workspace pre{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.simulate-workspace .technical-workspace summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+@media(max-width:1100px){.simulate-workspace-grid{grid-template-columns:minmax(0,1fr) 310px}.review-workspace-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:900px){.simulate-workspace-grid,.review-workspace-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:480px){.review-approvals{grid-template-columns:minmax(0,1fr)}.review-final-actions button{width:100%}.review-locked{padding:20px}}
+
+/* The current Summary validity owns visible CTA emphasis, including timer-driven expiry. */
+.simulation-summary:has(.simulation-tone-blocked) .simulation-review-action,
+.simulation-summary:has(.simulation-tone-neutral) .simulation-review-action{display:none}
+.simulate-workspace:has(.simulation-summary .simulation-review-action button:not(:disabled)):not(:has(.simulation-summary .simulation-tone-blocked)):not(:has(.simulation-summary .simulation-tone-neutral)) [data-simulation-action]{background:var(--paper);border-color:var(--line);color:var(--blue)}

@@ -40,15 +40,18 @@ function author(action: Parameters<typeof canvasAddCommand>[0]) {
   fixture.store.state = editorReducer(initialEditor(), action === 'pool' ? { type: 'ADD_UNISWAP_LIQUIDITY', source: 'CANVAS', baseRevision: 0, input: { network: 'Base Sepolia', maxUsdc: '1', maxWeth: '0.0001', rangeUnit: 'TICK', lower: '-887270', upper: '887270', slippage: '50' } } : canvasAddCommand(action, 0, owner, '1'), fixture.store.context);
   expect(fixture.store.state.error).toBeNull();
 }
-describe('UX-003A same canonical workflow in Simulate', () => {
+describe('UX-004A read-only product workflow in Simulate', () => {
   it.each(['swap', 'bridge', 'pool', 'supply', 'borrow', 'repay', 'withdraw'] as const)('reuses the Build summary and compact card for %s', action => {
     author(action);
     const node = composerActions(fixture.store.state.workflow)[0]!;
     const summary = composerSummary(fixture.store.state.workflow, node, fixture.store.context);
     const html = render();
-    expect(html).toContain('flow-card composer-card'); expect(html).toContain('Step 1');
-    for (const value of [summary.action, summary.provider, summary.chain, summary.amount]) expect(html).toContain(value);
-    expect(html).not.toMatch(/<form|<input|Select to edit|Editing in Selected Action|Advanced Settings|composer-token-chip|composer-fiat-value|composer-card-state|Expected |Minimum |MOCK|LOCAL|SYNTHETIC|Confirmed|Authorized|Success|health factor/i);
+    expect(html).toContain('flow-card composer-card'); expect(html).toContain(`1. ${summary.action}`);
+    expect(html).toContain('composer-action-title');
+    for (const value of [summary.action, summary.provider.replace(/Cross-chain Router/g, 'Router'), summary.chain]) expect(html).toContain(value);
+    const amounts = summary.liquidityValues?.map(value => value.amount) ?? [summary.amount.split(' ')[0]!];
+    for (const amount of amounts) expect(html).toContain(`>${amount}<`);
+    expect(html).not.toMatch(/<form|<input|Select to edit|Editing in Selected Action|Advanced Settings|<button|composer-fiat-value|composer-card-state|Expected |Minimum |MOCK|LOCAL|SYNTHETIC|Confirmed|Authorized|Success|health factor/i);
   });
 
   it('preserves lending order, linkage and current authored amounts without inferred simulation results', () => {
@@ -68,7 +71,7 @@ describe('UX-003A same canonical workflow in Simulate', () => {
     const edges = fixture.graph.edges as { source: string; target: string }[];
     expect(edges.map(edge => [edge.source, edge.target])).toEqual(composerConnections(fixture.store.state.workflow).map(edge => [edge.source, edge.target]));
     expect(edges).toHaveLength(4);
-    expect(html).toContain('100 USDC'); expect(html).toContain('Amount from linked step');
+    expect(html).toContain('>100<'); expect(html).toContain('Amount from linked step');
   });
 
   it('preserves the saved Build layout without allowing any authoring interactions', () => {
