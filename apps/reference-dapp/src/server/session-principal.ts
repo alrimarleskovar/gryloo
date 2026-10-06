@@ -4,10 +4,20 @@
  * and verifies its MAC and expiry; the browser cannot forge or extend it. Returns the lower-case wallet address or null.
  */
 import { cookies, headers } from 'next/headers';
-import { readWalletSession, WALLET_SESSION_COOKIE, type WalletSession } from './wallet-session.ts';
+import { readSolanaSession, readWalletSession, SOLANA_SESSION_COOKIE, WALLET_SESSION_COOKIE, type SolanaWalletSession, type WalletSession } from './wallet-session.ts';
 
 export async function currentWalletSession(): Promise<WalletSession | null> {
   return readWalletSession(process.env, (await cookies()).get(WALLET_SESSION_COOKIE)?.value, new Date(), (await requestOrigin()).domain);
+}
+/** BUILD-MCP-002: the verified Sign-In With Solana session of this request, or null. */
+export async function currentSolanaSession(): Promise<SolanaWalletSession | null> {
+  return readSolanaSession(process.env, (await cookies()).get(SOLANA_SESSION_COOKIE)?.value, new Date(), (await requestOrigin()).domain);
+}
+/** BUILD-MCP-002: a wallet proven in this browser, namespace-neutral. */
+export type WalletPrincipal = { readonly namespace: 'eip155' | 'solana'; readonly address: string };
+export async function currentWalletPrincipals(): Promise<readonly WalletPrincipal[]> {
+  const [evm, solana] = await Promise.all([currentWalletSession(), currentSolanaSession()]);
+  return [...evm ? [{ namespace: 'eip155' as const, address: evm.account }] : [], ...solana ? [{ namespace: 'solana' as const, address: solana.account }] : []];
 }
 export async function currentWalletPrincipal(): Promise<string | null> {
   return (await currentWalletSession())?.account ?? null;

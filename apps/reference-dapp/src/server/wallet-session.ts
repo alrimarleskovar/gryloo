@@ -11,7 +11,8 @@
  * funds, the server never holds or derives a key, and every wallet request still needs the owner's Review, Manifest
  * acceptance, Execute click and transaction signature. Pure functions here; cookies are handled by the server action.
  */
-import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, createPublicKey, hkdfSync, randomBytes, timingSafeEqual, verify } from 'node:crypto';
+import { base58Decode } from '@defi-workflow-engine/reference-compiler';
 import { checksumAddress, recoverPersonalSigner } from '@defi-workflow-engine/reference-reconciler';
 import { isHostedDeployment } from './deployment.ts';
 
@@ -48,11 +49,11 @@ export function walletSessionKey(env: Env): Buffer {
   if (env.API_BASE_URL || isHostedDeployment(env)) fail('WALLET_SESSION_NOT_CONFIGURED');
   return processKey ??= randomBytes(32);
 }
-function seal(kind: 'c1' | 's1', payload: Challenge | Session, key: Buffer): string {
+function seal(kind: 'c1' | 's1' | 'n1', payload: Challenge | Session | SolanaSessionPayload, key: Buffer): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${kind}.${body}.${createHmac('sha256', key).update(`${kind}.${body}`).digest('base64url')}`;
 }
-function unseal<T extends { e: number }>(kind: 'c1' | 's1', token: string | undefined, key: Buffer, now: Date): T | null {
+function unseal<T extends { e: number }>(kind: 'c1' | 's1' | 'n1', token: string | undefined, key: Buffer, now: Date): T | null {
   if (typeof token !== 'string' || token.length > 2_048) return null;
   const [prefix, body, mac, ...rest] = token.split('.');
   if (prefix !== kind || !body || !mac || rest.length) return null;
@@ -106,4 +107,61 @@ export function readWalletSession(env: Env, token: string | undefined, now: Date
   const session = unseal<Session>('s1', token, key, now);
   return session && ACCOUNT.test(session.a) && typeof session.d === 'string' && session.d === domain
     ? { account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } : null;
+}
+
+/**
+ * BUILD-MCP-002: Sign-In With Solana. The same challenge (sealed nonce bound to this origin, five minutes, single use from the
+ * browser) and the same key family as the EIP-4361 session, but its own sealed kind (`n1`) and cookie, so an Ethereum session is
+ * never read as a Solana one or the reverse. The wallet signs the exact SIWS text with Wallet Standard `solana:signMessage`; the
+ * server verifies the Ed25519 signature against the claimed public key. The message names no cluster: control of a key is the
+ * same on every Solana network, and the proof authorizes no transaction on any of them.
+ */
+export const SOLANA_SESSION_COOKIE = 'flofi_solana_session';
+export const SOLANA_CHALLENGE_COOKIE = 'flofi_solana_challenge';
+export const SOLANA_SIGN_IN_STATEMENT = 'Sign in to Flofi to prove you control this Solana wallet. This signature authorizes no transaction and moves no funds.';
+type SolanaSessionPayload = { readonly a: string; readonly n: 'solana'; readonly i: number; readonly e: number; readonly s: string; readonly d: string };
+export type SolanaWalletSession = { readonly namespace: 'solana'; readonly account: string; readonly expiresAt: string };
+const SOLANA_ACCOUNT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
+/** The 32-byte Ed25519 public key of a Solana address, or null. */
+export function solanaPublicKey(address: unknown): Buffer | null {
+  if (typeof address !== 'string' || !SOLANA_ACCOUNT.test(address)) return null;
+  try { const bytes = base58Decode(address); return bytes.length === 32 ? Buffer.from(bytes) : null; } catch { return null; }
+}
+/** The exact SIWS message (EIP-4361 shape for Solana). Every field comes from the sealed challenge or is re-checked. */
+export function solanaSignInMessage(input: { readonly domain: string; readonly uri: string; readonly address: string; readonly nonce: string;
+  readonly issuedAt: string; readonly expirationTime: string }): string {
+  return `${input.domain} wants you to sign in with your Solana account:\n${input.address}\n\n${SOLANA_SIGN_IN_STATEMENT}\n\n` +
+    `URI: ${input.uri}\nVersion: 1\nNonce: ${input.nonce}\nIssued At: ${input.issuedAt}\nExpiration Time: ${input.expirationTime}`;
+}
+export function solanaChallengeMessage(env: Env, input: { readonly challengeToken: string | undefined; readonly domain: string; readonly uri: string;
+  readonly address: string; readonly now: Date }): string {
+  const challenge = unseal<Challenge>('c1', input.challengeToken, walletSessionKey(env), input.now) ?? fail('WALLET_SIGN_IN_CHALLENGE_INVALID');
+  if (challenge.d !== input.domain || challenge.u !== input.uri) fail('WALLET_SIGN_IN_ORIGIN_MISMATCH');
+  if (!solanaPublicKey(input.address)) fail('WALLET_ADDRESS_INVALID');
+  return solanaSignInMessage({ domain: challenge.d, uri: challenge.u, address: input.address, nonce: challenge.n,
+    issuedAt: new Date(challenge.i * 1000).toISOString(), expirationTime: new Date(challenge.e * 1000).toISOString() });
+}
+/** Verifies the Ed25519 signature (base64, 64 bytes) over the challenge message and seals a Solana session for that key. */
+export function verifySolanaSignIn(env: Env, input: { readonly challengeToken: string | undefined; readonly domain: string; readonly uri: string;
+  readonly address: string; readonly signature: string; readonly now: Date }): { readonly token: string; readonly session: SolanaWalletSession } {
+  const message = solanaChallengeMessage(env, input), key = solanaPublicKey(input.address)!;
+  const signature = typeof input.signature === 'string' && /^[A-Za-z0-9+/]{86}==$/.test(input.signature) ? Buffer.from(input.signature, 'base64') : null;
+  let valid = false;
+  try {
+    valid = signature !== null && signature.length === 64 &&
+      verify(null, Buffer.from(message, 'utf8'), createPublicKey({ key: Buffer.concat([ED25519_SPKI, key]), format: 'der', type: 'spki' }), signature);
+  } catch { valid = false; }
+  if (!valid) fail('WALLET_SIGNATURE_INVALID');
+  const issued = seconds(input.now), session: SolanaSessionPayload = { a: input.address, n: 'solana', i: issued, e: issued + WALLET_SESSION_TTL_SECONDS,
+    s: randomBytes(12).toString('hex'), d: input.domain };
+  return { token: seal('n1', session, walletSessionKey(env)), session: { namespace: 'solana', account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } };
+}
+/** The Solana session in a cookie value, or null (absent, tampered, expired, another key, another host, or an Ethereum session). */
+export function readSolanaSession(env: Env, token: string | undefined, now: Date, domain: string): SolanaWalletSession | null {
+  let key: Buffer;
+  try { key = walletSessionKey(env); } catch { return null; }
+  const session = unseal<SolanaSessionPayload>('n1', token, key, now);
+  return session && session.n === 'solana' && solanaPublicKey(session.a) && session.d === domain
+    ? { namespace: 'solana', account: session.a, expiresAt: new Date(session.e * 1000).toISOString() } : null;
 }
