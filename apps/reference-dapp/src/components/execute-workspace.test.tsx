@@ -23,6 +23,7 @@ describe('Execute product workspace', () => {
     expect(html.match(/>Execute workflow</g)).toHaveLength(1);
     expect(html).not.toMatch(/Advanced Settings|Undo|Redo|Token selector|Execution limits|Strategy Manifest|schemaVersion|digest|canonical|mock|payload/);
     expect(html).toContain('Back to Build'); expect(html).toContain('Back to Simulate');
+    expect(html).not.toMatch(/execute-heading|>EXECUTE<|Run your workflow|Check the plan and connected wallet before starting/);
   });
   it.each(['pending', 'blocked', 'expired', 'wallet', 'network', 'unknown', 'started', 'loading'] as const)('shows %s in-place with a genuinely disabled CTA', state => {
     const data = fixture();

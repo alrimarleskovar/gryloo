@@ -3,10 +3,10 @@ import type { ExecutionLifecycle } from '../domain/execution-lifecycle';
 import { ExecutionIdentifier } from './execution-identifier';
 
 /** Read-only records, in the workspace's single secondary disclosure. */
-export function ExecutionEvidenceDetails({ progress }: { progress: ExecutionLifecycle }) {
+export function ExecutionEvidenceDetails({ progress, runContext = 'current' }: { progress: ExecutionLifecycle; runContext?: 'current' | 'saved' }) {
   const evidence = progress.evidence;
   return <div className="execution-evidence-details">
-    <h2>Current execution record</h2>
+    <h2>{runContext === 'saved' ? 'Saved execution record' : 'Current execution record'}</h2>
     <dl>{(evidence?.details ?? (progress.runKey ? [{ label: 'Run ID', value: progress.runKey, copy: true }] : [])).map((item, index) => <div key={`${item.label}-${index}`}>
       <dt>{item.label}</dt><dd>{item.copy ? <ExecutionIdentifier full identifier={{ label: item.label, value: item.value, kind: 'reference' }}/> : item.value}</dd>
     </div>)}</dl>

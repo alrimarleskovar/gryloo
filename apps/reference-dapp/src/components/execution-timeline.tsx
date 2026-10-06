@@ -31,10 +31,10 @@ function StepEvidence({ evidence, action, values, facts }: { evidence: Execution
     </div>}
   </section>;
 }
-export function ExecutionTimeline({ progress, result, workflowName, backToBuild, checkingOperation }: { progress: ExecutionLifecycle; result?: ExecutionResult | null; workflowName: string; backToBuild(): void; checkingOperation?: string | null }) {
+export function ExecutionTimeline({ progress, result, workflowName, backToBuild, checkingOperation, runContext = 'current' }: { progress: ExecutionLifecycle; result?: ExecutionResult | null; workflowName: string; backToBuild?: () => void; checkingOperation?: string | null; runContext?: 'current' | 'saved' }) {
   return <section className={`execution-plan panel${result ? ' execution-result-plan' : ''}`} aria-label="Execution plan">
-    <div className="execution-plan-heading"><div><p className="eyebrow">{result ? 'CURRENT RUN RESULT' : 'EXECUTION PLAN'}</p><h2 title={workflowName}>{workflowName}</h2></div><button type="button" className="simulation-back" onClick={backToBuild}>Back to Build</button></div>
-    {result && <p className="execution-result-context">Step results <span>Current run · Read-only</span></p>}
+    <div className="execution-plan-heading"><div><p className="eyebrow">{result ? runContext === 'saved' ? 'SAVED RUN RESULT' : 'CURRENT RUN RESULT' : runContext === 'saved' ? 'SAVED EXECUTION PLAN' : 'EXECUTION PLAN'}</p><h2 title={workflowName}>{workflowName}</h2></div>{backToBuild && <button type="button" className="simulation-back" onClick={backToBuild}>Back to Build</button>}</div>
+    {(result || runContext === 'saved') && <p className="execution-result-context">Step results <span>{runContext === 'saved' ? 'Saved run' : 'Current run'} · Read-only</span></p>}
     {progress.local && <p className="execution-context">Local execution · no public-chain transactions</p>}
     {progress.restored && <p className="execution-context" role="status">Resuming display of the recorded execution. No new request has been sent.</p>}
     {progress.planUnavailable && <p className="execution-context">The original workflow details are unavailable in this saved run. Recorded requests and their status are shown below.</p>}

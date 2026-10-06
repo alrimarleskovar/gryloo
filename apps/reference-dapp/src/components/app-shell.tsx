@@ -64,10 +64,13 @@ import { JourneyCard, RouterPanel } from './router-panel';
 import { useRouter } from '../state/router-store';
 import { routerDetails } from '../domain/router-authoring';
 import { DarkSpotlight } from './dark-spotlight';
+import { DashboardWorkspace } from './dashboard/dashboard-workspace';
+import { dashboardRoute as resolveDashboardRoute } from '../lib/dashboard/routes';
 
-export function AppShell() { return <><DarkSpotlight/><ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider></>; }
+type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void };
+export function AppShell(props: ProductNavigation = {}) { return <><DarkSpotlight/><ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider></>; }
 
-function AppShellContent() {
+function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const { state, context, reviewError, authoringIncomplete } = useWorkflow();
   const modeA = useModeA();
   const { prepared, info } = modeA;
@@ -78,11 +81,15 @@ function AppShellContent() {
   const bridge = useBridge();
   const bridgeSwap = useBridgeSwap();
   const across = useAcross();
-  const [tab, setSection] = useState<ProductSection>('Build');
+  const [section, setSection] = useState<ProductSection>('Build');
+  const dashboardRoute = resolveDashboardRoute(pathname);
+  const tab = dashboardRoute ? 'Dashboard' : section;
   const setTab = useCallback((section: ProductSection) => {
     if (authoringIncomplete && (section === 'Simulate' || section === 'Execute')) return;
+    if (navigate && section === 'Dashboard') { navigate('/app/dashboard'); return; }
     setSection(section);
-  }, [authoringIncomplete]);
+    if (navigate && dashboardRoute) navigate('/');
+  }, [authoringIncomplete, navigate, dashboardRoute]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
   const [simulationActionHost, setSimulationActionHost] = useState<HTMLDivElement | null>(null);
   const supply = useSupply();
@@ -188,7 +195,9 @@ function AppShellContent() {
     section?.focus({ preventScroll: true });
   }
   if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
-    <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"/>
+    <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"><DashboardWorkspace workflowName={workflowName} progress={executionProgress} recovery={executionProgress.recovery} wallet={reviewBinding.wallet} context={context}
+      runId={dashboardRoute?.runId ?? null}
+      build={() => setTab('Build')} execute={() => setTab('Execute')} navigate={navigate ?? (() => undefined)}/></main>
   </div>;
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
   if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;

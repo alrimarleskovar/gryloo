@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+'use client';
+import { usePathname, useRouter } from 'next/navigation';
+import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
+import { AppShell } from './app-shell';
+import { WorkflowProvider } from '../state/workflow-store';
+import { BridgeProvider } from '../state/bridge-store';
+import { Build009WalletProvider } from '../state/build009-wallet-store';
+import { PublicTestnetProvider } from '../state/public-testnet-store';
+import { SupplyProvider } from '../state/supply-store';
+import { LendingProvider } from '../state/lending-store';
+import { RobinhoodTransferProvider } from '../state/robinhood-transfer-store';
+import { JupiterProvider } from '../state/jupiter-store';
+import { AcrossProvider } from '../state/across-store';
+import { BridgeSwapProvider } from '../state/bridge-swap-store';
+import { ModeAProvider } from '../state/mode-a-store';
+import { CowProvider } from '../state/cow-store';
+import { LiquidityProvider } from '../state/liquidity-store';
+import { SolanaLiquidityProvider } from '../state/solana-liquidity-store';
+import { UniswapLiquidityProvider } from '../state/uniswap-liquidity-store';
+import { RouterProvider } from '../state/router-store';
+
+const initialContext = { registryId: referenceRegistry.registryId, capabilityId: referenceRegistry.capabilities[0]!.id,
+  actionId: referenceRegistry.actions[0]!.id, assets: baseAssetRegistry };
+/** The existing provider hierarchy is shared by all product routes, keeping current runs mounted. */
+export function ProductWorkspace() {
+  const pathname = usePathname(), router = useRouter();
+  return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><UniswapLiquidityProvider><RouterProvider><AppShell pathname={pathname} navigate={path => router.push(path)}/></RouterProvider></UniswapLiquidityProvider></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>;
+}

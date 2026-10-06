@@ -10,6 +10,17 @@ import { reviewNow } from '../src/test-utils/review-fixture';
 // These normalized fixtures do not claim to exercise RPC or wallet signatures.
 let bundle: string;
 const browserErrors = new WeakMap<Page, string[]>();
+async function expectStageNavigationFits(page: Page) {
+  const stages = await page.getByRole('navigation', { name: 'Workflow stages' }).locator('button').evaluateAll(buttons => buttons.map(button => {
+    const range = document.createRange(); range.selectNodeContents(button);
+    const content = range.getBoundingClientRect(), box = button.getBoundingClientRect();
+    return { label: button.textContent, left: box.left, right: box.right, contentLeft: content.left, contentRight: content.right };
+  }));
+  for (const stage of stages) {
+    expect(stage.contentLeft, stage.label ?? '').toBeGreaterThanOrEqual(stage.left);
+    expect(stage.contentRight, stage.label ?? '').toBeLessThanOrEqual(stage.right);
+  }
+}
 test.beforeAll(async () => {
   const result = await build({ root: fileURLToPath(new URL('../../../', import.meta.url)), configFile: false, logLevel: 'error',
     // Use the same SHA implementation that Next provides to these client components.
@@ -88,6 +99,9 @@ test('authorization, wallet, network and workflow transitions stay fail-closed',
 });
 for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and responsive workspace`, async ({ page }) => {
   await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
+  await expect(page.locator('.execute-heading')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Run your workflow', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Check the plan and connected wallet before starting.', { exact: true })).toHaveCount(0);
   const graph = page.getByRole('region', { name: 'Execution workflow graph', exact: true });
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.composer-amount')).toHaveText('100 USDC');
@@ -102,12 +116,18 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
   await expect(page.locator('.execution-summary').getByRole('button', { name: 'Execute workflow', exact: true })).toHaveCount(0);
   const ctaStyle = await page.getByRole('button', { name: 'Execute workflow', exact: true }).evaluate(button => ({ height: button.getBoundingClientRect().height, radius: getComputedStyle(button).borderRadius }));
   expect(ctaStyle.height).toBeGreaterThanOrEqual(42); expect(ctaStyle.radius).toBe('7px');
-  for (const width of [1280, 1024, 820, 390]) {
+  for (const width of [1440, 1280, 1024, 820, 768, 390, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const spacing = await page.locator('.execute-workspace').evaluate(element => {
+      const main = element.closest('main')!;
+      return { top: element.getBoundingClientRect().top, gridTop: element.querySelector('.execute-workspace-grid')!.getBoundingClientRect().top, contentTop: main.getBoundingClientRect().top + parseFloat(getComputedStyle(main).paddingTop) };
+    });
+    expect(spacing.gridTop).toBe(spacing.top); expect(spacing.top).toBe(spacing.contentTop);
     const plan = await page.getByRole('region', { name: 'Execution plan', exact: true }).boundingBox();
     const summary = await page.getByRole('complementary', { name: 'Execution Summary' }).boundingBox();
     expect(plan).not.toBeNull(); expect(summary).not.toBeNull();
+    expect(plan!.y).toBe(spacing.gridTop);
     if (width > 900) expect(plan!.x + plan!.width).toBeLessThan(summary!.x);
     else expect(plan!.y + plan!.height).toBeLessThan(summary!.y);
     await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeEnabled();
@@ -144,13 +164,17 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
     } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  // This provider already exposes an account. Wait for the shared wallet's passive reuse;
+  // the transient Connect button disappears during hydration.
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click(); await configureCanvasAction(page, '2.5');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.locator('.execute-heading')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Execution Summary', exact: true })).toBeVisible();
   const graph = page.getByRole('region', { name: 'Execution workflow graph', exact: true });
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.composer-amount')).toHaveText('2.5 USDC');
@@ -159,9 +183,27 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
   await expect(page.locator('.execution-summary')).toContainText('Testnet');
   await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
   await expect(page.locator('#simulation-review')).toHaveCount(0);
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
+    await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true })).toHaveClass('selected');
+    for (const width of [1440, 1024, 768, 375, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const spacing = await page.locator('.execute-workspace').evaluate(element => {
+        const main = element.closest('main')!;
+        return { top: element.querySelector('.execute-workspace-grid')!.getBoundingClientRect().top, contentTop: main.getBoundingClientRect().top + parseFloat(getComputedStyle(main).paddingTop) };
+      });
+      expect(spacing.top).toBe(spacing.contentTop);
+      await expectStageNavigationFits(page);
+      await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   expect(await page.evaluate(() => (window as unknown as { executeWorkspaceRequests: string[] }).executeWorkspaceRequests.filter(method => /send|sign/i.test(method)))).toEqual([]);
   await page.getByRole('button', { name: 'Back to Simulate', exact: true }).click(); await expect(page.locator('#simulation-review')).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 900 }); await expectStageNavigationFits(page);
   await page.getByRole('button', { name: 'Back to Build', exact: true }).click();
+  await expectStageNavigationFits(page);
   await expect(page.locator('.build-flow-surface .composer-card')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2.5');
 });
@@ -283,7 +325,7 @@ test('partial, declined, attention and recovered results retain their actual ste
 });
 for (const theme of ['light', 'dark']) test(`${theme} execution timeline, long hashes and stacked widths`, async ({ page }) => {
   await page.evaluate(value => { document.documentElement.dataset.theme = value; window.flofiExecuteAcceptance.lifecycle('swap-pending'); }, theme);
-  for (const width of [1280, 1024, 820]) {
+  for (const width of [1440, 1280, 1024, 820, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const plan = await page.getByRole('region', { name: 'Execution plan', exact: true }).boundingBox();
@@ -448,6 +490,7 @@ test('copy fallback and long workflow names stay inside their containers in both
 
 test('primary Execute copy stays human-readable across progress, recovery and result states', async ({ page }) => {
   const assertProductCopy = async () => {
+    await expect(page.locator('.execute-heading')).toHaveCount(0);
     const visible = await page.locator('.execute-workspace').innerText();
     expect(visible).not.toMatch(/\b(artifact|canonical|runtime|journal|projection|digest|payload|schema|internal|synthetic|mock|debug|cursor|envelope)\b/i);
     await expect(page.getByRole('button', { name: /Retry|Try again/ })).toHaveCount(0);
