@@ -15,6 +15,7 @@
  * runs, and every wallet request still needs the owner's Review, Execute click and wallet signature.
  */
 import { randomBytes } from 'node:crypto';
+import type { Database } from '@defi-workflow-engine/cloud-runtime';
 import type { Backend, BackendOptions } from '../../backend/app.ts';
 import type { FlowName } from '../../backend/flows.ts';
 import { callCloudFlow, listCloudRuns, previewCloudFlow, readCloudRun, type CloudRunSummary, type FlowResult } from './cloud-api-client.ts';
@@ -42,7 +43,9 @@ export type EmbeddedRuntime = { readonly backend: Backend; readonly tenantId: st
   readonly ping: () => Promise<void>;
   /** BUILD-MCP-001: one run of `owner` in this deployment's tenant; `null` when absent or owned by anyone else. */
   readonly run: (runId: string, owner: string) => Promise<CloudRun | null>;
-  readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<CloudJournalPage | null> };
+  readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<CloudJournalPage | null>;
+  /** BUILD-MCP-002: the same pool, for the MCP OAuth, handoff and wallet-link stores (tenant-scoped by their own queries). */
+  readonly db: Database };
 /** Pool sizing for serverless: a few connections per instance; use the provider's pooled endpoint. */
 function poolMax(value: string | undefined): number {
   if (value === undefined || value === '') return 3;
@@ -76,7 +79,7 @@ export async function createEmbeddedRuntime(env: Env, seams: EmbeddedSeams = {})
     evidenceStore: env.OBJECT_STORE_ENDPOINT || env.OBJECT_STORE_BUCKET ? runtime.readEvidenceStore(env) : null, ...seams });
   const queries = runtime.createRunQueries(db, tenantId);
   const owned = async (runId: string, owner: string) => { const run = await queries.getRun(runId); return run && run.ownerAccount === owner ? run : null; };
-  return { backend, tenantId, schemaVersion, ping: async () => { await db.query('SELECT 1'); }, close: () => db.close(),
+  return { backend, tenantId, schemaVersion, db, ping: async () => { await db.query('SELECT 1'); }, close: () => db.close(),
     runs: async (flow, owner) => (await queries.listRuns(null, 25, { owner, flow })).items.map(r => ({ runId: r.runId, flow: r.flow, status: r.status,
       ownerAccount: r.ownerAccount, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })),
     run: owned,
