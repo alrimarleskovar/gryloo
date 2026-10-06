@@ -5,6 +5,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { handleMcpRequest, type GatewayLogger } from './gateway';
+import type { McpState } from './oauth/state';
 import type { McpRuntime } from './runtime';
 
 export const credential = () => randomBytes(32).toString('base64url');
@@ -27,12 +28,14 @@ export type Session = {
   readonly callTool: (name: string, args: unknown) => Promise<{ isError: boolean; output: Record<string, unknown>; text: string }>;
 };
 /** One client of one gateway configuration. `token: null` sends no Authorization header. */
-export function session(options: { env: Record<string, string>; token: string | null; runtime?: McpRuntime; logger?: GatewayLogger }): Session {
+export function session(options: { env: Record<string, string>; token: string | null; runtime?: McpRuntime; logger?: GatewayLogger; state?: McpState;
+  now?: () => Date }): Session {
   let id = 0;
   const post: Session['post'] = async (body, headers = {}) => {
     const response = await handleMcpRequest(new Request('https://flofi.test/api/mcp', { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body),
       headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...options.token === null ? {} : { authorization: `Bearer ${options.token}` }, ...headers } }),
-    { env: options.env, ...options.runtime ? { runtime: options.runtime } : {}, ...options.logger ? { logger: options.logger } : {} });
+    { env: options.env, ...options.runtime ? { runtime: options.runtime } : {}, ...options.logger ? { logger: options.logger } : {},
+      ...options.state ? { state: options.state } : {}, ...options.now ? { now: options.now } : {} });
     const text = await response.text();
     // Legacy stateless serving answers with one SSE `message` event; modern serving answers with a JSON body.
     const json = response.headers.get('content-type')?.startsWith('text/event-stream') ? text.split('\n').find(line => line.startsWith('data: '))?.slice(6) : text;

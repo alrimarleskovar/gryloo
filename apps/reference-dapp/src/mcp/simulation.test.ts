@@ -126,7 +126,8 @@ describe('BUILD-MCP-001 simulate_strategy: the flows\' own simulation as a read-
       .toEqual({ ok: false, code: 'STRATEGY_WORKFLOW_HASH_MISMATCH', issues: [] });
     const local = session({ env, token: alice.token });
     expect((await simulate(local, bridge, ROUTER_OWNER)).output).toEqual({ ok: false, code: 'MCP_CLOUD_RUNTIME_REQUIRED' });
-    const hosted = session({ env: { ...env, VERCEL: '1' }, token: alice.token });
+    // A hosted Preview (BUILD-MCP-002: a production deployment refuses static credentials altogether).
+    const hosted = session({ env: { ...env, VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'claude/build-mcp-002' }, token: alice.token });
     expect((await simulate(hosted, bridge, ROUTER_OWNER)).output).toEqual({ ok: false, code: 'CLOUD_RUNTIME_NOT_CONFIGURED' });
   });
 

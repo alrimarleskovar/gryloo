@@ -18,7 +18,9 @@ import { validateArtifact } from '@defi-workflow-engine/workflow-contracts/schem
 import { codeCapabilities, supportedAssets, supportedNetworks } from '../engine/capability-catalog';
 import { composeBound, reviewComposition, type Composition } from '../engine/strategy-engine';
 import { compileSchema, NETWORK_IDS, STRATEGY_ACTIONS, strategySpecIssues, StrategySpecSchema, type StrategySpec } from '../engine/strategy-spec';
-import type { McpPrincipal } from './config.ts';
+import { principalScopes, type McpPrincipal } from './config.ts';
+import type { McpScope, OAuthConfig } from './oauth/config.ts';
+import type { McpState } from './oauth/state.ts';
 import type { McpRuntime } from './runtime.ts';
 import { assertSafeOutput, previewPlan, projectSimulation, strategyFlow } from './simulation.ts';
 
@@ -65,8 +67,18 @@ const Schemas = {
   evidence: Type.Object({ executionId: ExecutionId }, strict),
 };
 
+/**
+ * BUILD-MCP-002: the OAuth scope each tool needs. The gateway enforces it at the HTTP level (403 `insufficient_scope`); each
+ * handler checks it again. A static developer credential holds `flofi.strategy` and `flofi.runs` (BUILD-MCP-001's surface).
+ */
+export const TOOL_SCOPES: Readonly<Record<(typeof MCP_TOOL_NAMES)[number], McpScope>> = Object.freeze({
+  get_supported_networks: 'flofi.strategy', get_supported_assets: 'flofi.strategy', get_capabilities: 'flofi.strategy', compose_strategy: 'flofi.strategy',
+  validate_strategy: 'flofi.strategy', simulate_strategy: 'flofi.strategy', review_strategy: 'flofi.strategy', get_execution_status: 'flofi.runs', get_evidence: 'flofi.runs' });
+
 export type ToolEvent = { readonly tool: string; readonly outcome: string; readonly durationMs: number };
-export type ToolContext = { readonly principal: McpPrincipal; readonly runtime: McpRuntime; readonly onTool?: (event: ToolEvent) => void; readonly now?: () => number };
+export type ToolContext = { readonly principal: McpPrincipal; readonly runtime: McpRuntime; readonly onTool?: (event: ToolEvent) => void; readonly now?: () => number;
+  /** BUILD-MCP-002: present for OAuth deployments. */
+  readonly oauth?: OAuthConfig; readonly state?: McpState };
 type Output = Record<string, unknown>;
 class ToolFailure extends Error {}
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
@@ -103,10 +115,14 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
   const now = ctx.now ?? (() => performance.now());
   const register = <S extends TSchema>(name: (typeof MCP_TOOL_NAMES)[number], title: string, description: string, schema: S, annotations: ToolAnnotations,
     run: (args: Static<S>) => Promise<Output> | Output) => {
-    server.registerTool(name, { title, description, inputSchema: standard<Static<S>>(schema), annotations: { title, ...annotations } }, async (args: Static<S>): Promise<CallToolResult> => {
+    const scope = TOOL_SCOPES[name];
+    // OAuth clients read `securitySchemes` to know which scope to request before calling (ChatGPT reads the `_meta` mirror).
+    const meta = ctx.oauth ? { _meta: { securitySchemes: [{ type: 'oauth2', scopes: [scope] }] } } : {};
+    server.registerTool(name, { title, description, inputSchema: standard<Static<S>>(schema), annotations: { title, ...annotations }, ...meta }, async (args: Static<S>): Promise<CallToolResult> => {
       const started = now();
       let result: CallToolResult, outcome = 'OK';
       try {
+        if (!principalScopes(ctx.principal).includes(scope)) failWith('MCP_INSUFFICIENT_SCOPE');
         const output = await run(args);
         assertSafeOutput(output);
         result = { content: [{ type: 'text', text: JSON.stringify(output) }], structuredContent: output };
