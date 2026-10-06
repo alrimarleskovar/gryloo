@@ -93,6 +93,22 @@ describe('BUILD-MCP-002 request_user_approval', () => {
       .toMatchObject({ ok: false, code: 'OWNER_EXECUTION_NOT_IMPLEMENTED' });
   });
 
+  it('refuses a general multi-step sequence honestly (per-step facts) and accepts the lending shape as its existing executor', async () => {
+    const { approve, client } = await consumer();
+    const SWAP = { action: 'swap', network: 'base-sepolia', inputAsset: 'USDC', outputAsset: 'WETH', amount: '1' };
+    const sequence = (await client.callTool('compose_strategy', { strategy: { version: 2, steps: [BRIDGE, SWAP] } })).output as { strategy: unknown; workflowHash: string };
+    const refused = (await approve(sequence.strategy, sequence.workflowHash)).output;
+    expect(refused).toMatchObject({ ok: false, code: 'MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED', executionPlan: 'NOT_EXECUTABLE',
+      gates: { supportedByCode: { execute: false, steps: [{ index: 0, execute: true }, { index: 1, execute: true }] } },
+      steps: [{ index: 0, action: 'bridge', flow: 'crosschain-router-testnet' }, { index: 1, action: 'swap', flow: 'base-sepolia-swap' }] });
+    const owner = '0x' + '1'.repeat(40), lendingSteps = [{ action: 'supply', network: 'base-sepolia', asset: 'USDC', amount: '10', beneficiary: owner },
+      { action: 'borrow', network: 'base-sepolia', asset: 'USDC', amount: '2', beneficiary: owner }, { ...SWAP, amount: '2' }];
+    const lending = (await client.callTool('compose_strategy', { strategy: { version: 2, steps: lendingSteps } })).output as { strategy: unknown; workflowHash: string };
+    expect((await approve(lending.strategy, lending.workflowHash)).output).toMatchObject({ ok: true, executionPlan: 'COMPOSITE_FLOW',
+      steps: [{ action: 'supply' }, { action: 'borrow' }, { action: 'swap' }], walletNamespace: 'eip155' });
+    expect((await approve({ version: 2, steps: lendingSteps }, lending.workflowHash)).output).toMatchObject({ ok: true });
+  });
+
   it('supersedes the same workflow, caps open requests per account, and keeps accounts apart', async () => {
     const a = await consumer(), b = await consumer();
     const first = (await a.approve(BRIDGE)).output as { approvalId: string }, second = (await a.approve(BRIDGE)).output as { approvalId: string };

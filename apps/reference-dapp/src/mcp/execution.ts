@@ -16,7 +16,7 @@
  */
 import type { EvidenceMaturity, ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
 import type { FlowName } from '../../backend/flows.ts';
-import { NETWORKS, reviewComposition, type Composition } from '../engine/strategy-engine';
+import { NETWORKS, reviewComposition, type Composition, type WorkflowComposition } from '../engine/strategy-engine';
 import { NETWORK_IDS, type NetworkId, type StrategyAction, type StrategySpec } from '../engine/strategy-spec';
 import type { McpRuntime } from './runtime.ts';
 import { strategyFlow } from './simulation.ts';
@@ -56,13 +56,17 @@ export function readHandoffPolicy(env: Env): HandoffPolicy {
 
 export type PlanStep = { readonly index: number; readonly action: StrategyAction | 'supply' | 'borrow' | 'swap'; readonly network: NetworkId;
   readonly destinationNetwork: NetworkId | null; readonly nodeIds: readonly string[]; readonly kind: string; readonly protocol: string;
-  readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS'; readonly environment: ExecutionEnvironment };
+  readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS'; readonly environment: ExecutionEnvironment;
+  /** The existing flow that executes this step on its own, and the hash of the step's own IR (what that flow reviews). */
+  readonly flow: FlowName | null; readonly workflowHash: string };
 /**
  * How the owner executes a workflow. `SINGLE_FLOW`: one action, one existing flow. `COMPOSITE_FLOW`: an existing executor that
- * runs a fixed multi-step shape (the Base Sepolia lending composition). `NOT_EXECUTABLE`: with its reason. The follow-up
- * sequential runner adds a `SEQUENTIAL` kind over the same step list; nothing else changes.
+ * runs a fixed multi-step shape (the Base Sepolia lending composition). `NOT_EXECUTABLE`: with its reason — for a general
+ * sequence of steps, `MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED`. `SEQUENTIAL` is reserved for the follow-up sequential runner (step →
+ * simulate → sign → execute → reconcile → next) over the same step list: plans, handoffs, panel and evidence views already carry
+ * per-step flows and hashes, so adding it changes no schema.
  */
-export type ExecutionPlan = { readonly kind: 'SINGLE_FLOW' | 'COMPOSITE_FLOW' | 'NOT_EXECUTABLE'; readonly flow: FlowName | null; readonly reason: string | null;
+export type ExecutionPlan = { readonly kind: 'SINGLE_FLOW' | 'COMPOSITE_FLOW' | 'SEQUENTIAL' | 'NOT_EXECUTABLE'; readonly flow: FlowName | null; readonly reason: string | null;
   readonly steps: readonly PlanStep[]; readonly networks: readonly NetworkId[]; readonly networkEnvironment: ExecutionEnvironment;
   readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS' };
 
@@ -75,21 +79,32 @@ export function executionPlan(composition: Composition): ExecutionPlan {
   // The editor's authoring-only template node is not a step.
   const spec = composition.strategy, networks = networksOf(spec), financial = composition.steps.filter(s => s.kind !== 'TEMPLATE');
   const base = { networks, networkEnvironment: environmentOf(networks), fundsClass: fundsOf(networks) };
+  const flow = spec.action === 'lending_composition' ? 'lending-composition' : strategyFlow(spec);
   const step = (index: number, action: PlanStep['action'], nodeIds: readonly string[], kind: string, protocol: string): PlanStep => ({ index, action,
     network: networks[0]!, destinationNetwork: spec.action === 'bridge' ? spec.destinationNetwork : null, nodeIds, kind, protocol,
-    fundsClass: base.fundsClass, environment: base.networkEnvironment });
+    fundsClass: base.fundsClass, environment: base.networkEnvironment, flow, workflowHash: composition.workflowHash });
   if (spec.action === 'lending_composition') {
     const roles = ['supply', 'borrow', 'swap'] as const;
     const steps = composition.steps.map((s, i) => step(i, roles[i] ?? 'swap', [s.nodeId], s.kind, s.protocol));
     return { kind: 'COMPOSITE_FLOW', flow: 'lending-composition', reason: null, steps, ...base };
   }
   const steps = [step(0, spec.action, financial.map(s => s.nodeId), financial[0]?.kind ?? 'OTHER', financial[0]?.protocol ?? '')];
-  const flow = strategyFlow(spec);
   return flow ? { kind: 'SINGLE_FLOW', flow, reason: null, steps, ...base } : { kind: 'NOT_EXECUTABLE', flow: null, reason: 'OWNER_EXECUTION_NOT_IMPLEMENTED', steps, ...base };
 }
 
+/** BUILD-MCP-002: the plan of a step-list workflow. One step is that step's plan; several steps are not executable yet. */
+export function workflowPlan(workflow: WorkflowComposition): ExecutionPlan {
+  if (workflow.steps.length === 1) return executionPlan(workflow.steps[0]!);
+  const plans = workflow.steps.map(executionPlan), networks = [...new Set(plans.flatMap(p => p.networks))];
+  const steps = plans.map((p, index) => ({ ...p.steps[0]!, index, action: workflow.steps[index]!.strategy.action, nodeIds: p.steps.flatMap(s => s.nodeIds), flow: p.flow }));
+  return { kind: 'NOT_EXECUTABLE', flow: null, reason: 'MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED', steps, networks, networkEnvironment: environmentOf(networks),
+    fundsClass: workflow.fundsClass };
+}
+
+type StepFacts = { readonly index: number; readonly flow: FlowName | null; readonly execute: boolean; readonly deploymentEnabled: boolean; readonly reason: string | null };
 export type Gates = {
-  readonly supportedByCode: { readonly execute: boolean; readonly plan: ExecutionPlan['kind']; readonly flow: FlowName | null; readonly reason: string | null };
+  readonly supportedByCode: { readonly execute: boolean; readonly plan: ExecutionPlan['kind']; readonly flow: FlowName | null; readonly reason: string | null;
+    readonly steps?: readonly StepFacts[] };
   readonly enabledByDeployment: { readonly enabled: boolean; readonly flow: FlowName | null; readonly mode: string; readonly executionSwitch: boolean | null;
     readonly mockedHarness: boolean; readonly reason: string | null };
   readonly enabledByPolicy: { readonly enabled: boolean; readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS'; readonly networks: readonly NetworkId[]; readonly reason: string | null };
@@ -131,4 +146,21 @@ export async function evaluateGates(composition: Composition, runtime: McpRuntim
   const demonstratedEvidence = implemented && review.capability.evidenceCeiling ? review.capability.evidenceCeiling : 'NONE_DEMONSTRATED';
   const reason = supportedByCode.reason ?? enabledByDeployment.reason ?? enabledByPolicy.reason;
   return { plan, supportedByCode, enabledByDeployment, enabledByPolicy, demonstratedEvidence, handoff: { allowed: reason === null, reason } };
+}
+
+/**
+ * The four facts for a step-list workflow. One step: exactly `evaluateGates` of that step. Several steps: each step's own facts are
+ * reported (what the sequential runner will need), the workflow is refused with MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED, policy covers
+ * every network of every step, and no sequence evidence exists.
+ */
+export async function evaluateWorkflowGates(workflow: WorkflowComposition, runtime: McpRuntime, policy: HandoffPolicy): Promise<Gates & { readonly plan: ExecutionPlan }> {
+  if (workflow.steps.length === 1) return evaluateGates(workflow.steps[0]!, runtime, policy);
+  const plan = workflowPlan(workflow), each = await Promise.all(workflow.steps.map(step => evaluateGates(step, runtime, policy)));
+  const steps = each.map((g, index) => ({ index, flow: g.plan.flow, execute: g.supportedByCode.execute, deploymentEnabled: g.enabledByDeployment.enabled,
+    reason: g.supportedByCode.reason ?? g.enabledByDeployment.reason }));
+  const deploymentReason = each.find(g => !g.enabledByDeployment.enabled)?.enabledByDeployment.reason ?? null;
+  const enabledByPolicy = policyGate(plan, policy);
+  return { plan, supportedByCode: { execute: false, plan: plan.kind, flow: null, reason: 'MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED', steps },
+    enabledByDeployment: { enabled: deploymentReason === null, flow: null, mode: 'PER_STEP', executionSwitch: null, mockedHarness: each.some(g => g.enabledByDeployment.mockedHarness),
+      reason: deploymentReason }, enabledByPolicy, demonstratedEvidence: 'NONE_DEMONSTRATED', handoff: { allowed: false, reason: 'MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED' } };
 }

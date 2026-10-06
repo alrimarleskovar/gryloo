@@ -13,6 +13,7 @@
 import { baseAssetRegistry, referenceRegistry, resolveWorkflowCapability, type CapabilityBlocker, type EvidenceMaturity,
   type ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
 import { createReviewContext, lintWorkflow, reviewContextForChain, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createHash } from 'node:crypto';
 import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 import { capabilityBlockMessage } from '../domain/capability-view';
 import { summarize, type Command } from '../domain/commands';
@@ -27,7 +28,8 @@ import { createAuthoredBorrow, createAuthoredRepay, createAuthoredSupply, create
 import { createSwapNode, type Direction } from '../domain/swap-authoring';
 import { createUniswapLiquidityNode, uniswapLiquidityProfileFor, type UniswapLiquidityNetwork } from '../domain/uniswap-liquidity-authoring';
 import { workflowSteps, type WorkflowStep } from '../domain/workflow-steps';
-import { isStrategySpec, strategySpecIssues, type NetworkId, type SchemaIssue, type StrategySpec } from './strategy-spec';
+import { isStrategyInput, isStrategySpec, isStrategyWorkflow, strategyInputIssues, strategySpecIssues, type NetworkId, type SchemaIssue, type StrategyInput,
+  type StrategySpec } from './strategy-spec';
 
 /** The DApp's initial ReviewContext (`app/page.tsx`): Base mainnet assets from the reference registry. */
 export function dappReviewContext(): ReviewContext {
@@ -178,6 +180,52 @@ export function composeStrategy(input: unknown): Composition | ComposeFailure {
 /** Composition bound to a hash the caller saw earlier: a different hash is a stale or altered strategy, never silently replaced. */
 export function composeBound(input: unknown, expectedHash: string | undefined): Composition | ComposeFailure {
   const composed = composeStrategy(input);
+  if (composed.ok && expectedHash !== undefined && expectedHash !== composed.workflowHash) return { ok: false, code: 'STRATEGY_WORKFLOW_HASH_MISMATCH', issues: [] };
+  return composed;
+}
+
+/**
+ * BUILD-MCP-002: a step-list workflow (`version: 2`, or a v1 strategy as its one step). Each step is the ordinary single-action
+ * composition with its own isolated IR and hash. One step: the workflow IS that step (same canonical strategy, same hash — a v1
+ * strategy and a one-step workflow are indistinguishable). Several steps: the canonical strategy is the v2 list of normalized steps
+ * and the workflow hash covers the ordered step hashes. The exact Base Sepolia supply → borrow → swap shape is FloFi's existing
+ * lending composition and is composed as such (one step, one executor).
+ */
+export type WorkflowComposition = {
+  readonly ok: true; readonly strategy: StrategyInput; readonly workflowHash: string; readonly steps: readonly Composition[];
+  readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS'; readonly notes: readonly string[];
+};
+/** The hash of an ordered list of step hashes (several steps only). */
+export function workflowSequenceHash(stepHashes: readonly string[]): string {
+  return '0x' + createHash('sha256').update(JSON.stringify({ contract: 'flofi-strategy-workflow', version: 2, steps: stepHashes })).digest('hex');
+}
+const sameAccount = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+/** Supply → borrow → swap of exactly the borrowed USDC to WETH, all on Base Sepolia for one account: the existing lending composition. */
+function collapseLending(steps: readonly StrategySpec[]): readonly StrategySpec[] {
+  if (steps.length !== 3) return steps;
+  const [supply, borrow, swap] = steps;
+  if (supply?.action !== 'supply' || borrow?.action !== 'borrow' || swap?.action !== 'swap') return steps;
+  if (supply.network !== 'base-sepolia' || borrow.network !== 'base-sepolia' || swap.network !== 'base-sepolia' || supply.asset !== 'USDC' || borrow.asset !== 'USDC' ||
+      swap.inputAsset !== 'USDC' || swap.outputAsset !== 'WETH' || swap.amount !== borrow.amount || !sameAccount(supply.beneficiary, borrow.beneficiary)) return steps;
+  return [{ version: 1, action: 'lending_composition', network: 'base-sepolia', asset: 'USDC', supplyAmount: supply.amount, borrowAmount: borrow.amount, outputAsset: 'WETH',
+    ...swap.slippageBps === undefined ? {} : { slippageBps: swap.slippageBps }, owner: supply.beneficiary }];
+}
+export function composeWorkflow(input: unknown): WorkflowComposition | ComposeFailure {
+  if (!isStrategyInput(input)) return { ok: false, code: 'STRATEGY_SCHEMA_INVALID', issues: strategyInputIssues(input) };
+  const specs = isStrategyWorkflow(input) ? collapseLending(input.steps.map(step => ({ ...step, version: 1 }) as StrategySpec)) : [input];
+  const steps: Composition[] = [];
+  for (const [index, spec] of specs.entries()) {
+    const composed = composeStrategy(spec);
+    if (!composed.ok) return { ...composed, issues: composed.issues.map(issue => ({ path: specs.length > 1 || isStrategyWorkflow(input) ? `/steps/${index}${issue.path === '/' ? '' : issue.path}` : issue.path, rule: issue.rule })) };
+    steps.push(composed);
+  }
+  const fundsClass = steps.some(c => c.fundsClass === 'REAL_FUNDS') ? 'REAL_FUNDS' : 'TEST_FUNDS';
+  if (steps.length === 1) return { ok: true, strategy: steps[0]!.strategy, workflowHash: steps[0]!.workflowHash, steps, fundsClass, notes: steps[0]!.notes };
+  return { ok: true, strategy: { version: 2, steps: steps.map(c => c.strategy) }, workflowHash: workflowSequenceHash(steps.map(c => c.workflowHash)), steps, fundsClass,
+    notes: steps.flatMap((c, i) => c.notes.map(note => `Step ${i + 1}: ${note}`)) };
+}
+export function composeWorkflowBound(input: unknown, expectedHash: string | undefined): WorkflowComposition | ComposeFailure {
+  const composed = composeWorkflow(input);
   if (composed.ok && expectedHash !== undefined && expectedHash !== composed.workflowHash) return { ok: false, code: 'STRATEGY_WORKFLOW_HASH_MISMATCH', issues: [] };
   return composed;
 }

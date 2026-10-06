@@ -12,10 +12,10 @@
  * simulation, reviews the Strategy Manifest, approves explicitly and signs with their own wallet in the existing flow panels.
  */
 import type { Workflow } from '../../domain/initial-workflow';
-import { composeBound, composeStrategy, semanticWorkflowHash, type Composition } from '../../engine/strategy-engine';
+import { composeWorkflow, composeWorkflowBound, semanticWorkflowHash, type Composition, type WorkflowComposition } from '../../engine/strategy-engine';
 import type { Command } from '../../domain/commands';
 import type { McpOAuthPrincipal } from '../config.ts';
-import { ENGINE_VERSION, evaluateGates, handoffFindings, type ExecutionPlan, type Gates, type HandoffPolicy, type PlanStep } from '../execution.ts';
+import { ENGINE_VERSION, evaluateWorkflowGates, handoffFindings, type ExecutionPlan, type Gates, type HandoffPolicy, type PlanStep } from '../execution.ts';
 import type { OAuthConfig } from '../oauth/config.ts';
 import { credentialDigest, newCredential, newId } from '../oauth/crypto.ts';
 import type { McpState } from '../oauth/state.ts';
@@ -36,16 +36,18 @@ export const approvalUrl = (config: OAuthConfig, secret: string) => `${config.or
 /** The wallet namespace whose proof a plan needs (every network of one workflow is one namespace today). */
 export const planNamespace = (plan: Pick<ExecutionPlan, 'networks'>): WalletRef['namespace'] => plan.networks.every(n => n.startsWith('solana')) ? 'solana' : 'eip155';
 const stepView = (s: PlanStep) => ({ index: s.index, action: s.action, network: s.network, destinationNetwork: s.destinationNetwork, kind: s.kind, protocol: s.protocol,
-  fundsClass: s.fundsClass, environment: s.environment });
+  fundsClass: s.fundsClass, environment: s.environment, flow: s.flow, stepWorkflowHash: s.workflowHash });
 const gateView = (g: Gates) => ({ supportedByCode: g.supportedByCode, enabledByDeployment: g.enabledByDeployment, enabledByPolicy: g.enabledByPolicy,
   demonstratedEvidence: g.demonstratedEvidence });
 
 /** `request_user_approval`: a PENDING handoff for this account, or a classified refusal. */
 export async function requestApproval(deps: ApprovalDeps, principal: McpOAuthPrincipal, strategy: unknown, workflowHash: string) {
-  const composition = composeBound(strategy, workflowHash);
-  if (!composition.ok) return { ok: false, code: composition.code, extra: { issues: composition.issues } } satisfies Failure;
-  const gates = await evaluateGates(composition, deps.runtime, deps.policy);
-  if (!gates.handoff.allowed) return { ok: false, code: gates.handoff.reason!, extra: { gates: gateView(gates) } } satisfies Failure;
+  const workflow = composeWorkflowBound(strategy, workflowHash);
+  if (!workflow.ok) return { ok: false, code: workflow.code, extra: { issues: workflow.issues } } satisfies Failure;
+  // A general sequence of steps is refused here (MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED) with every step's facts reported.
+  const gates = await evaluateWorkflowGates(workflow, deps.runtime, deps.policy);
+  if (!gates.handoff.allowed) return { ok: false, code: gates.handoff.reason!, extra: { gates: gateView(gates), executionPlan: gates.plan.kind, steps: gates.plan.steps.map(stepView) } } satisfies Failure;
+  const composition = workflow.steps[0]!;
   const { blockers, preExecution } = handoffFindings(composition);
   if (blockers.length) return { ok: false, code: 'REVIEW_BLOCKED', extra: { blockers: blockers.map(b => ({ code: b.code, message: b.message })) } } satisfies Failure;
   if (!await deps.state.oauth.allow(`handoff:account:${principal.accountId}`, HANDOFF_RATE[0], HANDOFF_RATE[1], deps.now)) return { ok: false, code: 'MCP_HANDOFF_RATE_LIMITED' } satisfies Failure;
@@ -70,17 +72,18 @@ export function approvalStatus(h: HandoffRecord) {
     statusShared: h.shareStatus, authority: AUTHORITY_NONE };
 }
 
-export type Verified = { readonly ok: true; readonly composition: Composition; readonly gates: Gates & { readonly plan: ExecutionPlan } } | Failure & { readonly stale?: boolean };
+export type Verified = { readonly ok: true; readonly composition: Composition; readonly workflow: WorkflowComposition; readonly gates: Gates & { readonly plan: ExecutionPlan } }
+  | Failure & { readonly stale?: boolean };
 /**
  * Re-verifies a stored proposal now: it must still compose to the same workflow hash with the current engine (otherwise it is
  * STALE), and the deployment and policy must still allow handing it to its owner.
  */
 export async function verifyHandoff(h: HandoffRecord, runtime: McpRuntime, policy: HandoffPolicy): Promise<Verified> {
-  const composition = composeStrategy(h.strategy);
-  if (!composition.ok || composition.workflowHash !== h.workflowHash) return { ok: false, code: 'HANDOFF_STALE', stale: true };
-  const gates = await evaluateGates(composition, runtime, policy);
+  const workflow = composeWorkflow(h.strategy);
+  if (!workflow.ok || workflow.workflowHash !== h.workflowHash) return { ok: false, code: 'HANDOFF_STALE', stale: true };
+  const gates = await evaluateWorkflowGates(workflow, runtime, policy);
   if (!gates.handoff.allowed) return { ok: false, code: gates.handoff.reason! };
-  return { ok: true, composition, gates };
+  return { ok: true, composition: workflow.steps[0]!, workflow, gates };
 }
 
 /** The public view of a handoff on /approve, for whoever holds its secret. Never a key, a transaction or calldata. */

@@ -81,6 +81,26 @@ const BRANCHES = Object.freeze({ bridge: Bridge, swap: Swap, supply: Lending('su
 export const StrategySpecSchema = Type.Union(Object.values(BRANCHES), { description: 'A FloFi strategy: structured intent only. FloFi maps it to registered profiles.' });
 export type StrategySpec = Static<typeof StrategySpecSchema>;
 
+/**
+ * BUILD-MCP-002: the step-list contract (`version: 2`). A workflow is an ordered list of 1–8 steps, each a single-action strategy.
+ * One step is exactly the v1 strategy (same normalization, same workflow hash): a single transaction is a one-step workflow.
+ * Each step keeps its own isolated IR (FloFi's authoring rules keep every publicly executable capability alone in its workflow);
+ * the workflow hash of several steps covers their ordered step hashes. Which sequences execute today is an execution-plan fact
+ * (`MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED` until the sequential runner), never a schema change.
+ */
+export const MAX_WORKFLOW_STEPS = 8;
+export const StrategyWorkflowSchema = Type.Object({
+  version: Type.Literal(2, { description: 'Step-list workflow contract.' }),
+  steps: Type.Array(Type.Union(Object.values(BRANCHES)), { minItems: 1, maxItems: MAX_WORKFLOW_STEPS,
+    description: 'Ordered steps, each one single-action strategy (the same objects as version 1). Executed in this order, each with its own review and signature.' }),
+}, strict);
+export type StrategyWorkflow = Static<typeof StrategyWorkflowSchema>;
+/** What a client may send: a v1 single-action strategy or a v2 step list. */
+export const StrategyInputSchema = Type.Union([...Object.values(BRANCHES), StrategyWorkflowSchema],
+  { description: 'A FloFi strategy (version 1, one action) or workflow (version 2, ordered steps): structured intent only.' });
+export type StrategyInput = StrategySpec | StrategyWorkflow;
+export const isStrategyWorkflow = (value: StrategyInput): value is StrategyWorkflow => (value as { version?: unknown }).version === 2;
+
 const ajv = new Ajv({ strict: true, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false, ownProperties: true });
 /** A schema violation as a path and a rule; never the offending value. */
 export type SchemaIssue = { readonly path: string; readonly rule: string };
@@ -99,6 +119,7 @@ export function compileSchema<T>(schema: TSchema): { readonly check: (value: unk
   return { check: (value): value is T => validate(value), issues: value => validate(value) ? [] : unique((validate.errors ?? []).map(issueOf)) };
 }
 const union = compileSchema<StrategySpec>(StrategySpecSchema);
+const inputUnion = compileSchema<StrategyInput>(StrategyInputSchema);
 const branches = Object.fromEntries(Object.entries(BRANCHES).map(([action, schema]) => [action, compileSchema<StrategySpec>(schema)])) as
   Readonly<Record<StrategyAction, ReturnType<typeof compileSchema<StrategySpec>>>>;
 export const isStrategySpec = union.check;
@@ -108,4 +129,17 @@ export function strategySpecIssues(value: unknown): readonly SchemaIssue[] {
   const action = value && typeof value === 'object' && !Array.isArray(value) ? (value as { action?: unknown }).action : undefined;
   if (typeof action !== 'string' || !Object.hasOwn(branches, action)) return [{ path: '/action', rule: 'enum' }];
   return branches[action as StrategyAction].issues(value);
+}
+
+export const isStrategyInput = inputUnion.check;
+/** Every violation of a v1 strategy or a v2 workflow; a step is reported against its own action's schema at `/steps/<i>`. */
+export function strategyInputIssues(value: unknown): readonly SchemaIssue[] {
+  if (inputUnion.check(value)) return [];
+  const record = value && typeof value === 'object' && !Array.isArray(value) ? value as { version?: unknown; steps?: unknown } : null;
+  if (record?.version !== 2) return strategySpecIssues(value);
+  const extra = Object.keys(record).filter(k => k !== 'version' && k !== 'steps');
+  if (extra.length) return [{ path: '/', rule: 'additionalProperties' }];
+  if (!Array.isArray(record.steps)) return [{ path: '/steps', rule: 'type' }];
+  if (record.steps.length < 1 || record.steps.length > MAX_WORKFLOW_STEPS) return [{ path: '/steps', rule: record.steps.length < 1 ? 'minItems' : 'maxItems' }];
+  return record.steps.flatMap((step, i) => strategySpecIssues(step).map(issue => ({ path: `/steps/${i}` + (issue.path === '/' ? '' : issue.path), rule: issue.rule })));
 }
