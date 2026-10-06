@@ -11,7 +11,8 @@
  * Nothing here holds or derives a key, builds a transaction, signs, submits or authorizes. The owner still runs a fresh
  * simulation, reviews the Strategy Manifest, approves explicitly and signs with their own wallet in the existing flow panels.
  */
-import { composeBound, composeStrategy, type Composition } from '../../engine/strategy-engine';
+import type { Workflow } from '../../domain/initial-workflow';
+import { composeBound, composeStrategy, semanticWorkflowHash, type Composition } from '../../engine/strategy-engine';
 import type { Command } from '../../domain/commands';
 import type { McpOAuthPrincipal } from '../config.ts';
 import { ENGINE_VERSION, evaluateGates, handoffFindings, type ExecutionPlan, type Gates, type HandoffPolicy, type PlanStep } from '../execution.ts';
@@ -94,3 +95,44 @@ export function approvalView(h: HandoffRecord, verified: Verified | null, viewer
 }
 export type ApprovalView = ReturnType<typeof approvalView>;
 export type ClaimedProposal = { readonly view: ApprovalView; readonly command: Command; readonly workflowHash: string };
+
+/** The workflow a flow record reviewed, wherever the flow keeps it (review, workflow, or the first of several reviews). */
+function reviewedWorkflows(record: unknown): unknown[] {
+  const r = record && typeof record === 'object' ? record as { review?: { workflow?: unknown }; workflow?: unknown; reviews?: { workflow?: unknown }[] } : {};
+  return [r.review?.workflow, r.workflow, Array.isArray(r.reviews) ? r.reviews[0]?.workflow : undefined].filter(w => w && typeof w === 'object');
+}
+export type RunProgress = { readonly executionId: string; readonly flow: string; readonly status: string; readonly reconciled: boolean; readonly terminal: boolean;
+  readonly errorCode: string | null; readonly evidenceEnvironment: string | null; readonly evidenceOutcome: string | null; readonly evidenceBundleHash: string | null;
+  readonly updatedAt: string };
+/**
+ * The runs started from an APPLIED handoff whose owner chose to share them: runs of the claimant wallet, on the plan's flow, created
+ * after the claim, whose reviewed workflow hashes EXACTLY to the handoff's workflow hash (an edited strategy is not this proposal).
+ * Everything is read server-side as the owner; only public facts leave (ids, states, evidence environment and bundle hash).
+ */
+export async function sharedRuns(h: HandoffRecord, runtime: McpRuntime, handoffs: McpState['handoffs']): Promise<readonly RunProgress[] | null> {
+  if (h.status !== 'APPLIED' || !h.shareStatus || !h.claimed || !h.claimedAt || !h.plan.flow || !runtime.runs || !runtime.record) return null;
+  const flow = h.plan.flow, owner = h.claimed.address, listed = await runtime.runs(flow, owner);
+  if (!listed.ok) return [];
+  const candidates = listed.value.filter(r => Date.parse(r.updatedAt) >= h.claimedAt!.getTime() - 1_000).slice(0, 8);
+  const out: RunProgress[] = [];
+  for (const candidate of candidates) {
+    const run = await runtime.run(candidate.runId, owner);
+    if (!run.ok || !run.value || Date.parse(run.value.createdAt) < h.claimedAt.getTime() - 1_000) continue;
+    const record = await runtime.record(flow, candidate.runId, owner);
+    if (!record.ok || !reviewedWorkflows(record.value).some(w => { try { return semanticWorkflowHash(w as Workflow) === h.workflowHash; } catch { return false; } })) continue;
+    let evidence: { environment: string; outcome: string; bundleHash: string } | null = null;
+    if (run.value.hasEvidence) { const e = await runtime.evidence(flow, candidate.runId, owner); if (e.ok && e.value) evidence = { environment: e.value.environment, outcome: e.value.outcome, bundleHash: e.value.bundleHash }; }
+    out.push({ executionId: run.value.runId, flow: run.value.flow, status: run.value.status, reconciled: run.value.hasEvidence, errorCode: run.value.errorCode,
+      terminal: !run.value.needsObservation && (run.value.hasEvidence || run.value.errorCode !== null), evidenceEnvironment: evidence?.environment ?? null,
+      evidenceOutcome: evidence?.outcome ?? null, evidenceBundleHash: evidence?.bundleHash ?? null, updatedAt: run.value.updatedAt });
+  }
+  const known = new Set(h.runIds), fresh = out.map(r => r.executionId).filter(id => !known.has(id));
+  if (fresh.length) await handoffs.bindRuns(h.handoffId, fresh);
+  return out;
+}
+/** The approval's status for its account, with the shared runs when the owner shares them. */
+export async function approvalProgress(h: HandoffRecord, runtime: McpRuntime, handoffs: McpState['handoffs']) {
+  const runs = await sharedRuns(h, runtime, handoffs);
+  return { ...approvalStatus(h), runs: runs ?? [], runsVisible: runs !== null,
+    note: h.status === 'APPLIED' && !h.shareStatus ? 'The owner has not shared the status of runs started from this proposal.' : null };
+}

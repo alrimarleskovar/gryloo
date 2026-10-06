@@ -16,6 +16,7 @@
  */
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import { authenticate, principalScopes, readMcpConfig, type McpOAuthPrincipal, type McpPrincipal } from './config.ts';
+import { PANEL_URI } from './app/panel.ts';
 import { readHandoffPolicy } from './execution.ts';
 import { DEFAULT_SCOPES, readOAuthConfig, type McpScope, type OAuthConfig } from './oauth/config.ts';
 import { credentialDigest, credentialOf } from './oauth/crypto.ts';
@@ -54,6 +55,16 @@ function requiredScopes(body: string, principal: McpPrincipal): readonly McpScop
     needed.add(TOOL_SCOPES[name as keyof typeof TOOL_SCOPES]);
   }
   return [...needed];
+}
+
+/**
+ * BUILD-MCP-002: the in-chat panel (`FLOFI_MCP_APP`, default enabled) and the hosts on which it offers the in-frame environment
+ * probe (`FLOFI_MCP_INFRAME_WALLET_HOSTS`, host names as MCP Apps `hostInfo.name`; empty by default). The probe never executes.
+ */
+export function panelConfig(env: Env): { readonly resourceUri: string; readonly inFrameProbeHosts: readonly string[] } | null {
+  if ((env.FLOFI_MCP_APP ?? 'enabled') === 'disabled') return null;
+  const hosts = (env.FLOFI_MCP_INFRAME_WALLET_HOSTS ?? '').split(',').map(s => s.trim()).filter(h => /^[A-Za-z0-9._-]{1,64}$/.test(h)).slice(0, 16);
+  return { resourceUri: PANEL_URI, inFrameProbeHosts: hosts };
 }
 
 export async function handleMcpRequest(request: Request, options: GatewayOptions = {}): Promise<Response> {
@@ -96,9 +107,15 @@ export async function handleMcpRequest(request: Request, options: GatewayOptions
     return reject(403, 'MCP_INSUFFICIENT_SCOPE', oauth && principal.kind === 'mcp-oauth'
       ? { 'www-authenticate': challenge(oauth, [...new Set([...held, ...missing])], 'insufficient_scope') } : {});
   }
+  // A `flofi.runs` read by an OAuth account sees only wallets that account linked on FloFi (never an address from the request).
+  if (principal.kind === 'mcp-oauth' && state && body !== null && requiredScopes(body, principal).includes('flofi.runs')) {
+    const links = await state.links.active(principal.accountId, now).catch(() => null);
+    if (!links) { logger?.warn('mcp.oauth.store_unavailable'); return reject(503, 'MCP_OAUTH_STORE_UNAVAILABLE'); }
+    principal = Object.freeze({ ...principal, wallets: Object.freeze(links.map(l => l.address)) });
+  }
   const runtime = options.runtime ?? deploymentRuntime(env), active = principal;
-  const policy = readHandoffPolicy(env);
-  const handler = createMcpHandler(() => createFlofiMcpServer({ principal: active, runtime, policy, ...state ? { state } : {}, ...oauth ? { oauth } : {},
+  const policy = readHandoffPolicy(env), ui = panelConfig(env);
+  const handler = createMcpHandler(() => createFlofiMcpServer({ principal: active, runtime, policy, ui, ...state ? { state } : {}, ...oauth ? { oauth } : {},
     onTool: event => logger?.info('mcp.tool', { principal: active.id, tenant: active.tenantId, tool: event.tool, outcome: event.outcome, duration_ms: event.durationMs }) }),
   // `auto` answers with one JSON body: no tool emits a notification before its result.
   { legacy: 'stateless', maxRequestBodySize: MCP_MAX_BODY_BYTES, onerror: () => logger?.warn('mcp.protocol_error', { principal: active.id }) });

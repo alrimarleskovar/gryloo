@@ -9,15 +9,13 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { approvalHandoffView, claimApprovalHandoff, markApprovalApplied, setApprovalSharing } from '../app/approve-action';
-import { solanaSessionStatus, solanaSignIn, solanaSignInChallenge, walletSessionStatus, walletSignIn, walletSignInChallenge } from '../app/wallet-session-action';
 import type { ApprovalView } from '../mcp/handoff/service';
 import { useWorkflow } from '../state/workflow-store';
-import { injectedProvider } from '../wallet/eip1193';
-import { connectSolanaWallet, signSolanaMessage, solanaWalletNames, type SolanaWalletChain } from '../wallet/solana-wallet';
+import type { SolanaWalletChain } from '../wallet/solana-wallet';
+import { useWalletProof, WalletProof } from './wallet-proof';
 
 const SECRET = /^flofi_hs_[A-Za-z0-9_-]{43}$/;
 const STORAGE_KEY = 'flofi.approval.secret';
-const utf8Hex = (text: string) => '0x' + Array.from(new TextEncoder().encode(text), b => b.toString(16).padStart(2, '0')).join('');
 const TERMINAL = ['EXPIRED', 'SUPERSEDED', 'REVOKED', 'STALE'];
 const STATUS_TEXT: Record<string, string> = {
   PENDING: 'Waiting for you', CLAIMED: 'Loaded for your wallet', APPLIED: 'In your FloFi workflow', EXPIRED: 'Expired', SUPERSEDED: 'Replaced by a newer request',
@@ -42,11 +40,10 @@ export function ApprovalHandoff() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [share, setShare] = useState<boolean | null>(null);
-  const [proven, setProven] = useState<string | null>(null);
   const [claimed, setClaimed] = useState(false);
-  const [solanaNames, setSolanaNames] = useState<string[]>([]);
   const applying = useRef(false);
   const chain: SolanaWalletChain = view?.steps.some(s => s.network === 'solana') ? 'solana:mainnet' : 'solana:devnet';
+  const proof = useWalletProof(view?.walletNamespace ?? null, chain), proven = proof.proven;
 
   useEffect(() => {
     const found = takeSecret();
@@ -54,16 +51,6 @@ export function ApprovalHandoff() {
     if (!found) return;
     void approvalHandoffView(found).then(result => { if (result.ok) { setView(result.value); setShare(s => s ?? result.value.sameAccount); } else setError(result.code); });
   }, []);
-  useEffect(() => {
-    if (!view) return;
-    if (view.walletNamespace === 'solana') {
-      void solanaSessionStatus().then(session => setProven(session?.account ?? null));
-      const refresh = () => setSolanaNames(solanaWalletNames(chain));
-      refresh(); const timer = setInterval(refresh, 1_000); return () => clearInterval(timer);
-    }
-    void walletSessionStatus().then(session => setProven(session?.account ?? null));
-    return undefined;
-  }, [view?.walletNamespace, chain]);
   // Once the proposal is applied, the server checks that the FloFi workflow hashes to exactly the proposal.
   useEffect(() => {
     if (!secret || !claimed || applying.current || view?.status === 'APPLIED' || state.workflow.revision === 0) return;
@@ -76,22 +63,6 @@ export function ApprovalHandoff() {
     try { await action(); } catch (cause) { setError(cause instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(cause.message) ? cause.message : 'WALLET_REQUEST_FAILED'); }
     finally { setBusy(false); }
   }
-  const proveEvm = () => run(async () => {
-    const provider = injectedProvider(); if (!provider) throw new Error('EVM_WALLET_NOT_FOUND');
-    const accounts = await provider.request({ method: 'eth_requestAccounts' }), chainId = await provider.request({ method: 'eth_chainId' });
-    const account = Array.isArray(accounts) && typeof accounts[0] === 'string' ? accounts[0].toLowerCase() : null;
-    if (!account || typeof chainId !== 'string') throw new Error('EVM_WALLET_NOT_FOUND');
-    const { message } = unwrap(await walletSignInChallenge(account, Number.parseInt(chainId, 16)));
-    const signature = await provider.request({ method: 'personal_sign', params: [utf8Hex(message), account] });
-    if (typeof signature !== 'string') throw new Error('WALLET_SIGNATURE_INVALID');
-    setProven(unwrap(await walletSignIn(account, Number.parseInt(chainId, 16), signature)).account);
-  });
-  const proveSolana = (name: string) => run(async () => {
-    const session = await connectSolanaWallet(name, chain, 'APPROVAL');
-    const { message } = unwrap(await solanaSignInChallenge(session.account.address));
-    const signature = await signSolanaMessage(session, message, 'APPROVAL');
-    setProven(unwrap(await solanaSignIn(session.account.address, signature)).account);
-  });
   const claim = () => run(async () => {
     const result = unwrap(await claimApprovalHandoff(secret!, share === true));
     setView(result.view); setClaimed(true);
@@ -129,12 +100,7 @@ export function ApprovalHandoff() {
     {view.claimedByAnotherWallet && <p className="approval-ended" role="status">Another wallet already opened this proposal. Ask your assistant for a new request.</p>}
     {canClaim && !claimed && <div className="approval-steps">
       <h3>1. Prove which wallet you are</h3>
-      {proven ? <p>Signed in as <code>{proven}</code> ({view.walletNamespace === 'solana' ? 'Solana' : 'Ethereum'}).</p>
-        : view.walletNamespace === 'solana'
-          ? solanaNames.length ? <div className="approval-actions">{solanaNames.map(name => <button key={name} type="button" className="primary" disabled={busy}
-            onClick={() => void proveSolana(name)}>Prove ownership with {name}</button>)}</div>
-            : <p className="muted">No Solana wallet with message signing is available in this browser. Open this page in your wallet&apos;s browser, or install a wallet.</p>
-          : <div className="approval-actions"><button type="button" className="primary" disabled={busy} onClick={() => void proveEvm()}>Connect wallet and prove ownership</button></div>}
+      <WalletProof namespace={view.walletNamespace} proof={proof}/>
       <p className="muted">This signs a sign-in message only. It authorizes no transaction and moves no funds.</p>
       <h3>2. Load the proposal into FloFi</h3>
       <label className="approval-share"><input type="checkbox" checked={share === true} onChange={e => toggleShare(e.target.checked)}/>
@@ -149,6 +115,6 @@ export function ApprovalHandoff() {
       <label className="approval-share"><input type="checkbox" checked={view.statusShared} onChange={e => toggleShare(e.target.checked)}/>
         Share run status and evidence with {view.clientName}</label>
     </div>}
-    {error && <p className="error-banner" role="alert">{error}</p>}
+    {(error ?? proof.error) && <p className="error-banner" role="alert">{error ?? proof.error}</p>}
   </section>;
 }

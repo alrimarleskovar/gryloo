@@ -19,8 +19,9 @@ import { codeCapabilities, supportedAssets, supportedNetworks } from '../engine/
 import { composeBound, reviewComposition, type Composition } from '../engine/strategy-engine';
 import { compileSchema, NETWORK_IDS, STRATEGY_ACTIONS, strategySpecIssues, StrategySpecSchema, type StrategySpec } from '../engine/strategy-spec';
 import { principalScopes, type McpOAuthPrincipal, type McpPrincipal } from './config.ts';
+import { PANEL_MIME, PANEL_URI, panelHtml, panelResourceMeta } from './app/panel.ts';
 import { evaluateGates, readHandoffPolicy, type HandoffPolicy } from './execution.ts';
-import { APPROVAL_SESSION_SECONDS, approvalStatus, approvalUrl, AUTHORITY_NONE, requestApproval } from './handoff/service.ts';
+import { APPROVAL_SESSION_SECONDS, approvalProgress, approvalUrl, AUTHORITY_NONE, requestApproval } from './handoff/service.ts';
 import { credentialDigest, newCredential } from './oauth/crypto.ts';
 import type { McpScope, OAuthConfig } from './oauth/config.ts';
 import type { McpState } from './oauth/state.ts';
@@ -95,7 +96,7 @@ export type ToolContext = { readonly principal: McpPrincipal; readonly runtime: 
   /** BUILD-MCP-002: the MCP handoff policy (default: test funds only, every mainnet off). */
   readonly policy?: HandoffPolicy;
   /** BUILD-MCP-002: the in-chat MCP App panel attached to request_user_approval, when enabled. */
-  readonly ui?: { readonly resourceUri: string } | null };
+  readonly ui?: { readonly resourceUri: string; readonly inFrameProbeHosts: readonly string[] } | null };
 type Output = Record<string, unknown>;
 class ToolFailure extends Error {}
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
@@ -103,6 +104,8 @@ const failWith = (code: string, extra: Output = {}): never => { throw Object.ass
 const AUTHORITY = 'NONE: this result authorizes nothing. Only the owner, in the FloFi app, can review the Strategy Manifest and sign with their own wallet.';
 
 const DEFAULT_POLICY = readHandoffPolicy({});
+/** BUILD-MCP-002: why this principal may read a run: an operator grant (static credential) or a wallet the account linked on FloFi. */
+const accessBasis = (ctx: ToolContext) => ctx.principal.kind === 'mcp-oauth' ? 'ACCOUNT_LINKED_WALLET' : 'OPERATOR_GRANTED_WALLET';
 /** BUILD-MCP-002: an approval handoff needs an OAuth account with the `flofi.approval` scope (a static credential has no account). */
 const canRequestApproval = (ctx: ToolContext) => ctx.principal.kind === 'mcp-oauth' && ctx.principal.scopes.includes('flofi.approval') && Boolean(ctx.state);
 /** One mode/info lookup per flow per call. */
@@ -258,7 +261,7 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
     const { run, owner } = await ownedRun(ctx, args.executionId);
     const page = await ctx.runtime.journal(args.executionId, owner, args.journalAfter ?? null, args.journalLimit ?? 25);
     if (!page.ok) return failWith(page.code);
-    return { ok: true, executionId: run.runId, flow: run.flow, status: run.status, provenance: run.provenance, owner, accessBasis: 'OPERATOR_GRANTED_WALLET',
+    return { ok: true, executionId: run.runId, flow: run.flow, status: run.status, provenance: run.provenance, owner, accessBasis: accessBasis(ctx),
       ...pickRow(run, ['errorCode', 'needsObservation', 'attentionRequired', 'hasEvidence', 'createdAt', 'updatedAt']),
       attempts: (Array.isArray(run.attempts) ? run.attempts : []).slice(0, 64).map(a => pickRow(a, ['attemptId', 'step', 'state', 'transactionHash', 'reconciled', 'preparedAtBlock', 'updatedAt'])),
       journal: { items: (page.value?.items ?? []).map(e => pickRow(e, ['sequence', 'entryHash', 'level', 'entityId', 'attemptId', 'fromState', 'toState', 'recordedAt'])),
@@ -269,7 +272,7 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
   register('get_evidence', 'Execution evidence', 'The reconciled Evidence Bundle of one FloFi execution with its own environment (MOCKED, TESTNET_EXECUTED, …) and outcome, ' +
     'exactly as FloFi recorded them. Owner-scoped like get_execution_status.', Schemas.evidence, { ...pure, idempotentHint: false }, async args => {
     const { run, owner } = await ownedRun(ctx, args.executionId);
-    const base = { ok: true, executionId: run.runId, flow: run.flow, provenance: run.provenance, status: run.status, owner, accessBasis: 'OPERATOR_GRANTED_WALLET' };
+    const base = { ok: true, executionId: run.runId, flow: run.flow, provenance: run.provenance, status: run.status, owner, accessBasis: accessBasis(ctx) };
     if (!run.hasEvidence) return { ...base, evidence: null, reason: 'NO_RECONCILED_EVIDENCE_YET' };
     const record = await ctx.runtime.evidence(run.flow as Parameters<McpRuntime['evidence']>[0], args.executionId, owner);
     if (!record.ok) return failWith(record.code);
@@ -280,7 +283,14 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
     return { ...base, evidence: { bundleHash: record.value.bundleHash, environment: record.value.environment, outcome: record.value.outcome,
       canonicalBundle: bundle, canonical: bundle !== null }, notes: ['Environment and outcome are copied from the Evidence Bundle; MCP never upgrades them.'] };
   });
-  if (ctx.principal.kind === 'mcp-oauth' && ctx.state && ctx.oauth) registerApprovalTools(ctx, register);
+  if (ctx.principal.kind === 'mcp-oauth' && ctx.state && ctx.oauth) {
+    registerApprovalTools(ctx, register);
+    if (ctx.ui) {
+      const meta = panelResourceMeta(ctx.oauth.origin), html = panelHtml({ origin: ctx.oauth.origin, inFrameProbeHosts: ctx.ui.inFrameProbeHosts });
+      server.registerResource('flofi-approval-panel', PANEL_URI, { title: 'FloFi approval', description: 'The in-chat FloFi approval panel.', mimeType: PANEL_MIME, _meta: meta },
+        async () => ({ contents: [{ uri: PANEL_URI, mimeType: PANEL_MIME, text: html, _meta: meta }] }));
+    }
+  }
   return server;
 }
 
@@ -312,7 +322,7 @@ function registerApprovalTools(ctx: ToolContext, register: Register) {
 
   register('get_approval_status', 'Approval status', 'The status of an approval request this account created: PENDING, CLAIMED, APPLIED, EXPIRED, SUPERSEDED, ' +
     'REVOKED or STALE. It never reveals the wallet that claimed it and never authorizes anything.', ApprovalSchemas.byId, { ...pure, idempotentHint: false },
-  async args => ({ ok: true, ...approvalStatus(await owned(args.approvalId)) }));
+  async args => ({ ok: true, ...await approvalProgress(await owned(args.approvalId), ctx.runtime, ctx.state!.handoffs) }));
 
   register('open_approval_session', 'Open FloFi approval', 'App-only: a fresh, short-lived FloFi link for this approval (for the signing window or a wallet ' +
     'in-app browser). The link only shows the proposal; it authorizes nothing.', ApprovalSchemas.byId, { readOnlyHint: false, destructiveHint: false,
@@ -327,7 +337,7 @@ function registerApprovalTools(ctx: ToolContext, register: Register) {
   }, appOnly);
 
   register('get_execution_progress', 'Execution progress', 'App-only: the approval\'s state and, when its owner shares it, the status of the runs started from it.',
-    ApprovalSchemas.byId, { ...pure, idempotentHint: false }, async args => ({ ok: true, ...approvalStatus(await owned(args.approvalId)) }), appOnly);
+    ApprovalSchemas.byId, { ...pure, idempotentHint: false }, async args => ({ ok: true, ...await approvalProgress(await owned(args.approvalId), ctx.runtime, ctx.state!.handoffs) }), appOnly);
 }
 /** Mobile wallets open FloFi in their own in-app browser, where their provider is injected. The fragment stays inside the encoded URL. */
 export function walletDeepLinks(url: string, origin: string) {
