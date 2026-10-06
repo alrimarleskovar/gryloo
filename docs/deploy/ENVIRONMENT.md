@@ -88,6 +88,16 @@ The Robinhood Chain Testnet endpoint has no override.
 | `FLOFI_COPILOT_TELEMETRY` | `log` / `off`: one metadata line per live request, never content | no | optional | optional | `log` |
 | `FLOFI_COPILOT_LIVE_SMOKE` | Owner-only local smoke test of a live model | no | — | — | — |
 
+## 5b. Remote MCP gateway (BUILD-MCP-001, `POST /api/mcp`)
+
+Off unless enabled. Uses no model key. Guide: [MCP.md](MCP.md).
+
+| Variable | Purpose | Secret | Preview | Prod | Default |
+| --- | --- | --- | --- | --- | --- |
+| `FLOFI_MCP` | `enabled` turns the endpoint on | no | optional | as chosen | off (`404 MCP_NOT_ENABLED`) |
+| `FLOFI_MCP_CLIENTS` | JSON list of `{ principal, tokenSha256, wallets? }`: SHA-256 digests of client bearer tokens (never the tokens) and the owner wallets each credential may read runs of. Must never contain the digest of `API_AUTH_TOKEN`. | digests only (keep private) | with `FLOFI_MCP` | with `FLOFI_MCP` | invalid → `503 MCP_CONFIGURATION_INVALID` |
+| `FLOFI_MCP_ALLOWED_ORIGINS` | Browser origins allowed to call it (others: `403`) | no | optional | optional | none |
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),

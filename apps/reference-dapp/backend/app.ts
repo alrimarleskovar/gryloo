@@ -10,6 +10,7 @@ import { archiveEvidence, backoffMs, createIdempotencyStore, createPostgresLease
 import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor';
 import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
 import { disabledCode, flowMode, FLOWS, isFlowName, type FlowDeps, type FlowName, type FlowService, type Rpc } from './flows.ts';
+import { PREVIEW_METHODS, previewStorage } from './preview.ts';
 import { assertRunOwnership, normalizePrincipal, WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
 
 /** Methods that could put a transaction on any network. Observer (worker) transports reject them unconditionally. */
@@ -98,6 +99,24 @@ export function createBackend(options: BackendOptions) {
     });
   }
 
+  /**
+   * BUILD-MCP-001: the flow's unchanged simulation on an observe-only transport and a per-call run log (`preview.ts`). It writes
+   * nothing durable and binds nothing to the account argument, so no ownership policy applies: there is no run to own.
+   */
+  async function previewFlow(flow: FlowName, args: readonly unknown[]): Promise<FlowResult> {
+    const definition = FLOWS[flow], method = PREVIEW_METHODS[flow];
+    if (!method) return { ok: false, code: 'PREVIEW_NOT_AVAILABLE' };
+    if (!definition.methods[method]!.validate(args)) throw new HttpError(400, 'ARGUMENTS_INVALID');
+    if (flowMode(flow, env) === 'off') return { ok: false, code: disabledCode(flow) };
+    return withSpan(logger, 'flow.preview', { flow, action: method }, async () => {
+      try { return { ok: true, value: await definition.create(previewStorage(), depsFor(flow, true)).call(method, args) } as const; }
+      catch (error) {
+        if (!(error instanceof Error && CODE.test(error.message))) logger.warn('flow.unclassified_error', { flow, action: method });
+        return { ok: false, code: error instanceof Error && CODE.test(error.message) ? error.message : definition.unavailableCode } as const;
+      }
+    });
+  }
+
   const idempotency = (tenantId: string) => createIdempotencyStore({ db, tenantId });
   const queries = (tenantId: string) => createRunQueries(db, tenantId);
   const runIdOf = (value: string | undefined) => { if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)) throw new HttpError(400, 'RUN_ID_INVALID'); return value; };
@@ -145,6 +164,14 @@ export function createBackend(options: BackendOptions) {
       try { result = await callFlow(flow, method, args, tenantId, principal); } catch (error) { await store.release(scope, key, hash).catch(() => undefined); throw error; }
       if (result.ok) await store.complete(scope, key, hash, result); else await store.release(scope, key, hash);
       return { status: 200, body: result };
+    }) },
+    // BUILD-MCP-001: read-only simulation previews (no run, no idempotency record: nothing durable happens).
+    { method: 'POST', name: 'preview', pattern: /^\/v1\/previews\/([a-z-]{1,40})$/, handler: wrap(async (request, match) => {
+      const flow = match[1]!;
+      if (!isFlowName(flow)) throw new HttpError(404, 'FLOW_NOT_FOUND');
+      const body = request.body as { args?: unknown } | null;
+      if (!body || typeof body !== 'object' || !Array.isArray(body.args) || Object.keys(body).length !== 1) throw new HttpError(400, 'ARGUMENTS_INVALID');
+      return { status: 200, body: await previewFlow(flow, body.args) };
     }) },
     { method: 'GET', name: 'runs', pattern: /^\/v1\/runs$/, handler: wrap(async request => {
       const limit = integerParam(request.query.get('limit')), flow = request.query.get('flow');
@@ -220,6 +247,6 @@ export function createBackend(options: BackendOptions) {
     await settle({ outcome: 'DONE' });
   };
 
-  return { routes, callFlow, service, storage, handlers: { reconcile, 'evidence.archive': archive } as Record<string, WorkHandler> };
+  return { routes, callFlow, previewFlow, service, storage, handlers: { reconcile, 'evidence.archive': archive } as Record<string, WorkHandler> };
 }
 export type Backend = ReturnType<typeof createBackend>;
