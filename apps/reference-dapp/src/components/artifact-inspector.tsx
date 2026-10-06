@@ -67,9 +67,10 @@ function CanonicalArtifactInspector({ selectedId, select, expanded = false, onEx
   const [liquidityInput, setLiquidityInput] = useState<LiquidityInput>(emptyLiquidity);
   const effectiveLiquidityInput = liquidity && contributions.values ? { ...liquidityInput, weth: contributions.values[0]!.amount, usdc: contributions.values[1]!.amount } : liquidityInput;
   const [error, setError] = useState('');
+  const cryptoInput = node && canSelectCryptoAssets(node, state.workflow) ? cryptoInputOf(node) : null;
   useEffect(() => {
     setAmount(swap ? swap.amount : template && node ? amountOf(node) : '');
-    setSlippage(swap?.slippage?.toString() ?? (node ? cryptoInputOf(node)?.slippage : undefined) ?? '');
+    setSlippage(swap?.slippage?.toString() ?? cryptoInput?.slippage ?? '');
     setBridgeInput(bridge ? { amount: bridge.amount, slippageBps: String(bridge.slippageBps) } : { amount: '', slippageBps: '50' });
     setLiquidityInput(liquidity ? {
       weth: formatHumanAmount(liquidity.amountWeth, 'WETH', context), usdc: formatHumanAmount(liquidity.amountUsdc, 'USDC', context),
@@ -80,8 +81,7 @@ function CanonicalArtifactInspector({ selectedId, select, expanded = false, onEx
       swapSlippageBps: String(cross.swapSlippageBps || 50), tickLower: String(cross.tickLower), tickUpper: String(cross.tickUpper),
       recipient: cross.recipient, provider: cross.bridgeProvider, noSwap: cross.noSwap });
     setError('');
-  }, [cross, node, swap?.amount, swap?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
-  const cryptoInput = node && canSelectCryptoAssets(node, state.workflow) ? cryptoInputOf(node) : null;
+  }, [cross, node, swap?.amount, swap?.slippage, cryptoInput?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
   const selection = node ? cryptoSelections[node.nodeId] ?? cryptoInput?.selection : undefined;
   const cryptoSwap = cryptoInput?.selection.action === 'swap' ? cryptoInput : null;
   const locked = Boolean(node?.lockedParameters.length);

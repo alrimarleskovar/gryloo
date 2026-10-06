@@ -91,6 +91,7 @@ describe('UX-004A read-only product workflow in Simulate', () => {
     expect(fixture.graph.nodes).toEqual([]); expect(fixture.graph.edges).toEqual([]);
     expect(html).toContain(incomplete ? 'Check your workflow' : 'Add an action to your workflow');
     expect(html).not.toContain('flow-card composer-card');
+    expect(html).not.toMatch(/canvas-empty-mascot|flofi-droplet-wave|Start your workflow/);
   });
 
   it('uses the supplied shared title and leaves existing artifact overlays out of the authored graph', () => {

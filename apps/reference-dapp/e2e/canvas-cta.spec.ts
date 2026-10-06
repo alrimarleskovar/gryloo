@@ -19,11 +19,11 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       await expect(cta).toBeVisible();
       const graphBox = (await graph.boundingBox())!;
       const ctaBox = (await cta.boundingBox())!;
-      const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
+      const controlsBox = (await graph.locator('.canvas-navigator').boundingBox())!;
       expect(Math.abs(graphBox.y + graphBox.height - ctaBox.y - ctaBox.height - 24)).toBeLessThan(1);
       expect(Math.abs(graphBox.x + graphBox.width - ctaBox.x - ctaBox.width - 12)).toBeLessThan(1);
       expect(ctaBox.x).toBeGreaterThanOrEqual(graphBox.x);
-      expect(ctaBox.y - controlsBox.y - controlsBox.height).toBeGreaterThanOrEqual(12);
+      expect(controlsBox.x + controlsBox.width <= ctaBox.x || controlsBox.y + controlsBox.height <= ctaBox.y).toBe(true);
       expect(controlsBox.y).toBeGreaterThan(graphBox.y);
       expect((await canvas.boundingBox())!.height).toBe(floating ? 680 : 590);
       const nodeBox = (await graph.locator('.flow-card').boundingBox())!;

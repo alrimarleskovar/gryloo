@@ -103,7 +103,7 @@ export function ExecuteWorkspace(props: ExecuteWorkspaceProps) {
           <div><dt>Actions</dt><dd>{live ? `${live.completed} of ${live.steps.length} completed` : view.steps.length}</dd></div>
           </>}
           {providers.length > 0 && <div><dt>Providers</dt><dd>{providers.join(' · ')}</dd></div>}
-          {!live && <div><dt>Authorization</dt><dd>{view.authorizationLabel}</dd></div>}
+          {!live && <div><dt>Authorization</dt><dd className={['Review required again', 'Approval required', 'Expired'].includes(view.authorizationLabel) ? 'execution-authorization-attention' : undefined}>{view.authorizationLabel}</dd></div>}
         </dl>
         {live?.active && <section className="execute-next" aria-label="Current step"><h3>{result ? 'Needs attention' : 'Current step'}</h3><p>{live.active.number}. {live.active.action}</p><p>{[live.active.provider, live.active.network].filter(Boolean).join(' · ')}</p><p>{live.active.label}</p></section>}
         {(requestFailed || live && props.source.state.error) && <p className="simulation-warning-blocking execution-request-error" role="status">The last request could not complete. Check the recorded status before taking another action.</p>}

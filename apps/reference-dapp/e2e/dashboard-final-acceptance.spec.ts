@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { build } from 'vite';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
@@ -36,7 +37,7 @@ test.beforeAll(async () => {
 });
 async function theme(page: Page, value: 'light' | 'dark') {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: `${value === 'light' ? 'Light' : 'Dark'} theme`, exact: true }).click();
+  await selectSettingsTheme(page, value === 'light' ? 'Light' : 'Dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', value);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
 }

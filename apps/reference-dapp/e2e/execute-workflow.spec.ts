@@ -23,16 +23,16 @@ test('Execute shows the shared authored workflow without authorizing or inventin
   await expect(graph.locator('.flow-card')).toContainText('USDC → WETH');
   await expect(graph.locator('.flow-card')).toContainText('2.25 USDC');
   await expect(graph.locator('.flow-card')).toContainText('Base');
-  await expect(execution.locator('form, input, [data-mocked-value]')).toHaveCount(0);
+  await expect(execution.locator('form, input:not([type=range]), [data-mocked-value]')).toHaveCount(0);
   await expect(execution.getByRole('button', { name: /^(Return to Build|Execute|Execute swap|Authorize|Accept review)$/ })).toHaveCount(0);
   expect(await execution.innerText()).not.toMatch(/EXECUTE \/ UNAVAILABLE|Prepare for execution|Mocked|Running|Confirmed|Completed/);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(graph).toHaveAttribute('data-viewport', 'fitted');
     await expect(graph.locator('.flow-card')).toBeInViewport();
-    const graphBox = (await graph.boundingBox())!, controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
-    expect(Math.abs(graphBox.x + graphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
-    expect(Math.abs(graphBox.y + graphBox.height - controlsBox.y - controlsBox.height - 12)).toBeLessThan(1);
+    const graphBox = (await graph.boundingBox())!, controlsBox = (await graph.locator('.canvas-navigator').boundingBox())!;
+    expect(controlsBox.x + controlsBox.width / 2).toBeCloseTo(graphBox.x + graphBox.width / 2, 1);
+    expect(graphBox.y + graphBox.height - controlsBox.y - controlsBox.height).toBe(graphBox.width < 800 ? 82 : 24);
     expect((await execution.locator('.technical-workspace').boundingBox())!.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }

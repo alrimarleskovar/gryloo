@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import type { Locator } from '@playwright/test';
 
@@ -22,9 +23,9 @@ async function nativeImage(image: Locator, src: string) {
 }
 for (const theme of ['Light', 'Dark']) test(`${theme} preserves native token, badge and network picker brand colors`, async ({ page }) => {
   await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('MAINNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Mainnet');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: `${theme} theme`, exact: true }).click(); await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await selectSettingsTheme(page, theme); await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme.toLowerCase());
   await page.getByRole('button', { name: 'Add bridge', exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
@@ -70,5 +71,5 @@ for (const theme of ['Light', 'Dark']) test(`${theme} preserves native token, ba
   await nativeImage(stock.locator('.composer-network-badge img'), '/brand/robinhood-avatar.jpg');
   await page.screenshot({ path: `.tmp/native-brand-${theme.toLowerCase()}-stocks.png`, fullPage: true });
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
-  await expect(card.first()).toHaveCSS('background-color', theme === 'Dark' ? 'rgb(11, 20, 32)' : 'rgb(255, 255, 255)');
+  await expect(card.first()).toHaveCSS('background-color', theme === 'Dark' ? 'rgb(21, 24, 31)' : 'rgb(255, 255, 255)');
 });

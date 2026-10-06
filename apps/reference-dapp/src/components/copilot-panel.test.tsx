@@ -11,7 +11,7 @@ vi.mock('../state/build009-wallet-store', () => ({ useBuild009Wallet: () => ({ a
 
 describe('Copilot product presentation', () => {
   it('keeps Assistant and Copilot, with a product prompt and no internal guidance', () => {
-    const html = renderToStaticMarkup(createElement(CopilotPanel, { showProposal: false }));
+    const html = renderToStaticMarkup(createElement(CopilotPanel));
     expect(html).toContain('ASSISTANT');
     expect(html).toContain('<h2>Copilot</h2>');
     expect(html).toContain('>Describe your flow</label>');

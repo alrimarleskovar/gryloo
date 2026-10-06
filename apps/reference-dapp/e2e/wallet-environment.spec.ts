@@ -46,7 +46,7 @@ const setChain = (page: Page, chain: string) => page.evaluate(value => (window a
 test('header and Bridge use the actual EVM wallet chain, update live, and keep unknown chains neutral', async ({ page }) => {
   await installWallet(page); await page.goto('/');
   const indicator = page.locator('.header-environment-control'), environment = page.getByRole('combobox', { name: 'Environment', exact: true });
-  await expect(environment).toHaveValue('PUBLIC_TESTNET');
+  await expect(environment).toHaveText('Testnet');
   await page.getByRole('button', { name: 'Add bridge', exact: true }).click();
   const card = page.locator('.composer-card');
   await card.getByRole('textbox').fill('2.5');
@@ -58,7 +58,7 @@ test('header and Bridge use the actual EVM wallet chain, update live, and keep u
   ] as const) {
     await setChain(page, chain);
     await expect(indicator).toHaveAttribute('data-environment', mode);
-    await expect(environment).toHaveValue(mode === 'mainnet' ? 'MAINNET' : 'PUBLIC_TESTNET');
+    await expect(environment).toHaveText(mode === 'mainnet' ? 'Mainnet' : 'Testnet');
     await expect(indicator.locator('.header-mainnet-dot')).toHaveCount(mode === 'mainnet' ? 1 : 0);
     if (mode === 'mainnet') await expect(indicator.locator('.header-mainnet-dot')).toHaveCSS('background-color', 'rgb(34, 197, 94)');
     await expect(card.getByRole('button', { name: 'Configure source asset', exact: true })).toHaveAttribute('title', `USDC on ${source}`);
@@ -82,7 +82,7 @@ test('header and Bridge use the actual EVM wallet chain, update live, and keep u
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeEnabled();
   await setChain(page, '0x89');
   await expect(indicator).toHaveAttribute('data-environment', 'unknown');
-  await expect(environment).toHaveValue(''); await expect(indicator.locator('.header-mainnet-dot')).toHaveCount(0);
+  await expect(environment).toHaveText('Network'); await expect(indicator.locator('.header-mainnet-dot')).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'Review amount', exact: true })).toBeDisabled();
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
   await expect(page.getByRole('group', { name: 'Wallet connection' })).toContainText('Other chain (0x89)');
@@ -96,30 +96,30 @@ test('header and Bridge use the actual EVM wallet chain, update live, and keep u
   await card.getByRole('button', { name: 'Review amount', exact: true }).click();
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeEnabled();
   await page.evaluate(() => (window as unknown as { walletEnvironmentTest: WalletControls }).walletEnvironmentTest.disconnect());
-  await expect(environment).toHaveValue(''); await expect(indicator.locator('.header-mainnet-dot')).toHaveCount(0);
+  await expect(environment).toHaveText('Network'); await expect(indicator.locator('.header-mainnet-dot')).toHaveCount(0);
   await expect(environment).toBeDisabled();
   await expect(card.getByRole('button', { name: 'Review amount', exact: true })).toBeDisabled();
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
-  await expect(environment).toHaveValue('MAINNET');
+  await expect(environment).toHaveText('Mainnet');
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
 });
 
 test('Network control waits for actual wallet confirmation and never fabricates a successful switch', async ({ page }) => {
   await installWallet(page); await page.goto('/');
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true }), dot = page.locator('.header-mainnet-dot');
-  await expect(environment).toHaveValue('PUBLIC_TESTNET');
+  await expect(environment).toHaveText('Testnet');
   for (const result of ['reject', 'unchanged', 'switch'] as const) {
     await page.evaluate(() => (window as unknown as { walletEnvironmentTest: WalletControls }).walletEnvironmentTest.pauseSwitch());
-    await environment.selectOption('MAINNET');
-    await expect(environment).toBeDisabled(); await expect(environment).toHaveValue('PUBLIC_TESTNET'); await expect(dot).toHaveCount(0);
+    await environment.click(); await page.getByRole('option', { name: 'Mainnet', exact: true }).click();
+    await expect(environment).toBeDisabled(); await expect(environment).toHaveText('Testnet'); await expect(dot).toHaveCount(0);
     await page.evaluate(value => (window as unknown as { walletEnvironmentTest: WalletControls }).walletEnvironmentTest.releaseSwitch(value), result);
     await expect(environment).toBeEnabled();
-    await expect(environment).toHaveValue(result === 'switch' ? 'MAINNET' : 'PUBLIC_TESTNET');
+    await expect(environment).toHaveText(result === 'switch' ? 'Mainnet' : 'Testnet');
     await expect(dot).toHaveCount(result === 'switch' ? 1 : 0);
   }
-  await environment.selectOption('PUBLIC_TESTNET');
-  await expect(environment).toHaveValue('PUBLIC_TESTNET'); await expect(dot).toHaveCount(0);
+  await environment.click(); await page.getByRole('option', { name: 'Testnet', exact: true }).click();
+  await expect(environment).toHaveText('Testnet'); await expect(dot).toHaveCount(0);
   const requests = await page.evaluate(() => (window as unknown as { walletEnvironmentTest: WalletControls }).walletEnvironmentTest.requests);
   expect(requests.filter(request => request.method === 'wallet_switchEthereumChain').map(request => request.params)).toEqual([
     [{ chainId: '0x2105' }], [{ chainId: '0x2105' }], [{ chainId: '0x2105' }], [{ chainId: '0x14a34' }],
@@ -130,9 +130,9 @@ test('Network control waits for actual wallet confirmation and never fabricates 
 test('a disconnected wallet is neutral until connection reports its actual network', async ({ page }) => {
   await installWallet(page, false, '0x2105'); await page.goto('/');
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
-  await expect(environment).toHaveValue(''); await expect(page.locator('.header-mainnet-dot')).toHaveCount(0);
+  await expect(environment).toHaveText('Network'); await expect(page.locator('.header-mainnet-dot')).toHaveCount(0);
   await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
-  await expect(environment).toHaveValue('MAINNET'); await expect(page.locator('.header-mainnet-dot')).toBeVisible();
+  await expect(environment).toHaveText('Mainnet'); await expect(page.locator('.header-mainnet-dot')).toBeVisible();
 });
 
 for (const cluster of ['solana:devnet', 'solana:mainnet']) test(`${cluster} connected session drives the header and Bridge without inferring an environment from the workflow`, async ({ page }) => {
@@ -150,12 +150,13 @@ for (const cluster of ['solana:devnet', 'solana:mainnet']) test(`${cluster} conn
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
-  await expect(environment).toHaveValue('');
+  await expect(environment).toHaveText('Network');
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.locator('details.simulation-technical > summary').click();
   await page.getByRole('button', { name: 'Connect Solana wallet', exact: true }).click();
   await page.getByRole('button', { name: 'Environment test wallet', exact: true }).click();
   const mainnet = cluster === 'solana:mainnet';
-  await expect(environment).toHaveValue(mainnet ? 'MAINNET' : 'PUBLIC_TESTNET');
+  await expect(environment).toHaveText(mainnet ? 'Mainnet' : 'Testnet');
   await expect(environment).toBeDisabled();
   await expect(page.locator('.header-mainnet-dot')).toHaveCount(mainnet ? 1 : 0);
   await page.getByRole('button', { name: 'Build', exact: true }).click();

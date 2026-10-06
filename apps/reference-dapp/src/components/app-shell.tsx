@@ -4,6 +4,7 @@ import { WithdrawPanel } from './withdraw-panel';
 import { RobinhoodTransferPanel } from './robinhood-transfer-panel';
 import { useRobinhoodTransfer } from '../state/robinhood-transfer-store';
 import { useCallback, useState } from 'react';
+import type { ToolboxMode } from '../domain/canvas-layout';
 import { CowPanel } from './cow-panel';
 import { useCow } from '../state/cow-store';
 import { ModeBProvider, useModeB } from '../state/mode-b-store';
@@ -42,7 +43,6 @@ import { TopBar, type ProductSection } from './top-bar';
 import { WorkflowCanvas } from './workflow-canvas';
 import { PoolPriceRangeProvider } from './pool-price-range';
 import { CanvasCardInputsProvider } from './canvas-card-inputs';
-import { WorkflowEditReview } from './workflow-edit-review';
 import { useWorkflowCapability } from '../state/capability-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
 import { PublicTestnetPanel } from './public-testnet-panel';
@@ -63,12 +63,13 @@ import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
 import { JourneyCard, RouterPanel } from './router-panel';
 import { useRouter } from '../state/router-store';
 import { routerDetails } from '../domain/router-authoring';
-import { DarkSpotlight } from './dark-spotlight';
 import { DashboardWorkspace } from './dashboard/dashboard-workspace';
 import { dashboardRoute as resolveDashboardRoute } from '../lib/dashboard/routes';
+import { secondaryWorkspaceRoute } from '../domain/secondary-workspaces';
+import { SecondaryProductWorkspace } from './secondary-product-workspace';
 
 type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void };
-export function AppShell(props: ProductNavigation = {}) { return <><DarkSpotlight/><ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider></>; }
+export function AppShell(props: ProductNavigation = {}) { return <ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider>; }
 
 function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const { state, context, reviewError, authoringIncomplete } = useWorkflow();
@@ -83,14 +84,16 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const across = useAcross();
   const [section, setSection] = useState<ProductSection>('Build');
   const dashboardRoute = resolveDashboardRoute(pathname);
+  const secondaryRoute = secondaryWorkspaceRoute(pathname);
   const tab = dashboardRoute ? 'Dashboard' : section;
   const setTab = useCallback((section: ProductSection) => {
     if (authoringIncomplete && (section === 'Simulate' || section === 'Execute')) return;
     if (navigate && section === 'Dashboard') { navigate('/app/dashboard'); return; }
     setSection(section);
-    if (navigate && dashboardRoute) navigate('/');
-  }, [authoringIncomplete, navigate, dashboardRoute]);
+    if (navigate && (dashboardRoute || secondaryRoute)) navigate('/');
+  }, [authoringIncomplete, navigate, dashboardRoute, secondaryRoute]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
+  const [workspaceToolboxMode, setWorkspaceToolboxMode] = useState<ToolboxMode>('top');
   const [simulationActionHost, setSimulationActionHost] = useState<HTMLDivElement | null>(null);
   const supply = useSupply();
   const transfer = useRobinhoodTransfer();
@@ -194,14 +197,17 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     section?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
     section?.focus({ preventScroll: true });
   }
-  if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
+  if (secondaryRoute) return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={`${secondaryRoute.label} workspace`}><SecondaryProductWorkspace workspace={secondaryRoute.id}/></main>
+  </div>;
+  if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
     <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"><DashboardWorkspace workflowName={workflowName} progress={executionProgress} recovery={executionProgress.recovery} wallet={reviewBinding.wallet} context={context}
       runId={dashboardRoute?.runId ?? null}
       build={() => setTab('Build')} execute={() => setTab('Execute')} navigate={navigate ?? (() => undefined)}/></main>
   </div>;
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
-  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;
-  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel showProposal={false}/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><WorkflowEditReview/><JourneyCard/>
+  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;
+  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} onToolboxModeChange={setWorkspaceToolboxMode} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><JourneyCard/>
           <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
         : tab === 'Simulate' ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}><ReviewTechnicalDetails authorization={reviewBinding.authorization}/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
@@ -212,8 +218,8 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
           bridgeSwap.run ? <BridgeSwapPanel view="execute"/> : bridge.execution ? <BridgePanel view="execute"/> :
           <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : null;
-  return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
-    <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
+  return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
       {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
           <details className="shell-details technical-workspace simulation-technical"><summary>View technical details</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>

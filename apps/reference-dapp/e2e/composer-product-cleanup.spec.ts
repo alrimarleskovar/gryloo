@@ -20,7 +20,7 @@ async function checkTokenPills(card: Locator) {
     const badgeStyle = await badge.evaluate(element => ({ width: parseFloat(getComputedStyle(element).width), height: parseFloat(getComputedStyle(element).height), font: parseFloat(getComputedStyle(element).fontSize), radius: getComputedStyle(element).borderRadius }));
     expect(badgeStyle.width).toBeGreaterThanOrEqual(14); expect(badgeStyle.height).toBe(badgeStyle.width);
     expect(badgeStyle.font).toBeGreaterThanOrEqual(9); expect(badgeStyle.radius).toBe('50%');
-    expect(badgeStyle.width).toBeLessThan(await avatar.locator('svg').evaluate(element => parseFloat(getComputedStyle(element).width)));
+    expect(badgeStyle.width).toBeLessThan(await avatar.locator(':scope > .brand-icon').evaluate(element => parseFloat(getComputedStyle(element).width)));
     const badgeBox = (await badge.boundingBox())!, avatarBox = (await avatar.boundingBox())!, tickerBox = (await pill.locator('.composer-amount-token').boundingBox())!;
     expect(badgeBox.width).toBeLessThan(avatarBox.width);
     expect(badgeBox.x + badgeBox.width).toBeLessThan(tickerBox.x);
@@ -313,7 +313,7 @@ test('Supply edits inline with one shared editor value and validates through its
   await expect(panel.getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'false');
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    const value = block.locator('.composer-amount-value'), token = block.locator('.composer-token-chip');
+    const value = block.locator('.composer-amount-value'), token = block.locator(':scope > .composer-token-chip');
     const valueBox = (await value.boundingBox())!, tokenBox = (await token.boundingBox())!, blockBox = (await block.boundingBox())!;
     expect(valueBox.x + valueBox.width).toBeLessThan(tokenBox.x);
     expect(tokenBox.x + tokenBox.width).toBeLessThan(blockBox.x + blockBox.width);
@@ -364,14 +364,16 @@ test('header environment follows wallet changes without rewriting action amounts
   await installSupplyWallet(page); await page.goto('/');
   const header = page.getByRole('banner');
   const environment = header.getByRole('combobox', { name: 'Environment', exact: true });
-  expect(await environment.locator('option:not([hidden])').allTextContents()).toEqual(['Testnet', 'Mainnet']);
+  await environment.click();
+  expect(await page.getByRole('listbox', { name: 'Environment options' }).getByRole('option').allTextContents()).toEqual(['Testnet', 'Mainnet']);
+  await environment.press('Escape');
   const wallet = header.getByRole('group', { name: 'Wallet connection', exact: true });
   await expect(wallet).toContainText('0x1111…1111');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   const source = page.locator('.composer-card').getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
   for (const value of ['PUBLIC_TESTNET', 'MAINNET']) {
     await setSupplyWalletChain(page, value === 'MAINNET' ? '0x2105' : '0x14a34');
-    await expect(environment).toHaveValue(value); await expect(source).toHaveValue('0');
+    await expect(environment).toHaveText(value === 'MAINNET' ? 'Mainnet' : 'Testnet'); await expect(source).toHaveValue('0');
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
     await expect(wallet).toContainText(value === 'MAINNET' ? 'Base (8453)' : 'Base Sepolia');
     await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
@@ -482,15 +484,17 @@ test('Pool uses two real liquidity asset blocks with the shared display mode and
     expect(actions.y + actions.height).toBeLessThan((await card.locator('.composer-selected').boundingBox())!.y);
     expect(thin.height).toBeLessThan(customBox.height * 3);
     expect(customBox.y + customBox.height).toBeLessThan((await card.locator('.composer-selected').boundingBox())!.y);
-    const top = (await first.boundingBox())!, bottom = (await second.boundingBox())!, arrow = (await card.locator('.composer-value-arrow').boundingBox())!;
-    expect(arrow.y).toBeLessThan(top.y + top.height); expect(arrow.y + arrow.height).toBeGreaterThan(bottom.y);
-    expect(Math.abs(arrow.x + arrow.width / 2 - top.x - top.width / 2)).toBeLessThan(1);
+    await expect(card.locator('.composer-value-arrow')).toHaveCount(0);
+    await expect(card.locator('.composer-value-pair')).toHaveAttribute('data-relationship', 'contribution');
+    const top = (await first.boundingBox())!, bottom = (await second.boundingBox())!;
+    const scale = top.height / await first.evaluate(element => parseFloat(getComputedStyle(element).height));
+    expect((bottom.y - top.y - top.height) / scale).toBeCloseTo(8, 1);
     for (const box of [first, second]) {
       await box.getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
       await expect(boxes.locator('.composer-primary-fiat')).toHaveText(['US$ 0,00', 'US$ 0,00']);
       await expect(boxes.locator('.composer-token-subline input').first()).toHaveValue('1');
       await expect(boxes.locator('.composer-token-subline input').last()).toHaveValue('0.0001');
-      await expect(boxes.locator('.composer-token-subline button')).toHaveText(['USDC', 'WETH']);
+      await expect(boxes.locator('.composer-token-subline > span')).toHaveText(['USDC', 'WETH']);
       await checkTokenPills(card);
       await box.getByRole('button', { name: 'Show token amount first', exact: true }).press('Enter');
       await expect(boxes.locator('.composer-amount-value').first()).toHaveValue('1');
@@ -660,7 +664,7 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
     expect(expanded.y + expanded.height).toBeLessThan(cta.y);
     expect(expanded.x).toBeGreaterThanOrEqual(canvas.x);
     expect(expanded.x + expanded.width).toBeLessThanOrEqual(canvas.x + canvas.width);
-    const zoom = (await page.locator('.build-flow-surface .react-flow__controls').boundingBox())!, strategyBounds = (await presets.boundingBox())!;
+    const zoom = (await page.locator('.build-flow-surface .canvas-navigator').boundingBox())!, strategyBounds = (await presets.boundingBox())!;
     expect(strategyBounds.x + strategyBounds.width <= zoom.x || strategyBounds.y + strategyBounds.height <= zoom.y, JSON.stringify({ width, strategyBounds, zoom })).toBe(true);
     const collapseBox = (await presets.getByRole('button', { name: 'Hide price strategies', exact: true }).boundingBox())!;
     expect(Math.abs(collapseBox.y + collapseBox.height / 2 - strategyBounds.y - strategyBounds.height / 2)).toBeLessThan(1);

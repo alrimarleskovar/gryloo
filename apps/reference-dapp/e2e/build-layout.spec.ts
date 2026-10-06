@@ -73,22 +73,22 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   expect(toolbarBox.x - graphBox.x).toBe(8);
   await toolbar.getByRole('button', { name: 'Add supply', exact: true }).click();
   await expect(graph.locator('.flow-card')).toHaveCount(1);
-  const controls = graph.locator('.react-flow__controls');
+  const controls = graph.locator('.canvas-navigator');
   const currentGraphBox = (await graph.boundingBox())!;
   const controlsBox = (await controls.boundingBox())!;
-  expect(Math.abs(currentGraphBox.x + currentGraphBox.width - controlsBox.x - controlsBox.width - 12)).toBeLessThan(1);
-  expect(Math.abs(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height - 82)).toBeLessThan(1);
+  expect(controlsBox.x + controlsBox.width / 2).toBeCloseTo(currentGraphBox.x + currentGraphBox.width / 2, 1);
+  expect(currentGraphBox.y + currentGraphBox.height - controlsBox.y - controlsBox.height).toBe(currentGraphBox.width < 800 ? 82 : 24);
   const nodeBox = (await graph.locator('.flow-card').boundingBox())!;
   expect(controlsBox.x >= nodeBox.x + nodeBox.width || controlsBox.y >= nodeBox.y + nodeBox.height ||
     controlsBox.x + controlsBox.width <= nodeBox.x || controlsBox.y + controlsBox.height <= nodeBox.y).toBe(true);
   const transform = () => graph.locator('.react-flow__viewport').getAttribute('style');
   const before = await transform();
-  await controls.locator('.react-flow__controls-zoomout').click();
+  await controls.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
   await expect.poll(transform).not.toBe(before);
   const zoomedOut = await transform();
-  await controls.locator('.react-flow__controls-zoomin').click();
+  await controls.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowRight');
   await expect.poll(transform).not.toBe(zoomedOut);
-  await controls.locator('.react-flow__controls-fitview').click();
+  await controls.getByRole('button', { name: 'Fit workflow', exact: true }).click();
   await expect(graph.locator('.flow-card')).toBeInViewport();
   await page.getByRole('button', { name: 'Dock toolbar', exact: true }).click();
   await expect(graph.locator('.floating-toolbox')).toHaveCount(0);

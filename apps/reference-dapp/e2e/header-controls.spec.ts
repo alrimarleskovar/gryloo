@@ -17,8 +17,8 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
   await settings.click();
   const options = header.getByRole('group', { name: 'Settings options', exact: true });
   await expect(options).toBeVisible();
-  expect(await options.getByRole('group', { name: 'Language', exact: true }).getByRole('button').allTextContents()).toEqual(['PT', 'EN']);
-  await expect(options.getByRole('group', { name: 'Theme', exact: true }).getByRole('button')).toHaveCount(2);
+  expect(await options.getByRole('switch', { name: 'Language', exact: true }).locator('span').allTextContents()).toEqual(['PT', 'EN']);
+  await expect(options.getByRole('switch', { name: 'Theme', exact: true }).locator('svg')).toHaveCount(2);
   await expect(options.getByRole('button', { name: 'Disconnect', exact: true })).toBeDisabled();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('menu')).toHaveCount(0);
@@ -41,8 +41,8 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   await settings.click();
-  await expect(options.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
-  await expect(options.getByRole('group', { name: 'Theme', exact: true })).toBeVisible();
+  await expect(options.getByRole('switch', { name: 'Language', exact: true })).toBeVisible();
+  await expect(options.getByRole('switch', { name: 'Theme', exact: true })).toBeVisible();
   await expect(options.getByRole('button', { name: 'Disconnect', exact: true })).toBeEnabled();
   await options.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(options).toHaveCount(0);
@@ -84,11 +84,10 @@ test('Settings toggles without layout changes, closes outside/Escape/Tab and lea
     await expect(options).toHaveCount(0);
     await settings.click();
     await settings.press('Tab');
-    await expect(options.getByRole('button', { name: 'PT', exact: true })).toBeFocused();
-    for (const name of ['EN', 'Light theme', 'Dark theme', 'Disconnect']) {
-      await page.keyboard.press('Tab');
-      await expect(options.getByRole('button', { name, exact: true })).toBeFocused();
-    }
+    await expect(options.getByRole('switch', { name: 'Language', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(options.getByRole('switch', { name: 'Theme', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(disconnect).toBeFocused();
     await expect(options).toBeVisible();
     await disconnect.press('Tab');
@@ -98,7 +97,7 @@ test('Settings toggles without layout changes, closes outside/Escape/Tab and lea
   }
 });
 
-test('language and theme choices update menu selection only and fit narrow headers', async ({ page }) => {
+test('single-area language and theme switches preserve preferences and fit narrow headers', async ({ page }) => {
   await installSupplyWallet(page); await page.goto('/');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   const header = page.getByRole('banner');
@@ -106,36 +105,35 @@ test('language and theme choices update menu selection only and fit narrow heade
   const options = header.getByRole('group', { name: 'Settings options', exact: true });
   const wallet = header.getByRole('group', { name: 'Wallet connection', exact: true });
   const environment = header.getByRole('combobox', { name: 'Environment', exact: true });
-  const walletBefore = await wallet.innerText(), environmentBefore = await environment.inputValue();
+  const walletBefore = await wallet.innerText(), environmentBefore = await environment.innerText();
   const pageStyle = await page.locator('body').evaluate(element => ({ background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color, language: document.documentElement.lang }));
   await settings.click();
-  const pt = options.getByRole('button', { name: 'PT', exact: true }), en = options.getByRole('button', { name: 'EN', exact: true });
-  const sun = options.getByRole('button', { name: 'Light theme', exact: true }), moon = options.getByRole('button', { name: 'Dark theme', exact: true });
-  await expect(en).toHaveAttribute('aria-pressed', 'true'); await expect(pt).toHaveAttribute('aria-pressed', 'false');
-  await expect(sun).toHaveAttribute('aria-pressed', 'true'); await expect(moon).toHaveAttribute('aria-pressed', 'false');
-  await expect(sun.locator('svg')).toBeVisible(); await expect(moon.locator('svg')).toBeVisible();
-  await pt.click(); await expect(pt).toHaveAttribute('aria-pressed', 'true'); await expect(en).toHaveAttribute('aria-pressed', 'false');
-  await moon.focus(); await moon.press('Space');
-  await expect(moon).toHaveAttribute('aria-pressed', 'true'); await expect(sun).toHaveAttribute('aria-pressed', 'false');
+  const language = options.getByRole('switch', { name: 'Language', exact: true });
+  const theme = options.getByRole('switch', { name: 'Theme', exact: true });
+  await expect(language).toBeChecked(); await expect(theme).not.toBeChecked();
+  await expect(theme.locator('svg')).toHaveCount(2);
+  await language.click(); await expect(language).not.toBeChecked();
+  await theme.focus(); await theme.press('Space'); await expect(theme).toBeChecked();
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await options.scrollIntoViewIfNeeded();
-    for (const button of [pt, en, sun, moon]) await expect(button).toBeInViewport();
+    for (const button of [language, theme]) await expect(button).toBeInViewport();
     const menuBox = (await options.boundingBox())!;
     expect(menuBox.x).toBeGreaterThanOrEqual(0); expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   await settings.press('Escape'); await settings.click();
-  await expect(pt).toHaveAttribute('aria-pressed', 'true'); await expect(moon).toHaveAttribute('aria-pressed', 'true');
-  await en.click(); await sun.click();
-  await expect(en).toHaveAttribute('aria-pressed', 'true'); await expect(sun).toHaveAttribute('aria-pressed', 'true');
-  expect(await wallet.innerText()).toBe(walletBefore); expect(await environment.inputValue()).toBe(environmentBefore);
+  await expect(language).not.toBeChecked(); await expect(theme).toBeChecked();
+  await language.click(); await theme.click();
+  await expect(language).toBeChecked(); await expect(theme).not.toBeChecked();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme-transition');
+  expect(await wallet.innerText()).toBe(walletBefore); expect(await environment.innerText()).toBe(environmentBefore);
   expect(await page.locator('body').evaluate(element => ({ background: getComputedStyle(element).backgroundColor, color: getComputedStyle(element).color, language: document.documentElement.lang }))).toEqual(pageStyle);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /sign|send|switch|addEthereumChain/i.test(request.method)))).toEqual([]);
 });
 
-test('advanced setup has a single outer expansion and retains existing forms and workflow checks', async ({ page }) => {
+test('advanced setup has a single outer expansion and retains existing forms without primary workflow internals', async ({ page }) => {
   await installSupplyWallet(page);
   await page.goto('/');
   await expect(page.getByText('Technical authoring tools', { exact: true })).toHaveCount(0);
@@ -146,21 +144,24 @@ test('advanced setup has a single outer expansion and retains existing forms and
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
   await expect(page.locator('.flow-card')).toHaveCount(1);
-  const findings = advanced.getByRole('region', { name: 'Deterministic review findings' });
-  await expect(findings).toBeHidden();
+  await expect(advanced.getByRole('region', { name: 'Deterministic review findings' })).toHaveCount(0);
+  await expect(advanced.getByText('Workflow IR', { exact: true })).toHaveCount(0);
   await advanced.locator(':scope > summary').click();
   await expect(advanced).toHaveAttribute('open', '');
-  await expect(findings).toBeVisible();
-  await expect(advanced.getByRole('form', { name: 'Create swap proposal', exact: true })).toBeVisible();
+  const swapForm = advanced.getByRole('form', { name: 'Create swap proposal', exact: true });
+  await expect(swapForm).toBeVisible();
   await expect(advanced.getByRole('form', { name: 'Create direct Across bridge proposal', exact: true })).toBeVisible();
-  await advanced.getByText('Workflow IR', { exact: true }).click();
-  const before = await findings.locator('[data-workflow-ir]').innerText();
+  await swapForm.getByLabel('Input amount (required)', { exact: true }).fill('2');
+  await swapForm.getByLabel('Slippage in bps (required)', { exact: true }).fill('50');
+  const fields = swapForm.locator('input, select');
+  const before = await fields.evaluateAll(elements => elements.map(element => (element as HTMLInputElement | HTMLSelectElement).value));
   const revision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
   await advanced.locator(':scope > summary').click();
-  await expect(findings).toBeHidden();
+  await expect(swapForm).toBeHidden();
   await advanced.locator(':scope > summary').click();
-  await expect(findings).toBeVisible();
-  expect(await findings.locator('[data-workflow-ir]').innerText()).toBe(before);
+  await expect(swapForm).toBeVisible();
+  expect(await fields.evaluateAll(elements => elements.map(element => (element as HTMLInputElement | HTMLSelectElement).value))).toEqual(before);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
-  expect(JSON.parse(before).nodes.some((node: { actionType: string }) => node.actionType === 'asset.swap.exact-input')).toBe(true);
+  await expect(page.getByRole('textbox', { name: 'Source amount (USDC)', exact: true }).first()).toHaveValue('1');
+  expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /send|sign/i.test(request.method)))).toEqual([]);
 });

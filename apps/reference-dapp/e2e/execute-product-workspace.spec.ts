@@ -54,11 +54,12 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
+  const fontClasses = await page.locator('html').getAttribute('class');
   await page.clock.install({ time: reviewNow });
   await page.route('**/__ux005-acceptance.js', route => route.fulfill({ contentType: 'application/javascript; charset=utf-8', body: bundle }));
   // A fresh document avoids leaving the Next shell's mounted roots and effects alive.
   await page.route('**/__ux005-acceptance', route => route.fulfill({ contentType: 'text/html; charset=utf-8',
-    body: `<!doctype html><html data-theme="light"><head><meta charset="utf-8">${styles}</head><body><main class="main" aria-label="Execution workspace"><div id="acceptance-root"></div></main><script src="/__ux005-acceptance.js"></script></body></html>` }));
+    body: `<!doctype html><html class="${fontClasses ?? ''}" data-theme="light"><head><meta charset="utf-8">${styles}</head><body><div class="app-shell"><main class="main" aria-label="Execution workspace"><div id="acceptance-root"></div></main></div><script src="/__ux005-acceptance.js"></script></body></html>` }));
   await page.goto('/__ux005-acceptance');
   await page.evaluate(() => (window as unknown as { FloFiExecuteAcceptance: { mount(element: HTMLElement): void } }).FloFiExecuteAcceptance.mount(document.getElementById('acceptance-root')!));
   await expect.poll(async () => errors.length > 0 || await page.locator('.execution-summary').count() > 0).toBe(true);
@@ -67,6 +68,33 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.flofiExecuteAcceptance));
 });
 test.afterEach(({ page }) => { expect(browserErrors.get(page)).toEqual([]); });
+
+test('Dark authorization attention follows real approval, invalidation and expiry without changing readiness', async ({ page }) => {
+  await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
+  const execute = page.getByRole('button', { name: 'Execute workflow', exact: true });
+  await expect(execute).toBeEnabled();
+  await expect(page.locator('.execution-authorization-attention')).toHaveCount(0);
+  for (const change of ['unapproved', 'wallet'] as const) {
+    await page.evaluate(value => window.flofiExecuteAcceptance.transition(value), change);
+    await expect(execute).toBeDisabled();
+    await expect(page.locator('.execution-authorization-attention')).toHaveCSS('background-color', 'rgb(51, 39, 15)');
+    await expect(page.locator('.execution-authorization-attention')).toHaveCSS('color', 'rgb(245, 185, 74)');
+    await expect(page.locator('.simulation-validity strong')).toHaveCSS('color', 'rgb(245, 185, 74)');
+    await page.evaluate(() => window.flofiExecuteAcceptance.transition('valid'));
+    await expect(execute).toBeEnabled();
+    await expect(page.locator('.execution-authorization-attention')).toHaveCount(0);
+  }
+  await page.clock.setSystemTime(reviewNow + 120_001);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.locator('.execution-authorization-attention')).toHaveText('Expired');
+  await expect(page.locator('.simulation-validity')).toHaveCSS('background-color', 'rgb(51, 39, 15)');
+  await expect(page.locator('.simulation-validity strong')).toHaveCSS('color', 'rgb(245, 185, 74)');
+  await expect(execute).toHaveCSS('color', 'rgb(164, 171, 184)');
+  await expect(execute).toHaveCSS('opacity', '1');
+  await expect(execute).toBeDisabled();
+  expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
+  await page.screenshot({ path: '.tmp/ux007-team3-authorization-dark.png', fullPage: true });
+});
 
 test('execution starts only on an explicit native click and cannot be repeated', async ({ page }) => {
   const execute = page.getByRole('button', { name: 'Execute workflow', exact: true });
@@ -105,7 +133,7 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
   const graph = page.getByRole('region', { name: 'Execution workflow graph', exact: true });
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.composer-amount')).toHaveText('100 USDC');
-  await expect(graph.locator('input,select')).toHaveCount(0);
+  await expect(graph.locator('.composer-card input,.composer-card select')).toHaveCount(0);
   for (const label of ['Advanced Settings', 'Delete', 'Duplicate', 'Undo', 'Redo']) await expect(graph.getByRole('button', { name: label, exact: true })).toHaveCount(0);
   expect(await graph.locator('img.brand-icon').evaluateAll(images => images.every(image => getComputedStyle(image).filter === 'none'))).toBe(true);
   const iconSize = await page.locator('.execution-summary img.brand-icon').evaluate(image => ({ width: image.getBoundingClientRect().width, height: image.getBoundingClientRect().height, filter: getComputedStyle(image).filter }));
@@ -135,11 +163,11 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
       const rect = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
       const back = [...element.querySelectorAll('button')].find(b => b.textContent === 'Back to Build')!;
       const execute = [...element.querySelectorAll('button')].find(b => b.textContent === 'Execute workflow')!;
-      return { back: rect(back), execute: rect(execute), surface: rect(element.querySelector('.flow-surface')!), controls: rect(element.querySelector('.react-flow__controls')!), footer: rect(element.querySelector('.canvas-foot')!), attribution: rect(element.querySelector('.react-flow__attribution')!) };
+      return { back: rect(back), execute: rect(execute), surface: rect(element.querySelector('.flow-surface')!), controls: rect(element.querySelector('.canvas-navigator')!), footer: rect(element.querySelector('.canvas-foot')!), attribution: rect(element.querySelector('.react-flow__attribution')!) };
     });
     expect(boxes.back.left).toBeLessThan(boxes.execute.left); expect(boxes.back.right).toBeLessThanOrEqual(boxes.execute.left);
     expect(Math.abs(boxes.back.top - boxes.execute.top)).toBeLessThan(2);
-    expect(boxes.execute.right).toBeLessThan(boxes.controls.left);
+    expect(boxes.controls.right <= boxes.back.left || boxes.controls.bottom <= boxes.back.top).toBe(true);
     expect(boxes.back.left).toBeGreaterThan(boxes.surface.left);
     expect(boxes.execute.bottom).toBeLessThan(boxes.footer.top); expect(boxes.execute.bottom).toBeLessThan(boxes.attribution.top);
   }
@@ -178,7 +206,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
   const graph = page.getByRole('region', { name: 'Execution workflow graph', exact: true });
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.composer-amount')).toHaveText('2.5 USDC');
-  await expect(graph.locator('input,select')).toHaveCount(0);
+  await expect(graph.locator('.composer-card input,.composer-card select')).toHaveCount(0);
   await expect(page.locator('.execution-summary')).toContainText('Base Sepolia');
   await expect(page.locator('.execution-summary')).toContainText('Testnet');
   await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();

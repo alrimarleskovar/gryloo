@@ -74,7 +74,7 @@ test('lending projects the same authored strategy, shared title and links above 
   await page.locator('.simulation-technical > summary').click();
   const surface = await graph(page).innerText();
   expect(surface).not.toMatch(/mock|local|synthetic|read-only graph|Expected|Minimum|Health factor|HF|Confirmed|Authorized|Success|Select to edit/i);
-  await expect(graph(page).locator('.composer-card-state, .composer-selected, form, input')).toHaveCount(0);
+  await expect(graph(page).locator('.composer-card-state, .composer-selected, form, .composer-card input')).toHaveCount(0);
   const node = graph(page).locator('.react-flow__node').first();
   await node.scrollIntoViewIfNeeded(); const box = (await node.boundingBox())!;
   await page.mouse.move(box.x + 40, box.y + 30); await page.mouse.down();
@@ -133,7 +133,7 @@ test('empty workflows and supported isolated actions keep the same graph and ori
       await expect(graph(page)).toContainText('Add an action to your workflow');
     } else await expect(graph(page).locator('.react-flow__node')).toHaveCount(1);
     await expect(graph(page).getByRole('button', { name: 'Back to Build', exact: true })).toHaveCount(1);
-    await expect(graph(page).locator('.react-flow__controls')).toBeVisible();
+    await expect(graph(page).locator('.canvas-navigator')).toBeVisible();
   }
 });
 
@@ -152,18 +152,18 @@ test('desktop/mobile graph keeps approved action order, zoom/fit controls and ca
     expect(backBox.x + backBox.width + 7).toBeLessThanOrEqual(simulateBox.x);
     expect(backBox.y).toBeCloseTo(simulateBox.y);
     await expect(graph(page).locator('.simulation-canvas-actions')).toHaveCount(1);
-    await expect(graph(page).locator('.react-flow__controls')).toBeVisible();
+    await expect(graph(page).locator('.canvas-navigator')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const viewport = graph(page).locator('.react-flow__viewport');
     const before = await viewport.getAttribute('style');
-    await graph(page).locator('.react-flow__controls-zoomout').click();
+    await graph(page).getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
     await expect(viewport).not.toHaveAttribute('style', before!);
     const smaller = await viewport.getAttribute('style');
-    await graph(page).locator('.react-flow__controls-zoomin').click();
+    await graph(page).getByRole('slider', { name: 'Canvas zoom' }).press('ArrowRight');
     await expect(viewport).not.toHaveAttribute('style', smaller!);
-    await graph(page).locator('.react-flow__controls-zoomout').click();
+    await graph(page).getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
     const beforeFit = await viewport.getAttribute('style');
-    await graph(page).locator('.react-flow__controls-fitview').click();
+    await graph(page).getByRole('button', { name: 'Fit workflow', exact: true }).click();
     await expect(viewport).not.toHaveAttribute('style', beforeFit!);
     await expect(graph(page).locator('.composer-card').last()).toBeInViewport();
     const actionsBox = (await actions.boundingBox())!;

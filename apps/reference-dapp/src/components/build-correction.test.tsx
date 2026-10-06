@@ -44,7 +44,7 @@ describe('Execute workflow overview', () => {
 
   it('renders an empty workflow surface without the internal scaffold or authoring controls', () => {
     setWorkflow();
-    expect(renderOverview()).not.toMatch(/class="flow-card|<button|Start your workflow|Add action|Rename workflow/);
+    expect(renderOverview()).not.toMatch(/class="flow-card|<button|Start your workflow|Add action|Rename workflow|flofi-droplet-wave|canvas-empty-mascot/);
   });
 
   it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('shows the canonical %s parameters without editing or execution claims', action => {
@@ -80,9 +80,20 @@ function setWorkflow(action?: 'supply' | 'borrow' | 'repay' | 'withdraw') {
 describe('corrected Build workspace presentation', () => {
   it('shows an empty authoring surface instead of the internal starting scaffold', () => {
     setWorkflow();
+    const before = JSON.stringify(fixture.store.state.workflow);
     const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn() }));
     expect(html).toContain('Start your workflow');
+    expect(html).toMatch(/data-graph-readonly="false"><\/div><div class="canvas-empty"><span class="canvas-empty-mascot" aria-hidden="true">/);
+    const lightImage = html.match(/<img[^>]*class="flofi-droplet-wave-light"[^>]*>/)?.[0];
+    expect(lightImage).toContain('alt=""');
+    expect(lightImage).toContain('draggable="false"');
+    expect(lightImage).toContain('src="/brand/flofi-droplet-wave.svg"');
+    expect(html).toContain('src="/brand/flofi-droplet-wave-dark.svg"');
+    expect(html).toMatch(/class="canvas-empty-mascot"[\s\S]*?<\/span><strong>Start your workflow<\/strong><p>Add an action from the toolbar/);
     expect(html).not.toMatch(/class="flow-card|Mock example|Local mock|MOCK ACTION|Template.*no execution/i);
+    expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+    expect(fixture.store.dispatch).not.toHaveBeenCalled();
+    expect(fixture.store.addCanvasCommand).not.toHaveBeenCalled();
   });
 
   it('places an inert Privacy entry after Withdraw and renders the presentation title without editing IR', () => {
@@ -92,6 +103,7 @@ describe('corrected Build workspace presentation', () => {
     const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn(), workflowName: 'ETH Carry Strategy', renameWorkflow }));
     expect(html).toContain('<h2>ETH Carry Strategy</h2>');
     expect(html).toContain('aria-label="Rename workflow"');
+    expect(html).toMatch(/class="workflow-rename"[\s\S]*?<\/button><button type="button" class="workflow-save" aria-label="Save workflow"/);
     expect(html).toMatch(/aria-label="Add withdraw"[\s\S]*?<\/button><button type="button" disabled="" aria-label="Privacy"/);
     expect(html).toContain('Privacy · not available yet');
     expect(html).not.toMatch(/Cloak|Zcash/);
@@ -117,6 +129,7 @@ describe('corrected Build workspace presentation', () => {
     const before = JSON.stringify(fixture.store.state.workflow);
     const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId, select: vi.fn() }));
     expect(canvas).toContain('class="flow-card composer-card active"');
+    expect(canvas).not.toMatch(/canvas-empty-mascot|flofi-droplet-wave|Start your workflow/);
     expect(canvas).toContain('Aave V3');
     expect(canvas).toContain('Base Sepolia');
     expect(canvas).toContain('Advanced Settings');
@@ -192,7 +205,12 @@ describe('UX-002 canonical composer projections', () => {
         expect(canvas).toContain(`value="${value.amount}"`);
         expect(canvas).toContain(`<span class="composer-amount-token">${value.token}</span>`);
       }
-      expect(canvas).toContain('composer-value-arrow');
+      expect(canvas).not.toContain('composer-value-arrow');
+      expect(canvas).toContain('data-relationship="contribution"');
+      const inspection = renderToStaticMarkup(createElement(ComposerCard, { data: { inspection: true, composer: true, selected: false, vertical: false, step: 1, summary: composerSummary(fixture.store.state.workflow, node, fixture.store.context) } }));
+      expect(inspection).not.toContain('composer-value-arrow');
+      expect(inspection).toContain('data-relationship="contribution"');
+      expect(inspection.match(/class="numeric composer-amount-box/g)).toHaveLength(2);
       expect(canvas).toContain('aria-label="Liquidity provider"');
       expect(canvas).toContain(`<button type="button" aria-pressed="true">${node.chainId === 'eip155:84532' ? 'Uniswap' : 'Solana'}</button>`);
       expect(canvas).not.toContain('<select');
@@ -215,6 +233,20 @@ describe('UX-002 canonical composer projections', () => {
       expect(canvas).not.toMatch(/<form|Review amount|Apply amount|unquoted placeholder/);
       expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
     }
+  });
+
+  it.each(['swap', 'bridge'] as const)('keeps the directional arrow for %s in Build and read-only inspection', action => {
+    setWorkflow();
+    fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, owner, '1'), fixture.store.context);
+    const workflow = fixture.store.state.workflow;
+    const node = workflow.nodes.find(item => !item.actionType.startsWith('mock-'))!;
+    const before = JSON.stringify(workflow);
+    const build = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: node.nodeId, select: vi.fn() }));
+    const inspection = renderToStaticMarkup(createElement(ComposerCard, { data: { inspection: true, composer: true, selected: false, vertical: false, step: 1, summary: composerSummary(workflow, node, fixture.store.context) } }));
+    for (const html of [build, inspection]) expect(html.match(/class="composer-value-arrow"/g)).toHaveLength(1);
+    expect(build).toContain('data-relationship="directional"');
+    expect(JSON.stringify(workflow)).toBe(before);
+    expect(fixture.store.dispatch).not.toHaveBeenCalled();
   });
 
   it('renders Stocks with Supply-style editing and an equity selector without financial messaging or commands', () => {

@@ -183,7 +183,7 @@ test('desktop and mobile composer keep compact cards, editor placement and appro
     const editor = await inspector(page).boundingBox();
     expect(editor!.y).toBeGreaterThanOrEqual(canvas!.y + canvas!.height);
     await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeVisible();
-    await expect(page.locator('.build-flow-surface .react-flow__controls')).toBeVisible();
+    await expect(page.locator('.build-flow-surface .canvas-navigator')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     const cta = await page.getByRole('button', { name: 'Simular Fees', exact: true }).boundingBox();
     for (const card of await cards(page).all()) {

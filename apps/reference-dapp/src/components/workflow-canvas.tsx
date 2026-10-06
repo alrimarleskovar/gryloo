@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import Image from 'next/image';
 import type { WalletEnvironment } from '../wallet/environment';
 import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET } from '@defi-workflow-engine/action-registry';
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
@@ -8,7 +9,7 @@ import {useBuild009Wallet} from '../state/build009-wallet-store';
 import { transferDetails } from '../domain/robinhood-transfer-authoring';
 import { supplyDetails, borrowDetails, repayDetails, withdrawDetails } from '../domain/supply-authoring';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, useNodesInitialized, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState, MarkerType } from '@xyflow/react';
+import { ReactFlow, Background, Handle, Position, useNodesInitialized, useNodesState, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeChange, type NodeProps, type ReactFlowState, MarkerType } from '@xyflow/react';
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import { bridgeDetails } from '../domain/bridge-authoring';
@@ -22,6 +23,9 @@ import { editorReducer } from '../domain/editor';
 import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/canvas-authoring';
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
+import { DarkSpotlight } from './dark-spotlight';
+import { CanvasNavigator } from './canvas-navigator';
+import { WorkflowEditReview } from './workflow-edit-review';
 import { ComposerCard, supplyReviewFormId, poolReviewFormId, poolProposalTarget, type ComposerCardData } from './composer-card';
 import { canEditCanvasAmount, setupSummary, bridgeSetupNetworks, type CanvasBridgeNetworks } from '../domain/canvas-action-setup';
 import { ActionIcon } from './action-icon';
@@ -204,7 +208,7 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
         <SimulationViewport onState={setViewportState} />
-        <Background gap={18} size={1} color="var(--grid)" /><Controls position="bottom-right" showInteractive={false} />
+        <Background gap={18} size={1} color="var(--grid)" /><CanvasNavigator/>
       </ReactFlow>
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
@@ -212,7 +216,7 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
   </section>;
 }
 
-type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
+type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; onToolboxModeChange?: (mode: ToolboxMode) => void; primaryAction?: ReactNode };
 const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
 export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay?: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
   if ('mode' in props && props.mode === 'simulate') return <SimulateWorkflowCanvas workflowName={props.workflowName} primaryAction={props.primaryAction}/>;
@@ -220,7 +224,7 @@ export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; wor
   return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, primaryAction }: BuildCanvasProps) {
+function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, onToolboxModeChange, primaryAction }: BuildCanvasProps) {
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review,
     actionSetup = null, amountInputs = {}, bridgeNetworkInputs = {}, cryptoSelections = {}, editCryptoSelection, startActionSetup, editCanvasAmount, editSwapSetupDirection, editBridgeNetworks, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup, pending, applyProposal, dismissProposal } = useWorkflow();
   const workflow: Workflow = state.workflow;
@@ -236,6 +240,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
   const [feedback, setFeedback] = useState('');
   const [toolboxMode, setToolboxMode] = useState<ToolboxMode>('top');
   useEffect(() => { setToolboxMode(readToolboxMode()); }, []);
+  useEffect(() => { onToolboxModeChange?.(toolboxMode); }, [toolboxMode, onToolboxModeChange]);
   function changeToolboxMode(mode: ToolboxMode) {
     setToolboxMode(mode);
     saveToolboxMode(mode);
@@ -393,13 +398,14 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
       };
     };
     const proposalTarget = pending?.authoringId ?? (pending ? singleAmountProposalTarget(workflow, pending.command) : null);
+    const contextualTarget = pending?.command.source === 'CHAT' ? proposalTarget ?? poolProposalTarget(pending.command) : null;
     const projected: Node[] = composerActions(workflow).map((node, index) => ({
     id: node.nodeId, type: 'workflow',
     ariaLabel: `Step ${index + 1}: ${composerSummary(workflow, node, context).action}`,
     position: canvasLayout[node.nodeId] ? canvasPosition(canvasLayout, node, index) :
       isLendingComposition(workflow) ? { x: 180, y: 35 + index * 230 } : canvasPosition(canvasLayout, node, index),
     selected: selectedIds.includes(node.nodeId) || selectedId === node.nodeId,
-    data: { composer: true, onOpenSettings: () => { selectNodes([node.nodeId], node.nodeId); openSettings?.(node.nodeId); }, step: index + 1, selected: selectedId === node.nodeId,
+    data: { composer: true, contextualProposal: contextualTarget === node.nodeId, onOpenSettings: () => { selectNodes([node.nodeId], node.nodeId); openSettings?.(node.nodeId); }, step: index + 1, selected: selectedId === node.nodeId,
       vertical: isLendingComposition(workflow), summary: selectedSummary(composerSummary(workflow, node, context), cryptoSelections[node.nodeId]),
       ...(cryptoSelectionOf(node) ? { actionSelection: actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!, canSelectCryptoAssets(node, workflow)) } : {}),
       ...(routerDetails(node) ? {
@@ -605,7 +611,8 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     </div>
   </div>;
   return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label="Workflow canvas">
-    <div className="canvas-head build-canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{toolboxMode === 'top' && toolbox}{toolboxMode === 'floating' && dockButton}<span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div></div>
+    <div className="canvas-head build-canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}
+      onSave={() => setFeedback('Workflow saving is not available yet. Your workflow stays in this session; Dashboard shows execution history.')}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{toolboxMode === 'top' && toolbox}{toolboxMode === 'floating' && dockButton}<span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div></div>
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView fitViewOptions={{ padding: COMPOSER_FIT_PADDING }} minZoom={0.35} maxZoom={1.4}
@@ -623,9 +630,16 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
         onEdgeClick={(_event, edge) => { selectNodes([], null); setSelectedEdge({ from: edge.source, to: edge.target }); }}
         onPaneClick={() => { if (ignorePaneClick.current) return; selectNodes([], null); }} onConnect={({ source, target }) => connect(source, target)}>
         {isLendingComposition(workflow)&&<LendingCanvasViewport/>}
-        <Background gap={18} size={1} color="var(--grid)" /><Controls showInteractive={false} position="bottom-right" fitViewOptions={{ padding: COMPOSER_FIT_PADDING }}/>
+        <Background gap={18} size={1} color="var(--grid)" /><DarkSpotlight/><CanvasNavigator fitViewOptions={{ padding: COMPOSER_FIT_PADDING }}/>
       </ReactFlow>
-      {projectedNodes.length === 0 && <div className="canvas-empty"><strong>Start your workflow</strong><p>Add an action from the toolbar, then select its card to configure it.</p></div>}
+      <WorkflowEditReview/>
+      {projectedNodes.length === 0 && <div className="canvas-empty">
+        <span className="canvas-empty-mascot" aria-hidden="true">
+          <Image className="flofi-droplet-wave-light" src="/brand/flofi-droplet-wave.svg" alt="" width={400} height={400} draggable={false} unoptimized/>
+          <Image className="flofi-droplet-wave-dark" src="/brand/flofi-droplet-wave-dark.svg" alt="" width={400} height={400} draggable={false} unoptimized/>
+        </span>
+        <strong>Start your workflow</strong><p>Add an action from the toolbar, then select its card to configure it.</p>
+      </div>}
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
       {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
       {primaryAction && <div className="canvas-primary-action">{primaryAction}</div>}

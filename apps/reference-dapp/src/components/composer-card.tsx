@@ -6,11 +6,12 @@ import type { Command } from '../domain/commands';
 import type { CanvasAction } from '../domain/canvas-authoring';
 import { ActionIcon } from './action-icon';
 import { TokenBrandIcon, NetworkBrandIcon } from './brand-icon';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { PoolPriceRange, usePoolPriceRange, type PoolPricePreset } from './pool-price-range';
 import { TokenAmountInput } from './token-amount-input';
 import { STOCK_EQUITIES, usePoolContributionInputs, type StockEquity } from './canvas-card-inputs';
 import type { CryptoSelection } from '../domain/crypto-action-picker';
+import { ProposalReviewArtifact } from './proposal-review';
 
 export type CanvasAmountEditor = { value: string; changed: boolean; canApply: boolean; formId?: string; onChange(value: string): void; onReview(): string | null; onApply(): void; onCancel?: () => void };
 export function supplyReviewFormId(nodeId: string) { return `composer-supply-review-${nodeId}`; }
@@ -26,6 +27,14 @@ const actionIcons: Record<string, CanvasAction | 'stocks' | 'transfer'> = {
   Swap: 'swap', Bridge: 'bridge', 'Pool / Liquidity': 'pool', 'Prepare liquidity': 'pool',
   Supply: 'supply', Lending: 'lending', Borrow: 'borrow', Repay: 'repay', Withdraw: 'withdraw', Transfer: 'transfer', Stocks: 'stocks',
 };
+
+/** Contributions supply both assets together; only conversions show direction. */
+function ValuePair({ relationship, className = '', children }: { relationship: 'directional' | 'contribution'; className?: string; children: ReactNode }) {
+  return <div className={`composer-value-pair${className ? ` ${className}` : ''}`} data-relationship={relationship}>
+    {children}
+    {relationship === 'directional' && <span className="composer-value-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14m-5-5 5 5 5-5"/></svg></span>}
+  </div>;
+}
 
 function TokenChip({ symbol, network }: { symbol: string; network?: string }) {
   return <span className="composer-token-chip">
@@ -214,6 +223,7 @@ export type ComposerCardData = {
   composer: true; step: number; selected: boolean; vertical: boolean;
   summary: ReturnType<typeof composerSummary>;
   amountEditor?: CanvasAmountEditor;
+  contextualProposal?: boolean;
   tokenSelection?: { source: readonly string[]; destination: readonly string[]; onSelect(side: 'source' | 'destination', symbol: string): void };
   networkSelection?: { source: readonly string[]; destination: readonly string[]; valid: boolean; unavailable?: readonly string[]; onSelect(side: 'source' | 'destination', network: string): void };
   stocks?: { equity: StockEquity; amount: string; onAmountChange(amount: string): void; onEquityChange(equity: StockEquity): void };
@@ -256,10 +266,14 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
     else if (poolRange.edited) poolRange.reset();
   }
   const poolNodeRef = useRef<HTMLDivElement>(null);
+  const wasExpanded = useRef(false);
   const { fitView } = useReactFlow();
   useEffect(() => {
-    if (!(poolCard && poolMode === 'Price') && !(stocksCard && stocksPanelOpen) && !tokenPanel && !bridgePanel) return;
-    // Fit the expanded card surfaces again when the available canvas width changes.
+    const expanded = (poolCard && poolMode === 'Price') || (stocksCard && stocksPanelOpen) || Boolean(tokenPanel || bridgePanel);
+    const closing = wasExpanded.current && !expanded;
+    wasExpanded.current = expanded;
+    if (!expanded && !closing) return;
+    // Fit expanded surfaces on resize, and restore a readable card when they close.
     let frame = 0, measuredFrame = 0;
     function fitPanel() {
       cancelAnimationFrame(frame); cancelAnimationFrame(measuredFrame);
@@ -312,10 +326,10 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
         {!card.stocks && !bridgeCard && <>{' · '}<span className="composer-chain">{card.summary.chain}</span></>}
       </span>}
       {card.inspection ? <>
-        {card.summary.liquidityValues ? <div className="composer-value-pair">
+        {card.summary.liquidityValues ? <ValuePair relationship="contribution">
           {card.summary.liquidityValues.map((value, index) => <ValueBox key={value.token} readOnly source={index === 0} amount={value.amount} token={value.token} network={sourceNetwork}
             label={`${index === 0 ? 'First' : 'Second'} liquidity asset amount`} hint="Configured liquidity contribution" fiatFirst={false} onFiatFirstChange={setFiatFirst}/>)}
-        </div> : <div className={pairDestination ? 'composer-value-pair' : undefined}>
+        </ValuePair> : <div className={pairDestination ? 'composer-value-pair' : undefined}>
           {amountParts ? <ValueBox readOnly source amount={amountParts[1]} token={amountParts[2]!} network={sourceNetwork} hint={card.summary.amount} fiatFirst={false} onFiatFirstChange={setFiatFirst}/>
             : <span className="numeric composer-amount">{card.summary.amount}</span>}
           {pairDestination && <><span className="composer-value-arrow" aria-hidden="true">↓</span><ValueBox readOnly token={pairDestination} network={destinationNetwork} hint="Output estimate unavailable" fiatFirst={false} onFiatFirstChange={setFiatFirst}/></>}
@@ -324,31 +338,31 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
       </> : card.stocks ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} label="Stocks amount" inputLabel="Stocks amount" amount={card.stocks.amount} token={card.stocks.equity} network={sourceNetwork}
         hint="Stocks amount" editor={{ value: card.stocks.amount, onChange: card.stocks.onAmountChange }} equity={{ symbol: card.stocks.equity, onToggle: () => setStocksPanelOpen(open => !open), expanded: stocksPanelOpen, controls: stocksPanelId }}/>
         : amountBox ? <AmountContainer className="composer-amount-form nodrag nopan" onKeyDown={event => event.stopPropagation()} onSubmit={event => { event.preventDefault(); if (editor) setAmountError(editor.onReview()); }}>
-        <div className="composer-value-pair">
+        <ValuePair relationship="directional">
         <ValueBox source amount={amountParts?.[1]} token={amountParts?.[2] ?? pairSource ?? '—'}
           network={sourceNetwork} editor={editor} picker={picker('source')} hint={editor ? 'Enter the source amount' : card.summary.amount} fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}/>
-        <span className="composer-value-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14m-5-5 5 5 5-5"/></svg></span>
         <ValueBox token={pairDestination ?? '—'} network={destinationNetwork} picker={picker('destination')} hint="Destination amount not quoted; zero is a placeholder" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}/>
-        </div>
+        </ValuePair>
         <span className="composer-quote-note">{card.networkSelection?.valid === false ? 'Choose matching networks' : <>{!amountParts && <>{card.summary.amount} · </>}Estimate unavailable</>}</span>
         {editor?.changed && <div className="composer-amount-actions">
           <button type="submit" className="composer-amount-review" disabled={card.networkSelection?.valid === false || card.actionSelection?.valid === false}>Review amount</button>
-          <button type="button" className="composer-amount-apply" disabled={!editor.canApply} onClick={editor.onApply}>Apply amount</button>
+          {card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={editor.canApply} onApply={editor.onApply}/>
+            : <button type="button" className="composer-amount-apply" disabled={!editor.canApply} onClick={editor.onApply}>Apply amount</button>}
           {editor.onCancel && <button type="button" className="composer-amount-cancel" onClick={editor.onCancel}>Cancel</button>}
         </div>}
         {amountError && <span className="sr-only" role="alert">{amountError}</span>}
-      </AmountContainer> : poolValues?.length === 2 ? <div className="composer-value-pair nodrag nopan">
+      </AmountContainer> : poolValues?.length === 2 ? <ValuePair relationship="contribution" className="nodrag nopan">
         <ValueBox source label="First liquidity asset amount" inputLabel={`First liquidity amount (${poolValues[0]!.token})`} amount={poolValues[0]!.amount} token={poolValues[0]!.token} network={sourceNetwork} hint="First liquidity contribution" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}
           picker={picker('source')} editor={card.poolProposal ? { value: poolValues[0]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(0, amount) } : undefined}/>
-        <span className="composer-value-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14m-5-5 5 5 5-5"/></svg></span>
         <ValueBox label="Second liquidity asset amount" inputLabel={`Second liquidity amount (${poolValues[1]!.token})`} amount={poolValues[1]!.amount} token={poolValues[1]!.token} network={sourceNetwork} hint="Second liquidity contribution" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}
           picker={picker('destination')} editor={card.poolProposal ? { value: poolValues[1]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(1, amount) } : undefined}/>
-      </div> : !card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (amountParts || editor)
+      </ValuePair> : !card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (amountParts || editor)
         ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} amount={amountParts?.[1]} token={amountParts?.[2] ?? 'USDC'} network={sourceNetwork} picker={picker('source')} editor={editor} hint={editor ? 'Enter the source amount' : card.summary.amount}/>
         : <span className="numeric composer-amount">{card.summary.amount}</span>}
       {!card.inspection && card.supplyProposal && <div className="composer-amount-actions composer-supply-actions nodrag nopan" onClick={event => event.stopPropagation()}>
         <button type="submit" form={card.supplyProposal.formId} className="composer-amount-review" disabled={!card.supplyProposal.canReview || card.actionSelection?.valid === false}>{card.supplyProposal.reviewLabel ?? 'Review Supply change'}</button>
-        {card.supplyProposal.hasProposal && <button type="button" className="composer-amount-apply" disabled={!card.supplyProposal.canApply} onClick={card.supplyProposal.onApply}>Apply proposal</button>}
+        {card.supplyProposal.hasProposal && (card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={card.supplyProposal.canApply} onApply={card.supplyProposal.onApply}/>
+          : <button type="button" className="composer-amount-apply" disabled={!card.supplyProposal.canApply} onClick={card.supplyProposal.onApply}>Apply proposal</button>)}
       </div>}
       {!amountBox && !poolCard && (!card.inspection || !pairDestination) && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{pair}</span>}
       {poolCard && <div className="composer-pool-controls">
@@ -358,7 +372,8 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
           : <PoolCustomRange value={poolRange.percent} onChange={poolRange.edit}/>)}<PoolRangeSelector mode={poolMode} onChange={changePoolMode}/></div>
         {card.poolProposal && <div className="composer-amount-actions nodrag nopan" onClick={event => event.stopPropagation()}>
           <button type="submit" form={card.poolProposal.formId} className="composer-amount-review" disabled={!card.poolProposal.canReview || card.actionSelection?.valid === false || (poolRange.edited && !poolRange.reference)}>Review</button>
-          <button type="button" className="composer-amount-apply" disabled={!card.poolProposal.canApply || (poolRange.edited && !poolRange.reviewCurrent)} onClick={() => { card.poolProposal!.onApply(); poolRange.reset(); }}>Apply</button>
+          {card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={card.poolProposal.canApply && (!poolRange.edited || poolRange.reviewCurrent)} onApply={() => { card.poolProposal!.onApply(); poolRange.reset(); }}/>
+            : <button type="button" className="composer-amount-apply" disabled={!card.poolProposal.canApply || (poolRange.edited && !poolRange.reviewCurrent)} onClick={() => { card.poolProposal!.onApply(); poolRange.reset(); }}>Apply</button>}
         </div>}
       </div>}
       {!card.inspection && !quietAmount && card.validation.message && <span className="composer-warning" title={card.validation.message}>Check settings</span>}

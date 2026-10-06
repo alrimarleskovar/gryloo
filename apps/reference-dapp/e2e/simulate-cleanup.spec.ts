@@ -39,9 +39,9 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
     await expect(graph).toHaveAttribute('data-viewport', 'fitted');
     const graphBox = (await graph.boundingBox())!;
     const summaryBox = (await summary.boundingBox())!;
-    const controlsBox = (await graph.locator('.react-flow__controls').boundingBox())!;
+    const controlsBox = (await graph.locator('.canvas-navigator').boundingBox())!;
     const actionsBox = (await graph.locator('.simulation-canvas-actions').boundingBox())!;
-    expect(actionsBox.x + actionsBox.width + 8).toBeLessThanOrEqual(controlsBox.x);
+    expect(controlsBox.x + controlsBox.width <= actionsBox.x || controlsBox.y + controlsBox.height <= actionsBox.y).toBe(true);
     expect(actionsBox.y + actionsBox.height + 16).toBeLessThanOrEqual(graphBox.y + graphBox.height);
     if (width === 1440) expect(summaryBox.x).toBeGreaterThan(graphBox.x + graphBox.width);
     else expect(summaryBox.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
@@ -68,12 +68,12 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   await expect(graph.locator('.flow-card')).toBeInViewport();
   const viewport = graph.locator('.react-flow__viewport');
   const beforeZoom = await viewport.getAttribute('style');
-  await graph.locator('.react-flow__controls-zoomout').click();
+  await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
   await expect(viewport).not.toHaveAttribute('style', beforeZoom!);
   const afterZoom = await viewport.getAttribute('style');
-  await graph.locator('.react-flow__controls-zoomin').click();
+  await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowRight');
   await expect(viewport).not.toHaveAttribute('style', afterZoom!);
-  await graph.locator('.react-flow__controls-fitview').click();
+  await graph.getByRole('button', { name: 'Fit workflow', exact: true }).click();
   await expect(graph.locator('.flow-card')).toBeInViewport();
   await technical.locator(':scope > summary').click();
   await panel.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();

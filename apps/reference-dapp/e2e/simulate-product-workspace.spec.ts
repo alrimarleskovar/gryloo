@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { configureCanvasAction } from './composer-authoring-fixtures';
 
@@ -94,7 +95,7 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
   const backgrounds: string[] = [];
   for (const theme of ['Dark', 'Light']) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page.getByRole('button', { name: `${theme} theme`, exact: true }).click();
+    await selectSettingsTheme(page, theme);
     await page.keyboard.press('Escape');
     const buildCard = page.locator('.build-flow-surface .composer-card');
     const style = await cardStyle(buildCard), icons = await brandIcons(buildCard);
@@ -115,7 +116,7 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
       await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
       const canvasBox = (await graph(page).boundingBox())!;
       const actionsBox = (await graph(page).locator('.simulation-canvas-actions').boundingBox())!;
-      const controlsBox = (await graph(page).locator('.react-flow__controls').boundingBox())!;
+      const controlsBox = (await graph(page).locator('.canvas-navigator').boundingBox())!;
       const cardBox = (await graph(page).locator('.composer-card').boundingBox())!;
       await expect(graph(page).locator('.simulation-workspace-actions button')).toHaveText(['Back to Build', 'Simulate workflow']);
       const backBox = (await graph(page).getByRole('button', { name: 'Back to Build', exact: true }).boundingBox())!;
@@ -127,7 +128,7 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
       expect(actionsBox.y).toBeGreaterThan(canvasBox.y);
       expect(canvasBox.x + canvasBox.width - actionsBox.x - actionsBox.width).toBeGreaterThanOrEqual(60);
       expect(canvasBox.y + canvasBox.height - actionsBox.y - actionsBox.height).toBeGreaterThanOrEqual(16);
-      expect(actionsBox.x + actionsBox.width + 8).toBeLessThanOrEqual(controlsBox.x);
+      expect(controlsBox.x + controlsBox.width <= actionsBox.x || controlsBox.y + controlsBox.height <= actionsBox.y).toBe(true);
       expect(cardBox.y + cardBox.height + 8).toBeLessThanOrEqual(actionsBox.y);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       expect(await summary(page).locator('.simulation-summary-content').evaluate(element => getComputedStyle(element).overflowY)).toBe('visible');
@@ -157,12 +158,12 @@ test('lending links, zoom in/out and fit remain usable on desktop and mobile', a
     await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
     const viewport = graph(page).locator('.react-flow__viewport');
     const original = await viewport.getAttribute('style');
-    await graph(page).locator('.react-flow__controls-zoomin').click();
+    await graph(page).getByRole('slider', { name: 'Canvas zoom' }).press('ArrowRight');
     await expect(viewport).not.toHaveAttribute('style', original!);
     const zoomed = await viewport.getAttribute('style');
-    await graph(page).locator('.react-flow__controls-zoomout').click();
+    await graph(page).getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
     await expect(viewport).not.toHaveAttribute('style', zoomed!);
-    await graph(page).locator('.react-flow__controls-fitview').click();
+    await graph(page).getByRole('button', { name: 'Fit workflow', exact: true }).click();
     expect(await graph(page).locator('.react-flow__node').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.transform))).toEqual(positions);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
@@ -197,7 +198,7 @@ test('simulation failures remain blocking and readable in both themes', async ({
   await expect(summary(page).getByRole('status')).toContainText(/Simulation failed|Simulation unavailable|Cannot proceed/);
   for (const theme of ['Dark', 'Light']) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page.getByRole('button', { name: `${theme} theme`, exact: true }).click();
+    await selectSettingsTheme(page, theme);
     await page.keyboard.press('Escape');
     const attention = summary(page).getByRole('region', { name: 'Risk and attention', exact: true });
     await expect(attention).toContainText('Blocking');

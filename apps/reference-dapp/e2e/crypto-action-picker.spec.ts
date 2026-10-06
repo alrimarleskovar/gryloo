@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet, setSupplyWalletChain } from './supply-fixtures';
 for (const action of ['swap', 'pool', 'supply', 'borrow', 'repay', 'withdraw']) test(`${action} reuses Tokens / Networks with one supported action network`, async ({ page }) => {
   await installSupplyWallet(page); await page.goto('/');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('PUBLIC_TESTNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   await card.getByRole('textbox').first().fill('2.5');
@@ -69,9 +70,9 @@ for (const action of ['swap', 'pool', 'supply', 'borrow', 'repay', 'withdraw']) 
 
 for (const theme of ['Light', 'Dark']) test(`${theme} Swap shares live environment filtering, independent assets and neutral unknown networks`, async ({ page }) => {
   await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('MAINNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Mainnet');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: `${theme} theme`, exact: true }).click(); await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await selectSettingsTheme(page, theme); await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   await card.getByRole('textbox').fill('1');
@@ -86,12 +87,12 @@ for (const theme of ['Light', 'Dark']) test(`${theme} Swap shares live environme
   await expect(card.getByRole('button', { name: 'Select source token', exact: true })).toHaveAttribute('title', 'USDC on Solana');
   await expect(card.getByRole('button', { name: 'Select destination token', exact: true })).toHaveAttribute('title', 'USDT on Solana');
   await setSupplyWalletChain(page, '0x66eee');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('PUBLIC_TESTNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
   await expect(card.getByRole('button', { name: 'Select source token', exact: true })).toHaveAttribute('title', 'USDC on Base Sepolia');
   await expect(card.getByRole('button', { name: 'Select destination token', exact: true })).toHaveAttribute('title', 'WETH on Base Sepolia');
   expect(await page.getByRole('region', { name: 'Action network picker', exact: true }).getByRole('button').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual(['Base Sepolia', 'Solana Devnet']);
   await setSupplyWalletChain(page, '0x999999');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Network');
   await expect(page.getByRole('region', { name: 'Action network picker', exact: true }).getByRole('button')).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'Review amount', exact: true })).toBeDisabled();
 });

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, MarkerType, getNodesBounds, getViewportForBounds, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeProps, type ReactFlowState } from '@xyflow/react';
+import { ReactFlow, Background, MarkerType, getNodesBounds, getViewportForBounds, useReactFlow, useStore, useStoreApi, useUpdateNodeInternals, type Node, type NodeProps, type ReactFlowState } from '@xyflow/react';
 import { isLendingComposition } from '@defi-workflow-engine/workflow-contracts';
 import { composerActions, composerConnections, composerSummary } from '../domain/composer-presentation';
 import { canvasPosition } from '../domain/canvas-layout';
 import { useWorkflow } from '../state/workflow-store';
 import { ComposerCard, type ComposerCardData } from './composer-card';
+import { DarkSpotlight } from './dark-spotlight';
+import { CanvasNavigator } from './canvas-navigator';
 
 const FIT_PADDING = { top: '32px', bottom: '136px', left: '32px', right: '32px' } as const;
 function InspectionCard({ data }: NodeProps) { return <ComposerCard data={data as ComposerCardData}/>; }
@@ -60,8 +62,8 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction, stage = 's
   })), [workflow, context, canvasLayout, incomplete, lending]);
   const edges = useMemo(() => incomplete ? [] : composerConnections(workflow).map(({ id, source, target }) => ({
     id, source, target, type: 'smoothstep', animated: false,
-    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#6b809b' },
-    style: { stroke: '#6b809b', strokeWidth: 1.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: 'var(--edge-line)' },
+    style: { stroke: 'var(--edge-line)', strokeWidth: 1.5 },
   })), [workflow, incomplete]);
   const [viewport, setViewport] = useState<'pending' | 'fitted'>('pending');
   return <section className={`canvas simulate-canvas simulation-workflow-canvas panel ${lending ? 'simulation-lending-canvas' : ''}`} aria-label={stage === 'execute' ? 'Execution plan' : 'Workflow simulation'}>
@@ -72,7 +74,8 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction, stage = 's
         deleteKeyCode={null} fitViewOptions={{ padding: FIT_PADDING }}>
         <InspectionViewport onState={setViewport}/>
         <Background gap={18} size={1} color="var(--grid)"/>
-        <Controls position="bottom-right" showInteractive={false} fitViewOptions={{ padding: FIT_PADDING }}/>
+        <DarkSpotlight/>
+        <CanvasNavigator fitViewOptions={{ padding: FIT_PADDING }}/>
       </ReactFlow>
       {nodes.length === 0 && <div className="simulation-workflow-empty"><strong>{incomplete ? 'Check your workflow' : 'Add an action to your workflow'}</strong><p>{incomplete ? stage === 'execute' ? 'Complete its configuration in Build before executing.' : 'Complete its configuration in Build before simulating.' : stage === 'execute' ? 'Create a workflow in Build first.' : 'Create your strategy in Build, then return here to simulate it.'}</p></div>}
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}

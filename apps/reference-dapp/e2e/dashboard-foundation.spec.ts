@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import type { Page } from '@playwright/test';
 
 const pageErrors = new WeakMap<Page, string[]>();
@@ -79,7 +80,7 @@ for (const theme of ['light', 'dark']) test(`${theme} Dashboard inherits FloFi s
   await page.goto('/app/dashboard');
   await expect(page.getByRole('heading', { name: 'Your execution workspace' })).toBeVisible();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: `${theme === 'light' ? 'Light' : 'Dark'} theme`, exact: true }).click();
+  await selectSettingsTheme(page, theme === 'light' ? 'Light' : 'Dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   expect(await page.locator('.dashboard-empty').evaluate(element => {

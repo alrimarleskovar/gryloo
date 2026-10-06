@@ -7,8 +7,8 @@ import { useWorkflow } from '../state/workflow-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 
 type Message = { role: 'system' | 'you'; text: string };
-export function CopilotPanel({ showProposal = true }: { showProposal?: boolean }) {
-  const { state, context, pending, propose, applyProposal, dismissProposal } = useWorkflow();
+export function CopilotPanel() {
+  const { state, context, propose, dismissProposal } = useWorkflow();
   const wallet = useBuild009Wallet();
   const guidance = 'This request could not be understood. Check the action, amount, asset and chain, then try again.';
   const [input, setInput] = useState('');
@@ -35,21 +35,10 @@ export function CopilotPanel({ showProposal = true }: { showProposal?: boolean }
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: guidance }]);
     }
   }
-  function apply() {
-    if (!pending) return;
-    applyProposal();
-    setMessages(old => [...old, { role: 'system', text: `Submitted proposal based on revision ${pending.command.baseRevision}. Check the canvas and review findings.` }]);
-  }
   return <aside className="copilot panel" aria-label="Workflow assistant">
     <div className="copilot-head"><div><p className="eyebrow">ASSISTANT</p><h2>Copilot</h2></div></div>
     <div className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">{messages.map((message, index) =>
       <div key={index} className={`message ${message.role}`}>{message.role === 'you' && <small>YOU</small>}<p>{message.text}</p></div>)}</div>
-    {showProposal && pending && <div className="proposal" role="status"><div className="proposal-copy"><strong>Review proposed edit</strong>
-      <p>{pending.command.type} · base revision {pending.command.baseRevision}</p>
-      <ul>{pending.diff.map((line, index) => <li key={index}>{line}</li>)}</ul>
-      {pending.review && <p>Review: {pending.review.findings.length} findings · execution unavailable</p>}</div>
-      <div className="proposal-actions"><button type="button" onClick={apply} disabled={pending.diff.length === 1 && pending.diff[0] !== 'Edit'}>Apply proposal</button><button type="button" className="quiet" onClick={dismissProposal}>Dismiss</button></div>
-    </div>}
     <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">Describe your flow</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder="Action, amount, asset and chain" maxLength={1024} autoComplete="off"/><button type="submit">Send</button></div></form>
   </aside>;
 }

@@ -26,8 +26,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/app/dashboard');
   await expect(page.getByRole('heading', { name: 'Your execution workspace' })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
+  const fontClasses = await page.locator('html').getAttribute('class');
   await page.route('**/__ux006c-acceptance.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }));
-  await page.route('**/__ux006c-acceptance', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html data-theme="light"><head><meta charset="utf-8">${styles}</head><body><div class="app-shell"><main class="main"><div id="acceptance-root"></div></main></div><script src="/__ux006c-acceptance.js"></script></body></html>` }));
+  await page.route('**/__ux006c-acceptance', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html class="${fontClasses ?? ''}" data-theme="light"><head><meta charset="utf-8">${styles}</head><body><div class="app-shell"><main class="main"><div id="acceptance-root"></div></main></div><script src="/__ux006c-acceptance.js"></script></body></html>` }));
   await page.goto('/__ux006c-acceptance');
   await page.evaluate(() => (window as unknown as { FloFiRunDetailAcceptance: { mount(element: HTMLElement): void } }).FloFiRunDetailAcceptance.mount(document.getElementById('acceptance-root')!));
   await expect(page.getByRole('region', { name: 'Run summary', exact: true })).toBeVisible();
@@ -116,6 +117,10 @@ test('not-found, unavailable history and missing legacy detail remain distinct w
 
 for (const theme of ['light', 'dark'] as const) test(`${theme} Run Details preserves tokens, branding and overflow at desktop and narrow widths`, async ({ page }) => {
   await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.locator('body').evaluate(element => getComputedStyle(element).fontFamily)).toMatch(/^Outfit/);
+  expect(await page.locator('.execution-transaction>span:first-child').first().evaluate(element => getComputedStyle(element).fontFamily)).toContain('IBM Plex Mono');
+  expect(await page.locator('.execution-actual-values dd').first().evaluate(element => getComputedStyle(element).fontFamily)).toContain('IBM Plex Mono');
   expect(await page.locator('.dashboard-result-summary').evaluate(element => {
     const sample = document.createElement('div'); sample.style.backgroundColor = 'var(--paper)'; document.body.append(sample);
     const same = getComputedStyle(sample).backgroundColor === getComputedStyle(element).backgroundColor; sample.remove(); return same;
@@ -123,7 +128,7 @@ for (const theme of ['light', 'dark'] as const) test(`${theme} Run Details prese
   expect(await page.locator('img.brand-icon').evaluateAll(images => images.every(image => getComputedStyle(image).filter === 'none'))).toBe(true);
   for (const mode of ['completed', 'partial', 'bridge-completed', 'cow-pending', 'legacy'] as const) {
     await page.evaluate(value => window.flofiRunDetailAcceptance.show(value), mode);
-    for (const width of [1440, 1024, 820, 390, 320]) {
+    for (const width of [1440, 1024, 768, 375, 320]) {
       await page.setViewportSize({ width, height: 1000 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }

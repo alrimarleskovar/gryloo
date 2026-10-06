@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet, setSupplyWalletChain } from './supply-fixtures';
 
 for (const theme of ['Light', 'Dark']) test(`${theme} Bridge side pickers show separate token and network columns with only supported endpoints`, async ({ page }) => {
   await installSupplyWallet(page); await page.goto('/');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: `${theme} theme`, exact: true }).click();
+  await selectSettingsTheme(page, theme);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('PUBLIC_TESTNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
   await page.getByRole('button', { name: 'Add bridge', exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   const source = card.getByRole('button', { name: 'Configure source asset', exact: true });

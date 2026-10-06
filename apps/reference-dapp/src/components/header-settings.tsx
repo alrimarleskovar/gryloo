@@ -2,24 +2,36 @@
 'use client';
 import { useEffect, useId, useRef, useState } from 'react';
 
-export function HeaderSettings({ onDisconnect, disconnectDisabled }: { onDisconnect: () => void; disconnectDisabled: boolean }) {
+export function HeaderSettings({ onDisconnect, disconnectDisabled, onSupport }: { onDisconnect: () => void; disconnectDisabled: boolean; onSupport?: () => void }) {
   const [open, setOpen] = useState(false);
   // Language remains a presentation preference.
   const [language, setLanguage] = useState<'PT' | 'EN'>('EN');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const container = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
+  const themeTransition = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuId = useId();
+  const languageDescriptionId = useId(), themeDescriptionId = useId();
   useEffect(() => {
     let saved: 'light' | 'dark' = 'light';
     try { if (localStorage.getItem('flofi.theme') === 'dark') saved = 'dark'; } catch { /* Preferences are optional when storage is unavailable. */ }
     setTheme(saved);
     document.documentElement.dataset.theme = saved;
+    return () => {
+      if (themeTransition.current) clearTimeout(themeTransition.current);
+      delete document.documentElement.dataset.themeTransition;
+    };
   }, []);
   function selectTheme(value: 'light' | 'dark') {
+    if (themeTransition.current) clearTimeout(themeTransition.current);
+    document.documentElement.dataset.themeTransition = 'true';
     setTheme(value);
     document.documentElement.dataset.theme = value;
     try { localStorage.setItem('flofi.theme', value); } catch { /* The theme still applies for this visit. */ }
+    themeTransition.current = setTimeout(() => {
+      delete document.documentElement.dataset.themeTransition;
+      themeTransition.current = null;
+    }, 320);
   }
   useEffect(() => {
     if (!open) return;
@@ -45,20 +57,36 @@ export function HeaderSettings({ onDisconnect, disconnectDisabled }: { onDisconn
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
     {open && <div className="header-settings-menu" id={menuId} role="group" aria-label="Settings options">
-      <div className="header-settings-row"><span>Language</span><div className="header-settings-choices" role="group" aria-label="Language">
-        {(['PT', 'EN'] as const).map(value => <button key={value} type="button" aria-pressed={language === value} title={value === 'PT' ? 'Português' : 'English'} onClick={() => setLanguage(value)}>{value}</button>)}
-      </div></div>
-      <div className="header-settings-row"><span>Theme</span><div className="header-settings-choices" role="group" aria-label="Theme">
-        <button type="button" aria-label="Light theme" title="Light theme" aria-pressed={theme === 'light'} onClick={() => selectTheme('light')}>
+      <div className="header-settings-row"><span>Language</span>
+        <button type="button" className="header-settings-choices" role="switch" aria-label="Language" aria-checked={language === 'EN'}
+          aria-describedby={languageDescriptionId} title={language === 'EN' ? 'Switch to Português' : 'Switch to English'}
+          onClick={() => setLanguage(value => value === 'EN' ? 'PT' : 'EN')}>
+          {(['PT', 'EN'] as const).map(value => <span key={value} aria-hidden="true" data-selected={language === value}>{value}</span>)}
+        </button>
+        <span id={languageDescriptionId} className="sr-only">Current language: {language === 'EN' ? 'English' : 'Português'}</span>
+      </div>
+      <div className="header-settings-row"><span>Theme</span>
+        <button type="button" className="header-settings-choices" role="switch" aria-label="Theme" aria-checked={theme === 'dark'}
+          aria-describedby={themeDescriptionId} title={theme === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+          onClick={() => selectTheme(theme === 'light' ? 'dark' : 'light')}>
+        <span aria-hidden="true" data-selected={theme === 'light'}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
-        </button>
-        <button type="button" aria-label="Dark theme" title="Dark theme" aria-pressed={theme === 'dark'} onClick={() => selectTheme('dark')}>
+        </span>
+        <span aria-hidden="true" data-selected={theme === 'dark'}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.5 14.5A9 9 0 0 1 9.5 3.5a9 9 0 1 0 11 11Z"/></svg>
+        </span>
         </button>
-      </div></div>
-      <button type="button" className="header-disconnect" disabled={disconnectDisabled}
+        <span id={themeDescriptionId} className="sr-only">Current theme: {theme === 'dark' ? 'Dark' : 'Light'}</span>
+      </div>
+      <hr className="header-settings-separator"/>
+      <button type="button" className="header-settings-action" onClick={() => { onSupport?.(); setOpen(false); toggle.current?.focus(); }}>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="m5.6 5.6 3.6 3.6m5.6 5.6 3.6 3.6M5.6 18.4l3.6-3.6m5.6-5.6 3.6-3.6"/></svg><span>Support</span>
+      </button>
+      <button type="button" className="header-settings-action header-disconnect" disabled={disconnectDisabled}
         title="Clear this app’s wallet connection. Wallet permissions are managed in your wallet."
-        onClick={() => { onDisconnect(); setOpen(false); toggle.current?.focus(); }}>Disconnect</button>
+        onClick={() => { onDisconnect(); setOpen(false); toggle.current?.focus(); }}>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M10 12h11m-4-4 4 4-4 4"/></svg><span>Disconnect</span>
+      </button>
     </div>}
   </div>;
 }

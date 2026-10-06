@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 
 for (const action of ['swap', 'bridge', 'pool', 'Stocks', 'supply', 'borrow', 'repay', 'withdraw']) {
@@ -48,29 +49,30 @@ test('theme defaults to light, covers product surfaces, persists and returns to 
   await card.getByRole('button', { name: 'Advanced Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = page.getByRole('group', { name: 'Settings options', exact: true });
-  await settings.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(settings.getByRole('button', { name: 'Dark theme', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(settings.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(settings.getByRole('switch', { name: 'Theme', exact: true })).toBeChecked();
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('dark');
   await expect(card.getByRole('textbox', { name: 'Stocks amount', exact: true })).toHaveValue('12.5');
   await expect(card.getByRole('button', { name: 'Select stock', exact: true })).toContainText('NVDA');
   const surfaces = page.locator('.top-bar, .composer-card, .copilot, .inspector, details.library, .header-settings-menu, .composer-token-chip, .floating-toolbox');
   await expect(surfaces).toHaveCount(8);
-  // The expanded pill uses a raised tint; wait for the existing button color transitions.
-  await expect.poll(async () => surfaces.evaluateAll(elements => elements.every(element => ['rgb(11, 20, 32)', 'rgb(14, 34, 45)'].includes(getComputedStyle(element).backgroundColor)))).toBe(true);
+  // Pills and fields use raised graphite; wait for the existing color transitions.
+  await expect.poll(async () => surfaces.evaluateAll(elements => elements.every(element => ['rgb(21, 24, 31)', 'rgb(28, 32, 41)'].includes(getComputedStyle(element).backgroundColor)))).toBe(true);
   const canvas = await page.locator('.flow-surface').evaluate(element => getComputedStyle(element).backgroundImage);
-  expect(canvas).toContain('rgb(5, 11, 20)');
-  expect(await page.locator('.react-flow__attribution').evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(11, 20, 32)');
-  expect(await page.locator('.react-flow__controls-zoomout').evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(18, 38, 51)');
+  expect(canvas).toContain('rgb(28, 32, 41)');
+  expect(await page.locator('.react-flow__attribution').evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(21, 24, 31)');
+  expect(await page.locator('.canvas-navigator').evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(28, 32, 41)');
   const contrast = await page.evaluate(() => {
     const style = getComputedStyle(document.documentElement);
+    const canvas = document.createElement('canvas'), context = canvas.getContext('2d')!;
     const luminance = (name: string) => {
-      const hex = style.getPropertyValue(name).trim().slice(1);
-      const rgb = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+      context.clearRect(0, 0, 1, 1); context.fillStyle = style.getPropertyValue(name).trim(); context.fillRect(0, 0, 1, 1);
+      const rgb = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).map(channel => channel / 255)
+        .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
       return rgb[0]! * .2126 + rgb[1]! * .7152 + rgb[2]! * .0722;
     };
-    return [['--ink', '--paper'], ['--muted', '--paper'], ['--muted', '--blue-soft'], ['--blue', '--paper'], ['--on-accent', '--blue']].map(([foreground, background]) => {
+    return [['--ink', '--paper'], ['--muted', '--paper'], ['--muted', '--blue-soft'], ['--blue', '--paper'], ['--on-accent', '--primary']].map(([foreground, background]) => {
       const a = luminance(foreground!), b = luminance(background!);
       return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
     });
@@ -86,7 +88,7 @@ test('theme defaults to light, covers product surfaces, persists and returns to 
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await settings.getByRole('button', { name: 'Light theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Light');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.locator('.top-bar').evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
   await page.reload(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -106,9 +108,9 @@ test('theme remains functional when preference storage is unavailable', async ({
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Light');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
@@ -148,80 +150,38 @@ test('short-value menus fit labels, grow for longer symbols and retain row targe
   }
 });
 
-test('dark hover illumination is subtle, temporary and respects reduced motion', async ({ page }) => {
+test('dark hover uses restrained borders and respects reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Stocks', exact: true }).click();
   const card = page.locator('.composer-card');
-  await card.getByRole('button', { name: 'Select stock', exact: true }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Dark');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const header = page.locator('.canvas-head h2');
-  await header.hover();
-  const level = () => card.evaluate(element => getComputedStyle(element).getPropertyValue('--flofi-hover-light').trim());
-  await expect.poll(level).toBe('0');
   await card.locator('.composer-action-title').hover();
-  await expect.poll(level).toBe('1');
-  const appearance = await card.evaluate(element => ({ image: getComputedStyle(element).backgroundImage, duration: getComputedStyle(element).transitionDuration }));
-  expect(appearance.image).toContain('0.06'); expect(appearance.image).toContain('0.035');
-  expect(appearance.duration).toContain('0.18s');
-  await page.screenshot({ path: '.tmp/flofi-premium-hover-1440.png', fullPage: true });
-  await header.hover(); await expect.poll(level).toBe('0');
-  const picker = page.getByRole('region', { name: 'Stocks configuration', exact: true });
-  const option = picker.locator('.composer-stock-option').filter({ hasText: 'NVDA' });
-  await option.hover();
-  await expect.poll(() => option.evaluate(element => getComputedStyle(element).getPropertyValue('--flofi-hover-light').trim())).toBe('1');
-  await option.click(); await expect(card.getByRole('button', { name: 'Select stock', exact: true })).toContainText('NVDA');
+  await expect(card).toHaveCSS('background-image', 'none');
+  await expect(card).toHaveCSS('border-top-color', 'rgb(147, 166, 255)');
+  expect(await card.evaluate(element => getComputedStyle(element).transitionDuration)).toContain('0.18s');
   const cta = page.getByRole('button', { name: 'Simular Fees', exact: true });
-  await cta.hover();
-  await expect.poll(() => cta.evaluate(element => getComputedStyle(element).getPropertyValue('--flofi-hover-light').trim())).toBe('1');
-  expect(await cta.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
-  await header.hover();
-  await expect.poll(() => cta.evaluate(element => getComputedStyle(element).getPropertyValue('--flofi-hover-light').trim())).toBe('0');
+  await cta.hover(); await expect(cta).toHaveCSS('background-color', 'rgb(35, 67, 217)');
+  await expect(cta).toHaveCSS('animation-name', 'none');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await card.locator('.composer-action-title').hover();
-  expect(await card.evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0s');
+  await expect(card).toHaveCSS('transition-duration', '0s');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
 });
 
-
-test('spotlight follows mouse input without intercepting controls or animating while idle', async ({ page }) => {
+test('graphite ambient spotlight stays below usable controls and respects forced colors', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
   const aura = page.locator('.dark-spotlight');
-  await expect(aura).toHaveCount(1); await expect(aura).toHaveAttribute('aria-hidden', 'true');
-  await expect(aura).toHaveCSS('display', 'none');
+  await expect(aura).toHaveAttribute('aria-hidden', 'true');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Dark');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.mouse.move(580, 320);
   await expect(aura).toHaveAttribute('data-visible', 'true');
-  await expect(aura).toHaveCSS('opacity', '1'); await expect(aura).toHaveCSS('pointer-events', 'none');
-  await expect.poll(async () => aura.evaluate(element => Math.abs(element.getBoundingClientRect().x + 240 - 580))).toBeLessThan(1);
-  await expect.poll(async () => aura.evaluate(element => Math.abs(element.getBoundingClientRect().y + 240 - 320))).toBeLessThan(1);
-  const glow = await aura.evaluate(element => getComputedStyle(element).backgroundImage);
-  expect(glow).toContain('radial-gradient');
-  const alphas = Array.from(glow.matchAll(/rgba\([^)]*,\s*([\d.]+)\)/g), match => Number(match[1]));
-  expect(Math.max(...alphas)).toBeGreaterThan(.02);
-  expect(Math.max(...alphas)).toBeLessThanOrEqual(.035);
-  const writes = await aura.evaluate(async element => {
-    let count = 0;
-    const observer = new MutationObserver(records => { count += records.length; });
-    observer.observe(element, { attributes: true, attributeFilter: ['style'] });
-    for (let index = 0; index < 100; index++) document.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: 600 + index, clientY: 360 }));
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    observer.disconnect(); return count;
-  });
-  expect(writes).toBe(1);
-  const idleWrites = await aura.evaluate(async element => {
-    let count = 0;
-    const observer = new MutationObserver(records => { count += records.length; });
-    observer.observe(element, { attributes: true, attributeFilter: ['style'] });
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    observer.disconnect(); return count;
-  });
-  expect(idleWrites).toBe(0);
+  await expect(aura).toHaveCSS('opacity', '1');
+  await expect(aura).toHaveCSS('pointer-events', 'none');
   await page.getByRole('button', { name: 'Stocks', exact: true }).click();
   const card = page.locator('.composer-card');
   await card.getByRole('textbox', { name: 'Stocks amount', exact: true }).fill('12.5');
@@ -229,34 +189,9 @@ test('spotlight follows mouse input without intercepting controls or animating w
   await page.getByRole('region', { name: 'Stocks configuration', exact: true }).locator('label').filter({ hasText: 'NVDA' }).click();
   await expect(card.getByRole('button', { name: 'Select stock', exact: true })).toContainText('NVDA');
   await expect(card.getByRole('textbox', { name: 'Stocks amount', exact: true })).toHaveValue('12.5');
-  await page.mouse.move(450, 390);
-  await expect(aura).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: '.tmp/flofi-spotlight-1440.png', fullPage: true });
-  await page.evaluate(() => document.dispatchEvent(new PointerEvent('pointerleave')));
-  await expect(aura).not.toHaveAttribute('data-visible'); await expect(aura).toHaveCSS('opacity', '0');
-  await page.mouse.move(460, 400); await expect(aura).toHaveAttribute('data-visible', 'true');
-  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await expect(aura).not.toHaveAttribute('data-visible');
-  await page.mouse.move(470, 410); await expect(aura).toHaveAttribute('data-visible', 'true');
-  await page.evaluate(() => document.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'touch', clientX: 470, clientY: 410 })));
-  await expect(aura).not.toHaveAttribute('data-visible');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.mouse.move(480, 420); await expect(aura).toHaveCSS('display', 'none');
-  await expect(aura).not.toHaveAttribute('data-visible');
-  await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' });
-  await page.mouse.move(490, 430); await expect(aura).toHaveCSS('display', 'none');
-  await expect(aura).not.toHaveAttribute('data-visible');
-  await expect(card.locator('.composer-action-title svg')).toHaveCSS('filter', 'none');
+  await page.emulateMedia({ forcedColors: 'active' });
   await expect(card).toHaveCSS('box-shadow', 'none');
-  await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' });
-  await expect(aura).toHaveCSS('display', 'block');
-  // Media-query change notifications arrive on a rendering frame.
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await page.mouse.move(500, 440, { steps: 6 }); await expect(aura).toHaveAttribute('data-visible', 'true');
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-  await page.mouse.move(510, 450); await expect(aura).toHaveCSS('display', 'none');
-  await expect(aura).not.toHaveAttribute('data-visible');
+  await expect(aura).toHaveCSS('display', 'none');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
 });
 
@@ -266,22 +201,22 @@ test('dark edges and icons lift on hover and keyboard focus with no light-theme 
   await stocks.click();
   const card = page.locator('.composer-card');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Dark');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('.canvas-head h2').hover();
   await expect(stocks.locator('svg')).toHaveCSS('stroke-width', '1.95px');
   await expect(stocks.locator('svg')).toHaveCSS('filter', 'none');
-  await expect(card).toHaveCSS('border-top-color', 'rgb(79, 150, 144)');
+  await expect(card).toHaveCSS('border-top-color', 'rgb(147, 166, 255)');
   await stocks.hover();
-  await expect(stocks.locator('svg')).toHaveCSS('color', 'rgb(177, 238, 226)');
-  expect(await stocks.locator('svg').evaluate(element => getComputedStyle(element).filter)).toContain('drop-shadow');
+  await expect(stocks.locator('svg')).toHaveCSS('color', 'rgb(147, 166, 255)');
+  await expect(stocks.locator('svg')).toHaveCSS('filter', 'none');
   await card.locator('.composer-action-title').hover();
-  await expect(card).toHaveCSS('border-top-color', 'rgb(117, 190, 178)');
+  await expect(card).toHaveCSS('border-top-color', 'rgb(147, 166, 255)');
   await page.keyboard.press('Tab'); await stocks.focus();
   await expect(stocks).toHaveCSS('outline-style', 'solid');
-  await expect(stocks).toHaveCSS('border-top-color', 'rgb(117, 190, 178)');
+  await expect(stocks).toHaveCSS('outline-color', 'rgb(147, 166, 255)');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
+  await selectSettingsTheme(page, 'Light');
   await stocks.hover(); await expect(stocks.locator('svg')).toHaveCSS('filter', 'none');
   await expect(stocks.locator('svg')).toHaveCSS('stroke-width', '1.8px');
 });

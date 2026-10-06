@@ -23,6 +23,7 @@ describe('Execute product workspace', () => {
     expect(html.match(/>Execute workflow</g)).toHaveLength(1);
     expect(html).not.toMatch(/Advanced Settings|Undo|Redo|Token selector|Execution limits|Strategy Manifest|schemaVersion|digest|canonical|mock|payload/);
     expect(html).toContain('Back to Build'); expect(html).toContain('Back to Simulate');
+    expect(html).not.toContain('execution-authorization-attention');
     expect(html).not.toMatch(/execute-heading|>EXECUTE<|Run your workflow|Check the plan and connected wallet before starting/);
   });
   it.each(['pending', 'blocked', 'expired', 'wallet', 'network', 'unknown', 'started', 'loading'] as const)('shows %s in-place with a genuinely disabled CTA', state => {
@@ -36,6 +37,7 @@ describe('Execute product workspace', () => {
     if (state === 'started') data.execution.started = true;
     if (state === 'loading') Object.assign(data.source.state, { busy: 'journal_request_id' });
     const html = render(data); expect(html).toMatch(/disabled="">Execute workflow/); expect(data.execution.start).not.toHaveBeenCalled();
+    if (['pending', 'expired', 'wallet', 'network'].includes(state)) expect(html).toContain('execution-authorization-attention');
     if (state === 'expired') expect(html).toContain('Simulate again');
     if (state === 'wallet') expect(html).toContain('0x2222…2222');
     if (state === 'network') { expect(html).toContain('Arbitrum'); expect(html).toContain('Mainnet'); }

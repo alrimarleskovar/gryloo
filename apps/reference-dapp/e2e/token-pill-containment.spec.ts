@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
+import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction, configureCanvasPool } from './composer-authoring-fixtures';
 import type { Locator } from '@playwright/test';
@@ -30,7 +31,7 @@ for (const theme of ['Light', 'Dark']) test(`${theme} keeps token icons containe
   for (const action of ['pool', 'swap'] as const) {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page.getByRole('button', { name: `${theme} theme`, exact: true }).click();
+    await selectSettingsTheme(page, theme);
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
     if (action === 'pool') await configureCanvasPool(page); else await configureCanvasAction(page, '1');

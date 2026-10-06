@@ -156,10 +156,10 @@ test('floating toolbox keeps a clickable gutter from viewport controls', async (
     await page.getByRole('button', { name: 'Undock toolbar' }).click();
     const graph = page.getByRole('region', { name: 'Workflow graph' });
     const toolbox = await graph.locator('.floating-toolbox').boundingBox();
-    const controls = await graph.locator('.react-flow__controls').boundingBox();
+    const controls = await graph.locator('.canvas-navigator').boundingBox();
     if (!toolbox || !controls) throw new Error('Canvas controls missing');
-    expect(toolbox.x).toBeGreaterThan(controls.x + controls.width + 8);
-    await graph.locator('.react-flow__controls-zoomout').click();
+    expect(controls.x).toBeGreaterThanOrEqual(toolbox.x + toolbox.width + 8);
+    await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
     await graph.getByRole('button', { name: 'Add pool' }).click();
     await expect(graph.locator('.react-flow__node')).toHaveCount(2);
     await page.getByRole('button', { name: 'Dock toolbar' }).click();
@@ -171,7 +171,7 @@ test('marquee follows the pointer, stays clipped, and selects exactly the inters
   await addFromToolbox(page, 'pool');
   await addFromToolbox(page, 'pool');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
-  await graph.locator('.react-flow__controls-zoomout').click();
+  await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
   const initialSurface = await graph.boundingBox();
   if (!initialSurface) throw new Error('Canvas missing');
   await page.mouse.move(initialSurface.x + initialSurface.width / 2, initialSurface.y + initialSurface.height / 2);

@@ -149,7 +149,7 @@ test('both Pool contribution fields share the position form and require fresh Re
 
 test('Orca Pool contribution fields use the existing Solana position review and keep both amounts synchronized', async ({ page }) => {
   await installSupplyWallet(page); await page.goto('/');
-  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('PUBLIC_TESTNET');
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
   // Enter authored bounds directly; this check needs no quote or provider calls.
   const prompt = page.locator('#mock-prompt');
   await prompt.fill('Add liquidity 0.01 SOL and 0.30 devUSDC ticks -39104 to -36992 on Solana Devnet');
