@@ -115,7 +115,8 @@ describe('BUILD-MCP-002 request_user_approval', () => {
     const oauthTools = ((await narrow.client.request('tools/list')).result as { tools: { name: string; _meta?: Record<string, unknown> }[] }).tools;
     expect(oauthTools.map(x => x.name)).toEqual(expect.arrayContaining(['request_user_approval', 'get_approval_status', 'open_approval_session', 'get_execution_progress']));
     for (const name of ['open_approval_session', 'get_execution_progress']) expect(oauthTools.find(x => x.name === name)?._meta).toMatchObject({ ui: { visibility: ['app'] } });
-    expect(oauthTools.find(x => x.name === 'request_user_approval')?._meta?.ui).toBeUndefined();
+    // The model-visible approval tool carries the panel pointer only (no visibility restriction).
+    expect(oauthTools.find(x => x.name === 'request_user_approval')?._meta?.ui).toEqual({ resourceUri: 'ui://flofi/approval-panel.html' });
   });
 });
 
