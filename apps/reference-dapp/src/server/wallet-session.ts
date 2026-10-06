@@ -147,7 +147,7 @@ export function verifySolanaSignIn(env: Env, input: { readonly challengeToken: s
   readonly address: string; readonly signature: string; readonly now: Date }): { readonly token: string; readonly session: SolanaWalletSession } {
   const message = solanaChallengeMessage(env, input), key = solanaPublicKey(input.address)!;
   const signature = typeof input.signature === 'string' && /^[A-Za-z0-9+/]{86}==$/.test(input.signature) ? Buffer.from(input.signature, 'base64') : null;
-  let valid = false;
+  let valid: boolean;
   try {
     valid = signature !== null && signature.length === 64 &&
       verify(null, Buffer.from(message, 'utf8'), createPublicKey({ key: Buffer.concat([ED25519_SPKI, key]), format: 'der', type: 'spki' }), signature);
