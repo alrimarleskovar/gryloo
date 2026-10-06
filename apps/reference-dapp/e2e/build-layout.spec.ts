@@ -44,13 +44,14 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
   const toolbar = graph.locator('.floating-toolbox');
   await expect(toolbar).toBeVisible();
-  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete'];
+  const buttonLabels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap', 'Add borrow', 'Add repay', 'Add withdraw', 'Stocks', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete'];
   expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(buttonLabels);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect.poll(() => toolbar.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true);
-    expect((await toolbar.boundingBox())!.width).toBe(46);
-    expect((await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!.height).toBe(680);
+    expect((await toolbar.boundingBox())!.height).toBeLessThanOrEqual((await graph.boundingBox())!.height - 16);
+    expect((await toolbar.boundingBox())!.width).toBe(52);
+    expect(await toolbar.evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect((await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!.height).toBe(760);
     for (const button of await toolbar.getByRole('button').all()) {
       const buttonBox = (await button.boundingBox())!;
       const iconBox = (await button.locator('svg').boundingBox())!;
@@ -60,7 +61,10 @@ test('Build keeps existing toolbar actions and zoom behavior at their new positi
     const toolboxBox = (await toolbar.boundingBox())!;
     expect(lastButton.y + lastButton.height).toBeLessThanOrEqual(toolboxBox.y + toolboxBox.height);
     if (width === 1440) {
-      expect((await page.getByRole('complementary', { name: 'Workflow assistant' }).boundingBox())!.height).toBe(680);
+      expect((await page.getByRole('complementary', { name: 'Workflow assistant' }).boundingBox())!.height).toBe(760);
+      const canvasBox = (await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox())!;
+      for (const section of [page.getByRole('region', { name: 'Action inspector', exact: true }), page.locator('details.library')])
+        expect((await section.boundingBox())!.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height);
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });

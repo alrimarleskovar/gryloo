@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { CanvasAction } from '../domain/canvas-authoring';
 
-export function ActionIcon({ action }: { action: CanvasAction | 'transfer' | 'action' }) {
+export function ActionIcon({ action }: { action: CanvasAction | 'stocks' | 'transfer' | 'action' }) {
   const paths = {
+    stocks: <><path d="M3 3v18h18M6 15l5-5 4 3 6-8m-5 0h5v5"/></>,
     transfer: <path d="M4 12h16m-5-5 5 5-5 5"/>,
     action: <rect x="5" y="5" width="14" height="14" rx="3"/>,
     swap: <><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4"/></>,

@@ -4,12 +4,23 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 export function HeaderSettings({ onDisconnect, disconnectDisabled }: { onDisconnect: () => void; disconnectDisabled: boolean }) {
   const [open, setOpen] = useState(false);
-  // Presentation preferences only; localization and theme application are deferred.
+  // Language remains a presentation preference.
   const [language, setLanguage] = useState<'PT' | 'EN'>('EN');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const container = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  useEffect(() => {
+    let saved: 'light' | 'dark' = 'light';
+    try { if (localStorage.getItem('flofi.theme') === 'dark') saved = 'dark'; } catch { /* Preferences are optional when storage is unavailable. */ }
+    setTheme(saved);
+    document.documentElement.dataset.theme = saved;
+  }, []);
+  function selectTheme(value: 'light' | 'dark') {
+    setTheme(value);
+    document.documentElement.dataset.theme = value;
+    try { localStorage.setItem('flofi.theme', value); } catch { /* The theme still applies for this visit. */ }
+  }
   useEffect(() => {
     if (!open) return;
     function outside(event: PointerEvent) {
@@ -38,10 +49,10 @@ export function HeaderSettings({ onDisconnect, disconnectDisabled }: { onDisconn
         {(['PT', 'EN'] as const).map(value => <button key={value} type="button" aria-pressed={language === value} title={value === 'PT' ? 'Português' : 'English'} onClick={() => setLanguage(value)}>{value}</button>)}
       </div></div>
       <div className="header-settings-row"><span>Theme</span><div className="header-settings-choices" role="group" aria-label="Theme">
-        <button type="button" aria-label="Light theme" title="Light theme" aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>
+        <button type="button" aria-label="Light theme" title="Light theme" aria-pressed={theme === 'light'} onClick={() => selectTheme('light')}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
         </button>
-        <button type="button" aria-label="Dark theme" title="Dark theme" aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>
+        <button type="button" aria-label="Dark theme" title="Dark theme" aria-pressed={theme === 'dark'} onClick={() => selectTheme('dark')}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.5 14.5A9 9 0 0 1 9.5 3.5a9 9 0 1 0 11 11Z"/></svg>
         </button>
       </div></div>

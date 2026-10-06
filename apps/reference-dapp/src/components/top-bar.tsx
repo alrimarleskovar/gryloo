@@ -16,12 +16,13 @@ import { ROUTER_NETWORK_OPTIONS } from '../domain/router-authoring';
 import { useJupiter } from '../state/jupiter-store';
 import Image from 'next/image';
 import { HeaderSettings } from './header-settings';
+import { walletEnvironmentLabel, walletExecutionEnvironment } from '../wallet/environment';
 import { useExecutionEnvironment } from '../state/capability-store';
 
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
 export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: ProductSection) => void }) {
-  const { environment, selectEnvironment } = useExecutionEnvironment();
+  const { walletEnvironment, walletKind } = useExecutionEnvironment();
   const { info, wallet } = useModeA();
   const modeB = useModeB();
   const build009 = useBuild009Wallet();
@@ -43,20 +44,24 @@ export function TopBar({ tab, setTab }: { tab: ProductSection; setTab: (value: P
   const required = EVM_WALLET_NETWORKS.find(network => network.chain === requiredChain)?.hex;
   // This is only a shortcut to existing user-driven wallet switching, never a capability or execution decision.
   const switchTarget = required === BASE_HEX || required === ARBITRUM_HEX || required === BASE_SEPOLIA_HEX || required === ROBINHOOD_TESTNET_HEX ? required : null;
-  const solanaActive = requiredChain?.startsWith('solana:') || Boolean(jupiter.recovered && jupiter.record && context.mockExample);
+  const solanaActive = walletKind === 'solana';
   const fork = info?.available ? info : null;
   return <header className="top-bar">
     <div className="brand"><span className="brand-mark"><Image src="/brand/flofi-logo.png" alt="FloFi" width={1062} height={299} unoptimized/></span></div>
     <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={tab === 'Dashboard' ? 'page' : undefined} className={tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined} aria-current={tab === value ? 'page' : undefined} className={tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
-      <select className="header-environment" aria-label="Environment" value={environment === 'PUBLIC_TESTNET' || environment === 'MAINNET' ? environment : ''}
-        onChange={event => selectEnvironment(event.target.value === 'MAINNET' ? 'MAINNET' : 'PUBLIC_TESTNET')}>
-        <option value="" disabled hidden>Network</option>
-        <option value="PUBLIC_TESTNET">Testnet</option><option value="MAINNET">Mainnet</option>
-      </select>
+      <span className="header-environment-control" data-environment={walletEnvironment}>
+        {walletEnvironment === 'mainnet' && <span className="header-mainnet-dot" aria-hidden="true"/>}
+        <select className="header-environment" aria-label="Environment" value={walletExecutionEnvironment(walletEnvironment) ?? ''}
+          disabled={solanaActive || !build009.account || build009.busy}
+          onChange={event => { void build009.switchTo(event.target.value === 'MAINNET' ? BASE_HEX : BASE_SEPOLIA_HEX); }}>
+          <option value="" disabled hidden>Network</option>
+          <option value="PUBLIC_TESTNET">Testnet</option><option value="MAINNET">Mainnet</option>
+        </select>
+      </span>
       <div className="header-wallet" role="group" aria-label="Wallet connection">
-      {solanaActive ? <span className="wallet-connection">{jupiter.owner ? `Solana wallet: ${jupiter.owner.slice(0, 6)}…${jupiter.owner.slice(-4)} · ${jupiter.network}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
+      {solanaActive ? <span className="wallet-connection">{jupiter.session ? `Solana wallet: ${jupiter.session.account.address.slice(0, 6)}…${jupiter.session.account.address.slice(-4)} · ${walletEnvironmentLabel(walletEnvironment)}` : 'Solana wallet not connected · connect in the workflow panel'}</span>
         : build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: {build009.account.slice(0, 6)}…{build009.account.slice(-4)} · {chainName(build009.chainId)}</span>
           : <><span className="wallet-connection">Wallet not connected</span><button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button></>}
       </div>

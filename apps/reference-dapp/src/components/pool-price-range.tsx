@@ -35,10 +35,13 @@ const validPrice = (price?: string) => Boolean(price && /^\d+(?:\.\d+)?$/.test(p
 
 /** A shared UI editing buffer, never a second workflow or an executable range. */
 export function PoolPriceRangeProvider({ children }: { children: ReactNode }) {
-  const { state, pending, dismissProposal } = useWorkflow();
+  const { state, pending, dismissProposal, actionSetup, cryptoSelections } = useWorkflow();
   const uniswap = useUniswapLiquidity(), solana = useSolanaLiquidity();
   const [entries, setEntries] = useState<Record<string, RangeEdit>>({});
   function protocol(nodeId: string) {
+    const selected = actionSetup?.id === nodeId ? actionSetup.cryptoSelection : cryptoSelections[nodeId];
+    if (selected?.action === 'pool') return selected.network === 'Solana Devnet' ? 'solana' : selected.network === 'Base Sepolia' ? 'uniswap' : null;
+    if (actionSetup?.id === nodeId && actionSetup.action === 'pool') return 'uniswap';
     const node = state.workflow.nodes.find(node => node.nodeId === nodeId);
     return node && uniswapLiquidityDetails(node) ? 'uniswap' : node && solanaLiquidityDetails(node) ? 'solana' : null;
   }
@@ -56,15 +59,15 @@ export function PoolPriceRangeProvider({ children }: { children: ReactNode }) {
       if (!Number.isFinite(percent)) return;
       const value = Math.round(Math.min(90, Math.max(0.01, percent)) * 100) / 100;
       setEntries(current => { const entry = current[nodeId] ?? initialRange; return { ...current, [nodeId]: { percent: value, preset: null, extent, edited: true, reference: entry.reference ?? reference(nodeId), reviewedKey: null } }; });
-      if (pending && 'nodeId' in pending.command && pending.command.nodeId === nodeId) dismissProposal();
+      if (pending && (pending.authoringId === nodeId || ('nodeId' in pending.command && pending.command.nodeId === nodeId))) dismissProposal();
     },
     selectPreset(nodeId, preset) {
       setEntries(current => { const entry = current[nodeId] ?? initialRange; return { ...current, [nodeId]: { ...entry, preset, extent: poolPricePresets[preset].extent,
         percent: preset === 'Estável' ? 0.03 : entry.percent, edited: true, reference: entry.reference ?? reference(nodeId), reviewedKey: null } }; });
-      if (pending && 'nodeId' in pending.command && pending.command.nodeId === nodeId) dismissProposal();
+      if (pending && (pending.authoringId === nodeId || ('nodeId' in pending.command && pending.command.nodeId === nodeId))) dismissProposal();
     },
     reviewed(nodeId, key) { setEntries(current => ({ ...current, [nodeId]: { ...(current[nodeId] ?? initialRange), reviewedKey: key } })); },
-    reset(nodeId) { if (pending && 'nodeId' in pending.command && pending.command.nodeId === nodeId) dismissProposal(); setEntries(current => ({ ...current, [nodeId]: { ...(current[nodeId] ?? initialRange), edited: false, reference: null, reviewedKey: null } })); },
+    reset(nodeId) { if (pending && (pending.authoringId === nodeId || ('nodeId' in pending.command && pending.command.nodeId === nodeId))) dismissProposal(); setEntries(current => ({ ...current, [nodeId]: { ...(current[nodeId] ?? initialRange), edited: false, reference: null, reviewedKey: null } })); },
   }}>{children}</Context.Provider>;
 }
 

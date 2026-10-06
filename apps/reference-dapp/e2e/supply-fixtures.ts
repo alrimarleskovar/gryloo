@@ -24,13 +24,18 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[];
     const state={connected:options.connected!==false,chain:options.chain??'0x14a34',account:options.account??owner};
-    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[])=>Promise<unknown>;supplyWalletRequests:typeof requests;releaseSupplyWalletRequest?:()=>void};
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const emit = (event: string, value: unknown) => { for (const listener of listeners.get(event) ?? []) listener(value); };
+    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[])=>Promise<unknown>;supplyWalletRequests:typeof requests;setSupplyWalletChain(chain: string): void;releaseSupplyWalletRequest?:()=>void};
     w.supplyWalletRequests=requests;
-    w.ethereum={request:async(input:{method:string;params?:unknown[]})=>{
+    w.setSupplyWalletChain = chain => { state.chain = chain; emit('chainChanged', chain); };
+    w.ethereum={on(event: string, listener: (...args: unknown[]) => void) { const group = listeners.get(event) ?? new Set(); group.add(listener); listeners.set(event, group); },
+      removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); }, request:async(input:{method:string;params?:unknown[]})=>{
       requests.push(input);
       if(input.method==='eth_accounts')return state.connected?[state.account]:[];
       if(input.method==='eth_requestAccounts'){state.connected=true;return[state.account];}
       if(input.method==='eth_chainId')return state.chain;
+      if(input.method==='wallet_switchEthereumChain') { w.setSupplyWalletChain((input.params?.[0] as { chainId: string }).chainId); return null; }
       if(input.method==='eth_getTransactionCount'){if(options.nonceFailure||options.lateNonceFailure&&requests.filter(r=>r.method==='eth_getTransactionCount').length===2)throw Object.assign(new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION',{cause:new Error('Disconnected transport')}),{code:4900,data:{stage:'READ_ONLY_PREFLIGHT'}});if(options.walletNonce!==undefined)return options.walletNonce;return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[]);}
       if(input.method==='eth_sendTransaction'){
         if(options.providerFailure)throw Object.assign(new Error('Provider refused malformed request',{cause:new Error('Validation')}),{code:-32602,data:{reason:'invalid transaction'}});
@@ -44,6 +49,10 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
       throw new Error('MOCK_WALLET_METHOD_DENIED');
     }};
   },{owner:SUPPLY_OWNER,options});
+}
+
+export async function setSupplyWalletChain(page: Page, chain: string) {
+  await page.evaluate(value => (window as unknown as { setSupplyWalletChain(chain: string): void }).setSupplyWalletChain(value), chain);
 }
 
 export async function resetSupplyHarness(options:Record<string,unknown>={}){

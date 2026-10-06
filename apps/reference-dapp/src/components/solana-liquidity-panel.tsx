@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { createSolanaLiquidityNode, solanaLiquidityDetails, solanaLiquidityInputOf, SOLANA_LIQUIDITY_DEFAULT_SLIPPAGE, type SolanaLiquidityInput } from '../domain/solana-liquidity-authoring';
 import { poolPriceBounds, usePoolPriceRange } from './pool-price-range';
+import { usePoolContributionInputs } from './canvas-card-inputs';
+import { TokenAmountInput } from './token-amount-input';
 import { formatTokenAmount } from '../domain/jupiter-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { useJupiter } from '../state/jupiter-store';
@@ -13,12 +15,20 @@ export function SolanaLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?:
   const { state, propose } = useWorkflow(), liquidity = useSolanaLiquidity();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId);
   const range = usePoolPriceRange(nodeId);
+  const contributions = usePoolContributionInputs(nodeId);
 
   const existing = node ? solanaLiquidityDetails(node) : null;
   const [input, setInput] = useState<SolanaLiquidityInput>(existing ? solanaLiquidityInputOf(existing)
     : { network: 'Solana Devnet', maxSol: '', maxDevUsdc: '', rangeUnit: 'PRICE', lower: '', upper: '', slippage: SOLANA_LIQUIDITY_DEFAULT_SLIPPAGE });
   const [error, setError] = useState('');
-  const set = (patch: Partial<SolanaLiquidityInput>) => { const editsRange = patch.lower !== undefined || patch.upper !== undefined || patch.rangeUnit !== undefined; if (editsRange) range.reset(); setInput({ ...(editsRange ? effectiveInput : input), ...patch }); };
+  const contributionInput = contributions.values ? { ...input, maxSol: contributions.values[0]!.amount, maxDevUsdc: contributions.values[1]!.amount } : input;
+  const set = (patch: Partial<SolanaLiquidityInput>) => {
+    if (patch.maxSol !== undefined) contributions.edit(0, patch.maxSol);
+    if (patch.maxDevUsdc !== undefined) contributions.edit(1, patch.maxDevUsdc);
+    const editsRange = patch.lower !== undefined || patch.upper !== undefined || patch.rangeUnit !== undefined;
+    if (editsRange) range.reset();
+    setInput({ ...(editsRange ? effectiveInput : contributionInput), ...patch });
+  };
   async function band() {
     const price = await liquidity.fetchPrice();
     if (price) set({ rangeUnit: 'PRICE', lower: price.lowerPrice, upper: price.upperPrice });
@@ -26,7 +36,7 @@ export function SolanaLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?:
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      const reviewedInput = range.edited ? { ...input, ...poolPriceBounds(range.reference, range.percent, range.preset) } : input;
+      const reviewedInput = range.edited ? { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) } : contributionInput;
       createSolanaLiquidityNode(nodeId ?? 'node-preview', reviewedInput); setError('');
       propose(nodeId ? { type: 'SET_SOLANA_LIQUIDITY', nodeId, input: reviewedInput, source: 'CANVAS', baseRevision: state.workflow.revision }
         : { type: 'ADD_SOLANA_LIQUIDITY', input: reviewedInput, source: 'CANVAS', baseRevision: state.workflow.revision });
@@ -34,15 +44,15 @@ export function SolanaLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?:
       onDone?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'SOLANA_LIQUIDITY_INPUT_INVALID'); }
   }
-  let effectiveInput = input;
+  let effectiveInput = contributionInput;
   if (range.edited && range.reference) {
-    try { effectiveInput = { ...input, ...poolPriceBounds(range.reference, range.percent, range.preset) }; } catch { /* submit reports the existing validation failure */ }
+    try { effectiveInput = { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) }; } catch { /* submit reports the existing validation failure */ }
   }
   const unit = effectiveInput.rangeUnit === 'PRICE' ? 'price (devUSDC per SOL)' : 'tick';
   return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId ? 'Edit Solana Devnet liquidity position' : 'Create Solana Devnet liquidity position'} onSubmit={submit}>
     <p className="muted">Orca Whirlpools · Devnet SOL / devUSDC (test) · fee 0.20% · tick spacing 64. Maxima are limits, not amounts to spend.</p>
-    <label>Maximum Devnet SOL<input aria-label="Maximum SOL" inputMode="decimal" autoComplete="off" maxLength={40} value={input.maxSol} onChange={e => set({ maxSol: e.target.value })}/></label>
-    <label>Maximum devUSDC (test)<input aria-label="Maximum devUSDC" inputMode="decimal" autoComplete="off" maxLength={40} value={input.maxDevUsdc} onChange={e => set({ maxDevUsdc: e.target.value })}/></label>
+    <label>Maximum Devnet SOL<TokenAmountInput aria-label="Maximum SOL" maxLength={40} value={contributionInput.maxSol} onValueChange={maxSol => set({ maxSol })}/></label>
+    <label>Maximum devUSDC (test)<TokenAmountInput aria-label="Maximum devUSDC" maxLength={40} value={contributionInput.maxDevUsdc} onValueChange={maxDevUsdc => set({ maxDevUsdc })}/></label>
     <label>Lower {unit}<input aria-label="Lower bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
     <label>Upper {unit}<input aria-label="Upper bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
     <button type="button" className="quiet" disabled={liquidity.busy} onClick={() => void band()}>Use ±10% around the current Devnet price</button>

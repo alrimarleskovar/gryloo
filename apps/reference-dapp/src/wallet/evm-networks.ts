@@ -11,21 +11,22 @@ export type AddChainParameters = { readonly chainId: string; readonly chainName:
   readonly nativeCurrency: { readonly name: string; readonly symbol: string; readonly decimals: number };
   readonly rpcUrls: readonly string[]; readonly blockExplorerUrls: readonly string[] };
 export type EvmWalletNetwork = { readonly hex: string; readonly chain: string; readonly label: string;
-  readonly switchable: boolean; readonly add: AddChainParameters | null };
+  readonly environment: 'testnet' | 'mainnet'; readonly switchable: boolean; readonly add: AddChainParameters | null };
 type Provider = { request(input: { method: string; params?: unknown[] }): Promise<unknown> };
 
-export const EVM_WALLET_NETWORKS: readonly EvmWalletNetwork[] = Object.freeze([
-  { hex: '0x2105', chain: 'eip155:8453', label: 'Base (8453)', switchable: true, add: null },
-  { hex: '0xa4b1', chain: 'eip155:42161', label: 'Arbitrum (42161)', switchable: true, add: null },
-  { hex: '0x14a34', chain: 'eip155:84532', label: 'Base Sepolia', switchable: true, add: { chainId: '0x14a34',
+export const EVM_WALLET_NETWORKS: readonly EvmWalletNetwork[] = Object.freeze(([
+  { hex: '0x2105', chain: 'eip155:8453', label: 'Base (8453)', environment: 'mainnet', switchable: true, add: null },
+  { hex: '0xa4b1', chain: 'eip155:42161', label: 'Arbitrum (42161)', environment: 'mainnet', switchable: true, add: null },
+  { hex: '0x14a34', chain: 'eip155:84532', label: 'Base Sepolia', environment: 'testnet', switchable: true, add: { chainId: '0x14a34',
     chainName: 'Base Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: ['https://sepolia.base.org'], blockExplorerUrls: ['https://sepolia.basescan.org'] } },
+  { hex: '0x66eee', chain: 'eip155:421614', label: 'Arbitrum Sepolia', environment: 'testnet', switchable: false, add: null },
   { hex: ROBINHOOD_CHAIN_TESTNET.chainHex, chain: ROBINHOOD_CHAIN_TESTNET.chain, label: 'Robinhood Chain Testnet (46630)',
-    switchable: true, add: robinhoodAddChainParameters(ROBINHOOD_CHAIN_TESTNET) },
+    environment: 'testnet', switchable: true, add: robinhoodAddChainParameters(ROBINHOOD_CHAIN_TESTNET) },
   // Recognized for display and wrong-chain detection. No Gryloo flow executes here, so it is never a switch target.
   { hex: ROBINHOOD_CHAIN_MAINNET.chainHex, chain: ROBINHOOD_CHAIN_MAINNET.chain, label: 'Robinhood Chain (4663)',
-    switchable: false, add: null },
-].map(network => Object.freeze(network)));
+    environment: 'mainnet', switchable: false, add: null },
+] satisfies EvmWalletNetwork[]).map(network => Object.freeze(network)));
 
 export function walletNetwork(hex: string | null | undefined): EvmWalletNetwork | null {
   if (typeof hex !== 'string') return null;

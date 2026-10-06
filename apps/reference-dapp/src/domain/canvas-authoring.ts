@@ -12,9 +12,7 @@ export function canvasAddCommand(action: CanvasAction, revision: number, owner: 
   if (action === 'bridge') return { ...base, type: 'ADD_ROUTER_BRIDGE', input: {
     source: 'Base Sepolia', destination: 'Arbitrum Sepolia', token: 'USDC', amount: amount!, recipient: '', slippage: '50', routing: 'AUTO',
   } };
-  if (action === 'pool') return { ...base, type: 'ADD_UNISWAP_LIQUIDITY', input: {
-    network: 'Base Sepolia', maxUsdc: '1', maxWeth: '0.0001', rangeUnit: 'TICK', lower: '-887270', upper: '887270', slippage: '50',
-  } };
+  if (action === 'pool') throw new Error('Configure the liquidity amounts before adding this action.');
   if (action === 'withdraw') return { ...base, type: 'ADD_WITHDRAW', input: {
     network: 'Base Sepolia', asset: 'USDC', amount: amount!, recipient: 'CONNECTED_OWNER',
   } };

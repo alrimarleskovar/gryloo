@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
 import { canvasAddCommand } from './canvas-authoring';
-import { canvasAmountCommand, canvasAmountMessage, canvasAuthoringIncomplete, amountCommandTarget } from './canvas-action-setup';
+import { canvasAmountCommand, canvasAmountMessage, canvasAuthoringIncomplete, amountCommandTarget, setupReviewValue, canvasAmountReviewValue, bridgeSetupNetworks, CANVAS_BRIDGE_NETWORK_OPTIONS } from './canvas-action-setup';
+import { ROUTER_NETWORK_OPTIONS, routerDetails, createRouterNode } from './router-authoring';
 import { editorHistoryReducer, initialEditorHistory, type EditorHistory } from './editor-history';
 
 const context = createBaseSepoliaReviewContext();
@@ -224,5 +225,142 @@ describe('single-value lending cards reuse guarded amount acceptance', () => {
     const sameCommand = canvasAmountCommand(sameAmount.editor, null, sameAmount.amountInputs, 'lending-borrow', context);
     expect(amountCommandTarget(sameCommand, accepted.editor.workflow, 'lending-borrow')).toEqual({ id: 'lending-borrow', amount: '0.02' });
     expect(incomplete(editorHistoryReducer(sameAmount, { type: 'COMMAND', command: sameCommand, context, authoringId: 'lending-borrow', authoringAmount: '0.02' }))).toBe(false);
+  });
+});
+
+describe('neutral Pool setup', () => {
+  it('keeps zero inputs outside the workflow and rejects stale reviews before accepting authored amounts', () => {
+    const initial = initialEditorHistory();
+    const draft = editorHistoryReducer(initial, { type: 'START_ACTION_SETUP', action: 'pool', position: { x: 90, y: 90 } });
+    const setup = draft.actionSetup;
+    if (setup?.action !== 'pool') throw new Error('Expected Pool setup');
+    expect(setup.input).toMatchObject({ maxUsdc: '0', maxWeth: '0' });
+    expect(draft.editor.workflow).toBe(initial.editor.workflow);
+    expect(incomplete(draft)).toBe(true);
+    expect(() => canvasAmountCommand(draft.editor, setup, {}, setup.id, context)).toThrow('UNISWAP_LIQUIDITY_ZERO');
+    const editing = editorHistoryReducer(draft, { type: 'EDIT_POOL_SETUP', id: setup.id, input: { ...setup.input, maxUsdc: '2.5', maxWeth: '0.0002' } });
+    const command = canvasAmountCommand(editing.editor, editing.actionSetup, {}, setup.id, context);
+    const authoringAmount = setupReviewValue(editing.actionSetup!);
+    const changed = editorHistoryReducer(editing, { type: 'EDIT_POOL_SETUP', id: setup.id, input: { ...setup.input, maxUsdc: '3' } });
+    expect(editorHistoryReducer(changed, { type: 'COMMAND', command, context, authoringId: setup.id, authoringAmount })).toBe(changed);
+    const accepted = editorHistoryReducer(editing, { type: 'COMMAND', command, context, authoringId: setup.id, authoringAmount });
+    expect(accepted.editor.error).toBeNull();
+    expect(accepted.editor.workflow.revision).toBe(1);
+    expect(accepted.actionSetup).toBeNull();
+    expect(financial(accepted)[0]?.actionType).toBe('asset.liquidity.concentrated');
+    expect(accepted.layout[financial(accepted)[0]!.nodeId]).toMatchObject({ x: 90, y: 90 });
+    const undone = editorHistoryReducer(accepted, { type: 'UNDO' });
+    expect(undone.actionSetup).toEqual(editing.actionSetup);
+    expect(financial(undone)).toHaveLength(0);
+    const redone = editorHistoryReducer(undone, { type: 'REDO' });
+    expect(redone.actionSetup).toBeNull(); expect(financial(redone)).toHaveLength(1);
+  });
+});
+
+
+describe('canvas token selection reuses supported Swap directions', () => {
+  it('keeps selection outside IR, invalidates stale reviews and validates the selected denomination on apply', () => {
+    const initial = input(start('swap'), '0.25'), id = initial.actionSetup!.id;
+    const command = canvasAmountCommand(initial.editor, initial.actionSetup, initial.amountInputs, id, context);
+    const selected = editorHistoryReducer(initial, { type: 'EDIT_SWAP_SETUP_DIRECTION', id, direction: 'WETH_TO_USDC' });
+    expect(selected.editor.workflow).toBe(initial.editor.workflow);
+    expect(editorHistoryReducer(selected, { type: 'COMMAND', command, context, authoringId: id, authoringAmount: setupReviewValue(initial.actionSetup!) })).toBe(selected);
+    const reviewed = canvasAmountCommand(selected.editor, selected.actionSetup, selected.amountInputs, id, context);
+    expect(reviewed).toMatchObject({ type: 'ADD_SWAP', direction: 'WETH_TO_USDC', amount: '0.25' });
+    const accepted = editorHistoryReducer(selected, { type: 'COMMAND', command: reviewed, context, authoringId: id, authoringAmount: setupReviewValue(selected.actionSetup!) });
+    expect(accepted.editor.error).toBeNull(); expect(incomplete(accepted)).toBe(false);
+    expect(financial(accepted)[0]!.inputs.find(field => field.kind === 'QUANTITY')).toMatchObject({ value: { asset: context.assets.WETH.asset, amount: '250000000000000000' } });
+    expect(() => validateAuthoringWorkflow(accepted.editor.workflow, context)).not.toThrow();
+    const undone = editorHistoryReducer(selected, { type: 'UNDO' });
+    expect(undone.actionSetup).toEqual(initial.actionSetup);
+    expect(editorHistoryReducer(undone, { type: 'REDO' }).actionSetup).toEqual(selected.actionSetup);
+    const excessivePrecision = input(selected, '0.0000000000000000001');
+    expect(() => canvasAmountCommand(excessivePrecision.editor, excessivePrecision.actionSetup, excessivePrecision.amountInputs, id, context)).toThrow();
+  });
+
+  it('rejects unsupported directions and selection on fixed-asset actions or unrelated cards', () => {
+    for (const action of ['bridge', 'supply', 'borrow', 'repay', 'withdraw'] as const) {
+      const initial = start(action);
+      expect(editorHistoryReducer(initial, { type: 'EDIT_SWAP_SETUP_DIRECTION', id: initial.actionSetup!.id, direction: 'WETH_TO_USDC' })).toBe(initial);
+    }
+    const initial = start('swap');
+    expect(editorHistoryReducer(initial, { type: 'EDIT_SWAP_SETUP_DIRECTION', id: 'other-card', direction: 'WETH_TO_USDC' })).toBe(initial);
+    expect(editorHistoryReducer(initial, { type: 'EDIT_SWAP_SETUP_DIRECTION', id: initial.actionSetup!.id, direction: 'FAKE' as 'WETH_TO_USDC' })).toBe(initial);
+  });
+});
+
+
+describe('Bridge card networks use existing router authoring capabilities', () => {
+  const choose = (state: EditorHistory, patch: { source?: 'Base' | 'Base Sepolia'; destination?: 'Arbitrum' | 'Arbitrum Sepolia' }, id = state.actionSetup!.id) =>
+    editorHistoryReducer(state, { type: 'EDIT_BRIDGE_NETWORKS', id, patch, context });
+  const review = (state: EditorHistory, id = state.actionSetup!.id) =>
+    canvasAmountCommand(state.editor, state.actionSetup, state.amountInputs, id, context, state.bridgeNetworkInputs);
+  const accept = (state: EditorHistory, id = state.actionSetup!.id) => editorHistoryReducer(state, { type: 'COMMAND', command: review(state, id), context, authoringId: id,
+    authoringAmount: state.actionSetup?.id === id ? setupReviewValue(state.actionSetup) : canvasAmountReviewValue(state.amountInputs[id], state.bridgeNetworkInputs[id])! });
+
+  it('offers the existing endpoint catalog and changes only the chosen side of a new card', () => {
+    expect(CANVAS_BRIDGE_NETWORK_OPTIONS.source).toEqual(Object.values(ROUTER_NETWORK_OPTIONS).map(option => option.source));
+    expect(CANVAS_BRIDGE_NETWORK_OPTIONS.destination).toEqual(Object.values(ROUTER_NETWORK_OPTIONS).map(option => option.destination));
+    const initial = input(start('bridge'), '2.5'), source = choose(initial, { source: 'Base' });
+    expect(source.actionSetup).toMatchObject({ amount: '2.5', networks: { source: 'Base', destination: 'Arbitrum Sepolia' } });
+    expect(source.editor.workflow).toBe(initial.editor.workflow);
+    expect(() => review(source)).toThrow('ROUTER_PAIR_UNSUPPORTED');
+    const destination = choose(source, { destination: 'Arbitrum' });
+    expect(destination.actionSetup).toMatchObject({ networks: { source: 'Base', destination: 'Arbitrum' } });
+    expect(review(destination)).toMatchObject({ type: 'ADD_ROUTER_BRIDGE', input: { source: 'Base', destination: 'Arbitrum', amount: '2.5' } });
+    const accepted = accept(destination);
+    expect(routerDetails(financial(accepted)[0]!)).toMatchObject({ source: 'Base', destination: 'Arbitrum', amount: '2.5' });
+    expect(accepted.editor.error).toBeNull(); expect(incomplete(accepted)).toBe(false);
+  });
+
+  it('rejects stale network reviews even when the amount did not change', () => {
+    const initial = input(start('bridge'), '2'), command = review(initial), id = initial.actionSetup!.id;
+    const changed = choose(choose(initial, { source: 'Base' }), { destination: 'Arbitrum' });
+    expect(editorHistoryReducer(changed, { type: 'COMMAND', command, context, authoringId: id, authoringAmount: setupReviewValue(initial.actionSetup!) })).toBe(changed);
+    const undo = editorHistoryReducer(changed, { type: 'UNDO' });
+    expect(undo.actionSetup).toMatchObject({ networks: { source: 'Base', destination: 'Arbitrum Sepolia' } });
+    expect(editorHistoryReducer(undo, { type: 'REDO' }).actionSetup).toEqual(changed.actionSetup);
+    expect(bridgeSetupNetworks(initial.actionSetup as Extract<typeof initial.actionSetup, { action: 'bridge' }>)).toEqual({ source: 'Base Sepolia', destination: 'Arbitrum Sepolia' });
+  });
+
+  it('rejects unsupported endpoints, wrong-side choices and network edits on other actions', () => {
+    const initial = start('bridge');
+    for (const source of ['Ethereum', 'Optimism', 'Arbitrum']) expect(choose(initial, { source: source as 'Base' })).toBe(initial);
+    expect(choose(initial, { destination: 'Base' as 'Arbitrum' })).toBe(initial);
+    const other = start('swap'); expect(choose(other, { source: 'Base' })).toBe(other);
+    expect(choose(initial, { source: 'Base' }, 'other-card')).toBe(initial);
+  });
+
+  it('edits configured router endpoints through SET_ROUTER_BRIDGE and preserves recipient, slippage and provider policy', () => {
+    const initial = editorHistoryReducer(initialEditorHistory(), { type: 'COMMAND', context, command: { type: 'ADD_ROUTER_BRIDGE', source: 'CANVAS', baseRevision: 0, input: { source: 'Base Sepolia', destination: 'Arbitrum Sepolia', token: 'USDC', amount: '2.5', recipient: owner, slippage: '75', routing: 'LIFI' } } }), id = financial(initial)[0]!.nodeId;
+    const source = choose(initial, { source: 'Base' }, id);
+    expect(source.editor.workflow).toBe(initial.editor.workflow);
+    expect(source.bridgeNetworkInputs[id]).toEqual({ source: 'Base', destination: 'Arbitrum Sepolia' });
+    expect(source.amountInputs[id]).toBe('2.5'); expect(incomplete(source)).toBe(true);
+    expect(() => review(source, id)).toThrow('ROUTER_PAIR_UNSUPPORTED');
+    const destination = choose(source, { destination: 'Arbitrum' }, id), command = review(destination, id);
+    expect(command).toMatchObject({ type: 'SET_ROUTER_BRIDGE', nodeId: id, input: { source: 'Base', destination: 'Arbitrum', amount: '2.5', recipient: owner, slippage: '75', routing: 'LIFI' } });
+    const accepted = accept(destination, id);
+    expect(accepted.editor.error).toBeNull(); expect(accepted.bridgeNetworkInputs).toEqual({}); expect(incomplete(accepted)).toBe(false);
+    expect(routerDetails(financial(accepted)[0]!)).toMatchObject({ source: 'Base', destination: 'Arbitrum', amount: '2.5', recipient: owner, slippage: '75', routing: 'LIFI' });
+    const undo = editorHistoryReducer(accepted, { type: 'UNDO' });
+    expect(routerDetails(financial(undo)[0]!)?.network).toBe('testnet'); expect(undo.bridgeNetworkInputs[id]).toEqual(destination.bridgeNetworkInputs[id]);
+    const cancel = editorHistoryReducer(destination, { type: 'CANCEL_CANVAS_AMOUNT', id });
+    expect(cancel.editor.workflow).toBe(initial.editor.workflow); expect(cancel.bridgeNetworkInputs).toEqual({}); expect(incomplete(cancel)).toBe(false);
+  });
+
+  it('binds configured-card review acceptance to the exact endpoint draft and respects locked routes', () => {
+    const initial = accept(input(start('bridge'), '2')), id = financial(initial)[0]!.nodeId;
+    const selected = choose(choose(initial, { source: 'Base' }, id), { destination: 'Arbitrum' }, id), command = review(selected, id);
+    const authoringAmount = canvasAmountReviewValue(selected.amountInputs[id], selected.bridgeNetworkInputs[id])!;
+    const changed = choose(selected, { destination: 'Arbitrum Sepolia' }, id);
+    expect(editorHistoryReducer(changed, { type: 'COMMAND', command, context, authoringId: id, authoringAmount })).toBe(changed);
+    const oldRoute = review(input(initial, '2', id), id);
+    expect(editorHistoryReducer(selected, { type: 'COMMAND', command: oldRoute, context, authoringId: id, authoringAmount })).toBe(selected);
+    const node = createRouterNode('locked', { source: 'Base', destination: 'Arbitrum', token: 'USDC', amount: '2', recipient: '', slippage: '50', routing: 'AUTO' });
+    const locked = { ...initial, editor: { ...initial.editor, workflow: { ...initial.editor.workflow, nodes: [{ ...node, lockedParameters: [node.inputs[0]!] }] } } };
+    expect(choose(locked, { source: 'Base Sepolia' }, 'locked')).toBe(locked);
+    const legacy = editorHistoryReducer(initialEditorHistory(), { type: 'COMMAND', context, command: { type: 'ADD_BRIDGE', input: { amount: '2', slippageBps: '50' }, source: 'CANVAS', baseRevision: 0 } });
+    expect(choose(legacy, { source: 'Base Sepolia' }, financial(legacy)[0]!.nodeId)).toBe(legacy);
   });
 });

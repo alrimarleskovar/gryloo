@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import type { WalletEnvironment } from '../wallet/environment';
+import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET } from '@defi-workflow-engine/action-registry';
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import {lendingDetails,lendingCanvasEdges} from '../domain/lending-authoring';
 import {useBuild009Wallet} from '../state/build009-wallet-store';
@@ -10,19 +12,22 @@ import { ReactFlow, Background, Controls, Handle, Position, useNodesInitialized,
 import { MOCKED_CHAIN_PROFILE, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { amountOf } from '../domain/commands';
 import { bridgeDetails } from '../domain/bridge-authoring';
-import { formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
+import { directions, inputSymbol, outputSymbol, formatHumanAmount, swapDetails, SWAP_ACTION } from '../domain/swap-authoring';
 import { solanaSwapDetails, solanaSwapLabels } from '../domain/jupiter-authoring';
 import { solanaLiquidityDetails } from '../domain/solana-liquidity-authoring';
 import { uniswapLiquidityDetails } from '../domain/uniswap-liquidity-authoring';
-import { routerDetails, ROUTER_ROUTING_LABEL } from '../domain/router-authoring';
+import { routerDetails, routerNetworkOfInput, ROUTER_NETWORK_OPTIONS, ROUTER_ROUTING_LABEL } from '../domain/router-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { editorReducer } from '../domain/editor';
 import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/canvas-authoring';
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
 import { ComposerCard, supplyReviewFormId, poolReviewFormId, poolProposalTarget, type ComposerCardData } from './composer-card';
-import { canEditCanvasAmount, setupSummary } from '../domain/canvas-action-setup';
+import { canEditCanvasAmount, setupSummary, bridgeSetupNetworks, type CanvasBridgeNetworks } from '../domain/canvas-action-setup';
 import { ActionIcon } from './action-icon';
+import { useStockCardInputs } from './canvas-card-inputs';
+import { cryptoNetworks, cryptoSelectionOf, cryptoProfile, cryptoTokenOptions, selectCryptoNetwork, selectCryptoToken, canSelectCryptoAssets, type CryptoSelection, type CryptoAction } from '../domain/crypto-action-picker';
+import { actionReviewValue } from '../domain/canvas-action-setup';
 import { SimulateWorkflowCanvas } from './simulate-workflow-canvas';
 import { composerActions, composerSummary, composerNodeState, composerConnections, singleAmountProposalTarget } from '../domain/composer-presentation';
 import { canDeleteCanvasEdge, canDeleteCanvasNode, deletableCanvasNodes, isTextEntry } from '../domain/canvas-keyboard';
@@ -90,7 +95,7 @@ function LendingCanvasViewport() {
   useLayoutEffect(()=>{if(initialized)void fitView({padding:COMPOSER_FIT_PADDING,minZoom:0.35,maxZoom:1.1});},[initialized,size,fitView]);
   return null;
 }
-const actions = CANVAS_ACTIONS;
+const actions = [...CANVAS_ACTIONS, 'stocks'] as const;
 function actionLabel(action: typeof actions[number]) { return action === 'lending' ? 'Lending' : action === 'pool' ? 'Pool / Liquidity' : action[0]!.toUpperCase() + action.slice(1); }
 function HistoryIcon({ direction }: { direction: 'undo' | 'redo' }) {
   return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -207,7 +212,7 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
   </section>;
 }
 
-type BuildCanvasProps = { selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
+type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; primaryAction?: ReactNode };
 const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
 export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay?: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
   if ('mode' in props && props.mode === 'simulate') return <SimulateWorkflowCanvas workflowName={props.workflowName} primaryAction={props.primaryAction}/>;
@@ -215,11 +220,12 @@ export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; wor
   return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, primaryAction }: BuildCanvasProps) {
+function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, primaryAction }: BuildCanvasProps) {
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review,
-    actionSetup = null, amountInputs = {}, startActionSetup, editCanvasAmount, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup, pending, applyProposal } = useWorkflow();
+    actionSetup = null, amountInputs = {}, bridgeNetworkInputs = {}, cryptoSelections = {}, editCryptoSelection, startActionSetup, editCanvasAmount, editSwapSetupDirection, editBridgeNetworks, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup, pending, applyProposal, dismissProposal } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const wallet=useBuild009Wallet();
+  const stocks = useStockCardInputs();
   const [selectedIds, setSelectedIds] = useState<readonly string[]>(() => selectedId ? [selectedId] : []);
   const selectedIdsRef = useRef<readonly string[]>(selectedId ? [selectedId] : []);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -255,12 +261,12 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
     if (selectedEdge && !composerConnections(workflow).some(edge => edge.source === selectedEdge.from && edge.target === selectedEdge.to)) setSelectedEdge(null);
   }, [workflow, selectedEdge]);
   useEffect(() => {
-    const remaining = selectedIdsRef.current.filter(id => actionSetup?.id === id || workflow.nodes.some(node => node.nodeId === id));
+    const remaining = selectedIdsRef.current.filter(id => actionSetup?.id === id || stocks.cards.some(card => card.id === id) || workflow.nodes.some(node => node.nodeId === id));
     if (remaining.length !== selectedIdsRef.current.length) { selectedIdsRef.current = remaining; setSelectedIds(remaining); }
     // A newly accepted node replaces its setup card's ID; let the addition effect transfer selection without closing explicitly opened settings.
-    if (selectedId && selectedId !== actionSetup?.id && !workflow.nodes.some(node => node.nodeId === selectedId) &&
+    if (selectedId && selectedId !== actionSetup?.id && !stocks.cards.some(card => card.id === selectedId) && !workflow.nodes.some(node => node.nodeId === selectedId) &&
       !composerActions(workflow).some(node => !previousNodeIds.current.has(node.nodeId))) select(null);
-  }, [workflow, actionSetup, selectedId, select]);
+  }, [workflow, actionSetup, selectedId, select, stocks.cards]);
   const previousSetupId = useRef(actionSetup?.id);
   useEffect(() => {
     if (actionSetup && previousSetupId.current !== actionSetup.id) selectNodes([actionSetup.id], actionSetup.id);
@@ -302,22 +308,90 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
       if (!selected.length) return;
       event.preventDefault();
       const removingSetup = Boolean(actionSetup && selected.includes(actionSetup.id));
-      const canonicalSelection = selected.filter(id => id !== actionSetup?.id);
+      const stockSelection = selected.filter(id => stocks.cards.some(card => card.id === id));
+      const canonicalSelection = selected.filter(id => id !== actionSetup?.id && !stockSelection.includes(id));
       const removable = deletableCanvasNodes(workflow, canonicalSelection);
+      if (stockSelection.length) stocks.remove(stockSelection);
       if (removingSetup) removeActionSetup();
       if (removable.length) {
         dispatch({ type: 'REMOVE_MANY', nodeIds: removable, source: 'CANVAS', baseRevision: workflow.revision });
         selectNodes(selected.filter(id => !removable.includes(id)), null);
       }
-      if (removingSetup && !removable.length) selectNodes([], null);
+      if ((removingSetup || stockSelection.length) && !removable.length) selectNodes([], null);
       if (removable.length !== canonicalSelection.length) setFeedback(removable.length
         ? 'Some selected steps are required by another step or are protected.'
         : 'This step is required by another step or is protected.');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, workflow, actionSetup, removeActionSetup, selectedEdge, select, undo, redo]);
+  }, [dispatch, workflow, actionSetup, removeActionSetup, selectedEdge, select, undo, redo, stocks]);
+  const previousEnvironment = useRef(environment);
+  useEffect(() => {
+    if (previousEnvironment.current === environment) return;
+    previousEnvironment.current = environment;
+    if (pending?.command.type === 'ADD_ROUTER_BRIDGE' || pending?.command.type === 'SET_ROUTER_BRIDGE') dismissProposal();
+    else if (pending && ['ADD_CRYPTO_ACTION', 'SET_CRYPTO_ACTION', 'ADD_UNISWAP_LIQUIDITY', 'SET_UNISWAP_LIQUIDITY', 'ADD_SOLANA_LIQUIDITY', 'SET_SOLANA_LIQUIDITY', 'ADD_SUPPLY', 'SET_SUPPLY', 'ADD_BORROW', 'SET_BORROW', 'ADD_REPAY', 'SET_REPAY', 'ADD_WITHDRAW', 'SET_WITHDRAW'].includes(pending.command.type)) dismissProposal();
+  }, [environment, pending, dismissProposal]);
+  useEffect(() => {
+    if (!environment || environment === 'unknown') return;
+    if (actionSetup && actionSetup.action !== 'bridge') {
+      const available = cryptoNetworks(actionSetup.action, environment);
+      const selection = actionSetup.cryptoSelection;
+      if (available.length && !available.some(profile => profile.network === selection?.network)) editCryptoSelection(actionSetup.id, selectCryptoNetwork(actionSetup.action, available[0]!.network, selection), wallet.account ?? undefined);
+    }
+    for (const node of workflow.nodes) {
+      const selection = cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node);
+      if (!selection || !canSelectCryptoAssets(node, workflow)) continue;
+      const available = cryptoNetworks(selection.action, environment);
+      if (available.length && !available.some(profile => profile.network === selection.network)) editCryptoSelection(node.nodeId, selectCryptoNetwork(selection.action, available[0]!.network, selection), wallet.account ?? undefined);
+    }
+  }, [environment, actionSetup, workflow, cryptoSelections, editCryptoSelection, wallet.account]);
+  useEffect(() => {
+    if (environment !== 'mainnet' && environment !== 'testnet') return;
+    const option = ROUTER_NETWORK_OPTIONS[environment];
+    const alignNetworks = (id: string, current: CanvasBridgeNetworks) => {
+      const patch: Partial<CanvasBridgeNetworks> = {
+        ...(current.source !== option.source ? { source: option.source } : {}),
+        ...(current.destination !== option.destination ? { destination: option.destination } : {}),
+      };
+      // Change only editable drafts; the canonical route still requires Review / Apply.
+      if (Object.keys(patch).length) editBridgeNetworks(id, patch);
+    };
+    if (actionSetup?.action === 'bridge') alignNetworks(actionSetup.id, bridgeSetupNetworks(actionSetup));
+    for (const node of workflow.nodes) {
+      const details = routerDetails(node);
+      if (details && canEditCanvasAmount(node, context, workflow)) alignNetworks(node.nodeId, bridgeNetworkInputs[node.nodeId] ?? details);
+    }
+  }, [environment, actionSetup, workflow, context, bridgeNetworkInputs, editBridgeNetworks]);
   const projectedNodes = useMemo<Node[]>(() => {
+    const actionSelection = (id: string, selection: CryptoSelection, editable = true) => {
+      const profiles = cryptoNetworks(selection.action, environment ?? 'unknown');
+      const valid = profiles.some(profile => profile.network === selection.network);
+      return { selection, networks: profiles.filter(profile => editable || profile.network === selection.network).map(profile => profile.network), valid,
+        tokens: { source: valid ? editable ? cryptoTokenOptions(selection, 'source') : [selection.from] : [], destination: valid ? editable ? cryptoTokenOptions(selection, 'destination') : selection.to ? [selection.to] : [] : [] },
+        onNetwork: (network: string) => { if (editable && profiles.some(profile => profile.network === network)) editCryptoSelection(id, selectCryptoNetwork(selection.action, network, selection), wallet.account ?? undefined); },
+        onToken: (side: 'source' | 'destination', token: string) => { if (editable) editCryptoSelection(id, selectCryptoToken(selection, side, token)); },
+      };
+    };
+    const selectedSummary = (summary: ReturnType<typeof composerSummary>, selection?: CryptoSelection | null) => !selection ? summary : {
+      ...summary, chain: selection.network, provider: cryptoProfile(selection)!.provider,
+      amount: `${summary.amount.split(' ')[0]} ${selection.from}`, detail: selection.action === 'swap' ? `${selection.from} → ${selection.to}` : summary.detail,
+      ...(summary.liquidityValues ? { liquidityValues: summary.liquidityValues.map((value, index) => ({ ...value, token: index ? selection.to! : selection.from })) } : {}),
+    };
+    const bridgeSelection = (id: string, networks: CanvasBridgeNetworks) => {
+      const network = environment === 'mainnet' || environment === 'testnet' ? environment : null;
+      const option = network ? ROUTER_NETWORK_OPTIONS[network] : null;
+      return {
+        source: option ? [option.source] : [], destination: option ? [option.destination] : [],
+        valid: network !== null && routerNetworkOfInput(networks) === network,
+        // Solana has swap/liquidity support, but no canonical Bridge pair yet.
+        unavailable: [network === 'testnet' ? ORCA_WHIRLPOOLS_DEVNET.network : JUPITER_SOLANA_MAINNET.network],
+        onSelect: (side: 'source' | 'destination', selected: string) => {
+          if (option && side === 'source' && selected === option.source) editBridgeNetworks(id, { source: option.source });
+          if (option && side === 'destination' && selected === option.destination) editBridgeNetworks(id, { destination: option.destination });
+        },
+      };
+    };
     const proposalTarget = pending?.authoringId ?? (pending ? singleAmountProposalTarget(workflow, pending.command) : null);
     const projected: Node[] = composerActions(workflow).map((node, index) => ({
     id: node.nodeId, type: 'workflow',
@@ -326,16 +400,21 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
       isLendingComposition(workflow) ? { x: 180, y: 35 + index * 230 } : canvasPosition(canvasLayout, node, index),
     selected: selectedIds.includes(node.nodeId) || selectedId === node.nodeId,
     data: { composer: true, onOpenSettings: () => { selectNodes([node.nodeId], node.nodeId); openSettings?.(node.nodeId); }, step: index + 1, selected: selectedId === node.nodeId,
-      vertical: isLendingComposition(workflow), summary: composerSummary(workflow, node, context),
+      vertical: isLendingComposition(workflow), summary: selectedSummary(composerSummary(workflow, node, context), cryptoSelections[node.nodeId]),
+      ...(cryptoSelectionOf(node) ? { actionSelection: actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!, canSelectCryptoAssets(node, workflow)) } : {}),
+      ...(routerDetails(node) ? {
+        summary: { ...composerSummary(workflow, node, context), chain: `${(bridgeNetworkInputs[node.nodeId] ?? routerDetails(node)!).source} → ${(bridgeNetworkInputs[node.nodeId] ?? routerDetails(node)!).destination}` },
+        ...(canEditCanvasAmount(node, context, workflow) ? { networkSelection: bridgeSelection(node.nodeId, bridgeNetworkInputs[node.nodeId] ?? routerDetails(node)!) } : {}),
+      } : {}),
       ...(composerSummary(workflow, node, context).action === 'Pool / Liquidity' ? { poolProposal: {
         nodeId: node.nodeId, formId: poolReviewFormId(node.nodeId), canReview: selectedId === node.nodeId,
-        canApply: Boolean(pending?.valid && poolProposalTarget(pending.command) === node.nodeId && pending.command.baseRevision === workflow.revision),
+        canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && pending?.valid && poolProposalTarget(pending.command) === node.nodeId && pending.command.baseRevision === workflow.revision),
         onApply: applyProposal,
       } } : {}),
       ...(['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) ? { supplyProposal: {
         formId: supplyReviewFormId(node.nodeId), reviewLabel: `Review ${composerSummary(workflow, node, context).action} change`, canReview: selectedId === node.nodeId,
         hasProposal: Boolean(pending && proposalTarget === node.nodeId),
-        canApply: Boolean(pending?.valid && proposalTarget === node.nodeId && pending.command.baseRevision === workflow.revision),
+        canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && pending?.valid && proposalTarget === node.nodeId && pending.command.baseRevision === workflow.revision),
         onApply: applyProposal,
       } } : {}),
       validation: node.actionType !== 'supply' && amountInputs[node.nodeId] !== undefined
@@ -345,7 +424,7 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
         ...(['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) ? { formId: supplyReviewFormId(node.nodeId) } : {}),
         value: amountInputs[node.nodeId] ?? composerSummary(workflow, node, context).amount.split(' ')[0]!,
         changed: amountInputs[node.nodeId] !== undefined,
-        canApply: Boolean(pending?.valid && pending.authoringId === node.nodeId && pending.authoringAmount === amountInputs[node.nodeId] && pending.command.baseRevision === workflow.revision),
+        canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && (!routerDetails(node) || bridgeSelection(node.nodeId, bridgeNetworkInputs[node.nodeId] ?? routerDetails(node)!).valid) && pending?.valid && pending.authoringId === node.nodeId && pending.authoringAmount === actionReviewValue(null, node.nodeId, amountInputs[node.nodeId], bridgeNetworkInputs[node.nodeId], cryptoSelections[node.nodeId]) && pending.command.baseRevision === workflow.revision),
         onChange: (value: string) => editCanvasAmount(node.nodeId, value),
         onReview: () => reviewCanvasAmount(node.nodeId), onCancel: () => cancelCanvasAmount(node.nodeId),
         onApply: applyProposal,
@@ -355,19 +434,39 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
       position: canvasLayout[actionSetup.id] ?? defaultCanvasPosition(projected.length), selected: selectedId === actionSetup.id,
       data: { composer: true, onOpenSettings: () => { selectNodes([actionSetup.id], actionSetup.id); openSettings?.(actionSetup.id); }, step: projected.length + 1, selected: selectedId === actionSetup.id, vertical: false,
         summary: setupSummary(actionSetup, context),
+        ...(actionSetup.action !== 'bridge' ? { actionSelection: actionSelection(actionSetup.id, actionSetup.cryptoSelection ?? selectCryptoNetwork(actionSetup.action as CryptoAction, actionSetup.action === 'swap' ? context.assets.USDC.asset.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base' : 'Base Sepolia')) } : {}),
+        ...(actionSetup.action === 'bridge' ? { networkSelection: bridgeSelection(actionSetup.id, bridgeSetupNetworks(actionSetup)) } : {}),
+        ...(actionSetup.action === 'swap' ? { tokenSelection: {
+          source: directions.map(direction => inputSymbol(direction)), destination: directions.map(direction => outputSymbol(direction)),
+          onSelect: (side: 'source' | 'destination', symbol: string) => {
+            const direction = directions.find(direction => (side === 'source' ? inputSymbol(direction) : outputSymbol(direction)) === symbol);
+            if (direction) editSwapSetupDirection(actionSetup.id, direction);
+          },
+        } } : {}),
         validation: { findings: [], status: 'Draft', tone: 'neutral', message: undefined, next: undefined },
-        ...(actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' ? { supplyProposal: {
+        ...(actionSetup.action === 'pool' ? { poolProposal: { nodeId: actionSetup.id, formId: poolReviewFormId(actionSetup.id),
+          canReview: selectedId === actionSetup.id,
+          canApply: Boolean(Boolean(actionSetup.cryptoSelection && actionSelection(actionSetup.id, actionSetup.cryptoSelection).valid) && pending?.valid && pending.authoringId === actionSetup.id && pending.authoringAmount === actionReviewValue(actionSetup, actionSetup.id, undefined) && pending.command.baseRevision === workflow.revision), onApply: applyProposal } } : {}),
+        ...(actionSetup.action !== 'pool' && actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' ? { supplyProposal: {
           formId: supplyReviewFormId(actionSetup.id), reviewLabel: `Review ${setupSummary(actionSetup, context).action} change`, canReview: selectedId === actionSetup.id,
           hasProposal: pending?.authoringId === actionSetup.id,
-          canApply: Boolean(pending?.valid && pending.authoringId === actionSetup.id && pending.authoringAmount === actionSetup.amount && pending.command.baseRevision === workflow.revision),
+          canApply: Boolean(Boolean(actionSetup.cryptoSelection && actionSelection(actionSetup.id, actionSetup.cryptoSelection).valid) && pending?.valid && pending.authoringId === actionSetup.id && pending.authoringAmount === actionReviewValue(actionSetup, actionSetup.id, undefined) && pending.command.baseRevision === workflow.revision),
           onApply: applyProposal,
         } } : {}),
-        amountEditor: { ...(actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' ? { formId: supplyReviewFormId(actionSetup.id) } : {}), value: actionSetup.amount, changed: true, onChange: (value: string) => editCanvasAmount(actionSetup.id, value),
-          canApply: Boolean(pending?.valid && pending.authoringId === actionSetup.id && pending.authoringAmount === actionSetup.amount && pending.command.baseRevision === workflow.revision),
-          onReview: () => reviewCanvasAmount(actionSetup.id), onApply: applyProposal },
+        ...(actionSetup.action !== 'pool' ? { amountEditor: { ...(actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' ? { formId: supplyReviewFormId(actionSetup.id) } : {}), value: actionSetup.amount, changed: true, onChange: (value: string) => editCanvasAmount(actionSetup.id, value),
+          canApply: Boolean((actionSetup.action === 'bridge' || Boolean(actionSetup.cryptoSelection && actionSelection(actionSetup.id, actionSetup.cryptoSelection).valid)) && (actionSetup.action !== 'bridge' || bridgeSelection(actionSetup.id, bridgeSetupNetworks(actionSetup)).valid) && pending?.valid && pending.authoringId === actionSetup.id && pending.authoringAmount === actionReviewValue(actionSetup, actionSetup.id, undefined) && pending.command.baseRevision === workflow.revision),
+          onReview: () => reviewCanvasAmount(actionSetup.id), onApply: applyProposal } } : {}),
+      } });
+    for (const card of stocks.cards) projected.push({ id: card.id, type: 'workflow', position: card.position,
+      ariaLabel: `Step ${projected.length + 1}: Stocks`, selected: selectedIds.includes(card.id) || selectedId === card.id,
+      data: { composer: true, step: projected.length + 1, selected: selectedId === card.id, vertical: false,
+        summary: { action: 'Stocks', provider: 'Robinhood', chain: stocks.network, amount: `${card.amount} ${card.equity}`, detail: undefined, bridgePair: undefined, linked: false, risk: undefined },
+        validation: { findings: [], status: 'Draft', tone: 'neutral' },
+        stocks: { equity: card.equity, amount: card.amount, onAmountChange: (amount: string) => stocks.edit(card.id, { amount }), onEquityChange: (equity: typeof card.equity) => stocks.edit(card.id, { equity }) },
+        onOpenSettings: () => { selectNodes([card.id], card.id); openSettings?.(card.id); },
       } });
     return projected;
-  }, [workflow, actionSetup, amountInputs, selectedId, selectedIds, context, canvasLayout, review, editCanvasAmount, reviewCanvasAmount, cancelCanvasAmount, openSettings, pending, applyProposal]);
+  }, [environment, workflow, actionSetup, amountInputs, bridgeNetworkInputs, cryptoSelections, editCryptoSelection, wallet.account, selectedId, selectedIds, context, canvasLayout, review, editCanvasAmount, editSwapSetupDirection, editBridgeNetworks, reviewCanvasAmount, cancelCanvasAmount, openSettings, pending, applyProposal, stocks]);
   // Live pointer positions stay in React Flow state; layout is committed on release.
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(projectedNodes);
   useLayoutEffect(() => {
@@ -378,14 +477,21 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
   }, [projectedNodes, setNodes]);
   const edges = useMemo(() => composerConnections(workflow).map(edge => ({ ...edge,
     type: 'smoothstep', animated: false,
-    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? '#2466c2' : '#6b809b' },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? 'var(--edge-active)' : 'var(--edge-line)' },
     selected: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target,
-    style: { stroke: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? '#2466c2' : '#6b809b', strokeWidth: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? 2.5 : 1.5 },
-    labelStyle: { fontSize: 10, fill: '#536780' }, labelBgStyle: { fill: '#f8fafd' },
+    style: { stroke: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? 'var(--edge-active)' : 'var(--edge-line)', strokeWidth: selectedEdge?.from === edge.source && selectedEdge?.to === edge.target ? 2.5 : 1.5 },
+    labelStyle: { fontSize: 10, fill: 'var(--edge-label)' }, labelBgStyle: { fill: 'var(--page)' },
   })), [workflow, selectedEdge]);
-  function addAction(action: CanvasAction) {
+  function addAction(action: CanvasAction | 'stocks') {
+    if (action === 'stocks') {
+      let slot = projectedNodes.length, position = defaultCanvasPosition(slot);
+      while (nodes.some(node => Math.abs(node.position.x - position.x) < 220 && Math.abs(node.position.y - position.y) < 140)) position = defaultCanvasPosition(++slot);
+      const id = stocks.add(position);
+      selectNodes([id], id);
+      return;
+    }
     if (actionSetup) { selectNodes([actionSetup.id], actionSetup.id); setFeedback('Configure this action before adding another.'); return; }
-    if (action === 'swap' || action === 'bridge' || action === 'supply' || action === 'borrow' || action === 'repay' || action === 'withdraw') {
+    if (action === 'pool' || action === 'swap' || action === 'bridge' || action === 'supply' || action === 'borrow' || action === 'repay' || action === 'withdraw') {
       if (['supply', 'borrow', 'repay'].includes(action) && !wallet.account) { setFeedback('Connect your wallet to set the beneficiary before adding this action.'); return; }
       let slot = composerActions(workflow).length;
       let position = defaultCanvasPosition(slot);
@@ -418,9 +524,12 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
   }
   function commitDrag(dragged: Node, draggedNodes: Node[]) {
     const moved = draggedNodes.length ? draggedNodes : [dragged];
-    moveCanvasNodes(Object.fromEntries(moved.map(node => [node.id, node.position])));
+    const stockIds = new Set(stocks.cards.map(card => card.id));
+    for (const node of moved) if (stockIds.has(node.id)) stocks.edit(node.id, { position: node.position });
+    const canonical = moved.filter(node => !stockIds.has(node.id));
+    if (canonical.length) moveCanvasNodes(Object.fromEntries(canonical.map(node => [node.id, node.position])));
   }
-  const duplicatePlan = actionSetup || Object.keys(amountInputs).length ? null : planCanvasDuplicate(workflow, canvasLayout, selectedIds, context);
+  const duplicatePlan = actionSetup || Object.keys(amountInputs).length || stocks.cards.some(card => selectedIds.includes(card.id)) ? null : planCanvasDuplicate(workflow, canvasLayout, selectedIds, context);
   function duplicateSelection() {
     if (!duplicatePlan) return;
     duplicateCanvasNodes(selectedIdsRef.current);
@@ -466,9 +575,10 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
     }
     dispatch(command); setFeedback('');
   }
-  const deleteAllowed = Boolean(selectedId && selectedId === actionSetup?.id) || canDeleteCanvasNode(workflow, selectedId);
+  const deleteAllowed = Boolean(selectedId && selectedId === actionSetup?.id) || stocks.cards.some(card => card.id === selectedId) || canDeleteCanvasNode(workflow, selectedId);
   function deleteSelectedCard() {
     if (!selectedId || !deleteAllowed) return;
+    if (stocks.cards.some(card => card.id === selectedId)) { stocks.remove([selectedId]); selectNodes([], null); return; }
     if (selectedId === actionSetup?.id) { removeActionSetup(); selectNodes([], null); return; }
     dispatch({ type: 'REMOVE', nodeId: selectedId, source: 'CANVAS', baseRevision: workflow.revision });
     selectNodes(selectedIdsRef.current.filter(id => id !== selectedId), null);
@@ -477,8 +587,8 @@ function BuildCanvas({ selectedId, select, openSettings, workflowName = 'Your Wo
   const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Canvas tools">
     <div className="canvas-primary-tools" role="group" aria-label="Workflow actions">
     {actions.map(action => <button key={action} type="button"
-      title={action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add ' + actionLabel(action)}
-      aria-label={action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
+      title={action === 'stocks' ? 'Stocks' : action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add ' + actionLabel(action)}
+      aria-label={action === 'stocks' ? 'Stocks' : action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
     <button type="button" disabled aria-label="Privacy" title="Privacy · not available yet">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/></svg><span>Privacy</span>
     </button>

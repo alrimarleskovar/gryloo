@@ -15,3 +15,12 @@ export async function configureCanvasAction(page: Page, amount: string) {
 export async function openCanvasSettings(page: Page) {
   await page.locator('.build-flow-surface .composer-card.active').getByRole('button', { name: 'Advanced Settings', exact: true }).click();
 }
+
+/** Configure a neutral Pool through the existing card Review/Apply controls. */
+export async function configureCanvasPool(page: Page, usdc = '1', weth = '0.0001') {
+  const card = page.locator('.build-flow-surface .composer-card').last();
+  await card.getByRole('textbox', { name: 'First liquidity amount (USDC)', exact: true }).fill(usdc);
+  await card.getByRole('textbox', { name: 'Second liquidity amount (WETH)', exact: true }).fill(weth);
+  await card.getByRole('button', { name: 'Review', exact: true }).click();
+  await card.getByRole('button', { name: 'Apply', exact: true }).click();
+}

@@ -9,6 +9,7 @@ import { useWorkflow } from '../state/workflow-store';
 import { TokenAmountInput } from './token-amount-input';
 import { useRouter } from '../state/router-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
+import { useExecutionEnvironment } from '../state/capability-store';
 
 /** Network labels: mainnet keeps the BUILD-ROUTER-001 wording; the testnet journey names Base Sepolia / Arbitrum Sepolia. */
 type Labels = { src: string; dst: string; dstShort: string; srcScan: string; dstScan: string };
@@ -21,7 +22,8 @@ const explorerTx = (network: RouterNetwork, chain: 'source' | 'destination', has
 
 /** Canvas form for the canonical cross-chain bridge node (USDC → USDC through the Cross-chain Router, mainnet or testnet). */
 export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId?: string; onDone?: () => void; network?: RouterNetwork }) {
-  const { state, propose, amountInputs = {}, editCanvasAmount } = useWorkflow();
+  const { walletEnvironment } = useExecutionEnvironment();
+  const { state, propose, amountInputs = {}, bridgeNetworkInputs = {}, editCanvasAmount, editBridgeNetworks } = useWorkflow();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId), existing = node ? routerDetails(node) : null;
   const start = ROUTER_NETWORK_OPTIONS[existing?.network ?? initialNetwork ?? 'mainnet'];
   const [input, setInput] = useState<RouterBridgeInput>(existing ? routerInputOf(existing)
@@ -29,13 +31,20 @@ export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId
   const [error, setError] = useState('');
   const set = (patch: Partial<RouterBridgeInput>) => {
     if (patch.amount !== undefined && nodeId) editCanvasAmount(nodeId, patch.amount);
-    setInput(value => ({ ...value, ...patch, amount: nodeId ? value.amount : patch.amount ?? value.amount }));
+    if (nodeId && (patch.source !== undefined || patch.destination !== undefined)) editBridgeNetworks(nodeId, {
+      ...(patch.source !== undefined ? { source: patch.source } : {}), ...(patch.destination !== undefined ? { destination: patch.destination } : {}),
+    });
+    setInput(value => ({ ...value, ...patch, source: nodeId ? value.source : patch.source ?? value.source,
+      destination: nodeId ? value.destination : patch.destination ?? value.destination, amount: nodeId ? value.amount : patch.amount ?? value.amount }));
   };
-  const fields = { ...input, amount: nodeId ? amountInputs[nodeId] ?? input.amount : input.amount };
-  const network: RouterNetwork = input.source === 'Base Sepolia' ? 'testnet' : 'mainnet', option = ROUTER_NETWORK_OPTIONS[network], l = LABELS[network];
-  const choose = (next: RouterNetwork) => set({ source: ROUTER_NETWORK_OPTIONS[next].source, destination: ROUTER_NETWORK_OPTIONS[next].destination });
+  const network = walletEnvironment === 'unknown' ? null : walletEnvironment;
+  const option = network ? ROUTER_NETWORK_OPTIONS[network] : null;
+  const fields = { ...input, ...(nodeId ? bridgeNetworkInputs[nodeId] : {}),
+    ...(option ? { source: option.source, destination: option.destination } : {}), amount: nodeId ? amountInputs[nodeId] ?? input.amount : input.amount };
+  const l = LABELS[network ?? existing?.network ?? initialNetwork ?? 'mainnet'];
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (!network) return;
     try {
       createRouterNode(nodeId ?? 'node-preview', fields); setError('');
       propose(nodeId ? { type: 'SET_ROUTER_BRIDGE', nodeId, input: fields, source: 'CANVAS', baseRevision: state.workflow.revision }
@@ -44,22 +53,22 @@ export function RouterForm({ nodeId, onDone, network: initialNetwork }: { nodeId
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'ROUTER_INPUT_INVALID'); }
   }
   return <form className="inspector-fields" aria-label={nodeId ? 'Edit cross-chain bridge' : network === 'testnet' ? 'Create testnet cross-chain bridge' : 'Create cross-chain bridge'} onSubmit={submit}>
-    <p className="muted">{network === 'testnet' ? 'Cross-chain Router · Base Sepolia → Arbitrum Sepolia · test USDC → USDC. No real funds; any wallet can use it. A route is chosen and shown at Review.'
+    <p className="muted">{!network ? 'Connect a wallet on a supported network to configure Bridge.' : network === 'testnet' ? 'Cross-chain Router · Base Sepolia → Arbitrum Sepolia · test USDC → USDC. No real funds; any wallet can use it. A route is chosen and shown at Review.'
       : 'Cross-chain Router · Base → Arbitrum One · USDC → USDC. Real funds on mainnet; a route is chosen and shown at Review.'}</p>
-    <label>Network<select aria-label="Cross-chain network" value={network} onChange={e => choose(e.target.value as RouterNetwork)}>
-      <option value="mainnet">Mainnet (real funds)</option><option value="testnet">Testnet (test USDC)</option></select></label>
-    <label>Source chain<select aria-label="Cross-chain source chain" value={input.source} onChange={() => set({ source: option.source })}><option value={option.source}>{l.src}</option></select></label>
-    <label>Destination chain<select aria-label="Cross-chain destination chain" value={input.destination} onChange={() => set({ destination: option.destination })}><option value={option.destination}>{l.dst}</option></select></label>
+    <label>Network<select aria-label="Cross-chain network" value={network ?? ''} disabled>
+      <option value={network ?? ''}>{network === 'mainnet' ? 'Mainnet (real funds)' : network === 'testnet' ? 'Testnet (test USDC)' : 'Network'}</option></select></label>
+    <label>Source chain<select aria-label="Cross-chain source chain" value={option?.source ?? ''} disabled><option value={option?.source ?? ''}>{option?.source ?? 'Network'}</option></select></label>
+    <label>Destination chain<select aria-label="Cross-chain destination chain" value={option?.destination ?? ''} disabled><option value={option?.destination ?? ''}>{option?.destination === 'Arbitrum' ? 'Arbitrum One' : option?.destination ?? 'Network'}</option></select></label>
     <label>Token<select aria-label="Cross-chain token" value={input.token} onChange={() => set({ token: 'USDC' })}><option value="USDC">USDC → USDC</option></select></label>
     <label>Amount (USDC)<TokenAmountInput aria-label="Cross-chain amount (USDC)" maxLength={40} value={fields.amount} onValueChange={amount => set({ amount })}/></label>
-    <label>Recipient on {l.dstShort}<input aria-label="Cross-chain recipient" autoComplete="off" spellCheck={false} maxLength={42} placeholder="Your connected wallet" value={input.recipient}
+    <label>Recipient{network ? ` on ${l.dstShort}` : ''}<input aria-label="Cross-chain recipient" autoComplete="off" spellCheck={false} maxLength={42} placeholder="Your connected wallet" value={input.recipient}
       onChange={e => set({ recipient: e.target.value })}/></label>
     <label>Routing<select aria-label="Cross-chain routing policy" value={input.routing} onChange={e => set({ routing: e.target.value as RouterRouting })}>
       {(Object.keys(ROUTER_ROUTING_LABEL) as RouterRouting[]).map(k => <option key={k} value={k}>{ROUTER_ROUTING_LABEL[k]}</option>)}</select></label>
     <label>Slippage (bps)<input aria-label="Cross-chain slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
-    <small>{network === 'testnet' ? 'Between 0.5 and 5 test USDC per bridge (the testnet relayer has little liquidity).' : 'Maximum 100 USDC per bridge in this release.'} The minimum you receive is fixed in the reviewed deposit.</small>
+    {network && <small>{network === 'testnet' ? 'Between 0.5 and 5 test USDC per bridge (the testnet relayer has little liquidity).' : 'Maximum 100 USDC per bridge in this release.'} The minimum you receive is fixed in the reviewed deposit.</small>}
     {error && <p role="alert">{error}</p>}
-    <button type="submit">{nodeId ? 'Review bridge change' : 'Review bridge proposal'}</button>
+    <button type="submit" disabled={!network}>{nodeId ? 'Review bridge change' : 'Review bridge proposal'}</button>
     {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
+import { configureCanvasAction, configureCanvasPool, openCanvasSettings } from './composer-authoring-fixtures';
 const owner = '0x1111111111111111111111111111111111111111';
 const cards = (page: Page) => page.locator('.build-flow-surface .composer-card');
 const step = (page: Page, id: string) => page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`);
@@ -55,11 +55,13 @@ test('supported toolbar actions create real selected nodes and bind their editor
     await expect(cards(page).locator('.composer-step')).toHaveCount(0);
     if (action === 'bridge') {
       await expect(cards(page)).not.toContainText('Cross-chain');
-      await expect(cards(page).locator('.composer-chain')).toHaveText('Base Sepolia → Arbitrum Sepolia');
+      await expect(cards(page).getByRole('button', { name: 'Configure source asset', exact: true })).toHaveAttribute('title', 'USDC on Base Sepolia');
+      await expect(cards(page).getByRole('button', { name: 'Configure destination asset', exact: true })).toHaveAttribute('title', 'USDC on Arbitrum Sepolia');
+      await expect(cards(page).locator('.composer-chain')).toHaveCount(0);
     }
     await expect(cards(page)).toContainText('USDC');
     if (action === 'pool') await expect(cards(page).getByRole('img', { name: 'Base Sepolia network', exact: true })).toHaveCount(2);
-    else await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
+    else if (action !== 'bridge') await expect(cards(page)).toContainText(action === 'swap' ? 'Base (8453)' : 'Base Sepolia');
     if (action === 'swap' || action === 'bridge') {
       await expect(cards(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0');
       await expect(inspector(page).getByRole('form', { name: `Configure ${action === 'swap' ? 'Swap' : 'Bridge'}`, exact: true })).toBeVisible();
@@ -69,7 +71,12 @@ test('supported toolbar actions create real selected nodes and bind their editor
       await expect(inspector(page).getByRole('form', { name: `Configure ${action[0]!.toUpperCase() + action.slice(1)}`, exact: true })).toBeVisible();
       await expect(cards(page).locator('form')).toHaveCount(0);
       await configureCanvasAction(page, '1');
-    } else await expect(cards(page).locator('input, form')).toHaveCount(0);
+    } else {
+      await expect(cards(page).getByRole('textbox')).toHaveCount(2);
+      await expect(cards(page).locator('form')).toHaveCount(0);
+      await configureCanvasPool(page);
+      await openCanvasSettings(page);
+    }
     await expect(inspector(page).getByRole('button', { name: 'Advanced Settings', exact: true })).toHaveAttribute('aria-expanded', 'true');
     if (form) await expect(inspector(page).getByRole('form', { name: form, exact: true })).toBeVisible();
     else await expect(inspector(page).getByLabel('Input amount (USDC)')).toBeVisible();
@@ -195,7 +202,7 @@ test('top toolbar stays in one row with every action reachable at narrow widths 
   const primary = toolbar.getByRole('group', { name: 'Workflow actions', exact: true });
   const utilities = toolbar.getByRole('group', { name: 'Workflow utilities', exact: true });
   const labels = ['Add swap', 'Add bridge', 'Add pool', 'Add supply', 'Add Supply → Borrow → Swap',
-    'Add borrow', 'Add repay', 'Add withdraw', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete', 'Undock toolbar'];
+    'Add borrow', 'Add repay', 'Add withdraw', 'Stocks', 'Privacy', 'Duplicate selection', 'Undo', 'Redo', 'Delete', 'Undock toolbar'];
   async function checkRow() {
     expect(await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual(labels);
     const centers = await toolbar.getByRole('button').evaluateAll(buttons => buttons.map(button => {
@@ -266,7 +273,7 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
       await expect(valueBox.locator('.composer-fiat-value')).toHaveAttribute('aria-label', /unavailable/);
       await expect(valueBox.locator('.composer-token-avatar')).toBeVisible();
       const value = (await valueBox.locator('.composer-value-column').boundingBox())!;
-      const token = (await valueBox.locator('.composer-token-chip').boundingBox())!;
+      const token = (await valueBox.locator('.composer-token-pill').boundingBox())!;
       const numeric = (await valueBox.locator('.composer-amount-value').boundingBox())!;
       const fiat = (await valueBox.locator('.composer-fiat-value').boundingBox())!;
       expect(fiat.y).toBeGreaterThan(numeric.y + numeric.height);

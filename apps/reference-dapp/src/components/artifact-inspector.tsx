@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { CryptoPoolForm } from './crypto-pool-form';
+import { cryptoInputOf, cryptoProfile, canSelectCryptoAssets } from '../domain/crypto-action-picker';
 import {LendingNodeEditor} from './lending-node-editor';
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import { WithdrawAuthoringForm } from './withdraw-panel';
@@ -12,7 +14,7 @@ import { TokenAmountInput } from './token-amount-input';
 import { bridgeDetails, createBridgeNode, type BridgeInput } from '../domain/bridge-authoring';
 import { canDeleteCanvasNode } from '../domain/canvas-keyboard';
 import { createLiquidityNode, type LiquidityInput } from '../domain/liquidity-authoring';
-import { formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
+import { inputSymbol, formatHumanAmount, parseHumanAmount, parseSlippage, swapDetails } from '../domain/swap-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { composerSummary, composerNodeState } from '../domain/composer-presentation';
 
@@ -29,18 +31,27 @@ import { RouterForm } from './router-panel';
 import { routerDetails } from '../domain/router-authoring';
 import { canEditCanvasAmount, setupSummary } from '../domain/canvas-action-setup';
 import { supplyReviewFormId, poolReviewFormId } from './composer-card';
+import { usePoolContributionInputs, useStockCardInputs } from './canvas-card-inputs';
+import { StocksSettings } from './stocks-settings';
 
 const emptyCrossChain: CrossChainLiquidityInput = { amount: '100', bridgeSlippageBps: '50', swapSlippageBps: '50', tickLower: '-200100', tickUpper: '-199900', recipient: '0x1111111111111111111111111111111111111111', provider: 'lifi.rest', noSwap: false };
 const emptyLiquidity: LiquidityInput = { weth: '', usdc: '', minimumWeth: '', minimumUsdc: '', tickLower: '', tickUpper: '', recipient: '' };
-export function ArtifactInspector({ selectedId, select, expanded = false, onExpandedChange }: {
+type InspectorProps = {
   selectedId: string | null; select: (id: string | null) => void;
   expanded?: boolean; onExpandedChange: (expanded: boolean) => void;
-}) {
-  const { state, dispatch, context, propose, review, actionSetup = null, amountInputs = {}, editCanvasAmount, reviewCanvasAmount, removeActionSetup } = useWorkflow();
+};
+export function ArtifactInspector(props: InspectorProps) {
+  const stocks = useStockCardInputs();
+  const card = stocks.cards.find(card => card.id === props.selectedId);
+  return card ? <StocksSettings card={card} expanded={props.expanded ?? false} onExpandedChange={props.onExpandedChange}/> : <CanonicalArtifactInspector {...props}/>;
+}
+function CanonicalArtifactInspector({ selectedId, select, expanded = false, onExpandedChange }: InspectorProps) {
+  const { state, dispatch, context, propose, review, actionSetup = null, amountInputs = {}, bridgeNetworkInputs = {}, cryptoSelections = {}, dismissProposal, editCanvasAmount, reviewCanvasAmount, removeActionSetup } = useWorkflow();
   const contentId = useId();
   const lending=isLendingComposition(state.workflow);
   const node = state.workflow.nodes.find(item => item.nodeId === selectedId && !item.actionType.startsWith('mock-'));
   const setup = actionSetup?.id === selectedId ? actionSetup : null;
+  const contributions = usePoolContributionInputs(node?.nodeId);
   const cross = useMemo(() => {
     if (!state.workflow.nodes.some(item => item.actionType === 'asset.liquidity.prepare')) return null;
     try { return validateCrossChainLiquidityWorkflow(state.workflow as unknown as Parameters<typeof validateCrossChainLiquidityWorkflow>[0]); } catch { return null; }
@@ -54,10 +65,11 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   const [slippage, setSlippage] = useState('');
   const [bridgeInput, setBridgeInput] = useState<BridgeInput>({ amount: '', slippageBps: '50' });
   const [liquidityInput, setLiquidityInput] = useState<LiquidityInput>(emptyLiquidity);
+  const effectiveLiquidityInput = liquidity && contributions.values ? { ...liquidityInput, weth: contributions.values[0]!.amount, usdc: contributions.values[1]!.amount } : liquidityInput;
   const [error, setError] = useState('');
   useEffect(() => {
     setAmount(swap ? swap.amount : template && node ? amountOf(node) : '');
-    setSlippage(swap?.slippage?.toString() ?? '');
+    setSlippage(swap?.slippage?.toString() ?? (node ? cryptoInputOf(node)?.slippage : undefined) ?? '');
     setBridgeInput(bridge ? { amount: bridge.amount, slippageBps: String(bridge.slippageBps) } : { amount: '', slippageBps: '50' });
     setLiquidityInput(liquidity ? {
       weth: formatHumanAmount(liquidity.amountWeth, 'WETH', context), usdc: formatHumanAmount(liquidity.amountUsdc, 'USDC', context),
@@ -69,6 +81,9 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
       recipient: cross.recipient, provider: cross.bridgeProvider, noSwap: cross.noSwap });
     setError('');
   }, [cross, node, swap?.amount, swap?.slippage, bridge?.amount, bridge?.slippageBps, liquidity, context, template]);
+  const cryptoInput = node && canSelectCryptoAssets(node, state.workflow) ? cryptoInputOf(node) : null;
+  const selection = node ? cryptoSelections[node.nodeId] ?? cryptoInput?.selection : undefined;
+  const cryptoSwap = cryptoInput?.selection.action === 'swap' ? cryptoInput : null;
   const locked = Boolean(node?.lockedParameters.length);
   const deletable = canDeleteCanvasNode(state.workflow, selectedId);
   function saveAmount(event: FormEvent<HTMLFormElement>) {
@@ -92,7 +107,7 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   }
   function saveLiquidity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!node || !liquidity) return;
-    try { createLiquidityNode(node.nodeId, liquidityInput, context); setError(''); propose({ type: 'SET_LIQUIDITY', nodeId: node.nodeId, input: liquidityInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
+    try { createLiquidityNode(node.nodeId, effectiveLiquidityInput, context); setError(''); propose({ type: 'SET_LIQUIDITY', nodeId: node.nodeId, input: effectiveLiquidityInput, source: 'CANVAS', baseRevision: state.workflow.revision }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid pool parameters'); }
   }
   function saveCross(event: FormEvent<HTMLFormElement>) {
@@ -107,8 +122,11 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
   const uniPosition = node ? uniswapLiquidityDetails(node) : null;
   const routed = node ? routerDetails(node) : null;
   const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
-  const summary = node ? composerSummary(state.workflow, node, context) : setup ? setupSummary(setup, context) : null;
-  const displayAmount = node && amountInputs[node.nodeId] !== undefined ? `${amountInputs[node.nodeId] || '0'} ${swap?.from ?? 'USDC'}` : summary?.amount;
+  const canonicalSummary = node ? composerSummary(state.workflow, node, context) : setup ? setupSummary(setup, context) : null;
+  const networks = node ? bridgeNetworkInputs[node.nodeId] : undefined;
+  const selectedSummary = canonicalSummary && node && cryptoSelections[node.nodeId] ? { ...canonicalSummary, chain: selection!.network, provider: cryptoProfile(selection!)!.provider } : canonicalSummary;
+  const summary = selectedSummary && networks ? { ...selectedSummary, chain: `${networks.source} → ${networks.destination}` } : selectedSummary;
+  const displayAmount = node && amountInputs[node.nodeId] !== undefined ? `${amountInputs[node.nodeId] || '0'} ${selection?.from ?? swap?.from ?? 'USDC'}` : summary?.amount;
   const validation = node ? composerNodeState(review, node.nodeId) : null;
   const open = Boolean((node || setup) && expanded);
   return <section className="inspector panel inspector-disclosure" aria-label="Action inspector">
@@ -122,8 +140,10 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
     {validation && validation.findings.length > 0 && <div className="composer-findings" aria-label="Selected action checks">
       {validation.findings.map(finding => <p key={`${finding.code}:${finding.field}`}><span aria-hidden="true">⚠ </span>{finding.message}</p>)}
     </div>}
-    {setup && <form id={setup.action !== 'swap' && setup.action !== 'bridge' ? supplyReviewFormId(setup.id) : undefined} className="inspector-form" aria-label={`Configure ${setupSummary(setup, context).action}`} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
-      <label htmlFor="configure-action-amount">Source amount (USDC)</label>
+    {setup?.action === 'pool' && !setup.cryptoSelection && <UniswapLiquidityForm key={setup.id} nodeId={setup.id} reviewFormId={poolReviewFormId(setup.id)}/>}
+    {(setup?.action === 'pool' && setup.cryptoSelection || node && cryptoSelections[node.nodeId]?.action === 'pool') && <CryptoPoolForm key={`${setup?.id ?? node!.nodeId}:${setup?.cryptoSelection?.network ?? cryptoSelections[node!.nodeId]?.network}`} nodeId={setup?.id ?? node!.nodeId}/>}
+    {setup && setup.action !== 'pool' && <form id={setup.action !== 'swap' && setup.action !== 'bridge' ? supplyReviewFormId(setup.id) : undefined} className="inspector-form" aria-label={`Configure ${setupSummary(setup, context).action}`} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
+      <label htmlFor="configure-action-amount">Source amount ({setup.action === 'swap' ? setup.cryptoSelection?.from ?? inputSymbol(setup.direction ?? 'USDC_TO_WETH') : 'USDC'})</label>
       <TokenAmountInput id="configure-action-amount" value={setup.amount} maxLength={80} onValueChange={value => { setError(''); editCanvasAmount(setup.id, value); }}/>
       <p className="muted">Enter an amount greater than 0 to configure this action.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
@@ -137,28 +157,39 @@ export function ArtifactInspector({ selectedId, select, expanded = false, onExpa
       {lending&&<LendingNodeEditor key={`${node.nodeId}:${state.workflow.revision}`} nodeId={node.nodeId} {...(supply || node.actionType === 'borrow' ? { reviewFormId: supplyReviewFormId(node.nodeId) } : {})}/>}
       {!lending&&node.actionType==='borrow'&&<BorrowAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
       {!lending && supply && <SupplyAuthoringForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
-      {solana && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
+      {solana && !cryptoSwap && <><p className="muted">{solana.network} {solana.from} → {solana.to} via {solanaSwapLabels(solana.network).provider}{solanaSwapLabels(solana.network).testTokens ? ' · valueless test tokens' : ''} · simulate for a live quote. Changes require review.</p><SolanaSwapForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
+      {cryptoSwap && selection && <form className="inspector-form" aria-label="Edit Swap" onSubmit={event => {
+        event.preventDefault();
+        propose({ type: 'SET_CRYPTO_ACTION', nodeId: node.nodeId, input: { ...cryptoSwap, selection, amount: amountInputs[node.nodeId] ?? cryptoSwap.amount, slippage }, source: 'CANVAS', baseRevision: state.workflow.revision });
+      }}>
+        <label>Input amount ({selection.from})<TokenAmountInput value={amountInputs[node.nodeId] ?? cryptoSwap.amount} onValueChange={value => editCanvasAmount(node.nodeId, value)}/></label>
+        <label>Slippage (bps)<input value={slippage} onChange={event => { dismissProposal(); setSlippage(event.target.value); }} inputMode="numeric"/></label>
+        <button type="submit">Review Swap settings</button>
+      </form>}
       {routed && <><p className="muted">{routed.source} USDC → {routed.network === 'testnet' ? 'Arbitrum Sepolia' : 'Arbitrum One'} USDC through the Cross-chain Router · {routed.network === 'testnet' ? 'test USDC' : 'real funds'} · a fresh route, simulation and Review are required after changes.</p><RouterForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId}/></>}
-      {uniPosition && <><p className="muted">{uniPosition.network} USDC / WETH via {uniPosition.provider} · fee 0.05% · test tokens · simulate against the live pool. Changes require review.</p><UniswapLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
-      {orcaPosition && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
+      {uniPosition && !cryptoSelections[node.nodeId] && <><p className="muted">{uniPosition.network} USDC / WETH via {uniPosition.provider} · fee 0.05% · test tokens · simulate against the live pool. Changes require review.</p><UniswapLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
+      {orcaPosition && !cryptoSelections[node.nodeId] && <><p className="muted">{orcaPosition.network} SOL / devUSDC via {orcaPosition.provider} · valueless test tokens · simulate against the live pool. Changes require review.</p><SolanaLiquidityForm key={node.nodeId + ':' + state.workflow.revision} nodeId={node.nodeId} reviewFormId={poolReviewFormId(node.nodeId)}/></>}
       {cross && <p className="muted">Base USDC → Arbitrum USDC → {cross.noSwap ? 'one-sided' : 'calculated partial swap →'} Uniswap v3 position. Each boundary requires fresh review and reconciliation.</p>}
       {template && <p className="muted">Template only. No provider quote or financial execution is available for this action.</p>}
-      {swap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}
+      {swap && !cryptoSwap && <p className="muted">{node.chainId === 'eip155:84532' ? 'Base Sepolia' : 'Base'} {swap.from} → {swap.to} · simulate for a quote. Changes require review.</p>}
       {bridge && <p className="muted">Base → Optimism USDC. A fresh quote and review are required after changes.</p>}
       {liquidity && <p className="muted">Base WETH/USDC position. Pool conditions require separate simulation.</p>}
-      {(swap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>
+      {(swap && !cryptoSwap || template) && <form onSubmit={saveAmount} className="inspector-form"><label htmlFor="sample-amount">{swap ? `Input amount (${swap.from})` : 'Sample amount'}</label>
         <TokenAmountInput id="sample-amount" value={node ? amountInputs[node.nodeId] ?? amount : amount} onValueChange={value => swap && node ? editCanvasAmount(node.nodeId, value) : setAmount(value)} inputMode={swap ? 'decimal' : 'numeric'} maxLength={swap ? 80 : 78} disabled={locked} aria-invalid={Boolean(error)}/>
         {node && canEditCanvasAmount(node, context, state.workflow) ? <p className="muted">Review and apply the amount in the card.</p>
           : <button type="submit" disabled={locked || (node ? amountInputs[node.nodeId] ?? amount : amount) === (swap ? swap.amount : node ? amountOf(node) : '')}>{swap ? 'Review amount change' : 'Save parameter'}</button>}</form>}
-      {swap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (bps)</label>
+      {swap && !cryptoSwap && <form onSubmit={saveSlippage} className="inspector-form"><label htmlFor="swap-edit-slippage">Slippage (bps)</label>
         <input id="swap-edit-slippage" type="text" value={slippage} onChange={event => setSlippage(event.target.value)} inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} aria-invalid={Boolean(error)}/>
         <button type="submit" disabled={slippage === (swap.slippage?.toString() ?? '')}>Review slippage change</button></form>}
       {bridge && <form onSubmit={saveBridge} className="inspector-fields"><label>USDC amount<TokenAmountInput value={amountInputs[node.nodeId] ?? bridgeInput.amount} onValueChange={value => editCanvasAmount(node.nodeId, value)}/></label>
         <label>Maximum slippage (bps)<input type="text" inputMode="numeric" value={bridgeInput.slippageBps} onChange={event => setBridgeInput(current => ({ ...current, slippageBps: event.target.value }))}/></label><button type="submit">Review bridge change</button></form>}
-      {liquidity && <form id={poolReviewFormId(node.nodeId)} onSubmit={saveLiquidity} className="inspector-fields">{([
+      {liquidity && !cryptoSelections[node.nodeId] && <form id={poolReviewFormId(node.nodeId)} onSubmit={saveLiquidity} className="inspector-fields">{([
         ['weth', 'Maximum WETH'], ['usdc', 'Maximum USDC'], ['minimumWeth', 'Minimum WETH'], ['minimumUsdc', 'Minimum USDC'],
         ['tickLower', 'Lower tick'], ['tickUpper', 'Upper tick'], ['recipient', 'Recipient'],
-      ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={liquidityInput[key]} onChange={event => setLiquidityInput(current => ({ ...current, [key]: event.target.value }))}/></label>)}</form>}
+      ] as const).map(([key, title]) => <label key={key}>{title}<input type="text" value={effectiveLiquidityInput[key]} onChange={event => {
+        if (key === 'weth' || key === 'usdc') contributions.edit(key === 'weth' ? 0 : 1, event.target.value);
+        setLiquidityInput(current => ({ ...current, [key]: event.target.value }));
+      }}/></label>)}</form>}
       {!lending && !cross && !swap && !bridge && !liquidity && !template && !supply && !solana && !uniPosition && <p className="muted">This step is configured through its workflow review.</p>}
       {error && <p role="alert" className="form-error">{error}. Check the parameters and try again.</p>}
       <div className="inspector-actions">{(swap || template) && <button type="button" onClick={() => dispatch({ type: 'LOCK', nodeId: node.nodeId, locked: !locked, source: 'CANVAS', baseRevision: state.workflow.revision })}>{locked ? 'Unlock amount' : 'Lock amount'}</button>}

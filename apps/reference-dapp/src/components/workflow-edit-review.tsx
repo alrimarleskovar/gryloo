@@ -7,7 +7,7 @@ import { singleAmountProposalTarget } from '../domain/composer-presentation';
 /** Existing authoring proposal acceptance; never financial authorization. */
 export function WorkflowEditReview() {
   const { pending, applyProposal, dismissProposal, state, actionSetup } = useWorkflow();
-  const singleSetupApplies = actionSetup && actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' && pending?.authoringId === actionSetup.id;
+  const singleSetupApplies = actionSetup && actionSetup.action !== 'pool' && actionSetup.action !== 'swap' && actionSetup.action !== 'bridge' && pending?.authoringId === actionSetup.id;
   // Amount acceptance lives in its card; other proposed edits keep their review surface.
   if (!pending || (pending.authoringId && !singleSetupApplies && !singleAmountProposalTarget(state.workflow, pending.command))) return null;
   // Pool position edits use their existing validated form and compact card acceptance controls.

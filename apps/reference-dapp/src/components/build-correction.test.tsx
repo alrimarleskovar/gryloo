@@ -7,6 +7,8 @@ import { initialEditor, editorReducer } from '../domain/editor';
 import { canvasAddCommand } from '../domain/canvas-authoring';
 import { WorkflowCanvas } from './workflow-canvas';
 import { ArtifactInspector } from './artifact-inspector';
+import { createUniswapLiquidityNode } from '../domain/uniswap-liquidity-authoring';
+import { ComposerCard } from './composer-card';
 import { createCrossChainLiquidityWorkflow } from '../domain/cross-chain-liquidity';
 import { createSolanaSwapNode } from '../domain/jupiter-authoring';
 import { createSolanaLiquidityNode } from '../domain/solana-liquidity-authoring';
@@ -64,6 +66,7 @@ describe('Execute workflow overview', () => {
   });
 });
 
+const authoredPoolInput = { network: 'Base Sepolia' as const, maxUsdc: '1', maxWeth: '0.0001', rangeUnit: 'TICK' as const, lower: '-887270', upper: '887270', slippage: '50' };
 const owner = '0x1111111111111111111111111111111111111111';
 function setWorkflow(action?: 'supply' | 'borrow' | 'repay' | 'withdraw') {
   const context = createBaseSepoliaReviewContext();
@@ -160,7 +163,7 @@ describe('UX-002 canonical composer projections', () => {
   });
   it.each(['swap', 'bridge', 'pool', 'supply', 'borrow', 'repay', 'withdraw'] as const)('summarizes the real %s toolbar node without modifying it', action => {
     setWorkflow();
-    fixture.store.state = editorReducer(initialEditor(), canvasAddCommand(action, 0, '0x1111111111111111111111111111111111111111', '1'), fixture.store.context);
+    fixture.store.state = editorReducer(initialEditor(), action === 'pool' ? { type: 'ADD_UNISWAP_LIQUIDITY', source: 'CANVAS', baseRevision: 0, input: authoredPoolInput } : canvasAddCommand(action, 0, '0x1111111111111111111111111111111111111111', '1'), fixture.store.context);
     const workflow = fixture.store.state.workflow;
     const node = workflow.nodes.find(item => !item.actionType.startsWith('mock-'))!;
     const before = JSON.stringify(workflow);
@@ -175,7 +178,7 @@ describe('UX-002 canonical composer projections', () => {
 
   it('projects actual Uniswap and Orca contributions into two liquidity boxes without Swap authoring', () => {
     for (const node of [
-      editorReducer(initialEditor(), canvasAddCommand('pool', 0, null), fixture.store.context).workflow.nodes.find(node => !node.actionType.startsWith('mock-'))!,
+      createUniswapLiquidityNode('uniswap-position', authoredPoolInput),
       createSolanaLiquidityNode('orca-position', { network: 'Solana Devnet', maxSol: '0.01', maxDevUsdc: '0.3', rangeUnit: 'TICK', lower: '-443584', upper: '443584', slippage: '100' }),
     ]) {
       setWorkflow();
@@ -186,7 +189,7 @@ describe('UX-002 canonical composer projections', () => {
       const canvas = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: node.nodeId, select: vi.fn() }));
       expect(canvas.match(/class="numeric composer-amount-box/g)).toHaveLength(2);
       for (const value of values) {
-        expect(canvas).toContain(`<span class="composer-amount-value">${value.amount}</span>`);
+        expect(canvas).toContain(`value="${value.amount}"`);
         expect(canvas).toContain(`<span class="composer-amount-token">${value.token}</span>`);
       }
       expect(canvas).toContain('composer-value-arrow');
@@ -203,13 +206,38 @@ describe('UX-002 canonical composer projections', () => {
       expect(canvas).toContain('>Apply</button>');
       expect(canvas).not.toContain('Price range:');
       expect(canvas).not.toContain('class="composer-detail"');
-      expect(canvas.match(/<input/g) ?? []).toHaveLength(0);
+      expect(canvas.match(/<input/g) ?? []).toHaveLength(2);
+      expect(canvas).toContain(`aria-label="First liquidity amount (${values[0]!.token})"`);
+      expect(canvas).toContain(`aria-label="Second liquidity amount (${values[1]!.token})"`);
       expect(canvas).toContain('aria-label="Liquidity range view"');
       expect(canvas).toContain('<button type="button" aria-pressed="true">Tick</button><button type="button" aria-pressed="false">Price</button>');
       expect(canvas).not.toContain('Price strategies');
       expect(canvas).not.toMatch(/<form|Review amount|Apply amount|unquoted placeholder/);
       expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
     }
+  });
+
+  it('renders Stocks with Supply-style editing and an equity selector without financial messaging or commands', () => {
+    setWorkflow();
+    const before = JSON.stringify(fixture.store.state.workflow);
+    const html = renderToStaticMarkup(createElement(ComposerCard, { data: {
+      composer: true, step: 1, selected: true, vertical: false,
+      summary: { action: 'Stocks', provider: 'Robinhood', chain: 'Testnet', amount: '0 AAPL', detail: undefined, bridgePair: undefined, linked: false, risk: undefined },
+      validation: { findings: [], status: 'Draft', tone: 'neutral', message: undefined, next: undefined },
+      stocks: { amount: '0', equity: 'AAPL', onAmountChange: vi.fn(), onEquityChange: vi.fn() },
+    } }));
+    expect(html).toContain('1. Stocks'); expect(html).toContain('Robinhood'); expect(html).not.toContain('Testnet');
+    expect(html.match(/class="numeric composer-amount-box/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Stocks amount"'); expect(html).toContain('value="0"');
+    expect(html).toContain('US$ 0,00'); expect(html).toContain('aria-label="Select stock"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('src="/brand/robinhood-avatar.jpg"');
+    expect(html).toContain('aria-label="Robinhood Chain network"');
+    expect(html).not.toContain('<select');
+    expect(html).toContain('Advanced Settings');
+    expect(html).not.toMatch(/unsupported|non-executable|coming soon|placeholder\)|warning|disabled=|debug|lab\b|Review|Apply|Transfer|composer-destination-box|composer-card-state/i);
+    expect(JSON.stringify(fixture.store.state.workflow)).toBe(before);
+    expect(fixture.store.dispatch).not.toHaveBeenCalled(); expect(fixture.store.propose).not.toHaveBeenCalled();
   });
 
   it('keeps dependency arrows, order, active editor and linked summaries on the same lending IR', () => {

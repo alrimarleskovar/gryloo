@@ -30,12 +30,16 @@ describe('canvas authoring through existing canonical commands', () => {
     expect(() => canvasAddCommand(action, 0, null, '1')).toThrow('Connect your wallet');
   });
 
-  it.each(['bridge', 'pool'] as const)('%s produces a canonical action rather than a placeholder', action => {
+  it.each(['bridge'] as const)('%s produces a canonical action rather than a placeholder', action => {
     const result = editorReducer(initialEditor(), canvasAddCommand(action, 0, null, '1'), context);
     expect(result.error).toBeNull();
     const nodes = result.workflow.nodes.filter(node => !node.actionType.startsWith('mock-'));
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.actionType).toBe(action === 'bridge' ? 'asset.bridge' : 'asset.liquidity.concentrated');
+    expect(nodes[0]?.actionType).toBe('asset.bridge');
+  });
+
+  it('requires explicit Pool configuration instead of creating demo amounts', () => {
+    expect(() => canvasAddCommand('pool', 0, null)).toThrow('Configure the liquidity amounts');
   });
 
   it('preserves the existing linked Supply → Borrow → Swap composition and checkpoint', () => {
