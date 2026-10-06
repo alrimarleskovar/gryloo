@@ -2,8 +2,10 @@
 /**
  * BUILD-MCP-002: the OAuth consent and error pages. Plain server-rendered HTML with no script, every interpolated value
  * HTML-escaped, a strict Content-Security-Policy (no framing, no script, forms only to FloFi and the client's own redirect
- * origin), `no-store`, `noindex` and `no-referrer`. The page states what a connection can and cannot do: it never connects a
- * wallet and never authorizes a transaction.
+ * origin), `no-store`, `noindex` and a `same-origin` referrer policy: no referrer ever reaches another origin, while FloFi's own
+ * consent form still carries its real `Origin` (a `no-referrer` page makes browsers send `Origin: null` on form posts, which the
+ * decision endpoint must refuse). The page states what a connection can and cannot do: it never connects a wallet and never
+ * authorizes a transaction.
  */
 import type { McpScope } from './config.ts';
 
@@ -28,11 +30,11 @@ label{display:block;font-weight:600;margin:8px 0 4px}input[type=text]{width:100%
 export function pageHeaders(formOrigins: readonly string[]): Record<string, string> {
   const forms = ["'self'", ...formOrigins].join(' ');
   return { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', pragma: 'no-cache', 'x-content-type-options': 'nosniff',
-    'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow',
+    'x-frame-options': 'DENY', 'referrer-policy': 'same-origin', 'x-robots-tag': 'noindex, nofollow',
     'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; form-action ${forms}; frame-ancestors 'none'; base-uri 'none'` };
 }
 const page = (title: string, body: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)}</title><style>${STYLE}</style></head>
+<meta name="referrer" content="same-origin"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)}</title><style>${STYLE}</style></head>
 <body><main>${body}</main></body></html>`;
 
 export type ConsentView = {

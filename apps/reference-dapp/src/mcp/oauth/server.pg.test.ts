@@ -81,7 +81,9 @@ describe('BUILD-MCP-002 authorization endpoint and consent', () => {
     const html = await response.text(), csp = response.headers.get('content-security-policy')!;
     expect(csp).toContain("default-src 'none'"); expect(csp).toContain('form-action \'self\' https://claude.ai'); expect(csp).not.toContain('script-src');
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect([response.headers.get('x-frame-options'), response.headers.get('referrer-policy'), response.headers.get('x-robots-tag')]).toEqual(['DENY', 'no-referrer', 'noindex, nofollow']);
+    // `same-origin`: no referrer leaves FloFi, yet the consent form keeps its real Origin (`no-referrer` would make browsers send `Origin: null`).
+    expect([response.headers.get('x-frame-options'), response.headers.get('referrer-policy'), response.headers.get('x-robots-tag')]).toEqual(['DENY', 'same-origin', 'noindex, nofollow']);
+    expect(html).toContain('<meta name="referrer" content="same-origin">');
     expect(html).not.toMatch(/<script/i);
     expect(html).toContain('Connect Claude to FloFi'); expect(html).toContain('<strong>claude.ai</strong>');
     expect(html).toContain('never moves funds'); expect(html).toContain('not financial advice'); expect(html).toContain('name="invite"');
@@ -98,7 +100,7 @@ describe('BUILD-MCP-002 authorization endpoint and consent', () => {
   it('accepts a consent decision only from FloFi\'s own page with the matching CSRF token and cookie', async () => {
     const client = oauthClient({ env: oauthEnv(), store: store() }), form = consentForm(await (await client.authorize(params())).text());
     const approve = { ...form, decision: 'approve', invite: INVITE };
-    for (const headers of [{}, { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' }, { origin: ORIGIN, 'sec-fetch-site': 'cross-site' }])
+    for (const headers of [{}, { origin: 'null' }, { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' }, { origin: ORIGIN, 'sec-fetch-site': 'cross-site' }])
       expect((await client.decide(approve, headers)).status, JSON.stringify(headers)).toBe(403);
     expect((await client.decide({ ...approve, csrf: 'flofi_csrf_' + 'A'.repeat(43) })).status).toBe(403);
     const stranger = oauthClient({ env: oauthEnv(), store: store() });
