@@ -21,6 +21,7 @@ import { chooseSolanaWallet } from './jupiter-fixtures';
 import { guardedContext, installJourneyWallet, journeyAdvance, journeySends } from './journey-fixtures';
 import { assertMcpHarness, CLIENT_NAME, connectViaBrowser, hostLog, mcpClient, openHost, panelHtmlOf } from './mcp-fixtures';
 import { routerControl } from './router-fixtures';
+import { installLendingWallet, LENDING_OWNER, lendingRpc, lendingSends } from './lending-fixtures';
 import { devnetControl, devnetPanel, installDevnetWallet } from './solana-devnet-fixtures';
 
 const PANEL_URI = 'ui://flofi/approval-panel.html';
@@ -144,6 +145,38 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await expect(devnetPanel(signing).getByRole('region', { name: 'Swap result' })).toContainText('Evidence: MOCKED');
     expect(await devnetControl({ action: 'sent' })).toBe(1);
     await expect(panel.getByText(/solana-devnet-swap · .* · evidence MOCKED/)).toBeVisible({ timeout: 45_000 });
+    expect(unexpected).toEqual([]);
+    await context.close();
+  });
+
+  test('lending composition (v2 supply → borrow → swap): five owner-signed steps on MOCKED Base Sepolia → reconciled status in the panel', async ({ browser }) => {
+    test.setTimeout(120_000);
+    // The lending harness funds one public disposable fixture account; the test signs its sign-in message with that fixture key.
+    const fixtureOwner = createTestWallet(new Uint8Array(32).fill(0x43));
+    expect(fixtureOwner.address).toBe(LENDING_OWNER);
+    await lendingRpc('MOCK_reset', [{}]);
+    const { context, unexpected } = await guardedContext(browser);
+    const steps = [{ action: 'supply', network: 'base-sepolia', asset: 'USDC', amount: '0.1', beneficiary: LENDING_OWNER },
+      { action: 'borrow', network: 'base-sepolia', asset: 'USDC', amount: '0.01', beneficiary: LENDING_OWNER },
+      { action: 'swap', network: 'base-sepolia', inputAsset: 'USDC', outputAsset: 'WETH', amount: '0.01', slippageBps: 50 }];
+    const { panel, url, composed } = await chatToSigningWindow(context, { version: 2, steps });
+    expect(composed).toMatchObject({ strategy: { action: 'lending_composition', owner: LENDING_OWNER }, executionPlan: { kind: 'COMPOSITE_FLOW' } });
+    const signing = await context.newPage();
+    await installLendingWallet(signing, { signer: fixtureOwner });
+    await proposalIntoWorkflow(signing, url, 'evm', LENDING_OWNER);
+    const lending = signing.getByRole('region', { name: 'Lending composition' });
+    await signing.getByRole('button', { name: 'Continue to Simulate' }).click();
+    await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
+    await expect(lending).toContainText('Expected output:');
+    await signing.getByRole('button', { name: 'Review lending composition', exact: true }).click();
+    await signing.getByRole('button', { name: 'Accept composed Review' }).click();
+    for (const step of ['pool approval', 'supply', 'borrow', 'router approval', 'swap']) {
+      await lending.getByRole('button', { name: `Execute ${step}`, exact: true }).click();
+      await expect(lending).toContainText(`${step.toUpperCase().replaceAll(' ', '_')}: reconciled`);
+    }
+    await expect(lending).toContainText('MOCKED / RECONCILED');
+    expect(await lendingSends(signing)).toBe(5);
+    await expect(panel.getByText(/lending-composition · .* · evidence MOCKED/)).toBeVisible({ timeout: 45_000 });
     expect(unexpected).toEqual([]);
     await context.close();
   });

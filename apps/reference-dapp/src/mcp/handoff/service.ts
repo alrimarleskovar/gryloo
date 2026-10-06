@@ -51,6 +51,8 @@ export async function requestApproval(deps: ApprovalDeps, principal: McpOAuthPri
   const { blockers, preExecution } = handoffFindings(composition);
   if (blockers.length) return { ok: false, code: 'REVIEW_BLOCKED', extra: { blockers: blockers.map(b => ({ code: b.code, message: b.message })) } } satisfies Failure;
   if (!await deps.state.oauth.allow(`handoff:account:${principal.accountId}`, HANDOFF_RATE[0], HANDOFF_RATE[1], deps.now)) return { ok: false, code: 'MCP_HANDOFF_RATE_LIMITED' } satisfies Failure;
+  // Bounded retention, opportunistically (handoffs older than 30 days).
+  if (Math.random() < 0.02) await deps.state.handoffs.purge(deps.now).catch(() => undefined);
   const secret = newCredential('handoff'), handoffId = newId('apr'), expiresAt = new Date(deps.now.getTime() + HANDOFF_SECONDS * 1000);
   const created = await deps.state.handoffs.create({ handoffId, accountId: principal.accountId, grantId: principal.id, clientId: principal.clientId,
     clientName: principal.clientName, secretDigest: credentialDigest(deps.config.keys.handoff, secret), strategy: composition.strategy,

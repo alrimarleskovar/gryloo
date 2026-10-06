@@ -128,13 +128,27 @@ A user then needs no terminal: open the Preview URL → connect a wallet → sel
 Manifest → sign in the wallet. Reconciliation is request-driven on the embedded runtime (reopening a run observes the chain);
 there is no background worker on a Preview, and Vercel Cron does not run for Previews.
 
-## Remote MCP gateway (BUILD-MCP-001)
+## Remote MCP gateway (BUILD-MCP-001, BUILD-MCP-002)
 
-`POST /api/mcp` exposes the deterministic engine to MCP clients (Claude, ChatGPT-compatible agents, any MCP client): discovery,
-compose, validate, review, a read-only simulation preview and owner-scoped status/evidence — never signing, submission or
-approval. It runs in the same Vercel function runtime as the rest of the app (embedded or remote), needs no new service,
-and is off unless `FLOFI_MCP=enabled` with `FLOFI_MCP_CLIENTS` is set. Remote mode needs an API build that includes
-`POST /v1/previews/:flow`. Setup, credentials and client connection: [MCP.md](MCP.md).
+`POST /api/mcp` exposes the deterministic engine to MCP clients: discovery, compose, validate, review, a read-only simulation
+preview, owner approvals handed to FloFi (`request_user_approval` → `/approve`) and owner-scoped status/evidence — never
+signing, submission or approval by the model. It runs in the same Vercel function runtime as the rest of the app and needs no
+new service. Consumer clients (Claude custom connectors, ChatGPT developer mode) authenticate through FloFi's own OAuth server
+(`/.well-known/*`, `/oauth/*`); its state (pseudonymous accounts, grants, token digests, approval handoffs, wallet links, abuse
+counters) lives in this deployment's PostgreSQL (migration `0005_mcp_oauth`, tenant-scoped, digests only). The remote runtime
+(`API_BASE_URL`) has no OAuth store and fails closed (`MCP_OAUTH_STORE_UNAVAILABLE`). Setup, clients and tools: [MCP.md](MCP.md).
+
+Owner setup for a consumer Preview (Preview-only variables, on top of the embedded runtime above):
+
+1. `FLOFI_MCP=enabled`, `FLOFI_MCP_OAUTH=enabled`, `FLOFI_PUBLIC_ORIGIN=https://<branch alias>` (exactly the URL you will give
+   the clients, no trailing slash).
+2. `FLOFI_MCP_OAUTH_SECRET` = `openssl rand -hex 32` (different from `FLOFI_SESSION_SECRET` and `API_AUTH_TOKEN`; the
+   deployment refuses a reused value).
+3. Invite: choose a code, keep it private, set `FLOFI_MCP_OAUTH_INVITES` to `printf '%s' "$CODE" | sha256sum | cut -d' ' -f1`.
+4. Leave `FLOFI_MCP_HANDOFF_MAINNET_NETWORKS` unset (mainnet handoffs disabled by policy). Enable the testnet flows you want to
+   hand off (`GRYLOO_ROUTER_TESTNET=live`, `GRYLOO_SOLANA_DEVNET=live`, `GRYLOO_SUPPLY_TESTNET=live`, …).
+5. Redeploy (the build applies migration `0005`), then check `https://<alias>/.well-known/oauth-authorization-server` and that
+   `POST https://<alias>/api/mcp` without a token answers `401` with a `resource_metadata` challenge.
 
 ## Owner-only setup (credentials and approvals)
 

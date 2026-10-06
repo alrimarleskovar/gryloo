@@ -7,6 +7,25 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-MCP-002 — Consumer OAuth, trusted approval handoff and in-chat execution
+
+**Status: IMPLEMENTATION COMPLETE ON A STACKED BRANCH — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO
+TRANSACTION; NO PR UNTIL PR #63 MERGES.** Branch `claude/build-mcp-002`, stacked on the BUILD-MCP-001 head `4b99acc` by owner
+authorization. FloFi is its own OAuth 2.1 authorization server for consumer MCP clients (RFC 9728/8414 discovery, PKCE S256,
+Client ID Metadata Documents with an SSRF-guarded fetch, narrow optional DCR, consent with invite codes, rotating refresh tokens
+with reuse detection, RFC 7009 revocation, `iss`, audience binding, 401/403 step-up), with pseudonymous accounts and digests only
+in PostgreSQL (migration `0005_mcp_oauth`). `request_user_approval` re-composes and re-checks a strategy and stores a trusted
+handoff (authority NONE; fragment secret; forward-only states enforced by the database); `/approve` shows the external proposal,
+requires an EIP-4361 or **Sign-In With Solana** wallet proof, and places the re-composed command in FloFi's existing proposal
+flow, after which the unchanged panels simulate, review, approve and the owner's wallet signs. An MCP App panel
+(`ui://flofi/approval-panel.html`) opens the FloFi signing window or a wallet's in-app browser and brings the reconciled status
+and evidence back into the chat; runs are attributed only when their reviewed workflow hashes to the proposal and the owner
+shares them. Wallet links (`/connections`) gate run reads. Step lists: `{version: 2, steps}`; one step = version 1; the lending
+composition executes; other sequences fail honestly with `MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED`. Mainnet: supported by code where
+it is, disabled by policy only (`MAINNET_HANDOFF_DISABLED_BY_POLICY`). Evidence: unit, PostgreSQL and browser suites with a
+minimal MCP Apps host on MOCKED loopback chains (EVM and Solana). Owner actions: Preview variables and the live Claude/ChatGPT
+acceptance. See the [plan](builds/BUILD-MCP-002-PLAN.md), [report](builds/BUILD-MCP-002-REPORT.md) and [MCP guide](deploy/MCP.md).
+
 ## BUILD-MCP-001 — FloFi Remote MCP Gateway
 
 **Status: IMPLEMENTATION COMPLETE — NO LIVE THIRD-PARTY CLIENT CONNECTED YET; NO TRANSACTION.** Branch

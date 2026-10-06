@@ -11,8 +11,9 @@ import { personalSignDigest } from '../src/personal-sign.ts';
 
 const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 export type TestWallet = { readonly address: string; signMessage(message: string): string };
-export function createTestWallet(): TestWallet {
-  const signer = secp256k1.utils.randomSecretKey();
+/** BUILD-MCP-002: `secretKey` lets a test sign as a harness's public disposable fixture account (never a real key). */
+export function createTestWallet(secretKey?: Uint8Array): TestWallet {
+  const signer = secretKey ?? secp256k1.utils.randomSecretKey();
   const address = '0x' + hex(keccak_256(secp256k1.getPublicKey(signer, false).subarray(1)).subarray(12));
   return Object.freeze({
     address,

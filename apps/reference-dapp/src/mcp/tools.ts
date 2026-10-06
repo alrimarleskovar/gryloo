@@ -117,6 +117,7 @@ function memoizedRuntime(runtime: McpRuntime): McpRuntime {
 
 /** Simulations reach public chains and providers: a small per-instance cap protects them (best effort, never a correctness rule). */
 const MAX_CONCURRENT_SIMULATIONS = 2;
+export const SIMULATIONS_PER_ACCOUNT_HOUR = 30;
 let activeSimulations = 0;
 
 /** BUILD-MCP-002: a v1 strategy or a v2 step list; one step is exactly the v1 composition. */
@@ -273,6 +274,9 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
     const evm = /^0x[0-9a-fA-F]{40}$/.test(args.simulationSubject);
     if (plan.subject === 'EVM' && !evm || plan.subject === 'SOLANA' && evm) return failWith('SIMULATION_SUBJECT_INVALID');
     if (activeSimulations >= MAX_CONCURRENT_SIMULATIONS) return failWith('MCP_SIMULATION_BUSY');
+    // BUILD-MCP-002: an OAuth account also has an hourly simulation budget (they reach public chains and providers).
+    if (ctx.principal.kind === 'mcp-oauth' && ctx.state &&
+        !await ctx.state.oauth.allow(`simulate:account:${ctx.principal.accountId}`, SIMULATIONS_PER_ACCOUNT_HOUR, 3_600, new Date())) return failWith('MCP_SIMULATION_RATE_LIMITED');
     activeSimulations++;
     let preview;
     try {

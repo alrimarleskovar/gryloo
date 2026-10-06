@@ -79,6 +79,16 @@ describe('BUILD-MCP-002 /api/mcp as an OAuth protected resource', () => {
     expect((await session({ env: env({ TENANT_ID: 'other' }), token: tokens.access_token, state: state('other') }).post(LIST)).status).toBe(401);
   });
 
+  it('gives each OAuth account an hourly simulation budget', async () => {
+    const tokens = await connect(), client = session({ env: env(), token: tokens.access_token, state: state() });
+    const account = (await t.db.query<{ account_id: string }>(`SELECT g.account_id FROM mcp_oauth_grants g ORDER BY g.created_at DESC LIMIT 1`)).rows[0]!.account_id;
+    const windowStart = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
+    await t.db.query(`INSERT INTO mcp_rate_limits (tenant_id, bucket, window_start, count) VALUES ('default', $1, $2, 30)`, [`simulate:account:${account}`, windowStart]);
+    const composed = (await client.callTool('compose_strategy', { strategy: BRIDGE })).output as { workflowHash: string };
+    expect((await client.callTool('simulate_strategy', { strategy: BRIDGE, workflowHash: composed.workflowHash, simulationSubject: '0x' + '1'.repeat(40) })).output)
+      .toEqual({ ok: false, code: 'MCP_SIMULATION_RATE_LIMITED' });
+  });
+
   it('fails closed when the OAuth store is unavailable or OAuth is misconfigured; never falls back to another credential', async () => {
     const tokens = await connect();
     const remote = await session({ env: env({ API_BASE_URL: 'https://api.flofi.test' }), token: tokens.access_token }).post(LIST);
