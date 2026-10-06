@@ -45,7 +45,7 @@ function InspectionViewport({ onState }: { onState: (value: 'pending' | 'fitted'
   return null;
 }
 
-export function SimulateWorkflowCanvas({ workflowName, primaryAction }: { workflowName: string; primaryAction?: ReactNode }) {
+export function SimulateWorkflowCanvas({ workflowName, primaryAction, stage = 'simulate' }: { workflowName: string; primaryAction?: ReactNode; stage?: 'simulate' | 'execute' }) {
   const { state, context, canvasLayout, reviewError } = useWorkflow();
   const workflow = state.workflow;
   const actions = composerActions(workflow);
@@ -64,9 +64,9 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction }: { workfl
     style: { stroke: '#6b809b', strokeWidth: 1.5 },
   })), [workflow, incomplete]);
   const [viewport, setViewport] = useState<'pending' | 'fitted'>('pending');
-  return <section className={`canvas simulate-canvas simulation-workflow-canvas panel ${lending ? 'simulation-lending-canvas' : ''}`} aria-label="Workflow simulation">
+  return <section className={`canvas simulate-canvas simulation-workflow-canvas panel ${lending ? 'simulation-lending-canvas' : ''}`} aria-label={stage === 'execute' ? 'Execution plan' : 'Workflow simulation'}>
     <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{actions.length} {actions.length === 1 ? 'action' : 'actions'}</span></div>
-    <div className="flow-surface simulate-flow-surface" role="region" aria-label="Simulation workflow graph" data-viewport={viewport}>
+    <div className="flow-surface simulate-flow-surface" role="region" aria-label={stage === 'execute' ? 'Execution workflow graph' : 'Simulation workflow graph'} data-viewport={viewport}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={0.35} maxZoom={1.4}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} nodesFocusable={false} edgesFocusable={false}
         deleteKeyCode={null} fitViewOptions={{ padding: FIT_PADDING }}>
@@ -74,9 +74,9 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction }: { workfl
         <Background gap={18} size={1} color="var(--grid)"/>
         <Controls position="bottom-right" showInteractive={false} fitViewOptions={{ padding: FIT_PADDING }}/>
       </ReactFlow>
-      {nodes.length === 0 && <div className="simulation-workflow-empty"><strong>{incomplete ? 'Check your workflow' : 'Add an action to your workflow'}</strong><p>{incomplete ? 'Complete its configuration in Build before simulating.' : 'Create your strategy in Build, then return here to simulate it.'}</p></div>}
+      {nodes.length === 0 && <div className="simulation-workflow-empty"><strong>{incomplete ? 'Check your workflow' : 'Add an action to your workflow'}</strong><p>{incomplete ? stage === 'execute' ? 'Complete its configuration in Build before executing.' : 'Complete its configuration in Build before simulating.' : stage === 'execute' ? 'Create a workflow in Build first.' : 'Create your strategy in Build, then return here to simulate it.'}</p></div>}
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot"><span>Workflow preview</span><span>Configured in Build</span></div>
+    <div className="canvas-foot"><span>{stage === 'execute' ? 'Execution plan' : 'Workflow preview'}</span><span>Configured in Build</span></div>
   </section>;
 }

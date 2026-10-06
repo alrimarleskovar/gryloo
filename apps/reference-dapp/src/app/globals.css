@@ -821,3 +821,134 @@
 .simulation-summary:has(.simulation-tone-blocked) .simulation-review-action,
 .simulation-summary:has(.simulation-tone-neutral) .simulation-review-action{display:none}
 .simulate-workspace:has(.simulation-summary .simulation-review-action button:not(:disabled)):not(:has(.simulation-summary .simulation-tone-blocked)):not(:has(.simulation-summary .simulation-tone-neutral)) [data-simulation-action]{background:var(--paper);border-color:var(--line);color:var(--blue)}
+
+/* Execute foundation: the same read-only plan and product surfaces as Simulate. */
+.execute-workspace{min-width:0}
+.execute-heading{margin:0 0 22px}
+.execute-heading h1{font-size:24px;color:var(--blue);margin:6px 0 8px}
+.execute-heading>p:last-child{font-size:14px;color:var(--muted);margin:0;line-height:1.5}
+.execute-workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.execute-workspace-grid>.simulation-workflow-canvas{height:clamp(560px,calc(100vh - 250px),760px);margin:0;min-width:0}
+.execute-workspace-grid>.execution-summary{margin:0;padding:22px;min-width:0}
+.execution-summary h2{font-size:18px;color:var(--blue);margin:0 0 18px}
+.execution-summary .simulation-summary-values :is(dt,dd){min-width:0;overflow-wrap:anywhere}
+.execution-summary .simulation-summary-values dd{max-width:68%}
+.execute-actions{display:grid;gap:10px;margin-top:22px}
+.execute-actions button{width:100%;min-width:0;white-space:normal}
+.execute-next{padding-top:16px;border-top:1px solid var(--line)}
+.execute-next h3{font-size:13px;margin:0 0 10px}
+.execute-next p{font-size:12px;line-height:1.6;color:var(--muted);margin:8px 0;overflow-wrap:anywhere}
+.execute-acknowledgement{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.6;margin-bottom:16px}
+.execute-acknowledgement input{flex:none;margin:4px 0 0;accent-color:var(--blue)}
+.execute-technical{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.execute-technical pre{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.execute-workspace :is(button,input,summary,a):focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:5px}
+@media(max-width:900px){.execute-workspace-grid{grid-template-columns:minmax(0,1fr)}.execute-workspace-grid>.simulation-workflow-canvas{height:660px}}
+
+.execution-summary :is(.brand-icon,.brand-icon-fallback){width:18px;height:18px;min-width:18px;min-height:18px;flex:none;object-fit:contain}
+.execute-workspace .simulation-canvas-actions{width:auto}
+.execute-workspace .simulation-canvas-actions .simulation-back{background:var(--paper);color:var(--blue);border-color:var(--line);box-shadow:none}
+
+/* Live execution observations: the same calm product palette in both themes. */
+.execute-workspace-grid>.execution-plan{margin:0;padding:24px;min-width:0}
+.execution-plan-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+.execution-plan-heading>div{flex:1;min-width:0}
+.execution-plan-heading h2{margin:7px 0 0;font-size:20px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.execution-plan-heading button{flex:none;min-height:40px;padding:9px 12px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--blue)}
+.execution-context{font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.execution-timeline{list-style:none;padding:0;margin:20px 0 0}
+.execution-step{display:flex;gap:14px;position:relative;padding:0 0 26px;min-width:0}
+.execution-step:last-child{padding-bottom:0}
+.execution-step:not(:last-child):before{content:"";position:absolute;left:14px;top:32px;bottom:5px;border-left:1px solid var(--line)}
+.execution-step-marker{display:grid;place-items:center;width:29px;height:29px;flex:none;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:var(--muted);font-size:14px}
+.execution-step-content{min-width:0;flex:1;padding-top:2px}
+.execution-step-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.execution-step-heading h3{font-size:15px;margin:0;color:var(--ink)}
+.execution-state-label{font-size:12px;color:var(--muted)}
+.execution-state-confirmed>.execution-step-marker,.execution-state-confirmed .execution-state-label{color:var(--blue)}
+.execution-state-wallet>.execution-step-marker,.execution-state-pending>.execution-step-marker,.execution-state-submitted>.execution-step-marker{color:var(--blue);border-color:var(--accent-line)}
+.execution-state-failed>.execution-step-marker,.execution-state-cancelled>.execution-step-marker{color:var(--red);border-color:var(--danger-line)}
+.execution-state-uncertain>.execution-step-marker{color:var(--amber);border-color:var(--warning-border)}
+.execution-step-assets{font-size:13px;color:var(--ink);line-height:1.7;margin:9px 0 6px;overflow-wrap:anywhere}
+.execution-step-context{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted);margin:0;line-height:1.7;overflow-wrap:anywhere}
+.execution-step-network{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.execution-step-network>span:last-child{min-width:0;overflow-wrap:anywhere}
+.execution-step-context :is(.brand-icon,.brand-icon-fallback){width:18px;height:18px;min-width:18px;flex:none;object-fit:contain}
+.execution-operations{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:9px}
+.execution-operation{border:1px solid var(--line);border-radius:7px;padding:11px 13px;background:var(--soft);min-width:0}
+.execution-operation-heading{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:12px;line-height:1.6}
+.execution-operation-heading strong{font-weight:600;color:var(--muted)}
+.execution-operation.execution-state-confirmed strong{color:var(--blue)}
+.execution-operation.execution-state-failed strong{color:var(--red)}
+.execution-operation.execution-state-uncertain strong{color:var(--amber)}
+.execution-operation-network,.execution-operation-fee{font-size:11px;line-height:1.6;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}
+.execution-transaction{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;font-size:11px;color:var(--muted)}
+.execution-transaction>span:first-child{font-family:monospace}
+.execution-transaction :is(button,a){border:0;background:none;padding:3px 0;color:var(--blue);font-size:11px;text-decoration:underline;text-underline-offset:3px}
+.execution-request-error{padding:12px;border-left:2px solid var(--danger-line);font-size:12px;line-height:1.7}
+@media(max-width:900px){.execute-workspace-grid>.execution-plan{padding:20px}}
+
+.execution-step-assets{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.execution-step-assets .brand-icon{width:18px;height:18px;flex:none;object-fit:contain}
+.execution-transaction>span[role="status"]{overflow-wrap:anywhere;max-width:100%}
+.execution-state-expired>.execution-step-marker,.execution-operation.execution-state-expired strong{color:var(--amber)}
+
+/* Execute reuses the Simulate canvas action row and keeps verification in the current run. */
+.execute-workspace .simulation-canvas-actions{max-width:calc(100% - 84px)}
+.execute-workspace .simulation-canvas-actions button{min-width:0;border-radius:7px;white-space:normal}
+.execution-recovery-attention{padding:10px 12px;border-left:2px solid var(--warning-border);background:var(--soft)}
+.execution-navigation-note{margin:14px 0 0;font-size:11px}
+
+/* The current Execute timeline becomes a calm, read-only result surface. */
+.execution-result-context{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink)}
+.execution-result-context span{font-size:11px;font-weight:400;color:var(--muted)}
+.execution-result-summary .simulation-validity{padding:16px}
+.execution-result-summary .simulation-validity strong{font-size:17px;line-height:1.5;align-items:flex-start}
+.execution-result-summary .simulation-status-dot{flex:none;margin-top:8px}
+.execution-result-summary .execution-result-count{align-items:center}
+.execution-result-count dd{font-size:23px;letter-spacing:-.03em;color:var(--ink)}
+.execution-result-planned{font-size:11px;color:var(--muted);margin-right:3px}
+
+/* Recorded step outcomes stay within the existing Execute timeline. */
+.execution-step-evidence{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--paper);min-width:0}
+.execution-evidence-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px}
+.execution-evidence-heading>span{color:var(--muted)}
+.execution-evidence-heading>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.execution-evidence-heading strong{color:var(--ink);font-weight:600}
+.execution-state-confirmed .execution-evidence-heading strong{color:var(--blue)}
+.execution-evidence-recovered{padding:3px 6px;border:1px solid var(--accent-line);border-radius:5px;background:var(--blue-soft);color:var(--blue);font-size:10px}
+.execution-step-evidence p{margin:9px 0 0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.execution-step-evidence .execution-evidence-restored{font-size:11px}
+.execution-evidence-comparison{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.execution-evidence-comparison-head,.execution-evidence-comparison-row{display:grid;grid-template-columns:minmax(60px,.7fr) repeat(2,minmax(0,1fr));gap:10px;line-height:1.6;font-size:12px}
+.execution-evidence-comparison-head{color:var(--muted);font-size:11px;padding-bottom:6px}
+.execution-evidence-comparison-row{padding:6px 0;font-variant-numeric:tabular-nums}
+.execution-evidence-comparison :is(span,strong){min-width:0;overflow-wrap:anywhere}
+.execution-evidence-comparison-row>span:first-child{color:var(--muted)}
+.execution-evidence-comparison-row>strong{font-weight:600}
+
+/* Current-run evidence uses the existing light/dark product surfaces. */
+.execution-identifier{min-width:0;margin-top:10px}
+.execution-identifier-label,.execution-identifier-status{font-size:11px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.execution-identifier .execution-transaction{margin-top:2px;min-width:0}
+.execution-identifier .execution-transaction>span:first-child{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+.execution-actual-values{margin:12px 0 0;border-top:1px solid var(--line);padding-top:8px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
+.execution-actual-values>div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;min-width:0}
+.execution-actual-values dt{color:var(--muted);flex:1}
+.execution-actual-values dd{margin:0;text-align:right;font-weight:600;max-width:65%}
+.execution-actual-values :is(dt,dd){min-width:0;overflow-wrap:anywhere}
+.execution-evidence-details{padding:20px 0;color:var(--ink);min-width:0;font-size:12px;line-height:1.7}
+.execution-evidence-details h2{font-size:16px;margin:0 0 16px}
+.execution-evidence-details h3{font-size:13px;margin:0 0 10px}
+.execution-evidence-details>dl{margin:0}
+.execution-evidence-details>dl>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,3fr);gap:18px;border-bottom:1px solid var(--line);padding:10px 0}
+.execution-evidence-details dt{color:var(--muted)}
+.execution-evidence-details dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.execution-evidence-details dd .execution-identifier{margin-top:0}
+.execution-evidence-details dd .execution-identifier-label{display:none}
+.execution-evidence-details section{border-top:1px solid var(--line);margin-top:18px;padding-top:16px;min-width:0}
+.execution-evidence-details p,.execution-evidence-details li{color:var(--muted);overflow-wrap:anywhere}
+.execution-evidence-details .execution-transaction{font-size:12px}
+.execution-result-summary .execution-result-cost{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.execution-result-summary .execution-result-cost dd{max-width:100%;text-align:left;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.execution-plan-heading>div{flex-basis:100%}.execution-plan-heading button{margin-left:auto}.execution-evidence-details>dl>div{grid-template-columns:minmax(0,1fr);gap:5px}.execution-actual-values>div{gap:8px}.execution-step-evidence{padding:12px}}

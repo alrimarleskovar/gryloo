@@ -8,7 +8,7 @@ import { useWorkflow } from './workflow-store';
 import { injected,useBuild009Wallet } from './build009-wallet-store';
 import { supplyWalletNonce,supplyWalletTransaction } from '../domain/supply-authoring';
 import type { LendingRecord } from '../server/lending-composition-service';
-type State={record:LendingRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;
+type State={record:LendingRecord|null;busy:boolean;signing:boolean;error:string|null;retired:boolean;recovered:boolean;
   simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;refresh():Promise<void>;cancelPrepared():Promise<void>};
 const Context=createContext<State|null>(null),key='gryloo.lending-composition.v1';
 export function LendingProvider({children}:{children:ReactNode}){
@@ -82,6 +82,6 @@ export function LendingProvider({children}:{children:ReactNode}){
     }
     const result=await lendingObserve(record.id);if(result.ok)accept(result.value);
   });}
-  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe,refresh,cancelPrepared}}>{signing&&<p role="status">Confirm the exact transaction in your wallet.</p>}<div inert={signing}>{children}</div></Context.Provider>;
+  return <Context.Provider value={{record,busy,signing,error,retired,recovered,simulate,review,execute,observe,refresh,cancelPrepared}}>{signing&&<p role="status">Confirm the exact transaction in your wallet.</p>}<div inert={signing}>{children}</div></Context.Provider>;
 }
 export function useLending(){const value=useContext(Context);if(!value)throw Error('LENDING_PROVIDER_MISSING');return value;}

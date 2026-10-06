@@ -130,6 +130,9 @@ export function projectReview(workflow: Workflow, context: ReviewContext, source
   if (expiresAt !== null && now >= expiresAt || /expired/i.test(simulation.message)) { status = 'expired'; label = 'Simulation expired'; message = 'Run Simulate again to refresh this review.'; }
   const preview = steps.map(step => `${step.action} · ${step.input}${step.pair ? ` · ${step.pair}` : ''} · ${step.network}${step.provider ? ` · ${step.provider}` : ''}`);
   for (const line of limits.filter(l => ['Max spend', 'Max slippage', 'Recipient', 'Recipients', 'Minimum health factor'].includes(l.label))) preview.push(`${line.label} · ${line.value}`);
-  return { status, label, message, canApprove: status === 'ready', steps, permissions, limits, preview, expiresAt, warnings: simulation.warnings,
+  // Accepted authority remains bound to the same wallet, workflow and unexpired policy.
+  // Consuming a request can close the Review CTA without invalidating this binding.
+  const bindingValid = Boolean(authorization.accepted && authorization.key && authorization.approve && wallet.account && !wallet.changed && !walletMismatch && !networkMismatch && !manifestMismatch && !policyMismatch && !(authorization.manifest && !manifest) && !invalidWorkflow && !('retired' in source.state && source.state.retired) && !/workflow.*changed|expired/i.test(simulation.message) && simulation.status !== 'blocked' && simulation.message !== 'Run a simulation to see the expected result.' && source.kind !== 'across' && (expiresAt === null || now < expiresAt));
+  return { bindingValid, status, label, message, canApprove: status === 'ready', steps, permissions, limits, preview, expiresAt, warnings: simulation.warnings,
     approvals: authorization.approvals.map(a => ({ ...reviewApprovalValue(a, tokens, context), address: a.spender })), manifest };
 }

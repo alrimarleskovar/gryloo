@@ -26,7 +26,10 @@ import { CopilotPanel } from './copilot-panel';
 import { ExecutionPanel } from './execution-panel';
 import { ForkSimulationPanel } from './fork-simulation-panel';
 import { ModeBPanel } from './mode-b-panel';
-import { ManifestReview } from './manifest-review';
+import { ExecuteWorkspace } from './execute-workspace';
+import { useExecutionLifecycle } from '../state/execution-lifecycle';
+import { useExecutionStart } from '../state/execution-start';
+import { restoredLocalExecutionKind } from '../domain/execution-recovery';
 import { ReviewWorkspace, ReviewTechnicalDetails } from './review-workspace';
 import { useReviewAuthorization } from '../state/review-authorization';
 import { SummaryBar } from './summary-bar';
@@ -43,7 +46,6 @@ import { WorkflowEditReview } from './workflow-edit-review';
 import { useWorkflowCapability } from '../state/capability-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
 import { PublicTestnetPanel } from './public-testnet-panel';
-import { capabilityBlockMessage, primaryExecutionBlocker } from '../domain/capability-view';
 
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import {useLending} from '../state/lending-store';
@@ -122,8 +124,6 @@ function AppShellContent() {
     setInspectorExpanded(true);
   }, []);
   const { environment, walletEnvironment, result: capability } = useWorkflowCapability();
-  const blocker = primaryExecutionBlocker(capability, selectedId);
-  const blockedNode = capability.nodes.find(item => item.nodeId === blocker?.nodeId);
   const acrossWorkflow = state.workflow.nodes.length === 1 && state.workflow.nodes[0]?.adapterConstraints.adapters[0]?.id === 'across.direct';
   const bridgeSwapWorkflow = (state.workflow.nodes.length === 2 && state.workflow.nodes[0]?.nodeId === 'build009-bridge') || Boolean(bridgeSwap.run);
   const crossChainWorkflow = state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.prepare');
@@ -137,6 +137,7 @@ function AppShellContent() {
   const executionSurface = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath || recoveryPath || (environment !== 'PUBLIC_TESTNET' && environment !== 'MAINNET' &&
     capability.executionSupported && forkExecution);
   // Select the same runtime as the existing Simulate surface; presentation never changes its gates.
+  const restoredLocalKind = restoredLocalExecutionKind(state.workflow, { composition: composition.recoveryOnly, liquidity: liquidity.recoveryOnly, cow: cow.recoveryOnly });
   const simulationSource: SimulationSource = routerPath ? { kind: 'router', state: routerState }
     : transferPath ? { kind: 'transfer', state: transfer }
     : lendingPath ? { kind: 'lending', state: lending }
@@ -149,14 +150,16 @@ function AppShellContent() {
     : acrossWorkflow || across.run ? { kind: 'across', state: across }
     : bridgeSwapWorkflow ? { kind: 'unavailable', state: bridgeSwap }
     : bridgeWorkflow ? { kind: 'unavailable', state: bridge }
-    : state.workflow.nodes.some(n => n.actionType.includes('liquidity')) && state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input')
+    : restoredLocalKind === 'composition' || state.workflow.nodes.some(n => n.actionType.includes('liquidity')) && state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input')
       ? { kind: 'composition', state: composition }
-    : state.workflow.nodes.some(n => n.actionType.includes('liquidity')) ? { kind: 'fork-pool', state: liquidity }
-    : state.workflow.nodes.some(n => n.adapterConstraints.protocols.includes('cow-protocol'))
+    : restoredLocalKind === 'fork-pool' || state.workflow.nodes.some(n => n.actionType.includes('liquidity')) ? { kind: 'fork-pool', state: liquidity }
+    : restoredLocalKind === 'cow' || state.workflow.nodes.some(n => n.adapterConstraints.protocols.includes('cow-protocol'))
       ? { kind: 'unavailable', state: cow }
     : modeB.status?.prepared && !modeB.retired ? { kind: 'delegated-swap', state: modeB }
     : { kind: 'fork-swap', state: modeA };
   const reviewBinding = useReviewAuthorization(simulationSource.kind);
+  const executionProgress = useExecutionLifecycle(simulationSource.kind, reviewBinding.wallet);
+  const executionStart = useExecutionStart(simulationSource.kind, reviewBinding.wallet);
   function openSimulationControls() {
     const details = document.querySelector<HTMLDetailsElement>('.simulation-technical');
     if (details) { details.open = true; details.scrollIntoView({ block: 'start' }); details.querySelector<HTMLElement>('summary')?.focus(); }
@@ -195,25 +198,18 @@ function AppShellContent() {
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
           bridge.recoveryOnly ? <BridgePanel view="execute"/> : modeA.recoveryOnly || modeB.recoveryOnly ||
           composition.recoveryOnly || liquidity.recoveryOnly || cow.recoveryOnly ?
-            <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></> :
+            <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></> :
           crossChainWorkflow ? <CrossChainLiquidityPanel view="execute"/> : across.run ? <AcrossPanel view="execute"/> :
           bridgeSwap.run ? <BridgeSwapPanel view="execute"/> : bridge.execution ? <BridgePanel view="execute"/> :
-          <><ManifestReview/><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
+          <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : null;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab}/>
     <main id="workspace" className={tab === 'Build' ? 'main build-workspace' : 'main'} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
-      {tab === 'Execute' && !productExecutionPath ? <>
-        <WorkflowCanvas mode="execute" workflowName={workflowName}/>
-        <details className="shell-details technical-workspace"><summary>Technical diagnostics</summary>{executionSurface ? stageContent : <>
-          <p>A supported workflow, current simulation and explicit wallet authorization are required before execution.</p>
-          {blocker && <p role="status">{capabilityBlockMessage(blocker, blockedNode)}</p>}
-          {info?.available && <p>Local-fork Mode A is enabled on this server: simulate a single USDC/WETH swap on the local fork in Simulate first. It runs on chain 31337 only.</p>}
-        </>}</details>
-      </> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
+      {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
           <details className="shell-details technical-workspace simulation-technical"><summary>View technical details</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
         </SimulateWorkspace> : stageContent}
-      {state.error && <div className="error-banner" role="alert"><strong>Edit not applied</strong><span>{tab === 'Simulate' ? 'Review the workflow configuration in Build before simulating again.' : state.error}</span></div>}
-    </main><SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost} focusReview={focusReview} reviewAvailable={Boolean(reviewBinding.authorization.key && reviewBinding.authorization.ready)}/>
+      {state.error && <div className="error-banner" role="alert"><strong>Edit not applied</strong><span>{tab !== 'Build' ? 'Review the workflow configuration in Build before simulating again.' : state.error}</span></div>}
+    </main>{tab !== 'Execute' && <SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost} focusReview={focusReview} reviewAvailable={Boolean(reviewBinding.authorization.key && reviewBinding.authorization.ready)}/>}
   </div>;
 }

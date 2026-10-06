@@ -100,4 +100,16 @@ describe('UX-004A read-only product workflow in Simulate', () => {
     expect(html).not.toMatch(/999|998|data-mocked-value|Expected |Minimum /);
     expect(fixture.store.state.workflow.revision).toBe(revision);
   });
+  it('reuses the exact Build composition as a non-authoring execution plan', () => {
+    author('lending'); const workflow = fixture.store.state.workflow;
+    const html = renderToStaticMarkup(createElement(SimulateWorkflowCanvas, { workflowName: 'Approved lending', stage: 'execute' }));
+    expect(html).toContain('aria-label="Execution plan"'); expect(html).toContain('aria-label="Execution workflow graph"');
+    expect(fixture.graph.nodesDraggable).toBe(false); expect(fixture.graph.nodesConnectable).toBe(false);
+    expect(fixture.graph.elementsSelectable).toBe(false); expect(fixture.graph.deleteKeyCode).toBeNull();
+    expect((fixture.graph.nodes as { id: string }[]).map(n => n.id)).toEqual(composerActions(workflow).map(n => n.nodeId));
+    for (const action of ['Supply', 'Borrow', 'Swap']) expect(html).toContain(action);
+    expect(html).not.toMatch(/<input|<select|Advanced Settings|Undo|Redo|Duplicate|Delete|Rename workflow/);
+    expect(fixture.store.state.workflow).toBe(workflow); expect(fixture.store.moveCanvasNodes).not.toHaveBeenCalled();
+  });
+
 });

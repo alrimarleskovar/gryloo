@@ -25,7 +25,7 @@ function walletValue(value:unknown,depth=0,seen=new Set<object>()):unknown{
 }
 const key='gryloo:build012a:supply';
 type RecoveryPointer={id?:string;step?:'APPROVAL'|'SUPPLY'|'BORROW'|'REPAY'|'WITHDRAW';hash?:string};
-type Store={record:SupplyRecord|null;busy:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
+type Store={record:SupplyRecord|null;busy:boolean;signing:boolean;error:string|null;retired:boolean;recovered:boolean;simulate():Promise<void>;review():Promise<void>;execute():Promise<void>;observe():Promise<void>;recoverReview():Promise<void>};
 const Context=createContext<Store|null>(null);
 export function SupplyProvider({children}:{children:ReactNode}){
   const {state}=useWorkflow(),wallet=useBuild009Wallet();
@@ -145,6 +145,6 @@ export function SupplyProvider({children}:{children:ReactNode}){
     }
     const observed=await supplyObserve(record.id);if(observed.ok)accept(observed.value);
   });}
-  return <Context.Provider value={{record,busy,error,retired,recovered,simulate,review,execute,observe,recoverReview}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
+  return <Context.Provider value={{record,busy,signing,error,retired,recovered,simulate,review,execute,observe,recoverReview}}>{signing&&<p role="status">Confirm or reject the pending request in your wallet.</p>}<div inert={signing} data-supply-wallet-pending={signing?'true':undefined}>{children}</div></Context.Provider>;
 }
 export function useSupply(){const value=useContext(Context);if(!value)throw new Error('SUPPLY_PROVIDER_MISSING');return value;}
