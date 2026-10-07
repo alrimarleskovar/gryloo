@@ -120,10 +120,7 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
     {fields && <p>Concentrated liquidity on Solana Devnet via Orca Whirlpools: up to {fields.maxSol} Devnet SOL and {fields.maxDevUsdc} devUSDC between {fields.lowerPrice} and {fields.upperPrice} devUSDC per SOL.</p>}
     <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>
     {liquidity.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current position again.</p>}
-    {!liquidity.owner && !jupiter.walletChoices && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect('solana:devnet')}>Connect Solana wallet</button>}
-    {!liquidity.owner && jupiter.walletChoices && <div role="group" aria-label="Choose a Solana wallet"><p>Choose a Solana wallet for Solana Devnet:</p>
-      {jupiter.walletChoices.map((name, i) => <button key={name + i} type="button" disabled={jupiter.busy} onClick={() => void jupiter.chooseWallet(name)}>{name}</button>)}
-      <button type="button" className="quiet" disabled={jupiter.busy} onClick={jupiter.cancelWalletChoice}>Cancel</button></div>}
+    {!liquidity.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect('solana:devnet')}>Connect Solana wallet</button>}
     {liquidity.owner && <p>Wallet connected · Solana Devnet: <span>{liquidity.owner}</span></p>}
     {jupiter.error && !liquidity.owner && <p role="status">{jupiter.error}</p>}
     {liquidity.positions && <section aria-label="Your Flofi positions"><h3>Your Flofi positions on this pool</h3>

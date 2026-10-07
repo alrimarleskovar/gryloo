@@ -86,6 +86,17 @@ export async function assertPassiveWallet(page: Page): Promise<void> {
   expect(await page.evaluate(() => [...new Set((window as unknown as { __authoringWalletMethods: string[] }).__authoringWalletMethods)].sort())).toEqual(['eth_accounts', 'eth_chainId']);
 }
 
+/**
+ * The canonical wallet selector: assert it is open, then explicitly choose one wallet by its name and ecosystem. Opening the
+ * selector never invokes a wallet; only this choice does.
+ */
+export async function chooseWallet(page: Page, name: string, ecosystem: 'Ethereum' | 'Solana' = 'Ethereum'): Promise<void> {
+  const dialog = page.locator('dialog.wallet-selector[open]');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: `${name} on ${ecosystem}`, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 /** Open the current authoring proposal; acceptance remains a separate explicit test action. */
 export async function openProposalReview(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^Review proposed change:/ }).click();

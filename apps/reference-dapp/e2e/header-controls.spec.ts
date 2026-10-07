@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, chooseWallet } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction } from './composer-authoring-fixtures';
 
@@ -26,6 +26,7 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
   await settings.click();
   await expect(options).toHaveCount(0);
   await wallet.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  await chooseWallet(page, 'Browser wallet');
   await expect(wallet).toContainText('Wallet: 0x1111…1111 · Base Sepolia');
   for (const width of [1440, 900, 390]) {
     await page.setViewportSize({ width, height: 900 });

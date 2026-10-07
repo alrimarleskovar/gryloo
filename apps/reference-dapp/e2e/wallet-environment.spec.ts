@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, openProposalReview } from './fixtures';
+import { test, expect, chooseWallet, openProposalReview } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type WalletControls = {
@@ -101,6 +101,7 @@ test('header and Bridge use the actual EVM wallet chain, update live, and keep u
   await expect(card.getByRole('button', { name: 'Review amount', exact: true })).toBeDisabled();
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  await chooseWallet(page, 'Browser wallet');
   await expect(environment).toHaveText('Mainnet');
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
 });
@@ -132,6 +133,7 @@ test('a disconnected wallet is neutral until connection reports its actual netwo
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
   await expect(environment).toHaveText('Network'); await expect(page.locator('.header-mainnet-dot')).toHaveCount(0);
   await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  await chooseWallet(page, 'Browser wallet');
   await expect(environment).toHaveText('Mainnet'); await expect(page.locator('.header-mainnet-dot')).toBeVisible();
 });
 
@@ -155,7 +157,7 @@ for (const cluster of ['solana:devnet', 'solana:mainnet']) test(`${cluster} conn
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await page.locator('details.simulation-technical > summary').click();
   await page.getByRole('button', { name: 'Connect Solana wallet', exact: true }).click();
-  await page.getByRole('button', { name: 'Environment test wallet', exact: true }).click();
+  await chooseWallet(page, 'Environment test wallet', 'Solana');
   const mainnet = cluster === 'solana:mainnet';
   await expect(environment).toHaveText(mainnet ? 'Mainnet' : 'Testnet');
   await expect(environment).toBeDisabled();

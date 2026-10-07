@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 /**
- * BUILD-MCP-002: chain-neutral wallet proof in the browser. EVM: the injected wallet signs the EIP-4361 sign-in message
- * (`personal_sign`). Solana: the chosen Wallet Standard wallet signs the Sign-In With Solana message (`solana:signMessage`). The
+ * BUILD-MCP-002: chain-neutral wallet proof in the browser. The owner picks the wallet in the canonical wallet selector; only
+ * that wallet is asked. EVM: it signs the EIP-4361 sign-in message (`personal_sign`). Solana: it signs the Sign-In With
+ * Solana message (`solana:signMessage`). The
  * server verifies the signature and sets the HttpOnly session; the browser never holds a session token. Nothing here signs a
  * transaction or moves funds.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { solanaSessionStatus, solanaSignIn, solanaSignInChallenge, walletSessionStatus, walletSignIn, walletSignInChallenge } from '../app/wallet-session-action';
-import { injectedProvider } from '../wallet/eip1193';
-import { connectSolanaWallet, signSolanaMessage, solanaWalletNames, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { chooseEvmWallet } from '../wallet/evm-discovery';
+import { connectSolanaWallet, signSolanaMessage, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { updateWalletPreference } from '../wallet/wallet-registry';
+import { useWalletSelector } from './wallet-selector';
 
 export type Namespace = 'eip155' | 'solana';
 const utf8Hex = (text: string) => '0x' + Array.from(new TextEncoder().encode(text), b => b.toString(16).padStart(2, '0')).join('');
@@ -20,23 +23,20 @@ export function useWalletProof(namespace: Namespace | null, chain: SolanaWalletC
   const [proven, setProven] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [solanaNames, setSolanaNames] = useState<string[]>([]);
+  const selector = useWalletSelector();
   const refresh = useCallback(async () => {
     if (namespace === 'solana') setProven((await solanaSessionStatus())?.account ?? null);
     else if (namespace === 'eip155') setProven((await walletSessionStatus())?.account ?? null);
   }, [namespace]);
-  useEffect(() => {
-    void refresh();
-    if (namespace !== 'solana') return undefined;
-    const update = () => setSolanaNames(solanaWalletNames(chain));
-    update(); const timer = setInterval(update, 1_000); return () => clearInterval(timer);
-  }, [namespace, chain, refresh]);
-  async function run(action: () => Promise<string>) {
+  useEffect(() => { void refresh(); }, [refresh]);
+  async function run(action: () => Promise<string | null>) {
     if (busy) return; setBusy(true); setError(null);
-    try { setProven(await action()); } catch (cause) { setError(codeOf(cause)); } finally { setBusy(false); }
+    try { const account = await action(); if (account) setProven(account); } catch (cause) { setError(codeOf(cause)); } finally { setBusy(false); }
   }
   const proveEvm = () => run(async () => {
-    const provider = injectedProvider(); if (!provider) throw new Error('EVM_WALLET_NOT_FOUND');
+    const choice = await selector.choose({ ecosystems: ['evm'], title: 'Choose a wallet to prove ownership' });
+    if (!choice) return null;
+    const provider = chooseEvmWallet(choice.id); if (!provider) throw new Error('EVM_WALLET_NOT_FOUND');
     const accounts = await provider.request({ method: 'eth_requestAccounts' }), chainId = await provider.request({ method: 'eth_chainId' });
     const account = Array.isArray(accounts) && typeof accounts[0] === 'string' ? accounts[0].toLowerCase() : null;
     if (!account || typeof chainId !== 'string') throw new Error('EVM_WALLET_NOT_FOUND');
@@ -45,13 +45,16 @@ export function useWalletProof(namespace: Namespace | null, chain: SolanaWalletC
     if (typeof signature !== 'string') throw new Error('WALLET_SIGNATURE_INVALID');
     return unwrap(await walletSignIn(account, Number.parseInt(chainId, 16), signature)).account;
   });
-  const proveSolana = (name: string) => run(async () => {
-    const session = await connectSolanaWallet(name, chain, 'WALLET');
+  const proveSolana = () => run(async () => {
+    const choice = await selector.choose({ ecosystems: ['solana'], solanaChain: chain, title: 'Choose a Solana wallet to prove ownership' });
+    if (!choice) return null;
+    const session = await connectSolanaWallet(choice.key, chain, 'WALLET');
+    updateWalletPreference({ solana: choice.key });
     const { message } = unwrap(await solanaSignInChallenge(session.account.address));
     const signature = await signSolanaMessage(session, message, 'WALLET');
     return unwrap(await solanaSignIn(session.account.address, signature)).account;
   });
-  return { proven, busy, error, solanaNames, proveEvm, proveSolana, refresh };
+  return { proven, busy, error, proveEvm, proveSolana, refresh };
 }
 
 /** The proof buttons for one namespace, or the proven account. */
@@ -59,7 +62,6 @@ export function WalletProof({ namespace, proof }: { namespace: Namespace; proof:
   if (proof.proven) return <p>Signed in as <code>{proof.proven}</code> ({namespace === 'solana' ? 'Solana' : 'Ethereum'}).</p>;
   if (namespace === 'eip155') return <div className="approval-actions"><button type="button" className="primary" disabled={proof.busy}
     onClick={() => void proof.proveEvm()}>Connect wallet and prove ownership</button></div>;
-  return proof.solanaNames.length ? <div className="approval-actions">{proof.solanaNames.map(name => <button key={name} type="button" className="primary" disabled={proof.busy}
-    onClick={() => void proof.proveSolana(name)}>Prove ownership with {name}</button>)}</div>
-    : <p className="muted">No Solana wallet with message signing is available in this browser. Open this page in your wallet&apos;s browser, or install a wallet.</p>;
+  return <div className="approval-actions"><button type="button" className="primary" disabled={proof.busy}
+    onClick={() => void proof.proveSolana()}>Connect Solana wallet and prove ownership</button></div>;
 }

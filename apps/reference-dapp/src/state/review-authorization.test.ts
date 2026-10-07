@@ -57,6 +57,14 @@ describe('shared wallet and existing Review capability', () => {
     (f.stores.supply!.record as { id: string }).id = 'fresh-simulation';
     expect(useReviewAuthorization('supply').wallet.changed).toBe(false);
   });
+  it('latches a signing-provider change for the same address and chain (MetaMask → Rabby needs a fresh Review)', () => {
+    f.stores.wallet!.provider = { key: 'io.metamask', name: 'MetaMask', icon: null };
+    supply(); expect(useReviewAuthorization('supply').wallet.changed).toBe(false);
+    f.stores.wallet!.provider = { key: 'io.rabby', name: 'Rabby Wallet', icon: null };
+    expect(useReviewAuthorization('supply').wallet).toMatchObject({ account: reviewOwner, chain: 'eip155:84532', changed: true });
+    f.stores.wallet!.provider = { key: 'io.metamask', name: 'MetaMask', icon: null };
+    expect(useReviewAuthorization('supply').wallet.changed).toBe(true);
+  });
   it('reflects chain changes and never infers Mainnet for an unknown chain', () => {
     supply(); useReviewAuthorization('supply');
     f.stores.wallet!.chainId = '0xa4b1'; f.stores.environment!.walletEnvironment = 'mainnet';

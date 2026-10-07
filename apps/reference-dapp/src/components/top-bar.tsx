@@ -21,6 +21,8 @@ import { useExecutionEnvironment } from '../state/capability-store';
 import { HeaderEnvironment } from './header-environment';
 import { NavigationDrawer } from './navigation-drawer';
 import { secondaryWorkspaceRoute } from '../domain/secondary-workspaces';
+import { useWalletConnection } from '../state/wallet-connection';
+import { WalletMark } from './wallet-selector';
 
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
@@ -49,21 +51,29 @@ export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab:
   // This is only a shortcut to existing user-driven wallet switching, never a capability or execution decision.
   const switchTarget = required === BASE_HEX || required === ARBITRUM_HEX || required === BASE_SEPOLIA_HEX || required === ROBINHOOD_TESTNET_HEX ? required : null;
   const solanaActive = walletKind === 'solana';
+  const connection = useWalletConnection();
+  const solanaDisconnect = () => { void jupiter.disconnect(); };
+  const disconnect = solanaActive ? solanaDisconnect : build009.reset;
+  const disconnectDisabled = solanaActive ? !jupiter.session || jupiter.busy : !build009.account || build009.busy;
+  const walletError = solanaActive ? connection.error : build009.error ?? connection.error;
+  const provider = solanaActive ? jupiter.session ? { name: jupiter.session.wallet.name, icon: jupiter.session.wallet.icon ?? null } : null
+    : build009.account ? build009.provider : null;
   const fork = info?.available ? info : null;
   return <header className="top-bar">
     <div className="brand"><NavigationDrawer pathname={pathname ?? null} section={tab} onBuild={() => setTab('Build')}
-      onDisconnect={build009.reset} disconnectDisabled={Boolean(solanaActive) || !build009.account || build009.busy}/><FloFiLogo/></div>
+      onDisconnect={disconnect} disconnectDisabled={disconnectDisabled}/><FloFiLogo/></div>
     <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={!secondaryWorkspace && tab === 'Dashboard' ? 'page' : undefined} className={!secondaryWorkspace && tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
       <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined} aria-current={!secondaryWorkspace && tab === value ? 'page' : undefined} className={!secondaryWorkspace && tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
     <div className="top-meta">
       <HeaderEnvironment environment={walletEnvironment} disabled={solanaActive || !build009.account || build009.busy}
         onChange={value => { void build009.switchTo(value === 'mainnet' ? BASE_HEX : BASE_SEPOLIA_HEX); }}/>
       <div className="header-wallet" role="group" aria-label="Wallet connection">
-      {solanaActive ? <span className="wallet-connection">{jupiter.session ? <>Solana wallet: <span className="numeric wallet-address">{jupiter.session.account.address.slice(0, 6)}…{jupiter.session.account.address.slice(-4)}</span> · {walletEnvironmentLabel(walletEnvironment)}</> : 'Solana wallet not connected · connect in the workflow panel'}</span>
-        : build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: <span className="numeric wallet-address">{build009.account.slice(0, 6)}…{build009.account.slice(-4)}</span> · {chainName(build009.chainId)}</span>
-          : <><span className="wallet-connection">Wallet not connected</span><button type="button" onClick={() => void build009.connect()} disabled={build009.busy}>Connect Wallet</button></>}
+      {provider && <span className="header-wallet-provider" title={provider.name}><WalletMark icon={provider.icon}/><span className="sr-only">{provider.name}</span></span>}
+      {solanaActive && jupiter.session ? <span className="wallet-connection">Solana wallet: <span className="numeric wallet-address">{jupiter.session.account.address.slice(0, 6)}…{jupiter.session.account.address.slice(-4)}</span> · {walletEnvironmentLabel(walletEnvironment)}</span>
+        : !solanaActive && build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: <span className="numeric wallet-address">{build009.account.slice(0, 6)}…{build009.account.slice(-4)}</span> · {chainName(build009.chainId)}</span>
+          : <><span className="wallet-connection">{solanaActive ? 'Solana wallet not connected' : 'Wallet not connected'}</span><button type="button" onClick={() => void connection.connect()} disabled={build009.busy || jupiter.busy}>Connect Wallet</button></>}
       </div>
-      <HeaderSettings onDisconnect={build009.reset} disconnectDisabled={Boolean(solanaActive) || !build009.account || build009.busy}/>
+      <HeaderSettings onDisconnect={disconnect} disconnectDisabled={disconnectDisabled}/>
     </div>
     <div className="shell-network-row">
       {requiredChain && <span className="build009-required">Workflow network: {shellChainLabel(requiredChain)}</span>}
@@ -76,6 +86,6 @@ export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab:
         <span>Chain 31337 · local environment</span>
       </div></details>}
     </div>
-    {!solanaActive && build009.error && <div role="alert" className="wallet-toast">Wallet: {build009.error}</div>}
+    {walletError && <div role="alert" className="wallet-toast">Wallet: {walletError}</div>}
   </header>;
 }

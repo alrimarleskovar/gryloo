@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
+import { chooseWallet, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -85,9 +85,9 @@ export async function reviewSolanaSwap(page: Page) {
 export const signRequests = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignRequests: number }).solanaSignRequests);
 export const signChains = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignChains: string[] }).solanaSignChains);
 export const MOCKED_SOLANA_WALLET = 'Gryloo MOCKED Solana wallet';
-/** Connect explicitly: open the wallet list and pick the named wallet. */
+/** Connect explicitly: open the canonical wallet selector and pick the named Solana wallet. */
 export async function chooseSolanaWallet(panel: Locator, name = MOCKED_SOLANA_WALLET) {
   await panel.getByRole('button', { name: 'Connect Solana wallet' }).click();
-  await panel.getByRole('group', { name: 'Choose a Solana wallet' }).getByRole('button', { name, exact: true }).click();
+  await chooseWallet(panel.page(), name, 'Solana');
 }
 export const decoyWalletCalls = (page: Page) => page.evaluate(() => (window as unknown as { decoyWalletCalls: string[] }).decoyWalletCalls);

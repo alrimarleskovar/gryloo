@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, openSimulationDetails, acceptProductReview } from './fixtures';
+import { test, expect, chooseWallet, openSimulationDetails, acceptProductReview } from './fixtures';
 import { MOCKED_SOLANA_WALLET, chooseSolanaWallet, decoyWalletCalls, signChains, signRequests } from './jupiter-fixtures';
 import { authorDevnetSwap, devnetControl, devnetPanel as panel, installDevnetWallet, resetDevnetHarness, reviewDevnetSwap } from './solana-devnet-fixtures';
 
@@ -124,11 +124,12 @@ test('Connect lists every compatible Wallet Standard provider and uses only the 
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await expect(panel(page).getByRole('status')).toContainText('Connect a Solana wallet first and choose which wallet to use.');
   await panel(page).getByRole('button', { name: 'Connect Solana wallet' }).click();
-  const choices = panel(page).getByRole('group', { name: 'Choose a Solana wallet' });
-  await expect(choices.getByRole('button')).toHaveText(['MetaMask', 'Brave Wallet', MOCKED_SOLANA_WALLET, 'Cancel']);
+  // The canonical selector offers only wallets that can connect and sign on Solana Devnet; opening it calls none of them.
+  const choices = page.locator('dialog.wallet-selector[open]').getByRole('button', { name: / on Solana$/ });
+  await expect(choices).toHaveText([/Brave Wallet/, new RegExp(MOCKED_SOLANA_WALLET), /MetaMask/]);
   await expect(panel(page)).not.toContainText('Wallet connected');
   expect(await decoyWalletCalls(page)).toEqual([]);
-  await choices.getByRole('button', { name: MOCKED_SOLANA_WALLET, exact: true }).click();
+  await chooseWallet(page, MOCKED_SOLANA_WALLET, 'Solana');
   await expect(panel(page)).toContainText(`Wallet connected · Solana Devnet: ${wallet.owner}`);
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await panel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();

@@ -9,8 +9,12 @@ import { useEffect, useState } from 'react';
 import { connectionsView, linkProvenWallet, revokeWalletLink, withdrawApproval, type ConnectionsView } from '../app/connections-action';
 import { useWalletProof, WalletProof, type Namespace } from './wallet-proof';
 import { McpRoutePage, McpRouteState } from './mcp-route-state';
+import { WalletSelectorProvider } from './wallet-selector';
 
-export function ConnectionsPanel() {
+/** `/connections` renders outside the product shell, so it mounts its own instance of the canonical wallet selector. */
+export function ConnectionsPanel() { return <WalletSelectorProvider><ConnectionsContent/></WalletSelectorProvider>; }
+
+function ConnectionsContent() {
   const [view, setView] = useState<ConnectionsView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [namespace, setNamespace] = useState<Namespace>('eip155');

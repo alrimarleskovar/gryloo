@@ -145,7 +145,9 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
   }
   const account = environment.walletKind === 'solana' ? jupiter.session?.account.address ?? null : sharedWallet.account;
   const chain = environment.walletKind === 'solana' ? solanaWalletChainRef(environment.walletChain) : sharedWallet.chainId === '0x7a69' ? 'eip155:31337' : walletChainRef(sharedWallet.chainId);
-  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain]);
+  // The signing provider is part of the bound identity: the same address through another wallet still needs a fresh Review.
+  const providerKey = environment.walletKind === 'solana' ? jupiter.session?.wallet?.name ?? null : sharedWallet.provider?.key ?? null;
+  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain, providerKey]);
   // Keep this guard mounted in the shell. Returning to the old wallet cannot revive the old Review.
   const [binding, setBinding] = useState({ key: authorization.key, identity, changed: false });
   const changed = binding.key === authorization.key && (binding.changed || binding.identity !== identity);

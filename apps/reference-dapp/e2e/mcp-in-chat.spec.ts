@@ -17,8 +17,8 @@ import { createDatabase } from '@defi-workflow-engine/cloud-runtime';
 import { createMockedSolanaWallet } from '@defi-workflow-engine/reference-compiler';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
-import { chooseSolanaWallet, signRequests } from './jupiter-fixtures';
-import { openSimulationDetails } from './fixtures';
+import { chooseSolanaWallet, MOCKED_SOLANA_WALLET, signRequests } from './jupiter-fixtures';
+import { chooseWallet, openSimulationDetails } from './fixtures';
 import { assertExecutionBlocked } from './release-safety-fixtures';
 import { guardedContext, installJourneyWallet, journeySends, walletRequests } from './journey-fixtures';
 import { assertMcpHarness, CLIENT_NAME, connectViaBrowser, hostLog, mcpClient, openHost, panelHtmlOf } from './mcp-fixtures';
@@ -94,8 +94,8 @@ async function proposalIntoWorkflow(signing: Page, url: string, wallet: 'evm' | 
   // The secret left the address bar; the account consented in this browser, so status sharing is on by default.
   expect(signing.url()).not.toContain('flofi_hs_');
   await expect(region.getByRole('checkbox')).toBeChecked();
-  if (wallet === 'evm') await region.getByRole('button', { name: 'Connect wallet and prove ownership' }).click();
-  else await region.getByRole('button', { name: /^Prove ownership with / }).click();
+  if (wallet === 'evm') { await region.getByRole('button', { name: 'Connect wallet and prove ownership' }).click(); await chooseWallet(signing, 'Browser wallet'); }
+  else { await region.getByRole('button', { name: 'Connect Solana wallet and prove ownership' }).click(); await chooseWallet(signing, MOCKED_SOLANA_WALLET, 'Solana'); }
   await expect(region).toContainText(`Signed in as ${account ?? ''}`);
   await region.getByRole('button', { name: 'Load proposal' }).click();
   await region.getByRole('button', { name: 'Add to my workflow' }).click();
@@ -200,6 +200,7 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     // A second proven wallet holding the same link cannot take it: claimed by another wallet, and once applied the approval-session
     // link no longer resolves at all (it reveals nothing about the proposal).
     await approval(stranger).getByRole('button', { name: 'Connect wallet and prove ownership' }).click();
+    await chooseWallet(stranger, 'Browser wallet');
     await approval(stranger).getByRole('button', { name: 'Load proposal' }).click();
     await expect(approval(stranger).getByRole('alert')).toContainText(/^(HANDOFF_ALREADY_CLAIMED|HANDOFF_NOT_FOUND)$/);
     // The owner's simulation creates a durable run owned by their wallet; the account cannot read it until the wallet is linked.

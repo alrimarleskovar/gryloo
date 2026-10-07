@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal, openSimulationDetails } from './fixtures';
+import { test, expect, applyPendingProposal, chooseWallet, openSimulationDetails } from './fixtures';
 const OWNER = '0x1111111111111111111111111111111111111111';
 test('BUILD-009 passive wallet restoration and read-only quote cannot grant production execution', async ({ page }) => {
   test.setTimeout(180_000);
@@ -89,6 +89,7 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
   await applyPendingProposal(page);
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
+  await chooseWallet(page, 'Browser wallet');
   await expect(page.getByRole('button', { name: 'Switch to Base (8453)' })).toBeVisible();
   await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
   await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
