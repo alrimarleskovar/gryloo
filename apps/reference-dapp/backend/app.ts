@@ -4,7 +4,7 @@
  * same flow services and the same PostgreSQL-backed storage. No request or worker keeps execution state in
  * memory; every instance can serve every request and every work item.
  */
-import { archiveEvidence, backoffMs, createIdempotencyStore, createPostgresLeaseStore, createPostgresLogStore, createRunQueries, HttpError,
+import { archiveEvidence, backoffMs, createAutomationStore, createIdempotencyStore, createPostgresLeaseStore, createPostgresLogStore, createRunQueries, HttpError,
   readVerifiedEvidence, requestHash, withSpan, type Database, type EvidenceStore, type HttpRequest, type HttpResponse, type Logger, type Route,
   type WorkHandler } from '@defi-workflow-engine/cloud-runtime';
 import type { ExecutionStorage } from '@defi-workflow-engine/reference-executor';
@@ -12,6 +12,7 @@ import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
 import { disabledCode, flowMode, FLOWS, isFlowName, type FlowDeps, type FlowName, type FlowService, type Rpc } from './flows.ts';
 import { PREVIEW_METHODS, previewStorage } from './preview.ts';
 import { assertRunOwnership, normalizePrincipal, WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
+import { automationEventExpiry, nextScheduledOccurrence, validateAutomationSpec } from '../src/domain/automation.ts';
 
 /** Methods that could put a transaction on any network. Observer (worker) transports reject them unconditionally. */
 const SUBMISSION_METHODS = new Set(['sendTransaction', 'eth_sendRawTransaction', 'eth_sendTransaction']);
@@ -119,6 +120,7 @@ export function createBackend(options: BackendOptions) {
 
   const idempotency = (tenantId: string) => createIdempotencyStore({ db, tenantId });
   const queries = (tenantId: string) => createRunQueries(db, tenantId);
+  const automations = (tenantId: string) => createAutomationStore(db, tenantId);
   const runIdOf = (value: string | undefined) => { if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value)) throw new HttpError(400, 'RUN_ID_INVALID'); return value; };
   /** BUILD-JOURNEY-001: the wallet session principal the BFF verified (absent for operator calls made with the bearer token alone). */
   const principalOf = (request: HttpRequest) => {
@@ -133,6 +135,11 @@ export function createBackend(options: BackendOptions) {
     const run = await queries(options.tenantId).getRun(runId), principal = principalOf(request);
     if (!run || principal !== null && run.ownerAccount !== principal) throw new HttpError(404, 'RUN_NOT_FOUND');
     return run;
+  };
+  const automationPrincipal = (request: HttpRequest) => {
+    const principal = principalOf(request);
+    if (!principal) throw new HttpError(401, 'WALLET_SESSION_REQUIRED');
+    return principal;
   };
   const integerParam = (value: string | null) => value === null ? null : /^-?\d{1,9}$/.test(value) ? Number(value) : NaN;
   const wrap = (handler: (request: HttpRequest, match: RegExpExecArray) => Promise<HttpResponse>) => async (request: HttpRequest, match: RegExpExecArray) => {
@@ -172,6 +179,40 @@ export function createBackend(options: BackendOptions) {
       const body = request.body as { args?: unknown } | null;
       if (!body || typeof body !== 'object' || !Array.isArray(body.args) || Object.keys(body).length !== 1) throw new HttpError(400, 'ARGUMENTS_INVALID');
       return { status: 200, body: await previewFlow(flow, body.args) };
+    }) },
+    { method: 'GET', name: 'automations', pattern: /^\/v1\/automations$/, handler: wrap(async request => {
+      const principal = automationPrincipal(request);
+      return { status: 200, body: { ok: true, value: await automations(options.tenantId).list(principal) } };
+    }) },
+    { method: 'POST', name: 'automations.create', pattern: /^\/v1\/automations$/, handler: wrap(async request => {
+      const principal = automationPrincipal(request), body = request.body as { spec?: unknown } | null;
+      if (!body || typeof body !== 'object' || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'spec')) throw new HttpError(400, 'AUTOMATION_SPEC_INVALID');
+      const valid = validateAutomationSpec(body.spec);
+      if ('code' in valid) throw new HttpError(400, valid.code);
+      const next = nextScheduledOccurrence(valid.spec.trigger, new Date());
+      const created = await automations(options.tenantId).create({ ownerAccount: principal, spec: valid.spec, workflowHash: valid.workflowHash, nextEvaluationAt: next });
+      return { status: 200, body: { ok: true, value: created } };
+    }) },
+    { method: 'POST', name: 'automations.state', pattern: /^\/v1\/automations\/(auto-[0-9a-f]{24})\/state$/, handler: wrap(async (request, match) => {
+      const principal = automationPrincipal(request), body = request.body as { state?: unknown } | null;
+      if (!body || typeof body !== 'object' || Object.keys(body).length !== 1 || !['ACTIVE','PAUSED'].includes(String(body.state))) throw new HttpError(400, 'AUTOMATION_STATE_INVALID');
+      const value = await automations(options.tenantId).setState(principal, match[1]!, body.state as 'ACTIVE' | 'PAUSED');
+      if (!value) throw new HttpError(404, 'AUTOMATION_NOT_FOUND');
+      return { status: 200, body: { ok: true, value } };
+    }) },
+    { method: 'GET', name: 'automation.events', pattern: /^\/v1\/automation-events$/, handler: wrap(async request => {
+      const principal = automationPrincipal(request);
+      return { status: 200, body: { ok: true, value: await automations(options.tenantId).events(principal) } };
+    }) },
+    { method: 'POST', name: 'automation.event.open', pattern: /^\/v1\/automation-events\/(evt-[0-9a-f]{24})\/open$/, handler: wrap(async (request, match) => {
+      const principal = automationPrincipal(request), value = await automations(options.tenantId).open(principal, match[1]!);
+      if (!value) throw new HttpError(404, 'AUTOMATION_EVENT_NOT_FOUND');
+      return { status: 200, body: { ok: true, value } };
+    }) },
+    { method: 'POST', name: 'automation.event.dismiss', pattern: /^\/v1\/automation-events\/(evt-[0-9a-f]{24})\/dismiss$/, handler: wrap(async (request, match) => {
+      const principal = automationPrincipal(request);
+      if (!await automations(options.tenantId).dismiss(principal, match[1]!)) throw new HttpError(404, 'AUTOMATION_EVENT_NOT_FOUND');
+      return { status: 200, body: { ok: true, value: { dismissed: true } } };
     }) },
     { method: 'GET', name: 'runs', pattern: /^\/v1\/runs$/, handler: wrap(async request => {
       const limit = integerParam(request.query.get('limit')), flow = request.query.get('flow');
@@ -247,6 +288,28 @@ export function createBackend(options: BackendOptions) {
     await settle({ outcome: 'DONE' });
   };
 
-  return { routes, callFlow, previewFlow, service, storage, handlers: { reconcile, 'evidence.archive': archive } as Record<string, WorkHandler> };
+  const automationFire: WorkHandler = async (item, settle, log) => {
+    const automationId = item.payload.automationId, expectedDueAt = item.payload.expectedDueAt;
+    if (typeof automationId !== 'string' || typeof expectedDueAt !== 'string' || !/^auto-[0-9a-f]{24}$/.test(automationId) || !Number.isFinite(Date.parse(expectedDueAt))) {
+      await settle({ outcome: 'DEAD', reason: 'AUTOMATION_WORK_INVALID' }); return;
+    }
+    const store = automations(item.tenantId), current = await store.getInternal(automationId);
+    if (!current || current.state !== 'ACTIVE' || current.nextEvaluationAt !== new Date(expectedDueAt).toISOString()) {
+      await settle({ outcome: 'DONE' }); return;
+    }
+    const valid = validateAutomationSpec(current.spec);
+    if ('code' in valid || valid.workflowHash !== current.workflowHash) {
+      await settle({ outcome: 'DEAD', reason: 'AUTOMATION_STATE_INVALID' }); return;
+    }
+    const occurrence = new Date(expectedDueAt), next = nextScheduledOccurrence(valid.spec.trigger, occurrence);
+    const result = await store.fire({ automationId, expectedDueAt: occurrence.toISOString(), nextDueAt: next,
+      expiresAt: automationEventExpiry(next), strategy: valid.spec.strategy, workflowHash: valid.workflowHash });
+    if (result.fired) log.info('automation.fired', { automation_id: automationId, event_id: result.event?.eventId ?? null,
+      owner_account: current.ownerAccount, next_evaluation_at: next.toISOString() });
+    await settle({ outcome: 'DONE' });
+  };
+
+  return { routes, callFlow, previewFlow, service, storage,
+    handlers: { reconcile, 'evidence.archive': archive, 'automation.fire': automationFire } as Record<string, WorkHandler> };
 }
 export type Backend = ReturnType<typeof createBackend>;
