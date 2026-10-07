@@ -10,8 +10,10 @@ test('user reviews exact CoW order, signs with a disposable injected wallet and 
   await expect(simulation).toContainText('Gnosis Protocol v2 · chain 8453');
   await expect(simulation).toContainText('MOCKED orderbook and settlement');
   await expect(simulation.locator('[data-cow-uid]')).toHaveText(/^0x[0-9a-f]{112}$/);
+  expect(cowWallet.calls.filter(call => call.method === 'eth_signTypedData_v4')).toHaveLength(0);
   await stage(page, 'Execute');
   const execution = cowPanel(page, 'execution');
+  expect(cowWallet.calls.filter(call => call.method === 'eth_signTypedData_v4')).toHaveLength(0);
   await execution.getByRole('button', { name: 'Sign exact order and post to local orderbook' }).click();
   await expect(execution.locator('[data-cow-state]')).toHaveText('POSTED');
   await execution.getByRole('button', { name: 'Check order UID and status' }).click();

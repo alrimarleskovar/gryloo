@@ -11,6 +11,7 @@ function guardedTest(negativeSelfTest: boolean) {
   return base.extend<{ context: BrowserContext; page: Page; networkGuard: Guard }>({
     context: async ({ browser }, use) => {
       const context = await browser.newContext({
+        baseURL: APP_ORIGIN,
         serviceWorkers: 'block', bypassCSP: negativeSelfTest, viewport: { width: 1440, height: 900 },
         colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US',
       });
@@ -64,3 +65,73 @@ export const test = guardedTest(false);
 // exactly one recorded synthetic URL and still fails on every other attempt.
 export const negativeGuardTest = guardedTest(true);
 export { expect };
+
+/** Read-only simulated wallet identity for authoring network pickers, never an owner wallet. */
+export async function installPassiveWallet(page: Page, chainId = '0x2105'): Promise<void> {
+  await page.addInitScript(chain => {
+    const methods: string[] = [];
+    Object.defineProperty(window, '__authoringWalletMethods', { get: () => methods });
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: {
+      request: async ({ method }: { method: string }) => {
+        methods.push(method);
+        if (method === 'eth_accounts') return ['0x1111111111111111111111111111111111111111'];
+        if (method === 'eth_chainId') return chain;
+        throw new Error(`Passive authoring wallet refused ${method}`);
+      },
+    } });
+  }, chainId);
+}
+
+export async function assertPassiveWallet(page: Page): Promise<void> {
+  expect(await page.evaluate(() => [...new Set((window as unknown as { __authoringWalletMethods: string[] }).__authoringWalletMethods)].sort())).toEqual(['eth_accounts', 'eth_chainId']);
+}
+
+/** Open the current authoring proposal; acceptance remains a separate explicit test action. */
+export async function openProposalReview(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /^Review proposed change:/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Proposed change', exact: true })).toBeVisible();
+}
+
+/** Inspect existing provider diagnostics through their visible native disclosure. */
+export async function openSimulationDetails(page: Page): Promise<void> {
+  const details = page.locator('.simulation-technical');
+  await expect(details).toBeVisible();
+  if (!(await details.evaluate(element => (element as HTMLDetailsElement).open))) await details.locator('> summary').click();
+}
+
+/** Use the shared product Review. MOCKED results must fail this authorization boundary. */
+export async function acceptProductReview(page: Page): Promise<void> {
+  const approve = page.getByRole('button', { name: 'Approve & Continue', exact: true });
+  await expect(approve, await page.locator('.review-validity').innerText()).toBeEnabled();
+  await approve.click();
+  await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
+}
+
+/** Apply a reviewed authoring proposal through the visible contextual popover. This grants no financial authority. */
+export async function applyPendingProposal(page: Page): Promise<void> {
+  await openProposalReview(page);
+  const apply = page.getByRole('dialog', { name: 'Proposed change', exact: true }).getByRole('button', { name: 'Apply proposal', exact: true });
+  await expect(apply).toBeEnabled();
+  await apply.click();
+}
+
+/** Read the displayed canonical IR through its existing user-facing disclosures. */
+export async function readWorkflowIr(page: Page): Promise<string> {
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
+  const setup = page.getByText('Advanced action setup', { exact: true });
+  if (!(await setup.evaluate(element => (element.parentElement as HTMLDetailsElement).open))) await setup.click();
+  const ir = page.locator('.review-workflow-ir');
+  if (!(await ir.evaluate(element => (element as HTMLDetailsElement).open))) await ir.locator('> summary').click();
+  const raw = await page.locator('[data-workflow-ir]').textContent();
+  if (!raw) throw new Error('Displayed Semantic Workflow IR is missing');
+  return raw;
+}
+
+/** Select an authored action and open its existing Advanced Settings. */
+export async function openFirstActionSettings(page: Page): Promise<void> {
+  const card = page.locator('.build-flow-surface .composer-card').first();
+  await card.click();
+  const settings = card.getByRole('button', { name: 'Advanced Settings', exact: true });
+  if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+}

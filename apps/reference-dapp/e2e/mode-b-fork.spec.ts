@@ -68,12 +68,13 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
     await page.goto('/');
     if (evidenceDir) {
       mkdirSync(evidenceDir, { recursive: true });
-      await expect(page.getByText('Permission demo', { exact: true })).toBeVisible();
+      await page.getByText('Technical connection details', { exact: true }).click();
+      await expect(page.getByText('Wallet permissions · local fork', { exact: true })).toBeVisible();
       await page.screenshot({ path: join(evidenceDir, 'build.png'), fullPage: true });
     }
     await authorSwap(page, 'WETH_TO_USDC', '1', '100');
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
-    await page.getByRole('button', { name: 'Show technical details' }).click();
+    await page.locator('.simulation-technical > summary').click();
     const simulate = page.getByRole('region', { name: 'Finite Mode B authority' });
     await simulate.getByRole('button', { name: /Simulate finite Mode B for revision/ }).click();
     await expect(simulate).toContainText('one-time allowance', { timeout: 30_000 });

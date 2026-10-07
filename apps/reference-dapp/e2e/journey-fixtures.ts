@@ -28,7 +28,7 @@ export const journeyAdvance = (seconds: number) => routerControl('MOCK_advance',
 
 /** A context with the shared fixture's guard: only the app origin is reachable; anything else is recorded and aborted. */
 export async function guardedContext(browser: Browser): Promise<{ context: BrowserContext; unexpected: string[] }> {
-  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US' });
+  const context = await browser.newContext({ baseURL: APP_ORIGIN, serviceWorkers: 'block', viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US' });
   const unexpected: string[] = [];
   await context.route('**/*', async route => {
     let allowed = false;

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,13 +36,13 @@ export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'can
     await form.getByLabel('Amount').fill('0.1');
     await form.getByRole('button', { name: 'Review swap proposal' }).click();
   }
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewDevnetSwap(page: Page) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await chooseSolanaWallet(devnetPanel(page));
   await devnetPanel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await devnetPanel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();
-  await page.getByRole('button', { name: 'Review swap', exact: true }).click();
-  await devnetPanel(page).getByRole('button', { name: 'Accept swap review' }).click();
+  await acceptProductReview(page);
 }

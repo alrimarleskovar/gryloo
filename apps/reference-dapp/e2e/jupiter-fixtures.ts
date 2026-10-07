@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,16 +61,16 @@ export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'can
     await form.getByLabel('Amount').fill('10');
     await form.getByRole('button', { name: 'Review swap proposal' }).click();
   }
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewSolanaSwap(page: Page) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   const panel = page.getByRole('region', { name: 'Jupiter swap' });
   await chooseSolanaWallet(panel);
   await panel.getByRole('button', { name: 'Simulate swap' }).click();
   await panel.getByRole('definition').filter({ hasText: '→ expected' }).waitFor();
-  await page.getByRole('button', { name: 'Review swap', exact: true }).click();
-  await page.getByRole('region', { name: 'Jupiter swap' }).getByRole('button', { name: 'Accept swap review' }).click();
+  await acceptProductReview(page);
 }
 export const signRequests = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignRequests: number }).solanaSignRequests);
 export const signChains = (page: Page) => page.evaluate(() => (window as unknown as { solanaSignChains: string[] }).solanaSignChains);

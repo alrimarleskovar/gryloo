@@ -1,0 +1,9 @@
+{
+  "package": "source-map-js",
+  "version": "1.2.2",
+  "advisory": "GHSA-68fv-2mgg-jv7q",
+  "reason": "HIGH security advisory remediation required for Colosseum release",
+  "approved_by": "Owner",
+  "temporary": true,
+  "removal_condition": "Remove after Colosseum delivery completion once normal dependency-age eligibility is no longer needed"
+}

@@ -1,6 +1,7 @@
 """Acceptance and negative safety cases for owner-controlled governance."""
 
 import json
+import datetime
 import os
 from pathlib import Path
 import subprocess
@@ -8,16 +9,19 @@ import sys
 import tempfile
 import unittest
 
-from governance_lite import CONTRACTS, GOVERNANCE, control_errors, secret_errors, validate
+from governance_lite import (AGE_WAIVER, CONTRACTS, GOVERNANCE, control_errors, secret_errors, validate,
+                             dependency_age_waivers, dependency_release_age_allowed)
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def safety_files():
-    paths = [GOVERNANCE, CONTRACTS, "scripts/governance_lite.py", "scripts/test_governance_lite.py",
+    paths = [GOVERNANCE, CONTRACTS, "scripts/guarded-release-browser.mjs", "scripts/governance_lite.py", "scripts/test_governance_lite.py",
              "scripts/bootstrap-ci.py", "CLAUDE.md", "docs/SCOPE_GUARD.md", "package.json",
              "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc",
              "LICENSES/Apache-2.0.txt", "LICENSES/AGPL-3.0-only.txt"]
+    if (ROOT / AGE_WAIVER).is_file():
+        paths.append(AGE_WAIVER)
     return {path: (ROOT / path).read_text() for path in paths}
 
 
@@ -151,15 +155,22 @@ class GovernanceLite(unittest.TestCase):
     def test_ci_dependency_test_browser_and_evidence_gates_remain(self):
         for command in ("pnpm typecheck", "pnpm lint", "pnpm build", "pnpm schemas:check", "pnpm test",
                         "pnpm install --frozen-lockfile --ignore-scripts", "pnpm audit --audit-level low",
-                        "python3 scripts/bootstrap-ci.py --verify-dependencies"):
+                        "python3 scripts/bootstrap-ci.py --verify-dependencies",
+                        "node scripts/guarded-release-browser.mjs product",
+                        "node scripts/guarded-release-browser.mjs composition"):
             files = dict(self.files)
             files[CONTRACTS] = files[CONTRACTS].replace("          " + command + "\n", "")
             self.assertTrue(control_errors(files), command)
         contracts = self.files[CONTRACTS]
-        for marker in ("playwright test", "supply-recovery.spec.ts", "mode-a-adversarial.spec.ts",
-                       "verifyTranscriptDocument", "verifyLiquidityTranscript", "verifyCompositionTranscript",
+        for marker in ("verifyTranscriptDocument", "verifyLiquidityTranscript", "verifyCompositionTranscript",
                        "pnpm sbom --sbom-format cyclonedx", "--lockfile-only"):
             self.assertIn(marker, contracts)
+        browser = self.files["scripts/guarded-release-browser.mjs"]
+        for marker in ("'playwright', 'test'", "release-provenance.spec.ts", "release-fork-provenance.spec.ts",
+                       "release-composition-provenance.spec.ts", "release-financial-provenance.spec.ts",
+                       "cow-recovery.spec.ts", "simulate-review-acceptance.spec.ts",
+                       "execute-product-workspace.spec.ts", "if (result.status !== 0) process.exit"):
+            self.assertIn(marker, browser)
 
     def test_privileged_workflows_fail(self):
         for before, after in (("contents: read", "contents: write"),
@@ -194,6 +205,40 @@ class GovernanceLite(unittest.TestCase):
         self.assertEqual(len(fetches), 1)
         self.assertTrue(fetches[0].endswith('fetch --depth=2 origin "$REVISION"'))
         self.assertNotIn("SCOPE_BASE", body)
+
+    def test_exact_temporary_security_age_waiver(self):
+        waivers, errors = dependency_age_waivers(self.files)
+        self.assertEqual(errors, [])
+        self.assertEqual(waivers, {("source-map-js", "1.2.2")})
+        cutoff = datetime.datetime(2026, 9, 30, tzinfo=datetime.timezone.utc)
+        young = cutoff + datetime.timedelta(days=1)
+        for name, version, expected in (("source-map-js", "1.2.2", True),
+                ("source-map-js", "1.2.1", False), ("source-map-js", "1.2.3", False),
+                ("another-package", "1.2.2", False), ("sharp", "0.35.5", False)):
+            with self.subTest(name=name, version=version):
+                self.assertEqual(dependency_release_age_allowed(name, version, young, cutoff, waivers), expected)
+        # The seven-day boundary remains inclusive, with no waiver for mature sharp.
+        for name, version in (("sharp", "0.35.5"), ("another-package", "1.2.2")):
+            self.assertTrue(dependency_release_age_allowed(name, version, cutoff, cutoff, waivers))
+            self.assertFalse(dependency_release_age_allowed(name, version,
+                cutoff + datetime.timedelta(microseconds=1), cutoff, waivers))
+
+    def test_broad_or_undocumented_age_waivers_fail(self):
+        for spec in ("source-map-js", "source-map-js@*", "source-map-js@>=1.2.2",
+                     "source-map-js@1.2.1", "source-map-js@1.2.3", "sharp@0.35.5",
+                     "source-map-js@1.2.2\n  - sharp@0.35.5"):
+            files = dict(self.files)
+            files["pnpm-workspace.yaml"] = files["pnpm-workspace.yaml"].replace("  - source-map-js@1.2.2", "  - " + spec)
+            self.assertTrue(dependency_age_waivers(files)[1], spec)
+        for field, value in (("temporary", False), ("approved_by", "Other"), ("version", "1.2.3")):
+            files = dict(self.files)
+            metadata = json.loads(files[AGE_WAIVER])
+            metadata[field] = value
+            files[AGE_WAIVER] = json.dumps(metadata)
+            self.assertTrue(dependency_age_waivers(files)[1])
+        files = dict(self.files)
+        del files[AGE_WAIVER]
+        self.assertTrue(dependency_age_waivers(files)[1])
 
 
 if __name__ == "__main__":

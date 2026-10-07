@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { cowPanel, expect, prepareCow, stage, test } from './cow-fixtures';
+import { openProposalReview } from './fixtures';
 
 test.skip(process.env.GRYLOO_COW !== 'loopback', 'CoW browser acceptance requires the isolated loopback orderbook');
 
@@ -56,9 +57,9 @@ test('semantic edit invalidates a prepared order before wallet signing', async (
   await page.goto('/');
   await prepareCow(page, 'hold');
   await stage(page, 'Build');
-  await page.locator('.flow-card').nth(1).click();
-  await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill('50');
-  await page.getByRole('button', { name: 'Review slippage change' }).click();
+  await page.getByLabel('Describe your flow').fill('set node-002 slippage 50 bps');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await stage(page, 'Execute');
   const execution = cowPanel(page, 'execution');

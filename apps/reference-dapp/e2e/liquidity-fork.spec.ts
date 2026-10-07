@@ -8,7 +8,7 @@ const stage = (page: import('@playwright/test').Page, name: 'Build' | 'Simulate'
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 async function operation(page: import('@playwright/test').Page, name: LiquidityOperation, tokenId?: string) {
   await stage(page, 'Simulate');
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const simulate = page.getByRole('region', { name: 'Local fork liquidity simulation' });
   await simulate.getByLabel('Next operation').selectOption(name);
   if (tokenId && !['APPROVE_WETH', 'APPROVE_USDC', 'MINT', 'RESET_WETH', 'RESET_USDC'].includes(name))
@@ -44,7 +44,7 @@ test('isolated position lifecycle uses one exact wallet signature per local oper
   const tokenId = /token ID ([1-9][0-9]*)/.exec(result ?? '')?.[1];
   expect(tokenId).toBeTruthy();
   await stage(page, 'Simulate');
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const inspect = page.getByRole('region', { name: 'Local fork liquidity simulation' });
   await inspect.getByLabel('Next operation').selectOption('INCREASE');
   await inspect.getByLabel('Position token ID').fill(tokenId!);

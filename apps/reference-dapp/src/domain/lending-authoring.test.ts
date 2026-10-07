@@ -25,8 +25,8 @@ describe('BUILD-013 finite semantics, commitments, simulation and safety',()=>{
   });
   it('projects a Supply dependency/checkpoint and typed Borrow edge without adding semantic nodes',()=>{
     expect(lendingCanvasEdges(workflow)).toEqual([
-      {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Policy checkpoint · HF ≥ 2'},
-      {id:'lending-borrow-lending-swap',source:'lending-borrow',target:'lending-swap',label:'Borrowed USDC · OUTPUT_REFERENCE'},
+      {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Health factor ≥ 2'},
+      {id:'lending-borrow-lending-swap',source:'lending-borrow',target:'lending-swap',label:'Borrowed USDC'},
     ]);
     expect(()=>lendingNodeInput(workflow,'POOL_APPROVAL','1')).toThrow('LENDING_NODE_INVALID');
     expect(()=>lendingNodeInput(workflow,'lending-swap','301')).toThrow();

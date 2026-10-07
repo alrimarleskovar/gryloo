@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, resolveWorkflowCapability, solanaSwapRuntime, type ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
+import { useMemo } from 'react';
+import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, resolveWorkflowCapability, type ExecutionEnvironment } from '@defi-workflow-engine/action-registry';
 import { chainStatus } from '../domain/artifact-chain';
 import { useWorkflow } from './workflow-store';
 import { useModeA } from './mode-a-store';
@@ -12,6 +12,7 @@ import { useBuild009Wallet } from './build009-wallet-store';
 import { useCow } from './cow-store';
 import { usePublicTestnet } from './public-testnet-store';
 import { walletChainRef } from '../wallet/evm-networks';
+import { classifyWalletEnvironment, walletExecutionEnvironment } from '../wallet/environment';
 
 import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
 import {useLending} from './lending-store';
@@ -20,29 +21,25 @@ import { useRobinhoodTransfer } from './robinhood-transfer-store';
 import { useJupiter } from './jupiter-store';
 import { useSolanaLiquidity } from './solana-liquidity-store';
 
-type Selection = { readonly selected: ExecutionEnvironment | null; select(environment: ExecutionEnvironment): void };
-const Context = createContext<Selection | null>(null);
-export function CapabilityProvider({ children }: { children: ReactNode }) {
-  const [selected, setSelected] = useState<ExecutionEnvironment | null>(null);
-  return <Context.Provider value={{ selected, select: setSelected }}>{children}</Context.Provider>;
-}
 export function useExecutionEnvironment() {
-  const selection = useContext(Context);
-  if (!selection) throw new Error('CAPABILITY_PROVIDER_MISSING');
+  const wallet = useBuild009Wallet(), jupiter = useJupiter();
+  const workflow = useWorkflow().state.workflow;
+  const solanaWorkflow = workflow.nodes.some(node => node.chainId.startsWith('solana:')) ||
+    Boolean(jupiter.recovered && jupiter.record && workflow.nodes.every(node => node.actionType.startsWith('mock-')));
+  const walletKind = jupiter.session && (solanaWorkflow || !wallet.account) ? 'solana' : 'evm';
+  const walletChain = walletKind === 'solana'
+    ? jupiter.session?.account.chains.includes(jupiter.session.chain) ? jupiter.session.chain : null
+    : wallet.account ? wallet.chainId : null;
+  const walletEnvironment = classifyWalletEnvironment(walletChain);
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const forkPrepared = Boolean(modeA.prepared || modeB.status?.prepared || liquidity.prepared || composition.status?.prepared);
-  const workflow = useWorkflow().state.workflow;
-  const testnetSwap = workflow.nodes.some(node => ['supply','borrow','repay','withdraw','asset.transfer'].includes(node.actionType) || node.actionType === 'asset.swap.exact-input' && ['eip155:84532', 'eip155:11155111'].includes(node.chainId));
-  const solanaSwap = workflow.nodes.find(node => node.actionType === 'asset.swap.exact-input' && node.chainId.startsWith('solana:'));
-  // The Solana runtime's environment: mainnet-beta (Jupiter) is MAINNET; Devnet (Orca, test tokens) is a public test network.
-  const solanaPosition = workflow.nodes.some(node => node.actionType === 'asset.liquidity.concentrated' && node.chainId === ORCA_WHIRLPOOLS_DEVNET.chain);
-  const solanaEnvironment = solanaSwap ? solanaSwapRuntime(solanaSwap.chainId)?.environment ?? 'MAINNET' : solanaPosition ? 'PUBLIC_TESTNET' : null;
-  const environment: ExecutionEnvironment = selection.selected ?? (solanaEnvironment ?? (testnetSwap ? 'PUBLIC_TESTNET' : forkPrepared ? 'LOCAL_FORK' : 'MOCK'));
-  return { environment, selectEnvironment: selection.select };
+  // Mock/fork execution modes stay internal; an unknown wallet never gets a public-network indicator.
+  const environment: ExecutionEnvironment = walletExecutionEnvironment(walletEnvironment) ?? (forkPrepared ? 'LOCAL_FORK' : 'MOCK');
+  return { environment, walletEnvironment, walletKind, walletChain };
 }
 export function useWorkflowCapability() {
   const { state, chain } = useWorkflow();
-  const { environment, selectEnvironment } = useExecutionEnvironment();
+  const { environment, walletEnvironment } = useExecutionEnvironment();
   const modeA = useModeA(), modeB = useModeB(), liquidity = useLiquidity(), composition = useComposition();
   const lending=useLending(),lendingPath=isLendingComposition(state.workflow);
   const supply = useSupply(), supplyPath = state.workflow.nodes.some(n => ['supply','borrow','repay','withdraw'].includes(n.actionType));
@@ -72,5 +69,5 @@ export function useWorkflowCapability() {
   const result = useMemo(() => resolveWorkflowCapability(state.workflow, { environment, runtime: {
     lendingCompositionViable:lendingPath&&Boolean(lending.record&&!lending.retired&&!lending.error),forkAvailable, forkEvidence, ...(environment === 'PUBLIC_TESTNET' ? { quoteProviderAvailable: transferPath || supplyPath || solanaPath ? true : publicTestnet.available } : {}), walletConnected, walletChainId, artifacts, simulationReady, authorizationReady,
   } }), [state.workflow, environment, forkAvailable, forkEvidence, walletConnected, walletChainId, artifacts, simulationReady, authorizationReady, publicTestnet.available, supplyPath,transferPath,transfer.record,transfer.retired,lendingPath,lending.record,lending.retired,lending.error]);
-  return { environment, selectEnvironment, result };
+  return { environment, walletEnvironment, result };
 }

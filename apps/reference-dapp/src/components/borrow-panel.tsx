@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { TokenAmountInput } from './token-amount-input';
 import { useState, type FormEvent } from 'react';
 import { createAuthoredBorrow, borrowDetails, lendingCopy, lendingNetworkView, lendingView, LENDING_NETWORKS, type LendingNetwork, type SupplyInput } from '../domain/supply-authoring';
 import { useWorkflow } from '../state/workflow-store';
@@ -8,10 +9,11 @@ import { useSupply } from '../state/supply-store';
 import type { BorrowObservation } from '@defi-workflow-engine/reference-reconciler';
 function human(value:string,decimals:number):string {return (Number(value)/10**decimals).toLocaleString('en-US',{maximumFractionDigits:decimals});}
 function hf(value:string):string {return BigInt(value)===(1n<<256n)-1n?'No debt (∞)':human(value,18);}
-export function BorrowAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string;onDone?:()=>void;direct?:boolean}){
-  const {state,propose,dispatch}=useWorkflow(),wallet=useBuild009Wallet();
+export function BorrowAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{nodeId?:string;onDone?:()=>void;direct?:boolean;reviewFormId?:string}){
+  const {state,propose,dispatch,amountInputs={},editCanvasAmount}=useWorkflow(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.nodeId===nodeId),existing=node?borrowDetails(node as Parameters<typeof borrowDetails>[0]):null;
-  const [amount,setAmount]=useState(existing?.amount??'0.01'),[error,setError]=useState('');
+  const [localAmount,setAmount]=useState(existing?.amount??'0.01'),[error,setError]=useState('');
+  const amount = reviewFormId && nodeId ? amountInputs[nodeId] ?? existing?.amount ?? localAmount : localAmount;
   const [network,setNetwork]=useState<LendingNetwork>(existing?.network??'Base Sepolia'),shown=lendingNetworkView(network),asset=shown.asset;
   function submit(event:FormEvent){event.preventDefault();try{
     const input:SupplyInput={network,asset,amount,beneficiary:wallet.account??existing?.beneficiary??''};
@@ -19,14 +21,14 @@ export function BorrowAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string
     const command=nodeId?{type:'SET_BORROW' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_BORROW' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
   }catch(cause){setError(cause instanceof Error&&/AMOUNT|FIELDS/.test(cause.message)?`Enter a positive ${asset} amount with at most ${shown.decimals===6?'six':shown.decimals} decimal places.`:'Connect your borrower wallet and check the amount.');}}
-  return <form className="inspector-fields" aria-label={nodeId?'Edit Borrow':'Create Borrow'} onSubmit={submit}>
+  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Borrow':'Create Borrow'} onSubmit={submit}>
     <strong>Borrow from Aave V3</strong>
     <label>Borrow network<select aria-label="Borrow network" value={network} onChange={e=>setNetwork(e.target.value as LendingNetwork)}>{LENDING_NETWORKS.map(n=><option key={n}>{n}</option>)}</select></label>
     <label>Borrow asset<select aria-label="Borrow asset" value={asset} onChange={()=>undefined}><option>{asset}</option></select></label>
-    <label>Borrow amount ({asset})<input aria-label={`Borrow amount (${asset})`} inputMode="decimal" value={amount} maxLength={80} onChange={e=>setAmount(e.target.value)}/></label>
+    <label>Borrow amount ({asset})<TokenAmountInput aria-label={`Borrow amount (${asset})`} value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
     {!wallet.account&&!existing&&<button type="button" onClick={()=>void wallet.connect()}>Connect borrower wallet</button>}
     <p>Variable rate. Your connected wallet receives {asset} and takes on the debt.</p>
-    {error&&<p role="alert">{error}</p>}<button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Borrow change':direct?'Add Borrow':'Review Borrow proposal'}</button>
+    {error&&<p role="alert">{error}</p>} { !reviewFormId && <button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Borrow change':direct?'Add Borrow':'Review Borrow proposal'}</button>}
     {onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }

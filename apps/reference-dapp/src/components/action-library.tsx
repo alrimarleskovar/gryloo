@@ -3,8 +3,7 @@
 import {LendingAuthoringForm} from './lending-panel';
 import { WithdrawAuthoringForm } from './withdraw-panel';
 import { RobinhoodTransferAuthoringForm } from './robinhood-transfer-panel';
-import { useState, type FormEvent } from 'react';
-import { mockActions, actionKinds } from '../domain/mock-actions';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { inputSymbol, parseHumanAmount, parseSlippage, type Direction } from '../domain/swap-authoring';
 import { createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { useWorkflow } from '../state/workflow-store';
@@ -27,8 +26,8 @@ import { SolanaLiquidityForm } from './solana-liquidity-panel';
 import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
 import { RouterForm } from './router-panel';
 
-export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
-  const { state, dispatch, context, propose } = useWorkflow();
+export function ActionLibrary({ selectedId, children }: { selectedId: string | null; children?: ReactNode }) {
+  const { state, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
   const bridgeEnabled = useBridge().enabled;
   const [crossInput, setCrossInput] = useState<CrossChainLiquidityInput>({ amount: '100', bridgeSlippageBps: '50',
@@ -116,9 +115,9 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
     <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option><option value="SOLANA_DEVNET">Solana Devnet</option>
   </select>;
   return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
+    {children}
     <details><summary>Compatibility template · Supply → Borrow → Swap</summary><LendingAuthoringForm key={state.workflow.revision}/></details><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
     <p className="muted">Configure provider-specific and composed actions.</p>
-    <p className="muted">Local actions share one semantic workflow. Base swaps are unquoted.</p>
     <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">
       <strong>Bridge · Base → Arbitrum via Across</strong>
       <p className="muted">Direct Across quote. Deposit, fill and refund are simulated.</p>
@@ -229,12 +228,5 @@ export function ActionLibrary({ selectedId }: { selectedId: string | null }) {
       {compositionEnabled && <button type="button" onClick={submitComposition}>Review swap → position composition</button>}
       <small>Pool identity, current tick and price are checked before simulation. Editing here invalidates prior liquidity artifacts.</small>
     </form>}
-    <div className="action-list">{mockActions.map((action, index) =>
-      <button key={action.id} type="button" className="action-card" onClick={() => dispatch({ type: 'ADD', kind: actionKinds[index]!, source: 'CANVAS', baseRevision: state.workflow.revision })}>
-        <span className="action-glyph" aria-hidden="true">{index === 0 ? 'R' : index === 1 ? 'T' : 'C'}</span>
-        <span><strong>{action.id.replace('mock-', 'Mock ')}</strong><small>{action.nodeClass} · Add to canvas</small></span>
-        <span aria-hidden="true">+</span>
-      </button>)}</div>
-    <div className="library-note"><strong>One semantic plan</strong><p>Every accepted edit updates the same immutable workflow revision.</p></div>
   </div></details>;
 }

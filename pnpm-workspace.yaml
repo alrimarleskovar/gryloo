@@ -2,9 +2,18 @@ packages:
   - packages/*
   - apps/reference-dapp
 minimumReleaseAge: 10080
+# Owner-approved Colosseum security waiver; remove after delivery.
+# Metadata: docs/security/COLOSSEUM-DEPENDENCY-AGE-WAIVER.json
+minimumReleaseAgeExclude:
+  - source-map-js@1.2.2
 pmOnFail: error
 strictPeerDependencies: true
 autoInstallPeers: false
+# Exact security patches for the existing transitive consumers only.
+overrides:
+  'postcss@8.5.23>source-map-js': 1.2.2
+  'postcss@8.5.28>source-map-js': 1.2.2
+  'next@16.3.6>sharp': 0.35.5
 patchedDependencies:
   '@streamparser/json@0.0.26': patches/@streamparser__json@0.0.26.patch
   '@xyflow/system@0.0.82': patches/@xyflow__system@0.0.82.patch

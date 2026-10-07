@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Wallet calls and execution below are MOCKED loopback fixtures; no extension, signing or public submission.
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview, openSimulationDetails } from './fixtures';
 import type { Page } from '@playwright/test';
 import { lendingRpc, resetLending, LENDING_OWNER } from './lending-fixtures';
 
@@ -53,6 +53,20 @@ async function install(page: Page, mode: 'legacy' | 'eip6963' | 'late', locked =
 const controls = (page: Page) => page.evaluate(() => (window as unknown as { walletProviderTest: Controls }).walletProviderTest.requests);
 const panel = (page: Page) => page.getByRole('region', { name: 'Lending composition' });
 const walletLabel = `Wallet: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base Sepolia`;
+async function approveAndExecutePoolApproval(page: Page) {
+  await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
+  await expect(panel(page)).toContainText('Expected output:');
+  expect((await controls(page)).filter(request => request.method === 'eth_sendTransaction')).toHaveLength(0);
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true }),
+    await page.locator('.review-validity').innerText()).toBeEnabled();
+  await page.getByRole('button', { name: 'Approve & Continue', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toBeVisible();
+  expect((await controls(page)).filter(request => request.method === 'eth_sendTransaction')).toHaveLength(0);
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
+  await page.getByRole('button', { name: 'Execute workflow', exact: true }).click();
+  await expect(page.locator('.execution-operation.execution-state-confirmed')).toHaveCount(1);
+}
 test.beforeEach(async () => { await resetLending(); });
 
 for (const mode of ['legacy', 'eip6963'] as const) {
@@ -60,10 +74,8 @@ for (const mode of ['legacy', 'eip6963'] as const) {
     await install(page, mode); await page.goto('/');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
-    await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-    await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
-    await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();
-    await panel(page).getByRole('button', { name: 'Execute pool approval', exact: true }).click(); await expect(panel(page)).toContainText('POOL_APPROVAL: reconciled');
+    await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
+    await approveAndExecutePoolApproval(page);
     const requests = await controls(page);
     expect(requests.every(request => request.provider === 'MetaMask')).toBe(true);
     expect(requests.map(request => request.method)).toEqual(expect.arrayContaining(['eth_accounts', 'eth_chainId', 'eth_getTransactionCount', 'eth_sendTransaction']));
@@ -78,7 +90,7 @@ test('connect and network switching use the same EIP-6963 MetaMask provider', as
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   await page.getByText('Advanced action setup', { exact: true }).click(); await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
   await page.getByLabel('Source amount (USDC)').fill('1'); await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
+  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
   await expect(page.getByText(`Wallet: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base (8453)`, { exact: true })).toBeVisible();
   const requests = await controls(page);
   expect(requests.every(request => request.provider === 'MetaMask')).toBe(true);
@@ -139,10 +151,8 @@ test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Continue to Simulate' }).click();
-  await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click(); await expect(panel(page)).toContainText('Expected output:');
-  await page.getByRole('button', { name: 'Review lending composition', exact: true }).click(); await page.getByRole('button', { name: 'Accept composed Review' }).click();
-  await panel(page).getByRole('button', { name: 'Execute pool approval', exact: true }).click(); await expect(panel(page)).toContainText('POOL_APPROVAL: reconciled');
+  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
+  await approveAndExecutePoolApproval(page);
   const requests = await controls(page);
   expect(requests.filter(request => request.provider === 'RabbyProxy')).toEqual([]);
   expect(requests.filter(request => request.method === 'eth_sendTransaction').map(request => request.provider)).toEqual(['Rabby']);

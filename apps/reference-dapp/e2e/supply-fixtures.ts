@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { openSimulationDetails, acceptProductReview } from './fixtures';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -28,12 +29,14 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[];
     const state={connected:options.connected!==false,chain:options.chain??'0x14a34',account:options.account??owner,added:new Set<string>()};
-    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[],route:string)=>Promise<unknown>;supplyWalletRequests:typeof requests;releaseSupplyWalletRequest?:()=>void;setSupplyWalletChain?:(chain:string)=>void};
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const emit = (event: string, value: unknown) => { for (const listener of listeners.get(event) ?? []) listener(value); };
+    const w=window as unknown as {ethereum:unknown;grylooSupplyTestRpc:(method:string,params:unknown[],route:string)=>Promise<unknown>;supplyWalletRequests:typeof requests;setSupplyWalletChain(chain: string): void;releaseSupplyWalletRequest?:()=>void};
     const route=options.route??'';
     w.supplyWalletRequests=requests;
-    // The owner changes the wallet's network outside Flofi (no event: Flofi must re-read the chain before any request).
-    w.setSupplyWalletChain=chain=>{state.chain=chain;};
-    w.ethereum={request:async(input:{method:string;params?:unknown[]})=>{
+    w.setSupplyWalletChain = chain => { state.chain = chain; emit('chainChanged', chain); };
+    w.ethereum={on(event: string, listener: (...args: unknown[]) => void) { const group = listeners.get(event) ?? new Set(); group.add(listener); listeners.set(event, group); },
+      removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); }, request:async(input:{method:string;params?:unknown[]})=>{
       requests.push(input);
       if(input.method==='eth_accounts')return state.connected?[state.account]:[];
       if(input.method==='eth_requestAccounts'){state.connected=true;return[state.account];}
@@ -42,7 +45,7 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
         const target=(input.params?.[0] as {chainId:string}).chainId;
         if(!options.switching)throw Object.assign(new Error('Owner declined the network switch'),{code:4001});
         if(options.switching==='UNKNOWN'&&!state.added.has(target))throw Object.assign(new Error('Unrecognized chain'),{code:4902});
-        state.chain=target;return null;
+        w.setSupplyWalletChain(target);return null;
       }
       if(input.method==='wallet_addEthereumChain'){state.added.add((input.params?.[0] as {chainId:string}).chainId);return null;}
       if(input.method==='eth_getTransactionCount'){if(options.nonceFailure||options.lateNonceFailure&&requests.filter(r=>r.method==='eth_getTransactionCount').length===2)throw Object.assign(new Error('MOCK_READ_FAILED_BEFORE_SUBMISSION',{cause:new Error('Disconnected transport')}),{code:4900,data:{stage:'READ_ONLY_PREFLIGHT'}});if(options.walletNonce!==undefined)return options.walletNonce;return w.grylooSupplyTestRpc('eth_getTransactionCount',input.params??[],route);}
@@ -61,19 +64,31 @@ export async function installSupplyWallet(page:Page,options:{nonceFailure?:boole
   },{owner:SUPPLY_OWNER,options});
 }
 
+export async function setSupplyWalletChain(page: Page, chain: string) {
+  await page.evaluate(value => (window as unknown as { setSupplyWalletChain(chain: string): void }).setSupplyWalletChain(value), chain);
+}
+
 export async function resetSupplyHarness(options:Record<string,unknown>={},route:SupplyRoute=''){
   if(process.env.GRYLOO_SUPPLY_E2E!=='MOCKED_LOOPBACK_ONLY'||!process.env.GRYLOO_SUPPLY_JOURNAL?.startsWith(join(tmpdir(),'gryloo-build012a-')))throw new Error('MOCK_RESET_DENIED');
   await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options],route);
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
   await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();
-  const form=page.getByRole('form',{name:'Create Supply'});
+  const card=page.locator('.build-flow-surface .composer-card.active');
+  await card.getByRole('textbox',{name:'Source amount (USDC)',exact:true}).fill(amount);
+  await card.getByRole('button',{name:'Review Supply change',exact:true}).click();
+  await card.getByRole('button',{name:'Apply proposal',exact:true}).click();
+  await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Advanced Settings',exact:true}).click();
+  const form=page.getByRole('form',{name:'Edit Supply'});
+  const unchanged = await form.getByLabel('Supply amount (USDC)').inputValue() === amount && await form.getByLabel('Supply beneficiary').inputValue() === beneficiary;
   await form.getByLabel('Supply amount (USDC)').fill(amount);await form.getByLabel('Supply beneficiary').fill(beneficiary);
-  await form.getByRole('button',{name:'Add Supply',exact:true}).click();
+  if (unchanged) return;
+  await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Review Supply change',exact:true}).click();
+  await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
 }
 export async function reviewSupply(page:Page){
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
-  await page.getByRole('button',{name:'Review Supply',exact:true}).click();await page.getByRole('button',{name:'Accept Supply review'}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
+  await acceptProductReview(page);
 }
 export async function supplySendCount(page:Page):Promise<number>{return page.evaluate(()=>{
   const w=window as unknown as {supplyWalletRequests:{method:string}[]};return w.supplyWalletRequests.filter(r=>r.method==='eth_sendTransaction').length;

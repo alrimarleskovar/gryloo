@@ -15,7 +15,7 @@ test('chat and canvas share bridge IR; live route drives durable MOCKED recovery
     } });
   }, OWNER);
   await page.goto('/');
-  await page.getByLabel('Describe a mock edit').fill('bridge 1 USDC from Base to Optimism slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('bridge 1 USDC from Base to Optimism slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('Review proposed edit')).toBeVisible();
   await page.getByRole('button', { name: 'Apply proposal' }).click();

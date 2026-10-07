@@ -4,6 +4,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, uniswapLiquidityProfile, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 import { createUniswapLiquidityNode, uniswapBandInput, uniswapLiquidityDetails, uniswapLiquidityInputOf, uniswapLiquidityProfileFor, UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE,
   UNISWAP_LIQUIDITY_NETWORKS, type UniswapLiquidityInput, type UniswapLiquidityNetwork } from '../domain/uniswap-liquidity-authoring';
+import { poolPriceBounds, usePoolPriceRange } from './pool-price-range';
+import { usePoolContributionInputs } from './canvas-card-inputs';
+import { TokenAmountInput } from './token-amount-input';
 import { formatTokenAmount } from '../domain/jupiter-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
@@ -13,48 +16,74 @@ import type { UniswapLiquidityStep } from '../server/uniswap-liquidity-service';
 /** Canvas form for the canonical concentrated-liquidity node: Uniswap v3 USDC / WETH on Base Sepolia (0.05%) or Ethereum Sepolia (0.3%). */
 /** Copy is written for Base Sepolia; another network's name is substituted. Display text only. */
 const networkCopy = (text: string, network: UniswapLiquidityNetwork) => network === 'Base Sepolia' ? text : text.replaceAll('Base Sepolia', network);
-export function UniswapLiquidityForm({ nodeId, onDone }: { nodeId?: string; onDone?: () => void }) {
-  const { state, propose } = useWorkflow(), liquidity = useUniswapLiquidity();
+export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?: string; onDone?: () => void; reviewFormId?: string }) {
+  const { state, propose, actionSetup, editPoolSetup, reviewCanvasAmount } = useWorkflow(), liquidity = useUniswapLiquidity();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId);
+  const range = usePoolPriceRange(nodeId);
+  const contributions = usePoolContributionInputs(nodeId);
+
+  const setup = actionSetup && actionSetup.id === nodeId && actionSetup.action === 'pool' ? actionSetup : null;
   const existing = node ? uniswapLiquidityDetails(node) : null;
   const [input, setInput] = useState<UniswapLiquidityInput>(existing ? uniswapLiquidityInputOf(existing)
     : { network: 'Base Sepolia', maxUsdc: '', maxWeth: '', rangeUnit: 'PRICE', lower: '', upper: '', slippage: UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE });
   const [band, setBand] = useState<string | null>(null), [error, setError] = useState('');
-  const set = (patch: Partial<UniswapLiquidityInput>) => { setInput(value => ({ ...value, ...patch })); if (patch.lower !== undefined || patch.upper !== undefined || patch.rangeUnit !== undefined) setBand(null); };
+  const formInput = setup?.input ?? input;
+  const contributionInput = contributions.values ? { ...formInput, maxUsdc: contributions.values[0]!.amount, maxWeth: contributions.values[1]!.amount } : formInput;
+  const set = (patch: Partial<UniswapLiquidityInput>) => {
+    if (patch.maxUsdc !== undefined) contributions.edit(0, patch.maxUsdc);
+    if (patch.maxWeth !== undefined) contributions.edit(1, patch.maxWeth);
+    const editsRange = patch.lower !== undefined || patch.upper !== undefined || patch.rangeUnit !== undefined;
+    if (editsRange) range.reset();
+    const next = { ...(editsRange ? effectiveInput : contributionInput), ...patch };
+    if (setup) editPoolSetup(setup.id, next);
+    else setInput(next);
+    if (editsRange) setBand(null);
+  };
   async function aroundCurrent() {
-    const price = await liquidity.fetchPrice(uniswapLiquidityProfileFor(input.network).chain);
+    const price = await liquidity.fetchPrice(uniswapLiquidityProfileFor(contributionInput.network).chain);
     if (!price) return;
-    const derived = uniswapBandInput(price.sqrtPriceX96, 1_000, input.network);
-    setInput(value => ({ ...value, rangeUnit: derived.rangeUnit, lower: derived.lower, upper: derived.upper }));
+    const derived = uniswapBandInput(price.sqrtPriceX96, 1_000, contributionInput.network);
+    range.reset();
+    set({ rangeUnit: derived.rangeUnit, lower: derived.lower, upper: derived.upper });
     setBand(`±10% around ${price.price} USDC per WETH (block ${price.blockNumber}) → ticks ${derived.lower} to ${derived.upper} = ${derived.lowerPrice}–${derived.upperPrice} USDC per WETH.`);
   }
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      createUniswapLiquidityNode(nodeId ?? 'node-preview', input); setError('');
-      propose(nodeId ? { type: 'SET_UNISWAP_LIQUIDITY', nodeId, input, source: 'CANVAS', baseRevision: state.workflow.revision }
-        : { type: 'ADD_UNISWAP_LIQUIDITY', input, source: 'CANVAS', baseRevision: state.workflow.revision });
+      const reviewedInput = range.edited ? { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) } : contributionInput;
+      createUniswapLiquidityNode(nodeId ?? 'node-preview', reviewedInput); setError('');
+      if (setup) {
+        // The setup snapshot includes every field; stale acceptance is checked by the history reducer.
+        const failure = reviewCanvasAmount(setup.id, reviewedInput);
+        if (failure) throw new Error(failure);
+      } else propose(nodeId ? { type: 'SET_UNISWAP_LIQUIDITY', nodeId, input: reviewedInput, source: 'CANVAS', baseRevision: state.workflow.revision }
+        : { type: 'ADD_UNISWAP_LIQUIDITY', input: reviewedInput, source: 'CANVAS', baseRevision: state.workflow.revision });
+      if (range.edited) range.markReviewed();
       onDone?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'UNISWAP_LIQUIDITY_INPUT_INVALID'); }
   }
-  const unit = input.rangeUnit === 'PRICE' ? 'price (USDC per WETH)' : 'tick', selected = uniswapLiquidityProfileFor(input.network);
-  return <form className="inspector-fields" aria-label={networkCopy(nodeId ? 'Edit Base Sepolia liquidity position' : 'Create Base Sepolia liquidity position', input.network)} onSubmit={submit}>
-    <label>Liquidity network<select aria-label="Liquidity network" value={input.network} onChange={e => set({ network: e.target.value as UniswapLiquidityNetwork, rangeUnit: 'PRICE', lower: '', upper: '' })}>
+  let effectiveInput = contributionInput;
+  if (range.edited && range.reference) {
+    try { effectiveInput = { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) }; } catch { /* submit reports the existing validation failure */ }
+  }
+  const unit = effectiveInput.rangeUnit === 'PRICE' ? 'price (USDC per WETH)' : 'tick', selected = uniswapLiquidityProfileFor(contributionInput.network);
+  return <form id={reviewFormId} className="inspector-fields" aria-label={networkCopy(nodeId ? 'Edit Base Sepolia liquidity position' : 'Create Base Sepolia liquidity position', contributionInput.network)} onSubmit={submit}>
+    <label>Liquidity network<select aria-label="Liquidity network" value={contributionInput.network} onChange={e => set({ network: e.target.value as UniswapLiquidityNetwork, rangeUnit: 'PRICE', lower: '', upper: '' })}>
       {UNISWAP_LIQUIDITY_NETWORKS.map(network => <option key={network}>{network}</option>)}</select></label>
-    <p className="muted">Uniswap v3 · {input.network} test USDC / WETH · fee {selected.feeTier / 10_000}% · tick spacing {selected.tickSpacing}. Maxima are limits, not amounts to spend.</p>
-    <label>Maximum USDC (test)<input aria-label="Maximum USDC" inputMode="decimal" autoComplete="off" maxLength={40} value={input.maxUsdc} onChange={e => set({ maxUsdc: e.target.value })}/></label>
-    <label>Maximum WETH (test)<input aria-label="Maximum WETH" inputMode="decimal" autoComplete="off" maxLength={40} value={input.maxWeth} onChange={e => set({ maxWeth: e.target.value })}/></label>
-    <label>Range unit<select aria-label="Range unit" value={input.rangeUnit} onChange={e => set({ rangeUnit: e.target.value as 'PRICE' | 'TICK' })}>
+    <p className="muted">Uniswap v3 · {contributionInput.network} test USDC / WETH · fee {selected.feeTier / 10_000}% · tick spacing {selected.tickSpacing}. Maxima are limits, not amounts to spend.</p>
+    <label>Maximum USDC (test)<TokenAmountInput aria-label="Maximum USDC" maxLength={40} value={contributionInput.maxUsdc} onValueChange={maxUsdc => set({ maxUsdc })}/></label>
+    <label>Maximum WETH (test)<TokenAmountInput aria-label="Maximum WETH" maxLength={40} value={contributionInput.maxWeth} onValueChange={maxWeth => set({ maxWeth })}/></label>
+    <label>Range unit<select aria-label="Range unit" value={effectiveInput.rangeUnit} onChange={e => set({ rangeUnit: e.target.value as 'PRICE' | 'TICK' })}>
       <option value="PRICE">Price (USDC per WETH)</option><option value="TICK">Tick</option></select></label>
-    <label>Lower {unit}<input aria-label="Lower bound" inputMode="decimal" autoComplete="off" maxLength={40} value={input.lower} onChange={e => set({ lower: e.target.value })}/></label>
-    <label>Upper {unit}<input aria-label="Upper bound" inputMode="decimal" autoComplete="off" maxLength={40} value={input.upper} onChange={e => set({ upper: e.target.value })}/></label>
-    <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{networkCopy('Use ±10% around the current Base Sepolia price', input.network)}</button>
+    <label>Lower {unit}<input aria-label="Lower bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
+    <label>Upper {unit}<input aria-label="Upper bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
+    <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{networkCopy('Use ±10% around the current Base Sepolia price', contributionInput.network)}</button>
     {band && <small role="status">{band}</small>}
     <small>Prices are aligned outward to usable ticks; the exact ticks are stored and shown again at Review.</small>
-    <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
+    <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={contributionInput.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
     <p className="muted">Test tokens only. The position NFT is minted to your connected wallet.</p>
     {error && <p role="alert">{error}</p>}
-    <button type="submit">{nodeId ? 'Review position change' : 'Review position proposal'}</button>
+    {!reviewFormId && <button type="submit">{nodeId ? 'Review position change' : 'Review position proposal'}</button>}
     {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }

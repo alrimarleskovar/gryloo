@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal } from './fixtures';
 
 /** A passive injected wallet already on `chain`. It records every method and refuses anything but reads. */
 async function walletOn(page: import('@playwright/test').Page, chain: string) {
@@ -36,7 +36,7 @@ test('a wallet on Robinhood mainnet is recognized but never asked to switch, sig
   await form.getByLabel('Input amount (required)').fill('2');
   await form.getByLabel('Slippage in bps (required)').fill('50');
   await form.getByRole('button', { name: 'Review swap proposal' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   expect(new Set(await methods(page))).toEqual(new Set(['eth_accounts', 'eth_chainId']));
   networkGuard.assertClean();
 });

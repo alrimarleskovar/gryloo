@@ -84,7 +84,7 @@ test('Shift+click toggles membership, empty click and Escape clear, and Ctrl+Y r
 
 test('Flofi logo replaces the letter mark and history controls work in floating toolbox', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('img', { name: 'Flofi logo' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'FloFi logo' })).toBeVisible();
   await expect(page.locator('.brand-mark')).not.toHaveText('G');
   await page.getByLabel('Toolbox position').selectOption('floating');
   const toolbox = page.locator('.floating-toolbox');

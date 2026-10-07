@@ -13,6 +13,7 @@ import subprocess
 import tarfile
 import tempfile
 import urllib.request
+from governance_lite import AGE_WAIVER, dependency_age_waivers, dependency_release_age_allowed
 
 NODE_VERSION = "24.21.0"
 PNPM_VERSION = "11.22.0"
@@ -107,101 +108,102 @@ def main():
 
 
 
-# Exactly the 16 human-reviewed BUILD-002 registry identities. This is not a
+# Exactly the 16 reviewed BUILD-002 identities, refreshed for the owner-approved
+# Colosseum sharp security patch (same license obligations, routes and platforms). This is not a
 # license allowlist: each record also pins its SRI, graph route and platform.
-BUILD002_REVIEWED_LICENSE_EXCEPTIONS = {'@img/sharp-libvips-darwin-arm64@1.3.3': {'cpu': ['arm64'],
-                                           'integrity': 'sha512-suTBPTDGrI9WodccaDdwZItTSaBYASlBk1NSfElSHrUfzu3szG6lvIF58+WiFvnfzuK8ZBFS5zE00PxqxnRiPg==',
+BUILD002_REVIEWED_LICENSE_EXCEPTIONS = {'@img/sharp-libvips-darwin-arm64@1.3.4': {'cpu': ['arm64'],
+                                           'integrity': 'sha512-5R89nBYiRdUlSWJxPhO+GVtaXzXSxKnRu/xqMn3KTA3L9EB9Oy/P+Nn2f2vlhPuUdy/Zusb2DarbyTpGCfEDuw==',
                                            'libc': None,
                                            'license': 'LGPL-3.0-or-later',
                                            'optional': True,
                                            'os': ['darwin'],
                                            'route': 'sharp'},
- '@img/sharp-libvips-darwin-x64@1.3.3': {'cpu': ['x64'],
-                                         'integrity': 'sha512-FVJZ5mITMobmXIz/hPDTw0EintTW5H3WfrxwLqEqjiIihlu+hVRyGrFQ60xl0Lxn7Bt3zdpevPaQi0HEzqz9fw==',
+ '@img/sharp-libvips-darwin-x64@1.3.4': {'cpu': ['x64'],
+                                         'integrity': 'sha512-iR2OKH80yi0U+dUplyh3/xdpFvps6YkCwsXenIJxqxR1v9o+xtKTGbS9H7cps+2Vxjc8B1j96p75NmTGjIhtpQ==',
                                          'libc': None,
                                          'license': 'LGPL-3.0-or-later',
                                          'optional': True,
                                          'os': ['darwin'],
                                          'route': 'sharp'},
- '@img/sharp-libvips-linux-arm64@1.3.3': {'cpu': ['arm64'],
-                                          'integrity': 'sha512-0DaL0A6Xu6sQSQFwe4iVCrKWU2cCTItnRsYsCdxAMm9NF6twAA9BKnoqy4hqz4+azQ0JHuA26qiUKsf1XJ/v5A==',
+ '@img/sharp-libvips-linux-arm64@1.3.4': {'cpu': ['arm64'],
+                                          'integrity': 'sha512-Y3dgX/6lE2QhQb+Gxy0WZxfg9MEm/JBjamZpS2IklP7xIQoKN4hzAm7KcMVGtaVDt3neE9OKBC7vAfonA/Lr1A==',
                                           'libc': ['glibc'],
                                           'license': 'LGPL-3.0-or-later',
                                           'optional': True,
                                           'os': ['linux'],
                                           'route': 'sharp'},
- '@img/sharp-libvips-linux-arm@1.3.3': {'cpu': ['arm'],
-                                        'integrity': 'sha512-3rbU4vqXXc3hY/OiXdl52xZvT0F1yEngWfvqudtPJg/KkyiaQw2DRsFrNzpmLvfavbwOq3qXn36GP8obHRULQA==',
+ '@img/sharp-libvips-linux-arm@1.3.4': {'cpu': ['arm'],
+                                        'integrity': 'sha512-LmRtTsOHuvM2+wlO2Db37dx5MiZhB0FvSunciw48YjdOkZz9KAiRbm8ujeMOA1INqmei5NapFxYEK1D1ZSidmw==',
                                         'libc': ['glibc'],
                                         'license': 'LGPL-3.0-or-later',
                                         'optional': True,
                                         'os': ['linux'],
                                         'route': 'sharp'},
- '@img/sharp-libvips-linux-ppc64@1.3.3': {'cpu': ['ppc64'],
-                                          'integrity': 'sha512-cdn1OvUBwsXhbC0zSzJnNzf5MZ/mTrobawDvNXBTxe8VtqKAm0sRuEY2Evzovb/w9JMk4TvRxqt1mekSuJz64w==',
+ '@img/sharp-libvips-linux-ppc64@1.3.4': {'cpu': ['ppc64'],
+                                          'integrity': 'sha512-Le6boB8Tai0Nis+gIxIpKx68UDVVIqdR8Tin5Yf1z2LJJQLDJvCDRqRu+jC2qCoD+eIomonmOwB4smBRxfVpYQ==',
                                           'libc': ['glibc'],
                                           'license': 'LGPL-3.0-or-later',
                                           'optional': True,
                                           'os': ['linux'],
                                           'route': 'sharp'},
- '@img/sharp-libvips-linux-riscv64@1.3.3': {'cpu': ['riscv64'],
-                                            'integrity': 'sha512-HjPVx7yKz+0lqdhDlTw1tt90wamBoxhiXpvl1XZpJLiHH4RCJ5yDTqH+VlYPv2fwFs89JFw4c1IexYOcQUi4IQ==',
+ '@img/sharp-libvips-linux-riscv64@1.3.4': {'cpu': ['riscv64'],
+                                            'integrity': 'sha512-aHkkIEHPRdQEegJN20MLmGtxYD9R2wQr3Cwpddnu5+YKMt6Uzax7S9h5gpZTo8wyrGuZSlfQ63OevL5mTyOC7Q==',
                                             'libc': ['glibc'],
                                             'license': 'LGPL-3.0-or-later',
                                             'optional': True,
                                             'os': ['linux'],
                                             'route': 'sharp'},
- '@img/sharp-libvips-linux-s390x@1.3.3': {'cpu': ['s390x'],
-                                          'integrity': 'sha512-neWLh+3yCNThxnfy3c4BbVBeGgt9aftno+XbT56iK28RgeDs3UOFWviLWlUu0bArYVYJaFDK+RRohbicUNCm8Q==',
+ '@img/sharp-libvips-linux-s390x@1.3.4': {'cpu': ['s390x'],
+                                          'integrity': 'sha512-ra/mB6MikESDUO7Yg+Mi95bFBb9GsObURuhnOv3OqknjGe9sZrG8tCe9q0xSIGrtLgvgw0gKnFWcK4blSgQOuQ==',
                                           'libc': ['glibc'],
                                           'license': 'LGPL-3.0-or-later',
                                           'optional': True,
                                           'os': ['linux'],
                                           'route': 'sharp'},
- '@img/sharp-libvips-linux-x64@1.3.3': {'cpu': ['x64'],
-                                        'integrity': 'sha512-4vKmvAst9nrowcqquKFAyZJUDolUaIp8uRiN0mWFguJ1IplC9/pitXtlnnlU4aa/eJw3J7i67V+pwUL+wZGdsA==',
+ '@img/sharp-libvips-linux-x64@1.3.4': {'cpu': ['x64'],
+                                        'integrity': 'sha512-GJ//SSXbnwSDes02umB3nDJLFcQzw8a18V8fyhqr6tV515tOEMdImjjxj1AoafMRz56F3PHgftnj1QEKSU1zkw==',
                                         'libc': ['glibc'],
                                         'license': 'LGPL-3.0-or-later',
                                         'optional': True,
                                         'os': ['linux'],
                                         'route': 'sharp'},
- '@img/sharp-libvips-linuxmusl-arm64@1.3.3': {'cpu': ['arm64'],
-                                              'integrity': 'sha512-Y9kQaLMuNoB0bPYOOdcZMaseNrFpPodIWWMrx+CZyydf2xn68j9WYc6sWWRrDwNkzCQjKYfc68L7jKjGlHMibw==',
+ '@img/sharp-libvips-linuxmusl-arm64@1.3.4': {'cpu': ['arm64'],
+                                              'integrity': 'sha512-hvulFwtjUcagsis6BBxHwGFwWoNZjgYmULGVrZcyfNbjA8hKILbRxGg15/7w5HDyXHXUos/j6baAWqnCyQ2DWA==',
                                               'libc': ['musl'],
                                               'license': 'LGPL-3.0-or-later',
                                               'optional': True,
                                               'os': ['linux'],
                                               'route': 'sharp'},
- '@img/sharp-libvips-linuxmusl-x64@1.3.3': {'cpu': ['x64'],
-                                            'integrity': 'sha512-fj8Mv0HHfD1Rr+4I68+3agJynxDWtBFgicTbSOb9Bke6pIwzGcJ+RX/yHjmiEGFMCavY/dxvem7MyNaJF+wDiw==',
+ '@img/sharp-libvips-linuxmusl-x64@1.3.4': {'cpu': ['x64'],
+                                            'integrity': 'sha512-6zXKeE/p39I1AmA3cJG35eyBGNqNddLnUXjhwBnsGjFPWqf5VKkDBEqaEkPDoTEtkxwi2vv8Tcr2mDyP4So7Fg==',
                                             'libc': ['musl'],
                                             'license': 'LGPL-3.0-or-later',
                                             'optional': True,
                                             'os': ['linux'],
                                             'route': 'sharp'},
- '@img/sharp-wasm32@0.35.4': {'cpu': None,
-                              'integrity': 'sha512-zQnl4Kwp7Q6NHsENtU2T/00Zi+w3AQNwz3+UaTyVBy2FpXrzXzGjndpK61onhZjRtRpQXxCTeqw19bVyXOh7jA==',
+ '@img/sharp-wasm32@0.35.5': {'cpu': None,
+                              'integrity': 'sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ==',
                               'libc': None,
                               'license': 'Apache-2.0 AND LGPL-3.0-or-later AND MIT',
                               'optional': True,
                               'os': None,
                               'route': 'wasm'},
- '@img/sharp-win32-arm64@0.35.4': {'cpu': ['arm64'],
-                                   'integrity': 'sha512-iNdlBX9gLVvqe2I3uIJSIKTq6wckP/DYxZtcqxm09x5Gi24DnFBmPAWZmr60ZyYMG0xlzo6goG3670ar+RXvRw==',
+ '@img/sharp-win32-arm64@0.35.5': {'cpu': ['arm64'],
+                                   'integrity': 'sha512-X4t7g+7ZA5DKblCBEXGjUqqemj4vczING/5viFwAL8h4N3qYeyjwdCvRLHi4EdOUI+2Z7UFlp1VM+p/AuEtm6Q==',
                                    'libc': None,
                                    'license': 'Apache-2.0 AND LGPL-3.0-or-later',
                                    'optional': True,
                                    'os': ['win32'],
                                    'route': 'sharp'},
- '@img/sharp-win32-ia32@0.35.4': {'cpu': ['ia32'],
-                                  'integrity': 'sha512-kqRsbaa5CS6KHlpxnN7WhE6vAAugXyZButpRdvDWetlv6Qv4N9WTcrWzF7tXfB9T7MsoadqdI8hmwLq6UlLvtw==',
+ '@img/sharp-win32-ia32@0.35.5': {'cpu': ['ia32'],
+                                  'integrity': 'sha512-5Zm82LoBc43nhwNybZlG7Y1KO//Zhsn306fQl29ZOuStHLGTo3BWL83q3cznX0poxSAMuYL1On/BHBxkBeKr6A==',
                                   'libc': None,
                                   'license': 'Apache-2.0 AND LGPL-3.0-or-later',
                                   'optional': True,
                                   'os': ['win32'],
                                   'route': 'sharp'},
- '@img/sharp-win32-x64@0.35.4': {'cpu': ['x64'],
-                                 'integrity': 'sha512-XtmnYhBcrORsJ4XJngyzr/EWP0hRZLAZRFaApdKuviyqF78+ylxh2y06ZmtULAMOnObJ3ucpN0AcwSWnMowTRg==',
+ '@img/sharp-win32-x64@0.35.5': {'cpu': ['x64'],
+                                 'integrity': 'sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg==',
                                  'libc': None,
                                  'license': 'Apache-2.0 AND LGPL-3.0-or-later',
                                  'optional': True,
@@ -305,6 +307,11 @@ def verify_dependencies():
     import re
 
     errors = []
+    waiver_files = {"pnpm-workspace.yaml": Path("pnpm-workspace.yaml").read_text()}
+    if Path(AGE_WAIVER).is_file():
+        waiver_files[AGE_WAIVER] = Path(AGE_WAIVER).read_text()
+    age_waivers, waiver_errors = dependency_age_waivers(waiver_files)
+    errors.extend(waiver_errors)
     plan = Path("docs/builds/BUILD-001-PLAN.md").read_text()
     pin_rows = re.findall(
         r"(?m)^\| `([^`]+)` \| `([0-9.]+)` \|.*\| ([A-Za-z0-9.-]+) \| `(sha512-[A-Za-z0-9+/=]+)` \|$", plan)
@@ -317,7 +324,7 @@ def verify_dependencies():
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
     resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
-    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "7477e3d4b87bd36605580e7e0032fc0bd2801f59ea251669d2e361d93684bdd9":
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "172a6ba2e54ebfafc48c71e29ce0e477ce9f8256dce6c7687ee4c90c9b9c0eaf":
         errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
@@ -531,11 +538,11 @@ def verify_dependencies():
             errors.append(f"Reviewed optional status changed: {identity}")
         route = approved["route"]
         if route == "sharp":
-            valid = sharp_optional.get(name) == version and sharp_ref == "0.35.4(@types/node@24.13.4)"
+            valid = sharp_optional.get(name) == version and sharp_ref == "0.35.5(@types/node@24.13.4)"
         elif route == "wasm":
-            valid = sharp_ref == "0.35.4(@types/node@24.13.4)" and all(
-                sharp_optional.get(parent) == "0.35.4" and
-                dependencies(snapshot_blocks.get(parent + "@0.35.4", ""), "dependencies").get(name) == version
+            valid = sharp_ref == "0.35.5(@types/node@24.13.4)" and all(
+                sharp_optional.get(parent) == "0.35.5" and
+                dependencies(snapshot_blocks.get(parent + "@0.35.5", ""), "dependencies").get(name) == version
                 for parent in wasm_parents)
         elif route == "next":
             valid = next_dependencies.get(name) == version
@@ -565,7 +572,8 @@ def verify_dependencies():
         if package.get("dist", {}).get("integrity") != integrity:
             issues.append(f"Registry integrity changed: {identity}")
         try:
-            if datetime.datetime.fromisoformat(published.replace("Z", "+00:00")) > cutoff:
+            if not dependency_release_age_allowed(name, version,
+                    datetime.datetime.fromisoformat(published.replace("Z", "+00:00")), cutoff, age_waivers):
                 issues.append(f"Minimum release age failed: {identity}")
         except (TypeError, ValueError, AttributeError):
             issues.append(f"Missing or invalid publication time: {identity}")
@@ -619,6 +627,7 @@ def verify_dependencies():
     destination = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir())) / "build-002-dependencies.json"
     destination.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
     print("Registry entries/integrities/release ages verified:", len(records), flush=True)
+    print("Exact temporary owner-approved release-age waivers:", sorted(age_waivers), flush=True)
     print("Exact reviewed license exception set:", len(rejected_identities), flush=True)
     print("License inventory:",
           dict(sorted(collections.Counter(r["license"] for r in records).items())), flush=True)

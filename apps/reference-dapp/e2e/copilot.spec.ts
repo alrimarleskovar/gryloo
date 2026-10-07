@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
-import { installSupplyWallet, resetSupplyHarness, reviewSupply, supplySendCount, SUPPLY_OWNER } from './supply-fixtures';
+import { test, expect, applyPendingProposal, openProposalReview, openSimulationDetails } from './fixtures';
+import { installSupplyWallet, resetSupplyHarness, supplySendCount, SUPPLY_OWNER } from './supply-fixtures';
 
 // BUILD-COPILOT-001: FLOFI_COPILOT=replay serves committed answers (protocol V2 since BUILD-COPILOT-002: e2e/copilot/replay-v2.json). No model is
 // called and the network guard refuses every non-loopback request. The MOCKED supply harness provides the downstream Simulate/Review.
@@ -9,7 +9,18 @@ if (process.env.FLOFI_COPILOT !== 'replay') throw new Error('copilot.spec.ts req
 
 const conversation = (page: Page) => page.getByRole('log', { name: 'Conversation' });
 const copilotSays = (page: Page) => conversation(page).locator('.message.ai').last();
-const proposal = (page: Page) => page.locator('.proposal');
+const proposal = (page: Page) => page.getByRole('button', { name: /^Review proposed change:/ });
+async function expectChange(page: Page, text: string) {
+  await openProposalReview(page);
+  await expect(page.getByRole('dialog', { name: 'Proposed change' })).toContainText(text);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Proposed change' })).toHaveCount(0);
+  await expect(proposal(page)).toHaveCount(1);
+}
+async function dismiss(page: Page) {
+  await openProposalReview(page);
+  await page.getByRole('button', { name: 'Dismiss proposal', exact: true }).click();
+}
 const revision = (page: Page, value: number) => expect(page.locator(`.summary-bar[data-workflow-revision="${value}"]`)).toHaveCount(1);
 async function ask(page: Page, text: string) {
   await page.locator('#mock-prompt').fill(text);
@@ -22,22 +33,30 @@ test('natural language → proposal → explicit Apply → canonical workflow �
   await installSupplyWallet(page);
   await page.goto('/');
   await expect(conversation(page)).toContainText('Flofi Copilot ready in replay mode (recorded answers, no AI model)');
-  await expect(page.getByLabel('Describe a DeFi action or an exact command')).toBeVisible();
+  await expect(page.getByLabel('Describe your flow')).toBeVisible();
   await ask(page, 'Put 1 USDC into Aave on Base Sepolia');
   await expect(copilotSays(page)).toContainText('Interpreted as “supply 1 USDC to Aave on Base Sepolia”');
   await expect(copilotSays(page)).toContainText(`Beneficiary: your connected wallet ${SUPPLY_OWNER}`);
   await expect(copilotSays(page).locator('small')).toHaveText('FLOFI COPILOT · AI');
   // Copilot answers are ordinary chat messages, not panel-sized blocks.
   expect((await copilotSays(page).boundingBox())!.height).toBeLessThan(300);
-  await expect(proposal(page).getByRole('note')).toContainText('AI interpretation of your words as “supply 1 USDC to Aave on Base Sepolia”');
-  await expect(proposal(page)).toContainText('Supply to Aave V3 on Base Sepolia');
+  await expect(copilotSays(page)).toContainText('Interpreted as “supply 1 USDC to Aave on Base Sepolia”');
+  await expectChange(page, 'Supply 1 USDC');
+  await expect(copilotSays(page)).toContainText('Aave');
+  await expect(copilotSays(page)).toContainText('Base Sepolia');
   // The proposal alone changes nothing.
   await revision(page, 0);
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   await revision(page, 1);
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1 USDC · Base Sepolia');
-  await reviewSupply(page);
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('1');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base Sepolia');
+  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate Supply', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Aave Supply', exact: true })).toContainText('Approval required: Yes');
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
+  await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
   expect(await supplySendCount(page)).toBe(0);
 });
 
@@ -50,8 +69,9 @@ test('Portuguese and mainnet requests are proposals with explicit notes, and Dis
   await ask(page, 'Swap 100 USDC to ETH on Base');
   await expect(copilotSays(page)).toContainText('Interpreted as “swap 100 USDC to WETH on Base slippage 50 bps”');
   await expect(copilotSays(page)).toContainText('Flofi swaps the ERC-20 WETH (wrapped ETH), not native ETH.');
-  await expect(proposal(page)).toContainText('USDC → WETH on Base');
-  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await expectChange(page, 'USDC → WETH');
+  await expect(copilotSays(page)).toContainText('Base');
+  await dismiss(page);
   await expect(proposal(page)).toHaveCount(0);
   await revision(page, 0);
 });
@@ -67,9 +87,10 @@ test('clarification with a guided option and a deterministic follow-up', async (
   await expect(copilotSays(page)).toContainText('To prepare this bridge, Flofi still needs the amount.');
   await ask(page, '5');
   await expect(copilotSays(page)).toContainText('Interpreted as “bridge 5 USDC from Base Sepolia to Arbitrum Sepolia via auto slippage 50 bps”');
-  await expect(proposal(page)).toContainText('Base Sepolia USDC → Arbitrum Sepolia USDC');
+  await expect(copilotSays(page)).toContainText('Base Sepolia');
+  await expect(copilotSays(page)).toContainText('Arbitrum Sepolia');
   await revision(page, 0);
-  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await dismiss(page);
   await expect(proposal(page)).toHaveCount(0);
   await revision(page, 0);
 });
@@ -110,8 +131,7 @@ test('AI failures leave the workflow unchanged and exact commands keep working',
   // The exact grammar is consulted first and needs no model.
   await ask(page, 'swap 2 USDC to WETH on Base slippage 50 bps');
   await expect(conversation(page).locator('.message.system').last()).toContainText('Proposal: swap 2 USDC to WETH on Base slippage 50 bps.');
-  await expect(proposal(page).getByRole('note')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   await revision(page, 1);
 });
 
@@ -122,13 +142,13 @@ test('an answer that arrives after a workflow change is discarded', async ({ pag
   await expect(conversation(page)).toContainText('Interpreting your message…');
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
-  const form = page.getByRole('form', { name: 'Create Supply' });
-  await form.getByLabel('Supply amount (USDC)').fill('3');
-  await form.getByLabel('Supply beneficiary').fill(SUPPLY_OWNER);
-  await form.getByRole('button', { name: 'Add Supply', exact: true }).click();
+  const card = page.locator('.build-flow-surface .composer-card.active');
+  await card.getByRole('textbox', { name: 'Source amount (USDC)', exact: true }).fill('3');
+  await card.getByRole('button', { name: 'Review Supply change', exact: true }).click();
+  await card.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   await revision(page, 1);
   await expect(copilotSays(page)).toContainText('The workflow changed while Flofi Copilot was interpreting, so nothing was proposed.');
   await expect(proposal(page)).toHaveCount(0);
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('3 USDC');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('3');
   await revision(page, 1);
 });

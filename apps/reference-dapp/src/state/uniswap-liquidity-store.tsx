@@ -13,7 +13,7 @@ import type { UniswapLiquidityPrice, UniswapLiquidityRecord, UniswapWalletDiagno
 const KEY = 'flofi:uniswap-liquidity:run';
 const REFUSALS = [4001, 4100, 4200];
 type Store = { available: boolean; executionEnabled: boolean; record: UniswapLiquidityRecord | null; busy: boolean; signing: boolean; error: string | null;
-  retired: boolean; recovered: boolean; price: UniswapLiquidityPrice | null;
+  retired: boolean; recovered: boolean; price: UniswapLiquidityPrice | null; priceChain: 'eip155:84532' | 'eip155:11155111' | null;
   simulate(): Promise<void>; refresh(): Promise<void>; review(): Promise<void>; execute(): Promise<void>; observe(): Promise<void>;
   switchNetwork(): Promise<void>; fetchPrice(chain?: 'eip155:84532' | 'eip155:11155111'): Promise<UniswapLiquidityPrice | null> };
 const Context = createContext<Store | null>(null);
@@ -34,6 +34,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
   const [record, setRecord] = useState<UniswapLiquidityRecord | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false), [available, setAvailable] = useState(false), [executionEnabled, setExecutionEnabled] = useState(false);
   const [recovered, setRecovered] = useState(false), [price, setPrice] = useState<UniswapLiquidityPrice | null>(null);
+  const [priceChain, setPriceChain] = useState<'eip155:84532' | 'eip155:11155111' | null>(null);
   const workflow = state.workflow as unknown as SemanticWorkflow;
   const latest = useRef(workflow); latest.current = workflow;
   const latestWallet = useRef(wallet); latestWallet.current = wallet;
@@ -79,7 +80,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
   /** The pool price of a liquidity network (Base Sepolia unless the form names Ethereum Sepolia). */
   async function fetchPrice(chain?: 'eip155:84532' | 'eip155:11155111'): Promise<UniswapLiquidityPrice | null> {
     let value: UniswapLiquidityPrice | null = null;
-    await operation(async () => { value = unwrap(await uniswapLiquidityPrice(chain)); setPrice(value); });
+    await operation(async () => { value = unwrap(await uniswapLiquidityPrice(chain)); setPrice(value); setPriceChain(chain ?? 'eip155:84532'); });
     return value;
   }
   /** The reviewed run's chain (else the authored position's) is the only network the wallet may be on. */
@@ -174,7 +175,7 @@ export function UniswapLiquidityProvider({ children }: { children: ReactNode }) 
       await new Promise(resolve => setTimeout(resolve, 2_000));
     }
   }); }
-  return <Context.Provider value={{ available, executionEnabled, record, busy, signing, error, retired, recovered, price,
+  return <Context.Provider value={{ available, executionEnabled, record, busy, signing, error, retired, recovered, price, priceChain,
     simulate, refresh, review, execute, observe, switchNetwork, fetchPrice }}>
     {signing && <p role="status">Confirm or reject the pending request in your wallet.</p>}
     <div inert={signing} data-uniswap-wallet-pending={signing ? 'true' : undefined}>{children}</div></Context.Provider>;

@@ -4,7 +4,7 @@
  * `webServer.url`, the Next.js `PORT` and every fixture's same-origin check derive from it.
  *
  * `FLOFI_E2E_APP_PORT` lets CI use an isolated port when another server already holds 3000 on a shared runner; unset
- * keeps 3000. The value is strict: decimal digits without sign, spaces or leading zeros, an unprivileged port
+ * keeps the release isolated on 3108. The value is strict: decimal digits without sign, spaces or leading zeros, an unprivileged port
  * (1024–65535), and never one of the suites' own loopback harness or fork ports.
  */
 export const E2E_DEFAULT_APP_PORT = 3000;
@@ -20,5 +20,8 @@ export function e2eAppPort(value: string | undefined): number {
 }
 export const e2eAppOrigin = (port: number) => `http://127.0.0.1:${port}`;
 
-export const E2E_APP_PORT = e2eAppPort(process.env.FLOFI_E2E_APP_PORT);
+export const E2E_APP_PORT = e2eAppPort(process.env.FLOFI_E2E_APP_PORT ?? process.env.FLOFI_E2E_PORT ?? '3108');
 export const E2E_APP_ORIGIN = e2eAppOrigin(E2E_APP_PORT);
+// Preserve release isolation and the earlier harness API; CI's canonical variable takes precedence.
+export const APP_PORT = String(E2E_APP_PORT);
+export const APP_ORIGIN = E2E_APP_ORIGIN;

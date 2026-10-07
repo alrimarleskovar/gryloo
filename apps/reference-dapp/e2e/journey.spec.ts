@@ -3,7 +3,7 @@
  * BUILD-JOURNEY-001 permissionless external-user journey on MOCKED loopback Base Sepolia / Arbitrum Sepolia chains and providers
  * (never a public network, never a broadcast). Every wallet is a fresh random test wallet that signs in with a real signature.
  */
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createTestWallet, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { BASE_SEPOLIA_HEX, guardedContext, installJourneyWallet, journeyAdvance, journeySends, resetJourneyHarness, setWalletChain, switchAccount,
@@ -23,15 +23,17 @@ async function signIn(scope: ReturnType<typeof card>) {
 async function author(page: Page, text = 'Bridge 1 USDC from Base Sepolia to Arbitrum Sepolia') {
   await page.locator('#mock-prompt').fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base Sepolia → Arbitrum Sepolia USDC');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('BridgeRouter');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('button', { name: 'Configure source asset', exact: true })).toHaveAttribute('title', 'USDC on Base Sepolia');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('button', { name: 'Configure destination asset', exact: true })).toHaveAttribute('title', 'USDC on Arbitrum Sepolia');
 }
 async function simulateAndAccept(page: Page) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   await expect(region(page).getByRole('list', { name: 'Route steps' })).toBeVisible();
-  await stage(page, 'Execute');
-  await region(page).getByRole('button', { name: 'Accept route review' }).click();
+  await acceptProductReview(page);
 }
 const execute = (page: Page, label: RegExp) => region(page).getByRole('button', { name: label }).click();
 async function toReconciled(page: Page) {
@@ -59,15 +61,13 @@ test('a fresh external wallet: connect → sign in → create → simulate → r
   await expect(card(page).getByRole('region', { name: 'Your runs' })).toContainText('No runs yet for this wallet.');
   expect(await walletRequests(page)).toContain('personal_sign');
   await author(page);
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   for (const text of ['Test USDC on public testnets: Base Sepolia and Arbitrum Sepolia. No real funds.', 'LI.FI · underlying protocol across',
     'Across bridge Base Sepolia → Arbitrum Sepolia', 'Amount in1 USDC on Base Sepolia', `Exactly 1 USDC to ${DIAMOND} (never unlimited)`,
     `${A.address} on Arbitrum Sepolia (your wallet)`, 'Strategy Manifest', `Owner ${A.address}`]) await expect(region(page)).toContainText(text);
   expect(await journeySends()).toBe(0);
-  await stage(page, 'Execute');
-  await expect(region(page)).toContainText('binds the Strategy Manifest');
-  await region(page).getByRole('button', { name: 'Accept route review' }).click();
+  await acceptProductReview(page);
   await execute(page, /^Execute: Approve exactly 1 USDC/);
   await expect(transactions(page)).toContainText('Approval: confirmed');
   await execute(page, /^Execute: Deposit into the bridge/);

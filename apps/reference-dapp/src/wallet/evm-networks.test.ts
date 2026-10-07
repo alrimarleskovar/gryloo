@@ -28,6 +28,7 @@ describe('shared EVM wallet networks', () => {
     expect(walletChainRef('0x2105')).toBe('eip155:8453');
     expect(walletChainRef('0xA4B1')).toBe('eip155:42161');
     expect(walletChainRef('0x14a34')).toBe('eip155:84532');
+    expect(walletChainRef('0x66eee')).toBe('eip155:421614');
     expect(walletChainRef('0xb626')).toBe('eip155:46630');
     expect(walletChainRef('0x1237')).toBe('eip155:4663');
     // BUILD-ETHEREUM-001: Ethereum Sepolia is a switch target; Ethereum Mainnet is recognized only to be named and refused.
@@ -40,6 +41,7 @@ describe('shared EVM wallet networks', () => {
     expect(walletChainLabel('0x2105')).toBe('Base (8453)');
     expect(walletChainLabel('0xa4b1')).toBe('Arbitrum (42161)');
     expect(walletChainLabel('0x14a34')).toBe('Base Sepolia');
+    expect(walletChainLabel('0x66eee')).toBe('Arbitrum Sepolia');
     expect(walletChainLabel('0xb626')).toBe('Robinhood Chain Testnet (46630)');
     expect(walletChainLabel('0x1237')).toBe('Robinhood Chain (4663)');
     expect(walletChainLabel('0x89')).toBe('Other chain (0x89)');
@@ -47,8 +49,10 @@ describe('shared EVM wallet networks', () => {
   });
   it('never offers Robinhood mainnet as a switch target', async () => {
     expect(walletNetwork('0x1237')).toMatchObject({ switchable: false, add: null });
+    expect(walletNetwork('0x66eee')).toMatchObject({ environment: 'testnet', switchable: false, add: null });
     const { provider, calls } = wallet({ chain: '0x14a34' });
     await expect(switchWalletNetwork(provider, '0x1237')).rejects.toThrow('WALLET_NETWORK_NOT_SWITCHABLE');
+    await expect(switchWalletNetwork(provider, '0x66eee')).rejects.toThrow('WALLET_NETWORK_NOT_SWITCHABLE');
     await expect(switchWalletNetwork(provider, '0x1')).rejects.toThrow('WALLET_NETWORK_NOT_SWITCHABLE');
     expect(calls).toEqual([]);
   });

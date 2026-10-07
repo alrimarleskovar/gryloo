@@ -7,16 +7,22 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { cowCancellationDigest, cowOrderDigest, type CowOrder } from '@defi-workflow-engine/reference-compiler';
 import { signCowDisposable } from '@defi-workflow-engine/reference-executor';
-import { test as guarded, expect } from './fixtures';
+import { test as guarded, expect, openProposalReview } from './fixtures';
 
 export type CowWallet = { readonly owner: string; readonly calls: { method: string; params: unknown[] }[];
   chain: string; account: string; reject: boolean };
 export const cowPanel = (page: Page, stage: 'simulation' | 'execution') =>
   page.getByRole('region', { name: 'CoW signed-intent ' + stage });
-export const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') =>
-  page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
+export async function stage(page: Page, name: 'Build' | 'Simulate' | 'Execute'): Promise<void> {
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
+  if (name === 'Execute') {
+    const details = page.locator('.execute-technical');
+    await expect(details).toBeVisible();
+    if (!(await details.evaluate(element => (element as HTMLDetailsElement).open))) await details.locator('> summary').click();
+  }
+}
 export const openTechnicalDetails = (page: Page) =>
-  page.getByRole('button', { name: 'Show technical details' }).click();
+  page.locator('.simulation-technical > summary').click();
 export async function authorCowSwap(page: Page): Promise<void> {
   await stage(page, 'Build');
   if (!(await page.getByLabel('Direction').isVisible())) await page.getByText('Advanced action setup', { exact: true }).click();
@@ -25,7 +31,7 @@ export async function authorCowSwap(page: Page): Promise<void> {
   await page.getByLabel('Slippage in bps (required)').fill('100');
   await page.getByLabel('Enable CoW signed intent for this swap').check();
   await page.getByRole('button', { name: 'Review swap proposal' }).click();
-  await expect(page.getByText('Review proposed edit')).toBeVisible();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function installCowWallet(page: Page): Promise<CowWallet> {

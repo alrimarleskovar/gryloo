@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {test,expect} from './fixtures';
+import {test,expect, openSimulationDetails, acceptProductReview } from './fixtures';
+import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 import type {Page} from '@playwright/test';
 import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc} from './supply-fixtures';
 import {withdrawOptions,WITHDRAW_OWNER as owner} from './withdraw-fixtures';
 const region=(page:Page)=>page.getByRole('region',{name:'Aave Withdraw'});
 async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1]={}){
   await installSupplyWallet(page,{account:owner,...options});await page.goto('/');await page.getByRole('button',{name:'Add withdraw',exact:true}).click();
-  const form=page.getByRole('form',{name:'Create Withdraw'});await form.getByLabel('Withdraw amount (USDC)').fill('0.1');await form.getByRole('button',{name:'Add Withdraw',exact:true}).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Withdraw from Aave V3');
-  await page.getByRole('button',{name:'Continue to Simulate'}).click();await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Review Withdraw',exact:true})).toBeEnabled();
+  await configureCanvasAction(page,'0.1');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Withdraw');
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();
 }
-async function review(page:Page){await page.getByRole('button',{name:'Review Withdraw',exact:true}).click();await page.getByRole('button',{name:'Accept Withdraw review'}).click();await expect(region(page).getByRole('button',{name:'Execute',exact:true})).toBeVisible();}
+async function review(page:Page){await acceptProductReview(page);}
 const execute=(page:Page)=>region(page).getByRole('button',{name:'Execute',exact:true}).click();
 test.beforeEach(async()=>{await resetSupplyHarness(withdrawOptions);});
 test('Build → read-only Simulate → owner Review → one exact Withdraw → Result',async({page})=>{
@@ -34,5 +35,5 @@ test('wrong owner blocks wallet handoff',async({page})=>{
 });
 test('fresh collateral mutation invalidates Execute',async({page})=>{await author(page);await review(page);await supplyHarnessRpc('MOCK_reset',[{...withdrawOptions,scaled:'803434'}]);await execute(page);await expect(region(page)).toContainText('changed');expect(await supplySendCount(page)).toBe(0);});
 test('semantic edit removes Withdraw authority',async({page})=>{
-  await author(page);await review(page);await page.getByRole('button',{name:'Build',exact:true}).click();await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click();const form=page.getByRole('form',{name:'Edit Withdraw'});await form.getByLabel('Withdraw amount (USDC)').fill('0.09');await form.getByRole('button',{name:'Review Withdraw change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();await expect(region(page)).toContainText('The workflow changed');await expect(region(page).getByRole('button',{name:'Execute',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
+  await author(page);await review(page);await page.getByRole('button',{name:'Build',exact:true}).click();await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click();await openCanvasSettings(page);const form=page.getByRole('form',{name:'Edit Withdraw'});await form.getByLabel('Withdraw amount (USDC)').fill('0.09');await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Review Withdraw change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();await expect(region(page)).toContainText('The workflow changed');await expect(region(page).getByRole('button',{name:'Execute',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });

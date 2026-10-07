@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails } from './fixtures';
 
 test('public recording remains off in standard browser CI', async ({ page }) => {
   await page.goto('/');
@@ -9,8 +9,9 @@ test('public recording remains off in standard browser CI', async ({ page }) => 
   await form.getByLabel('Input amount (required)').fill('2');
   await form.getByLabel('Slippage in bps (required)').fill('50');
   await form.getByRole('button', { name: 'Review swap proposal' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   await page.getByRole('button', { name: 'Simulate', exact: true }).first().click();
+  await openSimulationDetails(page);
   await expect(page.getByRole('region', { name: 'Base Sepolia swap simulation' })).toBeVisible();
   await expect(page.getByText('Public testnet recording is not enabled on this app instance.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Simulate', exact: true }).last()).toBeDisabled();
@@ -35,6 +36,6 @@ test('an existing injected session is reused without a new connection prompt', a
   await form.getByLabel('Input amount (required)').fill('2');
   await form.getByLabel('Slippage in bps (required)').fill('50');
   await form.getByRole('button', { name: 'Review swap proposal' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   expect(await page.evaluate(() => (window as Window & { __publicWalletPrompts?: number }).__publicWalletPrompts)).toBe(0);
 });

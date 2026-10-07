@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview } from './fixtures';
 import { hashArtifactBytes, parseArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 import { digestRawResponse } from '@defi-workflow-engine/reference-linter';
 
@@ -8,12 +8,13 @@ const observation = (page: import('@playwright/test').Page) => page.getByRole('r
 test('replay fails closed for an unrecorded swap and preserves the authority boundary', async ({ page, networkGuard }) => {
   const response = await page.goto('/');
   expect(response?.headers()['content-security-policy']).toContain("connect-src 'self'");
-  await page.getByLabel('Describe a mock edit').fill('swap 3 USDC to WETH on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 3 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
-  const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
+  await page.locator('.simulation-technical > summary').click();
+  const mocked = page.locator('.simulation-technical');
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   const region = observation(page);
@@ -26,18 +27,20 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   expect(await mocked.locator('[data-mocked-value]').count()).toBeGreaterThan(0);
   await expect(region.locator('[data-observation-json]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
   networkGuard.assertClean();
 });
 
 test('observation controls are keyboard reachable and fit mobile, tablet and desktop widths', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Describe a mock edit').fill('swap 1 WETH to USDC on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const read = observation(page).getByRole('button', { name: 'Read Base quote' });
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -60,11 +63,12 @@ for (const [from, to, amount, at] of [
     await page.goto('/');
     // Keep the recorded wall time fixed while ResizeObserver and animation frames fit the graph.
     await page.clock.setFixedTime(new Date(at));
-    await page.getByLabel('Describe a mock edit').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
+    await page.getByLabel('Describe your flow').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
     await page.getByRole('button', { name: 'Send' }).click();
+    await openProposalReview(page);
     await page.getByRole('button', { name: 'Apply proposal' }).click();
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-    await page.getByRole('button', { name: 'Show technical details' }).click();
+    await page.locator('.simulation-technical > summary').click();
     const region = observation(page);
     await region.getByRole('button', { name: 'Read Base quote' }).click();
     await expect(region).toContainText('OBSERVATION: CURRENT');
@@ -92,17 +96,18 @@ for (const [from, to, amount, at] of [
     expect(await region.locator('[data-observation-hash="transcript:node-002"]').textContent())
       .toBe(await digestRawResponse(new TextEncoder().encode(transcriptText!)));
     await region.getByRole('button', { name: 'Hide transcript · node-002' }).click();
-    await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+    await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
+    await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
     await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
     if (from === 'WETH') {
-      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
+      await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-recorded.png', { fullPage: true });
       await page.clock.setSystemTime(new Date('2026-09-24T14:52:05.000Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await expect(region).toContainText('OBSERVATION: EXPIRED');
       await expect(region.locator('[data-observed-value]')).toHaveCount(0);
       await expect(region.locator('[data-observation-json]')).toHaveCount(0);
-      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
+      await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-expired.png', { fullPage: true });
     }
     networkGuard.assertClean();
@@ -115,23 +120,25 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await page.goto('/');
   // Navigation can exceed one second; keep replay time fixed without rewinding timers.
   await page.clock.setFixedTime(at);
-  await page.getByLabel('Describe a mock edit').fill('swap 1 WETH to USDC on Base slippage 50 bps');
+  await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
-  const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
+  await page.locator('.simulation-technical > summary').click();
+  const mocked = page.locator('.simulation-technical');
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   const region = observation(page);
   await region.getByRole('button', { name: 'Read Base quote' }).click();
   await expect(region).toContainText('OBSERVATION: CURRENT');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build' }).click();
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 2');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 2');
   await page.getByRole('button', { name: 'Send' }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   await expect(region).toContainText('OBSERVATION: INVALIDATED');
   await expect(region.locator('[data-observed-value]')).toHaveCount(0);
   await expect(region.locator('[data-observation-json]')).toHaveCount(0);

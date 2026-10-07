@@ -9,8 +9,10 @@ test('canonical canvas Swap on Solana → Simulate → Review → Execute → re
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const wallet = await resetJupiterHarness(); await installSolanaWallet(page, wallet);
   await authorSolanaSwap(page, 'canvas');
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('USDC → SOL');
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('SOLANA · JUPITER');
+  const card = page.locator('.react-flow__node[data-id="node-002"]');
+  await expect(card).toContainText('Jupiter · Solana');
+  await expect(card.getByRole('button', { name: 'Select source token', exact: true })).toHaveAttribute('title', 'USDC on Solana');
+  await expect(card.getByRole('button', { name: 'Select destination token', exact: true })).toHaveAttribute('title', 'SOL on Solana');
   await reviewSolanaSwap(page);
   await expect(panel(page)).toContainText('Receive at least');
   expect(await jupiterControl({ action: 'sent' })).toBe(0);
@@ -29,7 +31,7 @@ test('chat “Swap 10 USDC to SOL on Solana” authors the same swap and simulat
   const wallet = await resetJupiterHarness(); await installSolanaWallet(page, wallet);
   await authorSolanaSwap(page, 'chat');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('10 USDC · Solana · 50 bps');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   const summary = page.getByRole('definition').filter({ hasText: '→ expected' });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails, readWorkflowIr, openFirstActionSettings, openProposalReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { hashArtifactBytes, parseArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 
@@ -8,9 +8,12 @@ const T1 = new Date('2026-09-24T12:00:10.000Z');
 const at = (seconds: number) => new Date(T1.getTime() + seconds * 1000);
 const RATE = 'synthetic rate 1 WETH = 1,000 USDC';
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value));
-const panel = (page: Page) => page.getByRole('region', { name: 'Mocked artifact chain' });
+const panel = (page: Page) => page.locator('.simulation-technical');
 const chip = (page: Page, status: string) => panel(page).getByText(`ARTIFACTS: ${status}`, { exact: true });
-const tab = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
+const tab = async (page: Page, name: 'Build' | 'Simulate' | 'Execute') => {
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
+  if (name === 'Simulate') await openSimulationDetails(page);
+};
 
 async function open(page: Page) {
   await page.clock.install({ time: T0 });
@@ -18,10 +21,9 @@ async function open(page: Page) {
   await page.clock.pauseAt(T1);
 }
 async function apply(page: Page, text: string) {
-  await page.getByLabel('Describe a mock edit').fill(text);
+  await page.getByLabel('Describe your flow').fill(text);
   await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByText('Review proposed edit')).toBeVisible();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
 }
 async function generate(page: Page) {
   await tab(page, 'Simulate');
@@ -30,8 +32,7 @@ async function generate(page: Page) {
 }
 async function readIr(page: Page) {
   await tab(page, 'Build');
-  await page.locator('.flow-card').nth(1).click();
-  const raw = await page.locator('[data-workflow-ir]').textContent();
+  const raw = await readWorkflowIr(page);
   await tab(page, 'Simulate');
   return JSON.parse(raw!) as { revision: number };
 }
@@ -43,7 +44,7 @@ async function readJson(page: Page, key: string, label: string) {
 }
 const hash = (page: Page, key: string) => panel(page).locator(`code[data-hash="${key}"]`).textContent();
 // BUILD-003D §3.16: screenshots wait until the Simulate canvas viewport is fitted to the final layout.
-const viewportFitted = (page: Page) => expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
+const viewportFitted = (page: Page) => expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
 
 for (const [from, to, amount] of [['USDC', 'WETH', '2.25'], ['WETH', 'USDC', '0.125']] as const) {
   test(`${from} to ${to}: rendered mocked chain verifies against the frozen contracts (R-5, R-6)`, async ({ page }) => {
@@ -89,7 +90,7 @@ test('chat-created and canvas-created swaps yield identical mocked artifacts', a
       await page.getByLabel('Input amount (required)').fill('2.25');
       await page.getByLabel('Slippage in bps (required)').fill('50');
       await page.getByRole('button', { name: 'Review swap proposal' }).click();
-      await page.getByRole('button', { name: 'Apply proposal' }).click();
+      await applyPendingProposal(page);
     }
     await generate(page);
     artifacts.push([
@@ -107,33 +108,37 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
   await generate(page);
   await viewportFitted(page);
-  await expect(panel(page).locator('.simulate-canvas')).toBeVisible();
+  await expect(page.locator('.simulation-workflow-canvas')).toBeVisible();
   await expect(panel(page).locator('.simulate-swap')).toBeVisible();
-  await expect(panel(page).locator('.chain-strip')).toHaveCSS('display', 'none');
-  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(panel(page).locator('.chain-strip')).toBeVisible();
+  expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
   await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true });
   await readIr(page);
   await tab(page, 'Execute');
   await tab(page, 'Simulate');
   await expect(chip(page, 'CURRENT')).toBeVisible();
   await tab(page, 'Build');
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 3');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 3');
   await page.getByRole('button', { name: 'Send' }).click();
-  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await openProposalReview(page);
+  await page.getByRole('dialog', { name: 'Proposed change' }).getByRole('button', { name: 'Dismiss proposal' }).click();
   await apply(page, 'set node-002 amount 2.25');
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
-  await page.getByLabel('Describe a mock edit').fill('set node-002 amount 4');
+  await page.getByLabel('Describe your flow').fill('set node-002 amount 4');
   await page.getByRole('button', { name: 'Send' }).click();
-  await page.locator('.flow-card').nth(1).click();
+  await openFirstActionSettings(page);
   await page.getByRole('button', { name: 'Lock amount' }).click();
   await expect(page.locator('.summary-bar[data-workflow-revision="2"]')).toBeVisible();
   await generate(page);
   await tab(page, 'Build');
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.locator('.error-banner')).toContainText('BASE_REVISION_CONFLICT');
+  await openProposalReview(page);
+  await expect(page.getByRole('dialog', { name: 'Proposed change' }).getByRole('button', { name: 'Apply proposal' })).toBeDisabled();
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '2');
+  await page.getByRole('dialog', { name: 'Proposed change' }).getByRole('button', { name: 'Dismiss proposal' }).click();
   await tab(page, 'Simulate');
   await expect(chip(page, 'CURRENT')).toBeVisible();
   await tab(page, 'Build');
+  await openFirstActionSettings(page);
   await page.getByRole('button', { name: 'Unlock amount' }).click();
   await apply(page, 'set node-002 amount 3');
   await tab(page, 'Simulate');
@@ -145,7 +150,7 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await expect(page.getByText('ARTIFACTS: INVALIDATED', { exact: true })).toBeVisible();
   await viewportFitted(page);
   await expect(panel(page).locator('.simulate-empty')).toBeVisible();
-  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
+  expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
   await expect(page).toHaveScreenshot('simulate-invalidated.png', { fullPage: true });
 });
 
@@ -174,7 +179,7 @@ test('expiry is detected on tab resume and on access without any timer firing (R
   await expect(panel(page).locator('[data-mocked-value]')).toHaveCount(0);
   await viewportFitted(page);
   await expect(panel(page).locator('.simulate-empty')).toBeVisible();
-  await expect(panel(page).locator('.simulate-details-toggle')).toHaveAttribute('aria-expanded', 'false');
+  expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
   await expect(page).toHaveScreenshot('simulate-expired.png', { fullPage: true });
 
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
@@ -205,7 +210,7 @@ test('a failed hashing self-check prevents generation and shows an explicit erro
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(panel(page).getByRole('alert')).toHaveText('Artifact hashing self-check failed (DIGEST_UNAVAILABLE). No mocked artifacts were generated.');
   await expect(chip(page, 'REJECTED')).toBeVisible();
-  await expect(panel(page).locator('[data-mocked-value], pre, code[data-hash]')).toHaveCount(0);
+  await expect(panel(page).locator('[data-mocked-value], pre[data-artifact-json], code[data-hash]')).toHaveCount(0);
   await expect(panel(page).getByRole('button', { name: /Show JSON/ })).toHaveCount(0);
 });
 
@@ -220,7 +225,7 @@ test('ineligible workflows cannot generate; zero outputs carry a blocking findin
   await expect(panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' })).toBeDisabled();
   await expect(panel(page)).toContainText('SLIPPAGE_ABOVE_REVIEW_LIMIT on node-002 blocks generation.');
   await tab(page, 'Build');
-  await page.locator('.flow-card').nth(1).click();
+  await openFirstActionSettings(page);
   await page.getByRole('button', { name: 'Remove step' }).click();
   await apply(page, 'swap 0.000000000999999999 WETH to USDC on Base slippage 0 bps');
   await generate(page);
@@ -232,23 +237,28 @@ test('mocked numbers stay labelled and execution stays unavailable after generat
   await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
   await generate(page);
   const values = panel(page).locator('[data-mocked-value]');
-  expect(await values.count()).toBe(6);
+  // The product preview shows no synthetic estimate; all four generated
+  // values (expected, minimum, adverse and residual) live in diagnostics.
+  await expect(values).toHaveCount(4);
+  await expect(page.locator('.simulation-workflow-canvas [data-mocked-value]')).toHaveCount(0);
   for (const text of await values.allTextContents()) {
     expect(text).toContain('MOCKED');
     expect(text).toContain(RATE);
   }
-  const body = (await panel(page).innerText());
+  const body = await panel(page).locator('.simulate-results').innerText();
   expect(body).toContain('USD values: not modeled');
   expect(body).not.toMatch(/\$/);
   expect(body).not.toMatch(/\bUSD\s*\d|\d[\d,.]*\s*USD\b/);
   expect(body.replace(/not a live quote/gi, '')).not.toMatch(/\blive\b/i);
-  await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();
+  await expect(panel(page).locator(':scope > .simulate-head')).toContainText('Mocked artifacts cannot authorize execution.');
   for (const name of await page.locator('main button:enabled, footer button:enabled').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent ?? ''))) {
-    expect(name).not.toMatch(/sign|approv|authori[sz]|submit|execut|wallet|connect/i);
+    expect(name).not.toMatch(/sign|approv|authori[sz]|submit|execut.*workflow/i);
   }
-  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await tab(page, 'Execute');
-  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution.');
+  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Workflow execution workspace' })).toContainText('Connect the wallet that will authorize this workflow.');
   await expect(page.getByRole('button', { name: 'Back to Build' })).toBeVisible();
   await expect(page.getByText('Simulation: CURRENT', { exact: true })).toHaveCount(0);
 });

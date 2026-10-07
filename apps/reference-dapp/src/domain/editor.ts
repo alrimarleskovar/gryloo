@@ -20,6 +20,7 @@ import { createSolanaSwapNode, solanaSwapDetails } from './jupiter-authoring';
 import { createSolanaLiquidityNode, solanaLiquidityDetails } from './solana-liquidity-authoring';
 import { createUniswapLiquidityNode, uniswapLiquidityDetails } from './uniswap-liquidity-authoring';
 import { createRouterNode, routerDetails } from './router-authoring';
+import { createCryptoActionNode, canSelectCryptoAssets, cryptoSelectionOf, cryptoReviewContext } from './crypto-action-picker';
 
 export interface EditorState { readonly workflow: Workflow; readonly error: string | null }
 export const initialEditor = (): EditorState => ({ workflow: initialWorkflow(), error: null });
@@ -31,6 +32,25 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   const current = state.workflow;
   if (command.baseRevision !== current.revision) return reject('BASE_REVISION_CONFLICT: review a fresh proposal.');
   if (current.revision === Number.MAX_SAFE_INTEGER) return reject('REVISION_OVERFLOW');
+  if (command.type === 'ADD_CRYPTO_ACTION' || command.type === 'SET_CRYPTO_ACTION') {
+    if (!context) return reject('REVIEW_CONTEXT_REQUIRED');
+    try {
+      const old = command.type === 'SET_CRYPTO_ACTION' ? current.nodes.find(node => node.nodeId === command.nodeId) : null;
+      if (command.type === 'SET_CRYPTO_ACTION' && (!old || !canSelectCryptoAssets(old, current) || cryptoSelectionOf(old)?.action !== command.input.selection.action)) return reject('ACTION_SELECTION_LOCKED');
+      if ((command.input.selection.action === 'pool' || command.input.selection.network.startsWith('Solana')) && current.nodes.some(node => !node.actionType.startsWith('mock-') && node.nodeId !== old?.nodeId)) return reject('ACTION_ISOLATED_ONLY');
+      const id = old?.nodeId ?? `node-${String(current.revision + 2).padStart(3, '0')}`;
+      let replacement = createCryptoActionNode(id, command.input);
+      if (old?.chainId === replacement.chainId && old.actionType === replacement.actionType) {
+        // Keep existing provider constraints and legacy minimums when editing the same deployment.
+        replacement = { ...replacement, adapterConstraints: old.adapterConstraints as typeof replacement.adapterConstraints };
+        if (replacement.actionType === LIQUIDITY_ACTION) replacement = { ...replacement, inputs: replacement.inputs.map(input => ['amount0-min', 'amount1-min'].includes(input.name) ? old.inputs.find(previous => previous.name === input.name) as typeof input : input) };
+      }
+      if (old && JSON.stringify(old) === JSON.stringify(replacement)) return { workflow: current, error: null };
+      const workflow = { ...current, revision: current.revision + 1, nodes: old ? current.nodes.map(node => node.nodeId === id ? replacement : node) : [...current.nodes, replacement] };
+      validateAuthoringWorkflow(workflow, cryptoReviewContext(command.input.selection.network));
+      return { workflow: freeze(workflow), error: null };
+    } catch (cause) { return reject(cause instanceof Error ? cause.message : 'ACTION_SELECTION_INVALID'); }
+  }
   if(command.type==='AUTHOR_LENDING'){try{const workflow=createAuthoredLending(current.workflowId,current.revision+1,command.input);validateAuthoringWorkflow(workflow,createBaseSepoliaReviewContext());return{workflow:freeze(workflow),error:null};}catch(cause){return reject(cause instanceof Error?cause.message:'LENDING_INPUT_INVALID');}}
   if (command.type === 'ADD_RH_TRANSFER' || command.type === 'SET_RH_TRANSFER') {
     const editing = command.type === 'SET_RH_TRANSFER';

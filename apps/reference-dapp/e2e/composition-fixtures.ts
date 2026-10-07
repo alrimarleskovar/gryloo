@@ -67,12 +67,12 @@ export async function authorComposition(page: Page) {
   await page.goto('/');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Review swap → position composition' })).toBeVisible();
-  await page.getByLabel('Describe a mock edit or Base swap').fill(`compose swap 400 USDC to WETH slippage 100 bps then mint maximum 0.1 WETH and 200 USDC minimum 0.000001 WETH and 0.001 USDC ticks ${center - 100} to ${center + 100} safe ${p.safe}`);
+  await page.getByLabel('Describe your flow').fill(`compose swap 400 USDC to WETH slippage 100 bps then mint maximum 0.1 WETH and 200 USDC minimum 0.000001 WETH and 0.001 USDC ticks ${center - 100} to ${center + 100} safe ${p.safe}`);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await expect(page.getByText('WETH output reference')).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
-  await page.getByRole('button', { name: 'Show technical details' }).click();
+  await page.locator('.simulation-technical > summary').click();
   const panel = page.getByRole('region', { name: 'Mode B swap to liquidity composition' });
   await panel.getByRole('button', { name: 'Prepare chained review' }).click();
   await expect(panel).toContainText('Permission hash', { timeout: 30_000 });

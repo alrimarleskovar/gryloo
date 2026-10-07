@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { TokenAmountInput } from './token-amount-input';
 import { useState, type FormEvent } from 'react';
 import { createAuthoredRepay, repayDetails, lendingCopy, lendingNetworkView, lendingView, LENDING_NETWORKS, type LendingNetwork, type SupplyInput } from '../domain/supply-authoring';
 import { useWorkflow } from '../state/workflow-store';
@@ -8,10 +9,11 @@ import { useSupply } from '../state/supply-store';
 import type { RepayObservation } from '@defi-workflow-engine/reference-reconciler';
 const human=(value:string,decimals:number)=>(Number(value)/10**decimals).toLocaleString('en-US',{maximumFractionDigits:decimals});
 const hf=(value:string)=>BigInt(value)===(1n<<256n)-1n?'No debt (∞)':human(value,18);
-export function RepayAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string;onDone?:()=>void;direct?:boolean}){
-  const {state,propose,dispatch}=useWorkflow(),wallet=useBuild009Wallet();
+export function RepayAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{nodeId?:string;onDone?:()=>void;direct?:boolean;reviewFormId?:string}){
+  const {state,propose,dispatch,amountInputs={},editCanvasAmount}=useWorkflow(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.nodeId===nodeId),existing=node?repayDetails(node as Parameters<typeof repayDetails>[0]):null;
-  const [amount,setAmount]=useState(existing?.amount??'0.005'),[error,setError]=useState('');
+  const [localAmount,setAmount]=useState(existing?.amount??'0.005'),[error,setError]=useState('');
+  const amount = reviewFormId && nodeId ? amountInputs[nodeId] ?? existing?.amount ?? localAmount : localAmount;
   const [network,setNetwork]=useState<LendingNetwork>(existing?.network??'Base Sepolia'),shown=lendingNetworkView(network),asset=shown.asset;
   function submit(event:FormEvent){event.preventDefault();try{
     const input:SupplyInput={network,asset,amount,beneficiary:wallet.account??existing?.beneficiary??''};
@@ -19,15 +21,15 @@ export function RepayAuthoringForm({nodeId,onDone,direct=false}:{nodeId?:string;
     const command=nodeId?{type:'SET_REPAY' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_REPAY' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
   }catch{setError(`Connect your owner wallet and enter a positive ${asset} amount with at most ${shown.decimals===6?'six':shown.decimals} decimal places.`);}}
-  return <form className="inspector-fields" aria-label={nodeId?'Edit Repay':'Create Repay'} onSubmit={submit}>
+  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Repay':'Create Repay'} onSubmit={submit}>
     <strong>Repay to Aave V3</strong>
     <label>Repay network<select aria-label="Repay network" value={network} onChange={e=>setNetwork(e.target.value as LendingNetwork)}>{LENDING_NETWORKS.map(n=><option key={n}>{n}</option>)}</select></label>
     <label>Repay asset<select aria-label="Repay asset" value={asset} onChange={()=>undefined}><option>{asset}</option></select></label>
-    <label>Repay amount ({asset})<input aria-label={`Repay amount (${asset})`} inputMode="decimal" value={amount} maxLength={80} onChange={e=>setAmount(e.target.value)}/></label>
+    <label>Repay amount ({asset})<TokenAmountInput aria-label={`Repay amount (${asset})`} value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
     <label>Debt mode<select aria-label="Debt mode" value="Variable (2)" onChange={()=>undefined}><option>Variable (2)</option></select></label>
     {!wallet.account&&!existing&&<button type="button" onClick={()=>void wallet.connect()}>Connect owner wallet</button>}
     <p>Your connected wallet pays {asset} to reduce its own variable debt.</p>
-    {error&&<p role="alert">{error}</p>}<button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Repay change':direct?'Add Repay':'Review Repay proposal'}</button>
+    {error&&<p role="alert">{error}</p>} { !reviewFormId && <button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Repay change':direct?'Add Repay':'Review Repay proposal'}</button>}
     {onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }

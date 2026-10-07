@@ -34,7 +34,7 @@ export function lendingNodeInput(workflow:SemanticWorkflow|Workflow,nodeId:strin
 export function lendingCanvasEdges(workflow:SemanticWorkflow|Workflow) {
   if(!isLendingComposition(workflow))return null;
   return [
-    {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Policy checkpoint · HF ≥ 2'},
-    ...workflow.resourceEdges.map(edge=>({id:`${edge.fromNodeId}-${edge.toNodeId}`,source:edge.fromNodeId,target:edge.toNodeId,label:'Borrowed USDC · OUTPUT_REFERENCE'})),
+    {id:'lending-supply-lending-borrow',source:'lending-supply',target:'lending-borrow',label:'Health factor ≥ 2'},
+    ...workflow.resourceEdges.map(edge=>({id:`${edge.fromNodeId}-${edge.toNodeId}`,source:edge.fromNodeId,target:edge.toNodeId,label:'Borrowed USDC'})),
   ];
 }

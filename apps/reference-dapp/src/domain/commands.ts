@@ -18,11 +18,14 @@ import { createSolanaSwapNode, parseSolanaSwapChat, solanaSwapDetails, solanaSwa
 import { createSolanaLiquidityNode, parseSolanaLiquidityChat, solanaLiquidityDetails, type SolanaLiquidityInput } from './solana-liquidity-authoring';
 import { createUniswapLiquidityNode, parseUniswapLiquidityChat, uniswapLiquidityDetails, type UniswapLiquidityInput } from './uniswap-liquidity-authoring';
 import { createRouterNode, parseRouterChat, routerDetails, ROUTER_ROUTING_LABEL, type RouterBridgeInput } from './router-authoring';
+import { createCryptoActionNode, type CryptoActionInput } from './crypto-action-picker';
 
 type Base = { readonly baseRevision: number; readonly source: 'CHAT' | 'CANVAS' };
 const lendingNetwork = (text: string): SupplyInput['network'] => /^base sepolia$/i.test(text) ? 'Base Sepolia' : 'Ethereum Sepolia';
 const lendingAsset = (text: string): SupplyInput['asset'] => text.toUpperCase() === 'WBTC' ? 'WBTC' : 'USDC';
 export type Command = Base & (
+  | { readonly type: 'ADD_CRYPTO_ACTION'; readonly input: CryptoActionInput }
+  | { readonly type: 'SET_CRYPTO_ACTION'; readonly nodeId: string; readonly input: CryptoActionInput }
   | {readonly type:'AUTHOR_LENDING';readonly input:LendingInput}
   | { readonly type: 'ADD_RH_TRANSFER'; readonly input: RobinhoodTransferInput }
   | { readonly type: 'SET_RH_TRANSFER'; readonly nodeId: string; readonly input: RobinhoodTransferInput }
@@ -206,6 +209,7 @@ export function commandIsValid(input: unknown): input is Command {
   if (!Number.isSafeInteger(command.baseRevision) || (command.baseRevision as number) < 0
       || !['CHAT', 'CANVAS'].includes(command.source as string)) return false;
   const fields: Record<string, string[]> = {
+    ADD_CRYPTO_ACTION: ['input'], SET_CRYPTO_ACTION: ['nodeId', 'input'],
     AUTHOR_LENDING:['input'], ADD_RH_TRANSFER: ['input'], SET_RH_TRANSFER: ['nodeId','input'], ADD_WITHDRAW: ['input'], SET_WITHDRAW: ['nodeId','input'], ADD_REPAY: ['input'], SET_REPAY: ['nodeId','input'], ADD_BORROW: ['input'], SET_BORROW: ['nodeId','input'], ADD_SUPPLY: ['input'], SET_SUPPLY: ['nodeId','input'], ADD_SOLANA_SWAP: ['input'], SET_SOLANA_SWAP: ['nodeId','input'], ADD_SOLANA_LIQUIDITY: ['input'], SET_SOLANA_LIQUIDITY: ['nodeId','input'], ADD_UNISWAP_LIQUIDITY: ['input'], SET_UNISWAP_LIQUIDITY: ['nodeId','input'], ADD_ROUTER_BRIDGE: ['input'], SET_ROUTER_BRIDGE: ['nodeId','input'], ADD: ['kind'], AUTHOR_CROSS_CHAIN_LIQUIDITY: ['input'], AUTHOR_BRIDGE_SWAP: ['input'], AUTHOR_ACROSS: ['input'], ADD_BRIDGE: ['input'], SET_BRIDGE: ['nodeId', 'input'], SET_AMOUNT: ['nodeId', 'amount'], LOCK: ['nodeId', 'locked'], AUTHOR_COMPOSITION: ['safe', 'input'], ADD_LIQUIDITY: ['input'], SET_LIQUIDITY: ['nodeId', 'input'],
     CONNECT: ['from', 'to'], DISCONNECT: ['from', 'to'], REMOVE: ['nodeId'], REMOVE_MANY: ['nodeIds'], ADD_SWAP: ['direction', 'amount', 'slippage'], ADD_TESTNET_SWAP: ['direction', 'amount', 'slippage'], ADD_ETHEREUM_SEPOLIA_SWAP: ['direction', 'amount', 'slippage'], ADD_COW_SWAP: ['direction', 'amount', 'slippage'],
     SET_SWAP_AMOUNT: ['nodeId', 'amount'], SET_SLIPPAGE: ['nodeId', 'slippage'],
@@ -214,6 +218,11 @@ export function commandIsValid(input: unknown): input is Command {
       || (keys as string[]).sort().join() !== ['type', 'source', 'baseRevision', ...fields[command.type]!].sort().join()) return false;
   const id = (value: unknown) => typeof value === 'string' && /^node-\d{3,16}$/.test(value);
   switch (command.type) {
+    case 'ADD_CRYPTO_ACTION':
+    case 'SET_CRYPTO_ACTION': {
+      if (command.type === 'SET_CRYPTO_ACTION' && !id(command.nodeId)) return false;
+      try { createCryptoActionNode('node-preview', command.input as CryptoActionInput); return true; } catch { return false; }
+    }
     case 'AUTHOR_LENDING': {try{createAuthoredLending('lending-preview',0,command.input as LendingInput);return true;}catch{return false;}}
     case 'ADD_RH_TRANSFER':
     case 'SET_RH_TRANSFER': {

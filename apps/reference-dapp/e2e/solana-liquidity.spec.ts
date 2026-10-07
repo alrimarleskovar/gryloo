@@ -25,7 +25,7 @@ async function authorChat(page: Page) {
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 async function simulateAndReview(page: Page, connect = true) {
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   if (connect) await chooseSolanaWallet(panel(page));
   await expect(panel(page)).toContainText('Wallet connected · Solana Devnet');
   await panel(page).getByRole('button', { name: 'Simulate position' }).click();
@@ -50,7 +50,7 @@ test('canvas liquidity on Solana Devnet → Simulate → Review → Execute → 
   await authorCanvas(page);
   const card = page.locator('.react-flow__node[data-id="node-002"]');
   await expect(card).toContainText('SOL/devUSDC position'); await expect(card).toContainText('SOLANA DEVNET · ORCA');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate position' }).click();
   for (const term of ['Network', 'Provider', 'Pool', 'Token mints', 'Pool price', 'Range', 'Maximum inputs', 'Expected contribution', 'Expected liquidity', 'Slippage bounds',
@@ -85,7 +85,7 @@ test('chat authors the same canonical position and simulates read-only without a
   const wallet = await resetDevnetHarness(); await installDevnetWallet(page, wallet);
   await authorChat(page);
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('devUSDC/SOL · Solana Devnet');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate position' }).click();
   await expect(panel(page).getByRole('term').filter({ hasText: /^Expected contribution$/ })).toBeVisible();
@@ -111,7 +111,7 @@ test('after a reload the one-time position key is gone: Execute is refused befor
   const wallet = await resetDevnetHarness(); await installDevnetWallet(page, wallet);
   await authorChat(page); await simulateAndReview(page);
   await page.reload();
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await page.getByRole('button', { name: 'Simular Fees' }).click();
   await expect(panel(page)).toBeVisible();
   await chooseSolanaWallet(panel(page));
   await page.getByRole('button', { name: 'Review position', exact: true }).click();

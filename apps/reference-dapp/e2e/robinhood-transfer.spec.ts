@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { installTransferWallet, resetTransferHarness, chainBroadcasts, sendRequests, TRANSFER_OWNER as owner, type TransferWalletOptions } from './robinhood-transfer-fixtures';
 
@@ -11,16 +11,17 @@ async function author(page: Page, options: TransferWalletOptions = {}) {
   const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
   await form.getByLabel('Transfer amount (test ETH)').fill('0.000001');
   await form.getByRole('button', { name: 'Review transfer proposal' }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Self-transfer test ETH');
-  await page.getByRole('button', { name: 'Continue to Simulate' }).click();
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Transfer');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Robinhood Chain Testnet (46630)');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('0.000001 ETH');
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate transfer', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Review transfer', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeVisible();
 }
 async function review(page: Page) {
-  await page.getByRole('button', { name: 'Review transfer', exact: true }).click();
-  await page.getByRole('button', { name: 'Accept transfer review' }).click();
-  await expect(region(page).getByRole('button', { name: 'Execute', exact: true })).toBeVisible();
+  await acceptProductReview(page);
 }
 const execute = (page: Page) => region(page).getByRole('button', { name: 'Execute', exact: true }).click();
 test.beforeEach(async () => { await resetTransferHarness(); });
