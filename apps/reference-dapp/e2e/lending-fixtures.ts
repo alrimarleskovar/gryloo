@@ -13,8 +13,12 @@ export async function resetLending(options:Record<string,unknown>={}){
   if(process.env.GRYLOO_LENDING_E2E!=='MOCKED_LOOPBACK_ONLY'||!directory?.startsWith(join(tmpdir(),'gryloo-build013-')))throw Error('MOCK_LENDING_RESET_DENIED');
   await rm(directory,{recursive:true,force:true});await lendingRpc('MOCK_reset',[options]);
 }
-export async function installLendingWallet(page:Page,options:{chain?:string;uncertainAt?:number;disconnectedAt?:number;revertAt?:number;nonceMismatchOnce?:boolean}={}){
+export async function installLendingWallet(page:Page,options:{chain?:string;uncertainAt?:number;disconnectedAt?:number;revertAt?:number;nonceMismatchOnce?:boolean;
+  signer?:{address:string;signMessage(message:string):string}}={}){
   await page.exposeFunction('grylooLendingTestRpc',lendingRpc);
+  // BUILD-MCP-002: optional EIP-4361 sign-in as the harness's public disposable fixture owner (test process only).
+  const {signer,...walletOptions}=options;
+  if(signer)await page.exposeFunction('grylooLendingTestSign',(message:string)=>signer.signMessage(message));
   await page.addInitScript(({owner,options})=>{
     const requests:{method:string;params?:unknown[]}[]=[],state={chain:options.chain??'0x14a34',account:owner,sends:0,nonceReads:0};
     const w=window as unknown as {ethereum:unknown;lendingRequests:typeof requests;grylooLendingTestRpc:(method:string,params:unknown[])=>Promise<unknown>};
@@ -23,6 +27,10 @@ export async function installLendingWallet(page:Page,options:{chain?:string;unce
       requests.push(input);
       if(input.method==='eth_accounts'||input.method==='eth_requestAccounts')return[state.account];
       if(input.method==='eth_chainId')return state.chain;
+      if(input.method==='personal_sign'&&options.sign){
+        const param=String(input.params?.[0]??''),text=/^0x([0-9a-fA-F]{2})*$/.test(param)?new TextDecoder().decode(Uint8Array.from(param.slice(2).match(/../g)??[],h=>parseInt(h,16))):param;
+        return (window as unknown as {grylooLendingTestSign:(m:string)=>Promise<string>}).grylooLendingTestSign(text);
+      }
       if(input.method==='eth_getTransactionCount'){const nonce=await w.grylooLendingTestRpc(input.method,input.params??[]) as string;return options.nonceMismatchOnce&&++state.nonceReads===1?'0x'+(BigInt(nonce)+1n).toString(16):nonce;}
       if(input.method==='eth_sendTransaction'){
         state.sends++;if(options.disconnectedAt===state.sends)throw Object.assign(Error('MOCK_WALLET_DISCONNECTED'),{code:4900});
@@ -33,6 +41,6 @@ export async function installLendingWallet(page:Page,options:{chain?:string;unce
       }
       throw Error('MOCK_LENDING_WALLET_METHOD_DENIED');
     }};
-  },{owner:LENDING_OWNER,options});
+  },{owner:LENDING_OWNER,options:{...walletOptions,sign:Boolean(signer)}});
 }
 export const lendingSends=(page:Page)=>page.evaluate(()=>((window as unknown as {lendingRequests:{method:string}[]}).lendingRequests??[]).filter(r=>r.method==='eth_sendTransaction').length);

@@ -63,3 +63,24 @@ export async function signWithSolanaWallet(session: SolanaSession, unsignedTrans
   if (!ArrayBuffer.isView(signed) || signed.byteLength > 1232) throw new Error(`${prefix}_WALLET_RESPONSE_INVALID`);
   return bytesToBase64(new Uint8Array(signed.buffer, signed.byteOffset, signed.byteLength).slice());
 }
+
+type SignMessageFeature = { signMessage(...inputs: { account: SolanaWalletAccount; message: Uint8Array }[]): Promise<readonly { signedMessage: Uint8Array; signature: Uint8Array }[]> };
+/** BUILD-MCP-002: whether the connected wallet can prove control with Sign-In With Solana (`solana:signMessage`). */
+export const canSignSolanaMessage = (session: SolanaSession) => 'solana:signMessage' in session.wallet.features;
+/**
+ * BUILD-MCP-002: the owner's wallet signs the exact sign-in text (never a transaction). Returns the 64-byte Ed25519 signature
+ * in base64; the server verifies it against the account's public key. A wallet that rewrites the message is refused.
+ */
+export async function signSolanaMessage(session: SolanaSession, text: string, prefix = 'WALLET'): Promise<string> {
+  const feature = session.wallet.features['solana:signMessage'] as SignMessageFeature | undefined;
+  if (!feature) throw new Error(`${prefix}_SOLANA_SIGN_MESSAGE_UNSUPPORTED`);
+  const message = new TextEncoder().encode(text);
+  const [result] = await feature.signMessage({ account: session.account, message });
+  const signed = result?.signedMessage as unknown, signature = result?.signature as unknown;
+  if (!ArrayBuffer.isView(signature) || signature.byteLength !== 64) throw new Error(`${prefix}_WALLET_RESPONSE_INVALID`);
+  if (ArrayBuffer.isView(signed)) {
+    const echoed = new Uint8Array(signed.buffer, signed.byteOffset, signed.byteLength);
+    if (echoed.length !== message.length || echoed.some((byte, i) => byte !== message[i])) throw new Error(`${prefix}_WALLET_RESPONSE_INVALID`);
+  }
+  return bytesToBase64(new Uint8Array(signature.buffer, signature.byteOffset, signature.byteLength).slice());
+}

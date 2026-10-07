@@ -88,14 +88,26 @@ The Robinhood Chain Testnet endpoint has no override.
 | `FLOFI_COPILOT_TELEMETRY` | `log` / `off`: one metadata line per live request, never content | no | optional | optional | `log` |
 | `FLOFI_COPILOT_LIVE_SMOKE` | Owner-only local smoke test of a live model | no | — | — | — |
 
-## 5b. Remote MCP gateway (BUILD-MCP-001, `POST /api/mcp`)
+## 5b. Remote MCP gateway (BUILD-MCP-001 / BUILD-MCP-002, `POST /api/mcp`, OAuth, `/approve`)
 
-Off unless enabled. Uses no model key. Guide: [MCP.md](MCP.md).
+Off unless enabled. Uses no model key. OAuth, approvals and wallet links need the embedded runtime (PostgreSQL, migration `0005`).
+Guide: [MCP.md](MCP.md).
 
 | Variable | Purpose | Secret | Preview | Prod | Default |
 | --- | --- | --- | --- | --- | --- |
 | `FLOFI_MCP` | `enabled` turns the endpoint on | no | optional | as chosen | off (`404 MCP_NOT_ENABLED`) |
-| `FLOFI_MCP_CLIENTS` | JSON list of `{ principal, tokenSha256, wallets? }`: SHA-256 digests of client bearer tokens (never the tokens) and the owner wallets each credential may read runs of. Must never contain the digest of `API_AUTH_TOKEN`. | digests only (keep private) | with `FLOFI_MCP` | with `FLOFI_MCP` | invalid → `503 MCP_CONFIGURATION_INVALID` |
+| `FLOFI_MCP_OAUTH` | `enabled`: FloFi's OAuth 2.1 server for consumer clients (Claude custom connectors, ChatGPT developer mode) | no | optional | `enabled` for consumer access | off (`404 MCP_OAUTH_NOT_ENABLED`) |
+| `FLOFI_PUBLIC_ORIGIN` | exact public origin (`https://…`); issuer, resource `<origin>/api/mcp`, approval links. Loopback `http://` only locally | no | with OAuth (the branch alias) | with OAuth | invalid → OAuth disabled (`MCP_OAUTH_CONFIGURATION_INVALID`) |
+| `FLOFI_MCP_OAUTH_SECRET` | dedicated key material (≥ 32 chars, `openssl rand -hex 32`) for token, consent, handoff, account-cookie and IP digests; refused if equal to `API_AUTH_TOKEN` or `FLOFI_SESSION_SECRET`. Rotating it signs every MCP client out and invalidates open approvals | **yes** | with OAuth (Preview only) | with OAuth | invalid/reused → OAuth disabled |
+| `FLOFI_MCP_OAUTH_ACCESS` | `invite` (default) or `open` for new pseudonymous accounts | no | `invite` | `invite` or `open` | `invite` |
+| `FLOFI_MCP_OAUTH_INVITES` | SHA-256 hex digests of invite codes, comma-separated (never the codes) | digests only (keep private) | with `invite` | with `invite` | no invite accepted |
+| `FLOFI_MCP_CIMD_HOSTS` | hosts whose Client ID Metadata Documents are fetched (HTTPS, public addresses, no redirects, 5 KiB, 5 s) | no | optional | optional | `claude.ai,chatgpt.com` |
+| `FLOFI_MCP_OAUTH_DCR`, `FLOFI_MCP_DCR_REDIRECT_HOSTS` | narrow dynamic client registration and its redirect hosts | no | optional | optional | off; `claude.ai,chatgpt.com` |
+| `FLOFI_MCP_HANDOFF_TEST_FUNDS` | `enabled`/`disabled`: test-funds strategies may be handed to their owner | no | optional | optional | `enabled` |
+| `FLOFI_MCP_HANDOFF_MAINNET_NETWORKS` | mainnet ids allowed for handoffs (`base`, `arbitrum-one`, `solana`); every mainnet a workflow touches must be listed | no | **leave empty** | **leave empty in BUILD-MCP-002** | empty: `MAINNET_HANDOFF_DISABLED_BY_POLICY` |
+| `FLOFI_MCP_APP` | `disabled` removes the in-chat MCP App panel (the link remains) | no | optional | optional | `enabled` |
+| `FLOFI_MCP_INFRAME_WALLET_HOSTS` | MCP Apps host names on which the panel shows its in-frame environment probe (diagnostics; never executes) | no | for host experiments | empty | empty |
+| `FLOFI_MCP_CLIENTS` | JSON list of `{ principal, tokenSha256, wallets? }`: SHA-256 digests of static developer bearer tokens (never the tokens) and the owner wallets each may read runs of. Must never contain the digest of `API_AUTH_TOKEN`. Optional with OAuth | digests only (keep private) | optional | **refused** (`503 MCP_CONFIGURATION_INVALID`) | invalid → `503 MCP_CONFIGURATION_INVALID` |
 | `FLOFI_MCP_ALLOWED_ORIGINS` | Browser origins allowed to call it (others: `403`) | no | optional | optional | none |
 
 ## 6. Platform-provided (read, never set by hand)

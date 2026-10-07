@@ -179,5 +179,7 @@ export function createMockedSolanaWallet(secretKey: Uint8Array = ed25519.utils.r
     const signature = ed25519.sign(message, secretKey);
     // Like a Wallet Standard wallet: the owner fills its own (first) slot and preserves any other signer slots.
     return toBase64(signatures.length === 1 ? serializeTransaction(signature, message) : serializeSignedTransaction([signature, ...signatures.slice(1)], message));
-  } };
+  },
+  /** BUILD-MCP-002: Wallet Standard `solana:signMessage` (Sign-In With Solana): an Ed25519 signature over the exact bytes, never a transaction. */
+  signMessage(message: Uint8Array): Uint8Array { return ed25519.sign(message, secretKey); } };
 }

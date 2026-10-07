@@ -1420,3 +1420,22 @@
 @media(max-width:700px){.dashboard-run-detail>.technical-workspace>summary{padding-inline:18px}}
 /* BUILD-COPILOT-001: Copilot answers, clarification options and the AI-proposal notice. */
 .copilot-notes{margin:6px 0 0;padding-left:16px;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}.copilot-options{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.copilot-options button{min-height:32px;border-radius:6px;padding:0 10px;font-weight:700}.copilot-notice{color:var(--blue)}
+/* BUILD-MCP-002: the external proposal on /approve */
+.approval-page{width:100%;max-width:1800px;margin:0 auto;padding:20px 24px 0}.approval-handoff{padding:18px;display:grid;gap:12px;border-color:var(--accent-line)}
+.approval-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.approval-head h2{margin:0}
+.approval-nothing{margin:0;padding:10px 12px;border-radius:8px;background:var(--blue-soft);line-height:1.5}
+.approval-real{margin:0;padding:10px 12px;border-radius:8px;background:var(--amber-soft);border:1px solid var(--warning-line);color:var(--amber);line-height:1.5}
+.approval-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0}.approval-facts div{min-width:0}
+.approval-facts dt{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}.approval-facts dd{margin:4px 0 0;overflow-wrap:anywhere}
+.approval-facts ol{margin:0;padding-left:18px}.approval-facts code{font-size:11px}.approval-summary{margin:0;font-weight:700}
+.approval-explanation{margin:0;padding-left:18px;line-height:1.5;color:var(--muted)}.approval-ai{margin:0;font-size:12px}
+.approval-ended{margin:0;padding:10px 12px;border:1px dashed var(--line);border-radius:8px}.approval-steps{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.approval-steps h3{margin:6px 0 0;font-size:14px}.approval-steps p{margin:0}.approval-actions{display:flex;gap:8px;flex-wrap:wrap}
+.approval-actions button{min-height:40px;border:0;border-radius:6px;background:var(--primary);color:var(--on-accent);padding:0 14px;font-weight:700}
+.approval-share{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5}
+@media (max-width:640px){.approval-page{padding:12px 16px 0}}
+.main.mcp-route-main{max-width:960px}
+.mcp-route-centered{display:flex;align-items:center;justify-content:center}
+.mcp-route-state{width:100%;max-width:560px}
+.mcp-route-state h1{margin:0}
+.mcp-route-state a{text-decoration:none}

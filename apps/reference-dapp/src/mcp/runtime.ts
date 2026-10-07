@@ -12,7 +12,8 @@
  * a tool argument; the runtime answers `null` for any run that wallet does not own.
  */
 import type { FlowName } from '../../backend/flows.ts';
-import { cloudFlow, cloudFlowMode, cloudPreview, cloudRun, cloudRunJournal, flowRuntimeKind, type CloudJournalPage, type CloudRun, type EmbeddedRuntime,
+import type { CloudRunSummary } from '../server/cloud-api-client.ts';
+import { cloudFlow, cloudFlowMode, cloudPreview, cloudRun, cloudRunJournal, cloudRuns, flowRuntimeKind, type CloudJournalPage, type CloudRun, type EmbeddedRuntime,
   type FlowRuntimeKind, type FlowRuntimeMode } from '../server/flow-runtime.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -22,11 +23,23 @@ export type McpRuntime = {
   readonly kind: FlowRuntimeKind;
   /** The flow's enablement on this deployment; `null` when it cannot be known here (local). */
   readonly mode: (flow: FlowName) => Promise<FlowRuntimeMode | null>;
+  /**
+   * BUILD-MCP-002: the flow's own owner-execution switch (`info.executionEnabled`, e.g. a mainnet flow whose Simulate/Review are on
+   * but whose owner execution needs a separate opt-in). Only called for flows that expose `info`; `null` when unknown.
+   */
+  readonly info?: (flow: FlowName) => Promise<{ readonly executionEnabled: boolean } | null>;
   readonly preview: (flow: FlowName, args: readonly unknown[]) => Promise<Result<unknown>>;
   readonly run: (runId: string, owner: string) => Promise<Result<CloudRun | null>>;
   readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<Result<CloudJournalPage | null>>;
   /** The evidence the flow derives from its durable record (`FLOWS[flow].evidence`), read with the owner's read-only `status`. */
   readonly evidence: (flow: FlowName, runId: string, owner: string) => Promise<Result<EvidenceRecord | null>>;
+  /** BUILD-MCP-002: one wallet's most recent runs of one flow (owner-scoped). */
+  readonly runs?: (flow: FlowName, owner: string) => Promise<Result<readonly CloudRunSummary[]>>;
+  /**
+   * BUILD-MCP-002: the flow's durable record of one run, read as its owner, for SERVER-SIDE checks only (the reviewed workflow's hash).
+   * It contains executable material and is never returned to an MCP client.
+   */
+  readonly record?: (flow: FlowName, runId: string, owner: string) => Promise<Result<unknown>>;
 };
 
 const REQUIRED: Result<never> = { ok: false, code: 'MCP_CLOUD_RUNTIME_REQUIRED' };
@@ -40,20 +53,28 @@ async function evidenceOf(flow: FlowName, record: Result<unknown> | null): Promi
     content: JSON.parse(new TextDecoder().decode(evidence.bytes)) as unknown } };
 }
 
+const infoOf = (result: { ok: boolean; value?: unknown } | null) => {
+  const value = result?.ok ? result.value as { executionEnabled?: unknown } | null : null;
+  return value && typeof value.executionEnabled === 'boolean' ? { executionEnabled: value.executionEnabled } : null;
+};
+
 /** The deployment's runtime through the existing selection (`flow-runtime.ts`). */
 export function deploymentRuntime(env: Env = process.env): McpRuntime {
   return {
     kind: flowRuntimeKind(env),
     mode: flow => cloudFlowMode(flow, env),
+    info: async flow => infoOf(await cloudFlow<unknown>(flow, 'info', [], { env })),
     preview: async (flow, args) => await cloudPreview(flow, args, { env }) ?? REQUIRED,
     run: async (runId, owner) => await cloudRun(runId, owner, { env }) ?? REQUIRED,
     journal: async (runId, owner, after, limit) => await cloudRunJournal(runId, owner, after, limit, { env }) ?? REQUIRED,
     evidence: async (flow, runId, owner) => evidenceOf(flow, await cloudFlow(flow, 'status', [runId], { env, principal: owner })),
+    runs: async (flow, owner) => await cloudRuns(flow, owner, env) ?? REQUIRED,
+    record: async (flow, runId, owner) => await cloudFlow<unknown>(flow, 'status', [runId], { env, principal: owner }) ?? REQUIRED,
   };
 }
 
 /** An embedded runtime instance, e.g. one built with MOCKED seams in tests: the same calls `flow-runtime.ts` makes in embedded mode. */
-export function embeddedMcpRuntime(runtime: Pick<EmbeddedRuntime, 'backend' | 'run' | 'journal'>): McpRuntime {
+export function embeddedMcpRuntime(runtime: Pick<EmbeddedRuntime, 'backend' | 'run' | 'journal'> & Partial<Pick<EmbeddedRuntime, 'runs'>>): McpRuntime {
   const guard = async <T>(action: () => Promise<T>): Promise<Result<T>> => {
     try { return { ok: true, value: await action() }; }
     catch (error) { return { ok: false, code: error instanceof Error && /^[A-Z][A-Z0-9_]{2,80}$/.test(error.message) ? error.message : 'CLOUD_RUNTIME_UNAVAILABLE' }; }
@@ -61,9 +82,12 @@ export function embeddedMcpRuntime(runtime: Pick<EmbeddedRuntime, 'backend' | 'r
   return {
     kind: 'embedded',
     mode: async flow => { const r = await runtime.backend.callFlow(flow, 'mode', []); return r.ok && (r.value === 'live' || r.value === 'harness') ? r.value : 'off'; },
+    info: async flow => infoOf(await runtime.backend.callFlow(flow, 'info', []).catch(() => null)),
     preview: async (flow, args) => { const r = await guard(() => runtime.backend.previewFlow(flow, args)); return r.ok ? r.value : r; },
     run: (runId, owner) => guard(() => runtime.run(runId, owner)),
     journal: (runId, owner, after, limit) => guard(() => runtime.journal(runId, owner, after, limit)),
     evidence: async (flow, runId, owner) => evidenceOf(flow, await guard(() => runtime.backend.callFlow(flow, 'status', [runId], undefined, owner)).then(r => r.ok ? r.value : r)),
+    ...runtime.runs ? { runs: (flow: FlowName, owner: string) => guard(async () => (await runtime.runs!(flow, owner)).filter(r => r.ownerAccount === owner && r.flow === flow)) } : {},
+    record: async (flow, runId, owner) => { const r = await guard(() => runtime.backend.callFlow(flow, 'status', [runId], undefined, owner)); return r.ok ? r.value : r; },
   };
 }

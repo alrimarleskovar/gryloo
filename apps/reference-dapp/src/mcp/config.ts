@@ -11,14 +11,30 @@
  *
  * This credential is NOT `API_AUTH_TOKEN` (the internal BFF→API bearer): a configured digest equal to its digest is a
  * configuration error, and the gateway never forwards an MCP credential anywhere. It authenticates a developer/partner
- * integration, never a wallet: it grants no financial authority and no wallet session. The `McpPrincipal` shape is what
- * OAuth or partner identity can produce later. Any configuration error disables the endpoint (fail closed).
+ * integration, never a wallet: it grants no financial authority and no wallet session. Any configuration error disables the
+ * endpoint (fail closed).
+ *
+ * BUILD-MCP-002: consumer clients authenticate with OAuth (`FLOFI_MCP_OAUTH=enabled`, `oauth/`), which yields an `mcp-oauth`
+ * principal: a pseudonymous FloFi account with scopes. With OAuth enabled `FLOFI_MCP_CLIENTS` becomes optional, and a production
+ * deployment refuses static credentials altogether (they remain a development and Preview path).
  */
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { deploymentTenant } from '../server/deployment.ts';
+import { deploymentEnvironment, deploymentTenant } from '../server/deployment.ts';
+import type { McpScope } from './oauth/config.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
-export type McpPrincipal = { readonly kind: 'mcp-credential'; readonly id: string; readonly tenantId: string; readonly wallets: readonly string[] };
+/** A static developer/partner credential: operator-granted read wallets, no account, so no approval handoffs. */
+export type McpCredentialPrincipal = { readonly kind: 'mcp-credential'; readonly id: string; readonly tenantId: string; readonly wallets: readonly string[] };
+/**
+ * BUILD-MCP-002: an OAuth-connected client acting for a pseudonymous FloFi account. `id` is the grant; `wallets` are the wallets
+ * the account linked on FloFi (filled only for `flofi.runs` reads). Neither the account nor a link is wallet ownership.
+ */
+export type McpOAuthPrincipal = { readonly kind: 'mcp-oauth'; readonly id: string; readonly tenantId: string; readonly accountId: string; readonly clientId: string;
+  readonly clientName: string; readonly scopes: readonly McpScope[]; readonly wallets: readonly string[] };
+export type McpPrincipal = McpCredentialPrincipal | McpOAuthPrincipal;
+/** What a static credential may call: everything read-only of BUILD-MCP-001, never an approval request (it has no account). */
+export const CREDENTIAL_SCOPES: readonly McpScope[] = Object.freeze(['flofi.strategy', 'flofi.runs']);
+export const principalScopes = (principal: McpPrincipal): readonly McpScope[] => principal.kind === 'mcp-oauth' ? principal.scopes : CREDENTIAL_SCOPES;
 type Client = { readonly id: string; readonly digest: Buffer; readonly wallets: readonly string[] };
 export type McpConfig =
   | { readonly enabled: true; readonly tenantId: string; readonly clients: readonly Client[]; readonly allowedOrigins: readonly string[] }
@@ -35,9 +51,13 @@ export function readMcpConfig(env: Env): McpConfig {
   if (env.FLOFI_MCP !== 'enabled') return { enabled: false, code: 'MCP_NOT_ENABLED' };
   let tenantId: string;
   try { tenantId = deploymentTenant(env); } catch { return invalid; }
+  const oauth = env.FLOFI_MCP_OAUTH === 'enabled', configured = (env.FLOFI_MCP_CLIENTS ?? '').trim() !== '';
+  // Consumer production traffic authenticates with OAuth only; static credentials are a development and Preview path.
+  if (configured && deploymentEnvironment(env) === 'production') return invalid;
   let parsed: unknown;
-  try { parsed = JSON.parse(env.FLOFI_MCP_CLIENTS ?? ''); } catch { return invalid; }
-  if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > MAX_CLIENTS) return invalid;
+  if (!configured && oauth) parsed = [];
+  else try { parsed = JSON.parse(env.FLOFI_MCP_CLIENTS ?? ''); } catch { return invalid; }
+  if (!Array.isArray(parsed) || parsed.length < (oauth ? 0 : 1) || parsed.length > MAX_CLIENTS) return invalid;
   const internal = env.API_AUTH_TOKEN ? sha256(env.API_AUTH_TOKEN) : null, clients: Client[] = [];
   for (const item of parsed as unknown[]) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return invalid;
@@ -65,7 +85,7 @@ export function readMcpConfig(env: Env): McpConfig {
  * The principal for an `Authorization: Bearer <token>` header, or null. Every configured digest is compared in constant
  * time; the token is hashed immediately and never stored, logged or returned.
  */
-export function authenticate(config: Extract<McpConfig, { enabled: true }>, header: string | null): McpPrincipal | null {
+export function authenticate(config: Extract<McpConfig, { enabled: true }>, header: string | null): McpCredentialPrincipal | null {
   const match = /^Bearer ([^\s]+)$/.exec(header ?? '');
   if (!match || !TOKEN.test(match[1]!)) return null;
   const supplied = sha256(match[1]!);

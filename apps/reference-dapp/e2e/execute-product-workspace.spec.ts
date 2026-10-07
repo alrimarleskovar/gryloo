@@ -146,6 +146,15 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
   expect(ctaStyle.height).toBeGreaterThanOrEqual(42); expect(ctaStyle.radius).toBe('7px');
   for (const width of [1440, 1280, 1024, 820, 768, 390, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
+    // CSS resizes before React Flow's resize handlers commit the navigator mode.
+    // Wait for the read-only canvas's existing 1024/400px modes to match its actual
+    // pane, then keep every geometry assertion below independent and unchanged.
+    await expect.poll(() => graph.evaluate(element => {
+      const pane = element.querySelector<HTMLElement>('.react-flow')!;
+      const navigator = element.querySelector<HTMLElement>('.canvas-navigator')!;
+      return navigator.dataset.compact === String(pane.offsetWidth < 1024)
+        && navigator.dataset.narrow === String(pane.offsetWidth < 400);
+    }), { message: 'Canvas navigator has consumed the current pane resize' }).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const spacing = await page.locator('.execute-workspace').evaluate(element => {
       const main = element.closest('main')!;
