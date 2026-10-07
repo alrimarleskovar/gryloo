@@ -164,7 +164,8 @@ jobs:
           node scripts/guarded-release-browser.mjs product
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-route-presentation.spec.ts
           # BUILD-DEVELOPER-001: a third-party server integrates with the SDK alone (operator CLI key, strategy, approval, signed loopback
-          # webhooks) while the end user approves and signs in FloFi, on the same embedded loopback harness (no public network, no real transaction).
+          # webhooks) and the end user reaches FloFi's Review, where MOCKED financial authority stays blocked (no wallet transaction), on the
+          # same embedded loopback harness (no public network, no real transaction). The full lifecycle is proven by journey.pg.test.ts.
           GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test developer-journey.spec.ts
           # BUILD-MCP-002: consumer OAuth and in-chat approval on disposable loopback infrastructure.
           GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-in-chat.spec.ts mcp-route-presentation.spec.ts

@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { approvalHandoffView, claimApprovalHandoff, markApprovalApplied, setApprovalSharing } from '../app/approve-action';
+import { DEVELOPER_LINK_PREFIX } from '../developer/link-format';
 import type { ApprovalView } from '../mcp/handoff/service';
 import { APPROVAL_SECRET_FORMAT } from '../platform/approval-link-format';
 import { useWorkflow } from '../state/workflow-store';
@@ -98,11 +99,16 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
     if (claimed && secret) void setApprovalSharing(secret, next).then(r => { if (r.ok) setView(v => v && { ...v, statusShared: r.value.statusShared }); else setError(r.code); });
   };
 
-  if (!resolved) return <McpRouteState label="Approval" title="Opening your approval" description="Getting the proposal from your connected assistant…" loading/>;
+  // BUILD-DEVELOPER-001: who sent the link, where the page knows it (the resolved proposal, else the link's own tag). Only the wording
+  // follows it; the route states, their headings and every check are the same for every requester.
+  const fromApp = view ? view.requesterKind === 'DEVELOPER_PROJECT' : secret?.startsWith(DEVELOPER_LINK_PREFIX) === true;
+  if (!resolved) return <McpRouteState label="Approval" title="Opening your approval" loading
+    description={fromApp ? 'Getting the proposal from the app that sent you this link…' : 'Getting the proposal from your connected assistant…'}/>;
   if (!secret || !view) return <McpRouteState label="Approval" title="Open this link from your assistant"
-    description="Open the FloFi approval link from your connected assistant in Claude or ChatGPT. If the link has expired, ask your assistant for a new one."/>;
+    description={fromApp ? 'Open the FloFi approval link again from the app that sent it. If the link has expired, ask that app for a new one.'
+      : 'Open the FloFi approval link from your connected assistant in Claude or ChatGPT. If the link has expired, ask your assistant for a new one.'}/>;
   if (!available) return <McpRouteState label="Approval" title="This approval is no longer available"
-    description="Ask your connected assistant to prepare a new FloFi approval link."/>;
+    description={fromApp ? 'Ask the app that sent this link to prepare a new FloFi approval link.' : 'Ask your connected assistant to prepare a new FloFi approval link.'}/>;
   const terminal = TERMINAL.includes(view.status), real = view.fundsClass === 'REAL_FUNDS', canClaim = !terminal && !view.refusal && !view.claimedByAnotherWallet;
   return <div className="approval-page"><section className="panel approval-handoff" aria-label="External proposal">
     <div className="approval-head"><div><p className="eyebrow">EXTERNAL PROPOSAL · FROM {view.clientName.toUpperCase()}</p>
@@ -142,6 +148,8 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
       <label className="approval-share"><input type="checkbox" checked={view.statusShared} onChange={e => toggleShare(e.target.checked)}/>
         Share run status and evidence with {view.clientName}</label>
     </div>}
-    {(error ?? proof.error) && <p className="error-banner" role="alert">{error === 'MCP_OAUTH_NOT_ENABLED' ? 'Approvals are unavailable right now. Return to your assistant and try again later.' : error ?? proof.error}</p>}
+    {/* The shared approval surface reports APPROVALS_NOT_ENABLED (BUILD-DEVELOPER-001); MCP_OAUTH_NOT_ENABLED is its MCP-era name. */}
+    {(error ?? proof.error) && <p className="error-banner" role="alert">{error === 'APPROVALS_NOT_ENABLED' || error === 'MCP_OAUTH_NOT_ENABLED'
+      ? `Approvals are unavailable right now. Return to ${fromApp ? 'the app that sent this link' : 'your assistant'} and try again later.` : error ?? proof.error}</p>}
   </section></div>;
 }

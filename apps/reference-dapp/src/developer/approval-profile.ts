@@ -17,11 +17,12 @@
 import { approvalLinkScheme, HANDOFF_SECONDS, type ApprovalContributor, type ApprovalLinkScheme, type ApprovalRequester, type HandoffRules } from '../platform/index.ts';
 import { readDeveloperConfig, SANDBOX_POLICY, type DeveloperConfig } from './config.ts';
 import type { PlanLimits } from './limits.ts';
+import { DEVELOPER_LINK_PREFIX } from './link-format.ts';
 import { createPgDeveloperStore } from './pg-store.ts';
 import { developerRequesterRef, scopeOfRequesterRef, type DeveloperPrincipal } from './store.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
-export const DEVELOPER_LINK_PREFIX = 'flofi_dhs_';
+export { DEVELOPER_LINK_PREFIX };
 export const developerApprovalLinkScheme = (config: Pick<DeveloperConfig, 'keys'>): ApprovalLinkScheme =>
   approvalLinkScheme(DEVELOPER_LINK_PREFIX, config.keys.handoff, ['DEVELOPER_PROJECT']);
 export const developerHandoffRules = (limits: PlanLimits): HandoffRules => Object.freeze({ handoffSeconds: HANDOFF_SECONDS, maxPending: limits.pendingApprovals,
