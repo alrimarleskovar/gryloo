@@ -16,5 +16,6 @@ export * from './idempotency.js';
 export * from './evidence-store.js';
 export * from './worker.js';
 export * from './queries.js';
+export * from './automations.js';
 export * from './http.js';
 export * from './config.js';
