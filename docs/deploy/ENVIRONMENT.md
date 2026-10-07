@@ -148,6 +148,32 @@ endpoint). Woovi webhooks go to `POST /api/payments/woovi/webhook`.
 Saved-card bindings are MAC'd with a key derived from `FLOFI_SESSION_SECRET` (or `API_AUTH_TOKEN`); rotating it makes saved
 cards un-removable at the provider from FloFi (FloFi then removes only its own copy).
 
+## 5e. Conversational channels (BUILD-CHANNELS-001, `/api/channels/whatsapp`) — dormant
+
+Off unless enabled, and **refused on every hosted deployment in this build** (owner decision D1: `404
+CHANNEL_PROVIDER_NOT_ACTIVATED` whatever the variables say). Only the `fixture` provider exists; nothing is ever sent to Meta. It needs
+the embedded runtime and the staged migration `migrations-pending/0008_channel_conversations.sql` applied by hand. Leave all of these
+unset on Preview and Production. Guide: [WHATSAPP.md](WHATSAPP.md).
+
+| Variable | Purpose | Secret | Preview | Prod | Default |
+| --- | --- | --- | --- | --- | --- |
+| `FLOFI_WHATSAPP` | `enabled` turns the WhatsApp webhook on (local only in this build) | no | **unset** | **unset** | off (`404 WHATSAPP_NOT_ENABLED`) |
+| `FLOFI_WHATSAPP_PROVIDER` | `fixture` (render, validate, drop). `live` is refused: `WHATSAPP_LIVE_PROVIDER_NOT_CLEARED` | no | — | — | `fixture` |
+| `FLOFI_WHATSAPP_ALLOWED_SENDERS` | SHA-256 hex digests (comma-separated, ≤ 256) of allowed senders' BSUID or phone digits; others get no reply and a content-free record | digests only (keep private) | — | — | empty: deny all |
+| `WHATSAPP_APP_SECRET`, `WHATSAPP_APP_SECRET_PREVIOUS` | the Meta app secret(s) verifying `X-Hub-Signature-256` over the raw body (rotation: current + previous) | **yes** | — | — | invalid → `503` |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | the subscription verification token (≥ 32 chars, distinct from the app secret) | **yes** | — | — | invalid → `503` |
+| `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID` | the only number and account whose deliveries are read; others are dropped | no | — | — | invalid → `503` |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_GRAPH_API_VERSION` | the future live transport only; validated if present, never used in this build | **yes** (token) | — | — | unset |
+| `FLOFI_CHANNEL_SECRET` | Channel Core key material (≥ 32 chars, `openssl rand -hex 32`): HKDF keys for sealing, keyed digests and the `flofi_chs_` approval links. Refused if equal to `API_AUTH_TOKEN`, `FLOFI_SESSION_SECRET`, `FLOFI_MCP_OAUTH_SECRET` or a provider secret. Rotating it invalidates open channel approvals and stored state | **yes** | — | — | invalid → `503 CHANNEL_CONFIGURATION_INVALID` |
+| `FLOFI_PUBLIC_ORIGIN` | (shared with §5b) origin of the `/approve` links. Loopback `http://` only when not hosted | no | — | — | required |
+| `FLOFI_CHANNEL_SUPPORT_CONTACT` | human escalation path shown in the first reply (email or `https://` URL) | no | — | — | required |
+| `FLOFI_CHANNEL_PRIVACY_URL` | privacy policy shown in the first reply (`https://`) | no | — | — | required |
+| `FLOFI_CHANNEL_COPILOT` | `enabled`/`disabled`: natural language through the existing Copilot boundary (also needs `FLOFI_COPILOT`); `disabled` = exact commands only, no model call | no | — | — | `enabled` |
+| `FLOFI_CHANNEL_SIMULATION` | `enabled`/`disabled`: the read-only simulation preview in the reply (FloFi always simulates again on `/approve`) | no | — | — | `enabled` |
+| `FLOFI_CHANNEL_LANGUAGE` | `EN`/`PT` default reply language | no | — | — | `EN` |
+| `FLOFI_CHANNEL_HANDOFF_TEST_FUNDS` | `enabled`/`disabled`: test-funds proposals may be handed to their owner | no | — | — | `enabled` |
+| `FLOFI_CHANNEL_HANDOFF_MAINNET_NETWORKS` | mainnet ids a channel proposal may be handed over on | no | — | **leave empty** | empty: mainnet refused by policy |
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),

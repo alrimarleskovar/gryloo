@@ -25,6 +25,33 @@ Owner actions: a Preview with a testnet wallet for live acceptance, a scheduler 
 production or mainnet use. See the [plan](builds/BUILD-DEVELOPER-001-PLAN.md), [report](builds/BUILD-DEVELOPER-001-REPORT.md),
 [developer docs](developer/README.md) and [operator guide](deploy/DEVELOPER.md).
 
+## BUILD-CHANNELS-001 — FloFi Channel Core and a MOCKED WhatsApp adapter
+
+**Status: IMPLEMENTATION COMPLETE ON A BRANCH — MOCKED/LOOPBACK EVIDENCE ONLY; WHATSAPP DORMANT (FIXTURE PROVIDER, NEVER ON A HOSTED
+DEPLOYMENT); NO LIVE MESSAGE; NO TRANSACTION; NOT PUSHED.**
+
+Branch `claude/build-channels-001`, on BUILD-DEVELOPER-001 Phase 2A (`1558dc0`). A conversational channel is an entry point into
+the shared platform (`src/platform`) with zero financial authority. Channel Core (`src/channels/core`, provider-neutral) runs one
+bounded turn per message:
+- exact grammar first, then the existing untrusted Copilot interpreter;
+- a canonical StrategySpec whose IR and hash equal MCP's and the DApp's;
+- a platform approval with `requester_kind = 'CHANNEL_CONVERSATION'` (no MCP account or grant; own `flofi_chs_` link scheme;
+  15-minute view/claim link revoked on replacement; intended-wallet claim rule);
+- FloFi `/approve` (wallet proof, fresh simulation, Strategy Manifest Review, the owner's signature).
+
+While `/approve` is open, a model-free ping returns status once the owner opts in to sharing ("Execution reconciled ✅ · evidence:
+MOCKED"). There is no scheduler, and delivery never touches execution.
+
+The WhatsApp adapter (`src/channels/whatsapp`, provider concerns only) is built against Cloud API-shaped fixtures. Owner decision
+D1 (WhatsApp Business Messaging Policy §4) keeps it fixture-only and refused on every hosted deployment. Data: encrypted transient
+content, content-free records, the staged migration `migrations-pending/0008_channel_conversations.sql` (three channel tables; the
+generic handoff schema is unchanged).
+
+Evidence: unit, PostgreSQL and in-process journeys (testnet router bridge; lending composition), and one browser journey through
+`next start`, all on MOCKED loopback chains. Owner actions: the policy decision for any live provider (Telegram is the candidate),
+and shipping `0008` after `0007`. See the [plan](builds/BUILD-CHANNELS-001-PLAN.md), [report](builds/BUILD-CHANNELS-001-REPORT.md)
+and [WhatsApp guide](deploy/WHATSAPP.md).
+
 ## BUILD-MCP-002 — Consumer OAuth, trusted approval handoff and in-chat execution
 
 **Status: INTEGRATED ON CURRENT MAIN — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO PUBLIC
