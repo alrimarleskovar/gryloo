@@ -170,7 +170,11 @@ is a best-effort per-instance cap of two concurrent previews (abuse protection, 
 Not changed: the DApp UI and its authoring modules, the Copilot (001/002), flows' services, wallet/session/ownership code,
 execution, recovery, reconciliation, evidence, migrations, visual baselines.
 
-## 12. Tests and results (local, pinned toolchain: Node 24.21.0, pnpm 11.22.0, Anvil 1.8.3, headless shell 1243)
+## 12. Initial implementation results (before PR #64 integration)
+
+These historical results used the pinned toolchain: Node 24.21.0, pnpm 11.22.0, Anvil 1.8.3 and headless shell 1243.
+The source-map-js audit failure below was resolved in current main by PR #64; its exact temporary owner-approved
+Colosseum waiver is preserved by this integration. No dependency-age waiting period remains for that approved exception.
 
 | Check | Result |
 | --- | --- |
@@ -183,7 +187,7 @@ execution, recovery, reconciliation, evidence, migrations, visual baselines.
 | `git diff --check`, bidi-character scan | clean |
 | `next build` + `next start` smoke (local runtime) | 401 without credential; 2025-11-25 handshake; 9 tools; compose hash `0xc852…296d`; simulate → `MCP_CLOUD_RUNTIME_REQUIRED` |
 | `next build` + `next start` smoke (embedded runtime, disposable loopback DB, loopback MOCKED Router harness) | capabilities `simulate: true` (harness); simulate → MOCKED preview with Manifest hash; **0** execution/log/attempt/work/idempotency rows; logs metadata-only, token absent |
-| `pnpm audit --audit-level low` | **FAILS — pre-existing, not caused by this build**: `source-map-js@1.2.1` (high, GHSA-68fv-2mgg-jv7q; build tooling via next/vite → postcss). `main` fails identically today (advisory GitHub-reviewed 2026-10-05T23:31Z). The fix `1.2.2` was published 2026-09-30T14:08Z and only passes the 7-day release-age gate at **2026-10-07T14:08Z**; it was not forced. CI will therefore fail its audit step until a lockfile update after that time (owner decision / follow-up). |
+| `pnpm audit --audit-level low` | **Historical failure on the old base**: `source-map-js@1.2.1` (high, GHSA-68fv-2mgg-jv7q). PR #64/current main resolves it with `source-map-js@1.2.2` and the exact owner-approved temporary Colosseum release-age waiver. The rebased branch passes the unchanged audit with zero vulnerabilities. |
 
 ## 13. Preview deployment requirements
 
@@ -222,7 +226,8 @@ build; the protocol was verified with raw JSON-RPC against the real route in bot
   comes from the durable run log (archive objects are not exposed).
 * No client-supplied IR import and no template instantiation (Master Spec §14.4) yet; strategies are single actions or the one
   supported lending composition, as in the DApp.
-* The `pnpm audit` failure above is pre-existing and must be cleared by a dependency update after 2026-10-07T14:08Z.
+* The historical `pnpm audit` failure above is resolved by current main's `source-map-js@1.2.2` resolution and exact
+  owner-approved Colosseum dependency-age waiver. The rebased branch passes the unchanged low-threshold audit.
 * No live MCP client, public network, provider or model was used; all simulation evidence here is `MOCKED`.
 
 ## 16. Authority statement
@@ -231,3 +236,57 @@ No merge was performed and no automatic merge was enabled. No transaction was si
 the only "sends" in tests are the MOCKED harness wallet's, driven by the test as the owner. No private key, seed phrase or real
 credential was created, printed or committed (disposable local tokens lived in mode-0600 scratch files under `/tmp` and were
 deleted).
+
+## 17. PR #64 integration validation — 2026-10-07
+
+Rebased `claude/build-mcp-001` onto current `origin/main`
+`d0b2f3859b20704e3a478ad657adfba04e9059e8`. The sole Git conflict was the
+registry packages/snapshots hash in `scripts/bootstrap-ci.py`; it was recomputed
+from the combined lockfile as
+`8d75e09e13fdaa1797d985cf0ffdabeeaf978b5b24b13d46b9a29779f7d15208`.
+Current main has 262 exact registry packages and snapshots. MCP adds only the
+three reviewed MIT packages, yielding 265, with no existing package removed or
+resolution changed. The dependency verifier and SBOM retain exact count checks.
+Current main's source-map-js 1.2.2 and sharp security resolutions, exact temporary
+Colosseum waiver, waiver validation and all 19 governance self-tests are preserved.
+
+All 294 PR #64 files outside the four dependency integration files were checked
+byte-for-byte against current main. The four overlapping files are the app
+manifest, lockfile, dependency verifier and CI SBOM counts. No UX/UI behavior,
+visual component, interaction, copy, layout, product presentation, browser test or
+snapshot was changed. The gateway, engine facade, preview endpoint, tool contracts
+and MCP documentation remain from BUILD-MCP-001.
+
+| Gate | Rebased result |
+| --- | --- |
+| `pnpm check` | PASS: 15 typecheck tasks, lint, 8 build tasks, 11 schema exports; 2,497 tests passed, 2 existing tests skipped, no failures |
+| PostgreSQL | PASS: 53 tests in 11 files, including MCP tenant/grant isolation and nonpersistent preview checks |
+| Focused MCP/engine/preview | PASS: 46 tests in 7 files; also included in `pnpm check` |
+| Current main guarded product browser profiles | PASS: 128 tests across all 16 profiles; CoW's 9 cases passed on a focused rerun with its required disposable runtime |
+| Pinned composition browser profile | PASS: 1 test; exact current main runner and profile |
+| Pinned composition contract suites | PASS: 3 tests in 3 files, with the current main pinned harness |
+| Offline fork suite | PASS: 31 tests; 29 existing owner/profile-dependent skips |
+| Anvil compatibility | PASS: 4 tests; 10 existing owner-dependent skips, also covered by the fork invocation |
+| Five-process offline rehearsal and transcript gates | PASS: five rehearsals and all three committed transcript identities/digests |
+| Governance-lite and waiver self-tests | PASS: current tree, 19/19 self-tests |
+| Dependency verification | PASS: 265 exact registry entries, 16 exact reviewed license exceptions; only source-map-js 1.2.2 is waived |
+| Dependency audit | PASS: unchanged `--audit-level low`, zero vulnerabilities |
+| CycloneDX 1.6 SBOM | PASS: 265 exact registry components, reference graph, 9 exact workspace manifests/importers, 16 reviewed license exceptions |
+| Whitespace, linter export/digest and screenshot-diagnostic self-checks | PASS |
+
+Initial local fixture configuration exposed the existing `/tmp` credential guards,
+the CoW disposable-runtime guard, and fixed fork port collisions with browser
+services. These were resolved by correcting scratch/runtime paths and running the
+fork and browser stages sequentially. No assertion, safety guard or product file
+was changed. A shared `/tmp` dependency evidence file was overwritten by another
+local job; dependency verification and SBOM validation were repeated successfully
+with isolated evidence storage.
+
+Dependency evidence SHA-256:
+`75b8acce7acf25c7933a625621d2a2c5ab3296e310f8601fe11956d6f505edeb`.
+Validated ephemeral SBOM SHA-256:
+`2fd6b4be6ac30691486df75d76c75d0bbca606ec28b9bb23dc5d541546d170bb`.
+The SBOM validator removed its output as required. Local evidence is engineering
+validation only; no merge, MCP-002 change or production/mainnet financial execution
+was performed. GitHub checks and mergeability must be verified on the final pushed
+PR head before reporting readiness.
