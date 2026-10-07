@@ -13,6 +13,7 @@ import type { ApprovalView } from '../mcp/handoff/service';
 import { useWorkflow } from '../state/workflow-store';
 import type { SolanaWalletChain } from '../wallet/solana-wallet';
 import { useWalletProof, WalletProof } from './wallet-proof';
+import { McpRouteState } from './mcp-route-state';
 
 const SECRET = /^flofi_hs_[A-Za-z0-9_-]{43}$/;
 const STORAGE_KEY = 'flofi.approval.secret';
@@ -24,16 +25,18 @@ const STATUS_TEXT: Record<string, string> = {
 function unwrap<T>(result: { ok: true; value: T } | { ok: false; code: string }): T { if (!result.ok) throw new Error(result.code); return result.value; }
 /** The handoff secret travels only in the URL fragment; it is moved to this tab's session storage and removed from the address bar. */
 function takeSecret(): string | null {
-  const fromHash = typeof window === 'undefined' ? '' : decodeURIComponent(window.location.hash.slice(1));
+  let fromHash: string;
+  try { fromHash = typeof window === 'undefined' ? '' : decodeURIComponent(window.location.hash.slice(1)); } catch { return null; }
   if (SECRET.test(fromHash)) {
     try { sessionStorage.setItem(STORAGE_KEY, fromHash); } catch { /* storage may be unavailable; the page still works until reload */ }
     window.history.replaceState(null, '', window.location.pathname);
     return fromHash;
   }
+  if (fromHash) return null;
   try { const stored = sessionStorage.getItem(STORAGE_KEY); return stored && SECRET.test(stored) ? stored : null; } catch { return null; }
 }
 
-export function ApprovalHandoff() {
+export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange?: (available: boolean) => void }) {
   const { state, pending, propose, applyProposal } = useWorkflow();
   const [secret, setSecret] = useState<string | null>(null);
   const [view, setView] = useState<ApprovalView | null>(null);
@@ -41,16 +44,35 @@ export function ApprovalHandoff() {
   const [busy, setBusy] = useState(false);
   const [share, setShare] = useState<boolean | null>(null);
   const [claimed, setClaimed] = useState(false);
+  const [resolved, setResolved] = useState(false);
   const applying = useRef(false);
   const chain: SolanaWalletChain = view?.steps.some(s => s.network === 'solana') ? 'solana:mainnet' : 'solana:devnet';
   const proof = useWalletProof(view?.walletNamespace ?? null, chain), proven = proof.proven;
+  const available = resolved && view !== null && !TERMINAL.includes(view.status) && !view.refusal;
 
   useEffect(() => {
-    const found = takeSecret();
-    setSecret(found);
-    if (!found) return;
-    void approvalHandoffView(found).then(result => { if (result.ok) { setView(result.value); setShare(s => s ?? result.value.sameAccount); } else setError(result.code); });
-  }, []);
+    let request = 0;
+    const load = () => {
+      const current = ++request, found = takeSecret();
+      onAvailabilityChange?.(false);
+      setSecret(found); setView(null); setResolved(false); setError(null); setClaimed(false); setShare(null);
+      if (!found) { setResolved(true); return; }
+      void approvalHandoffView(found).then(result => {
+        if (current !== request) return;
+        if (result.ok) { setView(result.value); setShare(result.value.sameAccount); } else setError(result.code);
+      }).catch(() => { if (current === request) setError('APPROVAL_UNAVAILABLE'); })
+        .finally(() => { if (current === request) setResolved(true); });
+    };
+    // The product's skip link is a local anchor, not a new approval handoff.
+    const hashChanged = () => { if (window.location.hash !== '#workspace') load(); };
+    load();
+    window.addEventListener('hashchange', hashChanged);
+    return () => { request++; window.removeEventListener('hashchange', hashChanged); };
+  }, [onAvailabilityChange]);
+  useEffect(() => {
+    onAvailabilityChange?.(available);
+    return () => onAvailabilityChange?.(false);
+  }, [available, onAvailabilityChange]);
   // Once the proposal is applied, the server checks that the FloFi workflow hashes to exactly the proposal.
   useEffect(() => {
     if (!secret || !claimed || applying.current || view?.status === 'APPLIED' || state.workflow.revision === 0) return;
@@ -74,12 +96,13 @@ export function ApprovalHandoff() {
     if (claimed && secret) void setApprovalSharing(secret, next).then(r => { if (r.ok) setView(v => v && { ...v, statusShared: r.value.statusShared }); else setError(r.code); });
   };
 
-  if (!secret) return <section className="panel approval-handoff" aria-label="External proposal"><p className="eyebrow">EXTERNAL PROPOSAL</p>
-    <h2>This approval link is incomplete</h2><p className="muted">Open the link again from your chat. A FloFi approval link never asks for a key or a seed phrase.</p></section>;
-  if (!view) return <section className="panel approval-handoff" aria-label="External proposal"><p className="eyebrow">EXTERNAL PROPOSAL</p>
-    <p className="muted">{error ? `This proposal cannot be shown (${error}).` : 'Loading the proposal…'}</p></section>;
+  if (!resolved) return <McpRouteState label="Approval" title="Opening your approval" description="Getting the proposal from your connected assistant…" loading/>;
+  if (!secret || !view) return <McpRouteState label="Approval" title="Open this link from your assistant"
+    description="Open the FloFi approval link from your connected assistant in Claude or ChatGPT. If the link has expired, ask your assistant for a new one."/>;
+  if (!available) return <McpRouteState label="Approval" title="This approval is no longer available"
+    description="Ask your connected assistant to prepare a new FloFi approval link."/>;
   const terminal = TERMINAL.includes(view.status), real = view.fundsClass === 'REAL_FUNDS', canClaim = !terminal && !view.refusal && !view.claimedByAnotherWallet;
-  return <section className="panel approval-handoff" aria-label="External proposal">
+  return <div className="approval-page"><section className="panel approval-handoff" aria-label="External proposal">
     <div className="approval-head"><div><p className="eyebrow">EXTERNAL PROPOSAL · FROM {view.clientName.toUpperCase()}</p>
       <h2>A strategy proposed in your chat with {view.clientName}</h2></div>
       <span className="status-badge info" aria-label="Approval status">{STATUS_TEXT[view.status] ?? view.status}</span></div>
@@ -115,6 +138,6 @@ export function ApprovalHandoff() {
       <label className="approval-share"><input type="checkbox" checked={view.statusShared} onChange={e => toggleShare(e.target.checked)}/>
         Share run status and evidence with {view.clientName}</label>
     </div>}
-    {(error ?? proof.error) && <p className="error-banner" role="alert">{error ?? proof.error}</p>}
-  </section>;
+    {(error ?? proof.error) && <p className="error-banner" role="alert">{error === 'MCP_OAUTH_NOT_ENABLED' ? 'Approvals are unavailable right now. Return to your assistant and try again later.' : error ?? proof.error}</p>}
+  </section></div>;
 }

@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { connectionsView, linkProvenWallet, revokeWalletLink, withdrawApproval, type ConnectionsView } from '../app/connections-action';
 import { useWalletProof, WalletProof, type Namespace } from './wallet-proof';
+import { McpRoutePage, McpRouteState } from './mcp-route-state';
 
 export function ConnectionsPanel() {
   const [view, setView] = useState<ConnectionsView | null>(null);
@@ -15,12 +16,12 @@ export function ConnectionsPanel() {
   const [namespace, setNamespace] = useState<Namespace>('eip155');
   const proof = useWalletProof(namespace);
   const apply = (result: { ok: true; value: ConnectionsView } | { ok: false; code: string }) => { if (result.ok) { setView(result.value); setError(null); } else setError(result.code); };
-  useEffect(() => { void connectionsView().then(apply); }, [proof.proven]);
-  if (!view) return <section className="panel approval-handoff" aria-label="Connections"><p className="muted">{error ? `Connections are unavailable (${error}).` : 'Loading…'}</p></section>;
-  if (!view.account) return <section className="panel approval-handoff" aria-label="Connections"><p className="eyebrow">CONNECTIONS</p><h2>No FloFi account in this browser</h2>
-    <p className="muted">Connect FloFi from Claude or ChatGPT first: the consent screen creates a pseudonymous FloFi account in this browser.</p></section>;
+  useEffect(() => { void connectionsView().then(apply).catch(() => setError('CONNECTIONS_UNAVAILABLE')); }, [proof.proven]);
+  if (!view && !error) return <McpRouteState label="Connections" title="Opening Connections" description="Checking your assistant connection…" loading/>;
+  if (!view?.account) return <McpRouteState label="Connections" title="Connect FloFi from your assistant"
+    description="Connections becomes available after you connect FloFi from Claude or ChatGPT. Return here in the same browser to manage your connected wallets."/>;
   const proven = view.proven.find(w => w.namespace === namespace);
-  return <section className="panel approval-handoff" aria-label="Connections">
+  return <McpRoutePage label="Connections"><section className="panel approval-handoff" aria-label="Connections">
     <p className="eyebrow">CONNECTIONS</p><h2>Your FloFi account</h2>
     <p>Account <code>{view.account}</code> (pseudonymous; no email, no wallet by default).</p>
     <h3>Linked wallets</h3>
@@ -39,6 +40,6 @@ export function ConnectionsPanel() {
     {view.approvals.length === 0 ? <p className="muted">None yet.</p> : <ul className="approval-explanation">{view.approvals.map(a => <li key={a.approvalId}>
       {a.client} · {a.status} · {a.fundsClass === 'REAL_FUNDS' ? 'real funds' : 'test funds'} · {new Date(a.createdAt).toLocaleString()}{' '}
       {(a.status === 'PENDING' || a.status === 'CLAIMED') && <button type="button" className="quiet" onClick={() => void withdrawApproval(a.approvalId).then(apply)}>Withdraw</button>}</li>)}</ul>}
-    {(error ?? proof.error) && <p className="error-banner" role="alert">{error ?? proof.error}</p>}
-  </section>;
+    {(error ?? proof.error) && <p className="error-banner" role="alert">{error === 'MCP_OAUTH_NOT_ENABLED' ? 'Connections are unavailable right now. Return to your assistant and try again later.' : error ?? proof.error}</p>}
+  </section></McpRoutePage>;
 }

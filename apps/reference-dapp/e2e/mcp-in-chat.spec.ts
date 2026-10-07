@@ -19,7 +19,7 @@ import { createTestWallet } from '../../../packages/reference-reconciler/test/te
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
 import { chooseSolanaWallet, signRequests } from './jupiter-fixtures';
 import { openSimulationDetails } from './fixtures';
-import { assertSimulationReviewBlocked } from './release-safety-fixtures';
+import { assertExecutionBlocked } from './release-safety-fixtures';
 import { guardedContext, installJourneyWallet, journeySends, walletRequests } from './journey-fixtures';
 import { assertMcpHarness, CLIENT_NAME, connectViaBrowser, hostLog, mcpClient, openHost, panelHtmlOf } from './mcp-fixtures';
 import { routerControl } from './router-fixtures';
@@ -42,6 +42,20 @@ const bridge = (page: Page) => page.getByRole('region', { name: 'Cross-chain bri
 async function simulateStage(page: Page) {
   await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
   await openSimulationDetails(page);
+}
+async function assertHandoffReviewBlocked(page: Page, requests: () => Promise<number>) {
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
+  await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+  await expect(page.getByRole('region', { name: 'Authorization technical details', exact: true })).toContainText('Strategy Manifest');
+  await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
+  expect(await requests()).toBe(0);
+  await assertExecutionBlocked(page, requests);
+  // An applied signing-session link is consumed. Recovery remains in the existing FloFi workspace.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Open this link from your assistant' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Go to FloFi', exact: true }).click();
+  await assertExecutionBlocked(page, requests);
 }
 
 async function chatToSigningWindow(context: BrowserContext, strategy: Record<string, unknown>) {
@@ -108,7 +122,7 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await expect(bridge(signing)).toContainText('Strategy Manifest');
     await expect(bridge(signing)).toContainText(`Owner ${owner.address}`);
     expect(await walletRequests(signing)).toContain('personal_sign');
-    await assertSimulationReviewBlocked(signing, journeySends);
+    await assertHandoffReviewBlocked(signing, journeySends);
     expect(await walletRequests(signing)).not.toContain('eth_sendTransaction');
 
     // Status still reaches the chat, without claiming reconciliation or an evidence bundle.
@@ -137,7 +151,7 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await chooseSolanaWallet(devnetPanel(signing));
     await devnetPanel(signing).getByRole('button', { name: 'Simulate swap' }).click();
     await expect(devnetPanel(signing).getByRole('definition').filter({ hasText: '→ expected' })).toContainText('0.1 Devnet SOL → expected');
-    await assertSimulationReviewBlocked(signing, () => signRequests(signing));
+    await assertHandoffReviewBlocked(signing, () => signRequests(signing));
     expect(await devnetControl({ action: 'sent' })).toBe(0);
     await expect(panel.getByText(/solana-devnet-swap · SIMULATED/)).toBeVisible({ timeout: 45_000 });
     expect(unexpected).toEqual([]);
@@ -163,7 +177,7 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await simulateStage(signing);
     await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
     await expect(lending).toContainText('Expected output:');
-    await assertSimulationReviewBlocked(signing, () => lendingSends(signing));
+    await assertHandoffReviewBlocked(signing, () => lendingSends(signing));
     await expect(panel.getByText(/lending-composition · SIMULATED/)).toBeVisible({ timeout: 45_000 });
     expect(unexpected).toEqual([]);
     await context.close();

@@ -49,6 +49,18 @@ test.beforeAll(async () => {
   bundle = entry.code;
 });
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeObserver = ResizeObserver;
+    window.ResizeObserver = class extends NativeObserver {
+      constructor(callback: ResizeObserverCallback) { super((entries, observer) => setTimeout(() => callback(entries, observer), 200)); }
+    };
+    const add = window.addEventListener.bind(window);
+    window.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) => {
+      if (!listener) return;
+      if (type !== 'resize') return add(type, listener, options);
+      add(type, event => setTimeout(() => typeof listener === 'function' ? listener.call(window, event) : listener.handleEvent(event), 200), options);
+    }) as typeof window.addEventListener;
+  });
   const errors: string[] = []; browserErrors.set(page, errors);
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -174,6 +186,7 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
       const execute = [...element.querySelectorAll('button')].find(b => b.textContent === 'Execute workflow')!;
       return { back: rect(back), execute: rect(execute), surface: rect(element.querySelector('.flow-surface')!), controls: rect(element.querySelector('.canvas-navigator')!), footer: rect(element.querySelector('.canvas-foot')!), attribution: rect(element.querySelector('.react-flow__attribution')!) };
     });
+    console.log('LAYOUT-DIAGNOSTIC', JSON.stringify({ width, boxes, environment: await page.evaluate(() => ({ dpr: devicePixelRatio, innerWidth, fonts: document.fonts.status, flowWidth: document.querySelector('.react-flow')!.getBoundingClientRect().width, compact: document.querySelector('.canvas-navigator')?.getAttribute('data-compact'), animations: document.getAnimations().length })) }));
     expect(boxes.back.left).toBeLessThan(boxes.execute.left); expect(boxes.back.right).toBeLessThanOrEqual(boxes.execute.left);
     expect(Math.abs(boxes.back.top - boxes.execute.top)).toBeLessThan(2);
     expect(boxes.controls.right <= boxes.back.left || boxes.controls.bottom <= boxes.back.top, JSON.stringify({ width, boxes })).toBe(true);

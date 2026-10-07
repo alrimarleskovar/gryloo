@@ -5,4 +5,4 @@ import { ConnectionsPanel } from '../../components/connections-panel';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'FloFi · Connections', robots: { index: false, follow: false }, referrer: 'no-referrer' };
-export default function ConnectionsPage() { return <main className="approval-page"><ConnectionsPanel/></main>; }
+export default function ConnectionsPage() { return <ConnectionsPanel/>; }

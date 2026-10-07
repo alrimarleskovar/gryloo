@@ -162,8 +162,9 @@ jobs:
           # and the pinned offline fork gates above; historical browser diagnostics remain intact.
           export GRYLOO_COW_RUNTIME="$RUNNER_TEMP/gryloo-cow-e2e"
           node scripts/guarded-release-browser.mjs product
+          pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-route-presentation.spec.ts
           # BUILD-MCP-002: consumer OAuth and in-chat approval on disposable loopback infrastructure.
-          GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-in-chat.spec.ts
+          GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-in-chat.spec.ts mcp-route-presentation.spec.ts
           # BUILD-007: only official digest-pinned test-time artifacts are downloaded, outside Git.
           export GRYLOO_B007_INPUTS="$RUNNER_TEMP/gryloo-build-007-inputs"
           mkdir -p "$GRYLOO_B007_INPUTS"
