@@ -69,7 +69,10 @@ const COMMANDS: readonly (readonly [Exclude<TurnAction, 'REPLY' | 'PROPOSE' | 'I
   ['OPT_IN', /^(?:start)$/, 'EN'], ['OPT_IN', /^(?:voltar|iniciar)$/, 'PT'],
 ];
 /** Messages that sound like an authorization. In a channel they never are one. */
-const AUTHORIZATION = /^(?:yes|yeah|yep|ok|okay|confirm|confirmed|i confirm|execute|execute it|run it|go|go ahead|approve|approved|sign|sign it|do it|send it|sim|s|confirmo|confirmar|confirma|executar|executa|aprovar|aprovo|aprova|assinar|assina|manda|pode mandar|vai|pode executar)$/;
+// A confirmation — alone or chained ("yes, execute it", "sim, pode executar agora") — is answered with the zero-authority notice.
+const CONFIRMATION = '(?:yes|yeah|yep|ok|okay|confirm|confirmed|i confirm|execute|execute it|run it|go|go ahead|approve|approved|sign|sign it|do it|send it|sim|s|'
+  + 'confirmo|confirmar|confirma|executar|executa|aprovar|aprovo|aprova|assinar|assina|manda|pode mandar|vai|pode executar)';
+const AUTHORIZATION = new RegExp(`^${CONFIRMATION}(?:[ ,;.!]+(?:${CONFIRMATION}|please|now|it|this|por favor|agora|isso|já|ja))*$`);
 const PORTUGUESE = /\b(?:coloca|quero|faz|fazer|empresta|emprestar|troca|trocar|muda|mudar|na|no|para|com|de|da|do|em|sim|não|nao)\b/i;
 
 // ── The Copilot conversation, persisted ────────────────────────────────────────────────────────────────────────────────

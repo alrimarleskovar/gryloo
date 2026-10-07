@@ -55,7 +55,7 @@ describe('BUILD-CHANNELS-001 channel conversation', () => {
     const c = chat({ script: [] });
     await c.say('swap 1 USDC to WETH on Base Sepolia slippage 50 bps');
     const pending = c.state.pending;
-    for (const word of ['yes', 'Confirm', 'execute!', 'sim', 'confirmo', 'pode executar', 'go ahead']) {
+    for (const word of ['yes', 'Confirm', 'execute!', 'sim', 'confirmo', 'pode executar', 'go ahead', 'yes, execute it', 'Sim, pode executar agora', 'ok sign it now']) {
       const d = await c.say(word);
       expect(d, word).toMatchObject({ action: 'REPLY', outcome: 'AUTHORIZATION_REFUSED', command: null });
       expect(d.replies.at(-1)!.text).toMatch(/Nothing can be authorized here/);
