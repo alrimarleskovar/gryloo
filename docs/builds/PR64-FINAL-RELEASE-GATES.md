@@ -7,10 +7,16 @@ GitHub release checks for the final pushed PR head, with no conflict or protecti
 bypass. This report records the local gates before that commit and push.
 
 The exact carried worktree was preserved. Its browser sources and intentional
-snapshots predate the successful recovered runs. No production source change
-followed the successful production build; the final typecheck and lint also
-postdate the carried test migrations. The existing evidence was reused without
-repeating browser remediation. Ephemeral evidence remains locally under
+snapshots predate the successful recovered runs. Their evidence was reused without
+repeating browser remediation. The first pushed PR Governance run exposed one
+extra blank newline at the end of `proposal-review.tsx` from an earlier commit:
+the PR job checks the entire diff against main. Removing exactly that trailing
+newline changes no runtime code or assertions. Typecheck, lint and production
+build were rerun on this final source; the full PR whitespace diff was checked.
+The sandboxed build compiled successfully but its TypeScript subprocess exited
+with signal 139. The same production build passed outside the sandbox, with all
+type checks enabled. No repository build setting changed.
+Ephemeral evidence remains locally under
 `apps/reference-dapp/.tmp/`; it must never be committed.
 
 | Gate | Result |
@@ -19,9 +25,9 @@ repeating browser remediation. Ephemeral evidence remains locally under
 | Review / Execute / recovery | PASS, 31/31; recovered |
 | CoW | PASS, 9/9; recovered |
 | Guarded browser profiles | PASS, 17/17; recovered; same runner commands as CI |
-| Typecheck | PASS, 15/15 tasks; recovered final-source evidence |
-| Lint, including guarded release runner | PASS; recovered final-source evidence |
-| Production build | PASS, 8/8 tasks; recovered final-source evidence |
+| Typecheck | PASS, 15/15 tasks; rerun on final source |
+| Lint, including guarded release runner | PASS; rerun on final source |
+| Production build | PASS, 8/8 tasks; rerun on final source |
 | Dependency age / license / integrity | PASS; fresh registry validation, 262 exact dependencies, 16 existing reviewed license exceptions |
 | Temporary waiver | PASS; exactly `source-map-js@1.2.2`; no sharp waiver |
 | Waiver / governance self-tests | PASS, 19 tests; recovered unchanged control-source evidence |
@@ -29,7 +35,7 @@ repeating browser remediation. Ephemeral evidence remains locally under
 | Final CycloneDX 1.6 SBOM | PASS; 262 exact registry components, dependency reference graph, nine separate workspace manifests/importers, 16 reviewed license exceptions |
 | Governance | PASS; fresh current-tree validation |
 | Secret scan | PASS; 1,149 release text files, zero findings; two unchanged synthetic test fixtures individually reviewed |
-| Whitespace / conflict markers | PASS; no unresolved conflict markers |
+| Whitespace / conflict markers | PASS; working tree, staged diff and full PR diff against main; no unresolved conflict markers |
 
 Fresh dependency evidence SHA-256:
 `ce92e617b7a735c364de684e3c0d30001a61a8a31f91ee5eccd1709ae4a8eab4`.

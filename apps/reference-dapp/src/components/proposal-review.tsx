@@ -128,4 +128,3 @@ function ContextualProposal({ pending, canApply = true, onApply, portalFromCard 
   </>;
   return portalFromCard ? <><span ref={marker} hidden/>{portalTarget && createPortal(content, portalTarget)}</> : content;
 }
-
