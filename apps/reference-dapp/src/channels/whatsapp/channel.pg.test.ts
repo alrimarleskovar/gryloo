@@ -167,6 +167,10 @@ describe('BUILD-CHANNELS-001 WhatsApp channel (PostgreSQL, fixture provider, MOC
     const secret = d.secretOf(d.lastLink()!);
     await d.say('status', SECOND_BSUID);
     expect(d.texts().at(-1)).toMatch(/There is no proposal from this chat yet/);
+    // Another conversation's NEW or LINK never reaches this proposal.
+    await d.say('new', SECOND_BSUID);
+    await d.say('link', SECOND_BSUID);
+    expect((await viewApproval(await d.surface(), secret, [])).status).toBe('PENDING');
     const conversations = (await t.db.query(`SELECT DISTINCT requester_id FROM mcp_handoffs WHERE client_name = 'WhatsApp'`)).rows.map(r => r.requester_id);
     expect(conversations.length).toBeGreaterThanOrEqual(1);
     // The MCP surface's links cannot resolve a channel handoff (and the channel scheme cannot resolve an MCP one).
@@ -192,6 +196,36 @@ describe('BUILD-CHANNELS-001 WhatsApp channel (PostgreSQL, fixture provider, MOC
     const everything = JSON.stringify((await t.db.query('SELECT * FROM channel_events')).rows) + JSON.stringify((await t.db.query('SELECT * FROM channel_conversations')).rows)
       + JSON.stringify((await t.db.query('SELECT * FROM channel_outbox')).rows);
     for (const plain of ['seed phrase', 'alpha bravo', stranger, USER_BSUID, USER_PHONE, 'supply 2 USDC']) expect(everything, plain).not.toContain(plain);
+  });
+
+  it('withdraws an approval whose message could not be delivered (its link is gone) and retries other replies in order, once', async () => {
+    const d = deployment(), base = Date.now(), at = (s: number) => () => new Date(base + s * 1000);
+    let failures = 0;
+    const fixture = fixtureTransport(d.sent);
+    // The provider is unavailable for every approval message, and once for the next plain reply.
+    const flaky: typeof fixture = Object.assign(async (request: { readonly body: Record<string, unknown> }) => {
+      const cta = (request.body.interactive as { type?: string } | undefined)?.type === 'cta_url';
+      if (cta || failures++ === 0) return { status: 503, body: '' };
+      return fixture(request);
+    }, { sent: fixture.sent });
+    const post = (text: string, now: () => Date) => handleWhatsAppWebhook(webhookRequest(inbound([{ text }]), d.appSecret),
+      { env: d.env, host: d.host, runtime: recordingRuntime([]), transport: flaky, interpreter: null, now });
+    await post(SUPPLY('9'), at(0));
+    const [handoff] = (await t.db.query(`SELECT handoff_id, status FROM mcp_handoffs WHERE client_name = 'WhatsApp' ORDER BY created_at DESC LIMIT 1`)).rows;
+    expect(handoff!.status).toBe('PENDING');
+    expect(d.sent).toHaveLength(0);
+    // The next turn, after the backoff: the approval row is due but its link existed only in the failed turn's memory.
+    await post('help', at(60));
+    expect((await t.db.query('SELECT status FROM mcp_handoffs WHERE handoff_id = $1', [handoff!.handoff_id])).rows[0]!.status).toBe('REVOKED');
+    const approvalRow = (await t.db.query(`SELECT status, error_code, body_ciphertext IS NULL AS erased FROM channel_outbox WHERE handoff_id = $1 AND kind = 'APPROVAL'`,
+      [handoff!.handoff_id])).rows;
+    expect(approvalRow).toEqual([{ status: 'SKIPPED', error_code: 'APPROVAL_LINK_LOST', erased: true }]);
+    await post('status', at(120));
+    const texts = d.texts();
+    expect(texts.filter(t => /could not be delivered, so it was withdrawn/.test(t))).toHaveLength(1);
+    expect(texts.filter(t => /^Strategy ready/.test(t))).toHaveLength(0);
+    expect(d.sent.some(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')).toBe(false);
+    expect(new Set(d.sent.map(r => (r.body as { biz_opaque_callback_data: string }).biz_opaque_callback_data)).size).toBe(d.sent.length);
   });
 
   it('erases a crashed turn\'s payload on the next delivery instead of processing it late (no scheduler)', async () => {
