@@ -19,6 +19,7 @@ afterAll(async () => { await t?.drop(); });
 const keys = channelKeys(randomBytes(32).toString('hex'));
 const store = () => createPgChannelStore(t.db, 'default');
 const at = (iso: string) => new Date(iso);
+const ALL = ['REPLY', 'APPROVAL', 'NOTIFICATION'] as const;
 const NOW = at('2026-10-07T12:00:00Z');
 async function conversation(subject = randomBytes(8).toString('hex'), now = NOW) {
   return store().ensureConversation('WHATSAPP', '106540352242922', keyedDigest(keys.subject, subject), now, now, channelRowId('chc'));
@@ -78,9 +79,13 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, staged migration 0008)',
     const s = store(), c = await conversation();
     expect((await s.enqueue(c.conversationId, [outbox(`notify:${c.conversationId}:a`, 0), outbox(`notify:${c.conversationId}:b`, 1)], NOW)).length).toBe(2);
     expect((await s.enqueue(c.conversationId, [outbox(`notify:${c.conversationId}:a`, 0)], NOW)).length).toBe(0);
-    const due = await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8);
+    // An approval message is invisible to a claim that does not ask for approvals (only its own turn holds its link).
+    await s.enqueue(c.conversationId, [{ ...outbox(`reply:${c.conversationId}:approval`, 2), kind: 'APPROVAL' }], NOW);
+    expect(await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8, ['NOTIFICATION'])).toEqual([]);
+    const due = await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8, ['REPLY', 'NOTIFICATION']);
     expect(due.map(o => o.dedupeKey)).toEqual([`notify:${c.conversationId}:a`, `notify:${c.conversationId}:b`]);
-    expect(await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8)).toEqual([]);
+    expect(await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8, ['REPLY', 'NOTIFICATION'])).toEqual([]);
+    expect((await s.claimDue(c.conversationId, NOW, new Date(NOW.getTime() - 120_000), 8, ALL)).map(o => o.kind)).toEqual(['APPROVAL']);
     const providerA = keyedDigest(keys.provider, 'wamid.A');
     await s.markSent(due[0]!.outboxId, providerA, NOW);
     expect(await s.applyDelivery(null, providerA, 'READ', null, NOW)).toBe(true);
@@ -88,7 +93,8 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, staged migration 0008)',
     // The second message's send result was lost (crash after the provider accepted it): its own report recovers it.
     const providerB = keyedDigest(keys.provider, 'wamid.B');
     expect(await s.applyDelivery(due[1]!.outboxId, providerB, 'SENT', null, NOW)).toBe(true);
-    const rows = (await t.db.query('SELECT outbox_id, status, delivery, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence', [c.conversationId])).rows;
+    const rows = (await t.db.query(`SELECT outbox_id, status, delivery, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 AND kind = 'REPLY' ORDER BY sequence`,
+      [c.conversationId])).rows;
     expect(rows.map(r => [r.status, r.delivery, r.body_ciphertext])).toEqual([['SENT', 'READ', null], ['SENT', 'SENT', null]]);
     // A report naming another provider message for a known row is not ours.
     expect(await s.applyDelivery(due[0]!.outboxId, keyedDigest(keys.provider, 'wamid.other'), 'READ', null, NOW)).toBe(false);
@@ -97,10 +103,10 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, staged migration 0008)',
   it('retries transient failures and erases bodies at every terminal state', async () => {
     const s = store(), c = await conversation();
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:x`)], NOW);
-    const [first] = await s.claimDue(c.conversationId, NOW, NOW, 8);
+    const [first] = await s.claimDue(c.conversationId, NOW, NOW, 8, ALL);
     await s.markRetry(first!.outboxId, 'PROVIDER_THROTTLED', new Date(NOW.getTime() + 5_000), NOW);
-    expect(await s.claimDue(c.conversationId, NOW, NOW, 8)).toEqual([]);
-    const [again] = await s.claimDue(c.conversationId, new Date(NOW.getTime() + 6_000), NOW, 8);
+    expect(await s.claimDue(c.conversationId, NOW, NOW, 8, ALL)).toEqual([]);
+    const [again] = await s.claimDue(c.conversationId, new Date(NOW.getTime() + 6_000), NOW, 8, ALL);
     expect(again?.attempts).toBe(2);
     await s.markEnded(again!.outboxId, 'FAILED', 'PROVIDER_POLICY_RESTRICTED', NOW);
     const row = (await t.db.query('SELECT status, body_ciphertext, error_code FROM channel_outbox WHERE outbox_id = $1', [again!.outboxId])).rows[0]!;

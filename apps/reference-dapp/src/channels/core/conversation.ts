@@ -162,7 +162,7 @@ export async function decideTurn(input: TurnInput): Promise<TurnDecision> {
   const choices = reply.kind === 'CLARIFICATION' ? choicesOf(reply.options) : [];
   const body = [reply.text, ...reply.notes].filter(Boolean).join('\n') || failureText('COPILOT_UNAVAILABLE', next.language);
   const after = withCopilot({ ...greeted, language: next.language, choices }, next, env);
-  const replies = [{ text: choices.length > 3 ? `${body}\n${choices.map((c, i) => `${i + 1}. ${c.label}`).join('\n')}\n${lm.choose}` : body, choices, link: null }];
+  const replies = [{ text: body, choices, link: null }];
   return decision('REPLY', `COPILOT_${reply.kind}`, state.greeted ? replies : [text(lm.firstContact(input.support, input.privacy)), ...replies], after);
 }
 

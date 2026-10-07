@@ -59,5 +59,7 @@ export interface ChannelAdapter {
   readonly displayName: string;
   /** Free-form replies are allowed this many hours after the user's last message; null when the provider has no such window. */
   readonly windowHours: number | null;
+  /** Whether these choices can be shown as the provider's own buttons; otherwise Channel Core lists them as numbers in the text. */
+  readonly choicesFit: (choices: readonly ReplyChoice[]) => boolean;
   readonly send: (to: ChannelAddress, reply: ChannelReply, correlationId: string) => Promise<SendResult>;
 }

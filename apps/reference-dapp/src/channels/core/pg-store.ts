@@ -106,12 +106,12 @@ export function createPgChannelStore(db: Database, tenantId: string): ChannelSto
       [tenantId, conversationId, token])).rows[0];
       return Boolean(row);
     },
-    async claimDue(conversationId, now, staleSendingBefore, limit) {
+    async claimDue(conversationId, now, staleSendingBefore, limit, kinds) {
       const rows = (await db.query(`UPDATE channel_outbox SET status = 'SENDING', attempts = attempts + 1, updated_at = $3 WHERE (tenant_id, outbox_id) IN (
-          SELECT tenant_id, outbox_id FROM channel_outbox WHERE tenant_id = $1 AND conversation_id = $2
+          SELECT tenant_id, outbox_id FROM channel_outbox WHERE tenant_id = $1 AND conversation_id = $2 AND kind = ANY($6::text[])
             AND ((status = 'PENDING' AND next_attempt_at <= $3) OR (status = 'SENDING' AND updated_at < $4))
           ORDER BY created_at, sequence FOR UPDATE SKIP LOCKED LIMIT $5)
-        RETURNING *`, [tenantId, conversationId, now, staleSendingBefore, limit])).rows;
+        RETURNING *`, [tenantId, conversationId, now, staleSendingBefore, limit, [...kinds]])).rows;
       return rows.map(outboxOf).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.sequence - b.sequence);
     },
     async markSent(outboxId, providerDigest, now) {

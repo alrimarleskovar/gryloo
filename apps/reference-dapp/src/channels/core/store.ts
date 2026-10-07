@@ -55,8 +55,11 @@ export interface ChannelStore {
   readonly completeTurn: (conversationId: string, token: string, commit: TurnCommit, now: Date) => Promise<readonly string[]>;
   /** Releases the lease only when no event is pending; false means more work arrived and the holder keeps going. */
   readonly release: (conversationId: string, token: string, now: Date) => Promise<boolean>;
-  /** Due outbound messages of a conversation (PENDING and due, or SENDING and stale), now marked SENDING, oldest first. */
-  readonly claimDue: (conversationId: string, now: Date, staleSendingBefore: Date, limit: number) => Promise<readonly OutboxRecord[]>;
+  /**
+   * Due outbound messages of a conversation (PENDING and due, or SENDING and stale), now marked SENDING, oldest first, limited to
+   * `kinds` (an approval message is only ever claimed by the turn that holds its link in memory).
+   */
+  readonly claimDue: (conversationId: string, now: Date, staleSendingBefore: Date, limit: number, kinds: readonly OutboxKind[]) => Promise<readonly OutboxRecord[]>;
   readonly markSent: (outboxId: string, providerDigest: Buffer, now: Date) => Promise<void>;
   readonly markRetry: (outboxId: string, code: string, nextAttemptAt: Date, now: Date) => Promise<void>;
   /** Terminal without delivery (FAILED or SKIPPED): the body is erased. */
