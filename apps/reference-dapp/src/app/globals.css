@@ -1469,3 +1469,22 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 @media(max-width:480px){.wallet-selector{width:calc(100vw - 24px);border-radius:12px}.wallet-selector-panel{padding:16px 14px}}
 @media(prefers-reduced-motion:no-preference){.wallet-selector[open]{animation:wallet-selector-in 160ms ease-out}}
 @keyframes wallet-selector-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Credentials: saved vs active wallet references, inline rename/remove, card entry gate. */
+.workspace-notice{margin:-20px 0 24px;padding:10px 14px;border:1px solid var(--accent-line);border-radius:10px;background:var(--blue-soft);color:var(--accent-ink);font-size:13px;line-height:1.5}
+.workspace-notice:empty{display:none}
+.workspace-wallet-heading .workspace-wallet-status{margin-left:auto;align-self:flex-start;flex:none;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;font-weight:500;white-space:nowrap}
+.workspace-wallet-heading .workspace-wallet-status-active{border-color:var(--accent-line);background:var(--blue-soft);color:var(--accent-ink)}
+.workspace-inline-form{display:grid;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+.workspace-inline-form p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.workspace-inline-form label{font-size:12px}
+.workspace-inline-form input{height:38px;min-width:0;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.workspace-inline-form .workspace-wallet-actions{padding-top:0;border-top:0}
+.workspace-inline-error{color:var(--red)!important}
+.secondary-workspace .workspace-action-danger{border-color:var(--danger-line);background:var(--danger-soft);color:var(--red)}
+.secondary-workspace .workspace-section-heading .workspace-action:enabled{color:var(--blue)}
+.card-entry-body{display:grid;gap:8px}
+.card-entry-body p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.card-entry-body strong{color:var(--ink)}
+.wallet-selector-footer{display:flex;justify-content:flex-end}
+.wallet-selector-footer .workspace-action{min-height:36px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);font-weight:600}

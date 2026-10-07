@@ -60,18 +60,22 @@ for (const theme of ['light', 'dark'] as const) {
     }
     await navigateWorkspace(page, 'Credentials');
     await expect(page.getByRole('heading', { name: 'Wallets', exact: true })).toBeVisible();
-    await expect(page.locator('.workspace-count')).toHaveText('1');
+    await expect(page.locator('#credentials-wallets + .workspace-count')).toHaveText('1');
     await expect(page.locator('.workspace-wallet-card')).toHaveCount(1);
-    await expect(page.locator('.workspace-wallet-card')).toContainText('EVM · External wallet');
+    await expect(page.locator('.workspace-wallet-card')).toContainText('Browser wallet · Ethereum');
+    await expect(page.locator('.workspace-wallet-card')).toContainText('Connected · not saved');
     await expect(page.locator('.workspace-wallet-card')).toContainText('Base Sepolia');
     await expect(page.locator('.workspace-wallet-address code')).toHaveAttribute('title', SUPPLY_OWNER);
     await expect(page.locator('.workspace-wallet-address code')).toHaveCSS('font-family', /IBM Plex Mono/);
-    const copy = page.getByRole('button', { name: 'Copy Connected wallet address' });
+    const copy = page.getByRole('button', { name: 'Copy Browser wallet address' });
     await copy.focus(); await copy.press('Enter');
     await expect(copy).toHaveCSS('outline-style', 'solid');
     await expect(page.getByRole('status')).toHaveText('Address copied.');
     expect(await page.evaluate(() => (window as unknown as { copiedAddresses: string[] }).copiedAddresses)).toEqual([SUPPLY_OWNER]);
-    for (const label of ['Add wallet', 'Add funds', 'Reveal key', 'Delete', 'Add card', 'Add secret']) await expect(page.getByRole('button', { name: label, exact: true })).toBeDisabled();
+    // Add wallet and Add card are real flows now (covered in credentials.spec.ts); nothing offers to reveal a key.
+    for (const label of ['Add wallet', 'Add card']) await expect(page.getByRole('button', { name: label, exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Add secret', exact: true })).toBeDisabled();
+    for (const label of ['Add funds', 'Reveal key', 'Delete']) await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
     expect(await page.getByRole('main').innerText()).not.toMatch(/0x[0-9a-f]{64}|balance|MPC|private key:/i);
     await expect(page.locator('input[type=password]')).toHaveCount(0);
     await navigateWorkspace(page, 'Agents');
@@ -185,10 +189,10 @@ test('Credentials without a connected wallet has a truthful empty state and zero
   const errors = watchErrors(page);
   await page.goto('/app/credentials');
   await expect(page.getByRole('heading', { name: 'Credentials', level: 1 })).toBeVisible();
-  await expect(page.locator('.workspace-count')).toHaveText('0');
-  await expect(page.getByText('No connected wallets', { exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-count')).toHaveText(['0', '0', '0']);
+  await expect(page.getByText('No wallets yet', { exact: true })).toBeVisible();
   await expect(page.locator('.workspace-wallet-card')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add wallet', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Add wallet', exact: true })).toBeEnabled();
   expect(await page.getByRole('main').innerText()).not.toMatch(/0x[0-9a-f]|balance|private key|MPC/i);
   expect(errors).toEqual([]);
 });
