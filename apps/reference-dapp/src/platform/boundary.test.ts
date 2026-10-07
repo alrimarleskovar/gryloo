@@ -18,7 +18,7 @@ const importsOf = (file: string) => {
   return [...text.matchAll(/^(?:import|export)\b[^;]*?\sfrom\s+'([^']+)';/gms), ...text.matchAll(/^import\s+'([^']+)';/gm), ...text.matchAll(/\bimport\(\s*'([^']+)'\s*\)/g)]
     .map(m => [m[0], m[1]!] as const);
 };
-const SHARED_UNDER_MCP = new Set(['src/mcp/execution.ts', 'src/mcp/simulation.ts', 'src/mcp/runtime.ts', 'src/mcp/handoff/store.ts', 'src/mcp/oauth/crypto.ts']);
+const SHARED_UNDER_MCP = new Set(['src/mcp/execution.ts', 'src/mcp/simulation.ts', 'src/mcp/runtime.ts', 'src/mcp/oauth/crypto.ts']);
 const TYPE_ONLY = new Set(['backend/flows.ts', 'src/server/flow-runtime.ts']);
 const PACKAGES = /^(node:|@defi-workflow-engine\/)/;
 
@@ -39,9 +39,10 @@ describe('BUILD-DEVELOPER-001 shared platform boundary', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps the historical handoff service as a pure re-export of the platform (the compatibility surface for /approve, the UI and tests)', () => {
-    const shim = readFileSync(join(src, 'mcp/handoff/service.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\/\/.*$/gm, '').trim();
-    expect(shim).toBe(`export * from '../../platform/approvals.ts';`);
+  it('keeps the historical handoff service and store as pure re-exports of the platform (compatibility surfaces for MCP, the UI and tests)', () => {
+    const shim = (path: string) => readFileSync(join(src, path), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\/\/.*$/gm, '').trim();
+    expect(shim('mcp/handoff/service.ts')).toBe(`export * from '../../platform/approvals.ts';`);
+    expect(shim('mcp/handoff/store.ts')).toBe(`export * from '../../platform/handoff-store.ts';`);
   });
 
   it('leaves no engine implementation in the MCP tool surface: it delegates to the platform', () => {

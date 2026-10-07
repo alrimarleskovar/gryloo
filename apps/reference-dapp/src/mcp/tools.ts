@@ -21,6 +21,7 @@ import { approvalForRequester, approvalProgress, capabilityFacts, composeWorkflo
   type ApprovalRequester } from '../platform/index.ts';
 import { principalScopes, type McpOAuthPrincipal, type McpPrincipal } from './config.ts';
 import { PANEL_MIME, PANEL_URI, panelHtml, panelResourceMeta } from './app/panel.ts';
+import { MCP_HANDOFF_RULES, mcpApprovalLinkScheme } from './approval-profile.ts';
 import { readHandoffPolicy, workflowPlan, type HandoffPolicy } from './execution.ts';
 import type { McpScope, OAuthConfig } from './oauth/config.ts';
 import type { McpState } from './oauth/state.ts';
@@ -270,10 +271,12 @@ const ApprovalSchemas = {
 /** BUILD-MCP-002: the bridge to the owner's own wallet in FloFi. Every result carries authority NONE. */
 function registerApprovalTools(ctx: ToolContext, register: Register) {
   const oauth = ctx.oauth!, state = ctx.state!, principal = ctx.principal as McpOAuthPrincipal;
-  // BUILD-DEVELOPER-001: the shared approval service sees an MCP account as one requester kind among others.
-  const requester: ApprovalRequester = { kind: 'mcp-account', accountId: principal.accountId, grantId: principal.id, clientId: principal.clientId, clientName: principal.clientName };
-  const deps = (): ApprovalDeps => ({ origin: oauth.origin, handoffKey: oauth.keys.handoff, handoffs: state.handoffs,
-    allow: (bucket, limit, windowSeconds, now) => state.oauth.allow(bucket, limit, windowSeconds, now), runtime: ctx.runtime, policy: ctx.policy ?? DEFAULT_POLICY, now: new Date() });
+  // BUILD-DEVELOPER-001: the shared approval service sees an MCP account as one requester kind among others, with MCP's own link
+  // scheme (the `flofi_hs_` links) and rules.
+  const requester: ApprovalRequester = { kind: 'MCP_ACCOUNT', ref: principal.accountId, grantId: principal.id, clientId: principal.clientId, displayName: principal.clientName };
+  const deps = (): ApprovalDeps => ({ origin: oauth.origin, scheme: mcpApprovalLinkScheme(oauth), handoffs: state.handoffs,
+    allow: (bucket, limit, windowSeconds, now) => state.oauth.allow(bucket, limit, windowSeconds, now), runtime: ctx.runtime, policy: ctx.policy ?? DEFAULT_POLICY,
+    rules: MCP_HANDOFF_RULES, now: new Date() });
   const owned = (approvalId: string) => approvalForRequester(state.handoffs, requester, approvalId, new Date());
   const ui = ctx.ui ?? null, appOnly = { ui: { visibility: ['app'] } };
 

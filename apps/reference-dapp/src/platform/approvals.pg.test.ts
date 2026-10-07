@@ -11,12 +11,13 @@ import type { FlowName } from '../../backend/flows.ts';
 import { composeStrategy } from '../engine/strategy-engine';
 import { readHandoffPolicy } from '../mcp/execution.ts';
 import { session } from '../mcp/gateway.test-harness.ts';
-import { deriveKey } from '../mcp/oauth/config.ts';
-import { oauthClient, oauthEnv, ORIGIN, OAUTH_SECRET, signIn } from '../mcp/oauth/oauth-test-harness.ts';
+import { oauthClient, oauthEnv, ORIGIN, signIn } from '../mcp/oauth/oauth-test-harness.ts';
 import { createPgOAuthStore } from '../mcp/oauth/pg-store.ts';
 import { stateOf } from '../mcp/oauth/state.ts';
 import type { McpRuntime } from '../mcp/runtime.ts';
 import { SIMULATIONS_PER_ACCOUNT_HOUR } from '../mcp/tools.ts';
+import { MCP_HANDOFF_RULES, mcpApprovalLinkScheme } from '../mcp/approval-profile.ts';
+import { readOAuthConfig, type OAuthConfig } from '../mcp/oauth/config.ts';
 import { approvalForRequester, approvalProgress, HANDOFF_RATE, MAX_PENDING_HANDOFFS, openApprovalSession, PlatformRefusal, requestApproval, simulatePreview,
   type ApprovalDeps, type ApprovalRequester } from './index.ts';
 
@@ -41,9 +42,10 @@ async function account(calls: string[] = []) {
   const first = (await client.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: hashOf(BRIDGE) })).output as Record<string, unknown>;
   const row = (await t.db.query<{ account_id: string; grant_id: string; client_id: string; client_name: string }>(
     'SELECT account_id, grant_id, client_id, client_name FROM mcp_handoffs WHERE handoff_id = $1', [first.approvalId])).rows[0]!;
-  const requester: ApprovalRequester = { kind: 'mcp-account', accountId: row.account_id, grantId: row.grant_id, clientId: row.client_id, clientName: row.client_name };
-  const s = state(), deps = (): ApprovalDeps => ({ origin: ORIGIN, handoffKey: deriveKey(OAUTH_SECRET, 'handoff'), handoffs: s.handoffs,
-    allow: (bucket, limit, windowSeconds, now) => s.oauth.allow(bucket, limit, windowSeconds, now), runtime: runtime(calls), policy: readHandoffPolicy({}), now: new Date() });
+  const requester: ApprovalRequester = { kind: 'MCP_ACCOUNT', ref: row.account_id, grantId: row.grant_id, clientId: row.client_id, displayName: row.client_name };
+  const s = state(), deps = (): ApprovalDeps => ({ origin: ORIGIN, scheme: mcpApprovalLinkScheme(readOAuthConfig(env) as OAuthConfig), handoffs: s.handoffs,
+    allow: (bucket, limit, windowSeconds, now) => s.oauth.allow(bucket, limit, windowSeconds, now), runtime: runtime(calls), policy: readHandoffPolicy({}),
+    rules: MCP_HANDOFF_RULES, now: new Date() });
   return { client, first, requester, deps };
 }
 const comparable = (value: Record<string, unknown>) => ({ ...value, approvalId: 'ID', approvalUrl: String(value.approvalUrl).replace(/flofi_hs_[A-Za-z0-9_-]{43}$/, 'SECRET'), expiresAt: 'T' });
@@ -76,7 +78,7 @@ describe('BUILD-DEVELOPER-001 platform approval service', () => {
     expect(opened).toMatchObject({ approvalId: a.first.approvalId, authority: 'NONE', walletLinks: { phantom: expect.stringContaining('phantom.app'), metamask: expect.any(String) } });
     expect(opened.approvalUrl).toMatch(/#flofi_hs_[A-Za-z0-9_-]{43}$/);
     expect(await refusal(openApprovalSession(b.deps(), b.requester, String(a.first.approvalId)))).toBe('APPROVAL_NOT_FOUND');
-    await a.deps().handoffs.revoke(String(a.first.approvalId), a.requester.accountId, new Date());
+    await a.deps().handoffs.revoke(String(a.first.approvalId), a.requester.ref, new Date());
     expect(await refusal(openApprovalSession(a.deps(), a.requester, String(a.first.approvalId)))).toBe('APPROVAL_REVOKED');
     expect((await a.client.callTool('open_approval_session', { approvalId: a.first.approvalId })).output).toEqual({ ok: false, code: 'APPROVAL_REVOKED' });
   });
@@ -99,7 +101,7 @@ describe('BUILD-DEVELOPER-001 platform approval service', () => {
 
   it('lets a surface\'s simulation budget run on the shared preview, named neutrally (MCP keeps MCP_SIMULATION_RATE_LIMITED)', async () => {
     const a = await account(), s = state(), request = { strategy: BRIDGE, workflowHash: hashOf(BRIDGE), simulationSubject: '0x' + 'a'.repeat(40) };
-    const budget = () => s.oauth.allow(`simulate:account:${a.requester.accountId}`, SIMULATIONS_PER_ACCOUNT_HOUR, 3_600, new Date());
+    const budget = () => s.oauth.allow(`simulate:account:${a.requester.ref}`, SIMULATIONS_PER_ACCOUNT_HOUR, 3_600, new Date());
     for (let i = 0; i < SIMULATIONS_PER_ACCOUNT_HOUR; i++) expect(await refusal(simulatePreview(runtime(), request, { budget }))).toBe('PREVIEW_DONE');
     expect(await refusal(simulatePreview(runtime(), request, { budget }))).toBe('SIMULATION_RATE_LIMITED');
     expect((await a.client.callTool('simulate_strategy', request)).output).toEqual({ ok: false, code: 'MCP_SIMULATION_RATE_LIMITED' });

@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+/**
+ * BUILD-DEVELOPER-001: the approval surface (`/approve`) this deployment serves — which requester kinds, how their approval links
+ * resolve, and the shared handoff store and runtime behind them. Every FloFi surface that hands proposals to their owners registers
+ * one contributor below: today MCP (while its OAuth server is enabled). The Developer API and channels each add one contributor here;
+ * none adds a second approval page, store, secret format or claim path. With no contributor enabled, /approve answers
+ * APPROVALS_NOT_ENABLED; without the embedded PostgreSQL runtime it answers APPROVAL_STORE_UNAVAILABLE (never memory, a file or /tmp).
+ */
+import { mcpApprovalContributor } from '../mcp/approval-profile.ts';
+import { assembleApprovalSurface, createPgHandoffStore, deploymentEngineRuntime, type ApprovalContributor, type ApprovalHost, type ApprovalSurface, type CookieReader,
+  type EngineRuntime } from '../platform/index.ts';
+import { embeddedRuntime, flowRuntimeKind } from './flow-runtime.ts';
+
+type Env = Readonly<Record<string, string | undefined>>;
+/** The enabled contributors, in registration order. */
+export function approvalContributors(env: Env): readonly ApprovalContributor[] {
+  return [mcpApprovalContributor(env)].filter((c): c is ApprovalContributor => c !== null);
+}
+async function approvalHost(env: Env): Promise<ApprovalHost> {
+  if (flowRuntimeKind(env) !== 'embedded') throw new Error('APPROVAL_STORE_UNAVAILABLE');
+  try { const runtime = await embeddedRuntime(env); return { db: runtime.db, tenantId: runtime.tenantId }; }
+  catch { throw new Error('APPROVAL_STORE_UNAVAILABLE'); }
+}
+/** This request's approval surface. `cookie` reads this request's cookies; `options` are test seams (a host and runtime). */
+export async function approvalSurface(env: Env, cookie: CookieReader, options: { readonly host?: ApprovalHost; readonly runtime?: EngineRuntime } = {}): Promise<ApprovalSurface> {
+  const contributors = approvalContributors(env);
+  if (!contributors.length) throw new Error('APPROVALS_NOT_ENABLED');
+  const host = options.host ?? await approvalHost(env);
+  return assembleApprovalSurface(contributors.map(contribute => contribute(host, cookie)), createPgHandoffStore(host.db, host.tenantId),
+    options.runtime ?? deploymentEngineRuntime(env));
+}

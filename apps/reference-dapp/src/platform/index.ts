@@ -15,10 +15,13 @@ export * from './capabilities.ts';
 export * from './preview.ts';
 export * from './executions.ts';
 export * from './approvals.ts';
+export * from './approval-link-format.ts';
+export * from './approval-links.ts';
+export * from './approve.ts';
+export * from './handoff-store.ts';
 export { ENGINE_VERSION, evaluateGates, evaluateWorkflowGates, executionPlan, handoffFindings, policyGate, workflowPlan, type ExecutionPlan, type Gates,
   type HandoffPolicy, type PlanStep } from '../mcp/execution.ts';
 export { assertSafeOutput, previewPlan, projectSimulation, strategyFlow, type PreviewPlan, type SimulationView } from '../mcp/simulation.ts';
 export { deploymentRuntime as deploymentEngineRuntime, embeddedMcpRuntime as embeddedEngineRuntime, type EvidenceRecord, type McpRuntime as EngineRuntime,
   type Result } from '../mcp/runtime.ts';
-export type { HandoffRecord, HandoffStatus, HandoffStore, WalletRef } from '../mcp/handoff/store.ts';
 export { credentialDigest, credentialOf, newCredential, newId } from '../mcp/oauth/crypto.ts';

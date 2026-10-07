@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 /**
- * BUILD-MCP-002: the FloFi side of a chat proposal (`/approve#<secret>`). It shows that the proposal is EXTERNAL, where it came
+ * BUILD-MCP-002: the FloFi side of an external proposal (`/approve#<secret>`). It shows that the proposal is EXTERNAL, where it came
  * from, its network, funds class, steps, summary and workflow hash, and that nothing is authorized yet. The owner proves a wallet
  * (EIP-4361 or Sign-In With Solana); the server re-verifies and returns the same authoring command FloFi's own chat produces,
  * which enters the existing proposal card. From there the unchanged flow panels run the fresh simulation, the Strategy Manifest
@@ -10,12 +10,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { approvalHandoffView, claimApprovalHandoff, markApprovalApplied, setApprovalSharing } from '../app/approve-action';
 import type { ApprovalView } from '../mcp/handoff/service';
+import { APPROVAL_SECRET_FORMAT } from '../platform/approval-link-format';
 import { useWorkflow } from '../state/workflow-store';
 import type { SolanaWalletChain } from '../wallet/solana-wallet';
 import { useWalletProof, WalletProof } from './wallet-proof';
 import { McpRouteState } from './mcp-route-state';
 
-const SECRET = /^flofi_hs_[A-Za-z0-9_-]{43}$/;
+// BUILD-DEVELOPER-001: any FloFi approval link (MCP's `flofi_hs_…` and later surfaces' own tags); the server resolves which one.
+const SECRET = APPROVAL_SECRET_FORMAT;
 const STORAGE_KEY = 'flofi.approval.secret';
 const TERMINAL = ['EXPIRED', 'SUPERSEDED', 'REVOKED', 'STALE'];
 const STATUS_TEXT: Record<string, string> = {
@@ -104,7 +106,7 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
   const terminal = TERMINAL.includes(view.status), real = view.fundsClass === 'REAL_FUNDS', canClaim = !terminal && !view.refusal && !view.claimedByAnotherWallet;
   return <div className="approval-page"><section className="panel approval-handoff" aria-label="External proposal">
     <div className="approval-head"><div><p className="eyebrow">EXTERNAL PROPOSAL · FROM {view.clientName.toUpperCase()}</p>
-      <h2>A strategy proposed in your chat with {view.clientName}</h2></div>
+      <h2>A strategy proposed via {view.clientName}</h2></div>
       <span className="status-badge info" aria-label="Approval status">{STATUS_TEXT[view.status] ?? view.status}</span></div>
     <p className="approval-nothing"><strong>Nothing is authorized yet.</strong> This page only shows the proposal. Your wallet signs nothing until you run a fresh simulation,
       review the Strategy Manifest and approve each transaction yourself.</p>
@@ -118,16 +120,16 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
     {view.summary && <p className="approval-summary">{view.summary}</p>}
     {view.explanation.length > 0 && <ul className="approval-explanation">{view.explanation.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p className="muted approval-ai">Proposed with an AI assistant from your conversation. It is not financial advice; you decide, and only your wallet can sign.</p>
-    {terminal && <p className="approval-ended" role="status">This request is {STATUS_TEXT[view.status]?.toLowerCase()}. Ask your assistant to prepare it again.</p>}
+    {terminal && <p className="approval-ended" role="status">This request is {STATUS_TEXT[view.status]?.toLowerCase()}. Ask for a new proposal.</p>}
     {view.refusal && !terminal && <p className="approval-ended" role="status">FloFi cannot hand this proposal to a wallet on this deployment now ({view.refusal}).</p>}
-    {view.claimedByAnotherWallet && <p className="approval-ended" role="status">Another wallet already opened this proposal. Ask your assistant for a new request.</p>}
+    {view.claimedByAnotherWallet && <p className="approval-ended" role="status">Another wallet already opened this proposal. Ask for a new proposal.</p>}
     {canClaim && !claimed && <div className="approval-steps">
       <h3>1. Prove which wallet you are</h3>
       <WalletProof namespace={view.walletNamespace} proof={proof}/>
       <p className="muted">This signs a sign-in message only. It authorizes no transaction and moves no funds.</p>
       <h3>2. Load the proposal into FloFi</h3>
       <label className="approval-share"><input type="checkbox" checked={share === true} onChange={e => toggleShare(e.target.checked)}/>
-        Share the status and evidence of runs started from this proposal with the FloFi account connected to {view.clientName}</label>
+        Share the status and evidence of runs started from this proposal with {view.clientName}</label>
       <div className="approval-actions"><button type="button" className="primary" disabled={busy || !proven} onClick={() => void claim()}>Load proposal</button></div>
     </div>}
     {claimed && <div className="approval-steps">

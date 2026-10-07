@@ -171,6 +171,53 @@ Developer code (and later CHANNELS) imports **only** `src/platform`; a guard tes
 importing `src/mcp/**`. A new requester kind is a new `ApprovalRequester` variant plus a value of the persisted
 `requester_kind` (§17). It is not a new handoff system, column family or service.
 
+### 2.5 Phase 2A — one approval model for every requester (implemented after `819c197`)
+
+Owner instruction: remove the remaining MCP-only assumptions of the approval handoff before the Developer API, so that MCP,
+the Developer API and channels share one approval system.
+
+- **Requester model.** `ApprovalRequester` is generic, with `kind` ∈ `MCP_ACCOUNT` | `DEVELOPER_PROJECT` |
+  `CHANNEL_CONVERSATION`, `ref` (the isolation key; the account id for MCP), `clientId`, `displayName` and, for non-MCP kinds,
+  an immutable non-secret `context`. MCP keeps its `grantId`. Only MCP is served today. The other kinds have a persisted model
+  and no service rules yet.
+- **Migration `0006_approval_requesters.sql`** generalizes `mcp_handoffs` in place; there is no second table. It adds:
+  - `requester_kind` (default `MCP_ACCOUNT`, so existing rows and MCP-shaped inserts are MCP rows);
+  - `requester_id` (non-MCP identity);
+  - a generated `requester_ref` (= `coalesce(requester_id, account_id)`);
+  - `requester_context` (an object, at most 4 KiB).
+
+  `account_id` and `grant_id` become nullable. One CHECK ties each kind to its identity shape, and a new index covers
+  `(kind, ref)`. The transition trigger is replaced with the requester columns added to the immutable set; the `MCP_HANDOFF_*`
+  messages are unchanged. Developer tables move to `0007` with the Developer API (§17).
+- **Generic approval links.** The secret grammar is `flofi_<tag>hs_` + 43 base64url (256 bits). A surface registers one
+  *scheme*: a prefix, its own 32-byte HMAC key and the requester kinds it may resolve. Only the digest is stored. A presented
+  secret resolves through the scheme owning its prefix, and the lookup is limited to that scheme's kinds. MCP's scheme is
+  `flofi_hs_` with the MCP OAuth handoff key, so existing links are byte-identical. Files: `src/platform/approval-links.ts` and
+  `approval-link-format.ts` (the latter is client-safe).
+- **`/approve` as FloFi's approval surface.**
+  - The view, claim, apply and share logic moved from `approve-action.ts` into `src/platform/approve.ts`; the server actions are
+    thin adapters.
+  - `src/server/approval-surface.ts` assembles the surface from per-surface *contributors*: today MCP's
+    (`src/mcp/approval-profile.ts`), only while MCP OAuth is enabled.
+  - With no contributor, the answer is `APPROVALS_NOT_ENABLED`. Without the embedded store, it is
+    `APPROVAL_STORE_UNAVAILABLE`.
+  - The page copy is neutral ("proposed via …"). The client accepts any approval-link grammar.
+- **Hooks per requester kind.** Each profile supplies:
+  - a handoff policy (re-checked at view and claim);
+  - an optional async **claim policy**, evaluated on the handoff's immutable requester data and enforced inside the claim (e.g.
+    an intended wallet);
+  - an optional **viewer** (the requester this browser is: MCP's account cookie).
+
+  Handoff rules (window, cap, rate, supersession) and the rate limiter are injected by each surface.
+- **For BUILD-CHANNELS-001 after rebasing:** do not add a `channel` column, `0006_channels.sql` or a key fallback. Instead:
+  - use requester kind `CHANNEL_CONVERSATION` with `ref` = its conversation id (`REQUESTER_REF` grammar), `clientId` such as
+    `whatsapp:<phone_number_id>`, `displayName` `WhatsApp` and, for the self-directed rule, `context: { intendedWallet }`;
+  - register one contributor in `src/server/approval-surface.ts`: a scheme such as `flofi_chs_` keyed by HKDF of
+    `FLOFI_CHANNEL_SECRET`, plus a profile with its policy and an intended-wallet `claimPolicy`;
+  - call `requestApproval` with its own `HandoffRules` (no supersession; it revokes its previous live handoff through
+    `revokeForRequester`);
+  - take its own tables in the next free migration number (`0007` or later).
+
 ## 3. Architecture
 
 ```
@@ -183,7 +230,7 @@ Third-party server ─ SDK ┴─► /api/developer/v1/*   src/developer/http.ts
                      src/platform/  (one shared engine service)
      compose ─► canonical IR + workflowHash ─► validation/review ─► execution plan + four facts ─► simulation preview
                                    │
-          approval handoff (mcp_handoffs; requester_kind MCP_ACCOUNT | DEVELOPER_PROJECT; immutable, forward-only)
+  approval handoff (mcp_handoffs; requester_kind MCP_ACCOUNT | DEVELOPER_PROJECT | CHANNEL_CONVERSATION; immutable, forward-only)
                                    │  approvalUrl = <origin>/approve#<secret>      (authority NONE)
                                    ▼
      /approve (FloFi origin) ─► wallet proof (EIP-4361 / SIWS) ─► claim (re-compose, re-check, CAS) ─► propose(command)
@@ -336,10 +383,12 @@ These keep the same conventions and are additive; none is needed for the E2E:
 3. The server re-composes the stored strategy with the current engine (`composeWorkflowBound`); if that no longer reproduces
    the hash → 409 `STRATEGY_STALE` (MCP-002 `STALE`). It then evaluates the four facts and `handoffFindings` (blockers → 422
    `REVIEW_BLOCKED`). This is the same platform path `request_user_approval` uses after commit 1.
-4. The handoff is an `mcp_handoffs` row with `requester_kind = 'DEVELOPER_PROJECT'`, `project_id`, `environment` and
-   `strategy_id`. It holds its own copy of the canonical strategy, hash, engine version and plan. The **existing** immutability
-   trigger (extended to the new columns) forbids changing any of them. A new INSERT trigger requires `workflow_hash` to equal
-   the referenced strategy's hash, in the same project, so the database binds an approval to one immutable strategy revision.
+4. The handoff is an `mcp_handoffs` row with `requester_kind = 'DEVELOPER_PROJECT'`, `requester_id` = the project-and-environment
+   ref and `requester_context = { strategyId }` (the generic requester model of §2.5, no developer-specific columns). It holds
+   its own copy of the canonical strategy, hash, engine version and plan. The immutability trigger (0006 covers the requester
+   columns) forbids changing any of them. The developer migration (`0007`) adds an INSERT trigger that requires `workflow_hash`
+   to equal the referenced strategy's hash in the same project, so the database binds an approval to one immutable strategy
+   revision.
 5. The approval URL is `<origin>/approve#flofi_dhs_<43>`. The secret travels only in the fragment, and the row keeps an HMAC
    digest under the developer key.
 6. `/approve` re-verifies (`verifyHandoff`) on view, and again inside the row lock on claim. The claim binds the proving wallet
@@ -352,10 +401,11 @@ These keep the same conventions and are additive; none is needed for the E2E:
 
 ## 9. Approval handoff for the developer requester
 
-- **Service boundary (D5 condition):** the Developer API calls only `src/platform/approvals.ts` with
-  `ApprovalRequester = { kind: 'developer-project', projectId, environment, projectName, strategyId }` (added in Task 2 next to
-  `mcp-account`). The store interface is requester-neutral (`create`, `forRequester`, `claim`, `apply`, `openSession`,
-  `bindRuns`, `setSharing`, `purge`). MCP's `forAccount` stays as a compatibility wrapper.
+- **Service boundary (D5 condition, implemented in Phase 2A):** the Developer API calls only `src/platform` with
+  `ApprovalRequester = { kind: 'DEVELOPER_PROJECT', ref: '<project>.<environment>', clientId: <project id>, displayName:
+  <project name>, context: { strategyId } }`. The store is requester-neutral (`create`, `forRequester`, `bySecret`, `claim`,
+  `apply`, `revokeForRequester`, `openSession`, `setSharing`, `listForRequester`); MCP's `forAccount`, `revoke` and
+  `listForAccount` stay as compatibility forms.
 - **Persistence and backward compatibility:** the table name `mcp_handoffs` and the trigger messages (`MCP_HANDOFF_*`) are
   kept, because existing MCP PostgreSQL tests assert them and query the table directly. They are adapter details behind the
   platform store. A rename to `approval_handoffs` can come later in one migration plus one store file.
@@ -363,12 +413,13 @@ These keep the same conventions and are additive; none is needed for the E2E:
   and environment: 100. **No supersession** for developer requesters, because many end users may share one workflow hash.
   Idempotent replays never return a stored secret (§12).
 - **`/approve`** (Task 5):
-  - `approve-action.ts` dispatches on the secret prefix through a small platform key registry (`flofi_hs_` → MCP key,
-    `flofi_dhs_` → developer key; a disabled surface → `HANDOFF_NOT_FOUND`). It works when either surface is enabled.
-  - `approvalView` gains `requesterKind`.
-  - `approval-handoff.tsx` (the build's only UI edit, with existing CSS classes) shows for developer approvals: "EXTERNAL
-    PROPOSAL · FROM <PROJECT NAME> (third-party app registered with FloFi)" and "Created by <name>, not by FloFi. It is not
-    financial advice; you decide, and only your wallet can sign." MCP copy is unchanged.
+  - Since Phase 2A, `/approve` resolves secrets through the registered link schemes and serves every registered requester kind.
+    It no longer requires MCP OAuth, and `approvalView` carries `requesterKind`.
+  - The Developer API registers one contributor: scheme `flofi_dhs_` (key from `FLOFI_DEVELOPER_SECRET`) and a
+    `DEVELOPER_PROJECT` profile (its policy; no viewer).
+  - Still to do in Task 5: make the AI-involvement line on `approval-handoff.tsx` requester-aware. It is accurate for MCP and
+    channels but not for every app. Developer approvals then read "Created by <name>, not by FloFi. It is not financial
+    advice; you decide, and only your wallet can sign." Existing CSS classes only.
 - **Status sharing (D4, approved):** the checkbox "Share this execution's status and evidence with <name>" is **OFF by
   default**. Without it, the developer sees approval states only (claimed / applied / ended), never the wallet, runs or
   evidence. The user can change it after the claim (`setApprovalSharing`).
@@ -531,14 +582,15 @@ const event = await verifyWebhook({ payload: rawBody, headers, secret });   // S
   - an app-side type test asserts the SDK types are mutually assignable with the server's TypeBox `Static` types;
   - an app-side contract test drives the SDK against the real handler through the injected `fetch`.
 
-## 17. Storage: migration `0006_developer_platform.sql`
+## 17. Storage: migrations `0006_approval_requesters.sql` (Phase 2A, implemented) and `0007_developer_platform.sql`
 
 Every table key starts with `tenant_id`. Only keyed digests are stored; there is no plaintext credential and no reversible
 secret.
 
 | Table / change | Columns (abridged) | Notes |
 | --- | --- | --- |
-| `ALTER mcp_handoffs` | `+ requester_kind` `MCP_ACCOUNT` / `DEVELOPER_PROJECT` (default `MCP_ACCOUNT`); `+ project_id`, `+ environment`, `+ strategy_id`; `account_id`, `grant_id` nullable | CHECK per kind (`MCP_ACCOUNT` ⇒ account + grant, no project; `DEVELOPER_PROJECT` ⇒ project + environment + strategy, no account/grant); composite FK `(tenant, project, strategy)` → strategies; INSERT trigger: `workflow_hash` = strategy's; transition trigger replaced (new columns immutable; `MCP_HANDOFF_*` messages kept); partial index for developer rows. Existing rows become `MCP_ACCOUNT` unchanged. Later requester kinds (e.g. a channel) extend the CHECK in their own migration. |
+| `0006`: `ALTER mcp_handoffs` (implemented) | `+ requester_kind` (`MCP_ACCOUNT`, `DEVELOPER_PROJECT`, `CHANNEL_CONVERSATION`; default `MCP_ACCOUNT`), `+ requester_id`, `+ requester_ref` (generated), `+ requester_context`; `account_id`, `grant_id` nullable | one CHECK per kind's identity shape; index on `(tenant, kind, ref, status, created_at)`; transition trigger replaced (requester columns immutable; `MCP_HANDOFF_*` messages kept). Existing rows become `MCP_ACCOUNT` unchanged (§2.5). |
+| `0007`: developer binding | INSERT trigger on `mcp_handoffs` for `DEVELOPER_PROJECT` rows: `requester_context.strategyId` names a strategy of the same project whose `workflow_hash` equals the handoff's | the DB binds an approval to one immutable strategy revision (§8) |
 | `developer_projects` | `project_id ^prj_[a-z2-7]{26}$`, `display_name` (1–64, printable, operator-set), `status`, `plan` | disabling a project disables all its keys at once |
 | `developer_api_keys` | `key_id`, `project_id`, `environment`, `key_digest bytea(32) UNIQUE`, `hint` (last 4), `scopes text[]` ⊆ the four scopes, `status`, `created_at`, `revoked_at`, `last_used_at` | the environment fixes the prefix (`flofi_sk_test_` ↔ sandbox, `flofi_sk_live_` ↔ production) |
 | `developer_strategies` | `strategy_id`, `project_id`, `environment`, `strategy jsonb ≤ 16 KiB`, `workflow_hash`, `engine_version`, `funds_class`, `network_environment`, `plan jsonb`, `created_at`; `UNIQUE (tenant_id, project_id, strategy_id)` | `BEFORE UPDATE` → raise; CHECK: sandbox ⇒ TEST_FUNDS |
@@ -547,8 +599,9 @@ secret.
 | `developer_webhook_deliveries` | `delivery_id`, `project_id`, `endpoint_id`, `event_id`, `status` PENDING/SUCCEEDED/DEAD, `attempts`, `next_attempt_at`, `claimed_until`, `last_attempt_at`, `last_status`, `last_error`; `UNIQUE (tenant_id, endpoint_id, event_id)` | retention 30 d |
 | `developer_usage` | PK `(tenant_id, project_id, environment, day, metric, dimension)`, `count bigint` | kept |
 
-Reused unchanged: `mcp_rate_limits` (buckets `dev:<prj>:<env>:<metric>`) and `api_idempotency`. The identity of 0006 is pinned
-in `SHIPPED_MIGRATIONS`. The number assumes no other branch takes 0006 first (§22).
+The developer tables above are `0007`. Reused unchanged: `mcp_rate_limits` (buckets `dev:<prj>:<env>:<metric>`) and
+`api_idempotency`. Both identities are pinned in `SHIPPED_MIGRATIONS`. BUILD-DEVELOPER-001 owns `0006` (owner decision); other
+branches take the next free number (§22).
 
 ## 18. Configuration and operator tooling
 
@@ -647,23 +700,23 @@ It would call the same store functions as the CLI.
 | Branch | Overlap | Handling |
 | --- | --- | --- |
 | `codex/build-product-ux-001` (UX/rebrand, base `1cf923f`, 253 files) | `src/app/{page,layout}.tsx`, `globals.css`, `src/app/app/**`, shell components, `workflow-store.tsx`, `domain/commands.ts`, ~80 e2e specs and baselines | **Not touched.** The only UI edit (Task 5) is `approval-handoff.tsx`, an MCP-002 file absent from that branch, using existing CSS classes. |
-| `claude/build-channels-001` (same base `8f9650a`; its plan is uncommitted in its own worktree, read here, not modified) | Its plan independently proposes: (a) a requester-generic `requestApproval`; (b) migration `0006_channels.sql` adding a `channel` column to `mcp_handoffs` and making `grant_id` nullable; (c) `/approve` working without MCP OAuth through a key fallback; (d) an optional `approval-handoff.tsx` progress ping; (e) `after()` sweeps | **This build owns (a)** in commit 1 (`ApprovalRequester`, `src/platform/approvals.ts`). (b), (c) and the requester-neutral store land in Tasks 2 and 5, and CHANNELS can consume them as a new requester kind and a new key prefix in the registry instead of a parallel `channel` column and fallback. Remaining risk in the "Remaining overlap" list below. |
+| `claude/build-channels-001` (same base `8f9650a`; its plan is uncommitted in its own worktree, read here, not modified) | Its plan independently proposes: (a) a requester-generic `requestApproval`; (b) migration `0006_channels.sql` adding a `channel` column to `mcp_handoffs` and making `grant_id` nullable; (c) `/approve` working without MCP OAuth through a key fallback; (d) an optional `approval-handoff.tsx` progress ping; (e) `after()` sweeps | **This build owns (a), (b) and (c)**: (a) in commit 1, and (b) and (c) in Phase 2A (§2.5): migration `0006` with the generic requester model, link schemes and the contributor-based `/approve`. CHANNELS consumes them as requester kind `CHANNEL_CONVERSATION` plus one contributor, instead of a parallel `channel` column, migration and key fallback. Remaining risk in the list below. |
 | `claude/build-mcp-002` → `main` (after #63) | this branch must be re-stacked (`git rebase --onto`) | MCP edits are limited to delegation in `tools.ts` and the `service.ts` re-export (commit 1), plus the store generalization (Task 2); MCP assertions are unchanged |
 
 **Remaining overlap with BUILD-CHANNELS-001** (for the owner to coordinate in the other worktree):
 
-1. **Migration number and handoff schema.** Both plans claim `0006` and both alter `mcp_handoffs`, with different
-   discriminators (`requester_kind` here, `channel` there). Whichever merges second must renumber. If CHANNELS follows this
-   design, it adds a requester kind (e.g. `CHANNEL_CONVERSATION`: account set, grant null) in its own migration instead of a
-   `channel` column.
-2. **`/approve` key handling.** CHANNELS planned "MCP key when enabled, else `FLOFI_CHANNEL_SECRET`". This build introduces a
-   prefix-keyed registry, where CHANNELS would register its own prefix and key.
-3. **`approval-handoff.tsx`.** This build makes copy origin-aware (Task 5). CHANNELS' optional D5-3 ping touches the same file.
-   That is a small textual conflict risk.
-4. **Self-directed claim rule.** CHANNELS refuses claims when a strategy address differs from the claimant. This build defers
-   its analogue (D12). Both fit the existing `claim(…, decide)` callback per requester kind, so no new hook is needed.
-5. **Timing.** If CHANNELS implements before commit 1 lands, it would re-do the extraction. Ownership is documented here, and
-   coordination is the owner's.
+1. **Migration number.** Owner decision: BUILD-DEVELOPER-001 owns `0006` (implemented in Phase 2A). The handoff schema needs
+   no channel change: `CHANNEL_CONVERSATION` is already a persisted kind. CHANNELS' own tables take the next free number, so
+   whichever of CHANNELS and the Developer API's `0007` merges second renumbers.
+2. **`/approve` key handling.** Resolved by Phase 2A link schemes. CHANNELS registers a `flofi_<tag>hs_` scheme and a
+   contributor; it does not add a key fallback.
+3. **`approval-handoff.tsx`.** Phase 2A made the chat-specific copy neutral and accepts any approval-link grammar. CHANNELS'
+   optional D5-3 ping and the Developer API's requester-aware AI line still touch this file: small textual conflict risk.
+4. **Self-directed claim rule.** It is a `claimPolicy` on the `CHANNEL_CONVERSATION` profile reading `context.intendedWallet`.
+   The hook exists and is tested (§2.5).
+5. **Account model.** CHANNELS planned handoffs bound to an `mcp_accounts` row with no grant. Under the shared model a
+   conversation is its own requester (no MCP account). If CHANNELS still needs an account for `/connections`-style reads, it
+   keeps that link in its own tables.
 
 ## 23. File-touch list
 
@@ -673,10 +726,13 @@ It would call the same store functions as the CLI.
 
 New:
 
-- `packages/cloud-runtime/migrations/0006_developer_platform.sql`
-- `apps/reference-dapp/src/platform/{handoff-store.ts, approval-keys.ts, fixed-window.ts, pinned-https.ts}` + tests.
-  `handoff-store.ts` is the requester-neutral interface plus the PostgreSQL implementation moved from
-  `src/mcp/handoff/store.ts`, which becomes a re-export.
+- Phase 2A (implemented):
+  - `packages/cloud-runtime/migrations/0006_approval_requesters.sql`;
+  - `apps/reference-dapp/src/platform/{handoff-store.ts, approval-links.ts, approval-link-format.ts, approve.ts}`;
+  - `src/mcp/approval-profile.ts` and `src/server/approval-surface.ts`, plus tests.
+  - `handoff-store.ts` is the requester-neutral store moved from `src/mcp/handoff/store.ts`, which is now a re-export.
+- Later tasks: `packages/cloud-runtime/migrations/0007_developer_platform.sql` and
+  `apps/reference-dapp/src/platform/{fixed-window.ts, pinned-https.ts}` plus tests.
 - `apps/reference-dapp/src/developer/{config.ts, keys.ts, store.ts, pg-store.ts, http.ts, router.ts, schemas.ts, views.ts, errors.ts, events.ts, webhooks.ts, dispatch.ts, openapi.ts, test-harness.ts}`
 - `apps/reference-dapp/src/developer/resources/{capabilities,strategies,approvals,executions,webhook-endpoints}.ts`
 - Tests:
@@ -725,7 +781,7 @@ Modified:
 | Invalid scope | `auth.pg`: each route × missing scope → 403 `INSUFFICIENT_SCOPE` |
 | Tenant isolation | `isolation.pg`: project A × every B resource id (strategy via validate/simulate/approve, approval, execution, evidence, endpoint delete) → identical 404; two deployment tenants |
 | Capability discovery | rows equal `codeCapabilities()` + gates; sandbox marks mainnet unavailable; no flow names or adapters leak |
-| Strategy creation + StrategySpec parity | `strategies.pg` (v1, v2, lending collapse, general 2-step → not executable, schema errors with paths, sandbox mainnet refused); `parity.test`: for every `STRATEGY_EXAMPLES` entry (15 today) + v2 shapes, REST hash ≡ MCP `compose_strategy` ≡ `composeWorkflow` |
+| Strategy creation + StrategySpec parity | `strategies.pg` (v1, v2, lending collapse, general 2-step → not executable, schema errors with paths, sandbox mainnet refused); `parity.test`: for every `STRATEGY_EXAMPLES` entry (19 today) + v2 shapes, REST hash ≡ MCP `compose_strategy` ≡ `composeWorkflow` |
 | Validation | findings equal `reviewComposition`; injected engine change → `STRATEGY_STALE` |
 | Simulation | view equals MCP `simulate_strategy` on MOCKED flows; subject namespace; budget → 429; busy → 503 |
 | Approval handoff creation | `approvals.pg`: happy path, `STRATEGY_CHANGED`, `STRATEGY_STALE`, `REVIEW_BLOCKED`, `CAPABILITY_NOT_SUPPORTED` reasons, pending cap, no supersession |
@@ -763,10 +819,9 @@ Each task is test-first, ends green, and is its own commit.
    `composeSingleStep`, `validateStrategy`, `reviewWorkflow`, `capabilityFacts`, `simulatePreview`, `findOwnedRun`,
    `executionStatusView`, `evidenceView`, `ApprovalRequester`, `requestApproval`, `approvalProgress`, `verifyHandoff`,
    `approvalView`, `openApprovalSession`, `walletDeepLinks`, and the neutral re-exports. *Gate:* §2.3.
-2. **Handoff persistence generalization + migration 0006.** SQL and its identity pin; the requester-neutral
-   `src/platform/handoff-store.ts` (moved PostgreSQL implementation, `src/mcp/handoff/store.ts` re-export, `forAccount`
-   wrapper); `requester_kind`; the `developer-project` requester variant; no supersession for it; developer tables. *Gate:* MCP
-   handoff and journey pg tests unchanged; new migration, immutability and binding pg tests.
+2. **Phase 2A, done: shared approval/handoff generalization (§2.5).** Generic requester model, migration `0006`, link schemes,
+   contributor-based `/approve`, and claim-policy and viewer hooks, with MCP behaviour unchanged. The developer requester's
+   rules, scheme and contributor, and the developer tables (`0007`), come with Tasks 3–5.
 3. **Developer config, API keys, store, operator CLI.**
 4. **HTTP boundary + the ten endpoints.** Covers enablement, Origin refusal, body bound, key → principal, scopes, request id,
    `fixedWindow` limits and usage counters, idempotency, error mapping, logging, the `schedule` seam (`after()`), the route
