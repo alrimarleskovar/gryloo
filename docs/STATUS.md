@@ -7,6 +7,21 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-MCP-001 — FloFi Remote MCP Gateway
+
+**Status: IMPLEMENTATION COMPLETE — NO LIVE THIRD-PARTY CLIENT CONNECTED YET; NO TRANSACTION.** Branch
+`claude/build-mcp-001` from main `bf84bbd` (BUILD-CLOUD-PARITY-001 merged). `POST /api/mcp` is a stateless Streamable HTTP
+MCP server (official SDK v2, `@modelcontextprotocol/server` 2.2.0) with nine read-only tools: networks, assets and
+capabilities derived from the registries; `compose_strategy` / `validate_strategy` / `review_strategy` through a pure engine
+facade (`src/engine`) over the DApp's own commands, reducer, linter and capability registry (MCP IR byte-identical to DApp
+chat authoring); `simulate_strategy` as a read-only preview of each flow's unchanged simulation (nothing persisted, not
+authorizable, no calldata returned); owner-scoped `get_execution_status` / `get_evidence`. Stateless strategy contract bound
+by `semanticWorkflowHash`; no new table. Dedicated `FLOFI_MCP_CLIENTS` credentials (digests only; never `API_AUTH_TOKEN`);
+no FloFi-owned model call. Off unless `FLOFI_MCP=enabled`. Evidence: `MOCKED` only. Known: no production OAuth (consumer
+connectors cannot connect yet); `pnpm audit` currently fails on a pre-existing `source-map-js` advisory whose fix clears the
+release-age gate on 2026-10-07. See the [plan](builds/BUILD-MCP-001-PLAN.md), [report](builds/BUILD-MCP-001-REPORT.md) and
+[MCP guide](deploy/MCP.md).
+
 ## BUILD-ETHEREUM-001 — Ethereum Sepolia as a first-class execution network
 
 **Status: IMPLEMENTATION COMPLETE — READY_FOR_OWNER_EXECUTION (no public transaction made; `TESTNET_EXECUTED` not

@@ -17,7 +17,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Backend, BackendOptions } from '../../backend/app.ts';
 import type { FlowName } from '../../backend/flows.ts';
-import { callCloudFlow, listCloudRuns, type CloudRunSummary, type FlowResult } from './cloud-api-client.ts';
+import { callCloudFlow, listCloudRuns, previewCloudFlow, readCloudRun, type CloudRunSummary, type FlowResult } from './cloud-api-client.ts';
 import { deploymentTenant, isHostedDeployment } from './deployment.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -33,9 +33,16 @@ export function flowRuntimeKind(env: Env): FlowRuntimeKind {
   return embedded || isHostedDeployment(env) ? 'unconfigured' : 'local';
 }
 
+/** BUILD-MCP-001: one durable run as the read model projects it (status, owner, attempts). */
+export type CloudRun = { runId: string; workflowId: string; flow: string; status: string; provenance: string; ownerAccount: string | null; errorCode: string | null;
+  needsObservation: boolean; attentionRequired: boolean; hasEvidence: boolean; createdAt: string; updatedAt: string; attempts: unknown[] };
+export type CloudJournalPage = { items: Record<string, unknown>[]; next: string | null };
 export type EmbeddedRuntime = { readonly backend: Backend; readonly tenantId: string;
   readonly runs: (flow: FlowName, owner: string) => Promise<CloudRunSummary[]>; readonly schemaVersion: number;
-  readonly ping: () => Promise<void> };
+  readonly ping: () => Promise<void>;
+  /** BUILD-MCP-001: one run of `owner` in this deployment's tenant; `null` when absent or owned by anyone else. */
+  readonly run: (runId: string, owner: string) => Promise<CloudRun | null>;
+  readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<CloudJournalPage | null> };
 /** Pool sizing for serverless: a few connections per instance; use the provider's pooled endpoint. */
 function poolMax(value: string | undefined): number {
   if (value === undefined || value === '') return 3;
@@ -68,9 +75,12 @@ export async function createEmbeddedRuntime(env: Env, seams: EmbeddedSeams = {})
   const backend = createBackend({ db, env, logger: runtime.createLogger({ service: 'flofi-web' }), tenantId, holderId: `web-${instance}-${randomBytes(4).toString('hex')}`,
     evidenceStore: env.OBJECT_STORE_ENDPOINT || env.OBJECT_STORE_BUCKET ? runtime.readEvidenceStore(env) : null, ...seams });
   const queries = runtime.createRunQueries(db, tenantId);
+  const owned = async (runId: string, owner: string) => { const run = await queries.getRun(runId); return run && run.ownerAccount === owner ? run : null; };
   return { backend, tenantId, schemaVersion, ping: async () => { await db.query('SELECT 1'); }, close: () => db.close(),
     runs: async (flow, owner) => (await queries.listRuns(null, 25, { owner, flow })).items.map(r => ({ runId: r.runId, flow: r.flow, status: r.status,
-      ownerAccount: r.ownerAccount, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })) };
+      ownerAccount: r.ownerAccount, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })),
+    run: owned,
+    journal: async (runId, owner, after, limit) => await owned(runId, owner) ? queries.journal(runId, after, limit) : null };
 }
 /**
  * One pool and one service map per function instance and configuration: a performance cache only; correctness never depends on
@@ -108,6 +118,42 @@ export async function cloudFlowMode(flow: FlowName, env: Env = process.env, tran
   const result = await cloudFlow<unknown>(flow, 'mode', [], { env, ...transport ? { transport } : {} });
   if (result === null) return null;
   return result.ok && (result.value === 'live' || result.value === 'harness') ? result.value : 'off';
+}
+/**
+ * BUILD-MCP-001: a read-only simulation preview (`backend/preview.ts`) on the deployment's cloud runtime — the flow's
+ * unchanged simulation with nothing persisted. Resolves `null` in local mode: the local services keep file journals, so a
+ * local caller must not preview through them (use `FLOFI_RUNTIME=embedded` with a database instead).
+ */
+export async function cloudPreview<T>(flow: FlowName, args: readonly unknown[], options: { readonly env?: Env; readonly transport?: typeof fetch } = {}):
+  Promise<FlowResult<T> | null> {
+  const env = options.env ?? process.env, kind = flowRuntimeKind(env);
+  if (kind === 'local') return null;
+  if (kind === 'unconfigured') return { ok: false, code: 'CLOUD_RUNTIME_NOT_CONFIGURED' };
+  if (kind === 'remote') return previewCloudFlow<T>(flow, args, { env, ...options.transport ? { transport: options.transport } : {} });
+  try { return await (await embeddedRuntime(env)).backend.previewFlow(flow, args) as FlowResult<T>; }
+  catch (error) { return { ok: false, code: classified(error, 'CLOUD_RUNTIME_UNAVAILABLE') }; }
+}
+/**
+ * BUILD-MCP-001: one durable run, or one page of its journal, read as `owner`: `null` when the run is absent or belongs to
+ * anyone else (never distinguishable). `null` result in local mode, where runs are not durable.
+ */
+export async function cloudRun(runId: string, owner: string, options: { readonly env?: Env; readonly transport?: typeof fetch } = {}):
+  Promise<FlowResult<CloudRun | null> | null> {
+  const env = options.env ?? process.env, kind = flowRuntimeKind(env);
+  if (kind === 'local') return null;
+  if (kind === 'unconfigured') return { ok: false, code: 'CLOUD_RUNTIME_NOT_CONFIGURED' };
+  if (kind === 'remote') return readCloudRun<CloudRun>(runId, owner, { env, ...options.transport ? { transport: options.transport } : {} });
+  try { return { ok: true, value: await (await embeddedRuntime(env)).run(runId, owner) }; }
+  catch (error) { return { ok: false, code: classified(error, 'CLOUD_RUNTIME_UNAVAILABLE') }; }
+}
+export async function cloudRunJournal(runId: string, owner: string, after: number | null, limit: number, options: { readonly env?: Env; readonly transport?: typeof fetch } = {}):
+  Promise<FlowResult<CloudJournalPage | null> | null> {
+  const env = options.env ?? process.env, kind = flowRuntimeKind(env);
+  if (kind === 'local') return null;
+  if (kind === 'unconfigured') return { ok: false, code: 'CLOUD_RUNTIME_NOT_CONFIGURED' };
+  if (kind === 'remote') return readCloudRun<CloudJournalPage>(runId, owner, { env, journal: { after, limit }, ...options.transport ? { transport: options.transport } : {} });
+  try { return { ok: true, value: await (await embeddedRuntime(env)).journal(runId, owner, after, limit) }; }
+  catch (error) { return { ok: false, code: classified(error, 'CLOUD_RUNTIME_UNAVAILABLE') }; }
 }
 /** The signed-in wallet's most recent runs of one flow (`null` in local mode). */
 export async function cloudRuns(flow: FlowName, principal: string, env: Env = process.env): Promise<FlowResult<CloudRunSummary[]> | null> {

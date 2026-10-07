@@ -274,8 +274,16 @@ BUILDCLOUD001_DIRECT_VERSIONS = {
 BUILDCLOUD001_CLOUD_RUNTIME = ("packages/cloud-runtime/package.json", "@defi-workflow-engine/cloud-runtime",
                                {"@defi-workflow-engine/reference-executor": "workspace:0.1.0", "pg": "8.23.0"},
                                {"@types/pg": "8.23.1"})
-# BUILD-CLOUD-001 adds 15 registry packages (pg, @types/pg and their MIT/ISC dependencies) to the 247.
-REGISTRY_PACKAGE_COUNT = 262
+# BUILD-MCP-001 exact direct pin for the official MCP TypeScript SDK v2 server (MIT). Its only registry
+# dependencies are @modelcontextprotocol/core@2.2.0 and zod@4.6.5 (both MIT, no license exception). The
+# reference app also links the already approved BUILD-001 pins @sinclair/typebox and ajv for tool schemas.
+BUILDMCP001_DIRECT_VERSIONS = {
+    "@modelcontextprotocol/server": "2.2.0",
+}
+# BUILD-CLOUD-001 adds 15 registry packages (pg, @types/pg and their MIT/ISC dependencies) to the 247;
+# Current main retains 262 after the Colosseum security updates; BUILD-MCP-001 adds
+# 3 (@modelcontextprotocol/server, @modelcontextprotocol/core, zod) to that graph.
+REGISTRY_PACKAGE_COUNT = 265
 
 # The pre-existing BUILD-001 MPL tooling exception is exact-name scoped too.
 BUILD001_LIGHTNINGCSS_NAMES = {
@@ -324,7 +332,7 @@ def verify_dependencies():
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
     resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
-    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "172a6ba2e54ebfafc48c71e29ce0e477ce9f8256dce6c7687ee4c90c9b9c0eaf":
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "8d75e09e13fdaa1797d985cf0ffdabeeaf978b5b24b13d46b9a29779f7d15208":
         errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
@@ -381,6 +389,10 @@ def verify_dependencies():
         "@defi-workflow-engine/workflow-contracts": "workspace:0.3.0",
         **{key: BUILD002_DIRECT_VERSIONS[key] for key in
            ("@xyflow/react", "next", "react", "react-dom")},
+        # BUILD-MCP-001: the remote MCP gateway (official SDK) and its tool schemas (approved BUILD-001 pins).
+        **BUILDMCP001_DIRECT_VERSIONS,
+        "@sinclair/typebox": "0.34.52",
+        "ajv": "8.20.0",
     }
     expected_app_dev = {key: BUILD002_DIRECT_VERSIONS[key] for key in
                         ("@playwright/test", "@types/react", "@types/react-dom")}
@@ -473,6 +485,11 @@ def verify_dependencies():
     for identity, version in BUILDCLOUD001_DIRECT_VERSIONS.items():
         if identity + "@" + version not in locked:
             errors.append(f"BUILD-CLOUD-001 direct lock identity missing: {identity}@{version}")
+    for identity, version in BUILDMCP001_DIRECT_VERSIONS.items():
+        if identity + "@" + version not in locked:
+            errors.append(f"BUILD-MCP-001 direct lock identity missing: {identity}@{version}")
+        if not re.search(rf"(?m)^      '{re.escape(identity)}':\n        specifier: {re.escape(version)}\n        version: {re.escape(version)}$", app_importer):
+            errors.append(f"BUILD-MCP-001 app lock importer differs: {identity}")
     for manifest_path in [Path("package.json"), *Path("packages").glob("*/package.json"),
                           Path("apps/reference-dapp/package.json")]:
         manifest = json.loads(manifest_path.read_text())
@@ -482,7 +499,8 @@ def verify_dependencies():
                     continue
                 if (name + "@" + version not in pins and BUILD002_DIRECT_VERSIONS.get(name) != version
                         and BUILD003D_DIRECT_VERSIONS.get(name) != version
-                        and BUILDCLOUD001_DIRECT_VERSIONS.get(name) != version):
+                        and BUILDCLOUD001_DIRECT_VERSIONS.get(name) != version
+                        and BUILDMCP001_DIRECT_VERSIONS.get(name) != version):
                     errors.append(f"Unapproved direct pin: {name}@{version}")
 
     def dependencies(body, group):

@@ -128,6 +128,14 @@ A user then needs no terminal: open the Preview URL → connect a wallet → sel
 Manifest → sign in the wallet. Reconciliation is request-driven on the embedded runtime (reopening a run observes the chain);
 there is no background worker on a Preview, and Vercel Cron does not run for Previews.
 
+## Remote MCP gateway (BUILD-MCP-001)
+
+`POST /api/mcp` exposes the deterministic engine to MCP clients (Claude, ChatGPT-compatible agents, any MCP client): discovery,
+compose, validate, review, a read-only simulation preview and owner-scoped status/evidence — never signing, submission or
+approval. It runs in the same Vercel function runtime as the rest of the app (embedded or remote), needs no new service,
+and is off unless `FLOFI_MCP=enabled` with `FLOFI_MCP_CLIENTS` is set. Remote mode needs an API build that includes
+`POST /v1/previews/:flow`. Setup, credentials and client connection: [MCP.md](MCP.md).
+
 ## Owner-only setup (credentials and approvals)
 
 These steps need the owner's accounts. The repository already contains everything else.
