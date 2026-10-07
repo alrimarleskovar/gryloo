@@ -110,6 +110,20 @@ Guide: [MCP.md](MCP.md).
 | `FLOFI_MCP_CLIENTS` | JSON list of `{ principal, tokenSha256, wallets? }`: SHA-256 digests of static developer bearer tokens (never the tokens) and the owner wallets each may read runs of. Must never contain the digest of `API_AUTH_TOKEN`. Optional with OAuth | digests only (keep private) | optional | **refused** (`503 MCP_CONFIGURATION_INVALID`) | invalid → `503 MCP_CONFIGURATION_INVALID` |
 | `FLOFI_MCP_ALLOWED_ORIGINS` | Browser origins allowed to call it (others: `403`) | no | optional | optional | none |
 
+## 5c. Developer API (BUILD-DEVELOPER-001, `/api/developer/v1`, `/approve`)
+
+Off unless enabled. Uses no model key. Needs the embedded runtime (PostgreSQL, migrations `0006` and `0007`); on the remote runtime
+it answers `503 DEVELOPER_STORE_UNAVAILABLE`. Projects and sandbox keys come from the operator CLI. Guide:
+[DEVELOPER.md](DEVELOPER.md).
+
+| Variable | Purpose | Secret | Preview | Prod | Default |
+| --- | --- | --- | --- | --- | --- |
+| `FLOFI_DEVELOPER` | `enabled` serves the Developer API and lets `/approve` resolve `flofi_dhs_` approval links | no | optional | as chosen | off (`404 DEVELOPER_API_NOT_ENABLED`) |
+| `FLOFI_PUBLIC_ORIGIN` | exact public origin of approval links (shared with MCP, above) | no | required with the API | required with the API | invalid → `503 DEVELOPER_CONFIGURATION_INVALID` |
+| `FLOFI_DEVELOPER_SECRET` | dedicated key material (32–512 chars, `openssl rand -hex 32`) for API-key digests, approval-link digests and webhook signing secrets; refused if equal to `API_AUTH_TOKEN`, `FLOFI_SESSION_SECRET`, `FLOFI_MCP_OAUTH_SECRET` or `FLOFI_CHANNEL_SECRET`. Rotating it invalidates every developer key, open developer approval link and webhook secret | **yes** | with the API (Preview only) | with the API | invalid/reused → `503 DEVELOPER_CONFIGURATION_INVALID` |
+| `FLOFI_DEVELOPER_DISPATCH_TOKEN_SHA256` | SHA-256 hex of the scheduler bearer for `/api/developer/v1/internal/dispatch` (Vercel Cron: the digest of `CRON_SECRET`) | digest only | optional | optional (needs an owner-added scheduler) | unset: the route does not exist |
+| `FLOFI_DEVELOPER_WEBHOOK_LOOPBACK` | `ALLOW_LOCAL_ONLY`: `http://127.0.0.1` webhook endpoints, for local tests | no | **never** | **never** (refused on hosted deployments) | off |
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),
@@ -125,6 +139,7 @@ These select local journals, loopback MOCKED harnesses or local forks. On a host
 `GRYLOO_*_JOURNAL` (supply, public testnet, Robinhood, Jupiter, Solana Devnet, Uniswap liquidity, Router, Router testnet, liquidity,
 Mode A, bridge), `GRYLOO_PUBLIC_TESTNET_READ`, `GRYLOO_BASE_OBSERVATION=live`, `GRYLOO_MODE_A`/`_PROFILE`, `GRYLOO_MODE_B`/`_PROFILE`/
 `_EXECUTOR_KEY_FILE`/`_SMOKE_PROFILE`, `GRYLOO_COMPOSITION_MODE`/`_PROFILE`/`_EXECUTOR_KEY_FILE`/`_ALLOW_MOCKED_UI`/`_SMOKE_PROFILE`,
-`GRYLOO_LIQUIDITY`/`_PROFILE`, `GRYLOO_COW`/`GRYLOO_COW_RUNTIME`, `GRYLOO_BRIDGE`, and the browser-suite selectors `GRYLOO_*_E2E`,
+`GRYLOO_LIQUIDITY`/`_PROFILE`, `GRYLOO_COW`/`GRYLOO_COW_RUNTIME`, `GRYLOO_BRIDGE`, `FLOFI_DEVELOPER_WEBHOOK_LOOPBACK`, and the
+browser-suite selectors `GRYLOO_*_E2E`,
 `GRYLOO_CLOUD_RUNTIME_E2E`, `FLOFI_E2E_*`, `TEST_DATABASE_URL`, `BUILD002_BROWSER_CACHE`, `GRYLOO_ANVIL_BIN`.
 `GRYLOO_BASE_OBSERVATION=replay` is the one safe value on a deployment (it serves committed recordings).

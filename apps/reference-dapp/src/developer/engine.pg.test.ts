@@ -188,6 +188,50 @@ describe('BUILD-DEVELOPER-001 approvals: bound to one strategy revision, claimed
     expect(second.body.id).not.toBe(approval.body.id);
   });
 
+  it('refuses to hand off a strategy FloFi\'s Strategy Review blocks (REVIEW_BLOCKED), with the blocker named and nothing created', async () => {
+    // A deployment whose Base Sepolia swap flow is enabled, so the swap passes every availability fact and only the review decides.
+    const runtime = recordingRuntime({ modes: { 'base-sepolia-swap': 'harness' } }), p = await developerProject(t.db), api = developerApi({ db: t.db, runtime }, p.key);
+    const rows = async () => (await t.db.query(`SELECT count(*)::int AS n FROM mcp_handoffs WHERE requester_kind = 'DEVELOPER_PROJECT' AND requester_ref = $1`, [`${p.projectId}.sandbox`])).rows[0]!.n;
+    // Above the review's slippage limit: the strategy composes and passes every availability fact, but the review blocks it.
+    const blocked = await api<{ id: string; workflowHash: string; availability: Record<string, unknown> }>('POST', '/strategies', { strategy: { ...SWAP, slippageBps: 400 } });
+    expect(blocked.status, blocked.text).toBe(201);
+    expect(blocked.body.availability).toMatchObject({ approvable: false, reason: 'REVIEW_BLOCKED' });
+    const refused = await api('POST', '/approvals', { strategyId: blocked.body.id, workflowHash: blocked.body.workflowHash });
+    expect([refused.status, errorOf(refused).code, errorOf(refused).reason]).toEqual([422, 'REVIEW_BLOCKED', 'REVIEW_BLOCKED']);
+    expect(errorOf(refused).issues).toEqual([{ path: '/strategy', rule: 'SLIPPAGE_ABOVE_REVIEW_LIMIT' }]);
+    expect(await rows()).toBe(0);
+    // The same swap within the limit is handed off: the blocker, not the action, was refused.
+    const fine = (await api<{ id: string; workflowHash: string }>('POST', '/strategies', { strategy: { ...SWAP, slippageBps: 50 } })).body;
+    expect((await api('POST', '/approvals', { strategyId: fine.id, workflowHash: fine.workflowHash })).status).toBe(201);
+    expect(await rows()).toBe(1);
+  });
+
+  it('caps a project\'s open approvals at the plan\'s 100 (PENDING_APPROVALS), per project and environment', async () => {
+    expect(limitsOf('free')).toMatchObject({ pendingApprovals: 100, approvalsPerHour: 60 });
+    // The hourly creation rate (60) is checked first, so 100 open approvals exist only across a window boundary: 50 late in one hour and 50
+    // early in the next, all still inside their 15-minute window.
+    const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000 + 2 * 3_600_000, late = new Date(hour - 10 * 60_000), early = new Date(hour + 60_000);
+    const runtime = recordingRuntime(), p = await developerProject(t.db), q = await developerProject(t.db);
+    const created = (await developerApi({ db: t.db, runtime, now: () => late }, p.key)<{ id: string; workflowHash: string }>('POST', '/strategies', { strategy: BRIDGE })).body;
+    const body = { strategyId: created.id, workflowHash: created.workflowHash };
+    for (const [now, count] of [[late, 50], [early, 50]] as const) {
+      const api = developerApi({ db: t.db, runtime, now: () => now }, p.key);
+      for (let i = 0; i < count; i++) expect((await api('POST', '/approvals', body)).status).toBe(201);
+    }
+    const open = async (projectId: string) => (await t.db.query(`SELECT count(*)::int AS n FROM mcp_handoffs WHERE requester_kind = 'DEVELOPER_PROJECT' AND requester_ref = $1
+      AND status IN ('PENDING', 'CLAIMED')`, [`${projectId}.sandbox`])).rows[0]!.n;
+    expect(await open(p.projectId)).toBe(100);
+    const capped = await developerApi({ db: t.db, runtime, now: () => early }, p.key)('POST', '/approvals', body);
+    expect([capped.status, errorOf(capped).code, errorOf(capped).reason]).toEqual([429, 'RATE_LIMITED', 'PENDING_APPROVALS']);
+    expect(await open(p.projectId)).toBe(100);
+    // Another project is unaffected; once the late approvals lapse, the capped project may hand off again.
+    const other = developerApi({ db: t.db, runtime, now: () => early }, q.key), theirs = (await other<{ id: string; workflowHash: string }>('POST', '/strategies', { strategy: BRIDGE })).body;
+    expect((await other('POST', '/approvals', { strategyId: theirs.id, workflowHash: theirs.workflowHash })).status).toBe(201);
+    const lapsed = new Date(late.getTime() + 16 * 60_000);
+    expect((await developerApi({ db: t.db, runtime, now: () => lapsed }, p.key)('POST', '/approvals', body)).status).toBe(201);
+    expect(await open(p.projectId)).toBe(51);
+  });
+
   it('enters the shared /approve surface: a developer link resolves for its kind only, names the project, and needs a proven wallet to claim', async () => {
     const calls: string[] = [], runs: string[] = [], WALLET: WalletRef = { namespace: 'eip155', address: OWNER };
     const strategy = composeStrategy(BRIDGE);

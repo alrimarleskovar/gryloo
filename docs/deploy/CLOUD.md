@@ -150,6 +150,21 @@ Owner setup for a consumer Preview (Preview-only variables, on top of the embedd
 5. Redeploy (the build applies migration `0005`), then check `https://<alias>/.well-known/oauth-authorization-server` and that
    `POST https://<alias>/api/mcp` without a token answers `401` with a `resource_metadata` challenge.
 
+## Developer API (BUILD-DEVELOPER-001)
+
+`/api/developer/v1/*` lets third-party server applications use the same engine through server-side API keys: capability
+discovery, immutable strategies, validation, a read-only simulation preview, approval handoffs to `/approve`, and the status and
+evidence of runs their end users choose to share, with signed webhooks — never signing, submission or Review approval by the
+developer. It runs in the same Vercel function runtime and needs no new service. Its state (projects, key digests, strategies,
+events, webhook endpoints and deliveries, usage counters) lives in this deployment's PostgreSQL (migration
+`0007_developer_platform`, tenant-scoped, digests only); developer approvals are rows of the shared approval handoff table
+(migration `0006_approval_requesters`). The remote runtime (`API_BASE_URL`) fails closed (`DEVELOPER_STORE_UNAVAILABLE`).
+Webhook delivery is request-driven on a Preview (Vercel Cron does not run there): events go out after developer requests and
+`/approve` actions, or when an owner-configured scheduler calls the internal dispatch endpoint. Enabling it on a Preview:
+`FLOFI_DEVELOPER=enabled`, `FLOFI_PUBLIC_ORIGIN`, a dedicated `FLOFI_DEVELOPER_SECRET` (Preview-only), redeploy, then create a
+project and a sandbox key with the operator CLI using `--preview-branch <branch>`. Setup, CLI and scheduler:
+[DEVELOPER.md](DEVELOPER.md).
+
 ## Owner-only setup (credentials and approvals)
 
 These steps need the owner's accounts. The repository already contains everything else.

@@ -4,8 +4,9 @@ Date: 2026-10-07. Branch `claude/build-developer-001` (worktree `~/projects/flof
 `claude/build-mcp-002` at `8f9650a` (itself stacked on BUILD-MCP-001, PR #63, open). `origin/main` is `bf84bbd`. Nothing is
 merged, rebased or published by the agent.
 
-**Status:** owner-reviewed on 2026-10-07 and approved with two adjustments (§0). Implementation has **not** started. The first
-implementation commit is the shared platform extraction (§2).
+**Status:** owner-reviewed on 2026-10-07 and approved with two adjustments (§0). **Implemented** (Tasks 1–8; the first
+implementation commit is the shared platform extraction, §2). Results: [BUILD-DEVELOPER-001-REPORT.md](BUILD-DEVELOPER-001-REPORT.md).
+Per the owner's instruction for this session, the branch is committed locally and not pushed (Task 8's push is withheld).
 
 > **An API key is not financial authority.** A developer credential authenticates an *integration*, never a wallet and never a
 > person. It can discover capabilities, compose, validate, simulate, hand a strategy to its owner, and read what the owner chose
