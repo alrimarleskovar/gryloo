@@ -54,7 +54,7 @@ export async function automationSnapshot(): Promise<Result<{ rules: readonly Aut
   return run(async owner => {
     const [rules, events] = await Promise.all([remote<readonly AutomationRule[]>('GET', '/v1/automations', owner),
       remote<readonly AutomationEvent[]>('GET', '/v1/automation-events', owner)]);
-    if (!rules.ok) return rules; if (!events.ok) return events;
+    if (!rules.ok) return { ok: false, code: rules.code }; if (!events.ok) return { ok: false, code: events.code };
     return { ok: true, value: { rules: rules.value, events: events.value } };
   }, async (store, owner) => ({ rules: await store.list(owner), events: await store.events(owner) }));
 }
