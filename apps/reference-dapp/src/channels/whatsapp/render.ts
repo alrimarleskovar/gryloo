@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+/**
+ * BUILD-CHANNELS-001: Channel Core replies as WhatsApp Cloud API message requests (`POST /<version>/<phone number id>/messages`),
+ * within Meta's documented limits:
+ *
+ *   a reply with the approval link   interactive call-to-action URL message (body ≤ 1024, button label ≤ 20); the link opens in the
+ *                                    phone's default browser and its secret stays in the URL fragment
+ *   a reply with ≤ 3 short choices   interactive reply buttons (≤ 3 buttons, title ≤ 20, id ≤ 256)
+ *   anything else                    a text message (≤ 4096) with link previews off
+ *
+ * The recipient is the business-scoped user id when known (`recipient`), otherwise the phone number (`to`). Every request carries the
+ * outbox id as `biz_opaque_callback_data`, which Meta echoes in status webhooks, so delivery is correlated even after a crash.
+ */
+import type { ChannelAddress, ChannelReply, ReplyChoice } from '../core/types.ts';
+
+export const WHATSAPP_LIMITS = Object.freeze({ text: 4_096, interactiveBody: 1_024, buttons: 3, buttonTitle: 20, footer: 60 });
+const clip = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1)}…`;
+/** Whether choices can be reply buttons; otherwise Channel Core lists them as numbers in the text. */
+export const choicesFitButtons = (choices: readonly ReplyChoice[]) =>
+  choices.length > 0 && choices.length <= WHATSAPP_LIMITS.buttons && choices.every(c => c.label.length >= 1 && c.label.length <= WHATSAPP_LIMITS.buttonTitle);
+
+export function renderMessage(to: ChannelAddress, reply: ChannelReply, correlationId: string): Record<string, unknown> {
+  const recipient = to.kind === 'bsuid' ? { recipient: to.value } : { to: to.value };
+  const base = { messaging_product: 'whatsapp', recipient_type: 'individual', ...recipient, biz_opaque_callback_data: correlationId };
+  if (reply.link) return { ...base, type: 'interactive', interactive: { type: 'cta_url', body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
+    action: { name: 'cta_url', parameters: { display_text: clip(reply.link.label, WHATSAPP_LIMITS.buttonTitle), url: reply.link.url } } } };
+  if (choicesFitButtons(reply.choices)) return { ...base, type: 'interactive', interactive: { type: 'button', body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
+    action: { buttons: reply.choices.map(c => ({ type: 'reply', reply: { id: c.id, title: c.label } })) } } };
+  return { ...base, type: 'text', text: { body: clip(reply.text, WHATSAPP_LIMITS.text), preview_url: false } };
+}
