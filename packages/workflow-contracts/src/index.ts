@@ -50,3 +50,6 @@ export * from './withdraw.js';
 
 export * from './lending-composition.js';
 export * from './native-transfer.js';
+export * from './pix.js';
+export * from './boleto.js';
+export * from './payment.js';
