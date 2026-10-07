@@ -27,6 +27,7 @@ export const SHIPPED_MIGRATIONS: readonly MigrationIdentity[] = Object.freeze([
   { version: 3, name: 'solana_identities', sha256: 'a79ac40c257d6618762ec56ffbfb54d0d5e40771a569da74051805dfb3a2c365' },
   { version: 4, name: 'owner_run_history', sha256: 'be6edd07d29fd741a421c925a87f0bd0274904244e8a43c36be78e9d3b90bc9a' },
   { version: 5, name: 'mcp_oauth', sha256: '7130a683de4f7e7ec28158cfcf2022f1fdc9583b6f47b540f39f97b4803115da' },
+  { version: 6, name: 'automations', sha256: '981a738c46acaa3d32a9d08e343fc4b333c33fdfafc927395f83d03183d7a6fa' },
 ].map(migration => Object.freeze(migration)));
 const FILE = /^(\d{4})_([a-z0-9_]+)\.sql$/;
 const LOCK_ID = 7_340_032_001; // Constant advisory lock key for migration runners.
