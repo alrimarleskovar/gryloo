@@ -19,6 +19,8 @@ export * from './approval-link-format.ts';
 export * from './approval-links.ts';
 export * from './approve.ts';
 export * from './handoff-store.ts';
+export * from './fixed-window.ts';
+export * from './ids.ts';
 export { ENGINE_VERSION, evaluateGates, evaluateWorkflowGates, executionPlan, handoffFindings, policyGate, workflowPlan, type ExecutionPlan, type Gates,
   type HandoffPolicy, type PlanStep } from '../mcp/execution.ts';
 export { assertSafeOutput, previewPlan, projectSimulation, strategyFlow, type PreviewPlan, type SimulationView } from '../mcp/simulation.ts';

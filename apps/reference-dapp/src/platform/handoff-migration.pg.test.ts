@@ -21,7 +21,8 @@ describe('BUILD-DEVELOPER-001 migration 0006 compatibility', () => {
     const t = await createTestDatabase({ migrated: false });
     try {
       const all = await loadMigrations();
-      expect(all.map(m => m.name)).toEqual(['execution_core', 'swap_attempt_states', 'solana_identities', 'owner_run_history', 'mcp_oauth', 'approval_requesters']);
+      // Later migrations (0007 developer_platform, …) follow; this test pins only the 0005 → 0006 upgrade.
+      expect(all.slice(0, 6).map(m => m.name)).toEqual(['execution_core', 'swap_attempt_states', 'solana_identities', 'owner_run_history', 'mcp_oauth', 'approval_requesters']);
       await migrate(t.db, all.slice(0, 5));
       const account = newId('mcpacct'), grant = newId('grt');
       await t.db.query(`INSERT INTO mcp_accounts (tenant_id, account_id) VALUES ('default', $1)`, [account]);
@@ -40,7 +41,7 @@ describe('BUILD-DEVELOPER-001 migration 0006 compatibility', () => {
         await insert('REVOKED', ', ended_at', ', now()'), await insert('EXPIRED', ', ended_at', ', now()')];
 
       await migrate(t.db, all);
-      expect(await assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS)).toBe(6);
+      expect(await assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS)).toBe(SHIPPED_MIGRATIONS.length);
       const upgraded = (await t.db.query(`SELECT handoff_id, status, requester_kind, requester_id, requester_ref, requester_context, account_id, grant_id FROM mcp_handoffs
         ORDER BY created_at, handoff_id`)).rows;
       expect(upgraded).toHaveLength(5);

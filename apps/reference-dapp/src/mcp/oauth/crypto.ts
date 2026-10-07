@@ -6,6 +6,7 @@
  * and never logged, stored, put in a URL query or forwarded. Identifiers are random base32 with a type prefix.
  */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { typedId } from '../../platform/ids.ts';
 
 export const TOKEN_PREFIX = Object.freeze({ access: 'flofi_at_', refresh: 'flofi_rt_', code: 'flofi_code_', handoff: 'flofi_hs_', csrf: 'flofi_csrf_' });
 export type TokenKind = keyof typeof TOKEN_PREFIX;
@@ -20,18 +21,8 @@ export function credentialOf(kind: TokenKind, value: unknown): string | null {
 /** Keyed digest stored in place of a credential. The key is purpose-specific (see `deriveKey`). */
 export function credentialDigest(key: Buffer, value: string): Buffer { return createHmac('sha256', key).update(value, 'utf8').digest(); }
 
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
-/** `prefix_` + 26 lower-case base32 characters (128 random bits). */
-export function newId(prefix: 'mcpacct' | 'oar' | 'grt' | 'fam' | 'apr' | 'wlk'): string {
-  const bytes = randomBytes(17);
-  let out = '', buffer = 0, bits = 0;
-  for (const byte of bytes) {
-    buffer = (buffer << 8) | byte; bits += 8;
-    while (bits >= 5 && out.length < 26) { out += ALPHABET[(buffer >>> (bits - 5)) & 31]; bits -= 5; }
-    buffer &= (1 << bits) - 1;
-  }
-  return `${prefix}_${out}`;
-}
+/** `prefix_` + 26 lower-case base32 characters (128 random bits); BUILD-DEVELOPER-001 shares the generator (`src/platform/ids.ts`). */
+export function newId(prefix: 'mcpacct' | 'oar' | 'grt' | 'fam' | 'apr' | 'wlk'): string { return typedId(prefix); }
 
 /** PKCE (RFC 7636) S256: the verifier is 43–128 unreserved characters; the challenge is base64url(SHA-256(verifier)). */
 export const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/;

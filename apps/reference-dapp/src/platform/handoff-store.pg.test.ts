@@ -4,28 +4,41 @@
  * MCP account, a developer project and a channel conversation are stored in the same table with the same state machine; each is
  * isolated by (kind, ref) in every requester-scoped operation and by the resolving scheme's kinds in every secret lookup; caps and
  * supersession follow each requester's rules; the database itself enforces the requester model and immutability; and no approval
- * secret is ever written in plaintext.
+ * secret is ever written in plaintext. Since migration 0007 the database also binds every DEVELOPER_PROJECT handoff to an immutable
+ * strategy of its project (`src/developer/store.pg.test.ts`); this test's store writes that strategy before creating such a handoff.
  */
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../../../../packages/cloud-runtime/test/pg-harness.ts';
 import { composeStrategy } from '../engine/strategy-engine';
 import { newId } from '../mcp/oauth/crypto.ts';
-import { approvalLinkScheme, createPgHandoffStore, ENGINE_VERSION, executionPlan, mintApprovalSecret, type ApprovalLinkScheme, type HandoffCreateRules, type NewHandoff,
-  type RequesterScope, type WalletRef } from './index.ts';
+import { approvalLinkScheme, createPgHandoffStore, ENGINE_VERSION, executionPlan, mintApprovalSecret, typedId, type ApprovalLinkScheme, type HandoffCreateRules,
+  type HandoffStore, type NewHandoff, type RequesterScope, type WalletRef } from './index.ts';
 
 let t: TestDatabase;
-const ACCOUNT = newId('mcpacct'), GRANT = newId('grt');
+const ACCOUNT = newId('mcpacct'), GRANT = newId('grt'), PROJECT_ID = typedId('prj'), CAPS_ID = typedId('prj');
 beforeAll(async () => {
   t = await createTestDatabase();
   await t.db.query(`INSERT INTO tenants (tenant_id) VALUES ('other')`);
   await t.db.query(`INSERT INTO mcp_accounts (tenant_id, account_id) VALUES ('default', $1)`, [ACCOUNT]);
   await t.db.query(`INSERT INTO mcp_oauth_grants (tenant_id, grant_id, account_id, client_id, client_name, scopes, resource) VALUES ('default', $1, $2,
     'https://claude.ai/oauth/mcp-oauth-client-metadata', 'Claude', ARRAY['flofi.strategy'], 'https://flofi.test/api/mcp')`, [GRANT, ACCOUNT]);
+  for (const project of [PROJECT_ID, CAPS_ID]) await t.db.query(`INSERT INTO developer_projects (tenant_id, project_id, display_name) VALUES ('default', $1, 'Example')`, [project]);
 });
 afterAll(async () => { await t?.drop(); });
 
-const store = (tenant = 'default') => createPgHandoffStore(t.db, tenant);
+/** The developer strategy a DEVELOPER_PROJECT handoff names (migration 0007 refuses an unbound one). */
+async function bindStrategy(tenant: string, h: NewHandoff) {
+  if (h.requester.kind !== 'DEVELOPER_PROJECT') return;
+  const [project, environment] = h.requester.ref.split('.');
+  await t.db.query(`INSERT INTO developer_strategies (tenant_id, strategy_id, project_id, environment, strategy, workflow_hash, engine_version, funds_class, network_environment,
+    plan) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT DO NOTHING`, [tenant, h.requesterContext.strategyId, project, environment, JSON.stringify(h.strategy),
+    h.workflowHash, h.engineVersion, h.fundsClass, h.networkEnvironment, JSON.stringify(h.plan)]);
+}
+const store = (tenant = 'default'): HandoffStore => {
+  const s = createPgHandoffStore(t.db, tenant);
+  return { ...s, create: async (h, now, rules) => { await bindStrategy(tenant, h); return s.create(h, now, rules); } };
+};
 const schemes: Record<RequesterScope['kind'], ApprovalLinkScheme> = { MCP_ACCOUNT: approvalLinkScheme('flofi_hs_', randomBytes(32), ['MCP_ACCOUNT']),
   DEVELOPER_PROJECT: approvalLinkScheme('flofi_dhs_', randomBytes(32), ['DEVELOPER_PROJECT']),
   CHANNEL_CONVERSATION: approvalLinkScheme('flofi_chs_', randomBytes(32), ['CHANNEL_CONVERSATION']) };
@@ -37,12 +50,13 @@ function handoff(requester: RequesterScope, strategy: Record<string, unknown> = 
   const c = composeStrategy(strategy);
   if (!c.ok) throw new Error(c.code);
   const { secret, digest } = mintApprovalSecret(schemes[requester.kind]), mcp = requester.kind === 'MCP_ACCOUNT';
-  const value: NewHandoff = { handoffId: newId('apr'), requester, grantId: mcp ? GRANT : null, requesterContext: mcp ? {} : context, clientId: mcp ? 'https://claude.ai/oauth/x'
+  const own = requester.kind === 'DEVELOPER_PROJECT' ? { strategyId: typedId('str'), ...context } : context;
+  const value: NewHandoff = { handoffId: newId('apr'), requester, grantId: mcp ? GRANT : null, requesterContext: mcp ? {} : own, clientId: mcp ? 'https://claude.ai/oauth/x'
     : `${requester.kind.toLowerCase()}:client`, clientName: mcp ? 'Claude' : 'Example', secretDigest: digest, strategy: c.strategy, workflowHash: c.workflowHash,
   engineVersion: ENGINE_VERSION, networkEnvironment: 'PUBLIC_TESTNET', fundsClass: 'TEST_FUNDS', plan: executionPlan(c), expiresAt: new Date(Date.now() + 15 * 60_000) };
   return { value, secret, digest };
 }
-const MCP: RequesterScope = { kind: 'MCP_ACCOUNT', ref: ACCOUNT }, PROJECT: RequesterScope = { kind: 'DEVELOPER_PROJECT', ref: 'prj_example.sandbox' };
+const MCP: RequesterScope = { kind: 'MCP_ACCOUNT', ref: ACCOUNT }, PROJECT: RequesterScope = { kind: 'DEVELOPER_PROJECT', ref: `${PROJECT_ID}.sandbox` };
 const CONVERSATION: RequesterScope = { kind: 'CHANNEL_CONVERSATION', ref: 'chc_example' };
 
 describe('BUILD-DEVELOPER-001 generic approval-handoff persistence', () => {
@@ -53,7 +67,7 @@ describe('BUILD-DEVELOPER-001 generic approval-handoff persistence', () => {
       WHERE handoff_id = ANY($1) ORDER BY requester_kind`, [created.map(c => c.h.value.handoffId)])).rows;
     expect(rows.map(r => [r.requester_kind, r.requester_id, r.requester_ref, r.requester_context, r.account_id, r.grant_id])).toEqual([
       ['CHANNEL_CONVERSATION', 'chc_example', 'chc_example', { intendedWallet: evm(1) }, null, null],
-      ['DEVELOPER_PROJECT', 'prj_example.sandbox', 'prj_example.sandbox', {}, null, null],
+      ['DEVELOPER_PROJECT', PROJECT.ref, PROJECT.ref, { strategyId: expect.stringMatching(/^str_[a-z2-7]{26}$/) }, null, null],
       ['MCP_ACCOUNT', null, ACCOUNT, {}, ACCOUNT, GRANT]]);
     for (const { r, h } of created) {
       const found = await store().forRequester(h.value.handoffId, r, new Date());
@@ -65,7 +79,7 @@ describe('BUILD-DEVELOPER-001 generic approval-handoff persistence', () => {
   });
 
   it('isolates requesters by kind and ref in every requester-scoped operation, and tenants entirely', async () => {
-    const twin: RequesterScope = { kind: 'CHANNEL_CONVERSATION', ref: 'prj_example.sandbox' };
+    const twin: RequesterScope = { kind: 'CHANNEL_CONVERSATION', ref: PROJECT.ref };
     const mine = handoff(PROJECT, { ...BRIDGE, amount: '1.2' }), theirs = handoff(twin, { ...BRIDGE, amount: '1.2' });
     await store().create(mine.value, new Date(), OPEN);
     await store().create(theirs.value, new Date(), OPEN);
@@ -97,7 +111,7 @@ describe('BUILD-DEVELOPER-001 generic approval-handoff persistence', () => {
   });
 
   it('applies each requester\'s own cap and supersession rules, per (kind, ref)', async () => {
-    const r: RequesterScope = { kind: 'DEVELOPER_PROJECT', ref: 'prj_caps.sandbox' }, same: RequesterScope = { kind: 'CHANNEL_CONVERSATION', ref: 'prj_caps.sandbox' };
+    const r: RequesterScope = { kind: 'DEVELOPER_PROJECT', ref: `${CAPS_ID}.sandbox` }, same: RequesterScope = { kind: 'CHANNEL_CONVERSATION', ref: r.ref };
     const first = handoff(r), second = handoff(r);
     await store().create(first.value, new Date(), { maxPending: 2, supersedeSameWorkflow: false });
     await store().create(second.value, new Date(), { maxPending: 2, supersedeSameWorkflow: false });
