@@ -3,6 +3,13 @@
 import type { CSSProperties } from 'react';
 import { Panel, useReactFlow, useStore, type FitViewOptions, type ReactFlowState } from '@xyflow/react';
 
+/**
+ * Laptop-first canvas gestures, shared by every FloFi canvas. Two-finger trackpad movement (and a plain mouse wheel) pans
+ * the viewport 1:1; a trackpad pinch (the browser's ctrl+wheel) or Ctrl/⌘ + wheel zooms. React Flow intercepts wheel
+ * events only over the canvas pane, never over its `nowheel` controls, so the page keeps normal scrolling elsewhere.
+ */
+export const CANVAS_GESTURES = Object.freeze({ panOnScroll: true, panOnScrollSpeed: 1, zoomOnScroll: true, zoomOnPinch: true, preventScrolling: true });
+
 /** React Flow owns the viewport, including zoom changes from gestures and automatic fitting. */
 export function CanvasNavigator({ fitViewOptions, compactBelow = 800 }: { fitViewOptions?: FitViewOptions; compactBelow?: number }) {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);

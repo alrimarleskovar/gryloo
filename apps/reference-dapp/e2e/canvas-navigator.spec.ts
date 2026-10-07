@@ -14,6 +14,16 @@ async function prepare(page: Page, theme: 'light' | 'dark') {
 async function zoom(graph: Locator) {
   return graph.locator('.react-flow__viewport').evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).a);
 }
+async function viewport(graph: Locator) {
+  return graph.locator('.react-flow__viewport').evaluate(element => { const m = new DOMMatrixReadOnly(getComputedStyle(element).transform); return { x: m.e, y: m.f, zoom: m.a }; });
+}
+/** A laptop trackpad pinch: the browser reports a ctrl+wheel event without any key being pressed. */
+async function pinch(graph: Locator, deltaY: number) {
+  await graph.locator('.react-flow__pane').evaluate((pane, delta) => {
+    const box = pane.getBoundingClientRect();
+    pane.dispatchEvent(new WheelEvent('wheel', { deltaY: delta, ctrlKey: true, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, bubbles: true, cancelable: true }));
+  }, deltaY);
+}
 async function synchronized(graph: Locator) {
   const slider = graph.getByRole('slider', { name: 'Canvas zoom' });
   await expect.poll(async () => Math.abs(Number(await slider.inputValue()) - await zoom(graph))).toBeLessThanOrEqual(.0051);
@@ -63,10 +73,18 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await zoom(graph)).toBeLessThan(1); expect(await zoom(graph)).toBeGreaterThan(.35);
       await synchronized(graph);
       const graphBox = (await graph.boundingBox())!;
-      const wheelBefore = await zoom(graph);
+      // Two-finger trackpad movement (a plain wheel) pans the real viewport 1:1 on both axes and never zooms.
+      const panBefore = await viewport(graph);
       await page.mouse.move(graphBox.x + graphBox.width - 80, graphBox.y + 65);
-      await page.mouse.wheel(0, -150);
-      await expect.poll(() => zoom(graph)).toBeGreaterThan(wheelBefore); await synchronized(graph);
+      await page.mouse.wheel(40, 60);
+      await expect.poll(async () => (await viewport(graph)).y).toBeCloseTo(panBefore.y - 60, 0);
+      expect((await viewport(graph)).x).toBeCloseTo(panBefore.x - 40, 0);
+      expect((await viewport(graph)).zoom).toBe(panBefore.zoom); await synchronized(graph);
+      // A trackpad pinch zooms the real viewport and the slider and percentage follow.
+      const pinchIn = await zoom(graph);
+      await pinch(graph, -25);
+      await expect.poll(() => zoom(graph)).toBeGreaterThan(pinchIn); await synchronized(graph);
+      // Ctrl/⌘ + mouse wheel zooms as well.
       const pinchBefore = await zoom(graph);
       await page.keyboard.down('Control'); await page.mouse.wheel(0, 30); await page.keyboard.up('Control');
       await expect.poll(() => zoom(graph)).toBeLessThan(pinchBefore); await synchronized(graph);
@@ -162,3 +180,55 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   });
 }
+
+test('node drag moves only the node, pane drag moves neither nodes nor viewport, and the page keeps scrolling outside the canvas', async ({ page }) => {
+  await prepare(page, 'light');
+  await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  await configureCanvasAction(page, '1');
+  const graph = page.locator('main .flow-surface').first(), node = graph.locator('.react-flow__node').first();
+  const position = () => node.evaluate(element => (element as HTMLElement).style.transform);
+  const before = await viewport(graph), start = await position();
+  const card = (await node.locator('.composer-card').boundingBox())!;
+  await page.mouse.move(card.x + 60, card.y + 18); await page.mouse.down();
+  await page.mouse.move(card.x + 110, card.y + 48, { steps: 6 }); await page.mouse.up();
+  await expect.poll(position).not.toBe(start);
+  expect(await viewport(graph)).toEqual(before);
+  // A left drag on the empty pane is marquee selection: the viewport and every node stay where they are.
+  const moved = await position(), box = (await graph.boundingBox())!;
+  await page.mouse.move(box.x + 12, box.y + 12); await page.mouse.down();
+  await page.mouse.move(box.x + 70, box.y + 60, { steps: 5 }); await page.mouse.up();
+  expect(await viewport(graph)).toEqual(before);
+  expect(await position()).toBe(moved);
+  // Wheel outside the canvas scrolls the page; wheel over the canvas pans it and leaves the page where it is.
+  await page.setViewportSize({ width: 1440, height: 560 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const header = (await page.locator('.top-bar').boundingBox())!;
+  await page.mouse.move(header.x + 40, header.y + header.height / 2);
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const scrolled = await page.evaluate(() => window.scrollY), canvas = (await graph.boundingBox())!, panBefore = await viewport(graph);
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + Math.min(canvas.height / 2, 120));
+  await page.mouse.wheel(0, 80);
+  await expect.poll(async () => (await viewport(graph)).y).toBeCloseTo(panBefore.y - 80, 0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+});
+
+test('narrow canvas keeps trackpad pan, pinch, slider and Fit usable', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await prepare(page, 'dark');
+  await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  await configureCanvasAction(page, '1');
+  const graph = page.locator('main .flow-surface').first();
+  const box = (await graph.boundingBox())!, before = await viewport(graph);
+  await page.mouse.move(box.x + box.width / 2, box.y + 60);
+  await page.mouse.wheel(-30, 25);
+  await expect.poll(async () => (await viewport(graph)).x).toBeCloseTo(before.x + 30, 0);
+  await pinch(graph, 30);
+  await expect.poll(() => zoom(graph)).toBeLessThan(before.zoom); await synchronized(graph);
+  await graph.getByRole('slider', { name: 'Canvas zoom' }).press('PageUp');
+  await synchronized(graph);
+  await graph.getByRole('button', { name: 'Fit workflow', exact: true }).click(); await synchronized(graph);
+  await expect(graph.locator('.composer-card')).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

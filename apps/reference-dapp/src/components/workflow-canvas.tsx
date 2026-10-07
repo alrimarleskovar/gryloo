@@ -24,7 +24,7 @@ import { CANVAS_ACTIONS, canvasAddCommand, type CanvasAction } from '../domain/c
 import { shellChainLabel } from '../domain/product-shell';
 import { WorkflowName } from './workflow-name';
 import { DarkSpotlight } from './dark-spotlight';
-import { CanvasNavigator } from './canvas-navigator';
+import { CANVAS_GESTURES, CanvasNavigator } from './canvas-navigator';
 import { WorkflowEditReview } from './workflow-edit-review';
 import { ComposerCard, supplyReviewFormId, poolReviewFormId, poolProposalTarget, type ComposerCardData } from './composer-card';
 import { canEditCanvasAmount, setupSummary, bridgeSetupNetworks, type CanvasBridgeNetworks } from '../domain/canvas-action-setup';
@@ -206,7 +206,7 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
     <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{nodes.length} actions</span></div>
     <div className="flow-surface" role="region" aria-label={mode === 'execute' ? 'Workflow overview graph' : 'Mocked outputs on the workflow graph'} data-viewport={viewportState}>
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
-        nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
+        nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} {...CANVAS_GESTURES}>
         <SimulationViewport onState={setViewportState} />
         <Background gap={18} size={1} color="var(--grid)" /><CanvasNavigator/>
       </ReactFlow>
@@ -619,7 +619,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
     <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
       <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView fitViewOptions={{ padding: COMPOSER_FIT_PADDING }} minZoom={0.35} maxZoom={1.4}
-        nodesDraggable nodesConnectable={false} deleteKeyCode={null} selectNodesOnDrag={false} panOnDrag={[1, 2]}
+        nodesDraggable nodesConnectable={false} deleteKeyCode={null} selectNodesOnDrag={false} panOnDrag={[1, 2]} {...CANVAS_GESTURES}
         onNodeClick={(event, node) => {
           if (ignorePaneClick.current) return;
           if (event.shiftKey) {
