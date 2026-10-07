@@ -1,0 +1,5483 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FloFi Developer API",
+    "version": "1.0.0",
+    "summary": "Developers build the experience. FloFi handles the DeFi workflow lifecycle.",
+    "description": "Server-side API for third-party applications: discover capabilities, store immutable FloFi strategies, validate and simulate them, and hand them to the end user for approval in FloFi. The API key has zero financial authority: it never signs, submits or approves anything. Only the end user's own wallet, in FloFi, after a fresh simulation and the Strategy Manifest Review, can sign. Execution status and evidence are visible only for runs the end user chose to share (off by default). Sandbox credentials only in this release: test funds, every mainnet off.",
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{deployment}/api/developer/v1",
+      "variables": {
+        "deployment": {
+          "default": "flofi.example",
+          "description": "Your FloFi deployment's host."
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Discovery"
+    },
+    {
+      "name": "Strategies"
+    },
+    {
+      "name": "Approvals"
+    },
+    {
+      "name": "Executions"
+    },
+    {
+      "name": "Webhooks"
+    }
+  ],
+  "paths": {
+    "/capabilities": {
+      "get": {
+        "operationId": "listCapabilities",
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "What FloFi can do per action and network on this deployment (any valid key).",
+        "parameters": [
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "base",
+                "base-sepolia",
+                "arbitrum-one",
+                "arbitrum-sepolia",
+                "ethereum-sepolia",
+                "solana",
+                "solana-devnet"
+              ]
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "bridge",
+                "swap",
+                "supply",
+                "borrow",
+                "repay",
+                "withdraw",
+                "add_liquidity",
+                "lending_composition"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capability rows with the four facts and the operations available.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/strategies": {
+      "post": {
+        "operationId": "createStrategy",
+        "tags": [
+          "Strategies"
+        ],
+        "summary": "Store an immutable strategy (scope `strategies`).",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Makes this creation safe to retry (8–128 of `A-Z a-z 0-9 . _ : -`, kept 24 h). The same key with another body is IDEMPOTENCY_CONFLICT.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "A FloFi StrategySpec.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStrategyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The canonical strategy, its workflow hash, plan, review and availability.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              },
+              "idempotent-replayed": {
+                "description": "`true` when this is the stored result of an earlier request with the same Idempotency-Key.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Strategy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STRATEGY_CHANGED, STRATEGY_STALE, IDEMPOTENCY_CONFLICT or IDEMPOTENCY_IN_PROGRESS",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "INVALID_REQUEST: body larger than 64 KiB",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/strategies/{id}/validate": {
+      "post": {
+        "operationId": "validateStrategy",
+        "tags": [
+          "Strategies"
+        ],
+        "summary": "Re-check a stored strategy against the current engine and deployment.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "A strategy id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^str_[a-z2-7]{26}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "description": "Empty object (or no body).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateStrategyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current review and availability.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyValidation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STRATEGY_CHANGED, STRATEGY_STALE, IDEMPOTENCY_CONFLICT or IDEMPOTENCY_IN_PROGRESS",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/strategies/{id}/simulate": {
+      "post": {
+        "operationId": "simulateStrategy",
+        "tags": [
+          "Strategies"
+        ],
+        "summary": "FloFi's own read-only simulation preview (never authorizable).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "A strategy id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^str_[a-z2-7]{26}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The account whose public balances the preview reads.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateStrategyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The allowlisted facts of the flow's own simulation; nothing persisted, signed or sent.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Simulation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STRATEGY_CHANGED, STRATEGY_STALE, IDEMPOTENCY_CONFLICT or IDEMPOTENCY_IN_PROGRESS",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "CAPABILITY_NOT_SUPPORTED, REVIEW_BLOCKED or SIMULATION_FAILED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals": {
+      "post": {
+        "operationId": "createApproval",
+        "tags": [
+          "Approvals"
+        ],
+        "summary": "Hand one strategy revision to its owner in FloFi (scope `approvals`).",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Makes this creation safe to retry (8–128 of `A-Z a-z 0-9 . _ : -`, kept 24 h). The same key with another body is IDEMPOTENCY_CONFLICT.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The strategy and its exact workflow hash.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A PENDING approval and the FloFi link to give the end user (authority NONE).",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              },
+              "idempotent-replayed": {
+                "description": "`true` when this is the stored result of an earlier request with the same Idempotency-Key.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Approval"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STRATEGY_CHANGED, STRATEGY_STALE, IDEMPOTENCY_CONFLICT or IDEMPOTENCY_IN_PROGRESS",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "APPROVAL_EXPIRED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "CAPABILITY_NOT_SUPPORTED, REVIEW_BLOCKED or SIMULATION_FAILED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{id}": {
+      "get": {
+        "operationId": "getApproval",
+        "tags": [
+          "Approvals"
+        ],
+        "summary": "The approval's state; its runs and evidence only while the owner shares them.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An approval id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^apr_[a-z2-7]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The approval now.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Approval"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{id}": {
+      "get": {
+        "operationId": "getExecution",
+        "tags": [
+          "Executions"
+        ],
+        "summary": "A run the owner shared with this project (scope `executions`).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "A FloFi execution id (from an approval or an event). It is a lookup key, not an access grant.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status and attempts as FloFi's durable state records them.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Execution"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{id}/evidence": {
+      "get": {
+        "operationId": "getEvidence",
+        "tags": [
+          "Executions"
+        ],
+        "summary": "The reconciled Evidence Bundle of a shared run (never upgraded).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "A FloFi execution id (from an approval or an event). It is a lookup key, not an access grant.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The canonical Evidence Bundle, or why there is none yet.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-endpoints": {
+      "post": {
+        "operationId": "createWebhookEndpoint",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Register a signed webhook endpoint (scope `webhooks`).",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Makes this creation safe to retry (8–128 of `A-Z a-z 0-9 . _ : -`, kept 24 h). The same key with another body is IDEMPOTENCY_CONFLICT.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "An https URL on port 443 and, optionally, the event types to receive.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The endpoint and its signing secret, returned once.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              },
+              "idempotent-replayed": {
+                "description": "`true` when this is the stored result of an earlier request with the same Idempotency-Key.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STRATEGY_CHANGED, STRATEGY_STALE, IDEMPOTENCY_CONFLICT or IDEMPOTENCY_IN_PROGRESS",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "INVALID_REQUEST: body larger than 64 KiB",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhook-endpoints/{id}": {
+      "delete": {
+        "operationId": "deleteWebhookEndpoint",
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete an endpoint: its secret is never used again.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "A webhook endpoint id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^whe_[a-z2-7]{26}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedWebhookEndpoint"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST or INVALID_STRATEGY",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (see Retry-After)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/dispatch": {
+      "get": {
+        "operationId": "dispatchNotifications",
+        "x-internal": true,
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "dispatchToken": []
+          }
+        ],
+        "summary": "For the deployment's scheduler only (e.g. Vercel Cron): one bounded event sync and delivery sweep. Absent unless configured.",
+        "responses": {
+          "200": {
+            "description": "The sweep's counts."
+          },
+          "401": {
+            "description": "UNAUTHORIZED: missing, malformed, unknown or revoked key, or disabled project",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (INSUFFICIENT_SCOPE, BROWSER_ORIGIN_FORBIDDEN, LIVE_MODE_DISABLED, WEBHOOK_ENDPOINT_LIMIT) or MAINNET_DISABLED",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or another project's resource (indistinguishable)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (see Retry-After when given)",
+            "headers": {
+              "request-id": {
+                "description": "This request's id (quote it to FloFi support).",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^req_[a-z2-7]{26}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "event": {
+      "post": {
+        "summary": "A signed notification (Standard Webhooks). Verify the raw body, reject timestamps outside ±5 min, deduplicate on webhook-id.",
+        "parameters": [
+          {
+            "name": "webhook-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The event id: the same on every retry and endpoint."
+          },
+          {
+            "name": "webhook-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unix seconds of this attempt."
+          },
+          {
+            "name": "webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`v1,` + base64 HMAC-SHA-256 of `<webhook-id>.<webhook-timestamp>.<raw body>` under the endpoint secret's base64 key."
+          },
+          {
+            "name": "flofi-delivery-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flofi-delivery-attempt",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Any 2xx acknowledges; anything else is retried (30 s, 2 min, 10 min, 30 min, 1 h, 3 h, 6 h, 12 h, 24 h), then dropped."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A FloFi Developer API key (`flofi_sk_test_…`). Server-side only: browser requests are refused."
+      },
+      "dispatchToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The scheduler token whose SHA-256 is FLOFI_DEVELOPER_DISPATCH_TOKEN_SHA256."
+      }
+    },
+    "schemas": {
+      "CreateStrategyRequest": {
+        "additionalProperties": false,
+        "description": "A FloFi StrategySpec: a version 1 strategy or a version 2 step list.",
+        "type": "object",
+        "required": [
+          "strategy"
+        ],
+        "properties": {
+          "strategy": {
+            "description": "A FloFi strategy (version 1, one action) or workflow (version 2, ordered steps): structured intent only.",
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "sourceNetwork",
+                  "destinationNetwork",
+                  "asset",
+                  "amount"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "bridge",
+                    "type": "string"
+                  },
+                  "sourceNetwork": {
+                    "description": "Source network. base-sepolia pairs with arbitrum-sepolia (test USDC); base pairs with arbitrum-one (real funds).",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "base",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "destinationNetwork": {
+                    "description": "Destination network.",
+                    "anyOf": [
+                      {
+                        "const": "arbitrum-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "arbitrum-one",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "asset": {
+                    "description": "The Cross-chain Router moves USDC only.",
+                    "const": "USDC",
+                    "type": "string"
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "USDC amount as a decimal string, e.g. \"5\".",
+                    "type": "string"
+                  },
+                  "routing": {
+                    "description": "Provider policy. auto = LI.FI first, direct Across if LI.FI has no reconcilable route (a preference order, not a best-price search). Default auto.",
+                    "anyOf": [
+                      {
+                        "const": "auto",
+                        "type": "string"
+                      },
+                      {
+                        "const": "lifi",
+                        "type": "string"
+                      },
+                      {
+                        "const": "across",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "slippageBps": {
+                    "minimum": 0,
+                    "maximum": 10000,
+                    "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                    "type": "integer"
+                  },
+                  "recipient": {
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                    "minLength": 42,
+                    "maxLength": 42,
+                    "description": "Destination recipient. Omit to deliver to the wallet that signs in the FloFi app (bound at Review).",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "inputAsset",
+                  "outputAsset",
+                  "amount"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "swap",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "EVM networks swap USDC/WETH on Uniswap v3; solana swaps SOL/USDC/USDT via Jupiter; solana-devnet swaps SOL/devUSDC on Orca.",
+                    "anyOf": [
+                      {
+                        "const": "base",
+                        "type": "string"
+                      },
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "solana",
+                        "type": "string"
+                      },
+                      {
+                        "const": "solana-devnet",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "inputAsset": {
+                    "description": "Asset spent.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WETH",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "SOL",
+                        "type": "string"
+                      },
+                      {
+                        "const": "USDT",
+                        "type": "string"
+                      },
+                      {
+                        "const": "devUSDC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "outputAsset": {
+                    "description": "Asset received.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WETH",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "SOL",
+                        "type": "string"
+                      },
+                      {
+                        "const": "USDT",
+                        "type": "string"
+                      },
+                      {
+                        "const": "devUSDC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "Exact input amount as a decimal string.",
+                    "type": "string"
+                  },
+                  "slippageBps": {
+                    "minimum": 0,
+                    "maximum": 10000,
+                    "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                    "type": "integer"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "asset",
+                  "amount",
+                  "beneficiary"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "supply",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "asset": {
+                    "description": "Must be the network's one Aave asset.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "Amount as a decimal string.",
+                    "type": "string"
+                  },
+                  "beneficiary": {
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                    "minLength": 42,
+                    "maxLength": 42,
+                    "description": "Account credited with the supplied position.",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "asset",
+                  "amount",
+                  "beneficiary"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "borrow",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "asset": {
+                    "description": "Must be the network's one Aave asset.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "Amount as a decimal string.",
+                    "type": "string"
+                  },
+                  "beneficiary": {
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                    "minLength": 42,
+                    "maxLength": 42,
+                    "description": "Account whose debt the borrow creates (onBehalfOf).",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "asset",
+                  "amount",
+                  "beneficiary"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "repay",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "asset": {
+                    "description": "Must be the network's one Aave asset.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "Amount as a decimal string.",
+                    "type": "string"
+                  },
+                  "beneficiary": {
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                    "minLength": 42,
+                    "maxLength": 42,
+                    "description": "Account whose debt is repaid (onBehalfOf).",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "asset",
+                  "amount"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "withdraw",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "Aave V3 network.",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "asset": {
+                    "description": "The network's one Aave asset.",
+                    "anyOf": [
+                      {
+                        "const": "USDC",
+                        "type": "string"
+                      },
+                      {
+                        "const": "WBTC",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "Amount as a decimal string. The recipient is always the wallet that signs.",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "maxAmounts",
+                  "range"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "add_liquidity",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "Uniswap v3 USDC/WETH on base-sepolia or ethereum-sepolia; Orca SOL/devUSDC on solana-devnet.",
+                    "anyOf": [
+                      {
+                        "const": "base-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "ethereum-sepolia",
+                        "type": "string"
+                      },
+                      {
+                        "const": "solana-devnet",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "maxAmounts": {
+                    "additionalProperties": false,
+                    "minProperties": 2,
+                    "maxProperties": 2,
+                    "description": "Maximum deposit of each pool asset (limits, not amounts to spend); exactly the network's two assets.",
+                    "type": "object",
+                    "properties": {
+                      "USDC": {
+                        "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "description": "Maximum USDC.",
+                        "type": "string"
+                      },
+                      "WETH": {
+                        "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "description": "Maximum WETH.",
+                        "type": "string"
+                      },
+                      "SOL": {
+                        "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "description": "Maximum SOL.",
+                        "type": "string"
+                      },
+                      "devUSDC": {
+                        "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "description": "Maximum devUSDC.",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "range": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "unit",
+                      "lower",
+                      "upper"
+                    ],
+                    "properties": {
+                      "unit": {
+                        "description": "price: quote per base asset (USDC per WETH, devUSDC per SOL); tick: aligned tick indexes.",
+                        "anyOf": [
+                          {
+                            "const": "price",
+                            "type": "string"
+                          },
+                          {
+                            "const": "tick",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "lower": {
+                        "pattern": "^-?(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "type": "string"
+                      },
+                      "upper": {
+                        "pattern": "^-?(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                        "maxLength": 48,
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "slippageBps": {
+                    "minimum": 0,
+                    "maximum": 10000,
+                    "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                    "type": "integer"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "action",
+                  "network",
+                  "asset",
+                  "supplyAmount",
+                  "borrowAmount",
+                  "outputAsset",
+                  "owner"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Strategy contract version. Omit or 1.",
+                    "const": 1,
+                    "type": "number"
+                  },
+                  "action": {
+                    "const": "lending_composition",
+                    "type": "string"
+                  },
+                  "network": {
+                    "description": "The composition runs on Base Sepolia only.",
+                    "const": "base-sepolia",
+                    "type": "string"
+                  },
+                  "asset": {
+                    "description": "Supplied and borrowed asset (Aave V3 test USDC).",
+                    "const": "USDC",
+                    "type": "string"
+                  },
+                  "supplyAmount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "USDC supplied to Aave.",
+                    "type": "string"
+                  },
+                  "borrowAmount": {
+                    "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                    "maxLength": 48,
+                    "description": "USDC borrowed from Aave; exactly this amount is swapped.",
+                    "type": "string"
+                  },
+                  "outputAsset": {
+                    "description": "The borrowed USDC is swapped to WETH on Uniswap v3.",
+                    "const": "WETH",
+                    "type": "string"
+                  },
+                  "slippageBps": {
+                    "minimum": 0,
+                    "maximum": 10000,
+                    "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                    "type": "integer"
+                  },
+                  "owner": {
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                    "minLength": 42,
+                    "maxLength": 42,
+                    "description": "The wallet that supplies, borrows and receives WETH. Debt remains after the swap.",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "version",
+                  "steps"
+                ],
+                "properties": {
+                  "version": {
+                    "description": "Step-list workflow contract.",
+                    "const": 2,
+                    "type": "number"
+                  },
+                  "steps": {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "description": "Ordered steps, each one single-action strategy (the same objects as version 1). Executed in this order, each with its own review and signature.",
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "sourceNetwork",
+                            "destinationNetwork",
+                            "asset",
+                            "amount"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "bridge",
+                              "type": "string"
+                            },
+                            "sourceNetwork": {
+                              "description": "Source network. base-sepolia pairs with arbitrum-sepolia (test USDC); base pairs with arbitrum-one (real funds).",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "base",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "destinationNetwork": {
+                              "description": "Destination network.",
+                              "anyOf": [
+                                {
+                                  "const": "arbitrum-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "arbitrum-one",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "asset": {
+                              "description": "The Cross-chain Router moves USDC only.",
+                              "const": "USDC",
+                              "type": "string"
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "USDC amount as a decimal string, e.g. \"5\".",
+                              "type": "string"
+                            },
+                            "routing": {
+                              "description": "Provider policy. auto = LI.FI first, direct Across if LI.FI has no reconcilable route (a preference order, not a best-price search). Default auto.",
+                              "anyOf": [
+                                {
+                                  "const": "auto",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "lifi",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "across",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "slippageBps": {
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                              "type": "integer"
+                            },
+                            "recipient": {
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "minLength": 42,
+                              "maxLength": 42,
+                              "description": "Destination recipient. Omit to deliver to the wallet that signs in the FloFi app (bound at Review).",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "inputAsset",
+                            "outputAsset",
+                            "amount"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "swap",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "EVM networks swap USDC/WETH on Uniswap v3; solana swaps SOL/USDC/USDT via Jupiter; solana-devnet swaps SOL/devUSDC on Orca.",
+                              "anyOf": [
+                                {
+                                  "const": "base",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "solana",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "solana-devnet",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "inputAsset": {
+                              "description": "Asset spent.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WETH",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "SOL",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "USDT",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "devUSDC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "outputAsset": {
+                              "description": "Asset received.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WETH",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "SOL",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "USDT",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "devUSDC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "Exact input amount as a decimal string.",
+                              "type": "string"
+                            },
+                            "slippageBps": {
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "asset",
+                            "amount",
+                            "beneficiary"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "supply",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "asset": {
+                              "description": "Must be the network's one Aave asset.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "Amount as a decimal string.",
+                              "type": "string"
+                            },
+                            "beneficiary": {
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "minLength": 42,
+                              "maxLength": 42,
+                              "description": "Account credited with the supplied position.",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "asset",
+                            "amount",
+                            "beneficiary"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "borrow",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "asset": {
+                              "description": "Must be the network's one Aave asset.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "Amount as a decimal string.",
+                              "type": "string"
+                            },
+                            "beneficiary": {
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "minLength": 42,
+                              "maxLength": 42,
+                              "description": "Account whose debt the borrow creates (onBehalfOf).",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "asset",
+                            "amount",
+                            "beneficiary"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "repay",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "Aave V3 network: base-sepolia lends test USDC, ethereum-sepolia lends test WBTC.",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "asset": {
+                              "description": "Must be the network's one Aave asset.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "Amount as a decimal string.",
+                              "type": "string"
+                            },
+                            "beneficiary": {
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "minLength": 42,
+                              "maxLength": 42,
+                              "description": "Account whose debt is repaid (onBehalfOf).",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "asset",
+                            "amount"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "withdraw",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "Aave V3 network.",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "asset": {
+                              "description": "The network's one Aave asset.",
+                              "anyOf": [
+                                {
+                                  "const": "USDC",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "WBTC",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "amount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "Amount as a decimal string. The recipient is always the wallet that signs.",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "maxAmounts",
+                            "range"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "add_liquidity",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "Uniswap v3 USDC/WETH on base-sepolia or ethereum-sepolia; Orca SOL/devUSDC on solana-devnet.",
+                              "anyOf": [
+                                {
+                                  "const": "base-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "ethereum-sepolia",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "solana-devnet",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "maxAmounts": {
+                              "additionalProperties": false,
+                              "minProperties": 2,
+                              "maxProperties": 2,
+                              "description": "Maximum deposit of each pool asset (limits, not amounts to spend); exactly the network's two assets.",
+                              "type": "object",
+                              "properties": {
+                                "USDC": {
+                                  "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "description": "Maximum USDC.",
+                                  "type": "string"
+                                },
+                                "WETH": {
+                                  "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "description": "Maximum WETH.",
+                                  "type": "string"
+                                },
+                                "SOL": {
+                                  "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "description": "Maximum SOL.",
+                                  "type": "string"
+                                },
+                                "devUSDC": {
+                                  "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "description": "Maximum devUSDC.",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "range": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "unit",
+                                "lower",
+                                "upper"
+                              ],
+                              "properties": {
+                                "unit": {
+                                  "description": "price: quote per base asset (USDC per WETH, devUSDC per SOL); tick: aligned tick indexes.",
+                                  "anyOf": [
+                                    {
+                                      "const": "price",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "tick",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "lower": {
+                                  "pattern": "^-?(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "type": "string"
+                                },
+                                "upper": {
+                                  "pattern": "^-?(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                                  "maxLength": 48,
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "slippageBps": {
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "action",
+                            "network",
+                            "asset",
+                            "supplyAmount",
+                            "borrowAmount",
+                            "outputAsset",
+                            "owner"
+                          ],
+                          "properties": {
+                            "version": {
+                              "description": "Strategy contract version. Omit or 1.",
+                              "const": 1,
+                              "type": "number"
+                            },
+                            "action": {
+                              "const": "lending_composition",
+                              "type": "string"
+                            },
+                            "network": {
+                              "description": "The composition runs on Base Sepolia only.",
+                              "const": "base-sepolia",
+                              "type": "string"
+                            },
+                            "asset": {
+                              "description": "Supplied and borrowed asset (Aave V3 test USDC).",
+                              "const": "USDC",
+                              "type": "string"
+                            },
+                            "supplyAmount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "USDC supplied to Aave.",
+                              "type": "string"
+                            },
+                            "borrowAmount": {
+                              "pattern": "^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,18})?$",
+                              "maxLength": 48,
+                              "description": "USDC borrowed from Aave; exactly this amount is swapped.",
+                              "type": "string"
+                            },
+                            "outputAsset": {
+                              "description": "The borrowed USDC is swapped to WETH on Uniswap v3.",
+                              "const": "WETH",
+                              "type": "string"
+                            },
+                            "slippageBps": {
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points. Omit to use FloFi's documented default for the action; each action enforces its own maximum.",
+                              "type": "integer"
+                            },
+                            "owner": {
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "minLength": 42,
+                              "maxLength": 42,
+                              "description": "The wallet that supplies, borrows and receives WETH. Debt remains after the swap.",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ValidateStrategyRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {}
+      },
+      "SimulateStrategyRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "simulationSubject"
+        ],
+        "properties": {
+          "simulationSubject": {
+            "pattern": "^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$",
+            "description": "The account whose PUBLIC balances and allowances the read-only simulation reads (EVM address or Solana public key). It is not authenticated, not an owner and grants nothing; nothing is stored for it.",
+            "type": "string"
+          }
+        }
+      },
+      "CreateApprovalRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strategyId",
+          "workflowHash"
+        ],
+        "properties": {
+          "strategyId": {
+            "pattern": "^str_[a-z2-7]{26}$",
+            "description": "A FloFi Developer strategy id.",
+            "type": "string"
+          },
+          "workflowHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "description": "The workflowHash of that strategy, as returned when it was created. A different hash is refused (STRATEGY_CHANGED).",
+            "type": "string"
+          }
+        }
+      },
+      "CreateWebhookEndpointRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "minLength": 10,
+            "maxLength": 2048,
+            "description": "An https URL on port 443.",
+            "type": "string"
+          },
+          "events": {
+            "maxItems": 6,
+            "uniqueItems": true,
+            "description": "Event types to receive; omitted or empty = all.",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "approval.claimed",
+                  "type": "string"
+                },
+                {
+                  "const": "approval.applied",
+                  "type": "string"
+                },
+                {
+                  "const": "approval.ended",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.started",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.failed",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.reconciled",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CapabilityList": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "object",
+          "environment",
+          "data",
+          "ownerExecution"
+        ],
+        "properties": {
+          "object": {
+            "const": "list",
+            "type": "string"
+          },
+          "environment": {
+            "description": "The credential environment. Only `sandbox` exists in this release.",
+            "anyOf": [
+              {
+                "const": "sandbox",
+                "type": "string"
+              },
+              {
+                "const": "production",
+                "type": "string"
+              }
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "object",
+                "action",
+                "network",
+                "destinationNetwork",
+                "fundsClass",
+                "networkEnvironment",
+                "executionPlan",
+                "operations",
+                "availability",
+                "exampleStrategy"
+              ],
+              "properties": {
+                "object": {
+                  "const": "capability",
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "network": {
+                  "type": "string"
+                },
+                "destinationNetwork": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fundsClass": {
+                  "anyOf": [
+                    {
+                      "const": "TEST_FUNDS",
+                      "type": "string"
+                    },
+                    {
+                      "const": "REAL_FUNDS",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "networkEnvironment": {
+                  "type": "string"
+                },
+                "executionPlan": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "steps"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "steps": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "operations": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "compose",
+                    "simulate",
+                    "approve",
+                    "execute"
+                  ],
+                  "properties": {
+                    "compose": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "reason"
+                      ],
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "simulate": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "reason"
+                      ],
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "approve": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "reason"
+                      ],
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "execute": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "reason"
+                      ],
+                      "properties": {
+                        "available": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "const": "OWNER_WALLET_IN_FLOFI_ONLY",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "availability": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "supportedByCode",
+                    "enabledByDeployment",
+                    "enabledByPolicy",
+                    "demonstratedEvidence",
+                    "mockedHarness"
+                  ],
+                  "properties": {
+                    "supportedByCode": {
+                      "type": "boolean"
+                    },
+                    "enabledByDeployment": {
+                      "type": "boolean"
+                    },
+                    "enabledByPolicy": {
+                      "type": "boolean"
+                    },
+                    "demonstratedEvidence": {
+                      "type": "string"
+                    },
+                    "mockedHarness": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "exampleStrategy": {
+                  "description": "A valid version 1 strategy for this row.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {}
+                  }
+                }
+              }
+            }
+          },
+          "ownerExecution": {
+            "const": "IN_FLOFI_WITH_THE_OWNER_WALLET_ONLY",
+            "type": "string"
+          }
+        }
+      },
+      "Strategy": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "environment",
+          "strategy",
+          "workflowHash",
+          "engineVersion",
+          "fundsClass",
+          "networkEnvironment",
+          "executionPlan",
+          "validation",
+          "availability",
+          "summary",
+          "explanation",
+          "notes",
+          "createdAt",
+          "authority"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^str_[a-z2-7]{26}$",
+            "description": "A FloFi Developer strategy id.",
+            "type": "string"
+          },
+          "object": {
+            "const": "strategy",
+            "type": "string"
+          },
+          "environment": {
+            "description": "The credential environment. Only `sandbox` exists in this release.",
+            "anyOf": [
+              {
+                "const": "sandbox",
+                "type": "string"
+              },
+              {
+                "const": "production",
+                "type": "string"
+              }
+            ]
+          },
+          "strategy": {
+            "description": "The canonical, normalized StrategySpec FloFi stored (immutable).",
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {}
+            }
+          },
+          "workflowHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "description": "The semantic workflow hash FloFi computed for the strategy.",
+            "type": "string"
+          },
+          "engineVersion": {
+            "type": "string"
+          },
+          "fundsClass": {
+            "anyOf": [
+              {
+                "const": "TEST_FUNDS",
+                "type": "string"
+              },
+              {
+                "const": "REAL_FUNDS",
+                "type": "string"
+              }
+            ]
+          },
+          "networkEnvironment": {
+            "type": "string"
+          },
+          "executionPlan": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "reason",
+              "steps"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "SINGLE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "COMPOSITE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SEQUENTIAL",
+                    "type": "string"
+                  },
+                  {
+                    "const": "NOT_EXECUTABLE",
+                    "type": "string"
+                  }
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "index",
+                    "action",
+                    "network",
+                    "destinationNetwork",
+                    "kind",
+                    "protocol",
+                    "fundsClass",
+                    "environment",
+                    "stepWorkflowHash"
+                  ],
+                  "properties": {
+                    "index": {
+                      "type": "integer"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string"
+                    },
+                    "destinationNetwork": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "protocol": {
+                      "type": "string"
+                    },
+                    "fundsClass": {
+                      "anyOf": [
+                        {
+                          "const": "TEST_FUNDS",
+                          "type": "string"
+                        },
+                        {
+                          "const": "REAL_FUNDS",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "stepWorkflowHash": {
+                      "pattern": "^0x[0-9a-f]{64}$",
+                      "description": "The semantic workflow hash FloFi computed for the strategy.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "validation": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "valid",
+              "summary",
+              "findings",
+              "blockers",
+              "preExecution"
+            ],
+            "properties": {
+              "valid": {
+                "description": "No review finding blocks handing this strategy to its owner.",
+                "type": "boolean"
+              },
+              "summary": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "block",
+                  "warning",
+                  "information"
+                ],
+                "properties": {
+                  "block": {
+                    "type": "integer"
+                  },
+                  "warning": {
+                    "type": "integer"
+                  },
+                  "information": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "level",
+                    "code",
+                    "source",
+                    "message"
+                  ],
+                  "properties": {
+                    "level": {
+                      "anyOf": [
+                        {
+                          "const": "BLOCK",
+                          "type": "string"
+                        },
+                        {
+                          "const": "WARNING",
+                          "type": "string"
+                        },
+                        {
+                          "const": "INFORMATION",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "blockers": {
+                "type": "array",
+                "items": {
+                  "pattern": "^[A-Z][A-Z0-9_]{2,80}$",
+                  "type": "string"
+                }
+              },
+              "preExecution": {
+                "description": "What FloFi's own flow does with the owner before anything can be signed.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "availability": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "approvable",
+              "reason",
+              "supportedByCode",
+              "enabledByDeployment",
+              "enabledByPolicy",
+              "demonstratedEvidence",
+              "mockedHarness"
+            ],
+            "properties": {
+              "approvable": {
+                "type": "boolean"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supportedByCode": {
+                "type": "boolean"
+              },
+              "enabledByDeployment": {
+                "type": "boolean"
+              },
+              "enabledByPolicy": {
+                "type": "boolean"
+              },
+              "demonstratedEvidence": {
+                "type": "string"
+              },
+              "mockedHarness": {
+                "description": "This deployment runs the flow against MOCKED chains.",
+                "type": "boolean"
+              }
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          },
+          "authority": {
+            "description": "What this object authorizes: nothing. Only the owner's wallet, in FloFi, can sign.",
+            "const": "NONE",
+            "type": "string"
+          }
+        }
+      },
+      "StrategyValidation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "object",
+          "strategyId",
+          "workflowHash",
+          "engineVersion",
+          "reproducible",
+          "validation",
+          "availability",
+          "executionPlan",
+          "checkedAt",
+          "authority"
+        ],
+        "properties": {
+          "object": {
+            "const": "strategy_validation",
+            "type": "string"
+          },
+          "strategyId": {
+            "pattern": "^str_[a-z2-7]{26}$",
+            "description": "A FloFi Developer strategy id.",
+            "type": "string"
+          },
+          "workflowHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "description": "The semantic workflow hash FloFi computed for the strategy.",
+            "type": "string"
+          },
+          "engineVersion": {
+            "type": "string"
+          },
+          "reproducible": {
+            "const": true,
+            "type": "boolean"
+          },
+          "validation": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "valid",
+              "summary",
+              "findings",
+              "blockers",
+              "preExecution"
+            ],
+            "properties": {
+              "valid": {
+                "description": "No review finding blocks handing this strategy to its owner.",
+                "type": "boolean"
+              },
+              "summary": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "block",
+                  "warning",
+                  "information"
+                ],
+                "properties": {
+                  "block": {
+                    "type": "integer"
+                  },
+                  "warning": {
+                    "type": "integer"
+                  },
+                  "information": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "level",
+                    "code",
+                    "source",
+                    "message"
+                  ],
+                  "properties": {
+                    "level": {
+                      "anyOf": [
+                        {
+                          "const": "BLOCK",
+                          "type": "string"
+                        },
+                        {
+                          "const": "WARNING",
+                          "type": "string"
+                        },
+                        {
+                          "const": "INFORMATION",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "blockers": {
+                "type": "array",
+                "items": {
+                  "pattern": "^[A-Z][A-Z0-9_]{2,80}$",
+                  "type": "string"
+                }
+              },
+              "preExecution": {
+                "description": "What FloFi's own flow does with the owner before anything can be signed.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "availability": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "approvable",
+              "reason",
+              "supportedByCode",
+              "enabledByDeployment",
+              "enabledByPolicy",
+              "demonstratedEvidence",
+              "mockedHarness"
+            ],
+            "properties": {
+              "approvable": {
+                "type": "boolean"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "supportedByCode": {
+                "type": "boolean"
+              },
+              "enabledByDeployment": {
+                "type": "boolean"
+              },
+              "enabledByPolicy": {
+                "type": "boolean"
+              },
+              "demonstratedEvidence": {
+                "type": "string"
+              },
+              "mockedHarness": {
+                "description": "This deployment runs the flow against MOCKED chains.",
+                "type": "boolean"
+              }
+            }
+          },
+          "executionPlan": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "reason",
+              "steps"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "SINGLE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "COMPOSITE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SEQUENTIAL",
+                    "type": "string"
+                  },
+                  {
+                    "const": "NOT_EXECUTABLE",
+                    "type": "string"
+                  }
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "index",
+                    "action",
+                    "network",
+                    "destinationNetwork",
+                    "kind",
+                    "protocol",
+                    "fundsClass",
+                    "environment",
+                    "stepWorkflowHash"
+                  ],
+                  "properties": {
+                    "index": {
+                      "type": "integer"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string"
+                    },
+                    "destinationNetwork": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "protocol": {
+                      "type": "string"
+                    },
+                    "fundsClass": {
+                      "anyOf": [
+                        {
+                          "const": "TEST_FUNDS",
+                          "type": "string"
+                        },
+                        {
+                          "const": "REAL_FUNDS",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "stepWorkflowHash": {
+                      "pattern": "^0x[0-9a-f]{64}$",
+                      "description": "The semantic workflow hash FloFi computed for the strategy.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "checkedAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          },
+          "authority": {
+            "description": "What this object authorizes: nothing. Only the owner's wallet, in FloFi, can sign.",
+            "const": "NONE",
+            "type": "string"
+          }
+        }
+      },
+      "Simulation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "object",
+          "strategyId",
+          "workflowHash",
+          "kind",
+          "provenance",
+          "observedAt",
+          "expiresAt",
+          "simulationSubject",
+          "subjectRole",
+          "preview",
+          "persisted",
+          "authorizable",
+          "evidenceLevel",
+          "facts",
+          "canonicalArtifacts",
+          "notes",
+          "authority"
+        ],
+        "properties": {
+          "object": {
+            "const": "simulation",
+            "type": "string"
+          },
+          "strategyId": {
+            "pattern": "^str_[a-z2-7]{26}$",
+            "description": "A FloFi Developer strategy id.",
+            "type": "string"
+          },
+          "workflowHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "description": "The semantic workflow hash FloFi computed for the strategy.",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "string"
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "simulationSubject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subjectRole": {
+            "const": "SIMULATION_SUBJECT_ONLY_NOT_AN_OWNER_OR_AUTHORIZATION",
+            "type": "string"
+          },
+          "preview": {
+            "const": true,
+            "type": "boolean"
+          },
+          "persisted": {
+            "const": false,
+            "type": "boolean"
+          },
+          "authorizable": {
+            "const": false,
+            "type": "boolean"
+          },
+          "evidenceLevel": {
+            "anyOf": [
+              {
+                "const": "MOCKED_SIMULATION_PREVIEW",
+                "type": "string"
+              },
+              {
+                "const": "SIMULATION_PREVIEW_NOT_EXECUTION",
+                "type": "string"
+              }
+            ]
+          },
+          "facts": {
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {}
+            }
+          },
+          "canonicalArtifacts": {
+            "anyOf": [
+              {
+                "type": "object",
+                "patternProperties": {
+                  "^(.*)$": {}
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authority": {
+            "description": "What this object authorizes: nothing. Only the owner's wallet, in FloFi, can sign.",
+            "const": "NONE",
+            "type": "string"
+          }
+        }
+      },
+      "Approval": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "environment",
+          "strategyId",
+          "workflowHash",
+          "status",
+          "approvalUrl",
+          "approvalUrlExpiresAt",
+          "expiresAt",
+          "networkEnvironment",
+          "fundsClass",
+          "executionPlan",
+          "walletNamespace",
+          "requires",
+          "claimed",
+          "applied",
+          "statusShared",
+          "executions",
+          "executionsVisible",
+          "note",
+          "createdAt",
+          "authority"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^apr_[a-z2-7]{26}$",
+            "description": "A FloFi approval id.",
+            "type": "string"
+          },
+          "object": {
+            "const": "approval",
+            "type": "string"
+          },
+          "environment": {
+            "description": "The credential environment. Only `sandbox` exists in this release.",
+            "anyOf": [
+              {
+                "const": "sandbox",
+                "type": "string"
+              },
+              {
+                "const": "production",
+                "type": "string"
+              }
+            ]
+          },
+          "strategyId": {
+            "pattern": "^str_[a-z2-7]{26}$",
+            "description": "A FloFi Developer strategy id.",
+            "type": "string"
+          },
+          "workflowHash": {
+            "pattern": "^0x[0-9a-f]{64}$",
+            "description": "The semantic workflow hash FloFi computed for the strategy.",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "PENDING",
+                "type": "string"
+              },
+              {
+                "const": "CLAIMED",
+                "type": "string"
+              },
+              {
+                "const": "APPLIED",
+                "type": "string"
+              },
+              {
+                "const": "EXPIRED",
+                "type": "string"
+              },
+              {
+                "const": "SUPERSEDED",
+                "type": "string"
+              },
+              {
+                "const": "REVOKED",
+                "type": "string"
+              },
+              {
+                "const": "STALE",
+                "type": "string"
+              }
+            ]
+          },
+          "approvalUrl": {
+            "anyOf": [
+              {
+                "description": "The FloFi link to send to the end user (its secret is in the fragment). Returned on creation; never stored by FloFi.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalUrlExpiresAt": {
+            "anyOf": [
+              {
+                "description": "RFC 3339 timestamp.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          },
+          "networkEnvironment": {
+            "type": "string"
+          },
+          "fundsClass": {
+            "anyOf": [
+              {
+                "const": "TEST_FUNDS",
+                "type": "string"
+              },
+              {
+                "const": "REAL_FUNDS",
+                "type": "string"
+              }
+            ]
+          },
+          "executionPlan": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "reason",
+              "steps"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "SINGLE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "COMPOSITE_FLOW",
+                    "type": "string"
+                  },
+                  {
+                    "const": "SEQUENTIAL",
+                    "type": "string"
+                  },
+                  {
+                    "const": "NOT_EXECUTABLE",
+                    "type": "string"
+                  }
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "index",
+                    "action",
+                    "network",
+                    "destinationNetwork",
+                    "kind",
+                    "protocol",
+                    "fundsClass",
+                    "environment",
+                    "stepWorkflowHash"
+                  ],
+                  "properties": {
+                    "index": {
+                      "type": "integer"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string"
+                    },
+                    "destinationNetwork": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "protocol": {
+                      "type": "string"
+                    },
+                    "fundsClass": {
+                      "anyOf": [
+                        {
+                          "const": "TEST_FUNDS",
+                          "type": "string"
+                        },
+                        {
+                          "const": "REAL_FUNDS",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "stepWorkflowHash": {
+                      "pattern": "^0x[0-9a-f]{64}$",
+                      "description": "The semantic workflow hash FloFi computed for the strategy.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "walletNamespace": {
+            "anyOf": [
+              {
+                "const": "eip155",
+                "type": "string"
+              },
+              {
+                "const": "solana",
+                "type": "string"
+              }
+            ]
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimed": {
+            "type": "boolean"
+          },
+          "applied": {
+            "type": "boolean"
+          },
+          "statusShared": {
+            "description": "The owner chose to share run status and evidence with this project (off by default).",
+            "type": "boolean"
+          },
+          "executions": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "status",
+                "reconciled",
+                "terminal",
+                "errorCode",
+                "evidence",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                  "description": "A FloFi execution (run) id. It is a lookup key, not an access grant.",
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reconciled": {
+                  "type": "boolean"
+                },
+                "terminal": {
+                  "type": "boolean"
+                },
+                "errorCode": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "evidence": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "environment",
+                        "outcome",
+                        "bundleHash"
+                      ],
+                      "properties": {
+                        "environment": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": "string"
+                        },
+                        "bundleHash": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "updatedAt": {
+                  "description": "RFC 3339 timestamp.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "executionsVisible": {
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          },
+          "authority": {
+            "description": "What this object authorizes: nothing. Only the owner's wallet, in FloFi, can sign.",
+            "const": "NONE",
+            "type": "string"
+          }
+        }
+      },
+      "Execution": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "approvalId",
+          "status",
+          "provenance",
+          "reconciled",
+          "terminal",
+          "errorCode",
+          "attentionRequired",
+          "owner",
+          "attempts",
+          "createdAt",
+          "updatedAt",
+          "accessBasis"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "A FloFi execution (run) id. It is a lookup key, not an access grant.",
+            "type": "string"
+          },
+          "object": {
+            "const": "execution",
+            "type": "string"
+          },
+          "approvalId": {
+            "pattern": "^apr_[a-z2-7]{26}$",
+            "description": "A FloFi approval id.",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "string"
+          },
+          "reconciled": {
+            "type": "boolean"
+          },
+          "terminal": {
+            "type": "boolean"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attentionRequired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner": {
+            "description": "The wallet that claimed the approval and signed (shared by its owner).",
+            "type": "string"
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "attemptId",
+                "step",
+                "state",
+                "transactionHash",
+                "reconciled",
+                "updatedAt"
+              ],
+              "properties": {
+                "attemptId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "step": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "transactionHash": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reconciled": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "updatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accessBasis": {
+            "const": "OWNER_SHARED_WITH_PROJECT",
+            "type": "string"
+          }
+        }
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "object",
+          "executionId",
+          "approvalId",
+          "status",
+          "provenance",
+          "evidence",
+          "reason",
+          "accessBasis"
+        ],
+        "properties": {
+          "object": {
+            "const": "evidence",
+            "type": "string"
+          },
+          "executionId": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "A FloFi execution (run) id. It is a lookup key, not an access grant.",
+            "type": "string"
+          },
+          "approvalId": {
+            "pattern": "^apr_[a-z2-7]{26}$",
+            "description": "A FloFi approval id.",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "string"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "bundleHash",
+                  "environment",
+                  "outcome",
+                  "canonical",
+                  "bundle"
+                ],
+                "properties": {
+                  "bundleHash": {
+                    "type": "string"
+                  },
+                  "environment": {
+                    "description": "Copied from the Evidence Bundle (MOCKED, TESTNET_EXECUTED, …); never upgraded.",
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": "string"
+                  },
+                  "canonical": {
+                    "type": "boolean"
+                  },
+                  "bundle": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "patternProperties": {
+                          "^(.*)$": {}
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "const": "NO_RECONCILED_EVIDENCE_YET",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accessBasis": {
+            "const": "OWNER_SHARED_WITH_PROJECT",
+            "type": "string"
+          }
+        }
+      },
+      "WebhookEndpoint": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "environment",
+          "url",
+          "events",
+          "status",
+          "secret",
+          "secretAlreadyIssued",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^whe_[a-z2-7]{26}$",
+            "description": "A webhook endpoint id.",
+            "type": "string"
+          },
+          "object": {
+            "const": "webhook_endpoint",
+            "type": "string"
+          },
+          "environment": {
+            "description": "The credential environment. Only `sandbox` exists in this release.",
+            "anyOf": [
+              {
+                "const": "sandbox",
+                "type": "string"
+              },
+              {
+                "const": "production",
+                "type": "string"
+              }
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "description": "Empty = every event type.",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "approval.claimed",
+                  "type": "string"
+                },
+                {
+                  "const": "approval.applied",
+                  "type": "string"
+                },
+                {
+                  "const": "approval.ended",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.started",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.failed",
+                  "type": "string"
+                },
+                {
+                  "const": "execution.reconciled",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "ACTIVE",
+                "type": "string"
+              },
+              {
+                "const": "DELETED",
+                "type": "string"
+              }
+            ]
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "description": "The signing secret (`whsec_…`), returned once at creation; null on an idempotent replay.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secretAlreadyIssued": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          }
+        }
+      },
+      "DeletedWebhookEndpoint": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "deleted"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^whe_[a-z2-7]{26}$",
+            "description": "A webhook endpoint id.",
+            "type": "string"
+          },
+          "object": {
+            "const": "webhook_endpoint",
+            "type": "string"
+          },
+          "deleted": {
+            "const": true,
+            "type": "boolean"
+          }
+        }
+      },
+      "WebhookEvent": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "type",
+          "apiVersion",
+          "environment",
+          "createdAt",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^evt_[a-z2-7]{26}$",
+            "type": "string"
+          },
+          "object": {
+            "const": "event",
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "const": "approval.claimed",
+                "type": "string"
+              },
+              {
+                "const": "approval.applied",
+                "type": "string"
+              },
+              {
+                "const": "approval.ended",
+                "type": "string"
+              },
+              {
+                "const": "execution.started",
+                "type": "string"
+              },
+              {
+                "const": "execution.failed",
+                "type": "string"
+              },
+              {
+                "const": "execution.reconciled",
+                "type": "string"
+              }
+            ]
+          },
+          "apiVersion": {
+            "const": "v1",
+            "type": "string"
+          },
+          "environment": {
+            "description": "The credential environment. Only `sandbox` exists in this release.",
+            "anyOf": [
+              {
+                "const": "sandbox",
+                "type": "string"
+              },
+              {
+                "const": "production",
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "description": "RFC 3339 timestamp.",
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {}
+            }
+          }
+        }
+      },
+      "Error": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "code",
+              "reason",
+              "message",
+              "requestId"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "rule"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "rule": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

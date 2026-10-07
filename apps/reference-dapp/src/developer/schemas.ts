@@ -5,14 +5,17 @@
  * strategy is exactly FloFi's StrategySpec (`StrategyInputSchema`): no second strategy language. Nothing here carries calldata, a
  * transaction, a signature or a wallet secret.
  */
-import { Type, type Static, type TSchema } from '@sinclair/typebox';
+import { Type, type Static, type TLiteral, type TSchema, type TUnion } from '@sinclair/typebox';
 import { NETWORK_IDS, STRATEGY_ACTIONS, StrategyInputSchema } from '../engine/strategy-spec';
 import { DEVELOPER_EVENT_TYPES } from './store.ts';
 
 const strict = { additionalProperties: false } as const;
 const id = (prefix: string, description: string) => Type.String({ pattern: `^${prefix}_[a-z2-7]{26}$`, description });
 const Nullable = <T extends TSchema>(schema: T) => Type.Union([schema, Type.Null()]);
-const literals = <T extends readonly string[]>(values: T, description?: string) => Type.Union(values.map(v => Type.Literal(v)), description ? { description } : {});
+type LiteralTuple<T extends readonly string[]> = { -readonly [K in keyof T]: TLiteral<T[K] & string> };
+/** A union of string literals that keeps its exact literal type (so `Static` is `'a' | 'b'`, not `string`). */
+const literals = <const T extends readonly string[]>(values: T, description?: string): TUnion<LiteralTuple<T>> =>
+  Type.Union(values.map(v => Type.Literal(v)) as unknown as LiteralTuple<T>, description ? { description } : {}) as TUnion<LiteralTuple<T>>;
 
 export const StrategyId = id('str', 'A FloFi Developer strategy id.');
 export const ApprovalId = id('apr', 'A FloFi approval id.');

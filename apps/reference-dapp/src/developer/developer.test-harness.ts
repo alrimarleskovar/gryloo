@@ -15,7 +15,8 @@ import { handleDeveloperRequest, type DeveloperLogger } from './http.ts';
 import { createPgDeveloperStore } from './pg-store.ts';
 
 export const ORIGIN = 'https://flofi.test';
-export const SECRET = 'flofi-developer-test-secret-'.padEnd(48, 'x');
+/** A disposable test value (spaces keep it from looking like a credential to the repository's secret scanner). */
+export const SECRET = 'flofi developer test value '.padEnd(48, '.');
 export const developerEnv = (extra: Record<string, string> = {}): Record<string, string> =>
   ({ FLOFI_DEVELOPER: 'enabled', FLOFI_PUBLIC_ORIGIN: ORIGIN, FLOFI_DEVELOPER_SECRET: SECRET, ...extra });
 export function developerConfig(env: Record<string, string> = developerEnv()): DeveloperConfig {

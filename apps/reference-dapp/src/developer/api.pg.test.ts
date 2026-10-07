@@ -102,7 +102,7 @@ describe('BUILD-DEVELOPER-001 Developer API scopes, routes and closed schemas', 
     expect([extra.status, errorOf(extra).reason]).toEqual([400, 'SCHEMA_INVALID']);
     expect(extra.text).not.toContain('abab');
     // A strategy is reported against its own action's schema; values are never echoed.
-    const secretShaped = await api('POST', '/strategies', { strategy: { ...BRIDGE, mnemonic: 'test test test test test test test test test test test junk' } });
+    const secretShaped = await api('POST', '/strategies', { strategy: { ...BRIDGE, mnemonic: 'not a real phrase junk' } });
     expect(errorOf(secretShaped)).toMatchObject({ code: 'INVALID_STRATEGY', reason: 'STRATEGY_SCHEMA_INVALID', issues: [{ path: '/strategy/mnemonic', rule: 'additionalProperties' }] });
     expect(secretShaped.text).not.toContain('junk');
     const big = await api('POST', '/strategies', { strategy: BRIDGE, pad: 'x'.repeat(70_000) });

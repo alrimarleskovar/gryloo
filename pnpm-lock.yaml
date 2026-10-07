@@ -122,6 +122,8 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
 
+  packages/developer-sdk: {}
+
   packages/reference-compiler:
     dependencies:
       '@defi-workflow-engine/action-registry':

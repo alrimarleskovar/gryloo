@@ -96,6 +96,8 @@ const ROUTES: readonly Route[] = [
   { method: 'DELETE', path: new RegExp(`^/webhook-endpoints/${ID('whe')}$`), template: '/webhook-endpoints/{id}', scope: 'webhooks', input: null, status: 200,
     run: (ctx, i) => deleteWebhookEndpoint(ctx, i.params[0]!) },
 ];
+/** The public route table (method, path template, scope): the OpenAPI document must describe exactly these. */
+export const DEVELOPER_ROUTE_TABLE = Object.freeze(ROUTES.map(r => Object.freeze({ method: r.method, template: r.template, scope: r.scope })));
 /** Shapes of resource paths whose id is malformed: answered exactly like an absent resource. */
 const RESOURCE_SHAPES: readonly { readonly path: RegExp; readonly methods: readonly Method[] }[] = [
   { path: /^\/strategies\/[^/]+\/(validate|simulate)$/, methods: ['POST'] }, { path: /^\/approvals\/[^/]+$/, methods: ['GET'] },
