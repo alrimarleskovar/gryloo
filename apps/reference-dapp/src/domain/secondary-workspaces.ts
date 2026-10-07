@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 export const SECONDARY_WORKSPACES = [
+  { id: 'automations', label: 'Automations', href: '/app/automations' },
   { id: 'credentials', label: 'Credentials', href: '/app/credentials' },
   { id: 'agents', label: 'Agents', href: '/app/agents' },
   { id: 'passkeys', label: 'Passkeys', href: '/app/passkeys' },
