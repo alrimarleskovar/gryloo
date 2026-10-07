@@ -6,6 +6,7 @@
  */
 import { composeStrategy } from '../engine/strategy-engine';
 import type { StrategySpec } from '../engine/strategy-spec';
+import type { Command } from './commands';
 
 export const AUTOMATION_EXECUTION_POLICY = 'OWNER_CONFIRMATION_REQUIRED' as const;
 export type ScheduleCadence = 'DAILY' | 'WEEKLY';
@@ -13,8 +14,7 @@ export type ScheduleTrigger = { readonly type: 'SCHEDULE'; readonly cadence: Sch
   readonly localTime: string; readonly weekday?: number };
 export type AutomationSpec = { readonly version: 1; readonly name: string; readonly trigger: ScheduleTrigger;
   readonly strategy: StrategySpec; readonly execution: typeof AUTOMATION_EXECUTION_POLICY };
-export type ValidAutomation = { readonly spec: AutomationSpec; readonly workflowHash: string; readonly command: ReturnType<typeof composeStrategy> extends infer R
-  ? R extends { ok: true; command: infer C } ? C : never : never };
+export type ValidAutomation = { readonly spec: AutomationSpec; readonly workflowHash: string; readonly command: Command };
 
 const plain = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
