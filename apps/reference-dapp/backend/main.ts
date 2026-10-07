@@ -14,7 +14,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { assertSchemaCurrent, createDatabase, createHttpServer, createLogger, createPostgresWorkQueue, createWorker, migrate,
-  readEvidenceStore, readRuntimeConfig, sweep } from '@defi-workflow-engine/cloud-runtime';
+  readEvidenceStore, readRuntimeConfig, sweep, sweepAutomationWork } from '@defi-workflow-engine/cloud-runtime';
 import { createFileLogStore, utf8 } from '@defi-workflow-engine/reference-executor';
 import { createRobinhoodTransferService } from '../src/server/robinhood-transfer-service.ts';
 import { createSupplyService } from '../src/server/supply-service.ts';
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   // BUILD-CLOUD-PARITY-001: a worker serves only its deployment's tenant, so a shared database never mixes deployments' runs.
   const queue = createPostgresWorkQueue({ db, ownerId: config.workerId, tenantId: config.tenantId });
   const worker = createWorker({ queue, handlers: backend.handlers, logger, workerId: config.workerId, concurrency: config.workerConcurrency,
-    sweep: () => sweep(db, { tenantId: config.tenantId }) });
+    sweep: async () => ({ execution: await sweep(db, { tenantId: config.tenantId }), automations: await sweepAutomationWork(db, config.tenantId) }) });
   const shutdown = () => { logger.info('worker.stopping'); worker.stop().finally(() => db.close().finally(() => process.exit(0))); setTimeout(() => process.exit(1), 120_000).unref(); };
   process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
   await worker.start();
