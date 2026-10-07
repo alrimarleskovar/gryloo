@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
 import { chainName, useBuild009Wallet } from '../state/build009-wallet-store';
 import { useJupiter } from '../state/jupiter-store';
+import { AutomationWorkspace } from './automation-workspace';
 
 type IconName = 'wallet' | 'agent' | 'key' | 'plus' | 'copy' | 'card' | 'secret';
 function WorkspaceIcon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -101,5 +102,5 @@ function PasskeysWorkspace() {
 }
 
 export function SecondaryProductWorkspace({ workspace }: { workspace: SecondaryWorkspace['id'] }) {
-  return workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
+  return workspace === 'automations' ? <AutomationWorkspace/> : workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
 }
