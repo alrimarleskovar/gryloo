@@ -43,6 +43,9 @@ export function createPgDeveloperStore(db: Database, tenantId: string): Develope
       await db.query('INSERT INTO developer_projects (tenant_id, project_id, display_name, created_at) VALUES ($1, $2, $3, $4)', [tenantId, projectId, displayName, now]);
       return projectId;
     },
+    async projectActive(projectId) {
+      return (await db.query(`SELECT 1 FROM developer_projects WHERE tenant_id = $1 AND project_id = $2 AND status = 'ACTIVE'`, [tenantId, projectId])).rows.length === 1;
+    },
     async disableProject(projectId, now) {
       return (await db.query(`UPDATE developer_projects SET status = 'DISABLED', disabled_at = $3 WHERE tenant_id = $1 AND project_id = $2 AND status = 'ACTIVE'`,
         [tenantId, projectId, now])).rowCount === 1;
@@ -186,6 +189,9 @@ export function createPgDeveloperStore(db: Database, tenantId: string): Develope
     },
     async purge(now) {
       await db.query('DELETE FROM developer_events WHERE tenant_id = $1 AND created_at < $2', [tenantId, new Date(now.getTime() - 30 * DAY)]);
+      // Developer abuse-limit windows (the shared table; MCP purges its own buckets the same way).
+      await db.query(`DELETE FROM mcp_rate_limits WHERE tenant_id = $1 AND window_start < $2 AND (bucket LIKE 'dev:%' OR bucket LIKE 'handoff:project:%')`,
+        [tenantId, new Date(now.getTime() - DAY)]);
       await db.query(`DELETE FROM developer_strategies s WHERE s.tenant_id = $1 AND s.created_at < $2 AND NOT EXISTS (SELECT 1 FROM developer_approvals a
         WHERE a.tenant_id = s.tenant_id AND a.strategy_id = s.strategy_id)`, [tenantId, new Date(now.getTime() - 90 * DAY)]);
     },

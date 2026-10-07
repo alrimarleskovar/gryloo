@@ -14,11 +14,11 @@ import { composeStrategy } from '../engine/strategy-engine';
 import { ENGINE_VERSION, type ExecutionPlan } from '../mcp/execution.ts';
 import { newId } from '../mcp/oauth/crypto.ts';
 import { createPgHandoffStore, typedId, type HandoffStore, type NewHandoff } from '../platform/index.ts';
-import { createProject, developerRequesterRef, disableProject, issueSandboxKey, listDeliveries, listKeys, revokeKey, type AdminDeps } from './admin.ts';
+import { createProject, disableProject, issueSandboxKey, listDeliveries, listKeys, revokeKey, type AdminDeps } from './admin.ts';
 import { developerKey } from './config.ts';
 import { apiKeyDigest } from './keys.ts';
 import { createPgDeveloperStore } from './pg-store.ts';
-import type { DeveloperStore, ProjectScope } from './store.ts';
+import { developerRequesterRef, type DeveloperStore, type ProjectScope } from './store.ts';
 
 let t: TestDatabase;
 beforeAll(async () => { t = await createTestDatabase(); await ensureTenant(t.db, 'other'); });

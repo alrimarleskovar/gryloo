@@ -39,9 +39,19 @@ export type KeyRecord = { readonly keyId: string; readonly environment: Develope
   readonly status: 'ACTIVE' | 'REVOKED'; readonly createdAt: Date; readonly revokedAt: Date | null; readonly lastUsedAt: Date | null };
 export type UsageRow = { readonly day: string; readonly metric: string; readonly dimension: string; readonly count: number };
 
+/** `requester_ref` of a developer approval requester: `<project id>.<environment>` (lower case; fits the shared requester grammar). */
+export const developerRequesterRef = (projectId: string, environment: DeveloperEnvironment) => `${projectId}.${environment}`;
+/** The project and environment a developer requester ref names, or null. */
+export function scopeOfRequesterRef(ref: string): ProjectScope | null {
+  const match = /^(prj_[a-z2-7]{26})\.(sandbox|production)$/.exec(ref);
+  return match ? { projectId: match[1]!, environment: match[2] as DeveloperEnvironment } : null;
+}
+
 export interface DeveloperStore {
   /** Operator: a new ACTIVE project. */
   readonly createProject: (displayName: string, now: Date) => Promise<string>;
+  /** Whether the project exists and is ACTIVE (a disabled project's approvals can no longer be claimed). */
+  readonly projectActive: (projectId: string) => Promise<boolean>;
   /** Operator: disables a project (every key stops authenticating at once). */
   readonly disableProject: (projectId: string, now: Date) => Promise<boolean>;
   /** Operator: a new key's digest for an ACTIVE project (`null` when the project is absent or disabled). */
@@ -71,6 +81,6 @@ export interface DeveloperStore {
   readonly settleDelivery: (deliveryId: string, leaseToken: string, settlement: DeliverySettlement, now: Date) => Promise<boolean>;
   readonly incrementUsage: (scope: ProjectScope, metric: string, dimension: string, now: Date, by?: number) => Promise<void>;
   readonly usage: (scope: ProjectScope, fromDay: string, toDay: string) => Promise<readonly UsageRow[]>;
-  /** Bounded retention: events (and their deliveries) after 30 days, unreferenced strategies after 90 days. */
+  /** Bounded retention: events (and their deliveries) after 30 days, unreferenced strategies after 90 days, developer limit windows after a day. */
   readonly purge: (now: Date) => Promise<void>;
 }

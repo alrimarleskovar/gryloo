@@ -119,7 +119,9 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
     </dl>
     {view.summary && <p className="approval-summary">{view.summary}</p>}
     {view.explanation.length > 0 && <ul className="approval-explanation">{view.explanation.map((line, i) => <li key={i}>{line}</li>)}</ul>}
-    <p className="muted approval-ai">Proposed with an AI assistant from your conversation. It is not financial advice; you decide, and only your wallet can sign.</p>
+    <p className="muted approval-ai">{view.requesterKind === 'DEVELOPER_PROJECT'
+      ? `Created by ${view.clientName}, a third-party app registered with FloFi, not by FloFi. It is not financial advice; you decide, and only your wallet can sign.`
+      : 'Proposed with an AI assistant from your conversation. It is not financial advice; you decide, and only your wallet can sign.'}</p>
     {terminal && <p className="approval-ended" role="status">This request is {STATUS_TEXT[view.status]?.toLowerCase()}. Ask for a new proposal.</p>}
     {view.refusal && !terminal && <p className="approval-ended" role="status">FloFi cannot hand this proposal to a wallet on this deployment now ({view.refusal}).</p>}
     {view.claimedByAnotherWallet && <p className="approval-ended" role="status">Another wallet already opened this proposal. Ask for a new proposal.</p>}

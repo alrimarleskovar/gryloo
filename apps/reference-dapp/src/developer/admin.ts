@@ -6,7 +6,7 @@
  */
 import { DEVELOPER_ENVIRONMENTS, DEVELOPER_SCOPES, type DeveloperKeys, type DeveloperScope } from './config.ts';
 import { apiKeyDigest, newApiKey } from './keys.ts';
-import type { DeveloperStore } from './store.ts';
+import { developerRequesterRef, type DeveloperStore } from './store.ts';
 import type { HandoffStore } from '../platform/index.ts';
 
 export type AdminDeps = { readonly store: DeveloperStore; readonly handoffs: HandoffStore; readonly config: { readonly keys: Pick<DeveloperKeys, 'apiKey'> };
@@ -15,8 +15,6 @@ export const PROJECT_ID = /^prj_[a-z2-7]{26}$/;
 export const KEY_ID = /^key_[a-z2-7]{26}$/;
 /** An operator-set display name as the owner sees it on /approve: 1–64 printable characters, no surrounding spaces. */
 export const projectNameValid = (name: string) => name.length >= 1 && name.length <= 64 && name === name.trim() && !/[\p{Cc}\p{Cf}]/u.test(name);
-/** `requester_ref` of a developer requester: `<project id>.<environment>` (lower case; fits the shared requester grammar). */
-export const developerRequesterRef = (projectId: string, environment: string) => `${projectId}.${environment}`;
 
 export async function createProject(deps: AdminDeps, displayName: string): Promise<{ readonly projectId: string }> {
   if (!projectNameValid(displayName)) throw new Error('PROJECT_NAME_INVALID');
