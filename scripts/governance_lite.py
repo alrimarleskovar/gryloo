@@ -81,7 +81,7 @@ def context_errors(branch, event="local"):
 def control_errors(files):
     """Surface obvious gate removal; no hashes, build scopes or approval manifests."""
     errors = []
-    required = (GOVERNANCE, CONTRACTS, "scripts/governance_lite.py",
+    required = (GOVERNANCE, CONTRACTS, "scripts/guarded-release-browser.mjs", "scripts/governance_lite.py",
                 "scripts/test_governance_lite.py", "CLAUDE.md", "docs/SCOPE_GUARD.md",
                 "scripts/bootstrap-ci.py", "pnpm-lock.yaml", "pnpm-workspace.yaml")
     errors.extend("Missing safety control: " + path for path in required if not files.get(path))
@@ -91,7 +91,9 @@ def control_errors(files):
         CONTRACTS: ("python3 scripts/bootstrap-ci.py", "pnpm install --frozen-lockfile --ignore-scripts",
                     "python3 scripts/bootstrap-ci.py --verify-dependencies", "pnpm typecheck", "pnpm lint",
                     "pnpm build", "pnpm schemas:check", "pnpm test", "pnpm test:anvil",
-                    "pnpm test:fork --testTimeout=30000", "pnpm audit --audit-level low"),
+                    "pnpm test:fork --testTimeout=30000", "pnpm audit --audit-level low",
+                    "node scripts/guarded-release-browser.mjs product",
+                    "node scripts/guarded-release-browser.mjs composition"),
     }.items():
         body = files.get(path, "")
         for command in commands:

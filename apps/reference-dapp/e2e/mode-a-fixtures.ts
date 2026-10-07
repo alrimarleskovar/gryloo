@@ -154,7 +154,7 @@ export async function readyForVisualCapture(page: Page): Promise<void> {
   expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
   await expect(page.locator('.fork-badge')).toContainText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/);
   await page.evaluate(() => document.fonts.ready);
-  const graph = page.getByRole('region', { name: 'Mocked outputs on the workflow graph' });
+  const graph = page.getByRole('region', { name: 'Simulation workflow graph' });
   if (await graph.isVisible()) await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }

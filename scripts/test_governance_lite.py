@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def safety_files():
-    paths = [GOVERNANCE, CONTRACTS, "scripts/governance_lite.py", "scripts/test_governance_lite.py",
+    paths = [GOVERNANCE, CONTRACTS, "scripts/guarded-release-browser.mjs", "scripts/governance_lite.py", "scripts/test_governance_lite.py",
              "scripts/bootstrap-ci.py", "CLAUDE.md", "docs/SCOPE_GUARD.md", "package.json",
              "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc",
              "LICENSES/Apache-2.0.txt", "LICENSES/AGPL-3.0-only.txt"]
@@ -155,15 +155,22 @@ class GovernanceLite(unittest.TestCase):
     def test_ci_dependency_test_browser_and_evidence_gates_remain(self):
         for command in ("pnpm typecheck", "pnpm lint", "pnpm build", "pnpm schemas:check", "pnpm test",
                         "pnpm install --frozen-lockfile --ignore-scripts", "pnpm audit --audit-level low",
-                        "python3 scripts/bootstrap-ci.py --verify-dependencies"):
+                        "python3 scripts/bootstrap-ci.py --verify-dependencies",
+                        "node scripts/guarded-release-browser.mjs product",
+                        "node scripts/guarded-release-browser.mjs composition"):
             files = dict(self.files)
             files[CONTRACTS] = files[CONTRACTS].replace("          " + command + "\n", "")
             self.assertTrue(control_errors(files), command)
         contracts = self.files[CONTRACTS]
-        for marker in ("playwright test", "supply-recovery.spec.ts", "mode-a-adversarial.spec.ts",
-                       "verifyTranscriptDocument", "verifyLiquidityTranscript", "verifyCompositionTranscript",
+        for marker in ("verifyTranscriptDocument", "verifyLiquidityTranscript", "verifyCompositionTranscript",
                        "pnpm sbom --sbom-format cyclonedx", "--lockfile-only"):
             self.assertIn(marker, contracts)
+        browser = self.files["scripts/guarded-release-browser.mjs"]
+        for marker in ("'playwright', 'test'", "release-provenance.spec.ts", "release-fork-provenance.spec.ts",
+                       "release-composition-provenance.spec.ts", "release-financial-provenance.spec.ts",
+                       "cow-recovery.spec.ts", "simulate-review-acceptance.spec.ts",
+                       "execute-product-workspace.spec.ts", "if (result.status !== 0) process.exit"):
+            self.assertIn(marker, browser)
 
     def test_privileged_workflows_fail(self):
         for before, after in (("contents: read", "contents: write"),

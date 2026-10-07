@@ -1,51 +1,60 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, installPassiveWallet, assertPassiveWallet, applyPendingProposal, openSimulationDetails, readWorkflowIr } from './fixtures';
 import type { Page } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => { await installPassiveWallet(page); });
+test.afterEach(async ({ page }) => { await assertPassiveWallet(page); });
+
 async function addFromToolbox(page: Page, action: string) {
-  const before = await page.locator('.react-flow__node').count();
-  await page.getByRole('button', { name: `Add ${action}` }).click();
-  await expect(page.locator('.react-flow__node')).toHaveCount(before + 1);
-  return page.locator('.react-flow__node').last();
+  const before = await page.locator('.build-flow-surface .react-flow__node').count();
+  await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
+  await expect(page.locator('.build-flow-surface .react-flow__node')).toHaveCount(before + 1);
+  const card = page.locator('.build-flow-surface .composer-card').last();
+  if (action === 'pool') {
+    await card.getByRole('textbox', { name: /^First liquidity amount/ }).fill('0.0001');
+    await card.getByRole('textbox', { name: /^Second liquidity amount/ }).fill('1');
+    await card.getByRole('button', { name: 'Review', exact: true }).click();
+    await card.getByRole('button', { name: 'Apply', exact: true }).click();
+  } else {
+    await card.getByRole('textbox', { name: 'Source amount (USDC)', exact: true }).fill('1');
+    await card.getByRole('button', { name: 'Review amount', exact: true }).click();
+    await card.getByRole('button', { name: 'Apply amount', exact: true }).click();
+  }
+  await expect(page.locator('.build-flow-surface .react-flow__node')).toHaveCount(before + 1);
+  return page.locator('.build-flow-surface .react-flow__node').last();
 }
 async function connect(page: Page, source: string, target: string) {
-  const from = await page.locator(`.react-flow__node[data-id="${source}"] .react-flow__handle-right`).boundingBox();
+  const sourceHandle = page.locator(`.react-flow__node[data-id="${source}"] .react-flow__handle-right`);
+  const targetHandle = page.locator(`.react-flow__node[data-id="${target}"] .react-flow__handle-left`);
+  await expect(sourceHandle).not.toHaveClass(/(?:^|\s)connectable(?:\s|$)/);
+  await expect(targetHandle).not.toHaveClass(/(?:^|\s)connectable(?:\s|$)/);
+  const from = await sourceHandle.boundingBox();
   const to = await page.locator(`.react-flow__node[data-id="${target}"] .react-flow__handle-left`).boundingBox();
   if (!from || !to) throw new Error('Connection handles missing');
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
   await page.mouse.up();
-  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 }
-test('toolbox creates the existing typed actions, selects them, and keeps setup below the canvas', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByRole('region', { name: 'Workflow graph' })).toBeVisible();
-  await expect(page.getByText('Advanced action setup', { exact: true })).toBeVisible();
-  const grid = page.locator('.build-grid');
-  await expect(grid.locator('.library')).toHaveCount(0);
+test('toolbox creates typed actions, selects them, and keeps setup below the canvas', async ({ page }) => {
   for (const action of ['swap', 'bridge', 'pool']) {
+    await page.goto('/');
+    await expect(page.getByRole('region', { name: 'Workflow graph' })).toBeVisible();
+    await expect(page.getByText('Advanced action setup', { exact: true })).toBeVisible();
+    await expect(page.locator('.build-grid .library')).toHaveCount(0);
     const node = await addFromToolbox(page, action);
-    await expect(node.locator('.flow-card')).toHaveClass(/active/);
+    await expect(node.locator('.composer-card')).toHaveClass(/active/);
     await expect(node).toContainText(action, { ignoreCase: true });
-    if (action !== 'swap') await expect(node).toContainText('Template · no execution');
+    await expect(node).not.toContainText('Template');
+    await expect(node).toContainText(action === 'bridge' ? 'Router' : 'Uniswap');
+    await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+    await expect(page.getByRole('region', { name: 'Workflow graph' })).not.toContainText('BUILD /');
+    await expect(page.locator('.top-bar')).not.toContainText('Base authoring · mock examples');
   }
-  // Lending expands canonical owner-bound steps; a disconnected generic Canvas stays unchanged.
-  const beforeLending=await page.locator('.react-flow__node').count();
-  await page.getByRole('button',{name:'Add Supply → Borrow → Swap',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('Connect your MetaMask owner wallet');
-  await expect(page.locator('.react-flow__node')).toHaveCount(beforeLending);
-  // Borrow now opens real Aave setup; it no longer inserts a sample template.
-  await page.getByRole('button',{name:'Add borrow',exact:true}).click();
-  await expect(page.getByRole('dialog',{name:'Configure Borrow'})).toBeVisible();
-  await page.getByRole('dialog',{name:'Configure Borrow'}).getByRole('button',{name:'Cancel',exact:true}).click();
-  await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Workflow graph' })).not.toContainText('BUILD /');
-  await expect(page.locator('.top-bar')).not.toContainText('Base authoring · mock examples');
 });
 test('dragging updates stored layout, survives editor changes and Build navigation', async ({ page }) => {
   await page.goto('/');
-  const node = await addFromToolbox(page, 'pool');
+  const node = await addFromToolbox(page, 'swap');
   const revisionBeforeDrag = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
   const id = await node.getAttribute('data-id');
   const before = await node.boundingBox();
@@ -59,7 +68,7 @@ test('dragging updates stored layout, survives editor changes and Build navigati
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revisionBeforeDrag!);
   const saved = await page.evaluate(id => JSON.parse(localStorage.getItem('gryloo:canvas:workflow-local') ?? '{}')[id], id);
   expect(saved.x).toBeGreaterThan(100);
-  await page.getByRole('button', { name: 'Add pool' }).click();
+  await addFromToolbox(page, 'swap');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   const returned = page.locator(`.react-flow__node[data-id="${id}"]`);
@@ -69,55 +78,58 @@ test('dragging updates stored layout, survives editor changes and Build navigati
 });
 test('node and edge selection, deletion, text entry and composition guards', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
+  await addFromToolbox(page, 'swap');
   const second = page.locator('.react-flow__node[data-id="node-002"]');
-  await second.locator('.flow-card').click();
-  await expect(second.locator('.flow-card')).toHaveClass(/active/);
+  await second.locator('.composer-card').click();
+  await expect(second.locator('.composer-card')).toHaveClass(/active/);
   await page.keyboard.press('Escape');
-  await expect(second.locator('.flow-card')).not.toHaveClass(/active/);
-  await second.locator('.flow-card').click();
+  await expect(second.locator('.composer-card')).not.toHaveClass(/active/);
+  await second.locator('.composer-card').click();
   const chat = page.locator('#mock-prompt');
   await chat.focus(); await page.keyboard.press('Delete');
   await expect(second).toBeVisible();
   await page.evaluate(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, isComposing: true })); });
   await expect(second).toBeVisible();
-  await second.locator('.flow-card').click(); await page.keyboard.press('Backspace');
+  await second.locator('.composer-card').click(); await page.keyboard.press('Backspace');
   await expect(second).toHaveCount(0);
-  await page.locator('.react-flow__node[data-id="node-001"] .flow-card').click(); await page.keyboard.press('Delete');
-  await expect(page.locator('.react-flow__node')).toHaveCount(1);
-  await expect(page.getByText('This step is required by another step or is protected.')).toBeVisible();
-  const replacement = await addFromToolbox(page, 'pool');
+  await expect(page.locator('.build-flow-surface .react-flow__node')).toHaveCount(0);
+  const source = await addFromToolbox(page, 'swap');
+  const sourceId = await source.getAttribute('data-id');
+  if (!sourceId) throw new Error('Source node missing');
+  const replacement = await addFromToolbox(page, 'swap');
   const targetId = await replacement.getAttribute('data-id');
   if (!targetId) throw new Error('Replacement node missing');
-  await connect(page, 'node-001', targetId);
-  const edge = page.locator('.react-flow__edge').first();
-  await edge.locator('.react-flow__edge-interaction').click({ force: true });
-  await expect(edge).toHaveClass(/selected/);
-  await page.keyboard.press('Delete');
+  const revision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
+  await connect(page, sourceId, targetId);
   await expect(page.locator('.react-flow__edge')).toHaveCount(0);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
 });
-test('selected template parameters edit shared IR', async ({ page }) => {
+test('selected action parameters edit shared IR', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
-  await page.getByLabel('Sample amount').fill('2500000');
-  await page.getByRole('button', { name: 'Save parameter' }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('2500000 sample units');
+  await addFromToolbox(page, 'swap');
+  const card = page.locator('.build-flow-surface .composer-card');
+  await card.getByRole('textbox', { name: 'Source amount (USDC)' }).fill('2.5');
+  await card.getByRole('button', { name: 'Review amount', exact: true }).click();
+  await card.getByRole('button', { name: 'Apply amount', exact: true }).click();
+  await expect(card.getByRole('textbox', { name: 'Source amount (USDC)' })).toHaveValue('2.5');
+  const ir = JSON.parse(await readWorkflowIr(page));
+  expect(ir.nodes.find((node: { nodeId: string }) => node.nodeId === 'node-002').inputs).toContainEqual(expect.objectContaining({ name: 'amount-in', value: expect.objectContaining({ amount: '2500000' }) }));
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('2500000 sample units');
+  await expect(page.locator('.simulation-workflow-canvas')).toContainText('2.5');
 });
 
 test('toolbox mode is presentation-only and persists across Build navigation', async ({ page }) => {
   await page.goto('/');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
-  const original = await graph.locator('.react-flow__node').first().textContent();
+  const original = await graph.locator('.react-flow__node').count();
   const revisionBeforeSwitch = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
   await expect(page.getByRole('button', { name: 'Undock toolbar' })).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: 'Undock toolbar' }).click();
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
   await expect(graph.getByRole('button', { name: 'Add swap' })).toBeVisible();
-  await expect(graph.locator('.react-flow__node').first()).toHaveText(original!);
+  await expect(graph.locator('.react-flow__node')).toHaveCount(original);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revisionBeforeSwitch!);
-  await addFromToolbox(page, 'pool');
+  await addFromToolbox(page, 'swap');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Dock toolbar' })).toHaveAttribute('aria-pressed', 'true');
@@ -129,19 +141,19 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
   await expect(page.getByText('Demo assistant')).toHaveCount(0);
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
 });
-test('duplicate selection copies internal connections in one undoable edit', async ({ page }) => {
+test('duplicate selection copies independent swaps in one undoable edit', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
-  await addFromToolbox(page, 'pool');
-  await connect(page, 'node-001', 'node-002');
-  await page.locator('.react-flow__node[data-id="node-001"] .flow-card').click();
-  await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click({ modifiers: ['Shift'] });
+  await addFromToolbox(page, 'swap');
+  await addFromToolbox(page, 'swap');
+  await addFromToolbox(page, 'swap');
+  await page.locator('.react-flow__node[data-id="node-002"] .composer-card').click();
+  await page.locator('.react-flow__node[data-id="node-003"] .composer-card').click({ modifiers: ['Shift'] });
   await page.getByRole('button', { name: 'Duplicate selection' }).click();
   await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node')).toHaveCount(5);
-  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__edge')).toHaveCount(2);
+  await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__edge')).toHaveCount(0);
   const copied = await page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node').evaluateAll(nodes => nodes.slice(-2).map(node => node.getAttribute('data-id')));
-  expect(copied[0]).not.toBe('node-001');
-  expect(copied[1]).not.toBe('node-002');
+  expect(copied[0]).not.toBe('node-002');
+  expect(copied[1]).not.toBe('node-003');
   for (const id of copied) await expect(page.locator(`.build-flow-surface .react-flow__node[data-id="${id}"]`)).toHaveClass(/selected/);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Workflow graph' }).locator('.react-flow__node')).toHaveCount(3);
@@ -160,16 +172,17 @@ test('floating toolbox keeps a clickable gutter from viewport controls', async (
     if (!toolbox || !controls) throw new Error('Canvas controls missing');
     expect(controls.x).toBeGreaterThanOrEqual(toolbox.x + toolbox.width + 8);
     await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
-    await graph.getByRole('button', { name: 'Add pool' }).click();
-    await expect(graph.locator('.react-flow__node')).toHaveCount(2);
+    await addFromToolbox(page, 'swap');
+    await expect(graph.locator('.react-flow__node')).toHaveCount(1);
     await page.getByRole('button', { name: 'Dock toolbar' }).click();
   }
 });
 
 test('marquee follows the pointer, stays clipped, and selects exactly the intersecting group', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
-  await addFromToolbox(page, 'pool');
+  await addFromToolbox(page, 'swap');
+  await addFromToolbox(page, 'swap');
+  await addFromToolbox(page, 'swap');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
   const initialSurface = await graph.boundingBox();
@@ -179,8 +192,8 @@ test('marquee follows the pointer, stays clipped, and selects exactly the inters
   await page.mouse.move(initialSurface.x + initialSurface.width / 2 + 18, initialSurface.y + initialSurface.height / 2 + 12, { steps: 4 });
   await page.mouse.up({ button: 'middle' });
   const surface = await graph.boundingBox();
-  const second = await graph.locator('.react-flow__node[data-id="node-002"]').boundingBox();
-  const third = await graph.locator('.react-flow__node[data-id="node-003"]').boundingBox();
+  const second = await graph.locator('.react-flow__node[data-id="node-003"]').boundingBox();
+  const third = await graph.locator('.react-flow__node[data-id="node-004"]').boundingBox();
   if (!surface || !second || !third) throw new Error('Canvas geometry missing');
   const start = { x: surface.x + 5, y: surface.y + 5 };
   const end = { x: Math.min(second.x + second.width + 5, third.x - 5), y: second.y + second.height + 5 };
@@ -195,8 +208,8 @@ test('marquee follows the pointer, stays clipped, and selects exactly the inters
   expect(marquee.y + marquee.height).toBeLessThanOrEqual(surface.y + surface.height + 1);
   await page.mouse.up();
   await expect(graph.locator('.react-flow__node.selected')).toHaveCount(2);
-  await expect(graph.locator('.react-flow__node[data-id="node-003"]')).not.toHaveClass(/selected/);
-  const firstSelected = graph.locator('.react-flow__node[data-id="node-001"]');
+  await expect(graph.locator('.react-flow__node[data-id="node-004"]')).not.toHaveClass(/selected/);
+  const firstSelected = graph.locator('.react-flow__node[data-id="node-002"]');
   const before = await firstSelected.boundingBox();
   if (!before) throw new Error('Selected node missing');
   await page.mouse.move(before.x + 60, before.y + 55);
@@ -213,8 +226,9 @@ test('marquee follows the pointer, stays clipped, and selects exactly the inters
 
 test('drag keeps node mounted and invalid connections leave semantic edges unchanged', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
-  const node = page.locator('.react-flow__node[data-id="node-002"]');
+  await addFromToolbox(page, 'swap');
+  await addFromToolbox(page, 'swap');
+  const node = page.locator('.react-flow__node[data-id="node-003"]');
   await node.evaluate(element => { (window as unknown as { draggedNode?: Element }).draggedNode = element; });
   const before = await node.boundingBox();
   if (!before) throw new Error('Node missing');
@@ -224,41 +238,40 @@ test('drag keeps node mounted and invalid connections leave semantic edges uncha
   await page.mouse.up();
   expect(await node.evaluate(element => (window as unknown as { draggedNode?: Element }).draggedNode === element)).toBe(true);
   expect((await node.boundingBox())!.x).toBeLessThan(before.x - 40);
-  await connect(page, 'node-001', 'node-002');
-  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
-  await expect(page.getByRole('alert').filter({ hasText: 'INVALID_EDGE' })).toHaveCount(0);
-  const edgePath = await page.locator('.react-flow__edge-path').first().getAttribute('d');
-  const connectedBox = await node.boundingBox();
-  if (!connectedBox) throw new Error('Connected node missing');
-  await page.mouse.move(connectedBox.x + 70, connectedBox.y + 60);
-  await page.mouse.down();
-  await page.mouse.move(connectedBox.x + 70, connectedBox.y + 95, { steps: 10 });
-  await page.mouse.up();
-  expect(await page.locator('.react-flow__edge-path').first().getAttribute('d')).not.toBe(edgePath);
-  const from = await page.locator('.react-flow__node[data-id="node-002"] .react-flow__handle-right').boundingBox();
-  const to = await page.locator('.react-flow__node[data-id="node-001"] .react-flow__handle-left').boundingBox();
-  if (!from || !to) throw new Error('Connection handles missing');
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-  await page.mouse.up();
-  await expect(page.getByText('This connection would create a loop.')).toBeVisible();
+  const revision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
+  await connect(page, 'node-002', 'node-003');
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0);
+  await connect(page, 'node-003', 'node-002');
   await page.getByRole('button', { name: 'Undock toolbar' }).click();
-  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
 });
-test('text controls guard both deletion keys and edge selection clears on Escape', async ({ page }) => {
+test('text controls guard deletion and approved workflow edges stay protected', async ({ page }) => {
   await page.goto('/');
-  await addFromToolbox(page, 'pool');
-  await connect(page, 'node-001', 'node-002');
-  const edge = page.locator('.react-flow__edge').first();
-  await edge.locator('.react-flow__edge-interaction').click({ force: true });
+  await page.getByLabel('Describe your flow').fill('compose supply 1 USDC to Aave then borrow 0.1 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner 0x1111111111111111111111111111111111111111');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await applyPendingProposal(page);
+  await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
+  const edge = page.locator('.build-flow-surface .react-flow__edge').first();
+  await page.getByRole('button', { name: 'Fit workflow', exact: true }).click();
+  const point = await edge.locator('.react-flow__edge-path').evaluate(element => {
+    const path = element as SVGPathElement, position = path.getPointAtLength(path.getTotalLength() / 2);
+    const matrix = path.getScreenCTM();
+    if (!matrix) throw new Error('Edge screen geometry missing');
+    return { x: position.x * matrix.a + position.y * matrix.c + matrix.e, y: position.x * matrix.b + position.y * matrix.d + matrix.f };
+  });
+  await page.mouse.click(point.x, point.y);
   await expect(edge).toHaveClass(/selected/);
-  await page.locator('#mock-prompt').focus();
+  await page.getByLabel('Describe your flow').focus();
   await page.keyboard.press('Backspace');
-  await expect(edge).toHaveCount(1);
+  await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   await page.locator('.canvas-head h2').click();
+  await page.keyboard.press('Delete');
+  await expect(page.getByText('This connection is required by the workflow.')).toBeVisible();
+  await expect(page.locator('.build-flow-surface .react-flow__edge')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(edge).not.toHaveClass(/selected/);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });
 
 
@@ -268,7 +281,8 @@ test('floating toolbox stays inside a narrow editor without page overflow', asyn
   await page.getByRole('button', { name: 'Undock toolbar' }).click();
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
-  await expect(graph.locator('.floating-toolbox button')).toHaveCount(11);
+  await expect(graph.locator('.floating-toolbox button')).toHaveCount(14);
+  await expect(graph.getByRole('button', { name: 'Privacy', exact: true })).toBeDisabled();
   await expect(graph.getByRole('button', { name: 'Add repay', exact: true })).toBeVisible();
   await expect(graph.getByRole('button', { name: 'Add withdraw', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -279,7 +293,8 @@ test('dragging a swap preserves current mocked artifacts', async ({ page }) => {
   await page.goto('/');
   await addFromToolbox(page, 'swap');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  const artifacts = page.getByRole('region', { name: 'Mocked artifact chain' });
+  await openSimulationDetails(page);
+  const artifacts = page.locator('.simulation-technical');
   await artifacts.getByRole('button', { name: /^Generate mocked artifacts for revision 1$/ }).click();
   await expect(artifacts.getByText('ARTIFACTS: CURRENT', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
@@ -292,5 +307,6 @@ test('dragging a swap preserves current mocked artifacts', async ({ page }) => {
   await page.mouse.up();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
+  await openSimulationDetails(page);
   await expect(artifacts.getByText('ARTIFACTS: CURRENT', { exact: true })).toBeVisible();
 });

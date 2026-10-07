@@ -14,7 +14,7 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
   await page.locator('.simulation-technical > summary').click();
-  const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
+  const mocked = page.locator('.simulation-technical');
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   const region = observation(page);
@@ -27,7 +27,8 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   expect(await mocked.locator('[data-mocked-value]').count()).toBeGreaterThan(0);
   await expect(region.locator('[data-observation-json]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
   networkGuard.assertClean();
 });
@@ -95,17 +96,18 @@ for (const [from, to, amount, at] of [
     expect(await region.locator('[data-observation-hash="transcript:node-002"]').textContent())
       .toBe(await digestRawResponse(new TextEncoder().encode(transcriptText!)));
     await region.getByRole('button', { name: 'Hide transcript · node-002' }).click();
-    await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+    await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
+    await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
     await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
     if (from === 'WETH') {
-      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
+      await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-recorded.png', { fullPage: true });
       await page.clock.setSystemTime(new Date('2026-09-24T14:52:05.000Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await expect(region).toContainText('OBSERVATION: EXPIRED');
       await expect(region.locator('[data-observed-value]')).toHaveCount(0);
       await expect(region.locator('[data-observation-json]')).toHaveCount(0);
-      await expect(page.getByRole('region', { name: 'Mocked outputs on the workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
+      await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
       await expect(page).toHaveScreenshot('observation-expired.png', { fullPage: true });
     }
     networkGuard.assertClean();
@@ -124,7 +126,7 @@ test('a semantic edit retires a recorded quote without touching the mocked chain
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate' }).click();
   await page.locator('.simulation-technical > summary').click();
-  const mocked = page.getByRole('region', { name: 'Mocked artifact chain' });
+  const mocked = page.locator('.simulation-technical');
   await mocked.getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(mocked).toContainText('ARTIFACTS: CURRENT');
   const region = observation(page);

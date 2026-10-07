@@ -278,9 +278,12 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     previousSetupId.current = actionSetup?.id;
   }, [actionSetup]);
   useEffect(() => {
-    const added = composerActions(workflow).find(node => !previousNodeIds.current.has(node.nodeId));
+    const added = composerActions(workflow).filter(node => !previousNodeIds.current.has(node.nodeId));
     previousNodeIds.current = new Set(workflow.nodes.map(node => node.nodeId));
-    if (added) selectNodes([added.nodeId], added.nodeId);
+    // Duplicate already selects every copy as one group. Preserve that explicit
+    // selection while transferring a newly configured setup to its canonical ID.
+    if (added.length && !added.every(node => selectedIdsRef.current.includes(node.nodeId)))
+      selectNodes([added[0]!.nodeId], added[0]!.nodeId);
   }, [workflow]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

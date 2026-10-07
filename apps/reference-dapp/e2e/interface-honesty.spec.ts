@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openSimulationDetails, openProposalReview } from './fixtures';
 
 test('shows honest authorization and unavailable stage states', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Simular Fees' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  await page.getByText('Technical diagnostics', { exact: true }).click();
-  await expect(page.getByText('Mocked artifact chain: synthetic fixture data, not a live quote or a financial simulation. A separate read-only Base observation follows it; neither can authorize execution.')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('Add a Base swap in Build before generating mocked artifacts.');
-  await expect(page.getByRole('region', { name: 'Mocked artifact chain' })).toContainText('USD values: not modeled.');
-  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  await openSimulationDetails(page);
+  await expect(page.locator('.simulation-technical > .simulate-head')).toContainText('Mocked artifacts cannot authorize execution.');
+  await expect(page.locator('.simulation-technical')).toContainText('Add a Base swap in Build before generating mocked artifacts.');
+  await expect(page.locator('.simulation-technical')).toContainText('USD values: not modeled.');
+  await expect(page.getByRole('region', { name: 'Review & Authorization' })).toContainText('Review unavailable until simulation is ready.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await page.getByText('Technical diagnostics', { exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Mocked quote and simulation artifacts cannot authorize execution. Read-only Base observations cannot authorize execution either. There is no wallet, signature, transaction, execution or outcome here.');
-  await expect(page.getByRole('region', { name: 'Execute unavailable' }).getByRole('button', { name: 'Return to Build' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Workflow execution workspace' })).toContainText('No workflow ready to execute');
+  await expect(page.getByRole('button', { name: 'Back to Build', exact: true })).toBeVisible();
 });
 
 test('provides semantic landmarks, labelled controls and keyboard access', async ({ page }) => {
@@ -26,9 +27,9 @@ test('provides semantic landmarks, labelled controls and keyboard access', async
   await expect(page.getByLabel('Describe your flow')).toBeVisible();
   await page.getByLabel('Describe your flow').focus();
   await expect(page.getByLabel('Describe your flow')).toBeFocused();
-  await page.keyboard.type('add read');
+  await page.keyboard.type('swap 2 USDC to WETH on Base slippage 50 bps');
   await page.keyboard.press('Enter');
-  await expect(page.getByText('Review proposed edit')).toBeVisible();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
@@ -43,14 +44,15 @@ test('labels the local fork honestly and enables no execution without a reviewed
   await expect(banner.getByText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
   await expect(banner).toContainText('Wallet: injected · not connected');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
-  await page.getByText('Technical diagnostics', { exact: true }).click();
+  await openSimulationDetails(page);
   const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });
   await expect(fork).toContainText('Local-fork Mode A needs exactly one USDC/WETH swap in the workflow.');
   await expect(fork.getByRole('button', { name: 'Simulate on local fork for revision 0' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Review swap' })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Review & Authorization' })).toContainText('Review unavailable until simulation is ready.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await page.getByText('Technical diagnostics', { exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Execute unavailable' })).toContainText('Local-fork Mode A is enabled on this server');
+  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Workflow execution workspace' })).toContainText('No workflow ready to execute');
   await expect(page.getByRole('region', { name: 'Mode A execution' })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(/MAINNET_EXECUTED|TESTNET_EXECUTED|mainnet executed|(?<!not )production certified/i);
 });

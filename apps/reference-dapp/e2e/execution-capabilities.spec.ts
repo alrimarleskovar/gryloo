@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal } from './fixtures';
 
 test('normal Build keeps capability details internal and authoring wallet-free', async ({ page }) => {
   await page.goto('/');
@@ -13,22 +13,22 @@ test('normal Build keeps capability details internal and authoring wallet-free',
   await form.getByLabel('Input amount (required)').fill('2');
   await form.getByLabel('Slippage in bps (required)').fill('50');
   await form.getByRole('button', { name: 'Review swap proposal' }).click();
-  await page.getByRole('button', { name: 'Apply proposal' }).click();
+  await applyPendingProposal(page);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
 });
 
 test('an unprepared liquidity workflow cannot authorize or execute', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Add pool' }).click();
+  await page.getByRole('button', { name: 'Add pool', exact: true }).click();
+  await expect(page.locator('.build-flow-surface .composer-card')).toHaveCount(1);
   await expect(page.getByRole('region', { name: 'Workflow readiness' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });
-  const position = execution.getByRole('region', { name: 'Base Sepolia liquidity', exact: true });
-  await expect(position).toBeVisible();
-  await expect(execution.locator('.unavailable, .stage-empty')).toHaveCount(0);
-  await expect(position.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
-  await expect(position.getByRole('button', { name: 'Accept liquidity review', exact: true })).toHaveCount(0);
-  await expect(position.getByRole('button', { name: /^Execute:/ })).toHaveCount(0);
+  const stages = page.getByRole('navigation', { name: 'Workflow stages' });
+  await expect(stages.getByRole('button', { name: 'Simulate', exact: true })).toBeDisabled();
+  await expect(stages.getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Mode A execution' })).toHaveCount(0);
+  await expect(page.getByRole('main', { name: 'Workflow workspace' })).toBeVisible();
 });
