@@ -12,6 +12,8 @@
  * → signature path. These actions only read this request's cookies and delegate to the shared platform (`src/platform/approve.ts`).
  */
 import { cookies } from 'next/headers';
+import { after } from 'next/server';
+import { developerApprovalChanged } from '../developer/dispatch';
 import { applyApproval, claimApproval, shareApproval, viewApproval, type ApprovalView, type ClaimedProposal } from '../platform/index';
 import { approvalSurface } from '../server/approval-surface';
 import { currentWalletPrincipals } from '../server/session-principal';
@@ -23,6 +25,11 @@ async function surface() {
   const jar = await cookies();
   return approvalSurface(process.env, name => jar.get(name)?.value);
 }
+/**
+ * BUILD-DEVELOPER-001: after a transition, a developer approval's webhook events are derived and its project's notifications delivered
+ * (a no-op for every other link). It runs after the response and never changes the transition.
+ */
+const notify = (secret: string) => after(() => developerApprovalChanged(process.env, secret).catch(() => undefined));
 
 /** The proposal behind a secret, re-verified now. Seeing it grants nothing. */
 export async function approvalHandoffView(secret: string): Promise<Result<ApprovalView>> {
@@ -34,7 +41,8 @@ export async function approvalHandoffView(secret: string): Promise<Result<Approv
  * command. `share` is the owner's choice to let the requester see the status of runs started from it.
  */
 export async function claimApprovalHandoff(secret: string, share: boolean): Promise<Result<ClaimedProposal>> {
-  try { return { ok: true, value: await claimApproval(await surface(), secret, await currentWalletPrincipals(), share === true) }; } catch (cause) { return failure(cause); }
+  try { const value = await claimApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value }; }
+  catch (cause) { return failure(cause); }
 }
 
 /**
@@ -42,10 +50,12 @@ export async function claimApprovalHandoff(secret: string, share: boolean): Prom
  * proposal's workflow hash. Anything else — an edit, another proposal — is a mismatch and the handoff stays CLAIMED.
  */
 export async function markApprovalApplied(secret: string, workflow: unknown): Promise<Result<ApprovalView>> {
-  try { return { ok: true, value: await applyApproval(await surface(), secret, await currentWalletPrincipals(), workflow) }; } catch (cause) { return failure(cause); }
+  try { const value = await applyApproval(await surface(), secret, await currentWalletPrincipals(), workflow); notify(secret); return { ok: true, value }; }
+  catch (cause) { return failure(cause); }
 }
 
 /** The claimant turns status sharing with the requester on or off. */
 export async function setApprovalSharing(secret: string, share: boolean): Promise<Result<{ statusShared: boolean }>> {
-  try { return { ok: true, value: await shareApproval(await surface(), secret, await currentWalletPrincipals(), share === true) }; } catch (cause) { return failure(cause); }
+  try { const value = await shareApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value }; }
+  catch (cause) { return failure(cause); }
 }

@@ -143,11 +143,12 @@ export function createPgDeveloperStore(db: Database, tenantId: string): Develope
     }),
     async approvalsToSync(filter, limit, now) {
       return (await db.query(`WITH picked AS (SELECT tenant_id, handoff_id FROM developer_approvals WHERE tenant_id = $1 AND sync_state = 'OPEN'
-          AND ($2::text IS NULL OR handoff_id = $2) AND ($3::text IS NULL OR (project_id = $3 AND environment = $4))
+          AND ($2::text IS NULL OR handoff_id = $2) AND ($3::text IS NULL OR (project_id = $3 AND environment = $4)) AND (synced_at IS NULL OR synced_at <= $7)
           ORDER BY synced_at NULLS FIRST, created_at LIMIT $5 FOR UPDATE SKIP LOCKED)
         UPDATE developer_approvals a SET synced_at = $6 FROM picked WHERE a.tenant_id = picked.tenant_id AND a.handoff_id = picked.handoff_id
         RETURNING a.handoff_id, a.project_id, a.environment, a.strategy_id, a.workflow_hash, a.sync_state, a.created_at`,
-      [tenantId, filter.handoffId ?? null, filter.scope?.projectId ?? null, filter.scope?.environment ?? null, limit, now])).rows.map(row => ({
+      [tenantId, filter.handoffId ?? null, filter.scope?.projectId ?? null, filter.scope?.environment ?? null, limit, now,
+        new Date(now.getTime() - (filter.minAgeMs ?? 0))])).rows.map(row => ({
         handoffId: String(row.handoff_id), projectId: String(row.project_id), environment: row.environment as DeveloperEnvironment, strategyId: String(row.strategy_id),
         workflowHash: String(row.workflow_hash), syncState: row.sync_state as 'OPEN' | 'DONE', createdAt: date(row.created_at) }));
     },

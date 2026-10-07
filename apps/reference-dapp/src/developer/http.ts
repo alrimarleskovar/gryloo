@@ -9,15 +9,21 @@
  *
  * A key is digested and looked up in PostgreSQL on every request (revocation and disabling are immediate). Every response carries a
  * `request-id` and `cache-control: no-store`. Logs carry ids, the route TEMPLATE, status, code and duration — never the key, a body,
- * a query value, an address, an approval URL, a webhook URL or a secret. Work after the response (usage counters, retention) is
- * handed to `schedule` (Next.js `after()`); nothing the developer sees depends on it.
+ * a query value, an address, an approval URL, a webhook URL or a secret. Work after the response (event sync and webhook delivery for
+ * the project, usage counters, retention) is handed to `schedule` (Next.js `after()`); nothing the developer sees depends on it.
+ *
+ * `/internal/dispatch` (GET for Vercel Cron, or POST) is not an API-key route: a scheduler's bearer whose SHA-256 is
+ * FLOFI_DEVELOPER_DISPATCH_TOKEN_SHA256 runs one bounded event sync and delivery sweep for the whole deployment. Without that
+ * setting it does not exist (404).
  */
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { TSchema } from '@sinclair/typebox';
 import { createIdempotencyStore, IDEMPOTENCY_KEY, requestHash } from '@defi-workflow-engine/cloud-runtime';
 import { compileSchema, strategyInputIssues } from '../engine/strategy-spec';
 import { assertSafeOutput, createPgHandoffStore, deploymentEngineRuntime, fixedWindow, typedId, type ApprovalHost, type EngineRuntime } from '../platform/index.ts';
 import { embeddedRuntime, flowRuntimeKind } from '../server/flow-runtime.ts';
-import { readDeveloperConfig, type DeveloperScope } from './config.ts';
+import { readDeveloperConfig, type DeveloperConfig, type DeveloperScope } from './config.ts';
+import { syncAndDispatch, type WebhookTransport } from './dispatch.ts';
 import { classify, DeveloperError, fail, PUBLIC_ERRORS } from './errors.ts';
 import { apiKeyDigest, presentedKey } from './keys.ts';
 import { limitsOf } from './limits.ts';
@@ -37,7 +43,12 @@ export type DeveloperHttpOptions = {
   readonly now?: () => Date; readonly logger?: DeveloperLogger;
   /** Runs work after the response (Next.js `after()`); tests pass a collector. Without it, that work runs before responding. */
   readonly schedule?: (work: () => Promise<unknown>) => void;
+  /** Webhook delivery transport (default: pinned HTTPS; loopback HTTP only with the local test seam). */
+  readonly transport?: WebhookTransport;
 };
+/** Bounds of the sweeps: after a Developer API response, and one scheduler call. */
+export const AFTER_REQUEST_SWEEP = Object.freeze({ approvals: 3, deliveries: 5, minAgeMs: 15_000 });
+export const SCHEDULED_SWEEP = Object.freeze({ approvals: 50, deliveries: 50 });
 export const DEVELOPER_API_PREFIX = '/api/developer/v1';
 export const DEVELOPER_MAX_BODY_BYTES = 65_536;
 const HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } as const;
@@ -163,6 +174,21 @@ async function hostOf(env: Env, options: DeveloperHttpOptions): Promise<Approval
   catch { return fail('SERVICE_UNAVAILABLE', 'DEVELOPER_STORE_UNAVAILABLE'); }
 }
 
+/** The scheduler's sweep: one bounded event sync and delivery pass for every project of this deployment. */
+async function internalDispatch(request: Request, method: string, config: DeveloperConfig, env: Env, options: DeveloperHttpOptions, requestId: string) {
+  if (method !== 'GET' && method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'METHOD_NOT_ALLOWED');
+  if (request.headers.get('origin') !== null || request.headers.get('sec-fetch-site') !== null) fail('FORBIDDEN', 'BROWSER_ORIGIN_FORBIDDEN');
+  if (!config.dispatchTokenDigest) return fail('NOT_FOUND', 'ROUTE_NOT_FOUND');
+  const bearer = /^Bearer ([^\s]{16,512})$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? '';
+  if (!timingSafeEqual(createHash('sha256').update(bearer, 'utf8').digest(), config.dispatchTokenDigest)) fail('UNAUTHORIZED', 'DISPATCH_TOKEN_INVALID');
+  const host = await hostOf(env, options), store = createPgDeveloperStore(host.db, host.tenantId);
+  const result = await syncAndDispatch({ config, tenantId: host.tenantId, store, handoffs: createPgHandoffStore(host.db, host.tenantId),
+    runtime: options.runtime ?? deploymentEngineRuntime(env), ...options.transport ? { transport: options.transport } : {}, ...options.now ? { now: options.now } : {} },
+  {}, SCHEDULED_SWEEP);
+  if (Math.random() < 0.1) await store.purge(options.now?.() ?? new Date());
+  return json(200, { object: 'dispatch', approvalsSynced: result.approvals, deliveries: result.deliveries }, requestId);
+}
+
 export async function handleDeveloperRequest(request: Request, options: DeveloperHttpOptions = {}): Promise<Response> {
   const env = options.env ?? process.env, logger = options.logger, clock = options.now ?? (() => new Date()), started = performance.now();
   const requestId = typedId('req'), now = clock();
@@ -182,6 +208,7 @@ export async function handleDeveloperRequest(request: Request, options: Develope
     const url = new URL(request.url), method = request.method.toUpperCase();
     if (!url.pathname.startsWith(DEVELOPER_API_PREFIX + '/')) fail('NOT_FOUND', 'ROUTE_NOT_FOUND');
     const path = url.pathname.slice(DEVELOPER_API_PREFIX.length).replace(/\/$/, '') || '/';
+    if (path === '/internal/dispatch') { log.route = '/internal/dispatch'; return finish(await internalDispatch(request, method, config, env, options, requestId), 'OK'); }
     // Server-side credentials only: a browser context (any Origin, or Fetch Metadata) is refused before the key is even read.
     if (request.headers.get('origin') !== null || request.headers.get('sec-fetch-site') !== null) fail('FORBIDDEN', 'BROWSER_ORIGIN_FORBIDDEN');
     const presented = presentedKey(request.headers.get('authorization'));
@@ -240,6 +267,9 @@ export async function handleDeveloperRequest(request: Request, options: Develope
     try { guardOutput(result); } catch { logger?.warn('developer.output_guard', { request_id: requestId, route: route.template }); return fail('INTERNAL_ERROR', 'OUTPUT_GUARD'); }
     const after = async () => {
       if (route.metric && !replayed) { const m = route.metric(result); await store.incrementUsage(scope, m.metric, m.dimension, now); }
+      // This project's notifications advance with its own traffic (the embedded runtime has no worker).
+      await syncAndDispatch({ config, tenantId: host.tenantId, store, handoffs: ctx.handoffs, runtime: ctx.runtime, ...options.transport ? { transport: options.transport } : {},
+        now: clock }, { scope, minAgeMs: AFTER_REQUEST_SWEEP.minAgeMs }, AFTER_REQUEST_SWEEP);
       // Bounded retention, opportunistically.
       if (Math.random() < 0.01) await store.purge(now);
     };

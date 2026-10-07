@@ -10,6 +10,7 @@ import type { EngineRuntime } from '../platform/index.ts';
 import { createPgHandoffStore } from '../platform/index.ts';
 import { createProject, issueSandboxKey } from './admin.ts';
 import { readDeveloperConfig, type DeveloperConfig, type DeveloperScope } from './config.ts';
+import type { WebhookTransport } from './dispatch.ts';
 import { handleDeveloperRequest, type DeveloperLogger } from './http.ts';
 import { createPgDeveloperStore } from './pg-store.ts';
 
@@ -39,7 +40,11 @@ export async function developerProject(db: Database, options: { tenantId?: strin
 
 export type ApiResponse<T = Record<string, unknown>> = { readonly status: number; readonly headers: Headers; readonly body: T; readonly text: string };
 export type ApiOptions = { readonly env?: Record<string, string>; readonly db: Database; readonly tenantId?: string; readonly runtime: EngineRuntime;
-  readonly logger?: DeveloperLogger; readonly now?: () => Date; readonly after?: (() => Promise<unknown>)[] };
+  readonly logger?: DeveloperLogger; readonly now?: () => Date; readonly after?: (() => Promise<unknown>)[];
+  /** Webhook transport; by default every delivery fails closed (tests never reach a network). */
+  readonly transport?: WebhookTransport };
+/** The default test transport: no network, ever. */
+export const NO_NETWORK: WebhookTransport = async () => { throw new Error('WEBHOOK_TEST_NO_NETWORK'); };
 /** One integration's server: `key: null` sends no Authorization header. Work scheduled after a response runs before the call returns. */
 export function developerApi(options: ApiOptions, key: string | null) {
   return async <T = Record<string, unknown>>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<ApiResponse<T>> => {
@@ -47,7 +52,8 @@ export function developerApi(options: ApiOptions, key: string | null) {
     const request = new Request(`${ORIGIN}/api/developer/v1${path}`, { method, body: body === undefined ? null : typeof body === 'string' ? body : JSON.stringify(body),
       headers: { ...key === null ? {} : { authorization: `Bearer ${key}` }, ...body === undefined ? {} : { 'content-type': 'application/json' }, ...headers } });
     const response = await handleDeveloperRequest(request, { env: options.env ?? developerEnv(), host: { db: options.db, tenantId: options.tenantId ?? 'default' },
-      runtime: options.runtime, ...options.logger ? { logger: options.logger } : {}, ...options.now ? { now: options.now } : {}, schedule: work => { scheduled.push(work); } });
+      runtime: options.runtime, transport: options.transport ?? NO_NETWORK, ...options.logger ? { logger: options.logger } : {}, ...options.now ? { now: options.now } : {},
+      schedule: work => { scheduled.push(work); } });
     const text = await response.text();
     for (const work of scheduled) { if (options.after) options.after.push(work); else await work(); }
     return { status: response.status, headers: response.headers, body: (text ? JSON.parse(text) : null) as T, text };

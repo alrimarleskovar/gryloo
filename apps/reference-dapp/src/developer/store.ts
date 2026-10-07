@@ -73,8 +73,12 @@ export interface DeveloperStore {
 
   /** Records the events not yet recorded (by dedupe key) and fans each new one out to the subscribed ACTIVE endpoints. */
   readonly recordEvents: (scope: ProjectScope, events: readonly NewEvent[], now: Date) => Promise<readonly EventRecord[]>;
-  /** Claims OPEN approval bindings to (re)derive events for, least recently synced first (concurrent sweeps take different rows). */
-  readonly approvalsToSync: (filter: { readonly scope?: ProjectScope; readonly handoffId?: string }, limit: number, now: Date) => Promise<readonly ApprovalBinding[]>;
+  /**
+   * Claims OPEN approval bindings to (re)derive events for, least recently synced first (concurrent sweeps take different rows);
+   * `minAgeMs` skips bindings synced more recently than that.
+   */
+  readonly approvalsToSync: (filter: { readonly scope?: ProjectScope; readonly handoffId?: string; readonly minAgeMs?: number }, limit: number, now: Date) =>
+    Promise<readonly ApprovalBinding[]>;
   readonly markSynced: (handoffId: string, done: boolean, now: Date) => Promise<void>;
   /** Leases due deliveries (one attempt each); only the lease holder may settle them. */
   readonly claimDeliveries: (filter: { readonly scope?: ProjectScope }, limit: number, now: Date, leaseMs: number) => Promise<readonly DeliveryClaim[]>;
