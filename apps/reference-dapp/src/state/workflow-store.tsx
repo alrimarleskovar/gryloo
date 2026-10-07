@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, useMemo, type Dispatch, type ReactNode } from 'react';
-import { BaseObservationError, createBaseSepoliaReviewContext, createReviewContext, lintWorkflow, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
+import { BaseObservationError, createReviewContext, lintWorkflow, reviewContextForChain, type ReviewContext, type ReviewResult } from '@defi-workflow-engine/reference-linter';
 import { editorReducer, type EditorState } from '../domain/editor';
 import { editorHistoryReducer, initialEditorHistory } from '../domain/editor-history';
 import { readCanvasLayout, saveCanvasLayout, type CanvasLayout } from '../domain/canvas-layout';
@@ -45,8 +45,11 @@ export function WorkflowProvider({ children, initialContext }: { children: React
   const authoringIncomplete = canvasAuthoringIncomplete(history.actionSetup, history.amountInputs);
   const incompleteRef = useRef(authoringIncomplete);
   incompleteRef.current = authoringIncomplete;
-  const context = useMemo(() => state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId === 'eip155:84532')
-    ? createBaseSepoliaReviewContext() : createReviewContext(initialContext), [state.workflow, initialContext]);
+  // A public testnet swap's own chain selects the trusted context (Base Sepolia or Ethereum Sepolia); anything else keeps the initial one.
+  const context = useMemo(() => {
+    const swapChain = state.workflow.nodes.find(n => n.actionType === 'asset.swap.exact-input' && (n.chainId === 'eip155:84532' || n.chainId === 'eip155:11155111'))?.chainId;
+    return swapChain ? reviewContextForChain(swapChain, createReviewContext(initialContext)) : createReviewContext(initialContext);
+  }, [state.workflow, initialContext]);
   const dispatch = useCallback((command: Command) => {
     dispatchHistory({ type: 'COMMAND', command, context });
   }, [context]);

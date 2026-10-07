@@ -108,7 +108,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const solanaLiquidity = useSolanaLiquidity();
   const uniswapLiquidity = useUniswapLiquidity();
   // BUILD-UNISWAP-LIQUIDITY-PUBLIC: the canonical position on Base Sepolia, or a recovered run while the workflow is the untouched template.
-  const uniswapLiquidityPath = !supplyPath && (state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.concentrated' && n.chainId === 'eip155:84532') ||
+  const uniswapLiquidityPath = !supplyPath && (state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.concentrated' && ['eip155:84532', 'eip155:11155111'].includes(n.chainId)) ||
     Boolean(uniswapLiquidity.recovered && uniswapLiquidity.record && state.workflow.revision === 0 && state.workflow.nodes.every(n => n.actionType.startsWith('mock-'))));
   const routerState = useRouter();
   // BUILD-ROUTER-001: the canonical cross-chain bridge node, or a recovered run while the workflow is the untouched template.
@@ -117,7 +117,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const solanaLiquidityPath = !supplyPath && !uniswapLiquidityPath && (state.workflow.nodes.some(n => n.actionType === 'asset.liquidity.concentrated' && n.chainId.startsWith('solana:')) || Boolean(solanaLiquidity.recovered && solanaLiquidity.record));
   const solanaPath = !supplyPath && !solanaLiquidityPath && (state.workflow.nodes.some(n => n.actionType === 'asset.swap.exact-input' && n.chainId.startsWith('solana:')) || Boolean(jupiter.recovered && jupiter.record));
   const publicTestnet = usePublicTestnet();
-  const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && node.chainId === 'eip155:84532');
+  const testnetWorkflow = state.workflow.nodes.some(node => node.actionType === 'asset.swap.exact-input' && ['eip155:84532', 'eip155:11155111'].includes(node.chainId));
   const publicRecovery = Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
   const continuedApproval = Boolean(publicTestnet.run && !publicTestnet.retired &&
     publicTestnet.run.attempts.at(-1)?.step === 'approval' &&

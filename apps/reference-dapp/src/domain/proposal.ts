@@ -74,11 +74,11 @@ export function describeProposal(before: EditorState, after: EditorState, comman
   const oldTransfer=oldNode&&transferDetails(oldNode as Parameters<typeof transferDetails>[0]),newTransfer=newNode&&transferDetails(newNode as Parameters<typeof transferDetails>[0]);
   if(newTransfer)return [`Self-transfer test ETH on ${newTransfer.network}`,`Amount: ${oldTransfer?.amount??'none'} → ${newTransfer.amount} ETH`,'Recipient: connected owner bound at Review','Chain execution proof, not a DeFi action'];
   const oldWithdraw=oldNode&&withdrawDetails(oldNode as Parameters<typeof withdrawDetails>[0]),newWithdraw=newNode&&withdrawDetails(newNode as Parameters<typeof withdrawDetails>[0]);
-  if(newWithdraw)return [`Withdraw from Aave V3 on ${newWithdraw.network}`,`Amount: ${oldWithdraw?.amount??'none'} → ${newWithdraw.amount} USDC`,'Recipient: connected owner bound at Review'];
+  if(newWithdraw)return [`Withdraw from Aave V3 on ${newWithdraw.network}`,`Amount: ${oldWithdraw?.amount??'none'} → ${newWithdraw.amount} ${newWithdraw.asset}`,'Recipient: connected owner bound at Review'];
   const oldSupply = oldNode && (repayDetails(oldNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(oldNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(oldNode as Parameters<typeof supplyDetails>[0]));
   const newSupply = newNode && (repayDetails(newNode as Parameters<typeof repayDetails>[0]) ?? borrowDetails(newNode as Parameters<typeof borrowDetails>[0]) ?? supplyDetails(newNode as Parameters<typeof supplyDetails>[0]));
   if (newSupply) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,
-    `${newNode?.actionType==='repay'?'Repay to':newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} USDC`,
+    `${newNode?.actionType==='repay'?'Repay to':newNode?.actionType==='borrow'?'Borrow from':'Supply to'} Aave V3 on ${newSupply.network}`, `Amount: ${oldSupply?.amount ?? 'none'} → ${newSupply.amount} ${newSupply.asset}`,
     `Beneficiary: ${oldSupply?.beneficiary ?? 'none'} → ${newSupply.beneficiary}`, 'Changes require fresh simulation and execution review.']);
   const oldUni = oldNode && uniswapLiquidityDetails(oldNode), newUni = newNode && uniswapLiquidityDetails(newNode);
   if (newUni) return Object.freeze([`Revision ${before.workflow.revision} → ${after.workflow.revision}`,

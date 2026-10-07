@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
 import { createNativeTransferNode, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import { simulateNativeTransfer, assertNativeTransferReview, readTransferState, type NativeTransferReview } from '@defi-workflow-engine/reference-compiler';
+import { simulateNativeTransfer, assertNativeTransferReview, readTransferState, ROBINHOOD_TESTNET_TRANSFER, type NativeTransferReview } from '@defi-workflow-engine/reference-compiler';
 import { createTransferRun, prepareTransferAttempt, transferTransition, discoverTransferByNonce, validateTransferRun } from '../../reference-executor/src/native-transfer.js';
 // @ts-expect-error The MOCKED loopback harness is plain JavaScript shared with the browser suite.
 import { createRobinhoodTransferChain, TRANSFER_OWNER as owner } from '../../../apps/reference-dapp/e2e/robinhood-transfer-harness.mjs';
@@ -107,7 +107,7 @@ describe('RH-DEMO-001 simulation and Review', () => {
   });
   it('rejects a tampered Review, a semantic edit, a different owner, expiry and stale nonce', async () => {
     const chain = createRobinhoodTransferChain() as Chain, w = workflow();
-    const review = await simulateNativeTransfer(w, owner, chain.rpc), state = await readTransferState(chain.rpc, owner);
+    const review = await simulateNativeTransfer(w, owner, chain.rpc), state = await readTransferState(chain.rpc, ROBINHOOD_TESTNET_TRANSFER, owner);
     expect(() => assertNativeTransferReview(review, w, owner, state)).not.toThrow();
     expect(() => assertNativeTransferReview({ ...review, value: '1' }, w, owner, state)).toThrow('TRANSFER_AUTHORIZATION_INVALID');
     expect(() => assertNativeTransferReview(review, workflow('2000000000000'), owner, state)).toThrow('TRANSFER_SEMANTIC_REVISION_CHANGED');

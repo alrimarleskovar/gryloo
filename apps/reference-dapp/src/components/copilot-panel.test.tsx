@@ -9,6 +9,10 @@ const proposal = vi.hoisted(() => ({ propose: vi.fn(), applyProposal: vi.fn(), d
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => ({ state: initialEditor(), pending: null, ...proposal }) }));
 vi.mock('../state/build009-wallet-store', () => ({ useBuild009Wallet: () => ({ account: null }) }));
 
+
+// Presentation unit: interpreter behavior has dedicated engine/transport suites.
+vi.mock('./copilot-ai', async importOriginal => ({ ...await importOriginal<typeof import('./copilot-ai')>(),
+  useCopilotInterpreter: () => ({ mode: 'off', enabled: false, busy: false, mayInterpret: false, reset: vi.fn() }) }));
 describe('Copilot product presentation', () => {
   it('keeps Assistant and Copilot, with a product prompt and no internal guidance', () => {
     const html = renderToStaticMarkup(createElement(CopilotPanel));

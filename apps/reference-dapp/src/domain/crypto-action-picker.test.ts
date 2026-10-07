@@ -23,14 +23,18 @@ describe('one network per crypto action', () => {
     }
     expect(cryptoNetworks(action, 'unknown')).toEqual([]);
   });
-  it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s exposes only the pinned Aave USDC deployment', action => {
-    expect(cryptoNetworks(action, 'testnet').map(profile => [profile.network, profile.tokens])).toEqual([['Base Sepolia', ['USDC']]]);
+  it.each(['supply', 'borrow', 'repay', 'withdraw'] as const)('%s exposes the two pinned Aave deployments', action => {
+    expect(cryptoNetworks(action, 'testnet').map(profile => [profile.network, profile.tokens])).toEqual([['Base Sepolia', ['USDC']], ['Ethereum Sepolia', ['WBTC']]]);
     expect(cryptoNetworks(action, 'mainnet')).toEqual([]);
     expect(() => selectCryptoNetwork(action, 'Solana Devnet')).toThrow('ACTION_NETWORK_UNSUPPORTED');
     const node = createCryptoActionNode('asset', input(action, 'Base Sepolia'));
     expect(node.chainId).toBe('eip155:84532');
     expect(cryptoInputOf(node)?.selection).toEqual(selectCryptoNetwork(action, 'Base Sepolia'));
     expect(assetChains(node).every(chain => chain === node.chainId)).toBe(true);
+    const ethereum = createCryptoActionNode('ethereum', input(action, 'Ethereum Sepolia'));
+    expect(ethereum.chainId).toBe('eip155:11155111');
+    expect(cryptoInputOf(ethereum)?.selection).toEqual(selectCryptoNetwork(action, 'Ethereum Sepolia'));
+    expect(assetChains(ethereum).every(chain => chain === ethereum.chainId)).toBe(true);
   });
   it.each(['swap', 'pool'] as const)('%s moves both assets and refreshes token options together', action => {
     const original = selectCryptoNetwork(action, 'Base Sepolia');

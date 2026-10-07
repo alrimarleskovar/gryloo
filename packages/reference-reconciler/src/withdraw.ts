@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { AAVE_V3_BASE_SEPOLIA as p,readWithdrawState,compileWithdrawCalls,estimateWithdraw,borrowHealthFactor,supplyHex,supplyWord,supplyTopic,supplyHash,supplyArtifactHash,rpcUint,rpcRecord,rpcHash,SUPPLY_METAMASK,type SupplyReview,type SupplyState,type SupplyRpc } from '@defi-workflow-engine/reference-compiler';
+import { lendingProfile,reserveBits,readWithdrawState,compileWithdrawCalls,estimateWithdraw,borrowHealthFactor,supplyHex,supplyWord,supplyTopic,supplyHash,supplyArtifactHash,rpcUint,rpcRecord,rpcHash,SUPPLY_METAMASK,type AaveLendingProfile,type SupplyReview,type SupplyState,type SupplyRpc } from '@defi-workflow-engine/reference-compiler';
 import { hashJournalBytes,type EvidenceBundle,type ExecutionJournal } from '@defi-workflow-engine/workflow-contracts';
 import { verifySupplyWalletEnvelope,logMatches,addressTopic,type SupplyChainAttempt,type SupplyObservation } from './supply.js';
 import { verifyRepayOwnerSignature,type RepayOwnerProof } from './repay.js';
 const ray=10n**27n,abs=(n:bigint)=>n<0n?-n:n;
 export type WithdrawObservation=SupplyObservation & {ownerAuthorization?:RepayOwnerProof;walletDelta?:string;collateralDelta?:string;normalizedWithdrawal?:string;roundingBound?:string;withdrawEvent?:unknown};
 /** Principal is proved from shares at execution index, separately from interest. */
-export function verifyWithdrawEffects(amount:string,pre:SupplyState,post:SupplyState){
-  const a=pre.borrow,b=post.borrow,n=BigInt(amount),index=BigInt(post.index),burn=BigInt(pre.scaledPosition)-BigInt(post.scaledPosition);
+export function verifyWithdrawEffects(amount:string,pre:SupplyState,post:SupplyState,profile:AaveLendingProfile){
+  const a=pre.borrow,b=post.borrow,n=BigInt(amount),index=BigInt(post.index),burn=BigInt(pre.scaledPosition)-BigInt(post.scaledPosition),{scale}=reserveBits(profile);
   if(!a||!b||index<ray||index<BigInt(pre.index))throw new Error('WITHDRAW_POSITION_MISMATCH');
   const nearest=(n*ray+index/2n)/index,ceil=(n*ray+index-1n)/index;
   const normalized=(burn*index+ray/2n)/ray,bound=(index+ray-1n)/ray+1n;
@@ -17,13 +17,13 @@ export function verifyWithdrawEffects(amount:string,pre:SupplyState,post:SupplyS
   for(const k of ['scaledDebt','reserveConfiguration','userConfiguration','ltvBps','liquidationThresholdBps','eMode','codeHash','variableDebtToken','baseCurrencyUnit'] as const)if(a[k]!==b[k])throw new Error('WITHDRAW_CONFIGURATION_OR_DEBT_MISMATCH');
   const debtIndex=BigInt(b.debtIndex),oldIndex=BigInt(a.debtIndex);
   if(debtIndex<oldIndex||debtIndex-oldIndex>oldIndex/1000n+2n||abs(BigInt(b.debt)-(BigInt(b.scaledDebt)*debtIndex+ray/2n)/ray)>1n||abs(BigInt(a.debt)-(BigInt(a.scaledDebt)*oldIndex+ray/2n)/ray)>1n||BigInt(b.debt)<BigInt(a.debt))throw new Error('WITHDRAW_DEBT_INTEREST_MISMATCH');
-  if(abs(BigInt(b.price)-BigInt(a.price))>BigInt(a.price)/1000n||abs(BigInt(b.collateralBase)-BigInt(post.position)*BigInt(b.price)/1000000n)>2n||abs(BigInt(a.collateralBase)-BigInt(pre.position)*BigInt(a.price)/1000000n)>2n||abs(BigInt(b.debtBase)-BigInt(b.debt)*BigInt(b.price)/1000000n)>2n)throw new Error('WITHDRAW_ACCOUNT_MISMATCH');
+  if(abs(BigInt(b.price)-BigInt(a.price))>BigInt(a.price)/1000n||abs(BigInt(b.collateralBase)-BigInt(post.position)*BigInt(b.price)/scale)>2n||abs(BigInt(a.collateralBase)-BigInt(pre.position)*BigInt(a.price)/scale)>2n||abs(BigInt(b.debtBase)-BigInt(b.debt)*BigInt(b.price)/scale)>2n)throw new Error('WITHDRAW_ACCOUNT_MISMATCH');
   const health=BigInt(borrowHealthFactor(b.collateralBase,b.liquidationThresholdBps,b.debtBase));
   if(BigInt(b.healthFactor)<2n*10n**18n||abs(BigInt(b.healthFactor)-health)>health/1000000n+1n)throw new Error('WITHDRAW_HEALTH_FACTOR_MISMATCH');
-  estimateWithdraw(amount,pre);
+  estimateWithdraw(amount,pre,profile);
   return {walletDelta:walletDelta.toString(),collateralDelta:(BigInt(post.position)-BigInt(pre.position)).toString(),normalizedWithdrawal:normalized.toString(),roundingBound:bound.toString(),delta:normalized.toString(),scaledDelta:burn.toString()};
 }
-function assertWithdrawTransfers(logs:unknown[],owner:string,amount:string,pre:SupplyState,post:SupplyState):void {
+function assertWithdrawTransfers(p:AaveLendingProfile,logs:unknown[],owner:string,amount:string,pre:SupplyState,post:SupplyState):void {
   const topic=addressTopic(owner),transfer=supplyTopic('Transfer(address,address,uint256)'),zero='0x'+supplyWord(0n);
   const movements=logs.filter(value=>{const l=rpcRecord(value);return Array.isArray(l.topics)&&l.topics[0]===transfer&&(l.topics[1]===topic||l.topics[2]===topic);});
   const underlying=movements.filter(l=>rpcRecord(l).address===p.asset),collateral=movements.filter(l=>rpcRecord(l).address===p.aToken);
@@ -48,6 +48,7 @@ export async function reconcileWithdrawAttempt(review:SupplyReview,attempt:Suppl
   const base:WithdrawObservation={verdict:'INCONCLUSIVE',reason:'TRANSACTION_NOT_OBSERVED',transaction:null,receipt:null,prePosition:null,postPosition:null,delta:null,scaledDelta:null,cost:null};
   if(!attempt.transactionHash)return base;
   try{
+    const p=lendingProfile(review.chain,'WITHDRAW_WRONG_CHAIN');
     if(rpcUint(await rpc('eth_chainId',[]))!==BigInt(p.chainId))throw new Error('WITHDRAW_WRONG_CHAIN');
     const [txValue,receiptValue]=await Promise.all([rpc('eth_getTransactionByHash',[attempt.transactionHash]),rpc('eth_getTransactionReceipt',[attempt.transactionHash])]);
     if(!txValue||!receiptValue)return base;
@@ -56,7 +57,7 @@ export async function reconcileWithdrawAttempt(review:SupplyReview,attempt:Suppl
     // Compare exact canonical fields, independent of serialized property order.
     const transactionFields=['from','to','value','chainId','data'] as const;
     const sameTransaction=Object.keys(attempt.transaction).length===transactionFields.length&&transactionFields.every(field=>Object.hasOwn(attempt.transaction,field)&&expected[field]===attempt.transaction[field]);
-    if(!review.withdraw||review.borrow||review.repay||review.approvalRequired||attempt.step!=='WITHDRAW'||review.withdraw.expectedPostHealthFactor!==estimateWithdraw(review.amount,review.state).healthFactorAfter||review.pool!==p.pool||review.asset!==p.asset||review.chain!==p.chain||review.beneficiary!==review.account||!sameTransaction)throw new Error('WITHDRAW_SEMANTIC_MISMATCH');
+    if(!review.withdraw||review.borrow||review.repay||review.approvalRequired||attempt.step!=='WITHDRAW'||review.withdraw.expectedPostHealthFactor!==estimateWithdraw(review.amount,review.state,p).healthFactorAfter||review.pool!==p.pool||review.asset!==p.asset||review.chain!==p.chain||review.beneficiary!==review.account||!sameTransaction)throw new Error('WITHDRAW_SEMANTIC_MISMATCH');
     const receiptBlockHash=rpcHash(receipt.blockHash);
     if(rpcHash(tx.hash)!==attempt.transactionHash||rpcHash(receipt.transactionHash)!==attempt.transactionHash||typeof tx.from!=='string'||typeof tx.to!=='string'||receipt.from!==tx.from||receipt.to!==tx.to||rpcUint(tx.value)!==0n||rpcUint(tx.chainId)!==BigInt(p.chainId)||(tx.blockHash!==null&&rpcHash(tx.blockHash)!==receiptBlockHash)||rpcUint(tx.blockNumber)!==rpcUint(receipt.blockNumber)||rpcUint(tx.transactionIndex)!==rpcUint(receipt.transactionIndex))throw new Error('WITHDRAW_TRANSACTION_MISMATCH');
     const wrapped=tx.to===SUPPLY_METAMASK.manager;
@@ -72,14 +73,15 @@ export async function reconcileWithdrawAttempt(review:SupplyReview,attempt:Suppl
     if(!Number.isSafeInteger(transactionIndex)||!Array.isArray(canonical.transactions)||canonical.transactions[transactionIndex]!==attempt.transactionHash)throw new Error('WITHDRAW_TRANSACTION_INDEX_MISMATCH');
     if(rpcUint(await rpc('eth_blockNumber',[]))<BigInt(block+2))return {...base,reason:'AWAITING_CONFIRMATIONS'};
     if(rpcUint(receipt.status)!==1n)return {...base,verdict:'DIVERGENT',reason:'WITHDRAW_REVERTED'};
-    if(wrapped)base.walletEnvelope=await verifySupplyWalletEnvelope(review,attempt,tx,receipt,rpc);else base.ownerAuthorization=verifyRepayOwnerSignature(tx,review.account);
+    if(wrapped)base.walletEnvelope=await verifySupplyWalletEnvelope(review,attempt,tx,receipt,rpc);else base.ownerAuthorization=verifyRepayOwnerSignature(tx,review.account,p.chainId);
     if(!Array.isArray(receipt.logs))throw new Error('WITHDRAW_LOGS_INVALID');
-    const pre=await readWithdrawState(rpc,review.account,review.account,supplyHex(block-1)),post=await readWithdrawState(rpc,review.account,review.account,supplyHex(block));base.prePosition=pre;base.postPosition=post;
+    const pre=await readWithdrawState(rpc,p,review.account,review.account,supplyHex(block-1)),post=await readWithdrawState(rpc,p,review.account,review.account,supplyHex(block));base.prePosition=pre;base.postPosition=post;
     if(pre.blockHash!==rpcHash(canonical.parentHash)||post.blockHash!==rpcHash(receipt.blockHash)||pre.deploymentHash!==review.state.deploymentHash||post.deploymentHash!==review.state.deploymentHash)throw new Error('WITHDRAW_DEPLOYMENT_MISMATCH');
-    assertWithdrawTransfers(receipt.logs,review.account,review.amount,pre,post);
+    assertWithdrawTransfers(p,receipt.logs,review.account,review.amount,pre,post);
     const final=rpcRecord(await rpc('eth_getBlockByNumber',[supplyHex(block),false]));if(rpcHash(final.hash)!==post.blockHash)throw new Error('WITHDRAW_REORG');
-    if(receipt.l1Fee===undefined)throw new Error('WITHDRAW_NETWORK_COST_MISMATCH');
-    base.cost=(rpcUint(receipt.gasUsed)*rpcUint(receipt.effectiveGasPrice)+rpcUint(receipt.l1Fee)).toString();
+    // OP Stack receipts must carry the L1 data fee; an L1 receipt must not. Either way the cost is fully explained.
+    if((receipt.l1Fee===undefined)===p.l1DataFee)throw new Error('WITHDRAW_NETWORK_COST_MISMATCH');
+    base.cost=(rpcUint(receipt.gasUsed)*rpcUint(receipt.effectiveGasPrice)+(p.l1DataFee?rpcUint(receipt.l1Fee):0n)).toString();
     if(!wrapped){
       const [beforeNonce,afterNonce]=await Promise.all([rpc('eth_getTransactionCount',[review.account,supplyHex(block-1)]),rpc('eth_getTransactionCount',[review.account,supplyHex(block)])]);
       if(rpcUint(beforeNonce)!==BigInt(attempt.nonce)||rpcUint(afterNonce)!==rpcUint(beforeNonce)+1n)throw new Error('WITHDRAW_OWNER_NONCE_MISMATCH');
@@ -87,16 +89,16 @@ export async function reconcileWithdrawAttempt(review:SupplyReview,attempt:Suppl
     }
     const events=receipt.logs.filter(l=>rpcRecord(l).address===p.pool&&Array.isArray(rpcRecord(l).topics)&&(rpcRecord(l).topics as unknown[])[0]===supplyTopic('Withdraw(address,address,address,uint256)'));
     if(events.length!==1||!logMatches(events[0],p.pool,[supplyTopic('Withdraw(address,address,address,uint256)'),addressTopic(p.asset),addressTopic(review.account),addressTopic(review.account)],'0x'+supplyWord(BigInt(review.amount))))throw new Error('WITHDRAW_EVENT_MISMATCH');
-    return {...base,...verifyWithdrawEffects(review.amount,pre,post),withdrawEvent:events[0],verdict:'RECONCILED',reason:'WITHDRAW_TRANSACTION_COLLATERAL_WALLET_DEBT_AND_HEALTH_VERIFIED'};
+    return {...base,...verifyWithdrawEffects(review.amount,pre,post,p),withdrawEvent:events[0],verdict:'RECONCILED',reason:'WITHDRAW_TRANSACTION_COLLATERAL_WALLET_DEBT_AND_HEALTH_VERIFIED'};
   }catch(cause){const reason=cause instanceof Error?cause.message:'WITHDRAW_OBSERVATION_FAILED';return {...base,reason,verdict:/MISMATCH|WRONG_CHAIN|REORG|INVALID|UNSUPPORTED/.test(reason)?'DIVERGENT':'INCONCLUSIVE'};}
 }
 export function buildWithdrawEvidence(input:{id:string;review:SupplyReview;journal:ExecutionJournal;provenance:'PUBLIC_TESTNET'|'MOCKED';ownerInitiated:boolean;observations:SupplyObservation[]}){
   const r=input.review,o=input.observations.at(-1) as WithdrawObservation|undefined;
   if(!r.withdraw||!o||o.verdict!=='RECONCILED'||!o.prePosition?.borrow||!o.postPosition?.borrow||!o.transaction||!o.receipt||!o.withdrawEvent||!(o.ownerAuthorization||o.walletEnvelope)||!input.ownerInitiated)throw new Error('WITHDRAW_EVIDENCE_NOT_RECONCILED');
-  const effects=verifyWithdrawEffects(r.amount,o.prePosition,o.postPosition);
+  const p=lendingProfile(r.chain,'WITHDRAW_EVIDENCE_NOT_RECONCILED'),effects=verifyWithdrawEffects(r.amount,o.prePosition,o.postPosition,p);
   const publicExecution={network:p.network,chainId:p.chainId,owner:r.account,recipient:r.beneficiary,pool:p.pool,asset:p.asset,aToken:p.aToken,amount:r.amount,withdrawTransactionHash:o.receipt.transactionHash,ownerAuthorization:o.ownerAuthorization??o.walletEnvelope,block:o.postPosition.block,transactionCost:o.cost,totalNetworkCost:o.cost,...effects,prePosition:o.prePosition,postPosition:o.postPosition,observations:input.observations,provenance:input.provenance,ownerInitiated:true};
   const head=hashJournalBytes(new TextEncoder().encode(JSON.stringify(input.journal))).at(-1);if(!head)throw new Error('WITHDRAW_JOURNAL_EMPTY');
-  const asset={chainId:p.chain,address:p.asset,decimals:6};
-  const bundle:EvidenceBundle={schemaVersion:'1.0.0',evidenceBundleId:input.id,version:1,supersedes:null,semanticWorkflowHash:r.manifest.semanticWorkflowHash,artifactSetHash:r.manifest.artifactSetHash,simulationHash:r.manifest.simulationHash,policyHash:r.manifest.policyHash,manifestHash:supplyArtifactHash('strategy-manifest',r.manifest),executionPlanHash:supplyArtifactHash('execution-plan',r.plan),journalHeadHash:head,observedAt:new Date().toISOString(),environment:input.provenance==='PUBLIC_TESTNET'?'TESTNET_EXECUTED':'MOCKED',outcome:'RECONCILED',receipts:[{receiptId:'withdraw-receipt',contentHash:supplyHash(o.receipt)}],differences:[],reconciliation:{balances:[{asset,amount:o.postPosition.balance}],allowances:[{asset,amount:o.postPosition.allowance}],debt:[{asset,amount:o.postPosition.borrow.debt}],positions:[{asset:{chainId:p.chain,address:p.aToken,decimals:6},amount:o.postPosition.position}],fees:[],residualAssets:[],ownership:[{chainId:p.chain,address:r.account}],limitations:['Exact canonical Withdraw event and wallet credit bind requested amount; scaled collateral burn is independently normalized at execution index.','Whole-block snapshots fail closed on inconsistent concurrent effects.']},evidence:[{evidenceId:'withdraw-public-observations',kind:'EXTERNAL_REFERENCE',contentHash:supplyHash(publicExecution)}]};
+  const asset={chainId:p.chain,address:p.asset,decimals:p.decimals};
+  const bundle:EvidenceBundle={schemaVersion:'1.0.0',evidenceBundleId:input.id,version:1,supersedes:null,semanticWorkflowHash:r.manifest.semanticWorkflowHash,artifactSetHash:r.manifest.artifactSetHash,simulationHash:r.manifest.simulationHash,policyHash:r.manifest.policyHash,manifestHash:supplyArtifactHash('strategy-manifest',r.manifest),executionPlanHash:supplyArtifactHash('execution-plan',r.plan),journalHeadHash:head,observedAt:new Date().toISOString(),environment:input.provenance==='PUBLIC_TESTNET'?'TESTNET_EXECUTED':'MOCKED',outcome:'RECONCILED',receipts:[{receiptId:'withdraw-receipt',contentHash:supplyHash(o.receipt)}],differences:[],reconciliation:{balances:[{asset,amount:o.postPosition.balance}],allowances:[{asset,amount:o.postPosition.allowance}],debt:[{asset,amount:o.postPosition.borrow.debt}],positions:[{asset:{chainId:p.chain,address:p.aToken,decimals:p.decimals},amount:o.postPosition.position}],fees:[],residualAssets:[],ownership:[{chainId:p.chain,address:r.account}],limitations:['Exact canonical Withdraw event and wallet credit bind requested amount; scaled collateral burn is independently normalized at execution index.','Whole-block snapshots fail closed on inconsistent concurrent effects.']},evidence:[{evidenceId:'withdraw-public-observations',kind:'EXTERNAL_REFERENCE',contentHash:supplyHash(publicExecution)}]};
   return {bundle,bundleHash:supplyArtifactHash('evidence-bundle',bundle),publicExecution,artifacts:{workflow:r.workflow,artifactSet:r.artifactSet,simulation:r.simulation,policy:r.policy,manifest:r.manifest,plan:r.plan,journal:input.journal,review:r}};
 }

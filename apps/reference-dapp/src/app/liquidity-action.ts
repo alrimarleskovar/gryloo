@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createForkRpc } from '../server/fork-rpc';
+import { isHostedDeployment } from '../server/deployment';
 import { createLiquidityService, parseLiquidityProfile, type LiquidityService, type LiquidityOperation } from '../server/liquidity-service';
 export type LiquidityResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 export type LiquidityInfo = { readonly available: true; readonly environment: 'MOCKED' | 'FORK_REPRODUCED'; readonly owner: string;
@@ -12,7 +13,8 @@ export type LiquidityInfo = { readonly available: true; readonly environment: 'M
   | { readonly available: false; readonly reason: 'LIQUIDITY_OFF' };
 let runtime: { key: string; service: LiquidityService; environment: 'MOCKED' | 'FORK_REPRODUCED'; owner: string; sourceBlockHash: string } | null = null;
 function load() {
-  if (process.env.GRYLOO_LIQUIDITY !== 'fork') return null;
+  // BUILD-CLOUD-PARITY-001: a local rehearsal (loopback chain, MOCKED harness, local journal) is never enabled on a hosted deployment.
+  if (process.env.GRYLOO_LIQUIDITY !== 'fork' || isHostedDeployment(process.env)) return null;
   const profilePath = process.env.GRYLOO_LIQUIDITY_PROFILE, journalDir = process.env.GRYLOO_LIQUIDITY_JOURNAL;
   if (!profilePath || !isAbsolute(profilePath) || !journalDir || !isAbsolute(journalDir)) throw new Error('LIQUIDITY_CONFIGURATION_INVALID');
   const bytes = readFileSync(profilePath, 'utf8');

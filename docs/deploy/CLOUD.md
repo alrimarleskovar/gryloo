@@ -56,6 +56,14 @@ variables exist only for tests and must never be set in a deployment.
 | `API_BASE_URL` | Public HTTPS URL of `flofi-api`, e.g. `https://flofi-api-production.up.railway.app`. Setting it switches every cloud-backed flow's server actions (Base Sepolia swap, Base Sepolia Uniswap liquidity, Aave Supply family, Robinhood transfer, Solana Devnet swap and liquidity, Jupiter, Cross-chain Router) to forward to the API. |
 | `API_AUTH_TOKEN` | Same value as the API's token. It also keys the wallet-session cookies (HKDF, separate label) unless `FLOFI_SESSION_SECRET` is set. |
 | `FLOFI_SESSION_SECRET` | Optional, ≥ 32 characters (`openssl rand -hex 32`): a key for the wallet-session cookies separate from `API_AUTH_TOKEN`. Rotating it signs every wallet out (no funds or runs are affected). |
+| `FLOFI_COPILOT` | Optional. `off` (default), `live` (AI interpretation through the OpenAI Responses API) or `replay` (committed test answers, no model; not for production). |
+| `OPENAI_API_KEY` | Required for `FLOFI_COPILOT=live`. Server-only; never `NEXT_PUBLIC_*`. Use a dedicated OpenAI project key with a spend limit. |
+| `OPENAI_COPILOT_MODEL` | Required for `FLOFI_COPILOT=live`: the model ID the owner chooses (no built-in default). It must support strict JSON-schema structured outputs in the Responses API. |
+| `OPENAI_COPILOT_TEMPERATURE` | Optional, default `0`; set `omit` for models that reject the parameter. |
+| `OPENAI_COPILOT_TIMEOUT_MS` | Optional (BUILD-COPILOT-002), 5000–60000, default 20000. An invalid value makes the Copilot unavailable rather than using another limit. |
+| `OPENAI_COPILOT_MAX_OUTPUT_TOKENS` | Optional (BUILD-COPILOT-002), 256–16384, default 4096 for the conversational protocol. Reasoning models count reasoning tokens here. |
+| `OPENAI_COPILOT_REASONING_EFFORT` | Optional (BUILD-COPILOT-002): `minimal`, `low`, `medium` or `high`, sent only when set and only for models that accept it. |
+| `FLOFI_COPILOT_TELEMETRY` | Optional (BUILD-COPILOT-002): `log` or `off`. By default live requests log one metadata line each (model, outcome code, intent kind, duration, token counts); never prompts, transcripts, addresses, cookies or keys. |
 
 **Wallet sessions (BUILD-JOURNEY-001).** A user signs one EIP-4361 message with their own wallet (`personal_sign`); the BFF
 verifies the signer and sets HttpOnly, SameSite=Strict, Secure cookies (8 h session, 5 min challenge). The verified address
@@ -64,9 +72,61 @@ only sees and operates its own runs (`/v1/runs*` are filtered to it). Requests m
 (operators) keep tenant-wide read access. The session never authorizes a transaction: every wallet request still needs the
 user's Review, Manifest acceptance, Execute click and signature.
 
+**Flofi Copilot (BUILD-COPILOT-001).** With `FLOFI_COPILOT=live`, text that the exact chat grammar does not recognize is
+sent from the Next.js server (never the browser) to `https://api.openai.com/v1/responses` with strict structured output,
+no tools and `store: false`. The answer is an untrusted intent: Flofi validates it, checks every amount, address and
+mainnet against the user's own words, and turns it into an exact-grammar command that the user still has to apply,
+simulate, review and sign. A misconfigured `live` mode (missing key or model) leaves the exact grammar working and
+reports `COPILOT_NOT_CONFIGURED`. The per-process limits (2 concurrent, 30 per minute) are not a global quota on
+serverless instances; rely on the OpenAI project's spend limit.
+
+**Conversational Copilot (BUILD-COPILOT-002).** The browser now sends a bounded transcript (≤ 16 messages, ≤ 8 user turns)
+with `version: '2'` and receives a strict `CopilotIntentV2`. The model never receives the workflow, wallet addresses or
+Flofi state; Flofi resolves references, writes read-only answers and builds proposals itself. There is still no default
+model and no model fallback. Before enabling it in production, run the owner-only smoke test once with the chosen model:
+`FLOFI_COPILOT_LIVE_SMOKE=1 FLOFI_COPILOT=live OPENAI_API_KEY=… OPENAI_COPILOT_MODEL=… pnpm test:copilot-live` (local shell; the
+key stays in your environment). It checks that the strict schema is accepted and prints latency and token counts. It
+makes no blockchain request.
+
 The browser keeps talking only to its own origin (CSP `connect-src 'self'`). Flows that are not cloud-enabled
-keep their existing `GRYLOO_*` gates; leave those unset on Vercel so they stay disabled (their journals would
-otherwise live on an ephemeral serverless filesystem).
+keep their existing `GRYLOO_*` gates; leave those unset on Vercel. Since BUILD-CLOUD-PARITY-001 a hosted deployment also
+refuses them itself: local journals and `/tmp` state are never used, MOCKED harness gates leave a flow `off`, and the
+local-only rehearsals (the BUILD-010 Across demo, CoW loopback, the BUILD-008 bridge, local forks) report themselves
+unavailable. The Supply → Borrow → Swap composition runs on the cloud runtime as flow `lending-composition` (enabled with
+`GRYLOO_SUPPLY_TESTNET=live`, on the Aave family's shared storage) and needs the keyed `GRYLOO_ALCHEMY_API_KEY`.
+
+## Vercel Preview on the embedded runtime (BUILD-CLOUD-PARITY-001)
+
+Railway deploys `main` only, so a Preview that forwards to the Railway API runs `main`'s backend and shares Production's
+tenant. A Preview can instead run the **same backend inside its own Vercel functions** (`src/server/flow-runtime.ts`): set a
+`DATABASE_URL` and no `API_BASE_URL`. Every request may land on a different function instance; all execution state, leases,
+idempotency and evidence live in PostgreSQL. Each Preview branch gets its own tenant (`pv-<branch>-<hash>`), sessions are bound
+to the Preview's host, and nothing signs or submits: the user's wallet does. The complete variable reference is
+[ENVIRONMENT.md](ENVIRONMENT.md).
+
+Owner setup, once (Vercel → Project `flofi` → Settings):
+
+1. **Database**: a PostgreSQL database that is **not** Production's (for example the Neon integration, which creates a
+   branch per Preview). Environment Variables → *Preview* only: `DATABASE_URL` (pooled), optionally `DATABASE_MIGRATION_URL`
+   (direct), and `FLOFI_MIGRATE_ON_BUILD=preview` so each Preview build applies the shipped migrations itself.
+2. **Session**: `FLOFI_SESSION_SECRET` (Preview only; `openssl rand -hex 32`).
+3. **Capabilities** (Preview only): `GRYLOO_PUBLIC_TESTNET=record`, `GRYLOO_UNISWAP_LIQUIDITY_TESTNET=live`,
+   `GRYLOO_SUPPLY_TESTNET=live`, `GRYLOO_ETHEREUM_SEPOLIA_TRANSFER=live`, `GRYLOO_ROBINHOOD_TESTNET=live`,
+   `GRYLOO_ROUTER_TESTNET=live`, `GRYLOO_SOLANA_DEVNET=live`; optionally `FLOFI_COPILOT=live` with `OPENAI_API_KEY` and
+   `OPENAI_COPILOT_MODEL`, `GRYLOO_ALCHEMY_API_KEY` for the lending composition, and keyed RPC overrides (recommended:
+   the public Base Sepolia endpoint drops read bursts from Vercel's shared egress). Make sure `API_BASE_URL` is **not** set for
+   Preview.
+4. **Reachability**: Deployment Protection → disable Vercel Authentication for Preview deployments, or create a *Protection
+   Bypass for Automation* secret for automated checks (keep it in your own shell as `VERCEL_AUTOMATION_BYPASS_SECRET`).
+5. Redeploy the Preview. Check `https://<preview>/api/flofi/readiness?probe=networks`: `runtime.status` must be `READY`, each
+   enabled flow `live`, each network `REACHABLE`. `node scripts/cloud-preview-smoke.mjs https://<preview>` runs the same
+   read-only checks plus read-only server actions; `FLOFI_CLOUD_PARITY_ORIGIN=https://<preview> pnpm test:cloud-remote` sweeps
+   every capability (no-signature Simulates and fail-closed probes). Previews are reachable on the branch alias
+   (`flofi-git-<branch>-…vercel.app`) when protection exempts it.
+
+A user then needs no terminal: open the Preview URL → connect a wallet → select the testnet → author → Simulate → Review the
+Manifest → sign in the wallet. Reconciliation is request-driven on the embedded runtime (reopening a run observes the chain);
+there is no background worker on a Preview, and Vercel Cron does not run for Previews.
 
 ## Owner-only setup (credentials and approvals)
 

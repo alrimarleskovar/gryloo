@@ -99,7 +99,7 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
     if (JSON.stringify(current) === JSON.stringify(action.selection)) return state;
     const changedNetwork = current?.network !== action.selection.network;
     const poolInput = setup?.action === 'pool' && changedNetwork ? { ...setup.input, rangeUnit: 'TICK' as const,
-      lower: action.selection.network === 'Solana Devnet' ? '-443584' : '-887270', upper: action.selection.network === 'Solana Devnet' ? '443584' : '887270' } : null;
+      lower: action.selection.network === 'Solana Devnet' ? '-443584' : action.selection.network === 'Ethereum Sepolia' ? '-887220' : '-887270', upper: action.selection.network === 'Solana Devnet' ? '443584' : action.selection.network === 'Ethereum Sepolia' ? '887220' : '887270' } : null;
     return { ...state, ...(setup ? { actionSetup: { ...setup, cryptoSelection: action.selection, ...(action.beneficiary ? { cryptoBeneficiary: action.beneficiary } : {}), ...(poolInput ? { input: poolInput } : {}) } as CanvasActionSetup } : {
       cryptoSelections: { ...state.cryptoSelections, [action.id]: action.selection },
       amountInputs: { ...state.amountInputs, [action.id]: state.amountInputs[action.id] ?? cryptoInputOf(node!)!.amount },

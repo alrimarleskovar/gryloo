@@ -93,7 +93,7 @@ export async function readLendingRoute(rpc: SupplyRpc, amount: string, slippageB
     block: Number(rpcUint(block.number)), blockHash, timestamp, sqrtPriceX96: state[0]!.toString(), poolWethBalance: rpcUint(outputBalance).toString() };
 }
 export async function readLendingSnapshot(rpc: SupplyRpc, account: string, tag = 'latest', enforceHealth = true): Promise<LendingSnapshot> {
-  const aave = await readBorrowState(rpc, account, account, tag), at = supplyHex(aave.block);
+  const aave = await readBorrowState(rpc, p, account, account, tag), at = supplyHex(aave.block);
   const call = (to: string, data: string) => rpc('eth_call', [{ to, data }, at]);
   const [weth, allowance, reserve] = await Promise.all([call(u.weth, supplyCall('balanceOf(address)', account)),
     call(p.asset, supplyCall('allowance(address,address)', account, u.router)), call(p.pool, supplyCall('getReserveData(address)', p.asset))]);
@@ -183,7 +183,7 @@ export async function simulateLendingComposition(workflow: SemanticWorkflow, acc
     if (c.id === 'SWAP') projected.afterSwap = simulatedSnapshot(state, responses.slice(ix.queries, ix.queries + snapshotQueries(account).length).map(rpcRecord));
   }
   const beforeBorrow = completed.includes('SUPPLY') ? state : projected.afterSupply;
-  if (!completed.includes('BORROW')) estimateBorrow(f.borrowAmount, beforeBorrow.aave.borrow!);
+  if (!completed.includes('BORROW')) estimateBorrow(f.borrowAmount, beforeBorrow.aave.borrow!, p);
   for (const s of [beforeBorrow, completed.includes('BORROW') ? state : projected.afterBorrow, projected.afterSwap]) {
     const b = s.aave.borrow!;
     const expected = BigInt(borrowHealthFactor(b.collateralBase, b.liquidationThresholdBps, b.debtBase));

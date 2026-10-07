@@ -3,8 +3,8 @@
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createPublicTestnetService, publicRecordingEnabled,
   type PublicTestnetService, type PublicRun, type PublicBegin } from '../server/public-testnet-service';
-import { publicTestnetRpc as rpc } from '../server/public-testnet-rpc';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { baseSepoliaSwapRpc, ethereumSepoliaSwapRpc } from '../server/public-testnet-rpc';
+import { cloudFlow, cloudFlowMode } from '../server/flow-runtime';
 
 export type PublicResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 let service: PublicTestnetService | null = null;
@@ -12,7 +12,8 @@ let serviceDir: string | null = null;
 function current(): PublicTestnetService {
   if (!publicRecordingEnabled(process.env)) throw new Error('PUBLIC_RECORDING_OFF');
   const dir = process.env.GRYLOO_PUBLIC_TESTNET_JOURNAL!;
-  if (!service || serviceDir !== dir) { service = createPublicTestnetService({ rpc, journalDir: dir }); serviceDir = dir; }
+  // Base Sepolia and Ethereum Sepolia each have their own chain-bound read client; the authored chain selects one.
+  if (!service || serviceDir !== dir) { service = createPublicTestnetService({ rpc: baseSepoliaSwapRpc(process.env.GRYLOO_BASE_SEPOLIA_RPC_URL), rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(process.env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL) }, journalDir: dir }); serviceDir = dir; }
   return service;
 }
 function code(error: unknown): string {
@@ -20,8 +21,9 @@ function code(error: unknown): string {
   return /^[A-Z][A-Z0-9_]{2,63}$/.test(message) ? message : 'PUBLIC_INTERNAL_ERROR';
 }
 async function run<T>(method: string, args: readonly unknown[], action: (service: PublicTestnetService) => T | Promise<T>): Promise<PublicResult<T>> {
-  // Cloud deployment (BUILD-CLOUD-001): forward the identical contract to the stateless Flofi API.
-  if (process.env.API_BASE_URL) return callCloudFlow<T>('base-sepolia-swap', method, args);
+  // Cloud deployment: the remote Flofi API (BUILD-CLOUD-001) or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001).
+  const cloud = await cloudFlow<T>('base-sepolia-swap', method, args);
+  if (cloud) return cloud;
   try { return { ok: true, value: await action(current()) }; }
   catch (error) { return { ok: false, code: code(error) }; }
 }
@@ -49,6 +51,7 @@ export async function publicStatus(executionId: string): Promise<PublicResult<Pu
   return run('status', [executionId], service => service.load(id(executionId)));
 }
 export async function publicAvailability(): Promise<boolean> {
-  if (process.env.API_BASE_URL) { const mode = await callCloudFlow<unknown>('base-sepolia-swap', 'mode', []); return mode.ok && mode.value === 'live'; }
+  const cloud = await cloudFlowMode('base-sepolia-swap');
+  if (cloud) return cloud === 'live';
   return publicRecordingEnabled(process.env);
 }

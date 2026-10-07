@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * RH-DEMO-001 coordinator for one owner-signed native self-transfer on Robinhood Testnet. It never holds a
- * key, never signs and never sends: the owner's wallet does, after this service has durably recorded PREPARED
- * and then SUBMITTING. An owner+nonce lease is never released by uncertainty, so a reload or restart cannot
- * create a second economic attempt. Unknown results are observation-only.
+ * RH-DEMO-001 coordinator for one owner-signed native self-transfer on a public test network with a transfer profile
+ * (Robinhood Testnet; BUILD-ETHEREUM-001 adds Ethereum Sepolia). It never holds a key, never signs and never sends:
+ * the owner's wallet does, after this service has durably recorded PREPARED and then SUBMITTING. An owner+nonce lease
+ * is never released by uncertainty, so a reload or restart cannot create a second economic attempt. Unknown results
+ * are observation-only. The reviewed chain selects the profile and its own read client; no chain falls back to another.
  */
 import { randomBytes } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow } from '@defi-workflow-engine/reference-linter';
-import { assertNativeTransferReview, readTransferState, simulateNativeTransfer, type NativeTransferTransaction, type TransferRpc } from '@defi-workflow-engine/reference-compiler';
+import { assertNativeTransferReview, readTransferState, simulateNativeTransfer, nativeTransferProfile, ROBINHOOD_TESTNET_TRANSFER,
+  type NativeTransferReview, type NativeTransferTransaction, type TransferRpc } from '@defi-workflow-engine/reference-compiler';
 import { createTransferRun, discoverTransferByNonce, prepareTransferAttempt, transferTransition, validateTransferRun, createFileExecutionStorage,
   logMissing, utf8, TRANSFER_RUN_ID, type ExecutionStorage, type TransferRun } from '@defi-workflow-engine/reference-executor';
 import { buildNativeTransferEvidence, reconcileNativeTransfer, type NativeTransferEvidence, type TransferObservation } from '@defi-workflow-engine/reference-reconciler';
@@ -25,11 +27,22 @@ const idCheck = (id: string) => { if (!TRANSFER_RUN_ID.test(id)) throw new Error
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const prefix = (before: readonly unknown[], after: readonly unknown[]) => after.length >= before.length && same(after.slice(0, before.length), before);
 
-export function createRobinhoodTransferService(input: { rpc: TransferRpc; journalDir?: string; storage?: ExecutionStorage; provenance: 'PUBLIC_TESTNET' | 'MOCKED'; now?: () => number }) {
+/**
+ * `rpc` is the Robinhood Testnet read client; `rpcs` adds one chain-bound read client per further transfer profile (CAIP-2
+ * keyed). A network without a client is not enabled in this deployment, and its runs fail closed.
+ */
+export function createRobinhoodTransferService(input: { rpc?: TransferRpc; rpcs?: Readonly<Partial<Record<string, TransferRpc>>>; journalDir?: string;
+  storage?: ExecutionStorage; provenance: 'PUBLIC_TESTNET' | 'MOCKED'; now?: () => number }) {
   // Local mode keeps the original journal directory; cloud mode supplies shared durable storage instead.
   if (!input.storage && (!input.journalDir || !isAbsolute(input.journalDir) || input.journalDir.includes('/.git/'))) throw new Error('TRANSFER_STORAGE_INVALID');
   const { log, leases } = input.storage ?? createFileExecutionStorage(input.journalDir!, 'TRANSFER_BUSY');
   const now = input.now ?? Date.now, at = () => new Date(now());
+  const rpcFor = (chain: string): TransferRpc => {
+    const rpc = input.rpcs?.[chain] ?? (chain === ROBINHOOD_TESTNET_TRANSFER.chain ? input.rpc : undefined);
+    if (!rpc) throw new Error('TRANSFER_NETWORK_UNAVAILABLE');
+    return rpc;
+  };
+  const stateOf = (review: NativeTransferReview, account: string) => readTransferState(rpcFor(review.chain), nativeTransferProfile(review.chain), account, now());
   const path = (id: string) => idCheck(id) + '.jsonl';
   /** Append-only history: every line is a valid run and never rewrites what an earlier line established. */
   const validate = (bytes: Uint8Array) => {
@@ -65,7 +78,9 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
   const locked = <T,>(key: string, action: () => Promise<T>): Promise<T> => leases.hold(key, action);
   /** Permanent economic identity of (owner, nonce). Only a proven pre-broadcast refusal lets a fresh Review reuse it. */
   async function reserveNonce(record: TransferRecord): Promise<void> {
-    const key = `${record.review.account}-${record.review.nonce}`, lease = key + '.intent';
+    // Owner nonces are per chain. Robinhood Testnet keeps its original lease names; any other chain is qualified by its CAIP-2 id.
+    const owner = `${record.review.account}-${record.review.nonce}`;
+    const key = record.review.chain === ROBINHOOD_TESTNET_TRANSFER.chain ? owner : `${record.review.chain.replace(':', '-')}-${owner}`, lease = key + '.intent';
     await locked(key, async () => {
       const entry = JSON.stringify({ id: record.id, transaction: record.review.transaction }) + '\n';
       const existing = await log.read(lease), prior = existing === null ? null : utf8(existing);
@@ -83,7 +98,9 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
   }
   const fresh = async (workflowInput: unknown, account: string, recoveryOf?: { id: string; nonce: string }): Promise<TransferRecord> => {
     const workflow = validateAuthoringWorkflow(workflowInput, createBaseSepoliaReviewContext());
-    const review = await simulateNativeTransfer(workflow, account, input.rpc, now());
+    const chain = workflow.nodes.find(node => node.actionType === 'asset.transfer')?.chainId;
+    if (!chain) throw new Error('TRANSFER_ISOLATED_ONLY');
+    const review = await simulateNativeTransfer(workflow, account, rpcFor(chain), now());
     // A fresh Review may only re-authorize the SAME unconsumed nonce; anything else means the chain moved on.
     if (recoveryOf && review.nonce !== recoveryOf.nonce) throw new Error('TRANSFER_RECOVERY_STATE_CHANGED_OBSERVE_EXISTING');
     const record: TransferRecord = { ...createTransferRun('rhx-' + randomBytes(16).toString('hex'), review, input.provenance, at()),
@@ -98,7 +115,7 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
       const record = await load(id);
       if (record.attempt || record.verdict !== 'PENDING' || record.review.commitment !== commitment) throw new Error('TRANSFER_AUTHORIZATION_REPLACED');
       if (now() >= Date.parse(record.review.expiresAt)) throw new Error('TRANSFER_REVIEW_EXPIRED');
-      assertNativeTransferReview(record.review, workflow, record.review.account, await readTransferState(input.rpc, record.review.account, now()), now());
+      assertNativeTransferReview(record.review, workflow, record.review.account, await stateOf(record.review, record.review.account), now());
       return save({ ...record, authorization: commitment, error: null });
     }); },
     async invalidate(id: string): Promise<TransferRecord> { return locked(idCheck(id), async () => {
@@ -111,7 +128,7 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
       if (record.authorization !== record.review.commitment) throw new Error('TRANSFER_REVIEW_REQUIRED');
       if (record.attempt) throw new Error('TRANSFER_EXISTING_ATTEMPT_OBSERVE_ONLY');
       if (now() >= Date.parse(record.review.expiresAt)) throw new Error('TRANSFER_REVIEW_EXPIRED');
-      const state = await readTransferState(input.rpc, account, now());
+      const state = await stateOf(record.review, account);
       assertNativeTransferReview(record.review, workflow, account, state, now());
       await reserveNonce(record);
       const prepared = await save({ ...record, ...prepareTransferAttempt(record, state.block, state.nonce, at()), error: null });
@@ -122,7 +139,7 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
       const record = await load(id);
       if (record.attempt?.state !== 'PREPARED' || record.authorization !== record.review.commitment || now() >= Date.parse(record.review.expiresAt))
         throw new Error('TRANSFER_WALLET_HANDOFF_NOT_AUTHORIZED');
-      const state = await readTransferState(input.rpc, record.review.account, now());
+      const state = await stateOf(record.review, record.review.account);
       if (state.nonce !== record.attempt.nonce || state.pendingNonce !== record.attempt.nonce) throw new Error('TRANSFER_NONCE_CHANGED');
       return save({ ...record, ...transferTransition(record, 'SUBMITTING', at()) });
     }); },
@@ -170,7 +187,7 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
           walletDiagnostic: { invoked: false, calls: [], code: 'TRANSFER_WALLET_NOT_SUBMITTED' } });
       }
       if (!attempt.transactionHash) {
-        const found = await discoverTransferByNonce(attempt, input.rpc);
+        const found = await discoverTransferByNonce(attempt, rpcFor(record.review.chain));
         if (!found.consumed || !found.hash) return save({ ...record, error: 'TRANSFER_TRANSACTION_NOT_OBSERVED' });
         record = { ...record, attempt: { ...attempt, transactionHash: found.hash } };
         record = { ...record, ...transferTransition(record, 'PENDING', at()), error: null };
@@ -181,7 +198,7 @@ export function createRobinhoodTransferService(input: { rpc: TransferRpc; journa
         record = await save(record);
       }
       const current = record.attempt!;
-      const observation = await reconcileNativeTransfer(record.review, current, input.rpc);
+      const observation = await reconcileNativeTransfer(record.review, current, rpcFor(record.review.chain));
       if (observation.verdict === 'INCONCLUSIVE') return save({ ...record, error: observation.reason });
       const observations = [...record.observations, observation];
       if (observation.verdict === 'DIVERGENT') {

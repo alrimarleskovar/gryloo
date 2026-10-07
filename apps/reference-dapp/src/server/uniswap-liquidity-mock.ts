@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * Synthetic runtime code of the MOCKED Base Sepolia Uniswap chain (tests and the loopback browser harness) and its
+ * Synthetic runtime code of the MOCKED Uniswap liquidity chains (tests and the loopback browser harness) and its
  * SHA-256 pins. Accepted only with MOCKED provenance; a public run always checks the profile's verified pins.
  */
 import { createHash } from 'node:crypto';
-import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as profile } from '@defi-workflow-engine/action-registry';
+import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as profile, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 
-export const UNI_MOCK_CODE: Readonly<Record<string, string>> = Object.freeze({ [profile.factory]: '0x60016001', [profile.positionManager]: '0x60026002',
-  [profile.pool]: '0x60036003', [profile.token0.address]: '0x60046004', [profile.token1.address]: '0x60056005', [profile.gasPriceOracle]: '0x60066006' });
+/** The same synthetic code at a profile's addresses, so one set of pins serves every MOCKED liquidity profile. */
+export function uniMockCode(p: UniswapLiquidityProfile): Readonly<Record<string, string>> {
+  return Object.freeze({ [p.factory]: '0x60016001', [p.positionManager]: '0x60026002', [p.pool]: '0x60036003', [p.token0.address]: '0x60046004',
+    [p.token1.address]: '0x60056005', ...p.gasPriceOracle ? { [p.gasPriceOracle]: '0x60066006' } : {} });
+}
+export const UNI_MOCK_CODE: Readonly<Record<string, string>> = uniMockCode(profile);
 const sha = (code: string) => createHash('sha256').update(Buffer.from(code.slice(2), 'hex')).digest('hex');
 export const UNI_MOCK_CODE_PINS = Object.freeze({ factory: sha(UNI_MOCK_CODE[profile.factory]!), positionManager: sha(UNI_MOCK_CODE[profile.positionManager]!),
   pool: sha(UNI_MOCK_CODE[profile.pool]!) });

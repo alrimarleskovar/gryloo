@@ -3,11 +3,13 @@
 import { isAbsolute } from 'node:path';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createBridgeService } from '../server/bridge-service';
+import { isHostedDeployment } from '../server/deployment';
 type Service = ReturnType<typeof createBridgeService>;
 type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 let cache: { directory: string; service: Service } | null = null;
 function runtime(): Service | null {
-  if (process.env.GRYLOO_BRIDGE !== 'mocked') return null;
+  // BUILD-CLOUD-PARITY-001: a local rehearsal (loopback chain, MOCKED harness, local journal) is never enabled on a hosted deployment.
+  if (process.env.GRYLOO_BRIDGE !== 'mocked' || isHostedDeployment(process.env)) return null;
   const directory = process.env.GRYLOO_BRIDGE_JOURNAL;
   if (!directory || !isAbsolute(directory) || directory.includes('..')) throw new Error('BRIDGE_CONFIGURATION_INVALID');
   if (!cache || cache.directory !== directory) cache = { directory, service: createBridgeService(directory) };

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test as base, expect, type BrowserContext, type Page } from '@playwright/test';
+import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
 
-import { APP_ORIGIN } from './app-origin';
 export const SYNTHETIC_GUARD_URL = 'https://example.invalid/gryloo-guard-self-test';
 
 type Guard = { readonly unexpected: readonly string[]; assertClean(): void };

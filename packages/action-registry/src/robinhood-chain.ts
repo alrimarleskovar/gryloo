@@ -93,6 +93,8 @@ export const ROBINHOOD_TESTNET_TRANSFER = Object.freeze({
   /** 0.001 test ETH. The value returns to the owner; only the network fee is spent. */
   maximumValueWei: '1000000000000000', defaultValueWei: '1000000000000',
   reviewTtlSeconds: 120, gasLimitMarginPercent: 150, maxFeeMultiplier: 2, minimumConfirmations: 2,
+  /** Inclusion is first a sequencer (soft) confirmation; L1 finality follows later. */
+  settlement: 'L2' as const,
 });
 /** Accepts a CAIP-2 reference or an EIP-155 hex chain ID, in any case. */
 export function robinhoodNetwork(chain: string | null | undefined): RobinhoodNetwork | null {

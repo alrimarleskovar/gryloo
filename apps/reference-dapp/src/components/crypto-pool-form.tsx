@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { cryptoInputOf, cryptoProfile } from '../domain/crypto-action-picker';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
-import { uniswapBandInput } from '../domain/uniswap-liquidity-authoring';
+import { uniswapBandInput, uniswapLiquidityProfileFor } from '../domain/uniswap-liquidity-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { TokenAmountInput } from './token-amount-input';
@@ -19,7 +19,7 @@ export function CryptoPoolForm({ nodeId }: { nodeId: string }) {
   const setup = actionSetup?.id === nodeId && actionSetup.action === 'pool' ? actionSetup : null;
   const node = state.workflow.nodes.find(node => node.nodeId === nodeId), existing = node ? cryptoInputOf(node) : null;
   const selection = setup?.cryptoSelection ?? cryptoSelections[nodeId] ?? existing?.selection;
-  const [fields, setFields] = useState({ rangeUnit: existing?.rangeUnit ?? 'TICK', lower: existing && existing.selection.network === selection?.network ? existing.lower ?? '-887270' : selection?.network === 'Solana Devnet' ? '-443584' : '-887270', upper: existing && existing.selection.network === selection?.network ? existing.upper ?? '887270' : selection?.network === 'Solana Devnet' ? '443584' : '887270', slippage: existing?.slippage ?? '50' });
+  const [fields, setFields] = useState({ rangeUnit: existing?.rangeUnit ?? 'TICK', lower: existing && existing.selection.network === selection?.network ? existing.lower ?? '-887270' : selection?.network === 'Solana Devnet' ? '-443584' : selection?.network === 'Ethereum Sepolia' ? '-887220' : '-887270', upper: existing && existing.selection.network === selection?.network ? existing.upper ?? '887270' : selection?.network === 'Solana Devnet' ? '443584' : selection?.network === 'Ethereum Sepolia' ? '887220' : '887270', slippage: existing?.slippage ?? '50' });
   const [error, setError] = useState('');
   if (!selection || selection.action !== 'pool' || !contributions.values) return null;
   const input = setup?.input ?? fields;
@@ -41,8 +41,9 @@ export function CryptoPoolForm({ nodeId }: { nodeId: string }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid pool settings'); }
   }
   async function aroundCurrent() {
-    const price = await liquidity.fetchPrice();
-    if (price) { const bounds = uniswapBandInput(price.sqrtPriceX96, 1_000); set({ rangeUnit: bounds.rangeUnit, lower: bounds.lower, upper: bounds.upper }); }
+    if (selection?.network !== 'Base Sepolia' && selection?.network !== 'Ethereum Sepolia') return;
+    const price = await liquidity.fetchPrice(uniswapLiquidityProfileFor(selection.network).chain);
+    if (price) { const bounds = uniswapBandInput(price.sqrtPriceX96, 1_000, selection.network); set({ rangeUnit: bounds.rangeUnit, lower: bounds.lower, upper: bounds.upper }); }
   }
   const profile = cryptoProfile(selection)!;
   const symbols = [selection.from, selection.to!];
@@ -54,7 +55,7 @@ export function CryptoPoolForm({ nodeId }: { nodeId: string }) {
     </select></label>
     <label>Lower bound<input aria-label="Lower bound" value={input.lower} onChange={event => set({ lower: event.target.value })}/></label>
     <label>Upper bound<input aria-label="Upper bound" value={input.upper} onChange={event => set({ upper: event.target.value })}/></label>
-    {selection.network === 'Base Sepolia' ? <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>Use ±10% around the current Base Sepolia price</button> : <button type="button" className="quiet" onClick={() => void range.refresh()}>Refresh current pool price</button>}
+    {selection.network === 'Base Sepolia' || selection.network === 'Ethereum Sepolia' ? <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>Use ±10% around the current {selection.network} price</button> : <button type="button" className="quiet" onClick={() => void range.refresh()}>Refresh current pool price</button>}
     {selection.network !== 'Base' && <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" value={input.slippage} onChange={event => set({ slippage: event.target.value })}/></label>}
     {error && <p role="alert">{error}</p>}
   </form>;

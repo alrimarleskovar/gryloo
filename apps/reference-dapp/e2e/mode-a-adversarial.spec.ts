@@ -2,7 +2,7 @@
 import {
   authorSwap, executionPanel, expect, forkPanel, openTechnicalDetails, requestStep, reviewAndConnect, simulateOnFork, stepState, test, visual,
 } from './mode-a-fixtures';
-import { APP_ORIGIN } from './app-origin';
+import { E2E_APP_ORIGIN } from './app-origin';
 
 const sends = (calls: readonly { method: string }[]) => calls.filter(call => call.method === 'eth_sendTransaction').length;
 
@@ -70,7 +70,7 @@ test('manipulated calldata or an unknown spender in a server response is blocked
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await openTechnicalDetails(page);
   // Intercept only the fork simulation action: earlier authoring actions are unrelated to this tamper case.
-  await page.route(`${APP_ORIGIN}/**`, async route => {
+  await page.route(E2E_APP_ORIGIN + '/**', async route => {
     if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) { await route.fallback(); return; }
     const response = await route.fetch();
     const body = (await response.text()).replaceAll('2626664c2603336e57b271c5c0b26f421741e481', '000000000000000000000000000000000000dead');

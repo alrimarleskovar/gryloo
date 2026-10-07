@@ -18,30 +18,36 @@ import { createSupplyService, type SupplyRecord, type SupplyWalletDiagnostic } f
 import { createDurablePublicTestnetService, type PublicRun } from '../src/server/public-testnet-service.ts';
 import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY } from '@defi-workflow-engine/action-registry';
 import type { JupiterHttp } from '@defi-workflow-engine/reference-compiler';
-import { createRobinhoodReadRpc } from '../src/server/robinhood-rpc.ts';
-import { createSupplyReadRpc } from '../src/server/supply-rpc.ts';
-import { publicTestnetRpc } from '../src/server/public-testnet-rpc.ts';
+import { nativeTransferReadRpcs } from '../src/server/robinhood-rpc.ts';
+import { createLendingReadRpcs } from '../src/server/supply-rpc.ts';
+import { baseSepoliaSwapRpc, ethereumSepoliaSwapRpc } from '../src/server/public-testnet-rpc.ts';
 import { createSolanaRpc, solanaRpcOverride } from '../src/server/solana-rpc.ts';
 import { createJupiterHttp } from '../src/server/jupiter-http.ts';
 import { createJupiterService, createSolanaDevnetService, type JupiterRecord, type JupiterWalletDiagnostic } from '../src/server/jupiter-service.ts';
 import { createOrcaLiquidityService, type OrcaLiquidityRecord, type OrcaLiquidityWalletDiagnostic } from '../src/server/orca-liquidity-service.ts';
 import { createUniswapLiquidityService, UNISWAP_LIQUIDITY_RUN_ID, uniswapNeedsObservation, type UniswapLiquidityRecord,
   type UniswapWalletDiagnostic } from '../src/server/uniswap-liquidity-service.ts';
-import { baseSepoliaRpcUrl, createBaseSepoliaReadRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../src/server/public-testnet-rpc.ts';
+import { baseSepoliaLiquidityRpc, createBaseSepoliaReadRpc, UNISWAP_LIQUIDITY_RPC_METHODS } from '../src/server/public-testnet-rpc.ts';
 import { UNI_MOCK_CODE_PINS, UNI_MOCK_RPC_URL } from '../src/server/uniswap-liquidity-mock.ts';
 import { createRouterService, ROUTER_RUN_ID, routerNeedsObservation, type RouterRecord, type RouterWalletDiagnostic } from '../src/server/router-service.ts';
 import { routerNetworkMode, routerNetworkRuntime, type RouterNetwork } from '../src/server/router-runtime.ts';
 import { ROUTER_OWNERSHIP, type OwnershipPolicy } from '../src/server/run-ownership.ts';
 import type { RouteProvider } from '../src/server/router-providers.ts';
 import type { RoutingProvider } from '@defi-workflow-engine/workflow-contracts';
+import { isHostedDeployment } from '../src/server/deployment.ts';
+import { createLendingCompositionService, type LendingRecord } from '../src/server/lending-composition-service.ts';
+import { createLendingRpc } from '../src/server/lending-rpc.ts';
+import { MAX_LOG_BYTES } from '@defi-workflow-engine/cloud-runtime';
 
 export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap' | 'uniswap-liquidity' | 'crosschain-router'
-  | 'crosschain-router-testnet';
+  | 'crosschain-router-testnet' | 'lending-composition';
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 /** Network transport for one flow. Built from configuration in production; replaced by MOCKED chains in tests. */
 export type FlowDeps = { readonly rpc: Rpc; readonly mode: 'live' | 'harness'; readonly env: Readonly<Record<string, string | undefined>>; readonly http?: JupiterHttp;
   /** BUILD-ROUTER-001: the destination chain and the routing providers (the source chain is `rpc`). */
-  readonly router?: { readonly destinationRpc: Rpc; readonly providers: Readonly<Record<RoutingProvider, RouteProvider>> } };
+  readonly router?: { readonly destinationRpc: Rpc; readonly providers: Readonly<Record<RoutingProvider, RouteProvider>> };
+  /** BUILD-ETHEREUM-001: further chain-bound read clients of a multi-network flow, keyed by CAIP-2 chain (`rpc` is its original network). */
+  readonly chains?: { readonly rpcs: Readonly<Record<string, Rpc>> } };
 export type FlowMode = 'live' | 'harness' | 'off';
 type Args = readonly unknown[];
 export type FlowService = { readonly call: (method: string, args: Args) => Promise<unknown>; readonly load: (runId: string) => Promise<unknown>;
@@ -59,8 +65,16 @@ export type FlowDefinition = {
    * whose wallet session principal is not the run's owner (`run-ownership.ts`); `ownerOf` reads the owner from the durable record.
    */
   readonly ownership?: { readonly policy: OwnershipPolicy; readonly ownerOf: (record: unknown) => string };
+  /**
+   * BUILD-CLOUD-PARITY-001: the durable namespace (logs and leases) when it is shared with another flow. The lending composition
+   * shares the Aave Supply family's, so owner-nonce and economic-intent reservations are common to both, as in the shared local
+   * journal directory. Each flow still writes and projects only its own run logs.
+   */
+  readonly namespace?: FlowName;
 };
 
+/** The read client of a network this deployment has not enabled: every call fails closed with the flow's disabled code. */
+const networkNotEnabled = (code: string): Rpc => async () => { throw new Error(code); };
 const ACCOUNT = /^0x[0-9a-fA-F]{40}$/, COMMITMENT = /^0x[0-9a-f]{64}$/, HASH = /^0x[0-9a-fA-F]{64}$/, CODE = /^[A-Z][A-Z0-9_]{1,80}$/;
 const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const workflow = (value: unknown) => isObject(value) && Array.isArray(value.nodes) && typeof value.workflowId === 'string';
@@ -118,9 +132,10 @@ const robinhood: FlowDefinition = {
     status: { mutates: false, validate: shape(id(/^rhx-[a-f0-9]{32}$/)) },
     recoverReview: { mutates: true, validate: shape(id(/^rhx-[a-f0-9]{32}$/)) },
   },
-  transport: mode => ({ rpc: createRobinhoodReadRpc(mode) }),
-  create(storage, { rpc, mode }) {
-    const s = createRobinhoodTransferService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET' });
+  // Each transfer network has its own read client and its own enablement; a disabled network's client always fails closed.
+  transport: (mode, env) => { const { rpc, rpcs } = nativeTransferReadRpcs(mode, env); return { rpc: rpc ?? networkNotEnabled('TRANSFER_PUBLIC_TESTNET_NOT_ENABLED'), chains: { rpcs } }; },
+  create(storage, { rpc, mode, chains }) {
+    const s = createRobinhoodTransferService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {}, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET' });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
       simulate: ([w, a]) => s.simulate(w, a as string),
       review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),
@@ -173,9 +188,9 @@ const supply: FlowDefinition = {
     walletTrace: { mutates: true, validate: shape(id(SUPPLY_ID), diagnostic) },
     handoff: { mutates: true, validate: optionalShape(2, id(SUPPLY_ID), step, v => typeof v === 'boolean') },
   },
-  transport: mode => ({ rpc: createSupplyReadRpc(mode === 'harness') }),
-  create(storage, { rpc, mode }) {
-    const s = createSupplyService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET' });
+  transport: (mode, env) => { const rpcs = createLendingReadRpcs(mode === 'harness', env); return { rpc: rpcs['eip155:84532'], chains: { rpcs } }; },
+  create(storage, { rpc, mode, chains }) {
+    const s = createSupplyService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {}, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET' });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
       simulate: ([w, a]) => s.simulate(w, a as string),
       review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),
@@ -237,9 +252,9 @@ const swap: FlowDefinition = {
     observe: { mutates: true, validate: shape(id(SWAP_ID)) },
     status: { mutates: false, validate: shape(id(SWAP_ID)) },
   },
-  transport: () => ({ rpc: publicTestnetRpc }),
-  create(storage, { rpc }) {
-    const s = createDurablePublicTestnetService({ storage, rpc });
+  transport: (_mode, env) => ({ rpc: baseSepoliaSwapRpc(env.GRYLOO_BASE_SEPOLIA_RPC_URL), chains: { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL) } } }),
+  create(storage, { rpc, chains }) {
+    const s = createDurablePublicTestnetService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {} });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
       prepare: ([w]) => s.prepare(w as SemanticWorkflow),
       refresh: ([i]) => s.refresh(i as string),
@@ -405,7 +420,7 @@ const uniswapLiquidity: FlowDefinition = {
   name: 'uniswap-liquidity', busyCode: 'UNISWAP_LIQUIDITY_BUSY', runId: UNISWAP_LIQUIDITY_RUN_ID, unavailableCode: 'UNISWAP_LIQUIDITY_SERVICE_UNAVAILABLE',
   methods: {
     info: { mutates: false, validate: shape() },
-    price: { mutates: false, validate: shape() },
+    price: { mutates: false, validate: optionalShape(0, v => v === 'eip155:84532' || v === 'eip155:11155111') },
     simulate: { mutates: true, validate: shape(workflow, account) },
     refresh: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
     review: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID), commitment, workflow) },
@@ -417,14 +432,15 @@ const uniswapLiquidity: FlowDefinition = {
     observe: { mutates: true, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
     status: { mutates: false, validate: shape(id(UNISWAP_LIQUIDITY_RUN_ID)) },
   },
-  transport: (mode, env) => ({ rpc: createBaseSepoliaReadRpc(mode === 'harness' ? UNI_MOCK_RPC_URL : baseSepoliaRpcUrl(env.GRYLOO_BASE_SEPOLIA_RPC_URL),
-    UNISWAP_LIQUIDITY_RPC_METHODS) }),
-  create(storage, { rpc, mode, env }) {
-    const s = createUniswapLiquidityService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET',
+  // BUILD-ETHEREUM-001: the live deployment also reads Ethereum Sepolia through its own chain-bound client; the MOCKED harness serves Base Sepolia only.
+  transport: (mode, env) => ({ rpc: mode === 'harness' ? createBaseSepoliaReadRpc(UNI_MOCK_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS)
+    : baseSepoliaLiquidityRpc(env.GRYLOO_BASE_SEPOLIA_RPC_URL), ...mode === 'live' ? { chains: { rpcs: { 'eip155:11155111': ethereumSepoliaSwapRpc(env.GRYLOO_ETHEREUM_SEPOLIA_RPC_URL, UNISWAP_LIQUIDITY_RPC_METHODS) } } } : {} }),
+  create(storage, { rpc, mode, env, chains }) {
+    const s = createUniswapLiquidityService({ storage, rpc, ...chains ? { rpcs: chains.rpcs } : {}, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET',
       executionEnabled: env.GRYLOO_UNISWAP_LIQUIDITY_EXECUTION !== 'DISABLED', ...mode === 'harness' ? { mockedCodePins: UNI_MOCK_CODE_PINS } : {} });
     const table: Record<string, (args: Args) => Promise<unknown>> = {
       info: async () => ({ executionEnabled: s.executionEnabled }),
-      price: () => s.price(),
+      price: ([chain]) => s.price(chain as string | undefined),
       simulate: ([w, a]) => s.simulate(w, a as string),
       refresh: ([i]) => s.refresh(i as string),
       review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),
@@ -523,17 +539,91 @@ function routerFlow(name: 'crosschain-router' | 'crosschain-router-testnet', net
 }
 const crosschainRouter = routerFlow('crosschain-router', 'mainnet'), crosschainRouterTestnet = routerFlow('crosschain-router-testnet', 'testnet');
 
+/**
+ * BUILD-013 Supply → Borrow → Swap composition on Base Sepolia (BUILD-CLOUD-PARITY-001 cloud flow). The UNCHANGED service on the Aave
+ * family's shared namespace. Its run log repeats every Review in each snapshot, so the cloud store's 16 MiB bound is passed as the
+ * service's run capacity: begin() refuses a step before any wallet request when its submission and reconciliation might not fit
+ * (`LENDING_JOURNAL_CAPACITY_INSUFFICIENT`). Live reads need the keyed provider BUILD-013 requires (`GRYLOO_ALCHEMY_API_KEY`).
+ */
+const LENDING_ID = /^lending-[a-f0-9]{32}$/;
+const lendingAttempt = (value: unknown) => typeof value === 'string' && /^lending-[a-f0-9]{32}\.(POOL_APPROVAL|SUPPLY|BORROW|ROUTER_APPROVAL|SWAP)\.[0-9]{1,3}$/.test(value);
+const lendingResult = (value: unknown) => isObject(value) && (value.kind === 'HASH' ? typeof value.hash === 'string' && HASH.test(value.hash) && Object.keys(value).length === 2
+  : value.kind === 'UNKNOWN' && Object.keys(value).length === 1);
+const lendingNeedsObservation = (value: unknown) => {
+  const record = value as LendingRecord;
+  return !['COMPLETED', 'FAILED'].includes(record.status) && record.attempts.some(a => !a.reconciled && !a.notSubmitted && OBSERVABLE.includes(a.state));
+};
+const lendingEvidence = (value: unknown) => {
+  const record = value as LendingRecord, evidence = record.evidence;
+  if (record.status !== 'COMPLETED' || !evidence) return null;
+  return { bundleHash: evidence.bundleHash, environment: String(evidence.bundle.environment), outcome: String(evidence.bundle.outcome),
+    bytes: new TextEncoder().encode(JSON.stringify(evidence)) };
+};
+const lendingComposition: FlowDefinition = {
+  name: 'lending-composition', namespace: 'aave-supply', busyCode: 'LENDING_BUSY', runId: LENDING_ID, unavailableCode: 'LENDING_SERVICE_UNAVAILABLE',
+  methods: {
+    simulate: { mutates: true, validate: shape(workflow, account) },
+    review: { mutates: true, validate: shape(id(LENDING_ID), commitment, workflow) },
+    begin: { mutates: true, validate: shape(id(LENDING_ID), account, workflow) },
+    handoff: { mutates: true, validate: shape(id(LENDING_ID), lendingAttempt) },
+    report: { mutates: true, validate: shape(id(LENDING_ID), lendingAttempt, lendingResult) },
+    cancelPrepared: { mutates: true, validate: shape(id(LENDING_ID), lendingAttempt) },
+    observe: { mutates: true, validate: shape(id(LENDING_ID)) },
+    status: { mutates: false, validate: shape(id(LENDING_ID)) },
+    refresh: { mutates: true, validate: shape(id(LENDING_ID)) },
+    invalidate: { mutates: true, validate: shape(id(LENDING_ID)) },
+  },
+  transport: (mode, env) => ({ rpc: createLendingRpc(mode === 'harness', env) }),
+  create(storage, { rpc, mode }) {
+    const s = createLendingCompositionService({ storage, rpc, provenance: mode === 'harness' ? 'MOCKED' : 'PUBLIC_TESTNET', maxRunBytes: MAX_LOG_BYTES });
+    const table: Record<string, (args: Args) => Promise<unknown>> = {
+      simulate: ([w, a]) => s.simulate(w, a as string),
+      review: ([i, c, w]) => s.review(i as string, c as string, w as SemanticWorkflow),
+      begin: ([i, a, w]) => s.begin(i as string, a as string, w as SemanticWorkflow),
+      handoff: ([i, t]) => s.handoff(i as string, t as string),
+      report: ([i, t, r]) => s.report(i as string, t as string, r as Parameters<typeof s.report>[2]),
+      cancelPrepared: ([i, t]) => s.cancelPrepared(i as string, t as string),
+      observe: ([i]) => s.observe(i as string),
+      status: ([i]) => s.load(i as string),
+      refresh: ([i]) => s.refreshReview(i as string),
+      invalidate: ([i]) => s.invalidate(i as string),
+    };
+    return { call: (method, args) => table[method]!(args), load: runId => s.load(runId), observe: runId => s.observe(runId) };
+  },
+  needsObservation: lendingNeedsObservation,
+  projector(name, bytes): Projection | null {
+    // Only this flow's run logs; the shared namespace also holds Aave Supply runs and both flows' intents.
+    if (!/^lending-[a-f0-9]{32}\.jsonl$/.test(name)) return null;
+    const record = lastRecord<LendingRecord>(bytes), observe = lendingNeedsObservation(record), evidence = lendingEvidence(record);
+    const open = record.attempts.find(a => !a.reconciled && !a.notSubmitted && OBSERVABLE.includes(a.state));
+    return { run: { runId: record.id, workflowId: record.reviews[0]!.workflow.workflowId, flow: 'lending-composition', status: record.status,
+      provenance: record.provenance, ownerAccount: record.reviews.at(-1)!.fields.owner.toLowerCase(), recoveryOf: record.recoveryOf ?? null,
+      errorCode: errorCode(record.error), needsObservation: observe, hasEvidence: evidence !== null,
+      attempts: record.attempts.map(a => ({ attemptId: a.id, step: a.step, state: a.state, nonce: a.nonce, transactionHash: a.hash?.toLowerCase() ?? null,
+        preparedAtBlock: a.preparedAtBlock, reconciled: a.reconciled })),
+      journal: journalRows(record.journal) },
+    // SUBMITTING usually means the owner's wallet prompt is open: give the browser time to report first.
+    work: work('lending-composition', record.id, observe, open?.state === 'SUBMITTING' ? 60_000 : 5_000, evidence !== null) };
+  },
+  evidence: lendingEvidence,
+};
+
 export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap,
   'solana-devnet-swap': solanaDevnetSwap, 'orca-liquidity': orcaLiquidity, 'jupiter-swap': jupiterSwap, 'uniswap-liquidity': uniswapLiquidity,
-  'crosschain-router': crosschainRouter, 'crosschain-router-testnet': crosschainRouterTestnet });
+  'crosschain-router': crosschainRouter, 'crosschain-router-testnet': crosschainRouterTestnet, 'lending-composition': lendingComposition });
 export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FLOWS, value);
 
 /**
  * Backend enablement is explicit per flow and independent of NODE_ENV (a deployed backend is never in
  * development mode). The MOCKED loopback harness takes precedence so automated tests can never reach a
- * public network.
+ * public network. BUILD-CLOUD-PARITY-001: a hosted deployment (Vercel, Railway) never talks to a loopback harness; a harness
+ * gate set there by mistake leaves the flow off instead of pointing it at 127.0.0.1.
  */
 export function flowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
+  const mode = configuredFlowMode(flow, env);
+  return mode === 'harness' && isHostedDeployment(env) ? 'off' : mode;
+}
+function configuredFlowMode(flow: FlowName, env: Readonly<Record<string, string | undefined>>): FlowMode {
   // The existing public-swap gate value; in the separately deployed backend it does not also require NODE_ENV=development.
   if (flow === 'base-sepolia-swap') return env.GRYLOO_PUBLIC_TESTNET === 'record' ? 'live' : 'off';
   // Solana Devnet (valueless test tokens): explicit backend enablement; the MOCKED loopback harness wins.
@@ -549,9 +639,11 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
   if (flow === 'crosschain-router') return routerNetworkMode('mainnet', env);
   // BUILD-JOURNEY-001: the same router on Base Sepolia → Arbitrum Sepolia (test USDC); the MOCKED loopback harness wins.
   if (flow === 'crosschain-router-testnet') return routerNetworkMode('testnet', env);
+  // BUILD-013 lending composition: part of the Aave family's explicit enablement; its own MOCKED loopback harness wins.
+  if (flow === 'lending-composition') return env.GRYLOO_LENDING_HARNESS === 'MOCKED_LOOPBACK_ONLY' ? 'harness' : env.GRYLOO_SUPPLY_TESTNET === 'live' ? 'live' : 'off';
   if (flow === 'robinhood-transfer') {
     if (env.GRYLOO_ROBINHOOD_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
-    return env.GRYLOO_ROBINHOOD_TESTNET === 'live' ? 'live' : 'off';
+    return env.GRYLOO_ROBINHOOD_TESTNET === 'live' || env.GRYLOO_ETHEREUM_SEPOLIA_TRANSFER === 'live' ? 'live' : 'off';
   }
   if (env.GRYLOO_SUPPLY_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
   return env.GRYLOO_SUPPLY_TESTNET === 'live' ? 'live' : 'off';
@@ -559,5 +651,5 @@ export function flowMode(flow: FlowName, env: Readonly<Record<string, string | u
 const DISABLED: Readonly<Record<FlowName, string>> = { 'robinhood-transfer': 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED', 'aave-supply': 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED',
   'base-sepolia-swap': 'PUBLIC_RECORDING_OFF', 'solana-devnet-swap': 'DEVNET_SWAP_PUBLIC_DEVNET_NOT_ENABLED', 'orca-liquidity': 'ORCA_LIQUIDITY_PUBLIC_DEVNET_NOT_ENABLED',
   'jupiter-swap': 'JUPITER_PUBLIC_MAINNET_NOT_ENABLED', 'uniswap-liquidity': 'UNISWAP_LIQUIDITY_PUBLIC_TESTNET_NOT_ENABLED',
-  'crosschain-router': 'ROUTER_NOT_ENABLED', 'crosschain-router-testnet': 'ROUTER_TESTNET_NOT_ENABLED' };
+  'crosschain-router': 'ROUTER_NOT_ENABLED', 'crosschain-router-testnet': 'ROUTER_TESTNET_NOT_ENABLED', 'lending-composition': 'LENDING_PUBLIC_TESTNET_NOT_ENABLED' };
 export const disabledCode = (flow: FlowName) => DISABLED[flow];

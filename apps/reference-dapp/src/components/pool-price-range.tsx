@@ -4,7 +4,7 @@ import { createContext, useContext, useRef, useState, type ReactNode } from 'rea
 import { useWorkflow } from '../state/workflow-store';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
-import { uniswapBandInput, uniswapLiquidityDetails } from '../domain/uniswap-liquidity-authoring';
+import { uniswapBandInput, uniswapLiquidityDetails, uniswapLiquidityProfileFor, type UniswapLiquidityNetwork } from '../domain/uniswap-liquidity-authoring';
 import { solanaLiquidityDetails } from '../domain/solana-liquidity-authoring';
 
 export const poolPricePresets = {
@@ -18,7 +18,7 @@ export function poolRangeOffsets(percent: number, preset: PoolPricePreset | null
   return preset ? poolPricePresets[preset] : { lower: -percent, upper: percent, extent: 100 };
 }
 
-export type RangeReference = { price: string; quoteToken?: string; sqrtPriceX96?: string };
+export type RangeReference = { price: string; quoteToken?: string; sqrtPriceX96?: string; network?: UniswapLiquidityNetwork };
 type RangeEdit = { percent: number; preset: PoolPricePreset | null; extent: number; edited: boolean; reference: RangeReference | null; reviewedKey: string | null };
 const initialRange: RangeEdit = { percent: 10, preset: null, extent: 100, edited: false, reference: null, reviewedKey: null };
 type RangeContext = {
@@ -40,19 +40,27 @@ export function PoolPriceRangeProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<Record<string, RangeEdit>>({});
   function protocol(nodeId: string) {
     const selected = actionSetup?.id === nodeId ? actionSetup.cryptoSelection : cryptoSelections[nodeId];
-    if (selected?.action === 'pool') return selected.network === 'Solana Devnet' ? 'solana' : selected.network === 'Base Sepolia' ? 'uniswap' : null;
+    if (selected?.action === 'pool') return selected.network === 'Solana Devnet' ? 'solana' : ['Base Sepolia', 'Ethereum Sepolia'].includes(selected.network) ? 'uniswap' : null;
     if (actionSetup?.id === nodeId && actionSetup.action === 'pool') return 'uniswap';
     const node = state.workflow.nodes.find(node => node.nodeId === nodeId);
     return node && uniswapLiquidityDetails(node) ? 'uniswap' : node && solanaLiquidityDetails(node) ? 'solana' : null;
   }
+  function network(nodeId: string): UniswapLiquidityNetwork | null {
+    const selected = actionSetup?.id === nodeId ? actionSetup.cryptoSelection : cryptoSelections[nodeId];
+    if (selected?.action === 'pool' && (selected.network === 'Base Sepolia' || selected.network === 'Ethereum Sepolia')) return selected.network;
+    if (actionSetup?.id === nodeId && actionSetup.action === 'pool') return actionSetup.input.network;
+    const node = state.workflow.nodes.find(node => node.nodeId === nodeId);
+    return node ? uniswapLiquidityDetails(node)?.network ?? null : null;
+  }
   function reference(nodeId: string): RangeReference | null {
-    const price = protocol(nodeId) === 'uniswap' ? uniswap.price : protocol(nodeId) === 'solana' ? solana.price : null;
-    return price && validPrice(price.price) ? { price: price.price, quoteToken: protocol(nodeId) === 'uniswap' ? 'USDC' : 'devUSDC', ...('sqrtPriceX96' in price ? { sqrtPriceX96: price.sqrtPriceX96 } : {}) } : null;
+    const selectedNetwork = network(nodeId);
+    const price = protocol(nodeId) === 'uniswap' ? selectedNetwork && uniswap.priceChain === uniswapLiquidityProfileFor(selectedNetwork).chain ? uniswap.price : null : protocol(nodeId) === 'solana' ? solana.price : null;
+    return price && validPrice(price.price) ? { ...(selectedNetwork ? { network: selectedNetwork } : {}), price: price.price, quoteToken: protocol(nodeId) === 'uniswap' ? 'USDC' : 'devUSDC', ...('sqrtPriceX96' in price ? { sqrtPriceX96: price.sqrtPriceX96 } : {}) } : null;
   }
   return <Context.Provider value={{ entries, reference,
     async refresh(nodeId) {
       if (reference(nodeId)) return;
-      if (protocol(nodeId) === 'uniswap' && !uniswap.busy) await uniswap.fetchPrice();
+      if (protocol(nodeId) === 'uniswap' && !uniswap.busy) await uniswap.fetchPrice(uniswapLiquidityProfileFor(network(nodeId) ?? 'Base Sepolia').chain);
       if (protocol(nodeId) === 'solana' && !solana.busy) await solana.fetchPrice();
     },
     edit(nodeId, percent, extent = 100) {
@@ -91,7 +99,7 @@ export function poolPriceBounds(reference: RangeReference | null, percent: numbe
   const bps = Math.round(percent * 100);
   if (!Number.isFinite(percent) || bps < 1 || bps > 9000) throw new Error('Choose a range between 0.01% and 90%.');
   if (reference.sqrtPriceX96 && !preset) {
-    const { rangeUnit, lower, upper } = uniswapBandInput(reference.sqrtPriceX96, bps);
+    const { rangeUnit, lower, upper } = uniswapBandInput(reference.sqrtPriceX96, bps, reference.network);
     return { rangeUnit, lower, upper };
   }
   const [integer = '0', fraction = ''] = reference.price.split('.');

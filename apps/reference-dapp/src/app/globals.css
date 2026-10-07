@@ -1418,3 +1418,5 @@
 }
 @media(prefers-reduced-motion:no-preference){.dashboard-run-card,.dashboard-run-link{transition:background-color .14s ease,border-color .14s ease}}
 @media(max-width:700px){.dashboard-run-detail>.technical-workspace>summary{padding-inline:18px}}
+/* BUILD-COPILOT-001: Copilot answers, clarification options and the AI-proposal notice. */
+.copilot-notes{margin:6px 0 0;padding-left:16px;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}.copilot-options{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.copilot-options button{min-height:32px;border-radius:6px;padding:0 10px;font-weight:700}.copilot-notice{color:var(--blue)}

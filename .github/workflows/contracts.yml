@@ -144,6 +144,10 @@ jobs:
       - name: Bootstrap exact approved headless shell and run guarded browser suite
         id: browser
         shell: bash
+        env:
+          # The self-hosted runner may host another app server on 3000; the browser suites serve the reference app on
+          # an isolated loopback port (validated by apps/reference-dapp/e2e/app-origin.ts).
+          FLOFI_E2E_APP_PORT: '3100'
         run: |
           set -euo pipefail
           export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
@@ -153,7 +157,9 @@ jobs:
           python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           # Visual/default-state specs run before local-fork execution writes a recovery journal.
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test base-observation.spec.ts build-roundtrip.spec.ts build009.spec.ts across.spec.ts canvas-keyboard.spec.ts canvas-ux.spec.ts cross-chain-liquidity-recovery.spec.ts cross-chain-liquidity.spec.ts execution-capabilities.spec.ts interface-honesty.spec.ts mock-artifact-chain.spec.ts mode-b-adversarial.spec.ts mode-b-fork.spec.ts network-isolation.spec.ts public-testnet.spec.ts robinhood-network.spec.ts swap-authoring.spec.ts visual-shell.spec.ts
-          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts withdraw.spec.ts
+          GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test supply.spec.ts supply-recovery.spec.ts borrow.spec.ts repay.spec.ts withdraw.spec.ts ethereum-sepolia-supply.spec.ts
+          # BUILD-COPILOT-001/002: Flofi Copilot on committed replay answers (no model, no external request) with the MOCKED supply harness.
+          FLOFI_COPILOT=replay GRYLOO_SUPPLY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test copilot.spec.ts copilot-conversation.spec.ts
           # BUILD-013: complete lending sequence and recovery, MOCKED loopback only; no public broadcasts.
           GRYLOO_LENDING_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test lending-composition.spec.ts
           # BUILD-014: Jupiter/Solana swap on the MOCKED loopback harness; never a public provider or broadcast.
@@ -163,13 +169,15 @@ jobs:
           # BUILD-015: Solana Devnet / Orca liquidity on the same MOCKED loopback harness; never public Devnet or a broadcast.
           GRYLOO_SOLANA_DEVNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test solana-liquidity.spec.ts
           # RH-DEMO-001: Robinhood Testnet self-transfer on a MOCKED loopback chain; never the public network or a broadcast.
-          GRYLOO_ROBINHOOD_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test robinhood-transfer.spec.ts
+          GRYLOO_ROBINHOOD_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test robinhood-transfer.spec.ts ethereum-sepolia-transfer.spec.ts
           # BUILD-UNISWAP-LIQUIDITY-PUBLIC: Base Sepolia Uniswap v3 liquidity on a MOCKED loopback chain; never the public network or a broadcast.
           GRYLOO_UNISWAP_LIQUIDITY_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test uniswap-liquidity.spec.ts
           # BUILD-ROUTER-001: Cross-chain Router on MOCKED loopback Base/Arbitrum chains and providers; never a public network or a broadcast.
           GRYLOO_ROUTER_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test router.spec.ts
           # BUILD-JOURNEY-001: permissionless testnet journey (random wallets, real sign-in signatures) on MOCKED loopback Base Sepolia/Arbitrum Sepolia; never a public network or a broadcast.
           GRYLOO_ROUTER_TESTNET_E2E=MOCKED_LOOPBACK_ONLY pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test journey.spec.ts
+          # BUILD-CLOUD-PARITY-001: the app on the embedded PostgreSQL runtime (the path a Vercel deployment runs): MOCKED loopback chain, a disposable loopback database, no journal directory.
+          GRYLOO_CLOUD_RUNTIME_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test cloud-runtime.spec.ts
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mode-a-adversarial.spec.ts mode-a-fork.spec.ts mode-a-recovery.spec.ts
           # BUILD-005: a separate MOCKED CoW profile, never a public CoW or chain endpoint.
           export GRYLOO_COW=loopback

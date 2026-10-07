@@ -12,6 +12,9 @@ import { proposalReviewPosition } from './proposal-review-position';
 const fixture = vi.hoisted(() => ({ store: null as unknown as ReturnType<typeof import('../state/workflow-store').useWorkflow> }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => fixture.store }));
 vi.mock('../state/build009-wallet-store', () => ({ useBuild009Wallet: () => ({ account: null }) }));
+// This unit checks presentation; interpreter behavior is covered by its dedicated suites.
+vi.mock('./copilot-ai', async importOriginal => ({ ...await importOriginal<typeof import('./copilot-ai')>(),
+  useCopilotInterpreter: () => ({ mode: 'off', enabled: false, busy: false, mayInterpret: false, reset: vi.fn() }) }));
 const context = createBaseSepoliaReviewContext();
 const owner = '0x1111111111111111111111111111111111111111';
 const command = canvasAddCommand('lending', 0, owner);

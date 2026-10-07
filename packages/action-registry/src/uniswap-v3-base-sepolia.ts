@@ -37,4 +37,3 @@ export const UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY = Object.freeze({
   /** A Review authorizes wallet requests for this long; the mint deadline bounds when a sent mint can still land. */
   reviewTtlSeconds: 120, mintDeadlineSeconds: 900,
 });
-export type UniswapLiquidityProfile = typeof UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY;

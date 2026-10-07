@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createTestWallet } from '../../../../packages/reference-reconciler/test/test-wallet.ts';
 import { challengeMessage, checksumAddress, issueWalletChallenge, readWalletSession, recoverPersonalSigner, verifyWalletSignIn, walletSessionKey,
@@ -27,9 +27,9 @@ describe('BUILD-JOURNEY-001 wallet session', () => {
       expect(message).toMatch(/\nURI: https:\/\/flofi\.example\nVersion: 1\nChain ID: 84532\nNonce: [0-9a-f]{32}\nIssued At: 2026-10-04T12:00:00\.000Z\nExpiration Time: 2026-10-04T12:05:00\.000Z$/);
       const { token, session } = attempt();
       expect(session.account).toBe(wallet.address);
-      expect(readWalletSession(env, token, later(60))).toEqual(session);
-      expect(readWalletSession(env, token, later(10 + 8 * 3600))).toBeNull();
-      expect(readWalletSession(env, token, later(9 + 8 * 3600))).not.toBeNull();
+      expect(readWalletSession(env, token, later(60), origin.domain)).toEqual(session);
+      expect(readWalletSession(env, token, later(10 + 8 * 3600), origin.domain)).toBeNull();
+      expect(readWalletSession(env, token, later(9 + 8 * 3600), origin.domain)).not.toBeNull();
     }
   });
   it('recovers personal_sign signers (v 27/28 and 0/1) and the EIP-55 checksum', () => {
@@ -57,12 +57,12 @@ describe('BUILD-JOURNEY-001 wallet session', () => {
     expect(() => verifyWalletSignIn(other, { challengeToken: challenge.token, ...origin, address: victim.address, chainId: 84532, signature, now: later(5) }))
       .toThrow('WALLET_SIGN_IN_CHALLENGE_INVALID');
     const { token } = signIn(victim).attempt();
-    expect(readWalletSession(other, token, later(20))).toBeNull();
+    expect(readWalletSession(other, token, later(20), origin.domain)).toBeNull();
     const [kind, body, mac] = token.split('.');
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body!, 'base64url').toString()), a: attacker.address })).toString('base64url');
-    expect(readWalletSession(env, `${kind}.${forged}.${mac}`, later(20))).toBeNull();
+    expect(readWalletSession(env, `${kind}.${forged}.${mac}`, later(20), origin.domain)).toBeNull();
     // A challenge token is never accepted as a session and vice versa.
-    expect(readWalletSession(env, challenge.token, later(20))).toBeNull();
+    expect(readWalletSession(env, challenge.token, later(20), origin.domain)).toBeNull();
   });
   it('derives the key from the deployed API token, needs no new secret, and fails closed for a forwarding BFF without one', () => {
     const token = randomBytes(24).toString('hex');
@@ -70,8 +70,30 @@ describe('BUILD-JOURNEY-001 wallet session', () => {
     expect(walletSessionKey({ API_AUTH_TOKEN: token }).equals(Buffer.from(token))).toBe(false);
     expect(() => walletSessionKey({ API_BASE_URL: 'https://api.example' })).toThrow('WALLET_SESSION_NOT_CONFIGURED');
     expect(() => walletSessionKey({ FLOFI_SESSION_SECRET: 'short' })).toThrow('WALLET_SESSION_SECRET_INVALID');
-    expect(readWalletSession({ API_BASE_URL: 'https://api.example' }, 's1.x.y', t0)).toBeNull();
+    expect(readWalletSession({ API_BASE_URL: 'https://api.example' }, 's1.x.y', t0, origin.domain)).toBeNull();
     const { token: session } = signIn(createTestWallet(), { env: { API_AUTH_TOKEN: token } }).attempt();
-    expect(readWalletSession({ API_AUTH_TOKEN: token }, session, later(30))).not.toBeNull();
+    expect(readWalletSession({ API_AUTH_TOKEN: token }, session, later(30), origin.domain)).not.toBeNull();
+  });
+});
+
+describe('BUILD-CLOUD-PARITY-001 wallet session on hosted deployments', () => {
+  it('a session is accepted only by the host that issued it, even when deployments share the key', () => {
+    const { token, session } = signIn().attempt();
+    expect(readWalletSession(env, token, later(30), origin.domain)).toEqual(session);
+    expect(readWalletSession(env, token, later(30), 'flofi-git-feature-team.vercel.app')).toBeNull();
+    expect(readWalletSession(env, token, later(30), 'flofi.example:3000')).toBeNull();
+    // A pre-binding token (no issuing host) is refused: those sessions simply sign in again.
+    const key = walletSessionKey(env), body = Buffer.from(JSON.stringify({ a: createTestWallet().address, i: 0, e: 4_102_444_800, s: 'x' })).toString('base64url');
+    const legacy = `s1.${body}.${createHmac('sha256', key).update(`s1.${body}`).digest('base64url')}`;
+    expect(readWalletSession(env, legacy, later(30), origin.domain)).toBeNull();
+  });
+  it('a hosted deployment never invents a per-process key (serverless instances do not share memory)', () => {
+    for (const hosted of [{ VERCEL: '1' }, { RAILWAY_PROJECT_ID: 'p' }, { FLOFI_DEPLOYMENT: 'hosted' }, { VERCEL: '1', DATABASE_URL: 'postgres://db/x' }])
+      expect(() => walletSessionKey(hosted)).toThrow('WALLET_SESSION_NOT_CONFIGURED');
+    const secret = randomBytes(32).toString('hex');
+    // Every instance of one deployment derives the same key from the configured secret.
+    expect(walletSessionKey({ VERCEL: '1', FLOFI_SESSION_SECRET: secret }).equals(walletSessionKey({ VERCEL: '1', FLOFI_SESSION_SECRET: secret }))).toBe(true);
+    // Local development keeps its single-process key.
+    expect(walletSessionKey({}).equals(walletSessionKey({}))).toBe(true);
   });
 });

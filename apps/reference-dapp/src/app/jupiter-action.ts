@@ -4,7 +4,7 @@ import { JUPITER_SOLANA_MAINNET as profile } from '@defi-workflow-engine/action-
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createJupiterService, type JupiterService, type JupiterWalletDiagnostic } from '../server/jupiter-service';
 import { createSolanaRpc, solanaRpcOverride } from '../server/solana-rpc';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { cloudFlow } from '../server/flow-runtime';
 import { createJupiterHttp } from '../server/jupiter-http';
 
 let service: JupiterService | null = null;
@@ -28,8 +28,9 @@ function current(): JupiterService {
   return service;
 }
 async function run<T>(method: string, args: readonly unknown[], action: (service: JupiterService) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; code: string }> {
-  // Cloud deployment (BUILD-CLOUD-001): forward the identical contract to the stateless Flofi API.
-  if (process.env.API_BASE_URL) return callCloudFlow<T>('jupiter-swap', method, args);
+  // Cloud deployment: the remote Flofi API (BUILD-CLOUD-001) or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001).
+  const cloud = await cloudFlow<T>('jupiter-swap', method, args);
+  if (cloud) return cloud;
   try { return { ok: true, value: await action(current()) }; }
   catch (cause) { const code = cause instanceof Error ? cause.message : ''; return { ok: false, code: /^[A-Z][A-Z0-9_]{2,80}$/.test(code) ? code : 'JUPITER_SERVICE_UNAVAILABLE' }; }
 }

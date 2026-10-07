@@ -5,13 +5,11 @@
  * service makes; the only transaction path is `wallet.send` — the owner's browser wallet in a real deployment.
  * Every block keeps a state snapshot so historical reads (receipt block and parent) behave like an archive node.
  */
-import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as profile } from '@defi-workflow-engine/action-registry';
-import { UNI_MOCK_CODE, UNI_MOCK_CODE_PINS } from '../src/server/uniswap-liquidity-mock.ts';
+import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
+import { uniMockCode, UNI_MOCK_CODE_PINS } from '../src/server/uniswap-liquidity-mock.ts';
 import { UNISWAP_SELECTORS as SEL, UNISWAP_TOPICS as TOPIC, decodeUniswapApprove, decodeUniswapMint, sqrtRatioAtTick, uniswapComposition } from '@defi-workflow-engine/reference-compiler';
 
 export const UNI_OWNER = '0x5555555555555555555555555555555555555555';
-const t0 = profile.token0.address, t1 = profile.token1.address, NPM = profile.positionManager, POOL = profile.pool;
-const CODE = UNI_MOCK_CODE;
 export { UNI_MOCK_CODE_PINS };
 
 type Snapshot = { balances: Record<string, Record<string, bigint>>; allowances: Record<string, bigint>; native: Record<string, bigint>; nonces: Record<string, bigint>;
@@ -41,7 +39,10 @@ const hx = (n: number | bigint) => '0x' + n.toString(16);
 const clone = (s: Snapshot): Snapshot => structuredClone(s);
 
 export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bigint; weth?: bigint; eth?: bigint; tick?: number; nonce?: bigint; simulateV1?: boolean;
-  /** The owner's EOA is already EIP-7702-delegated to the MetaMask delegator (code `0xef0100‖impl`). */ delegatedOwner?: boolean } = {}) {
+  /** The owner's EOA is already EIP-7702-delegated to the MetaMask delegator (code `0xef0100‖impl`). */ delegatedOwner?: boolean;
+  /** BUILD-ETHEREUM-001: the liquidity profile the chain stands in for (Base Sepolia by default). */ profile?: UniswapLiquidityProfile } = {}) {
+  const profile = options.profile ?? UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY;
+  const t0 = profile.token0.address, t1 = profile.token1.address, NPM = profile.positionManager, POOL = profile.pool, CODE = uniMockCode(profile);
   const owner = options.owner ?? UNI_OWNER;
   const tick = options.tick ?? 225_600;
   let head = 1_000;
@@ -76,7 +77,7 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     }
     if (to === NPM && sel === SEL.mint) {
       const p = decodeUniswapMint(data);
-      if (BigInt(time) > p.deadline || p.token0 !== t0 || p.token1 !== t1 || p.fee !== 500) return { ok: false, ret: '0x', logs: [], gas: 30_000n };
+      if (BigInt(time) > p.deadline || p.token0 !== t0 || p.token1 !== t1 || p.fee !== profile.feeTier) return { ok: false, ret: '0x', logs: [], gas: 30_000n };
       let c;
       try { c = uniswapComposition(s.sqrtPriceX96, s.tick, p.tickLower, p.tickUpper, p.amount0Desired, p.amount1Desired); } catch { return { ok: false, ret: '0x', logs: [], gas: 30_000n }; }
       if (c.amount0 < p.amount0Min || c.amount1 < p.amount1Min) return { ok: false, ret: '0x', logs: [], gas: 60_000n };
@@ -110,8 +111,8 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     if (to === profile.factory && sel === SEL.getPool) return '0x' + aw(arg(0) === t0 && arg(1) === t1 ? POOL : '0x' + '0'.repeat(40));
     if (to === POOL && sel === SEL.token0) return '0x' + aw(t0);
     if (to === POOL && sel === SEL.token1) return '0x' + aw(t1);
-    if (to === POOL && sel === SEL.fee) return '0x' + w(500n);
-    if (to === POOL && sel === SEL.tickSpacing) return '0x' + w(10n);
+    if (to === POOL && sel === SEL.fee) return '0x' + w(BigInt(profile.feeTier));
+    if (to === POOL && sel === SEL.tickSpacing) return '0x' + w(BigInt(profile.tickSpacing));
     if (to === POOL && sel === SEL.liquidity) return '0x' + w(448_000_000_000n);
     if (to === POOL && sel === SEL.slot0) return '0x' + w(s.sqrtPriceX96) + w(BigInt(s.tick)) + w(1n) + w(1n) + w(1n) + w(0n) + w(1n);
     if ((to === t0 || to === t1) && sel === SEL.decimals) return '0x' + w(to === t0 ? 6n : 18n);
@@ -122,9 +123,9 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
     if (to === NPM && sel === SEL.positions) {
       const p = s.positions[BigInt('0x' + data.slice(10)).toString()];
       if (!p) throw new Error('MOCK_REVERT');
-      return '0x' + w(0n) + w(0n) + aw(t0) + aw(t1) + w(500n) + w(BigInt(p.tickLower)) + w(BigInt(p.tickUpper)) + w(p.liquidity) + w(0n) + w(0n) + w(0n) + w(0n);
+      return '0x' + w(0n) + w(0n) + aw(t0) + aw(t1) + w(BigInt(profile.feeTier)) + w(BigInt(p.tickLower)) + w(BigInt(p.tickUpper)) + w(p.liquidity) + w(0n) + w(0n) + w(0n) + w(0n);
     }
-    if (to === profile.gasPriceOracle && sel === SEL.l1FeeUpperBound) return '0x' + w(3_000_000_000n);
+    if (profile.gasPriceOracle && to === profile.gasPriceOracle && sel === SEL.l1FeeUpperBound) return '0x' + w(3_000_000_000n);
     throw new Error('MOCK_UNEXPECTED_CALL_' + to + '_' + sel);
   }
   const blockOf = (n: number, full: boolean) => ({ number: hx(n), hash: '0x' + n.toString(16).padStart(64, 'b'), timestamp: hx(n === head ? timestamp : timestamp - (head - n) * 2),
@@ -183,7 +184,7 @@ export function createUniswapLiquidityChain(options: { owner?: string; usdc?: bi
         if (tx && left > 0) preconfirmed.set(tx.hash, left - 1);
         return tx ? { transactionHash: tx.hash, status: hx(tx.status), blockNumber: hx(tx.block), blockHash: left > 0 ? '0x' + '0'.repeat(64) : blockOf(tx.block, false).hash,
           from: tx.from, to: tx.to,
-          gasUsed: hx(tx.gasUsed), effectiveGasPrice: hx(gasPrice), l1Fee: hx(1_000_000_000n), logs: tx.logs } : null;
+          gasUsed: hx(tx.gasUsed), effectiveGasPrice: hx(gasPrice), ...profile.gasPriceOracle ? { l1Fee: hx(1_000_000_000n) } : {}, logs: tx.logs } : null;
       }
       case 'eth_getTransactionByHash': { const tx = mined.get(params[0] as string) ?? pendingTxs.find(p => p.hash === params[0]); return tx ? txView(tx) : null; }
     }

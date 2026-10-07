@@ -10,8 +10,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { routerControl } from './router-fixtures';
+import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
 import { personalSignText, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
-import { APP_ORIGIN } from './app-origin';
 
 export const BASE_SEPOLIA_HEX = '0x14a34';
 const TESTNET = { network: 'testnet' } as const;

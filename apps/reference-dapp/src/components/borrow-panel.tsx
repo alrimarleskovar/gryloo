@@ -2,7 +2,7 @@
 'use client';
 import { TokenAmountInput } from './token-amount-input';
 import { useState, type FormEvent } from 'react';
-import { createAuthoredBorrow, borrowDetails, type SupplyInput } from '../domain/supply-authoring';
+import { createAuthoredBorrow, borrowDetails, lendingCopy, lendingNetworkView, lendingView, LENDING_NETWORKS, type LendingNetwork, type SupplyInput } from '../domain/supply-authoring';
 import { useWorkflow } from '../state/workflow-store';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useSupply } from '../state/supply-store';
@@ -14,20 +14,21 @@ export function BorrowAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{n
   const node=state.workflow.nodes.find(n=>n.nodeId===nodeId),existing=node?borrowDetails(node as Parameters<typeof borrowDetails>[0]):null;
   const [localAmount,setAmount]=useState(existing?.amount??'0.01'),[error,setError]=useState('');
   const amount = reviewFormId && nodeId ? amountInputs[nodeId] ?? existing?.amount ?? localAmount : localAmount;
+  const [network,setNetwork]=useState<LendingNetwork>(existing?.network??'Base Sepolia'),shown=lendingNetworkView(network),asset=shown.asset;
   function submit(event:FormEvent){event.preventDefault();try{
-    const input:SupplyInput={network:'Base Sepolia',asset:'USDC',amount,beneficiary:wallet.account??existing?.beneficiary??''};
+    const input:SupplyInput={network,asset,amount,beneficiary:wallet.account??existing?.beneficiary??''};
     createAuthoredBorrow(nodeId??'node-preview',input);
     const command=nodeId?{type:'SET_BORROW' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_BORROW' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
-  }catch(cause){setError(cause instanceof Error&&/AMOUNT|FIELDS/.test(cause.message)?'Enter a positive USDC amount with at most six decimal places.':'Connect your borrower wallet and check the amount.');}}
+  }catch(cause){setError(cause instanceof Error&&/AMOUNT|FIELDS/.test(cause.message)?`Enter a positive ${asset} amount with at most ${shown.decimals===6?'six':shown.decimals} decimal places.`:'Connect your borrower wallet and check the amount.');}}
   return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Borrow':'Create Borrow'} onSubmit={submit}>
     <strong>Borrow from Aave V3</strong>
-    <label>Borrow network<select aria-label="Borrow network" value="Base Sepolia" onChange={()=>undefined}><option>Base Sepolia</option></select></label>
-    <label>Borrow asset<select aria-label="Borrow asset" value="USDC" onChange={()=>undefined}><option>USDC</option></select></label>
-    <label>Borrow amount (USDC)<TokenAmountInput aria-label="Borrow amount (USDC)" value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
+    <label>Borrow network<select aria-label="Borrow network" value={network} onChange={e=>setNetwork(e.target.value as LendingNetwork)}>{LENDING_NETWORKS.map(n=><option key={n}>{n}</option>)}</select></label>
+    <label>Borrow asset<select aria-label="Borrow asset" value={asset} onChange={()=>undefined}><option>{asset}</option></select></label>
+    <label>Borrow amount ({asset})<TokenAmountInput aria-label={`Borrow amount (${asset})`} value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
     {!wallet.account&&!existing&&<button type="button" onClick={()=>void wallet.connect()}>Connect borrower wallet</button>}
-    <p>Variable rate. Your connected wallet receives USDC and takes on the debt.</p>
-    {error&&<p role="alert">{error}</p>}{!reviewFormId&&<button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Borrow change':direct?'Add Borrow':'Review Borrow proposal'}</button>}
+    <p>Variable rate. Your connected wallet receives {asset} and takes on the debt.</p>
+    {error&&<p role="alert">{error}</p>} { !reviewFormId && <button type="submit" disabled={!wallet.account&&!existing}>{nodeId?'Review Borrow change':direct?'Add Borrow':'Review Borrow proposal'}</button>}
     {onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
   </form>;
 }
@@ -42,13 +43,13 @@ const messages:Record<string,string>={
   BORROW_REVERTED:'Aave reverted the Borrow. No successful debt creation is claimed.',
 };
 export function BorrowPanel({view}:{view:'simulate'|'execute'}){
-  const {state}=useWorkflow(),run=useSupply();
+  const {state}=useWorkflow(),run=useSupply(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.actionType==='borrow'),fields=node?borrowDetails(node as Parameters<typeof borrowDetails>[0]):null;
-  const record=run.record?.review.borrow?run.record:null,review=record?.review,risk=review?.state.borrow;
+  const record=run.record?.review.borrow?run.record:null,review=record?.review,risk=review?.state.borrow,shown=lendingView(review?.chain??node?.chainId);
   const pending=record?.notSubmitted?undefined:record?.attempts.find(a=>!a.reconciled),info=run.error??record?.error;
   const observation=record?.observations.at(-1) as BorrowObservation|undefined;
   return <section className="panel" aria-label="Aave Borrow"><h2>{view==='simulate'?'Simulate Borrow':record?.evidence?'Borrow result':'Review Borrow'}</h2>
-    <p>Borrow {fields?.amount??(review?human(review.amount,6):'')} USDC from Aave V3 on Base Sepolia.</p>
+    <p>Borrow {fields?.amount??(review?human(review.amount,shown.decimals):'')} {shown.asset} from Aave V3 on {shown.network}.</p>
     <p>Interest-rate mode: Variable (2). No ERC-20 approval required.</p>
     {run.retired&&record&&<p role="alert">The workflow changed. Authorization is invalid. Observe any existing Borrow before starting again.</p>}
     {risk&&<><p>Collateral value: ${human(risk.collateralBase,8)} · Current debt: ${human(risk.debtBase,8)}</p>
@@ -58,18 +59,19 @@ export function BorrowPanel({view}:{view:'simulate'|'execute'}){
       <p>Liquidation threshold: {human(risk.liquidationThresholdBps,2)}%. Liquidation becomes possible below health factor 1. Flofi requires at least 2.0; prices and interest can change.</p>
       <p>Estimated maximum network cost: {human(review!.manifest.gasBudgets[0]?.maximumAmount??'0',18)} ETH.</p></>}
     {view==='simulate'?<button type="button" disabled={run.busy||Boolean(pending)} onClick={()=>void run.simulate()}>Simulate Borrow</button>:<>
+      {review&&wallet.account&&wallet.chainId!==shown.chainHex&&<button type="button" disabled={run.busy||wallet.busy} onClick={()=>void run.switchNetwork()}>Switch wallet to {shown.network}</button>}
       {review&&<p>Borrower / beneficiary: {review.account}</p>}
       {record&&!record.authorization&&!record.attempts.length&&!run.retired&&<button type="button" disabled={run.busy} onClick={()=>void run.review()}>Accept Borrow review</button>}
       {record?.authorization&&!run.retired&&!record.attempts.length&&record.verdict==='PENDING'&&<button type="button" className="primary" disabled={run.busy} onClick={()=>void run.execute()}>Execute</button>}
-      {record?.attempts.map(a=><p key={a.step}>Borrow: {a.reconciled?'Independently verified':record.notSubmitted?'not submitted':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`https://sepolia.basescan.org/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
+      {record?.attempts.map(a=><p key={a.step}>Borrow: {a.reconciled?'Independently verified':record.notSubmitted?'not submitted':a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`${shown.explorer}/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
       {pending&&record?.verdict==='PENDING'&&<button type="button" disabled={run.busy} onClick={()=>void run.observe()}>Observe existing transaction</button>}
       {record?.notSubmitted&&<p>The wallet request was not submitted. This attempt is retained. Prepare a fresh owner review for the same intent.</p>}
       {record?.notSubmitted&&<button type="button" disabled={run.busy} onClick={()=>void run.recoverReview()}>Prepare fresh review</button>}
       {record?.attempts.length&&!record.evidence?<a download="flofi-aave-borrow-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>:null}
-      {record?.evidence&&observation?.postPosition?.borrow&&<><p>Borrow independently reconciled. Wallet increased by {human(observation.walletDelta!,6)} USDC; debt is {human(observation.postPosition.borrow.debt,6)} USDC; health factor is {hf(observation.postPosition.borrow.healthFactor)}.</p>
+      {record?.evidence&&observation?.postPosition?.borrow&&<><p>Borrow independently reconciled. Wallet increased by {human(observation.walletDelta!,shown.decimals)} {shown.asset}; debt is {human(observation.postPosition.borrow.debt,shown.decimals)} {shown.asset}; health factor is {hf(observation.postPosition.borrow.healthFactor)}.</p>
         <a download="flofi-aave-borrow-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
     </>}
-    {info&&<p role="status">{messages[info]??'Borrow needs attention. Inspect technical details and observe any existing transaction.'}</p>}
+    {info&&<p role="status">{lendingCopy(messages[info]??'Borrow needs attention. Inspect technical details and observe any existing transaction.',shown)}</p>}
     <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,review,attempts:record?.attempts,observations:record?.observations,walletDiagnostic:record?.walletDiagnostic,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
   </section>;
 }

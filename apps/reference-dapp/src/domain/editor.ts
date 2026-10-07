@@ -1,6 +1,6 @@
 import {createAuthoredLending} from './lending-authoring';
 // SPDX-License-Identifier: AGPL-3.0-only
-import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { createBaseSepoliaReviewContext, createEthereumSepoliaReviewContext, reviewContextForChain, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { commandIsValid, type Command } from './commands';
 import { freeze, initialWorkflow, type Workflow } from './initial-workflow';
 import { createMockNode } from './mock-actions';
@@ -178,7 +178,7 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
       inputs: node.inputs.filter(input => !(input.kind === 'OUTPUT_REFERENCE' && removed.has(input.value.nodeId))),
     }));
     resourceEdges = resourceEdges.filter(edge => !removed.has(edge.fromNodeId) && !removed.has(edge.toNodeId));
-  } else if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_TESTNET_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
+  } else if (command.type === 'ADD' || command.type === 'ADD_SWAP' || command.type === 'ADD_TESTNET_SWAP' || command.type === 'ADD_ETHEREUM_SEPOLIA_SWAP' || command.type === 'ADD_COW_SWAP' || command.type === 'ADD_LIQUIDITY') {
     if (nodes.length >= 1024) return reject('NODE_LIMIT');
     const id = `node-${String(current.revision + 2).padStart(3, '0')}`;
     if (nodes.some(node => node.nodeId === id)) return reject('DUPLICATE_NODE');
@@ -189,9 +189,13 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
         if (nodes.some(n => n.actionType === LIQUIDITY_ACTION)) return reject('ONE_LIQUIDITY_POSITION_ONLY');
         try { nodes.push(createLiquidityNode(id, command.input, context)); }
         catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_LIQUIDITY_INPUT'); }
-      } else try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage,
-        command.type === 'ADD_TESTNET_SWAP' ? createBaseSepoliaReviewContext() : context, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
-      catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_SWAP_INPUT'); }
+      } else {
+        // A swap is built from its own command's network. A Base (mainnet) swap never inherits a testnet context.
+        const swapContext = command.type === 'ADD_TESTNET_SWAP' ? createBaseSepoliaReviewContext() : command.type === 'ADD_ETHEREUM_SEPOLIA_SWAP' ? createEthereumSepoliaReviewContext() : context;
+        if ((command.type === 'ADD_SWAP' || command.type === 'ADD_COW_SWAP') && swapContext.assets.USDC.asset.chainId === 'eip155:11155111') return reject('SWAP_NETWORK_MISMATCH');
+        try { nodes.push(createSwapNode(id, command.direction, command.amount, command.slippage, swapContext, command.type === 'ADD_COW_SWAP' ? 'cow' : 'uniswap')); }
+        catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_SWAP_INPUT'); }
+      }
     }
   } else if (command.type === 'CONNECT') {
     if (command.from === command.to || !nodes.some(n => n.nodeId === command.from)
@@ -290,8 +294,9 @@ export function editorReducer(state: EditorState, command: Command, context?: Re
   }
   const candidate = { ...current, revision: current.revision + 1, nodes, resourceEdges };
   if (context) {
-    try { validateAuthoringWorkflow(candidate, candidate.nodes.some(n => n.actionType === SWAP_ACTION && n.chainId === 'eip155:84532')
-      ? createBaseSepoliaReviewContext() : context); }
+    // A public testnet swap is validated against its own chain's trusted assets (Base Sepolia or Ethereum Sepolia).
+    const swapChain = candidate.nodes.find(n => n.actionType === SWAP_ACTION && (n.chainId === 'eip155:84532' || n.chainId === 'eip155:11155111'))?.chainId;
+    try { validateAuthoringWorkflow(candidate, swapChain ? reviewContextForChain(swapChain, context) : context); }
     catch (cause) { return reject(cause instanceof Error ? cause.message : 'INVALID_WORKFLOW'); }
   } else if (nodes.some(n => [SWAP_ACTION, LIQUIDITY_ACTION].includes(n.actionType))) return reject('REVIEW_CONTEXT_REQUIRED');
   return { workflow: freeze(candidate), error: null };

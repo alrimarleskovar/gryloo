@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { AAVE_V3_BASE_SEPOLIA, baseAssetRegistry, SOLANA_SWAP_RUNTIMES, UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY } from '@defi-workflow-engine/action-registry';
-import { createBaseSepoliaReviewContext, createReviewContext, liquidityDetails } from '@defi-workflow-engine/reference-linter';
+import { AAVE_V3_LENDING_PROFILES, UNISWAP_LIQUIDITY_PROFILES, baseAssetRegistry, SOLANA_SWAP_RUNTIMES, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY } from '@defi-workflow-engine/action-registry';
+import { createBaseSepoliaReviewContext, createEthereumSepoliaReviewContext, createReviewContext, liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { classifyWalletEnvironment, type WalletEnvironment } from '../wallet/environment';
 import type { Workflow } from './initial-workflow';
@@ -9,7 +9,7 @@ import { createSolanaSwapNode, solanaSwapDetails, type SolanaSwapInput } from '.
 import { createUniswapLiquidityNode, uniswapLiquidityDetails } from './uniswap-liquidity-authoring';
 import { createSolanaLiquidityNode, solanaLiquidityDetails } from './solana-liquidity-authoring';
 import { createLiquidityNode } from './liquidity-authoring';
-import { createAuthoredSupply, createAuthoredBorrow, createAuthoredRepay, createAuthoredWithdraw, supplyDetails, borrowDetails, repayDetails, withdrawDetails } from './supply-authoring';
+import { createAuthoredSupply, createAuthoredBorrow, createAuthoredRepay, createAuthoredWithdraw, supplyDetails, borrowDetails, repayDetails, withdrawDetails, lendingProfileFor } from './supply-authoring';
 
 export type CryptoAction = 'swap' | 'pool' | 'supply' | 'borrow' | 'repay' | 'withdraw';
 /** One network for the entire action. Assets never carry separate network selections. */
@@ -17,19 +17,19 @@ export type CryptoSelection = { action: CryptoAction; network: string; from: str
 export type CryptoSelections = Readonly<Record<string, CryptoSelection>>;
 export type CryptoPickerProfile = { network: string; chain: string; provider: string; tokens: readonly string[]; pair?: readonly [string, string] };
 const mainnetContext = createReviewContext({ registryId: 'reference.registry', capabilityId: 'swap.direct-transaction', actionId: 'asset.swap.exact-input', assets: baseAssetRegistry });
-export function cryptoReviewContext(network: string) { return network === 'Base Sepolia' ? createBaseSepoliaReviewContext() : mainnetContext; }
+export function cryptoReviewContext(network: string) { return network === 'Base Sepolia' ? createBaseSepoliaReviewContext() : network === 'Ethereum Sepolia' ? createEthereumSepoliaReviewContext() : mainnetContext; }
 const evm = [
   { network: 'Base', chain: baseAssetRegistry.USDC.asset.chainId, provider: 'Uniswap', tokens: ['USDC', 'WETH'] },
-  { network: UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY.network, chain: UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY.chain, provider: 'Uniswap', tokens: ['USDC', 'WETH'] },
+  ...UNISWAP_LIQUIDITY_PROFILES.map(profile => ({ network: profile.network, chain: profile.chain, provider: 'Uniswap', tokens: ['USDC', 'WETH'] })),
 ];
 const swaps: readonly CryptoPickerProfile[] = [...evm, ...SOLANA_SWAP_RUNTIMES.map(runtime => ({ network: runtime.network, chain: runtime.chain, provider: runtime.providerLabel, tokens: Object.keys(runtime.tokens) }))];
 const pools: readonly CryptoPickerProfile[] = [
   { ...evm[0]!, provider: 'Uniswap v3', pair: ['WETH', 'USDC'] },
-  { ...evm[1]!, provider: 'Uniswap v3', pair: [UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY.token0.symbol, UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY.token1.symbol] },
+  ...UNISWAP_LIQUIDITY_PROFILES.map(profile => ({ network: profile.network, chain: profile.chain, provider: 'Uniswap v3', tokens: [profile.token0.symbol, profile.token1.symbol], pair: [profile.token0.symbol, profile.token1.symbol] as const })),
   { network: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.network, chain: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.chain, provider: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.providerLabel,
     tokens: [ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token0.symbol, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token1.symbol], pair: [ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token0.symbol, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token1.symbol] },
 ];
-const lending: readonly CryptoPickerProfile[] = [{ network: AAVE_V3_BASE_SEPOLIA.network, chain: AAVE_V3_BASE_SEPOLIA.chain, provider: 'Aave V3', tokens: [AAVE_V3_BASE_SEPOLIA.symbol] }];
+const lending: readonly CryptoPickerProfile[] = AAVE_V3_LENDING_PROFILES.map(profile => ({ network: profile.network, chain: profile.chain, provider: 'Aave V3', tokens: [profile.symbol] }));
 export function cryptoProfiles(action: CryptoAction): readonly CryptoPickerProfile[] { return action === 'swap' ? swaps : action === 'pool' ? pools : lending; }
 export function cryptoNetworks(action: CryptoAction, environment: WalletEnvironment) {
   return cryptoProfiles(action).filter(profile => environment !== 'unknown' && classifyWalletEnvironment(profile.chain) === environment);
@@ -70,11 +70,11 @@ export function cryptoSelectionOf(node: Node): CryptoSelection | null {
   if (!network) return null;
   if (node.actionType === 'asset.swap.exact-input') {
     const solana = solanaSwapDetails(node);
-    const evmSwap = node.chainId.startsWith('eip155:') ? swapDetails(node, node.chainId === 'eip155:84532' ? createBaseSepoliaReviewContext() : mainnetContext) : null;
+    const evmSwap = node.chainId.startsWith('eip155:') ? swapDetails(node, cryptoReviewContext(network)) : null;
     return solana ? { action: 'swap', network, from: solana.from, to: solana.to } : evmSwap ? { action: 'swap', network, from: evmSwap.from, to: evmSwap.to } : null;
   }
   if (uniswapLiquidityDetails(node) || solanaLiquidityDetails(node) || node.actionType === 'asset.liquidity.uniswap-v3') return selectCryptoNetwork('pool', network);
-  if (['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) && node.chainId === AAVE_V3_BASE_SEPOLIA.chain) return selectCryptoNetwork(node.actionType as CryptoAction, network);
+  if (['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) && AAVE_V3_LENDING_PROFILES.some(profile => profile.chain === node.chainId)) return selectCryptoNetwork(node.actionType as CryptoAction, network);
   return null;
 }
 export function canSelectCryptoAssets(node: Node, workflow: Workflow) {
@@ -88,23 +88,24 @@ export function createCryptoActionNode(id: string, input: CryptoActionInput): Se
   if (!validCryptoSelection(selection)) throw new Error('ACTION_ASSETS_UNSUPPORTED');
   if (selection.action === 'swap') {
     if (selection.network === 'Solana' || selection.network === 'Solana Devnet') return createSolanaSwapNode(id, { network: selection.network, from: selection.from, to: selection.to, amount, slippage } as SolanaSwapInput);
-    return createSwapNode(id, selection.from === 'USDC' ? 'USDC_TO_WETH' : 'WETH_TO_USDC', amount, slippage, selection.network === 'Base Sepolia' ? createBaseSepoliaReviewContext() : mainnetContext);
+    return createSwapNode(id, selection.from === 'USDC' ? 'USDC_TO_WETH' : 'WETH_TO_USDC', amount, slippage, cryptoReviewContext(selection.network));
   }
   if (selection.action === 'pool') {
-    const range = { rangeUnit: input.rangeUnit ?? 'TICK', lower: input.lower ?? (selection.network === 'Solana Devnet' ? '-443584' : '-887270'), upper: input.upper ?? (selection.network === 'Solana Devnet' ? '443584' : '887270'), slippage };
+    const range = { rangeUnit: input.rangeUnit ?? 'TICK', lower: input.lower ?? (selection.network === 'Solana Devnet' ? '-443584' : selection.network === 'Ethereum Sepolia' ? '-887220' : '-887270'), upper: input.upper ?? (selection.network === 'Solana Devnet' ? '443584' : selection.network === 'Ethereum Sepolia' ? '887220' : '887270'), slippage };
     if (selection.network === 'Solana Devnet') return createSolanaLiquidityNode(id, { ...range, network: 'Solana Devnet', maxSol: amount, maxDevUsdc: input.secondAmount ?? '0' });
-    if (selection.network === 'Base Sepolia') return createUniswapLiquidityNode(id, { ...range, network: 'Base Sepolia', maxUsdc: amount, maxWeth: input.secondAmount ?? '0' });
+    if (selection.network === 'Base Sepolia' || selection.network === 'Ethereum Sepolia') return createUniswapLiquidityNode(id, { ...range, network: selection.network, maxUsdc: amount, maxWeth: input.secondAmount ?? '0' });
     if (range.rangeUnit !== 'TICK') throw new Error('LIQUIDITY_RANGE_INVALID');
     return createLiquidityNode(id, { weth: amount, usdc: input.secondAmount ?? '0', tickLower: range.lower, tickUpper: range.upper, recipient: input.beneficiary ?? '', minimumWeth: '0', minimumUsdc: '0' }, mainnetContext);
   }
-  const lendingInput = { network: 'Base Sepolia' as const, asset: 'USDC' as const, amount, beneficiary: input.beneficiary ?? '' };
-  return selection.action === 'supply' ? createAuthoredSupply(id, lendingInput) : selection.action === 'borrow' ? createAuthoredBorrow(id, lendingInput) : selection.action === 'repay' ? createAuthoredRepay(id, lendingInput) : createAuthoredWithdraw(id, { network: 'Base Sepolia', asset: 'USDC', amount, recipient: 'CONNECTED_OWNER' });
+  const profile = lendingProfileFor(selection.network, selection.from);
+  const lendingInput = { network: profile.network, asset: profile.symbol, amount, beneficiary: input.beneficiary ?? '' };
+  return selection.action === 'supply' ? createAuthoredSupply(id, lendingInput) : selection.action === 'borrow' ? createAuthoredBorrow(id, lendingInput) : selection.action === 'repay' ? createAuthoredRepay(id, lendingInput) : createAuthoredWithdraw(id, { network: profile.network, asset: profile.symbol, amount, recipient: 'CONNECTED_OWNER' });
 }
 export function cryptoInputOf(node: Node): CryptoActionInput | null {
   const selection = cryptoSelectionOf(node);
   if (!selection) return null;
   const solana = solanaSwapDetails(node), uni = uniswapLiquidityDetails(node), orca = solanaLiquidityDetails(node);
-  const evmSwap = selection.action === 'swap' && !solana ? swapDetails(node, node.chainId === 'eip155:84532' ? createBaseSepoliaReviewContext() : mainnetContext) : null;
+  const evmSwap = selection.action === 'swap' && !solana ? swapDetails(node, cryptoReviewContext(selection.network)) : null;
   if (solana || evmSwap) return { selection, amount: (solana ?? evmSwap)!.amount, slippage: solana?.slippage ?? String(evmSwap!.slippage ?? 50) };
   if (uni || orca) return { selection, amount: uni?.maxUsdc ?? orca!.maxSol, secondAmount: uni?.maxWeth ?? orca!.maxDevUsdc, rangeUnit: 'TICK', lower: String((uni ?? orca)!.tickLower), upper: String((uni ?? orca)!.tickUpper), slippage: (uni ?? orca)!.slippage };
   if (selection.action === 'pool') {

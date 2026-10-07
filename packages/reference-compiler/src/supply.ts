@@ -3,12 +3,21 @@ import { compileWithdrawCalls,estimateWithdraw,assertWithdrawFresh,readWithdrawS
 import { compileRepayCalls, estimateRepay, assertRepayFresh } from './repay.js';
 import { compileBorrowCalls, readBorrowState, estimateBorrow, assertBorrowFresh, type BorrowState } from './borrow.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
-import { AAVE_V3_BASE_SEPOLIA as profile } from '@defi-workflow-engine/action-registry';
+import { aaveLendingProfile, assertAaveLendingProfile, type AaveLendingProfile } from '@defi-workflow-engine/action-registry';
 import { readSupplyNode, readBorrowNode, readRepayNode, readWithdrawNode, supplyAddress, hashArtifactBytes, type SemanticWorkflow,
   hashSupplyValue, type ArtifactSet, type SimulationBundle, type AuthorizationPolicy, type StrategyManifest, type ExecutionPlan } from '@defi-workflow-engine/workflow-contracts';
-export { AAVE_V3_BASE_SEPOLIA } from '@defi-workflow-engine/action-registry';
+export { AAVE_V3_BASE_SEPOLIA, AAVE_V3_ETHEREUM_SEPOLIA, aaveLendingProfile, type AaveLendingProfile } from '@defi-workflow-engine/action-registry';
 export type SupplyRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
-export type SupplyTransaction = { from: string; to: string; data: string; value: '0x0'; chainId: '0x14a34' };
+export type SupplyTransaction = { from: string; to: string; data: string; value: '0x0'; chainId: AaveLendingProfile['chainHex'] };
+/** The registered Aave profile for an authored chain; any other chain fails with the caller's code. */
+export function lendingProfile(chain: string, code: string): AaveLendingProfile {
+  try { return aaveLendingProfile(chain); } catch { throw new Error(code); }
+}
+/** User-configuration bits of the profile's reserve (2·id borrowing, 2·id+1 collateral) and its token unit. */
+export function reserveBits(profileInput: AaveLendingProfile): { mask: bigint; borrowing: bigint; collateral: bigint; scale: bigint } {
+  const profile = assertAaveLendingProfile(profileInput), shift = 2n * BigInt(profile.reserveId);
+  return { mask: 3n << shift, borrowing: 1n << shift, collateral: 2n << shift, scale: 10n ** BigInt(profile.decimals) };
+}
 export const supplyHash = (value: unknown): string => hashSupplyValue(value);
 export const supplyArtifactHash = (kind: Parameters<typeof hashArtifactBytes>[0], value: unknown): string => hashArtifactBytes(kind, new TextEncoder().encode(JSON.stringify(value)));
 export function supplySelector(signature: string): string { return '0x' + Array.from(keccak_256(new TextEncoder().encode(signature)).slice(0,4), b => b.toString(16).padStart(2,'0')).join(''); }
@@ -30,15 +39,15 @@ export function rpcHex(value: unknown): string {
 export function rpcUint(value: unknown): bigint { return BigInt(rpcHex(value)); }
 export function rpcHash(value: unknown): string { const v = rpcHex(value); if (v.length !== 66) throw new Error('SUPPLY_HASH_INVALID'); return v; }
 export function supplyHex(value: string | number | bigint): string { return '0x' + BigInt(value).toString(16); }
-export async function readSupplyLatestNonce(rpc:SupplyRpc,account:string):Promise<string> {
-  const normalized=supplyAddress(account);
+export async function readSupplyLatestNonce(rpc:SupplyRpc,profileInput:AaveLendingProfile,account:string):Promise<string> {
+  const profile=assertAaveLendingProfile(profileInput),normalized=supplyAddress(account);
   if(rpcUint(await rpc('eth_chainId',[]))!==BigInt(profile.chainId))throw new Error('SUPPLY_WRONG_CHAIN');
   return rpcUint(await rpc('eth_getTransactionCount',[normalized,'latest'])).toString();
 }
 export type SupplyState = { withdrawState?: {previousIndex:string}; borrow?: BorrowState; block: number; blockHash: string; account: string; allowance: string; balance: string; nativeBalance: string;
   nonce: string; gasPrice: string; scaledPosition: string; position: string; index: string; deploymentHash: string; observedAt: string };
-export async function readSupplyState(rpc: SupplyRpc, accountInput: string, beneficiaryInput: string, blockTag = 'latest'): Promise<SupplyState> {
-  const account = supplyAddress(accountInput), beneficiary = supplyAddress(beneficiaryInput);
+export async function readSupplyState(rpc: SupplyRpc, profileInput: AaveLendingProfile, accountInput: string, beneficiaryInput: string, blockTag = 'latest'): Promise<SupplyState> {
+  const profile = assertAaveLendingProfile(profileInput), account = supplyAddress(accountInput), beneficiary = supplyAddress(beneficiaryInput);
   if (rpcUint(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) throw new Error('SUPPLY_WRONG_CHAIN');
   const block = rpcRecord(await rpc('eth_getBlockByNumber', [blockTag, false]));
   const tag = rpcHex(block.number), blockHash = rpcHash(block.hash);
@@ -53,7 +62,7 @@ export async function readSupplyState(rpc: SupplyRpc, accountInput: string, bene
     ...[profile.pool,profile.provider,profile.asset,profile.aToken].map(to => rpc('eth_getCode',[to,tag])),
   ]);
   const reserveHex = rpcHex(reserve).slice(2);
-  if (reserveHex.length !== 15 * 64 || rpcUint(pool) !== BigInt(profile.pool) || rpcUint(decimals) !== 6n || rpcUint(underlying) !== BigInt(profile.asset) || rpcUint(tokenPool) !== BigInt(profile.pool) ||
+  if (reserveHex.length !== 15 * 64 || rpcUint(pool) !== BigInt(profile.pool) || rpcUint(decimals) !== BigInt(profile.decimals) || rpcUint(underlying) !== BigInt(profile.asset) || rpcUint(tokenPool) !== BigInt(profile.pool) ||
       BigInt('0x'+reserveHex.slice(8*64,9*64)) !== BigInt(profile.aToken)) throw new Error('SUPPLY_DEPLOYMENT_MISMATCH');
   const config = BigInt('0x'+reserveHex.slice(0,64));
   if (((config >> 56n) & 1n) !== 1n || ((config >> 57n) & 1n) || ((config >> 60n) & 1n)) throw new Error('SUPPLY_RESERVE_UNAVAILABLE');
@@ -68,19 +77,19 @@ export async function readSupplyState(rpc: SupplyRpc, accountInput: string, bene
     deploymentHash: supplyHash(codes), observedAt: new Date().toISOString() };
 }
 /** OpenZeppelin-style nested allowance mapping. A candidate is used only after on-chain read-only proof. */
-function allowanceSlot(account: string, slot: bigint): string {
+function allowanceSlot(profile: AaveLendingProfile, account: string, slot: bigint): string {
   const hashWords = (value: string) => '0x' + Array.from(keccak_256(Uint8Array.from(value.match(/../g)!.map(b => Number.parseInt(b,16)))), b => b.toString(16).padStart(2,'0')).join('');
   const first = hashWords(supplyWord(account)+supplyWord(slot));
   return hashWords(supplyWord(profile.pool)+first.slice(2));
 }
-async function simulateSupplyWithAllowanceOverride(rpc: SupplyRpc, transactions: SupplyTransaction[], state: SupplyState, amount: string): Promise<{gasLimits:string[];observation:unknown}> {
+async function simulateSupplyWithAllowanceOverride(rpc: SupplyRpc, profile: AaveLendingProfile, transactions: SupplyTransaction[], state: SupplyState, amount: string): Promise<{gasLimits:string[];observation:unknown}> {
   const tag=supplyHex(state.block), approval=transactions.length===2?transactions[0]:null, supply=transactions.at(-1)!;
   let override:Record<string,unknown>|null=null;
   if(approval){
     // First simulate the exact approval against real token code. The ERC-20 must return true.
     if(rpcUint(await rpc('eth_call',[{from:approval.from,to:approval.to,data:approval.data,value:approval.value},tag]))!==1n)throw new Error('SUPPLY_APPROVAL_SIMULATION_FAILED');
     // Bounded mapping discovery, with unique markers, followed by proof of ONE exact storage key.
-    const candidates=Array.from({length:16},(_,i)=>allowanceSlot(state.account,BigInt(i)));
+    const candidates=Array.from({length:16},(_,i)=>allowanceSlot(profile,state.account,BigInt(i)));
     const stateDiff=Object.fromEntries(candidates.map((slot,i)=>[slot,'0x'+supplyWord(BigInt(i+1))]));
     const data=supplyCall('allowance(address,address)',state.account,profile.pool);
     const marker=rpcUint(await rpc('eth_call',[{to:profile.asset,data},tag,{[profile.asset]:{stateDiff}}]));
@@ -117,9 +126,9 @@ export function compileSupplyCalls(workflow: SemanticWorkflow, accountInput: str
   if (nodes.length !== 1 || workflow.nodes.some(n => n.actionType !== 'supply' && !n.actionType.startsWith('mock-')) ||
       workflow.resourceEdges.some(e => e.fromNodeId === nodes[0]?.nodeId || e.toNodeId === nodes[0]?.nodeId) ||
       workflow.nodes.some(n => n.dependencies.includes(nodes[0]?.nodeId ?? ''))) throw new Error('SUPPLY_ISOLATED_ONLY');
-  const fields = readSupplyNode(nodes[0]!);
-  if (fields.chain !== profile.chain || fields.asset.address !== profile.asset || fields.asset.decimals !== 6 || !/^(0|[1-9][0-9]*)$/.test(allowance)) throw new Error('SUPPLY_DEPLOYMENT_UNSUPPORTED');
-  const base = { from: supplyAddress(accountInput), value: '0x0' as const, chainId: '0x14a34' as const };
+  const fields = readSupplyNode(nodes[0]!), profile = lendingProfile(fields.chain, 'SUPPLY_DEPLOYMENT_UNSUPPORTED');
+  if (fields.asset.address !== profile.asset || fields.asset.decimals !== profile.decimals || !/^(0|[1-9][0-9]*)$/.test(allowance)) throw new Error('SUPPLY_DEPLOYMENT_UNSUPPORTED');
+  const base = { from: supplyAddress(accountInput), value: '0x0' as const, chainId: profile.chainHex };
   const calls: SupplyTransaction[] = [];
   if (BigInt(allowance) < BigInt(fields.amount)) calls.push({ ...base, to: profile.asset, data: supplyCall('approve(address,uint256)',profile.pool,BigInt(fields.amount)) });
   calls.push({ ...base, to: profile.pool, data: supplyCall('supply(address,uint256,address,uint16)',profile.asset,BigInt(fields.amount),fields.beneficiary,0n) });
@@ -134,15 +143,17 @@ export async function simulateSupply(workflow: SemanticWorkflow, accountInput: s
   if (!node) throw new Error('SUPPLY_REQUIRED');
   const authored = withdrawing ? readWithdrawNode(node) : null;
   const fields = authored ? {...authored,beneficiary:supplyAddress(accountInput)} : repaying ? readRepayNode(node) : borrowing ? readBorrowNode(node) : readSupplyNode(node), account = supplyAddress(accountInput);
-  const state = await (withdrawing ? readWithdrawState : borrowing || repaying ? readBorrowState : readSupplyState)(rpc,account,fields.beneficiary);
-  const estimate = borrowing ? estimateBorrow(fields.amount,state.borrow!) : null;
-  const repayment = repaying ? estimateRepay(fields.amount,state.borrow!) : null;
-  const withdrawal = withdrawing ? estimateWithdraw(fields.amount,state) : null;
+  // The authored chain selects the deployment; the RPC must then report that chain before any state is read.
+  const profile = lendingProfile(fields.chain, 'SUPPLY_DEPLOYMENT_UNSUPPORTED');
+  const state = await (withdrawing ? readWithdrawState : borrowing || repaying ? readBorrowState : readSupplyState)(rpc,profile,account,fields.beneficiary);
+  const estimate = borrowing ? estimateBorrow(fields.amount,state.borrow!,profile) : null;
+  const repayment = repaying ? estimateRepay(fields.amount,state.borrow!,profile) : null;
+  const withdrawal = withdrawing ? estimateWithdraw(fields.amount,state,profile) : null;
   const transactions = compileSupplyCalls(workflow,account,state.allowance);
-  if (!borrowing && !withdrawing && BigInt(state.balance) < BigInt(fields.amount)) throw new Error('SUPPLY_INSUFFICIENT_USDC');
+  if (!borrowing && !withdrawing && BigInt(state.balance) < BigInt(fields.amount)) throw new Error(profile.symbol === 'USDC' ? 'SUPPLY_INSUFFICIENT_USDC' : 'SUPPLY_INSUFFICIENT_ASSET');
   // The public gateway rejects eth_simulateV1; the approved fallback proves a bounded
   // allowance mapping override, then eth_call/estimateGas execute exact Supply read-only.
-  const {gasLimits,observation:response}=withdrawing ? await simulateWithdrawCall(rpc,transactions[0]!,state,fields.amount) : borrowing ? await simulateBorrowCall(rpc,transactions[0]!,state) : await simulateSupplyWithAllowanceOverride(rpc,transactions,state,fields.amount);
+  const {gasLimits,observation:response}=withdrawing ? await simulateWithdrawCall(rpc,transactions[0]!,state,fields.amount) : borrowing ? await simulateBorrowCall(rpc,transactions[0]!,state) : await simulateSupplyWithAllowanceOverride(rpc,profile,transactions,state,fields.amount);
   const gasPrice = (BigInt(state.gasPrice)*2n).toString();
   const gasBudget = gasLimits.reduce((a,g) => a+BigInt(g)*BigInt(gasPrice),0n) + 10_000_000_000_000n;
   if (BigInt(state.nativeBalance) < gasBudget || BigInt(gasPrice) <= 0n) throw new Error('SUPPLY_INSUFFICIENT_ETH');
@@ -186,6 +197,9 @@ export async function simulateSupply(workflow: SemanticWorkflow, accountInput: s
 }
 export function assertSupplyReview(review: SupplyReview, workflow: SemanticWorkflow, account: string, state: SupplyState, now = Date.now(), approvalConfirmed = false): void {
   const {commitment,...content} = review;
+  // The reviewed chain selects the deployment and must be the chain the workflow authored.
+  const profile = lendingProfile(review.chain, 'SUPPLY_AUTHORIZATION_INVALID');
+  if (!workflow.nodes.some(n=>['supply','borrow','repay','withdraw'].includes(n.actionType)&&n.chainId===profile.chain)) throw new Error('SUPPLY_AUTHORIZATION_INVALID');
   const borrowing=workflow.nodes.some(n=>n.actionType==='borrow'),repaying=workflow.nodes.some(n=>n.actionType==='repay'),withdrawing=workflow.nodes.some(n=>n.actionType==='withdraw');
   if(withdrawing!==Boolean(review.withdraw)||review.withdraw&&(review.borrow||review.repay||review.approvalRequired||review.beneficiary!==review.account))throw new Error('WITHDRAW_AUTHORIZATION_INVALID');
   if(repaying!==Boolean(review.repay)||review.repay&&review.borrow)throw new Error('REPAY_AUTHORIZATION_INVALID');
@@ -200,22 +214,22 @@ export function assertSupplyReview(review: SupplyReview, workflow: SemanticWorkf
       (approvalConfirmed && BigInt(state.allowance) < BigInt(review.amount)) || !review.borrow && !review.withdraw && BigInt(state.balance) < BigInt(review.amount)) throw new Error('SUPPLY_AUTHORIZATION_STALE');
   if(review.borrow){
     if(!state.borrow||!review.state.borrow||review.approvalRequired||review.borrow.interestRateMode!==2)throw new Error('BORROW_AUTHORIZATION_INVALID');
-    assertBorrowFresh(review.amount,review.state.borrow,state.borrow);
-    const estimated=estimateBorrow(review.amount,review.state.borrow);
+    assertBorrowFresh(review.amount,review.state.borrow,state.borrow,profile);
+    const estimated=estimateBorrow(review.amount,review.state.borrow,profile);
     if(estimated.healthFactorAfter!==review.borrow.expectedPostHealthFactor||estimated.debtAfterBase!==review.borrow.debtAfterBase)throw new Error('BORROW_AUTHORIZATION_INVALID');
   }
   if(review.repay){
     const fields=readRepayNode(workflow.nodes.find(n=>n.actionType==='repay')!);
     if(!state.borrow||!review.state.borrow||review.repay.interestRateMode!==2||review.beneficiary!==review.account||fields.amount!==review.amount||fields.beneficiary!==review.account||review.pool!==profile.pool||review.asset!==profile.asset||review.chain!==profile.chain||review.aToken!==profile.aToken)throw new Error('REPAY_AUTHORIZATION_INVALID');
-    assertRepayFresh(review.amount,review.state.borrow,state.borrow);
-    const estimate=estimateRepay(review.amount,review.state.borrow);
+    assertRepayFresh(review.amount,review.state.borrow,state.borrow,profile);
+    const estimate=estimateRepay(review.amount,review.state.borrow,profile);
     if(estimate.debtAfter!==review.repay.debtAfter||estimate.debtAfterBase!==review.repay.debtAfterBase||estimate.healthFactorAfter!==review.repay.expectedPostHealthFactor)throw new Error('REPAY_AUTHORIZATION_INVALID');
   }
   if(review.withdraw){
     const fields=readWithdrawNode(workflow.nodes.find(n=>n.actionType==='withdraw')!);
     if(fields.amount!==review.amount||review.pool!==profile.pool||review.asset!==profile.asset||review.chain!==profile.chain||review.aToken!==profile.aToken)throw new Error('WITHDRAW_AUTHORIZATION_INVALID');
-    assertWithdrawFresh(review.amount,review.state,state);
-    const e=estimateWithdraw(review.amount,review.state);
+    assertWithdrawFresh(review.amount,review.state,state,profile);
+    const e=estimateWithdraw(review.amount,review.state,profile);
     if(e.healthFactorAfter!==review.withdraw.expectedPostHealthFactor||e.collateralAfter!==review.withdraw.collateralAfter||e.collateralAfterBase!==review.withdraw.collateralAfterBase||e.walletAfter!==review.withdraw.walletAfter)throw new Error('WITHDRAW_AUTHORIZATION_INVALID');
   }
   if (JSON.stringify(compileSupplyCalls(workflow,account,review.allowance)) !== JSON.stringify(review.transactions)) throw new Error('SUPPLY_AUTHORIZATION_INVALID');
@@ -229,6 +243,17 @@ export const SUPPLY_METAMASK = Object.freeze({
   manager:'0xdb9b1e94b5b69df7e401ddbede43491141047db3',implementation:'0x63c0c19a282a1b52b07dd5a65b58948a07dae32b',
   limited:'0x04658b29f6b82ed55274221a06fc97d318e25416',exact:'0x146713078d39ecc1f5338309c28405ccf85abfbb',
   codeHashes:Object.freeze(['0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a','0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2','0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468','0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e'])
+});
+/**
+ * BUILD-ETHEREUM-001: runtime code hashes of [manager, implementation, limited, exact] per EVM chain id. The manager and the
+ * EIP-7702 delegator embed EIP-712 immutables (cached chain id and domain separator), so on Ethereum Sepolia their code is
+ * the Base Sepolia code with exactly those 35 bytes recomputed for chain 11155111 (byte diff and recomputed separators,
+ * 2026-10-05, block 11,848,917); the two enforcers are byte-identical. A chain without pins fails closed.
+ */
+export const SUPPLY_METAMASK_CODE_HASHES:Readonly<Record<number,readonly string[]>>=Object.freeze({
+  84532:SUPPLY_METAMASK.codeHashes,
+  11155111:Object.freeze(['0x49c7f94924ffb53300b7e8ee613814d5ba587fd886177f1e72b3203bf17da673','0x9270f73d98e7ed6978677bf0550038289efd510e67e700d024502d62510fc1e4',
+    SUPPLY_METAMASK.codeHashes[2]!,SUPPLY_METAMASK.codeHashes[3]!]),
 });
 export type SupplyWalletEnvelope={owner:string;delegate:string;salt:string;signature:string;call:{to:string;value:string;data:string};
   caveats:{enforcer:string;terms:string;args:string}[];delegationTuple:string};

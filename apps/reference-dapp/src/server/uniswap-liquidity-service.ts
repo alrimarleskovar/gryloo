@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-UNISWAP-LIQUIDITY-PUBLIC: the canonical concentrated-liquidity action on Base Sepolia through Uniswap v3,
- * executed by the owner's browser wallet. This service never signs or sends: it reads public chain state, simulates
+ * executed by the owner's browser wallet. BUILD-ETHEREUM-001 adds the same runtime on Ethereum Sepolia (USDC/WETH 0.3%):
+ * the authored chain selects the profile and its own chain-bound read client, and every run stays on its reviewed chain. This service never signs or sends: it reads public chain state, simulates
  * the exact call sequence (`eth_simulateV1`), binds a Review, persists each attempt before the wallet is called,
  * and observes/reconciles what the owner's wallet sent. One implementation runs on the `ExecutionStorage` port:
  * the file store locally, PostgreSQL (fenced leases, CAS, outbox) in the cloud.
@@ -11,7 +12,7 @@
  * its own wallet request; a confirmed approval requires a fresh simulation and Review before the mint.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { resolveWorkflowCapability, UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as profile } from '@defi-workflow-engine/action-registry';
+import { resolveWorkflowCapability, UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY as BASE_PROFILE, uniswapLiquidityProfile, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, validateUniswapLiquidityWorkflow } from '@defi-workflow-engine/reference-linter';
 import { UNISWAP_SELECTORS as SEL, UNISWAP_TOPICS as TOPIC, decodeUniswapApprove, decodeUniswapMint, decodeUniswapMintResult, decodeUniswapPosition,
   encodeUniswapApprove, encodeUniswapMint, uniswapComposition, uniswapMinimum, uniswapQuotePriceAtSqrt, uniswapQuotePriceAtTick, uniswapRangeState,
@@ -24,19 +25,19 @@ import { verifyOwnerSubmission, type Rpc } from './public-testnet-service.ts';
 export type UniswapLiquidityStep = 'APPROVE_TOKEN0' | 'APPROVE_TOKEN1' | 'MINT';
 export type UniswapAttemptState = 'PREPARED' | 'CANCELLED' | 'SUBMITTING' | 'SUBMISSION_RESULT_UNKNOWN' | 'NOT_FOUND' | 'PENDING' | 'CONFIRMED' |
   'REVERTED' | 'RECONCILIATION_REQUIRED';
-export type UniswapTx = { readonly chainId: '0x14a34'; readonly from: string; readonly to: string; readonly data: string; readonly value: '0x0';
+export type UniswapTx = { readonly chainId: UniswapLiquidityProfile['chainHex']; readonly from: string; readonly to: string; readonly data: string; readonly value: '0x0';
   readonly gas: string; readonly maxFeePerGas: string; readonly maxPriorityFeePerGas: string };
 export type UniswapReviewCall = { readonly step: UniswapLiquidityStep; readonly to: string; readonly data: string; readonly gasUsed: string; readonly gasLimit: string };
 export type UniswapTokenView = { readonly symbol: 'USDC' | 'WETH'; readonly address: string; readonly decimals: number };
 export type UniswapLiquidityReview = {
   readonly format: 'flofi.uniswap-liquidity-review.v1'; readonly commitment: string;
-  readonly network: 'Base Sepolia'; readonly chainId: 84532; readonly owner: string; readonly recipient: string;
+  readonly network: UniswapLiquidityProfile['network']; readonly chainId: UniswapLiquidityProfile['chainId']; readonly owner: string; readonly recipient: string;
   readonly workflowHash: string; readonly revision: number; readonly nodeId: string;
   readonly observedAt: string; readonly expiresAt: string;
   readonly block: { readonly number: number; readonly hash: string; readonly timestamp: number };
   readonly contracts: { readonly factory: string; readonly positionManager: string; readonly pool: string; readonly codeSha256: Readonly<Record<string, string>> };
   readonly token0: UniswapTokenView; readonly token1: UniswapTokenView;
-  readonly pool: { readonly fee: 500; readonly tickSpacing: 10; readonly sqrtPriceX96: string; readonly tick: number; readonly liquidity: string;
+  readonly pool: { readonly fee: UniswapLiquidityProfile['feeTier']; readonly tickSpacing: UniswapLiquidityProfile['tickSpacing']; readonly sqrtPriceX96: string; readonly tick: number; readonly liquidity: string;
     /** USDC per WETH. */ readonly price: string };
   readonly range: { readonly tickLower: number; readonly tickUpper: number; /** USDC per WETH (from tickUpper / tickLower). */ readonly lowerPrice: string;
     readonly upperPrice: string; readonly state: UniswapRangeState; readonly description: string };
@@ -68,8 +69,8 @@ export type UniswapAttempt = { readonly attemptId: string; readonly step: Uniswa
 export type UniswapPosition = { readonly tokenId: string; readonly owner: string; readonly liquidity: string; readonly amount0: string; readonly amount1: string;
   readonly tickLower: number; readonly tickUpper: number; readonly pool: string; readonly blockNumber: number; readonly transactionHash: string };
 export type UniswapEvidence = { readonly bundle: EvidenceBundle; readonly bundleHash: string; readonly evidenceClass: 'TESTNET_EXECUTED' | 'MOCKED';
-  readonly network: 'Base Sepolia'; readonly chainId: 84532; readonly owner: string; readonly positionManager: string; readonly pool: string;
-  readonly token0: UniswapTokenView; readonly token1: UniswapTokenView; readonly feeTier: 500; readonly tickLower: number; readonly tickUpper: number;
+  readonly network: UniswapLiquidityProfile['network']; readonly chainId: UniswapLiquidityProfile['chainId']; readonly owner: string; readonly positionManager: string; readonly pool: string;
+  readonly token0: UniswapTokenView; readonly token1: UniswapTokenView; readonly feeTier: UniswapLiquidityProfile['feeTier']; readonly tickLower: number; readonly tickUpper: number;
   readonly lowerPrice: string; readonly upperPrice: string; readonly position: UniswapPosition; readonly minimums: UniswapLiquidityReview['minimums'];
   readonly transactions: readonly { readonly step: UniswapLiquidityStep; readonly transactionHash: string; readonly blockNumber: number; readonly blockHash: string;
     readonly status: 0 | 1; readonly gasCostWei: string; readonly submissionKind: string; readonly reviewCommitment: string; readonly explorer: string }[];
@@ -92,9 +93,8 @@ const TERMINAL: readonly UniswapAttemptState[] = ['CANCELLED', 'NOT_FOUND', 'CON
 const REFUSALS = [4001, 4100, 4200];
 /** An approval whose nonce was never consumed and nothing is queued is abandoned after this long. */
 const APPROVAL_ABANDON_MS = 15 * 60_000;
-const t0 = profile.token0, t1 = profile.token1;
-const TOKEN0: UniswapTokenView = { symbol: 'USDC', address: t0.address, decimals: t0.decimals };
-const TOKEN1: UniswapTokenView = { symbol: 'WETH', address: t1.address, decimals: t1.decimals };
+/** The run's reviewed chain selects its profile; a persisted chain without one is corrupt. */
+const profileOfChain = (chainId: number): UniswapLiquidityProfile => uniswapLiquidityProfile(chainId) ?? fail('UNISWAP_LIQUIDITY_STORE_CORRUPT');
 
 function fail(code: string): never { throw new Error(code); }
 function isObject(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
@@ -123,7 +123,7 @@ export function canonical(value: unknown): string {
   return '{' + Object.keys(value).sort().filter(k => (value as Record<string, unknown>)[k] !== undefined)
     .map(key => JSON.stringify(key) + ':' + canonical((value as Record<string, unknown>)[key])).join(',') + '}';
 }
-const explorerTx = (hash: string) => profile.explorer + 'tx/' + hash;
+const explorerTx = (hash: string, profile: UniswapLiquidityProfile = BASE_PROFILE) => profile.explorer + 'tx/' + hash;
 export const uniswapExplorerTx = explorerTx;
 function rangeDescription(state: UniswapRangeState): string {
   // Token order: USDC is token0. tick < tickLower means the USDC-per-WETH price is ABOVE the range.
@@ -148,11 +148,11 @@ export function validateUniswapLiquidityLog(bytes: Uint8Array): void {
     try { run = JSON.parse(line) as UniswapLiquidityRecord; } catch { fail('UNISWAP_LIQUIDITY_STORE_CORRUPT'); }
     if (!isObject(run) || run.format !== 'flofi.uniswap-liquidity-run.v1' || !UNISWAP_LIQUIDITY_RUN_ID.test(String(run.id)) ||
         !['PUBLIC_TESTNET', 'MOCKED'].includes(run.provenance) || !ADDRESS.test(String(run.owner)) || !isObject(run.workflow) || !isObject(run.review) ||
-        run.review.owner !== run.owner || run.review.recipient !== run.owner || run.review.chainId !== 84532 ||
+        run.review.owner !== run.owner || run.review.recipient !== run.owner || !uniswapLiquidityProfile(run.review.chainId) ||
         run.review.commitment !== reviewCommitment(run.review) || (run.authorization !== null && run.authorization !== run.review.commitment) ||
         !Array.isArray(run.attempts) || run.attempts.length > 16 || !['PENDING', 'RECONCILED', 'DIVERGENT'].includes(run.verdict) ||
         new Set(run.attempts.map(a => a.attemptId)).size !== run.attempts.length ||
-        run.attempts.some(a => !isObject(a as unknown) || !a.attemptId.startsWith(run.id + '.') || a.tx.from !== run.owner || a.tx.chainId !== profile.chainHex ||
+        run.attempts.some(a => !isObject(a as unknown) || !a.attemptId.startsWith(run.id + '.') || a.tx.from !== run.owner || a.tx.chainId !== profileOfChain(run.review.chainId).chainHex ||
           (a.transactionHash !== null && !HASH.test(a.transactionHash)) || (a.replacementHash !== null && !HASH.test(a.replacementHash)) ||
           (a.reconciled && (a.state !== 'CONFIRMED' || a.transactionHash === null))) ||
         run.attempts.filter(a => ACTIVE.includes(a.state)).length > 1 ||
@@ -160,7 +160,7 @@ export function validateUniswapLiquidityLog(bytes: Uint8Array): void {
         (run.verdict === 'RECONCILED') !== (run.evidence !== null) || (run.evidence !== null && run.position === null))
       fail('UNISWAP_LIQUIDITY_STORE_CORRUPT');
     if (prior) {
-      if (run.id !== prior.id || run.owner !== prior.owner || run.provenance !== prior.provenance || !same(run.workflow, prior.workflow) ||
+      if (run.id !== prior.id || run.owner !== prior.owner || run.provenance !== prior.provenance || run.review.chainId !== prior.review.chainId || !same(run.workflow, prior.workflow) ||
           run.attempts.length < prior.attempts.length || (prior.evidence && !same(run.evidence, prior.evidence)) ||
           (prior.position && !same(run.position, prior.position)) || (prior.verdict !== 'PENDING' && run.verdict !== prior.verdict))
         fail('UNISWAP_LIQUIDITY_STORE_CORRUPT');
@@ -188,13 +188,13 @@ export function uniswapNeedsObservation(value: unknown): boolean {
   return record.verdict === 'PENDING' && !!last && UNISWAP_OBSERVABLE.includes(last.state);
 }
 
-export function createUniswapLiquidityService(input: { readonly storage: ExecutionStorage; readonly rpc: Rpc;
+/** `rpc` is the Base Sepolia read client; `rpcs` adds one chain-bound read client per further liquidity profile (CAIP-2 keyed). */
+export function createUniswapLiquidityService(input: { readonly storage: ExecutionStorage; readonly rpc: Rpc; readonly rpcs?: Readonly<Partial<Record<string, Rpc>>>;
   readonly provenance: 'PUBLIC_TESTNET' | 'MOCKED'; readonly executionEnabled?: boolean; readonly now?: () => Date;
   /** MOCKED harness only: the synthetic chain's code pins. A public run always uses the profile's verified pins. */
   readonly mockedCodePins?: Readonly<Record<'factory' | 'positionManager' | 'pool', string>> }) {
-  const { rpc, provenance } = input, { log, leases } = input.storage;
+  const { provenance } = input, { log, leases } = input.storage;
   if (input.mockedCodePins && provenance !== 'MOCKED') fail('UNISWAP_CODE_PINS_MOCKED_ONLY');
-  const pins = input.mockedCodePins ?? profile.codeSha256;
   const now = input.now ?? (() => new Date());
   const executionEnabled = input.executionEnabled !== false;
   const runName = (id: string) => { if (!UNISWAP_LIQUIDITY_RUN_ID.test(id)) fail('UNISWAP_LIQUIDITY_RUN_ID_INVALID'); return id + '.jsonl'; };
@@ -213,6 +213,17 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
   }
   const locked = <T,>(id: string, action: () => Promise<T>): Promise<T> => leases.hold(runName(id).slice(0, -6), action);
 
+  const sameWorkflow = (a: SemanticWorkflow, b: SemanticWorkflow) => canonical(a) === canonical(b);
+  const active = (record: UniswapLiquidityRecord) => record.attempts.find(a => ACTIVE.includes(a.state)) ?? null;
+  function replaceAttempt(record: UniswapLiquidityRecord, attempt: UniswapAttempt): UniswapLiquidityRecord {
+    return { ...record, attempts: record.attempts.map(a => a.attemptId === attempt.attemptId ? attempt : a) };
+  }
+  /** Every chain-specific helper of one profile, bound to that profile's own read client. */
+  function bind(profile: UniswapLiquidityProfile, rpc: Rpc) {
+  const pins = input.mockedCodePins ?? profile.codeSha256;
+  const t0 = profile.token0, t1 = profile.token1;
+  const TOKEN0: UniswapTokenView = { symbol: 'USDC', address: t0.address, decimals: t0.decimals };
+  const TOKEN1: UniswapTokenView = { symbol: 'WETH', address: t1.address, decimals: t1.decimals };
   async function ethCall(to: string, data: string, at: string): Promise<string> { return hex(await rpc('eth_call', [{ to, data }, at])); }
   async function head() {
     if (quantity(await rpc('eth_chainId', [])) !== BigInt(profile.chainId)) fail('UNISWAP_WRONG_CHAIN');
@@ -282,6 +293,8 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     });
   }
   async function l1FeeUpperBound(dataBytes: number, at: string): Promise<bigint | null> {
+    // Ethereum L1 has no separate data fee; an OP Stack chain reads its GasPriceOracle upper bound.
+    if (profile.gasPriceOracle === null) return 0n;
     try { return wordAt(await ethCall(profile.gasPriceOracle, SEL.l1FeeUpperBound + word(BigInt(dataBytes + 120)), at), 0); } catch { return null; }
   }
   function intentOf(workflow: SemanticWorkflow) {
@@ -333,13 +346,13 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     if (state.native < execution + (l1Total ?? 0n)) fail('UNISWAP_INSUFFICIENT_GAS_ETH');
     const observed = now();
     const review: Omit<UniswapLiquidityReview, 'commitment'> = {
-      format: 'flofi.uniswap-liquidity-review.v1', network: 'Base Sepolia', chainId: 84532, owner, recipient: owner,
+      format: 'flofi.uniswap-liquidity-review.v1', network: profile.network, chainId: profile.chainId, owner, recipient: owner,
       workflowHash: hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(workflow))), revision: workflow.revision, nodeId: f.nodeId,
       observedAt: observed.toISOString(), expiresAt: new Date(observed.getTime() + profile.reviewTtlSeconds * 1000).toISOString(),
       block: { number: state.block.number, hash: state.block.hash, timestamp: state.block.timestamp },
       contracts: { factory: profile.factory, positionManager: profile.positionManager, pool: profile.pool, codeSha256: state.codeSha256 },
       token0: TOKEN0, token1: TOKEN1,
-      pool: { fee: 500, tickSpacing: 10, sqrtPriceX96: state.sqrtPriceX96.toString(), tick: state.tick, liquidity: state.liquidity.toString(),
+      pool: { fee: profile.feeTier, tickSpacing: profile.tickSpacing, sqrtPriceX96: state.sqrtPriceX96.toString(), tick: state.tick, liquidity: state.liquidity.toString(),
         price: uniswapQuotePriceAtSqrt(state.sqrtPriceX96, t0.decimals, t1.decimals) },
       range: { tickLower: f.tickLower, tickUpper: f.tickUpper, lowerPrice: uniswapQuotePriceAtTick(f.tickUpper, t0.decimals, t1.decimals),
         upperPrice: uniswapQuotePriceAtTick(f.tickLower, t0.decimals, t1.decimals), state: state0, description: rangeDescription(state0) },
@@ -359,15 +372,11 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     };
     return { ...review, commitment: reviewCommitment(review as UniswapLiquidityReview) };
   }
-  const sameWorkflow = (a: SemanticWorkflow, b: SemanticWorkflow) => canonical(a) === canonical(b);
-  const active = (record: UniswapLiquidityRecord) => record.attempts.find(a => ACTIVE.includes(a.state)) ?? null;
-  function replaceAttempt(record: UniswapLiquidityRecord, attempt: UniswapAttempt): UniswapLiquidityRecord {
-    return { ...record, attempts: record.attempts.map(a => a.attemptId === attempt.attemptId ? attempt : a) };
-  }
 
   /** Owner + nonce is a global economic identity: while an attempt holding it is active, no other attempt may prepare it. */
   async function reserveNonce(record: UniswapLiquidityRecord, attemptId: string, nonce: bigint): Promise<void> {
-    const key = `${record.owner}-${nonce}`, name = key + '.unilp-intent';
+    // Owner nonces are per chain: Base Sepolia keeps its original names; any other chain is qualified by its CAIP-2 id.
+    const key = profile.chain === BASE_PROFILE.chain ? `${record.owner}-${nonce}` : `${profile.chain.replace(':', '-')}-${record.owner}-${nonce}`, name = key + '.unilp-intent';
     await leases.hold(key, async () => {
       const entry = JSON.stringify({ runId: record.id, attemptId }) + '\n';
       const existing = await log.read(name);
@@ -469,7 +478,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       ownership: [{ chainId: profile.chain, address: record.owner }], limitations: [provenance === 'PUBLIC_TESTNET' ? 'PUBLIC_TESTNET_ONLY' : 'MOCKED_CHAIN_ONLY'] };
     const transactions = confirmed.map(a => ({ step: a.step, transactionHash: a.receipt!.transactionHash, blockNumber: a.receipt!.blockNumber, blockHash: a.receipt!.blockHash,
       status: a.receipt!.status, gasCostWei: a.receipt!.gasCostWei, submissionKind: a.receipt!.submissionKind, reviewCommitment: a.reviewCommitment,
-      explorer: explorerTx(a.receipt!.transactionHash) }));
+      explorer: explorerTx(a.receipt!.transactionHash, profile) }));
     const bundle = validateArtifact('evidence-bundle', { schemaVersion: '1.0.0', evidenceBundleId: record.id + '.evidence', version: 1, supersedes: null,
       semanticWorkflowHash: record.review.workflowHash, artifactSetHash: digest(record.review), simulationHash: digest(record.review.simulation),
       policyHash: digest({ intent: record.review.intent, minimums: record.review.minimums, deadline: record.review.deadline, approvals: record.review.approvals }),
@@ -481,8 +490,8 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
         { evidenceId: 'balance-reconciliation', kind: 'EXTERNAL_REFERENCE', contentHash: digest(reconciliation) }],
     }) as EvidenceBundle;
     const bundleHash = hashArtifactBytes('evidence-bundle', new TextEncoder().encode(JSON.stringify(bundle)));
-    return { bundle, bundleHash, evidenceClass: provenance === 'PUBLIC_TESTNET' ? 'TESTNET_EXECUTED' : 'MOCKED', network: 'Base Sepolia', chainId: 84532,
-      owner: record.owner, positionManager: profile.positionManager, pool: profile.pool, token0: TOKEN0, token1: TOKEN1, feeTier: 500,
+    return { bundle, bundleHash, evidenceClass: provenance === 'PUBLIC_TESTNET' ? 'TESTNET_EXECUTED' : 'MOCKED', network: profile.network, chainId: profile.chainId,
+      owner: record.owner, positionManager: profile.positionManager, pool: profile.pool, token0: TOKEN0, token1: TOKEN1, feeTier: profile.feeTier,
       tickLower: position.tickLower, tickUpper: position.tickUpper, lowerPrice: record.review.range.lowerPrice, upperPrice: record.review.range.upperPrice,
       position, minimums: record.review.minimums, transactions, residualAllowances: { token0: allowance0.toString(), token1: allowance1.toString() },
       balancesAfter: { token0: balance0.toString(), token1: balance1.toString() }, reconciliation: 'RECONCILED', observedAt: now().toISOString() };
@@ -491,7 +500,8 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
   async function settle(record: UniswapLiquidityRecord, attempt: UniswapAttempt, hash: string, raw: Record<string, unknown>): Promise<UniswapLiquidityRecord> {
     const tx = await rpc('eth_getTransactionByHash', [hash]);
     let verified: Awaited<ReturnType<typeof verifyOwnerSubmission>>;
-    try { verified = await verifyOwnerSubmission(rpc, { txHash: hash, account: record.owner, target: attempt.tx.to, data: attempt.tx.data, preBlock: attempt.preparedAtBlock }, tx, raw); }
+    try { verified = await verifyOwnerSubmission(rpc, { txHash: hash, account: record.owner, target: attempt.tx.to, data: attempt.tx.data, preBlock: attempt.preparedAtBlock }, tx, raw,
+      profile.chainId, profile.gasPriceOracle !== null); }
     catch (cause) {
       // Receipt not yet canonical (a preconfirmed receipt with a zero block hash, or a block not sealed or reorganized):
       // stay PENDING and observation-only; nothing becomes evidence and nothing is resent.
@@ -526,17 +536,40 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     }
   }
 
+  async function price(): Promise<UniswapLiquidityPrice> {
+    const block = await head(), slot0 = await ethCall(profile.pool, SEL.slot0, tag(block.number));
+    const sqrtPriceX96 = wordAt(slot0, 0);
+    return { sqrtPriceX96: sqrtPriceX96.toString(), tick: int24At(slot0, 1), price: uniswapQuotePriceAtSqrt(sqrtPriceX96, t0.decimals, t1.decimals), blockNumber: block.number };
+  }
+  return { profile, rpc, head, readState, simulateCalls, buildReview, reserveNonce, discoverByNonce, sameIntent, settle, price };
+  }
+  /** The runtime of a profile: its own read client, never another chain's. A profile without a configured client is not enabled. */
+  const runtimes = new Map<number, ReturnType<typeof bind>>();
+  function runtimeOf(profile: UniswapLiquidityProfile): ReturnType<typeof bind> {
+    const cached = runtimes.get(profile.chainId);
+    if (cached) return cached;
+    const client = input.rpcs?.[profile.chain] ?? (profile.chain === BASE_PROFILE.chain ? input.rpc : undefined);
+    if (!client) fail('UNISWAP_NETWORK_UNAVAILABLE');
+    const created = bind(profile, client);
+    runtimes.set(profile.chainId, created);
+    return created;
+  }
+  const runtimeOfRecord = (record: UniswapLiquidityRecord) => runtimeOf(profileOfChain(record.review.chainId));
+  function runtimeOfWorkflow(workflow: SemanticWorkflow) {
+    const chain = isObject(workflow) && Array.isArray(workflow.nodes) ? workflow.nodes.find(n => n.actionType === 'asset.liquidity.concentrated')?.chainId : undefined;
+    return runtimeOf(uniswapLiquidityProfile(chain) ?? fail('UNISWAP_LIQUIDITY_NETWORK_UNSUPPORTED'));
+  }
+
   return {
     executionEnabled,
-    async price(): Promise<UniswapLiquidityPrice> {
-      const block = await head(), slot0 = await ethCall(profile.pool, SEL.slot0, tag(block.number));
-      const sqrtPriceX96 = wordAt(slot0, 0);
-      return { sqrtPriceX96: sqrtPriceX96.toString(), tick: int24At(slot0, 1), price: uniswapQuotePriceAtSqrt(sqrtPriceX96, t0.decimals, t1.decimals), blockNumber: block.number };
+    /** The current pool price of a liquidity network (Base Sepolia unless a chain is named). */
+    async price(chain: string = BASE_PROFILE.chain): Promise<UniswapLiquidityPrice> {
+      return runtimeOf(uniswapLiquidityProfile(chain) ?? fail('UNISWAP_LIQUIDITY_NETWORK_UNSUPPORTED')).price();
     },
     /** Read-only: a new run with a fresh public simulation for this owner. */
     async simulate(workflowInput: unknown, ownerInput: string): Promise<UniswapLiquidityRecord> {
       const workflow = workflowInput as SemanticWorkflow, owner = address(ownerInput);
-      const review = await buildReview(workflow, owner);
+      const review = await runtimeOfWorkflow(workflow).buildReview(workflow, owner);
       const id = 'unilp-' + randomBytes(16).toString('hex');
       return save({ format: 'flofi.uniswap-liquidity-run.v1', id, provenance, workflow, owner, review, authorization: null, attempts: [], position: null,
         evidence: null, verdict: 'PENDING', error: null });
@@ -545,7 +578,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
     async refresh(id: string): Promise<UniswapLiquidityRecord> { return locked(id, async () => {
       const record = await load(id);
       if (record.verdict !== 'PENDING' || active(record)) fail('UNISWAP_ATTEMPT_ACTIVE_OBSERVE_EXISTING');
-      return save({ ...record, review: await buildReview(record.workflow, record.owner), authorization: null, error: null });
+      return save({ ...record, review: await runtimeOfRecord(record).buildReview(record.workflow, record.owner), authorization: null, error: null });
     }); },
     async review(id: string, commitment: string, workflow: SemanticWorkflow): Promise<UniswapLiquidityRecord> { return locked(id, async () => {
       const record = await load(id);
@@ -573,7 +606,8 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       if (active(record)) fail('UNISWAP_ATTEMPT_ACTIVE_OBSERVE_EXISTING');
       if (record.authorization !== record.review.commitment) fail('UNISWAP_REVIEW_REQUIRED');
       if (now().getTime() >= Date.parse(record.review.expiresAt)) fail('UNISWAP_REVIEW_EXPIRED');
-      const review = record.review, state = await readState(owner);
+      const R = runtimeOfRecord(record), profile = R.profile;
+      const review = record.review, state = await R.readState(owner);
       const changed = async (code = 'UNISWAP_STATE_CHANGED_REVIEW_REQUIRED'): Promise<never> => { await save({ ...record, authorization: null, error: code }); return fail(code); };
       if (canonical(state.codeSha256) !== canonical(review.contracts.codeSha256)) return changed();
       const need0 = BigInt(review.intent.amount0Max) > 0n && state.allowance0 < BigInt(review.intent.amount0Max);
@@ -584,7 +618,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       const remaining = review.calls.slice(index).filter(c => c.step === 'MINT' || (c.step === 'APPROVE_TOKEN0' ? need0 : need1));
       // Materiality: the exact reviewed calls must still succeed; range state and expected amounts within half the slippage.
       let fresh: SimulatedCall[];
-      try { fresh = await simulateCalls(owner, remaining, state.block.number); }
+      try { fresh = await R.simulateCalls(owner, remaining, state.block.number); }
       catch (cause) { if (cause instanceof Error && /^UNISWAP_SIMULATION_(MINT|APPROVAL)_REVERTED$/.test(cause.message)) return changed(); throw cause; }
       const minted = decodeUniswapMintResult(fresh.at(-1)!.returnData);
       const drift = (a: bigint, b: bigint) => (a > b ? a - b : b - a) * 20_000n > b * BigInt(review.intent.slippageBps);
@@ -602,7 +636,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       const priority = BigInt(review.fees.maxPriorityFeePerGas), maxFeePerGas = state.block.baseFee * 2n + priority;
       if (state.native < BigInt(call.gasLimit) * maxFeePerGas) fail('UNISWAP_INSUFFICIENT_GAS_ETH');
       const attemptId = `${id}.${step.toLowerCase()}.${record.attempts.length + 1}`;
-      await reserveNonce(record, attemptId, state.nonce);
+      await R.reserveNonce(record, attemptId, state.nonce);
       const tx: UniswapTx = { chainId: profile.chainHex, from: owner, to: call.to, data: call.data, value: '0x0', gas: tag(BigInt(call.gasLimit)),
         maxFeePerGas: tag(maxFeePerGas), maxPriorityFeePerGas: tag(priority) };
       const attempt: UniswapAttempt = { attemptId, step, state: 'PREPARED', reviewCommitment: review.commitment, nonce: state.nonce.toString(),
@@ -616,6 +650,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
       const record = await load(id), attempt = record.attempts.at(-1);
       if (!executionEnabled || attempt?.state !== 'PREPARED' || record.authorization !== attempt.reviewCommitment ||
           now().getTime() >= Date.parse(record.review.expiresAt)) fail('UNISWAP_WALLET_HANDOFF_NOT_AUTHORIZED');
+      const { rpc } = runtimeOfRecord(record);
       const [latest, pending] = await Promise.all([rpc('eth_getTransactionCount', [record.owner, 'latest']).then(quantity),
         rpc('eth_getTransactionCount', [record.owner, 'pending']).then(quantity)]);
       if (latest !== BigInt(attempt.nonce) || pending !== BigInt(attempt.nonce)) fail('UNISWAP_NONCE_CHANGED');
@@ -656,6 +691,7 @@ export function createUniswapLiquidityService(input: { readonly storage: Executi
         // The browser stopped before the durable handoff: no wallet request can exist for this attempt.
         return save(replaceAttempt({ ...record, authorization: null, error: 'UNISWAP_WALLET_NOT_SUBMITTED' }, { ...attempt, state: 'CANCELLED', note: 'UNISWAP_WALLET_NOT_SUBMITTED' }));
       }
+      const { rpc, head, discoverByNonce, sameIntent, settle } = runtimeOfRecord(record);
       let hash = attempt.replacementHash ?? attempt.transactionHash;
       let raw = hash ? await rpc('eth_getTransactionReceipt', [hash]) : null;
       if (raw === null) {

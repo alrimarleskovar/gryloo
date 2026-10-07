@@ -77,6 +77,14 @@ describe('Pool symmetric custom price range', () => {
     expect(solanaLiquidityDetails(createSolanaLiquidityNode('orca', solanaInput))).toMatchObject({ maxSol: '0.01', maxDevUsdc: '0.3' });
   });
 
+  it('aligns an Ethereum Sepolia band to its own 60-tick spacing', () => {
+    const reference = { price: '2500', sqrtPriceX96: sqrtRatioAtTick(198080).toString(), network: 'Ethereum Sepolia' as const };
+    const band = poolPriceBounds(reference, 10);
+    expect(Number(band.lower) % 60).toBe(0);
+    expect(Number(band.upper) % 60).toBe(0);
+    const node = createUniswapLiquidityNode('ethereum', { network: 'Ethereum Sepolia', maxUsdc: '1', maxWeth: '0.01', slippage: '100', ...band });
+    expect(node.chainId).toBe('eip155:11155111');
+  });
   it.each([null, { price: '0' }, { price: 'not available' }])('rejects missing or invalid reference %j', reference => {
     expect(() => poolPriceBounds(reference, 10)).toThrow('Reference price unavailable');
   });

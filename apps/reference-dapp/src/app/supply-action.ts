@@ -2,20 +2,21 @@
 'use server';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createSupplyService, type SupplyWalletDiagnostic, type SupplyService } from '../server/supply-service';
-import { createSupplyReadRpc } from '../server/supply-rpc';
-import { callCloudFlow } from '../server/cloud-api-client';
+import { createLendingReadRpcs } from '../server/supply-rpc';
+import { cloudFlow } from '../server/flow-runtime';
 let service:SupplyService|null=null;
 function current():SupplyService {
   const harness=process.env.GRYLOO_SUPPLY_HARNESS==='MOCKED_LOOPBACK_ONLY';
   const journalDir=process.env.GRYLOO_SUPPLY_JOURNAL;
   if(!journalDir)throw new Error('SUPPLY_STORAGE_NOT_CONFIGURED');
   // Pace public reads and retry only bounded provider throttling. No mutation method is permitted.
-  service??=createSupplyService({journalDir,provenance:harness?'MOCKED':'PUBLIC_TESTNET',rpc:createSupplyReadRpc(harness)});
+  // One chain-bound read client per Aave profile; the reviewed chain selects it.
+  service??=(()=>{const rpcs=createLendingReadRpcs(harness,process.env);return createSupplyService({journalDir,provenance:harness?'MOCKED':'PUBLIC_TESTNET',rpc:rpcs['eip155:84532'],rpcs});})();
   return service;
 }
 async function run<T>(method:string,args:readonly unknown[],action:(service:SupplyService)=>Promise<T>):Promise<{ok:true;value:T}|{ok:false;code:string}>{
-  // Cloud deployment: forward the identical contract to the stateless Flofi API.
-  if(process.env.API_BASE_URL)return callCloudFlow<T>('aave-supply',method,args);
+  // Cloud deployment: the remote Flofi API or the embedded PostgreSQL runtime (BUILD-CLOUD-PARITY-001); never a local journal.
+  const cloud=await cloudFlow<T>('aave-supply',method,args);if(cloud)return cloud;
   try{return{ok:true,value:await action(current())};}catch(cause){const code=cause instanceof Error?cause.message:'';return{ok:false,code:/^[A-Z][A-Z0-9_]{2,80}$/.test(code)?code:'SUPPLY_SERVICE_UNAVAILABLE'};}
 }
 export async function supplySimulate(workflow:SemanticWorkflow,account:string){return run('simulate',[workflow,account],service=>service.simulate(workflow,account));}
