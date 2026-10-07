@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test,expect } from './fixtures';
+import { test,expect,openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { installLendingWallet,lendingRpc,lendingSends,resetLending,LENDING_OWNER } from './lending-fixtures';
 const panel=(page:Page)=>page.getByRole('region',{name:'Lending composition'});
@@ -7,10 +7,11 @@ async function author(page:Page,options:Parameters<typeof installLendingWallet>[
   await installLendingWallet(page,options);await page.goto('/');
   if(chat){await page.locator('#mock-prompt').fill(`compose supply 0.1 USDC to Aave then borrow 0.01 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner ${LENDING_OWNER}`);await page.getByRole('button',{name:'Send',exact:true}).click();}
   else {await expect(page.locator('.build009-wallet-info')).toContainText(LENDING_OWNER.slice(0,6));await page.getByRole('button',{name:'Add Supply → Borrow → Swap',exact:true}).click();}
+  await openProposalReview(page);
   await page.getByRole('button',{name:'Apply proposal'}).click();await expect(page.locator('.react-flow__node[data-id="lending-borrow"]')).toContainText('Borrow');
-  await page.getByRole('button',{name:'Simular Fees'}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);
 }
-async function review(page:Page){await page.getByRole('button',{name:'Simulate lending composition',exact:true}).click();await expect(panel(page)).toContainText('Expected output:');await page.getByRole('button',{name:'Review lending composition',exact:true}).click();await page.getByRole('button',{name:'Accept composed Review'}).click();await expect(panel(page).getByRole('button',{name:'Execute pool approval',exact:true})).toBeEnabled();}
+async function review(page:Page){await page.getByRole('button',{name:'Simulate lending composition',exact:true}).click();await expect(panel(page)).toContainText('Expected output:');await acceptProductReview(page);}
 const execute=(page:Page,step:string)=>panel(page).getByRole('button',{name:`Execute ${step}`,exact:true}).click();
 async function confirmed(page:Page,step:string){await execute(page,step);await expect(panel(page)).toContainText(`${step.toUpperCase().replaceAll(' ','_')}: reconciled`);}
 test.beforeEach(async()=>{await resetLending();});
@@ -22,13 +23,21 @@ test('three separate Canvas editors preserve the typed Borrow input and approval
     ['lending-borrow','Aave Borrow','Borrow amount USDC','0.02'],
     ['lending-swap','Uniswap Swap','Swap slippage bps','100'],
   ] as const){
-    await page.locator(`.react-flow__node[data-id="${id}"]`).click();
+    const node = page.locator(`.react-flow__node[data-id="${id}"]`);
+    await node.getByRole('button',{name:'Advanced Settings',exact:true}).click();
     const form=page.getByRole('form',{name:`Edit ${title}`});await expect(form).toBeVisible();
     await form.getByRole('textbox',{name:label}).fill(value!);
-    await form.getByRole('button',{name:`Review ${title} change`}).click();await page.getByRole('button',{name:'Apply proposal'}).click();
+    if(id==='lending-swap') {
+      await form.getByRole('button',{name:'Review Uniswap Swap change'}).click();
+    } else {
+      await node.getByRole('button',{name:`Review ${title.replace('Aave ', '')} change`,exact:true}).click();
+    }
+    if (await page.getByRole('button',{name:/^Review proposed change:/}).isVisible()) await openProposalReview(page);
+    await expect(page.getByRole('button',{name:'Apply proposal',exact:true})).toBeEnabled();
+    await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
   }
   const nodes=page.locator('.react-flow__node');await expect(nodes).toHaveCount(3);
-  for(const title of ['Aave Supply','Aave Borrow','Uniswap Swap'])await expect(nodes.getByText(title,{exact:true})).toBeVisible();
+  for(const [id,title] of [['lending-supply','Supply'],['lending-borrow','Borrow'],['lending-swap','Swap']])await expect(page.locator(`.react-flow__node[data-id="${id}"]`)).toContainText(title!);
   const boxes=await nodes.evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y}}));
   expect(boxes[0]!.x).toBeCloseTo(boxes[1]!.x);expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
   await page.setViewportSize({width:1180,height:900});
@@ -38,7 +47,7 @@ test('three separate Canvas editors preserve the typed Borrow input and approval
   await expect(page.getByRole('form',{name:'Edit Uniswap Swap'})).toContainText('exactly 0.02 borrowed USDC');
   await expect(page.getByRole('combobox',{name:'Swap output asset'})).toHaveValue('WETH');
   await expect(page.locator('.react-flow__edge')).toHaveCount(2);
-  await page.getByRole('button',{name:'Simular Fees'}).click();await review(page);
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.reviews[0].workflow.nodes[2].inputs[0]).toEqual({name:'amount-in',kind:'OUTPUT_REFERENCE',value:{nodeId:'lending-borrow',outputId:'borrowed-amount'}});
   expect(record.reviews[0].fields).toMatchObject({supplyAmount:'200000',borrowAmount:'20000',slippageBps:100});
@@ -52,7 +61,7 @@ test('cancelled preparation is historical, survives reload, and fresh Simulate/R
   expect(await lendingSends(page)).toBe(0);
   await page.reload();await expect(page.locator('.react-flow__node')).toHaveCount(3);
   await expect(page.locator('.react-flow__node[data-id="lending-supply"]')).toContainText('Aave Supply');
-  await page.getByRole('button',{name:'Simular Fees'}).click();
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);
   await expect(page.getByRole('button',{name:'Simulate lending composition',exact:true})).toBeEnabled();await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.id).toBe(prior);expect(record.attempts).toHaveLength(1);expect(record.attempts[0]).toMatchObject({state:'CANCELLED',notSubmitted:true});

@@ -67,9 +67,20 @@ describe('shared wallet and existing Review capability', () => {
   it('uses the connected Solana session and ignores changes to an inactive EVM wallet', () => {
     f.stores.environment = { walletKind: 'solana', walletEnvironment: 'testnet', walletChain: 'solana:devnet' };
     f.stores.jupiter!.session = { account: { address: 'solanaConnectedAccount' }, chain: 'solana:devnet' };
-    expect(useReviewAuthorization('unavailable').wallet).toMatchObject({ account: 'solanaConnectedAccount', chain: 'solana:devnet', environment: 'testnet' });
+    expect(useReviewAuthorization('unavailable').wallet).toMatchObject({ account: 'solanaConnectedAccount', chain: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', environment: 'testnet' });
     f.stores.wallet!.chainId = '0x2105';
     expect(useReviewAuthorization('unavailable').wallet.changed).toBe(false);
+  });
+  it('normalizes a Solana wallet chain while preserving network-change invalidation', () => {
+    f.stores.environment = { walletKind: 'solana', walletEnvironment: 'mainnet', walletChain: 'solana:mainnet' };
+    f.stores.jupiter!.session = { account: { address: 'solanaConnectedAccount' }, chain: 'solana:mainnet' };
+    expect(useReviewAuthorization('unavailable').wallet).toMatchObject({ chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', changed: false });
+    f.stores.environment!.walletChain = 'solana:devnet';
+    expect(useReviewAuthorization('unavailable').wallet).toMatchObject({ chain: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', changed: true });
+    f.stores.environment!.walletChain = 'solana:mainnet';
+    expect(useReviewAuthorization('unavailable').wallet.changed).toBe(true);
+    f.stores.environment!.walletChain = 'solana:unknown';
+    expect(useReviewAuthorization('unavailable').wallet).toMatchObject({ chain: null, changed: true });
   });
   it('does not infer readiness for a retired Review, busy store or a workflow with no supported Review handler', () => {
     supply(); f.stores.supply!.retired = true; expect(useReviewAuthorization('supply').authorization.ready).toBe(false);

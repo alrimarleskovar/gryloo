@@ -75,7 +75,7 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction, stage = 's
         <InspectionViewport onState={setViewport}/>
         <Background gap={18} size={1} color="var(--grid)"/>
         <DarkSpotlight/>
-        <CanvasNavigator fitViewOptions={{ padding: FIT_PADDING }}/>
+        <CanvasNavigator fitViewOptions={{ padding: FIT_PADDING }} compactBelow={1024}/>
       </ReactFlow>
       {nodes.length === 0 && <div className="simulation-workflow-empty"><strong>{incomplete ? 'Check your workflow' : 'Add an action to your workflow'}</strong><p>{incomplete ? stage === 'execute' ? 'Complete its configuration in Build before executing.' : 'Complete its configuration in Build before simulating.' : stage === 'execute' ? 'Create a workflow in Build first.' : 'Create your strategy in Build, then return here to simulate it.'}</p></div>}
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}

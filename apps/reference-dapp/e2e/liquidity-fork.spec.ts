@@ -2,6 +2,7 @@
 import { authorLiquidity, expect, forkRpc, test } from './liquidity-fixtures';
 import { LIQUIDITY_USDC, LIQUIDITY_WETH, POSITION_MANAGER } from '@defi-workflow-engine/reference-compiler';
 import type { LiquidityOperation } from '../src/server/liquidity-service';
+import { APP_ORIGIN } from './app-origin';
 test.skip(process.env.GRYLOO_LIQUIDITY_E2E !== 'replay', 'Requires the BUILD-006 closed transcript and opt-in local liquidity profile');
 const stage = (page: import('@playwright/test').Page, name: 'Build' | 'Simulate' | 'Execute') =>
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
@@ -33,7 +34,7 @@ async function allowance(token: string, owner: string): Promise<bigint> {
 test('isolated position lifecycle uses one exact wallet signature per local operation', async ({ page, liquidity, testWallet }) => {
   test.setTimeout(180_000);
   const external: string[] = [];
-  page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:3000/')) external.push(request.url()); });
+  page.on('request', request => { if (!request.url().startsWith(`${APP_ORIGIN}/`)) external.push(request.url()); });
   await page.goto('/');
   await authorLiquidity(page, liquidity);
   await operation(page, 'APPROVE_WETH');

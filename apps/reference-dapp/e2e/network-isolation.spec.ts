@@ -3,7 +3,7 @@ import { negativeGuardTest, test, expect, SYNTHETIC_GUARD_URL } from './fixtures
 
 test('ordinary application page makes no external request or WebSocket attempt', async ({ page, networkGuard }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Untitled workflow' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
   networkGuard.assertClean();
 });
 

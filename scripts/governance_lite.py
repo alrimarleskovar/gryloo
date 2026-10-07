@@ -26,6 +26,34 @@ AUTO_MERGE = re.compile(
 )
 GOVERNANCE = ".github/workflows/governance.yml"
 CONTRACTS = ".github/workflows/contracts.yml"
+AGE_WAIVER = "docs/security/COLOSSEUM-DEPENDENCY-AGE-WAIVER.json"
+
+
+def dependency_age_waivers(files):
+    """Validate pnpm's existing exception setting; never interpret ranges/globs."""
+    workspace = files.get("pnpm-workspace.yaml", "")
+    blocks = re.findall(r"(?m)^minimumReleaseAgeExclude:[^\n]*\n(?:[ \t]+[^\n]*\n)*", workspace)
+    if not blocks:
+        return set(), []
+    if blocks != ["minimumReleaseAgeExclude:\n  - source-map-js@1.2.2\n"]:
+        return set(), ["Dependency age waiver must contain only exact source-map-js@1.2.2"]
+    try:
+        waiver = json.loads(files.get(AGE_WAIVER, ""))
+    except (ValueError, TypeError):
+        return set(), ["Missing or invalid owner-approved dependency age waiver metadata"]
+    expected = {
+        "package": "source-map-js", "version": "1.2.2", "advisory": "GHSA-68fv-2mgg-jv7q",
+        "reason": "HIGH security advisory remediation required for Colosseum release",
+        "approved_by": "Owner", "temporary": True,
+        "removal_condition": "Remove after Colosseum delivery completion once normal dependency-age eligibility is no longer needed",
+    }
+    if waiver != expected or waiver.get("temporary") is not True:
+        return set(), ["Dependency age waiver metadata differs from exact temporary owner approval"]
+    return {("source-map-js", "1.2.2")}, []
+
+
+def dependency_release_age_allowed(name, version, published, cutoff, waivers):
+    return published <= cutoff or (name, version) in waivers
 
 
 def secret_errors(path, body):
@@ -119,6 +147,7 @@ def control_errors(files):
     for line in ("minimumReleaseAge: 10080", "strictPeerDependencies: true", "autoInstallPeers: false"):
         if line not in files.get("pnpm-workspace.yaml", "").splitlines():
             errors.append("pnpm-workspace.yaml: dependency control missing: " + line)
+    errors.extend(dependency_age_waivers(files)[1])
     return errors
 
 

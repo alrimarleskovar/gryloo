@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** BUILD-ROUTER-001 browser journey on MOCKED loopback Base/Arbitrum chains and providers (never public, never a broadcast). */
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { installRouterWallet, resetRouterHarness, routerControl, routerSendRequests, routerWalletSends } from './router-fixtures';
 
@@ -12,13 +12,16 @@ async function authorByChat(page: Page, text = 'Bridge 10 USDC from Base to Arbi
   await installRouterWallet(page, options); await page.goto('/');
   await page.locator('#mock-prompt').fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base → Arbitrum USDC');
-  await page.getByRole('button', { name: 'Simular Fees' }).click();
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('BridgeRouter');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('button', { name: 'Configure source asset', exact: true })).toHaveAttribute('title', 'USDC on Base');
+  await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('button', { name: 'Configure destination asset', exact: true })).toHaveAttribute('title', 'USDC on Arbitrum');
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   await expect(region(page).getByRole('list', { name: 'Route steps' })).toBeVisible();
 }
-async function accept(page: Page) { await stage(page, 'Execute'); await region(page).getByRole('button', { name: 'Accept route review' }).click(); }
+async function accept(page: Page) { await acceptProductReview(page); }
 const execute = (page: Page, label: RegExp) => region(page).getByRole('button', { name: label }).click();
 async function bridgeToReconciled(page: Page) {
   for (let i = 0; i < 15 && !(await region(page).getByRole('region', { name: 'Bridge result' }).isVisible()); i++) {
@@ -103,8 +106,8 @@ test('Canvas authoring with an explicit recipient and Across-only routing reache
   await form.getByRole('button', { name: 'Review bridge proposal' }).click();
   await expect(page.locator('body')).toContainText(`Recipient on Arbitrum: ${recipient}`);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
-  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base → Arbitrum USDC');
-  await page.getByRole('button', { name: 'Simular Fees' }).click();
+  await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('BridgeRouter');
+  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   for (const text of ['Across (direct) · underlying protocol across', `${recipient} on Arbitrum One`, 'Amount in3 USDC on Base',
     'Exactly 3 USDC to 0x09aea4b2242abc8bb4bb78d537a67a245a7bec64 (never unlimited)']) await expect(region(page)).toContainText(text);

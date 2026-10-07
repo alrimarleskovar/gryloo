@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { decodeSwap, encodeApprove, encodeSwap, fromHex, toHex } from '@defi-workflow-engine/reference-compiler';
-import { test as guarded, expect } from './fixtures';
+import { test as guarded, expect, openProposalReview, acceptProductReview } from './fixtures';
 
 export type ModeAFixture = { readonly format: 'gryloo.mode-a-e2e-fixture.v1'; readonly environment: 'MOCKED' | 'FORK_REPRODUCED';
   readonly rpcUrl: string; readonly owner: string; readonly setup: string; baseline: string; readonly journal: string };
@@ -173,7 +173,7 @@ export async function authorSwap(page: Page, direction: 'WETH_TO_USDC' | 'USDC_T
   await page.getByLabel('Input amount (required)').fill(amount);
   await page.getByLabel('Slippage in bps (required)').fill(slippage);
   await page.getByRole('button', { name: 'Review swap proposal' }).click();
-  await expect(page.getByText('Review proposed edit')).toBeVisible();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export const forkPanel = (page: Page) => page.getByRole('region', { name: 'Local fork Mode A simulation' });
@@ -189,12 +189,9 @@ export async function simulateOnFork(page: Page): Promise<void> {
   await expect(forkPanel(page).locator('[data-browser-verification="EXACT"]')).toBeVisible();
 }
 export async function reviewAndConnect(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Review swap' }).click();
-  await expect(page.getByRole('region', { name: 'Mode A Manifest review' })).toBeVisible();
-  await page.getByRole('button', { name: 'I reviewed both exact payloads' }).click();
-  await executionPanel(page).getByRole('button', { name: 'Connect injected wallet' }).click();
-  await expect(executionPanel(page).locator('.wallet-chip')).toBeVisible();
+  await acceptProductReview(page);
 }
+
 export const stepState = (page: Page, title: string) => executionPanel(page).getByRole('article', { name: title }).locator('[data-step-state]');
 export async function requestStep(page: Page, title: 'Step 1 · approve exact input' | 'Step 2 · exact swap'): Promise<void> {
   await executionPanel(page).getByRole('article', { name: title }).getByRole('button', { name: /^Request wallet signature/ }).click();

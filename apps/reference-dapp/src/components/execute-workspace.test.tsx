@@ -92,6 +92,17 @@ describe('live execution workspace', () => {
     expect(html).toContain('Leaving this view does not cancel submitted requests.');
     expect(data.execution.check).not.toHaveBeenCalled(); expect(data.execution.start).not.toHaveBeenCalled();
   });
+  it('retains explicit local controls with recorded progress when the shared wallet start is unavailable', () => {
+    const data = live('PENDING');
+    data.source = { kind: 'unavailable', state: { busy: false, error: null } };
+    data.technicalDetails = createElement('button', { onClick: data.execution.start }, 'Check local order status');
+    const html = render(data);
+    expect(html).toContain('Check local order status');
+    expect(html).toContain('<summary>View technical details</summary>');
+    expect(html).not.toMatch(/<details[^>]* open|>Execute workflow</);
+    expect(data.execution.start).not.toHaveBeenCalled();
+    expect(data.execution.check).not.toHaveBeenCalled();
+  });
   it('does not advertise fresh authorization or stale review requirements during checking', () => {
     const data = live('PENDING'); data.authorization.key = null; data.authorization.accepted = false;
     data.recovery = { action: 'observe', checking: true, recordOnly: false, operationId: 'swap', label: 'Checking execution status…', message: 'Checking the saved request.', contextIssue: null, check: vi.fn() };

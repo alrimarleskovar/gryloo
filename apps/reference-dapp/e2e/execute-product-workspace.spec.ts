@@ -167,7 +167,7 @@ for (const theme of ['light', 'dark']) test(`${theme} plan, brand icons and resp
     });
     expect(boxes.back.left).toBeLessThan(boxes.execute.left); expect(boxes.back.right).toBeLessThanOrEqual(boxes.execute.left);
     expect(Math.abs(boxes.back.top - boxes.execute.top)).toBeLessThan(2);
-    expect(boxes.controls.right <= boxes.back.left || boxes.controls.bottom <= boxes.back.top).toBe(true);
+    expect(boxes.controls.right <= boxes.back.left || boxes.controls.bottom <= boxes.back.top, JSON.stringify({ width, boxes })).toBe(true);
     expect(boxes.back.left).toBeGreaterThan(boxes.surface.left);
     expect(boxes.execute.bottom).toBeLessThan(boxes.footer.top); expect(boxes.execute.bottom).toBeLessThan(boxes.attribution.top);
   }

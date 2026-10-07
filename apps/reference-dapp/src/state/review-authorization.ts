@@ -20,6 +20,7 @@ import { useExecutionEnvironment } from './capability-store';
 import { reviewedManifest, reviewApprovalCall, type ReviewAuthorization, type ReviewWallet } from '../domain/review-presentation';
 import { simulationAmount, type SimulationSource } from '../domain/simulation-presentation';
 import { walletChainRef } from '../wallet/evm-networks';
+import { solanaWalletChainRef } from '../wallet/environment';
 
 /** Review callbacks only: no install, request, begin, submit or execute method crosses this boundary. */
 export function useReviewAuthorization(kind: SimulationSource['kind']): { authorization: ReviewAuthorization; wallet: ReviewWallet } {
@@ -143,8 +144,8 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
     }
   }
   const account = environment.walletKind === 'solana' ? jupiter.session?.account.address ?? null : sharedWallet.account;
-  const chain = environment.walletKind === 'solana' ? environment.walletChain : sharedWallet.chainId === '0x7a69' ? 'eip155:31337' : walletChainRef(sharedWallet.chainId);
-  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.chainId : null]);
+  const chain = environment.walletKind === 'solana' ? solanaWalletChainRef(environment.walletChain) : sharedWallet.chainId === '0x7a69' ? 'eip155:31337' : walletChainRef(sharedWallet.chainId);
+  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain]);
   // Keep this guard mounted in the shell. Returning to the old wallet cannot revive the old Review.
   const [binding, setBinding] = useState({ key: authorization.key, identity, changed: false });
   const changed = binding.key === authorization.key && (binding.changed || binding.identity !== identity);

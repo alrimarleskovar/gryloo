@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {test,expect} from './fixtures';
+import {test,expect, openSimulationDetails, acceptProductReview } from './fixtures';
 import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 import type {Page} from '@playwright/test';
 import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc} from './supply-fixtures';
@@ -9,9 +9,9 @@ async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1
   await installSupplyWallet(page,{account:owner,...options});await page.goto('/');await page.getByRole('button',{name:'Add withdraw',exact:true}).click();
   await configureCanvasAction(page,'0.1');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Withdraw');
-  await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Review Withdraw',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();
 }
-async function review(page:Page){await page.getByRole('button',{name:'Review Withdraw',exact:true}).click();await page.getByRole('button',{name:'Accept Withdraw review'}).click();await expect(region(page).getByRole('button',{name:'Execute',exact:true})).toBeVisible();}
+async function review(page:Page){await acceptProductReview(page);}
 const execute=(page:Page)=>region(page).getByRole('button',{name:'Execute',exact:true}).click();
 test.beforeEach(async()=>{await resetSupplyHarness(withdrawOptions);});
 test('Build → read-only Simulate → owner Review → one exact Withdraw → Result',async({page})=>{

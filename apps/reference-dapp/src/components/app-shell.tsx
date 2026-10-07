@@ -144,7 +144,9 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     !['BRIDGE_QUOTED', 'BRIDGE_AUTHORIZED'].includes(bridgeSwap.run.state);
   const recoveryPath = Boolean(modeA.recoveryOnly || modeB.recoveryOnly || composition.recoveryOnly || liquidity.recoveryOnly ||
     cow.recoveryOnly || bridge.recoveryOnly || persistedBuild009Recovery || across.recovered);
-  const executionSurface = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath || recoveryPath || (environment !== 'PUBLIC_TESTNET' && environment !== 'MAINNET' &&
+  // The existing CoW loopback runtime is explicitly disabled on deployed environments.
+  const localCowIntent = Boolean(cow.info?.enabled && cow.execution);
+  const executionSurface = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath || recoveryPath || localCowIntent || (environment !== 'PUBLIC_TESTNET' && environment !== 'MAINNET' &&
     capability.executionSupported && forkExecution);
   // Select the same runtime as the existing Simulate surface; presentation never changes its gates.
   const restoredLocalKind = restoredLocalExecutionKind(state.workflow, { composition: composition.recoveryOnly, liquidity: liquidity.recoveryOnly, cow: cow.recoveryOnly });
@@ -220,7 +222,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
         : null;
   return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
     <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
-      {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
+      {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath || localCowIntent ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
           <details className="shell-details technical-workspace simulation-technical"><summary>View technical details</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
         </SimulateWorkspace> : stageContent}

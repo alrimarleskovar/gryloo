@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type WalletControls = {
@@ -148,6 +148,7 @@ for (const cluster of ['solana:devnet', 'solana:mainnet']) test(`${cluster} conn
   await page.goto('/');
   await page.locator('#mock-prompt').fill(cluster === 'solana:mainnet' ? 'Swap 1 USDC to SOL on Solana' : 'Swap 0.1 SOL to devUSDC on Solana Devnet');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
   await expect(environment).toHaveText('Network');

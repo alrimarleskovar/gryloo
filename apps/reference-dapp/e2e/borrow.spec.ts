@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {test,expect} from './fixtures';
+import {test,expect, openSimulationDetails, acceptProductReview } from './fixtures';
 import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 import type {Page} from '@playwright/test';
 import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc} from './supply-fixtures';
@@ -7,10 +7,10 @@ async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1
   await installSupplyWallet(page,options);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();
   await configureCanvasAction(page,'0.01');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Borrow');
-  await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Review Borrow',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();
 }
-async function review(page:Page){await page.getByRole('button',{name:'Review Borrow',exact:true}).click();await page.getByRole('button',{name:'Accept Borrow review'}).click();await expect(page.getByRole('region',{name:'Aave Borrow'}).getByRole('button',{name:'Execute',exact:true})).toBeVisible();}
+async function review(page:Page){await acceptProductReview(page);}
 const execute=(page:Page)=>page.getByRole('region',{name:'Aave Borrow'}).getByRole('button',{name:'Execute',exact:true}).click();
 test.beforeEach(async()=>{await resetSupplyHarness({balance:'0'});});
 test('Build → Borrow → read-only Simulate → Review → owner wallet → debt evidence',async({page})=>{
@@ -58,6 +58,6 @@ test('semantic amount edits invalidate Borrow Review',async({page})=>{
   await expect(page.getByRole('region',{name:'Aave Borrow'}).getByRole('button',{name:'Execute',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });
 test('read-only simulation blocks unsafe Borrow before Review',async({page})=>{
-  await installSupplyWallet(page);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();await configureCanvasAction(page,'5');await page.getByRole('button',{name:'Simular Fees'}).click();await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
-  await expect(page.getByRole('region',{name:'Aave Borrow'})).toContainText('minimum of 2.0');await expect(page.getByRole('button',{name:'Review Borrow',exact:true})).toBeDisabled();expect(await supplySendCount(page)).toBe(0);
+  await installSupplyWallet(page);await page.goto('/');await page.getByRole('button',{name:'Add borrow',exact:true}).click();await configureCanvasAction(page,'5');await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Borrow',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Aave Borrow'})).toContainText('minimum of 2.0');await expect(page.getByRole('region',{name:'Review & Authorization',exact:true})).toContainText('Review unavailable until simulation is ready.');await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });

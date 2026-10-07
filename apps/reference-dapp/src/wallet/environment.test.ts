@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
-import { classifyWalletEnvironment, walletEnvironmentLabel, walletExecutionEnvironment } from './environment';
+import { classifyWalletEnvironment, solanaWalletChainRef, walletEnvironmentLabel, walletExecutionEnvironment } from './environment';
 
 describe('connected wallet environment classifier', () => {
+  it('resolves only supported Solana wallet aliases to exact, distinct chain identities', () => {
+    const mainnet = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+    const devnet = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+    for (const chain of ['solana:mainnet', mainnet]) expect(solanaWalletChainRef(chain)).toBe(mainnet);
+    for (const chain of ['solana:devnet', devnet]) expect(solanaWalletChainRef(chain)).toBe(devnet);
+    expect(solanaWalletChainRef('solana:mainnet')).not.toBe(solanaWalletChainRef('solana:devnet'));
+    for (const chain of [null, undefined, '', 'solana:testnet', 'solana:unknown', 'eip155:8453', '0x14a34']) expect(solanaWalletChainRef(chain)).toBeNull();
+  });
   it.each([
     ['0x14a34', 'testnet'], ['0x66eee', 'testnet'], ['eip155:421614', 'testnet'],
     ['0x2105', 'mainnet'], ['0xA4B1', 'mainnet'], ['eip155:8453', 'mainnet'],

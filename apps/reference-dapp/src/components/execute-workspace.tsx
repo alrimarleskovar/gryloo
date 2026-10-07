@@ -123,6 +123,6 @@ export function ExecuteWorkspace(props: ExecuteWorkspaceProps) {
         {live && live.state !== 'complete' && live.steps.some(step => step.operations.some(operation => operation.hash || operation.intent && ['posted', 'settling', 'partial'].includes(operation.state))) && <p className="execution-context execution-navigation-note">Leaving this view does not cancel submitted requests.</p>}
       </aside>
     </div>
-    {(live || props.technicalDetails) && <details className="shell-details technical-workspace execute-technical"><summary>View technical details</summary>{live ? <ExecutionEvidenceDetails progress={live}/> : props.technicalDetails}</details>}
+    {(live || props.technicalDetails) && <details className="shell-details technical-workspace execute-technical"><summary>View technical details</summary>{live ? <><ExecutionEvidenceDetails progress={live}/>{props.source.kind === 'unavailable' && props.technicalDetails}</> : props.technicalDetails}</details>}
   </section>;
 }

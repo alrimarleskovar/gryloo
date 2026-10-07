@@ -3,6 +3,12 @@ import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET, type ExecutionEnvironme
 import { EVM_WALLET_NETWORKS, walletNetwork } from './evm-networks';
 
 export type WalletEnvironment = 'testnet' | 'mainnet' | 'unknown';
+/** Wallet Standard aliases resolve only to the two supported, exact Solana chain identities. */
+export function solanaWalletChainRef(chain: string | null | undefined): string | null {
+  if (chain === JUPITER_SOLANA_MAINNET.walletChain || chain === JUPITER_SOLANA_MAINNET.chain) return JUPITER_SOLANA_MAINNET.chain;
+  if (chain === ORCA_WHIRLPOOLS_DEVNET.walletChain || chain === ORCA_WHIRLPOOLS_DEVNET.chain) return ORCA_WHIRLPOOLS_DEVNET.chain;
+  return null;
+}
 /** Classify only a connected wallet's reported chain or explicitly connected Solana session cluster. */
 export function classifyWalletEnvironment(chain: string | null | undefined): WalletEnvironment {
   if (!chain) return 'unknown';

@@ -4,11 +4,11 @@ import type { CSSProperties } from 'react';
 import { Panel, useReactFlow, useStore, type FitViewOptions, type ReactFlowState } from '@xyflow/react';
 
 /** React Flow owns the viewport, including zoom changes from gestures and automatic fitting. */
-export function CanvasNavigator({ fitViewOptions }: { fitViewOptions?: FitViewOptions }) {
+export function CanvasNavigator({ fitViewOptions, compactBelow = 800 }: { fitViewOptions?: FitViewOptions; compactBelow?: number }) {
   const zoom = useStore((state: ReactFlowState) => state.transform[2]);
   const minZoom = useStore((state: ReactFlowState) => state.minZoom);
   const maxZoom = useStore((state: ReactFlowState) => state.maxZoom);
-  const compact = useStore((state: ReactFlowState) => state.width < 800);
+  const compact = useStore((state: ReactFlowState) => state.width < compactBelow);
   const narrow = useStore((state: ReactFlowState) => state.width < 400);
   const { fitView, zoomTo } = useReactFlow();
   const percentage = `${Math.round(zoom * 100)}%`;

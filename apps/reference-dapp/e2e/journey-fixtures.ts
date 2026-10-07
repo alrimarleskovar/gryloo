@@ -11,9 +11,9 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { routerControl } from './router-fixtures';
 import { personalSignText, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
+import { APP_ORIGIN } from './app-origin';
 
 export const BASE_SEPOLIA_HEX = '0x14a34';
-const APP_ORIGIN = 'http://127.0.0.1:3000';
 const TESTNET = { network: 'testnet' } as const;
 
 /** Clears the testnet journal and resets the MOCKED testnet chains, funding every given wallet (the first is the harness owner). */
@@ -28,7 +28,7 @@ export const journeyAdvance = (seconds: number) => routerControl('MOCK_advance',
 
 /** A context with the shared fixture's guard: only the app origin is reachable; anything else is recorded and aborted. */
 export async function guardedContext(browser: Browser): Promise<{ context: BrowserContext; unexpected: string[] }> {
-  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US' });
+  const context = await browser.newContext({ baseURL: APP_ORIGIN, serviceWorkers: 'block', viewport: { width: 1440, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', locale: 'en-US' });
   const unexpected: string[] = [];
   await context.route('**/*', async route => {
     let allowed = false;

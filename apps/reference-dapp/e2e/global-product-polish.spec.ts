@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openProposalReview } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { installSupplyWallet } from './supply-fixtures';
@@ -97,6 +97,8 @@ for (const value of ['Light', 'Dark'] as const) test(`${value} global stage flow
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
   const walletText = await wallet.innerText();
   await environment.focus();
+  await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+  await expect(environment).toBeFocused();
   await expect(environment).toHaveCSS('outline-style', 'solid');
   await expect(environment).toHaveCSS('outline-color', await nav.getByRole('button', { name: 'Build', exact: true }).evaluate(element => getComputedStyle(element).color));
   for (const width of widths) {
@@ -133,6 +135,7 @@ for (const value of ['Light', 'Dark'] as const) test(`${value} keyboard selectio
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await theme(page, value);
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
+  await openProposalReview(page);
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const node = page.locator('.build-flow-surface .react-flow__node[data-id="lending-borrow"]');
   const borrow = node.locator('.composer-card');
