@@ -6,13 +6,11 @@
  * no framing, no referrer, no indexing, no caching.
  */
 import type { Metadata } from 'next';
-import { AppProviders } from '../../components/app-providers';
-import { AppShell } from '../../components/app-shell';
-import { ApprovalHandoff } from '../../components/approval-handoff';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 export const metadata: Metadata = { title: 'FloFi · Review a proposal', robots: { index: false, follow: false }, referrer: 'no-referrer' };
 export default function ApprovePage() {
-  return <AppProviders><div className="approval-page"><ApprovalHandoff/></div><AppShell/></AppProviders>;
+  // The root layout mounts the handoff inside the current product workspace's providers.
+  return null;
 }

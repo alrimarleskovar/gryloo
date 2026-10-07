@@ -9,9 +9,13 @@ This separate branding build does not resume its execution work. BUILD-CLOUD-001
 
 ## BUILD-MCP-002 — Consumer OAuth, trusted approval handoff and in-chat execution
 
-**Status: IMPLEMENTATION COMPLETE ON A STACKED BRANCH — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO
-TRANSACTION; NO PR UNTIL PR #63 MERGES.** Branch `claude/build-mcp-002`, stacked on the BUILD-MCP-001 head `4b99acc` by owner
-authorization. FloFi is its own OAuth 2.1 authorization server for consumer MCP clients (RFC 9728/8414 discovery, PKCE S256,
+**Status: INTEGRATED ON CURRENT MAIN — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO PUBLIC
+TRANSACTION.** Branch `claude/build-mcp-002` is rebased onto `a23a77d2a1ea93decc6904ea039d7fe4278240aa` (PR #64 UX and PR #63
+MCP-001 are merged). Current main’s UX, persistent workspace, release gates, dependency resolutions and governance win. The
+265 registry identities, `source-map-js@1.2.2` and exact temporary Colosseum waiver are unchanged; audit passes with zero
+vulnerabilities. The MCP browser journeys verify that MOCKED simulations remain blocked at Review/Execute, with no wallet
+transaction; the PostgreSQL integration journey retains positive mocked lifecycle/status/evidence coverage. See
+[the integration report](builds/BUILD-MCP-002-INTEGRATION.md). FloFi is its own OAuth 2.1 authorization server for consumer MCP clients (RFC 9728/8414 discovery, PKCE S256,
 Client ID Metadata Documents with an SSRF-guarded fetch, narrow optional DCR, consent with invite codes, rotating refresh tokens
 with reuse detection, RFC 7009 revocation, `iss`, audience binding, 401/403 step-up), with pseudonymous accounts and digests only
 in PostgreSQL (migration `0005_mcp_oauth`). `request_user_approval` re-composes and re-checks a strategy and stores a trusted

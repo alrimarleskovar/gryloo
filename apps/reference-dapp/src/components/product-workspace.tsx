@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
 import { AppShell } from './app-shell';
+import { ApprovalHandoff } from './approval-handoff';
 import { WorkflowProvider } from '../state/workflow-store';
 import { BridgeProvider } from '../state/bridge-store';
 import { Build009WalletProvider } from '../state/build009-wallet-store';
@@ -25,5 +26,5 @@ const initialContext = { registryId: referenceRegistry.registryId, capabilityId:
 /** The existing provider hierarchy is shared by all product routes, keeping current runs mounted. */
 export function ProductWorkspace() {
   const pathname = usePathname(), router = useRouter();
-  return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><UniswapLiquidityProvider><RouterProvider><AppShell pathname={pathname} navigate={path => router.push(path)}/></RouterProvider></UniswapLiquidityProvider></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>;
+  return <WorkflowProvider initialContext={initialContext}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><UniswapLiquidityProvider><RouterProvider>{pathname === '/approve' && <div className="approval-page"><ApprovalHandoff/></div>}<AppShell pathname={pathname} navigate={path => router.push(path)}/></RouterProvider></UniswapLiquidityProvider></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider>;
 }

@@ -1,9 +1,16 @@
 # BUILD-MCP-002 — Report: consumer OAuth, trusted approval handoff and in-chat execution
 
-Date: 2026-10-06. Branch `claude/build-mcp-002`, **stacked** on the BUILD-MCP-001 head `4b99acc9700cbb34d3ed25a73780c96a28c21418`
-(PR #63, open) by explicit owner authorization; `origin/main` is `bf84bbd`. No PR is open for this branch yet: once #63 merges
-it is rebased onto the new `main`, the full suite is re-run, and then the PR is opened. Nothing was merged. No real financial
-transaction was signed or sent; every execution in this build ran on MOCKED loopback chains.
+Implemented 2026-10-06; integrated 2026-10-07. Branch `claude/build-mcp-002` is rebased onto authoritative main
+`a23a77d2a1ea93decc6904ea039d7fe4278240aa`, which already contains PR #64 UX and PR #63 MCP-001. Only the 13 MCP-002 commits
+were replayed; the old MCP-001 commits were excluded. Current main UX, baseline contracts, release gates, dependency
+resolutions and governance remain authoritative. Nothing was merged, no mainnet was enabled, no public-chain transaction
+was signed or sent, and no production secret or Vercel configuration was changed.
+
+The 2026-10-06 results in §7 are historical pre-rebase evidence. Current integration evidence and the exact file inventory
+are recorded in [BUILD-MCP-002-INTEGRATION.md](BUILD-MCP-002-INTEGRATION.md). Current main's UI refuses MOCKED financial
+authority: the integrated browser suite verifies OAuth, handoff, ownership proofs, proposal application, fresh simulation,
+blocked Review/Execute, prepared/simulated status in the panel, wallet links and mainnet refusal. The PostgreSQL journey separately
+retains the positive owner-driven mocked lifecycle and reconciled status/evidence coverage. No production guard is bypassed.
 
 > The model remains an untrusted interpreter. OAuth authentication is not wallet ownership; an MCP account is not financial
 > authority; an approval link is not financial authority. Only the user's own wallet authorizes execution, inside FloFi's
@@ -39,7 +46,7 @@ panel ← get_execution_progress (runs bound by owner, flow, time and exact work
 | Wallet links | `src/app/connections-action.ts`, `src/app/connections/page.tsx`, `src/components/connections-panel.tsx` |
 | MCP App panel | `src/mcp/app/panel.ts` |
 | Step lists | `src/engine/strategy-spec.ts`, `src/engine/strategy-engine.ts` |
-| Shared app shell | `src/components/app-providers.tsx` (the provider tree of `/`, reused by `/approve`) |
+| Shared app shell | `src/components/product-workspace.tsx` (only `/approve` mounts the handoff inside current main’s persistent provider tree; no duplicate app shell) |
 | Tests | `src/mcp/oauth/*.test.ts`, `src/mcp/handoff/*.pg.test.ts`, `src/mcp/app/panel.pg.test.ts`, `src/mcp/execution.test.ts`, `src/mcp/step-list.test.ts`, `src/server/solana-session.test.ts`, `e2e/mcp-in-chat.spec.ts` (+ `mcp-fixtures.ts`) |
 
 ## 2. Policy checks (OpenAI, Anthropic)
@@ -69,8 +76,8 @@ session** (owner decision 6); if either explicitly prohibits this use, stop.
 5. `get_capabilities`, `compose_strategy`, `validate_strategy` and `review_strategy` gained fields (four facts, execution
    plan, step-list contract); single-action outputs keep every MCP-001 field. Tool inputs accept a v2 step list too.
 6. The output guard additionally rejects any OAuth token, code or consent value.
-7. `src/app/page.tsx` renders the same provider tree through `AppProviders` (no behavioural change; the CI browser group and
-   visual baselines pass unchanged).
+7. `src/app/page.tsx` and the root layout remain byte-identical to current main. `/approve` uses the persistent
+   `ProductWorkspace` provider tree; it does not mount a second shell or a duplicate set of stores.
 
 No safety or test gate was weakened; no test was skipped or deleted.
 
@@ -116,18 +123,18 @@ owner's wallet signature.
 | --- | --- | --- |
 | AC-1 Consumer OAuth with a Claude custom connector and ChatGPT developer mode | **Protocol complete; live connection NOT YET DONE (owner-run)** | Discovery, CIMD (the real Claude, Claude Code and ChatGPT documents), consent, PKCE, token, refresh, revocation, 401/403 verified by PostgreSQL tests and in a real browser (DCR loopback client). No Preview with these variables existed during the build. |
 | AC-2 Authoring of one-action and multi-step strategies | Done | `step-list.test.ts`, gateway tests |
-| AC-3 In-chat execution (EVM testnet, Solana devnet, lending composition) through the best verified adapter | **Done in a mocked MCP Apps host on MOCKED chains**; live hosts NOT YET | `e2e/mcp-in-chat.spec.ts`: router testnet (2 wallet signatures), Orca devnet swap with SIWS (1 signature), lending composition (5 signatures); signing window adapter (B); only the owner's (test) wallet signs |
+| AC-3 In-chat execution (EVM testnet, Solana devnet, lending composition) through the best verified adapter | **Backend MOCKED lifecycle verified; current main UI blocks MOCKED financial authorization**; live hosts NOT YET | Integrated browser: wallet proofs, proposal application, simulation, blocked Review/Execute and prepared/simulated status. PostgreSQL journey: owner-driven EVM execution and reconciliation; Solana/lending lifecycle remains covered by the full service/compiler/executor/reconciler suites. Signing-window adapter (B). |
 | AC-4 `/approve` fallback | Done | The text result carries the link; the browser suite drives `/approve` directly |
 | AC-5 Wallet-environment matrix | Partially (see §6) | Owner experiments pending |
 | AC-6 Authority invariants | Done | no signing/sending tool; output guard; mainnet policy tests; isolated policy-enabled test; no-model regression |
-| AC-7 Mocked E2E with a minimal MCP Apps host (EVM + Solana) | Done | `e2e/mcp-in-chat.spec.ts` (5 tests), in the CI browser stage |
+| AC-7 Mocked E2E with a minimal MCP Apps host (EVM + Solana) | Done with current main’s financial authorization boundary intact | `e2e/mcp-in-chat.spec.ts` (5 tests), in the CI browser stage; no browser financial transaction. |
 
 ## 6. Wallet-environment matrix (AC-5)
 
 | Host | Platform | Namespace | Adapter | Status |
 | --- | --- | --- | --- | --- |
-| Minimal MCP Apps test host (Chromium) | desktop | EVM | B signing window | **VERIFIED (mocked host, MOCKED chain)** |
-| Minimal MCP Apps test host (Chromium) | desktop | Solana | B signing window | **VERIFIED (mocked host, MOCKED chain)** |
+| Minimal MCP Apps test host (Chromium) | desktop | EVM | B signing window | **VERIFIED (mocked host, ownership proof; MOCKED financial authorization blocked by current main)** |
+| Minimal MCP Apps test host (Chromium) | desktop | Solana | B signing window | **VERIFIED (mocked host, ownership proof; MOCKED financial authorization blocked by current main)** |
 | any | any | EVM, Solana | E `/approve` link | **VERIFIED (browser, MOCKED chains)** |
 | Claude web / desktop | desktop | EVM, Solana | B signing window (`ui/open-link`; Claude asks for confirmation unless allowlisted) | NOT TESTED (owner) |
 | ChatGPT (developer mode) | desktop | EVM, Solana | B signing window (`ui/open-link`, `openExternal` fallback with `redirect_domains`) | NOT TESTED (owner) |
@@ -141,7 +148,7 @@ If the owner's experiments show that B, C and E are insufficient for a reliable 
 
 ## 7. Tests and exact results
 
-Run locally on 2026-10-06 (Node 24.21.0, pnpm 11.22.0, loopback PostgreSQL 18, Chromium headless shell 1243), branch head
+Historical pre-rebase results, run locally on 2026-10-06 (Node 24.21.0, pnpm 11.22.0, loopback PostgreSQL 18, Chromium headless shell 1243), branch head
 before this report commit:
 
 | Gate | Result |
@@ -188,8 +195,8 @@ New tests by concern:
 - General multi-step sequences are composed and reviewed per step but not executable (`MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED`);
   the sequential runner is the immediate follow-up and needs no schema, handoff or panel redesign.
 - Solana flows do not bind runs to a wallet session (the router flows do); the handoff binds the claim to the SIWS wallet.
-- `pnpm audit` fails on `main` and on this branch because of the pre-existing `source-map-js` advisory (fix eligible after
-  2026-10-07T14:08Z); the gate was not weakened.
+- Current main’s `source-map-js@1.2.2` security resolution and exact temporary owner-approved Colosseum waiver are
+  preserved. The integrated branch passes `pnpm audit --audit-level low` with zero vulnerabilities; the threshold is unchanged.
 
 ## 9. Owner actions
 
@@ -204,10 +211,10 @@ New tests by concern:
 
 ## 10. Final delivery items
 
-1. **Branch**: `claude/build-mcp-002` (stacked on `claude/build-mcp-001` @ `4b99acc`).
+1. **Branch**: `claude/build-mcp-002` (rebased onto authoritative main `a23a77d2a1ea93decc6904ea039d7fe4278240aa`).
 2. **Final commit**: the head of `claude/build-mcp-002` that contains this report (a document cannot name its own SHA; see
    `git log` and the delivery message).
-3. **PR**: not opened (owner instruction: only after PR #63 merges and this branch is rebased onto the new `main`).
+3. **PR**: targets `main`; see the delivery message for its URL and current CI status after integration validation. No merge or automatic merge is authorized.
 4. **OAuth**: OAuth 2.1 authorization code + PKCE S256 for public clients per the MCP authorization specification 2026-07-28:
    RFC 9728 protected resource metadata, RFC 8414 server metadata, Client ID Metadata Documents, RFC 7591 (narrow, optional),
    RFC 7009 revocation, RFC 8707 resource binding, RFC 9207 `iss`, RFC 6750 challenges, refresh-token rotation.
