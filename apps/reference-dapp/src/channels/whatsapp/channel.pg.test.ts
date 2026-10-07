@@ -194,6 +194,19 @@ describe('BUILD-CHANNELS-001 WhatsApp channel (PostgreSQL, fixture provider, MOC
     for (const plain of ['seed phrase', 'alpha bravo', stranger, USER_BSUID, USER_PHONE, 'supply 2 USDC']) expect(everything, plain).not.toContain(plain);
   });
 
+  it('erases a crashed turn\'s payload on the next delivery instead of processing it late (no scheduler)', async () => {
+    const d = deployment(), past = new Date(Date.now() - 20 * 60_000), id = messageId();
+    // The turn never runs (the instance died after acknowledging): the event stays PENDING with its encrypted payload.
+    await handleWhatsAppWebhook(webhookRequest(inbound([{ id, text: SUPPLY('8') }]), d.appSecret), { env: d.env, host: d.host, runtime: recordingRuntime([]),
+      transport: fixtureTransport(d.sent), interpreter: null, now: () => past, schedule: () => undefined });
+    const stranded = async () => (await t.db.query(`SELECT status, outcome, payload_ciphertext IS NOT NULL AS payload FROM channel_events WHERE received_at = $1`, [past])).rows;
+    expect(await stranded()).toEqual([{ status: 'PENDING', outcome: null, payload: true }]);
+    const sent = d.sent.length;
+    await d.post(statuses([{ id: 'wamid.unrelated2', status: 'read' }]));
+    expect(await stranded()).toEqual([{ status: 'FAILED', outcome: 'EXPIRED_UNPROCESSED', payload: false }]);
+    expect(d.sent.length).toBe(sent);
+  });
+
   it('applies provider delivery reports to the outbox by the echoed correlation id', async () => {
     const d = deployment();
     await d.say('help');

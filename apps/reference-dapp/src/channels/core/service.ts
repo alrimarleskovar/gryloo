@@ -71,7 +71,9 @@ export function createChannelService(ctx: ChannelContext) {
     }
     let applied = 0;
     for (const d of deliveries) if (await store.applyDelivery(d.correlationId, keyedDigest(keys.provider, d.providerMessageId), d.status, d.errorCode, now)) applied++;
-    if (Math.random() < 0.1) await store.purge(now).catch(() => undefined);
+    // Retention without a scheduler: every authenticated delivery erases what has outlived its window (a crashed turn's payload, an
+    // unsent body, idle state and addresses, old records). A failure here never blocks the delivery.
+    await store.purge(now).catch(() => undefined);
     log.info('channel.ingest', { channel: adapter.channel, events: messages.length, duplicates, ignored, deliveries: applied });
     return { conversations: [...touched], duplicates, ignored };
   }
