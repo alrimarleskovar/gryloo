@@ -6,7 +6,7 @@
  * (/approve → fresh simulation → Strategy Manifest Review → own wallet signature). Nothing here signs, submits or approves: every
  * server action re-verifies the owner's wallet session, and the only way forward from a proposal is the shared approval flow.
  */
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { automationHistory, automationOverview, automationsAvailability, changeAutomationState, createAutomation, createTelegramLinkCode, dismissAutomationOccurrence,
   openAutomationOccurrence, prepareWatchProposal, rebindAutomation, unlinkTelegram } from '../app/automation-action';
 import { listWorkflows } from '../app/workflow-action';
@@ -53,7 +53,8 @@ const ERROR_TEXT: Readonly<Record<string, string>> = {
   AUTOMATION_OCCURRENCE_EXPIRED: 'This proposal has expired.', AUTOMATION_OCCURRENCE_DISMISSED: 'This proposal was dismissed.', STRATEGY_STALE: 'This proposal is no longer reproducible.',
   AUTOMATION_ACTION_ASSET_MISMATCH: 'The action must trade the asset the condition watches.', HANDOFF_RATE_LIMITED: 'Too many reviews opened recently. Try again later.',
   HANDOFF_PENDING_LIMIT: 'Too many open reviews for this automation. Finish or dismiss one first.', AUTOMATION_LINK_RATE_LIMITED: 'Too many codes requested. Try again later.',
-  AUTOMATION_TELEGRAM_NOT_AVAILABLE: 'Telegram notifications are not available on this deployment.' };
+  AUTOMATION_TELEGRAM_NOT_AVAILABLE: 'Telegram notifications are not available on this deployment.',
+  AUTOMATION_WALLET_NAMESPACE_MISMATCH: 'This network needs a wallet of another kind than the one you proved. Only your own wallet can approve its proposals.' };
 
 const usd = (value: string) => { const [whole, fraction = ''] = value.split('.'); return `$${whole!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction ? `.${fraction.slice(0, 2).padEnd(2, '0')}` : ''}`; };
 function changeOf(o: ObservationView): string | null {
@@ -140,10 +141,10 @@ function PendingCard({ o, rule, highlighted, capabilities, busy, run, onPropose,
         : 'priceUsd' in obs ? <span className="muted">{t(obs.asset === 'BTC' ? 'No BTC swap route in FloFi yet' : 'Not executable on this deployment')}</span> : null}</li>)}</ul>
       : <p className="automation-action-line"><strong>{text.action(o.action)}</strong>{o.action?.fundsClass === 'REAL_FUNDS' && <> · {t('REAL FUNDS')}</>}</p>}
     {trade && <form className="automation-inline-form" aria-label={`${t(trade.side === 'BUY' ? 'Buy' : 'Sell')} ${trade.asset}`} onSubmit={event => void prepare(event)}>
-      <label>{t('Network')}<select value={trade.network} onChange={e => setTrade({ ...trade, network: e.currentTarget.value })}>
+      <label>{t('Network')}<select aria-label={t('Network')} value={trade.network} onChange={e => setTrade({ ...trade, network: e.currentTarget.value })}>
         {routes(trade.asset).map(r => <option key={r.network} value={r.network}>{t(r.networkLabel)}</option>)}</select></label>
       <label>{t('Amount ({0})', trade.side === 'BUY' ? routes(trade.asset).find(r => r.network === trade.network)?.quote ?? '' : routes(trade.asset).find(r => r.network === trade.network)?.base ?? '')}
-        <input inputMode="decimal" value={trade.amount} onChange={e => setTrade({ ...trade, amount: e.currentTarget.value.trim() })} required/></label>
+        <input inputMode="decimal" aria-label={t('Amount')} value={trade.amount} onChange={e => setTrade({ ...trade, amount: e.currentTarget.value.trim() })} required/></label>
       <div className="automation-row-actions"><button type="submit" className="workspace-action" disabled={busy}>{t('Prepare in Build')}</button>
         <button type="button" className="workspace-action" onClick={() => setTrade(null)}>{t('Cancel')}</button></div>
       <p className="muted">{t('This prepares an ordinary FloFi proposal in Build. Nothing is signed: apply it, simulate and review the Strategy Manifest first.')}</p>
@@ -252,7 +253,10 @@ function CreateForm({ capabilities, owner, busy, run }: { capabilities: Capabili
     event.preventDefault();
     if (await run(() => createAutomation(owner, inputOf(d)), 'Automation created. FloFi will ask you before every execution.')) setD(prev => ({ ...initialDraft(), kind: prev.kind, timezone: prev.timezone }));
   }
-  const field = (label: string, control: ReactNode, wide = false) => <label className={wide ? 'automation-field automation-field-wide' : 'automation-field'}>{label}{control}</label>;
+  // The visible label is also the control's accessible name (a wrapped select would otherwise add its current value to the name).
+  const named = (control: ReactNode, label: string) => isValidElement<{ 'aria-label'?: string }>(control) && (control.type === 'input' || control.type === 'select')
+    ? cloneElement(control, { 'aria-label': label }) : control;
+  const field = (label: string, control: ReactNode, wide = false) => <label className={wide ? 'automation-field automation-field-wide' : 'automation-field'}>{label}{named(control, label)}</label>;
   const periodSelect = (value: string, onChange: (v: string) => void, label: string) => <select aria-label={t(label)} value={value} onChange={e => onChange(e.currentTarget.value)}>
     {['DAY', 'WEEK', 'MONTH'].map(p => <option key={p} value={p}>{t(p.toLowerCase())}</option>)}</select>;
   return <form className="automation-form" aria-label={t('Create an automation')} onSubmit={event => void submit(event)}>
@@ -282,7 +286,7 @@ function CreateForm({ capabilities, owner, busy, run }: { capabilities: Capabili
         {field(t('Check every'), <select value={d.every} onChange={e => set('every', e.currentTarget.value)}>
           {['5', '15', '30', '60', '240', '1440'].map(m => <option key={m} value={m}>{t('{0} minutes', m)}</option>)}</select>)}
       </>}
-      {field(t('Time zone'), <><input list="automation-zones" value={d.timezone} onChange={e => set('timezone', e.currentTarget.value.trim())} required/>
+      {field(t('Time zone'), <><input list="automation-zones" aria-label={t('Time zone')} value={d.timezone} onChange={e => set('timezone', e.currentTarget.value.trim())} required/>
         <datalist id="automation-zones">{zones().map(z => <option key={z} value={z}/>)}</datalist></>)}
     </div>
     {d.kind === 'DAILY_WATCH' ? <fieldset className="automation-assets"><legend>{t('Assets to check')}</legend>
@@ -311,9 +315,9 @@ function CreateForm({ capabilities, owner, busy, run }: { capabilities: Capabili
       </fieldset>}
     {d.kind !== 'DAILY_WATCH' && <fieldset className="automation-limits"><legend>{t('Limits')}</legend><div className="automation-grid">
       {field(t('Max per execution'), <input inputMode="decimal" value={d.maxPerExecution} placeholder={d.amount} onChange={e => set('maxPerExecution', e.currentTarget.value.trim())}/>)}
-      {field(t('Max amount per period'), <span className="automation-pair"><input inputMode="decimal" value={d.periodAmount} onChange={e => set('periodAmount', e.currentTarget.value.trim())}/>
+      {field(t('Max amount per period'), <span className="automation-pair"><input inputMode="decimal" aria-label={t('Max amount per period')} value={d.periodAmount} onChange={e => set('periodAmount', e.currentTarget.value.trim())}/>
         {periodSelect(d.periodAmountPeriod, v => set('periodAmountPeriod', v), 'Amount period')}</span>)}
-      {field(t('Max proposals per period'), <span className="automation-pair"><input inputMode="numeric" value={d.periodCount} onChange={e => set('periodCount', e.currentTarget.value.trim())}/>
+      {field(t('Max proposals per period'), <span className="automation-pair"><input inputMode="numeric" aria-label={t('Max proposals per period')} value={d.periodCount} onChange={e => set('periodCount', e.currentTarget.value.trim())}/>
         {periodSelect(d.periodCountPeriod, v => set('periodCountPeriod', v), 'Proposal period')}</span>)}
       {field(t('Cooldown (minutes)'), <input inputMode="numeric" value={d.cooldown} onChange={e => set('cooldown', e.currentTarget.value.trim())}/>)}
       {field(t('Max slippage (bps)'), <input inputMode="numeric" value={d.maxSlippage} onChange={e => set('maxSlippage', e.currentTarget.value.trim())}/>)}
@@ -344,8 +348,15 @@ function Notifications({ overview, owner, busy, run }: { overview: OverviewView;
 }
 
 // ── Workspace ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-export function AutomationsWorkspace({ owner, proof, onPropose }: Partial<AutomationNavigation>) {
+/** The shell builds a new owner object on every render: effects key on the owner's identity, never on the object. */
+function useStableOwner(owner: WorkflowOwner | null | undefined): WorkflowOwner | null {
+  const key = owner ? `${owner.namespace}:${owner.address}` : null;
+  return useMemo(() => owner ? { namespace: owner.namespace, address: owner.address } : null, [key]);
+}
+
+export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Partial<AutomationNavigation>) {
   const { t } = useLocale(), text = useAutomationText();
+  const owner = useStableOwner(ownerProp);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [overview, setOverview] = useState<OverviewView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -426,8 +437,9 @@ export function AutomationsWorkspace({ owner, proof, onPropose }: Partial<Automa
 }
 
 /** The in-app notice of proposals waiting for the owner, shown on the product stages while there are any. */
-export function AutomationInbox({ owner, proven, open }: { owner: WorkflowOwner | null; proven: boolean; open: () => void }) {
+export function AutomationInbox({ owner: ownerProp, proven, open }: { owner: WorkflowOwner | null; proven: boolean; open: () => void }) {
   const { t } = useLocale();
+  const owner = useStableOwner(ownerProp);
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!owner || !proven) { setCount(0); return; }

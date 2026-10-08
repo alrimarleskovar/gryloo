@@ -107,13 +107,17 @@ export function createAutomationService(deps: ServiceDeps) {
     if (!gates.allowed) refuse(gates.reason ?? 'AUTOMATION_ACTION_NOT_ENABLED');
   }
 
-  async function capabilities(): Promise<CapabilityView> {
+  /** The wallet namespace that must claim a strategy's approval (Solana networks need a Solana wallet). */
+  const namespaceOf = (strategy: StrategySpec): Owner['namespace'] => strategy.action === 'swap' && strategy.network.startsWith('solana') ? 'solana' : 'eip155';
+  async function capabilities(owner: Owner): Promise<CapabilityView> {
     const routes: RouteCapability[] = [], unavailable: { asset: ObservedAsset; code: string }[] = [];
     for (const asset of OBSERVED_ASSETS) {
       if (!EXECUTION_ROUTES[asset].length) { unavailable.push({ asset, code: `${asset}_EXECUTION_ROUTE_UNAVAILABLE` }); continue; }
       for (const route of EXECUTION_ROUTES[asset]) {
         const probe = routeStrategy({ asset, side: 'BUY', network: route.network, amount: '1', slippageBps: 50 });
-        const gates = probe.ok ? await gatesOf(probe.strategy) : { allowed: false, reason: probe.code };
+        // Only the owner's own wallet can claim a proposal, so a route of another wallet namespace is never offered.
+        const gates = !probe.ok ? { allowed: false, reason: probe.code } : namespaceOf(probe.strategy) !== owner.namespace
+          ? { allowed: false, reason: 'AUTOMATION_WALLET_NAMESPACE_MISMATCH' } : await gatesOf(probe.strategy);
         routes.push({ asset, network: route.network, networkLabel: NETWORKS[route.network].label, quote: route.quote, base: route.base, executable: gates.allowed,
           reason: gates.reason, fundsClass: NETWORKS[route.network].class === 'MAINNET' ? 'REAL_FUNDS' : 'TEST_FUNDS' });
       }
@@ -160,7 +164,7 @@ export function createAutomationService(deps: ServiceDeps) {
       for (const o of pending) if (o.state === 'PENDING_OWNER' || o.state === 'APPROVAL_CREATED') counts.set(o.ruleId, (counts.get(o.ruleId) ?? 0) + 1);
       const linked = deps.telegramAvailable ? (await targetsOf(deps.db, config.tenantId, owner, now)).find(t => t.channel === 'TELEGRAM') ?? null : null;
       return { rules: rules.map(r => ruleView(r, counts.get(r.ruleId) ?? 0)), pending: pending.filter(o => o.state === 'PENDING_OWNER' || o.state === 'APPROVAL_CREATED'),
-        recent: [...pending.filter(o => o.state === 'COMPLETED'), ...recent], capabilities: await capabilities(),
+        recent: [...pending.filter(o => o.state === 'COMPLETED'), ...recent], capabilities: await capabilities(owner),
         telegram: { available: deps.telegramAvailable, linked: linked ? { expiresAt: linked.expiresAt.toISOString() } : null } };
     },
 
@@ -169,6 +173,8 @@ export function createAutomationService(deps: ServiceDeps) {
       if (!validated.ok) refuse(validated.code);
       const v = validated.ok ? validated.value : refuse('AUTOMATION_INPUT_INVALID');
       const binding = v.action ? await bind(owner, v.action) : null;
+      // Only the owner's own wallet can claim a proposal: its namespace must be the action's.
+      if (binding && namespaceOf(binding.strategy) !== owner.namespace) refuse('AUTOMATION_WALLET_NAMESPACE_MISMATCH');
       if (binding) await bindingAllowed({ definition: v.definition }, binding);
       const condition = v.definition.condition;
       if (condition && binding) {
@@ -270,6 +276,7 @@ export function createAutomationService(deps: ServiceDeps) {
       if (!OBSERVED_ASSETS.includes(request.asset) || !watched.includes(request.asset)) refuse('AUTOMATION_ASSET_NOT_WATCHED');
       const route = routeStrategy({ ...request, network: request.network as never });
       if (!route.ok) refuse(route.code);
+      if (route.ok && namespaceOf(route.strategy) !== owner.namespace) refuse('AUTOMATION_WALLET_NAMESPACE_MISMATCH');
       const workflow = composeWorkflowBound(route.ok ? route.strategy : null, undefined);
       if (!workflow.ok || workflow.steps.length !== 1) refuse(workflow.ok ? 'AUTOMATION_ACTION_UNSUPPORTED' : workflow.code);
       const composition = workflow.ok ? workflow.steps[0]! : refuse('AUTOMATION_ACTION_UNSUPPORTED');

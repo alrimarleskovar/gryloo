@@ -87,6 +87,13 @@ describe('BUILD-AUTOMATION-001 rules: owner isolation and optimistic concurrency
     await expect(h.service().create(OWNER_A, weeklyDca({ action: { kind: 'ROUTE', asset: 'ETH', side: 'BUY', network: 'base', amount: '50', slippageBps: 50 } })))
       .rejects.toThrow('OWNER_EXECUTION_NOT_IMPLEMENTED');
     await expect(h.service().create(OWNER_A, weeklyDca({ limits: { ...weeklyDca().limits, maxAmountPerExecution: '49' } }))).rejects.toThrow('LIMIT_AMOUNT_PER_EXECUTION');
+    // A Solana route needs a Solana wallet to claim: never offered to (or created for) an EVM owner.
+    await expect(h.service().create(OWNER_A, weeklyDca({ action: { kind: 'ROUTE', asset: 'SOL', side: 'BUY', network: 'solana-devnet', amount: '1', slippageBps: 50 } })))
+      .rejects.toThrow('AUTOMATION_WALLET_NAMESPACE_MISMATCH');
+    expect((await h.service().overview(OWNER_A)).capabilities.routes.find(r => r.network === 'solana-devnet')).toMatchObject({ executable: false,
+      reason: 'AUTOMATION_WALLET_NAMESPACE_MISMATCH' });
+    expect((await h.service().overview(OWNER_A)).capabilities.routes.find(r => r.network === 'base-sepolia')).toMatchObject({ executable: true, reason: null });
+    expect((await h.service().overview(OWNER_A)).capabilities.unavailable).toEqual([{ asset: 'BTC', code: 'BTC_EXECUTION_ROUTE_UNAVAILABLE' }]);
     const btcAlert = await h.service().create(OWNER_A, ethDip({ condition: { type: 'PERCENT_DROP', asset: 'BTC', reference: '100000', percent: '5', checkEveryMinutes: 60 }, action: null }));
     expect(btcAlert).toMatchObject({ kind: 'PRICE_TRIGGER', action: null, condition: { effectiveThreshold: '95000' } });
   });

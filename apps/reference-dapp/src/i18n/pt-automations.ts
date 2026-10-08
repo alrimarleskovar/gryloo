@@ -104,6 +104,8 @@ export const portugueseAutomations: Readonly<Record<string, string>> = {
   'This proposal has expired.': 'Esta proposta expirou.', 'This proposal was dismissed.': 'Esta proposta foi recusada.', 'This proposal is no longer reproducible.': 'Esta proposta já não é reproduzível.',
   'The action must trade the asset the condition watches.': 'A ação tem de negociar o ativo que a condição observa.', 'Too many reviews opened recently. Try again later.': 'Demasiadas revisões abertas recentemente. Tente mais tarde.',
   'Too many open reviews for this automation. Finish or dismiss one first.': 'Demasiadas revisões abertas para esta automação. Conclua ou recuse uma primeiro.',
+  'This network needs a wallet of another kind than the one you proved. Only your own wallet can approve its proposals.':
+    'Esta rede precisa de uma carteira de outro tipo do que a que verificou. Só a sua própria carteira pode aprovar as propostas.',
   'Too many codes requested. Try again later.': 'Demasiados códigos pedidos. Tente mais tarde.', 'Telegram notifications are not available on this deployment.': 'As notificações do Telegram não estão disponíveis neste ambiente.',
   // /approve
   'Open this proposal from FloFi Automations': 'Abra esta proposta nas Automações do FloFi',

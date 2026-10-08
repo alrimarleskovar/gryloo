@@ -20,7 +20,7 @@ authority). Neither is cherry-picked, merged, rebased or copied; nothing of Mode
 | Canonical action | StrategySpec v1 + `composeWorkflowBound` / `semanticWorkflowHash` (`src/engine`, `src/platform/strategy.ts`): the same IR and workflow hash as the app, MCP, the Developer API and Channels |
 | Owner approval | The requester-neutral handoff platform (`requestApproval`, `createPgHandoffStore`, `approvalLinkScheme`, `ApprovalContributor`/`ClaimPolicy`, `/approve`, `verifyHandoff`, `sharedRuns`) |
 | Gates and policy | `evaluateWorkflowGates` (supported by code / enabled by deployment / enabled by policy), a dedicated automation `HandoffPolicy` |
-| Durable work | `work_items` (dedupe, leases, fenced settlement, retry/backoff, DEAD) through `createPostgresWorkQueue`; the Railway worker loop and sweep; idempotent handlers |
+| Durable work | `work_items` (dedupe, leases, fenced settlement, retry/backoff, DEAD) through `createPostgresWorkQueue` and `createWorker` (the same claim/settle loop the Railway worker uses); idempotent handlers |
 | Owner identity | HttpOnly EIP-4361 / Sign-In With Solana sessions (`currentWalletPrincipals`), the `WorkflowOwner` shape of saved workflows |
 | Saved workflows | Migration `0008` documents: an automation can be created from a saved single-swap workflow and stays bound to its exact hash and version |
 | Channels | Channel Core outbox, delivery, retries and the Telegram adapter for automation notifications; no second bot stack |
@@ -74,9 +74,12 @@ states). `DUE` is not persisted: an occurrence is created, limit-checked and que
 
 ## 6. Scheduler semantics
 
-- **Discovery**: `/api/automations/dispatch` (Vercel Cron or any scheduler, bearer) and, optionally, the Railway worker's sweep insert
-  `automation.evaluate` work items for ACTIVE rules whose `next_evaluation_at <= now`, deduplicated by `<rule>:<next_evaluation_at>`.
-- **Processing**: any worker (the dispatch drains `automation.*` items itself; the Railway worker processes them when configured).
+- **Discovery**: `/api/automations/dispatch` (Vercel Cron or any scheduler, bearer) inserts `automation.evaluate` work items for ACTIVE
+  rules whose `next_evaluation_at <= now`, deduplicated by `<rule>:<next_evaluation_at>`.
+- **Processing**: the same endpoint claims only `automation.*` items (fenced leases) and runs their handlers; any number of concurrent
+  calls and replicas is safe. (Implementation note: the Railway worker runs `backend/main.ts` under Node's TypeScript stripping, which
+  cannot load the extensionless engine modules, so it does not host automation handlers in this build; it now claims only the work kinds
+  it has handlers for, so it can never dead-letter automation items. Moving evaluation there later needs no schema change.)
   Phase 1 reads the rule and makes the read-only observation (outside any transaction). Phase 2 locks the rule row, re-checks state,
   version and due time (a paused, archived, re-bound or already-advanced rule is a no-op), applies the trigger state machine and
   limits, inserts the occurrence `ON CONFLICT DO NOTHING`, advances `next_evaluation_at`, writes history and enqueues the notification —
@@ -84,8 +87,8 @@ states). `DUE` is not persisted: an occurrence is created, limit-checked and que
 - **Identity**: schedule slot = local date + local time + zone (`slot:2026-10-12T09:00`); price trigger = arm epoch
   (`price:<epoch>`); watch report = slot. At-least-once delivery therefore yields at most one occurrence per trigger event.
 - **Schedules**: `DAILY` and `WEEKLY` (ISO weekday) at `HH:MM` in an IANA zone, computed from the zone's rules at every slot (never a
-  fixed UTC hour). DST gap: a local time that does not exist runs at the first instant after the gap (02:30 → 03:30). DST overlap: the
-  first (earlier) instant. Resolution: one minute.
+  fixed UTC hour). DST gap: a local time that does not exist is shifted forward by the gap (02:30 → 03:30 in a one-hour gap). DST
+  overlap: the first (earlier) instant (Temporal's `compatible` rule). Resolution: one minute.
 - **Missed-run policy (`LATEST_WITHIN_GRACE`)**: after downtime only the most recent due slot can produce a proposal, and only within
   6 hours of its time; all earlier slots are recorded once as `MISSED` (with a count) and never proposed. Ten missed weeks never become
   ten purchases.

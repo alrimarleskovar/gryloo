@@ -158,6 +158,22 @@ if (channelHarness) {
 }
 const channelServerEnv = channelHarness ? channelE2eEnv() : {};
 
+// BUILD-AUTOMATION-001: Automations on the embedded PostgreSQL runtime with the FIXTURE price source (a per-run JSON file under /tmp the
+// specs rewrite; never a live price provider), the deterministic test clock (refused on any hosted deployment) and the bearer-only
+// scheduler endpoint. Per-run secrets are generated here and inherited by the workers. No price provider, chat or chain is contacted.
+const automationHarness = process.env.GRYLOO_AUTOMATION_E2E === 'FIXTURE_LOOPBACK_ONLY';
+if (process.env.GRYLOO_AUTOMATION_E2E && !automationHarness) throw new Error('Automation E2E permits only the fixture price source on loopback');
+if (automationHarness && !cloudRuntime && !mcpHarness) throw new Error('Automation E2E runs on an embedded loopback runtime');
+if (automationHarness) {
+  process.env.FLOFI_E2E_AUTOMATION_SECRET ??= randomBytes(32).toString('hex');
+  process.env.FLOFI_E2E_AUTOMATION_DISPATCH_TOKEN ??= randomBytes(24).toString('base64url');
+  process.env.FLOFI_E2E_AUTOMATION_PRICES ??= join(mkdtempSync('/tmp/flofi-automation-e2e-'), 'prices.json');
+}
+const automationServerEnv = automationHarness ? { FLOFI_AUTOMATIONS: 'enabled', FLOFI_AUTOMATION_SECRET: process.env.FLOFI_E2E_AUTOMATION_SECRET!,
+  FLOFI_PUBLIC_ORIGIN: E2E_APP_ORIGIN, FLOFI_AUTOMATION_TEST_CLOCK: 'enabled', FLOFI_AUTOMATION_PRICE_SOURCE: 'fixture',
+  FLOFI_AUTOMATION_PRICE_FIXTURE: process.env.FLOFI_E2E_AUTOMATION_PRICES!,
+  FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256: createHash('sha256').update(process.env.FLOFI_E2E_AUTOMATION_DISPATCH_TOKEN!).digest('hex') } : {};
+
 // BUILD-COPILOT-001: the Copilot runs in browser tests only on committed replay answers; a live model is never called from tests.
 const copilot = process.env.FLOFI_COPILOT;
 if (copilot !== undefined && copilot !== 'off' && copilot !== 'replay') throw new Error('Copilot E2E permits only FLOFI_COPILOT=replay');
@@ -221,7 +237,7 @@ export default defineConfig({
       ...(cardHarness ? { GRYLOO_CARD_HARNESS: 'MOCKED_LOOPBACK_ONLY', WOOVI_APP_ID: SERVER_ONLY_WOOVI_APP_ID, WOOVI_ENVIRONMENT: 'sandbox' } : {}),
       ...(cloudRuntime ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {}),
       ...mcpServerEnv, ...swapReadEnv,
-      ...channelServerEnv,
+      ...channelServerEnv, ...automationServerEnv,
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });
