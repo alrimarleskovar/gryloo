@@ -7,6 +7,24 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-DEVELOPER-001 — FloFi for Developers (Developer API, SDK, webhooks)
+
+**Status: IMPLEMENTATION COMPLETE ON A STACKED BRANCH — MOCKED/LOCAL-INTEGRATION EVIDENCE ONLY; NO LIVE PREVIEW SESSION; NO
+TRANSACTION; NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.** Branch `claude/build-developer-001`, stacked on BUILD-MCP-002 (`8f9650a`).
+A third-party **server** application integrates FloFi end to end with a dependency-free TypeScript SDK (Apache-2.0) over
+`/api/developer/v1` (10 endpoints + an internal scheduler endpoint): capability discovery → immutable StrategySpec (same workflow
+hash as the app and MCP) → validate → read-only simulation preview → approval handoff → the end user's unchanged FloFi flow on
+`/approve` (wallet proof, fresh simulation, Strategy Manifest Review, explicit approval, the user's own wallet signature) → status
+and the canonical Evidence Bundle of runs the user chooses to share (off by default) → Standard Webhooks notifications derived
+from durable state. The first commit extracted the shared engine into `src/platform` (MCP unchanged); Phase 2A generalized the
+approval handoff to one requester-neutral model (migration `0006`) that MCP, the Developer API and future channels share;
+developer state is migration `0007`. **An API key has zero financial authority**: no endpoint signs, submits or approves; sandbox
+keys are test-funds only; live keys and mainnet are refused. Projects and keys come from an operator CLI. Evidence: unit,
+PostgreSQL and browser suites, including the SDK-only third-party journey on MOCKED loopback chains with signed loopback webhooks.
+Owner actions: a Preview with a testnet wallet for live acceptance, a scheduler for prompt webhooks, legal review before any
+production or mainnet use. See the [plan](builds/BUILD-DEVELOPER-001-PLAN.md), [report](builds/BUILD-DEVELOPER-001-REPORT.md),
+[developer docs](developer/README.md) and [operator guide](deploy/DEVELOPER.md).
+
 ## BUILD-MCP-002 — Consumer OAuth, trusted approval handoff and in-chat execution
 
 **Status: INTEGRATED ON CURRENT MAIN — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO PUBLIC

@@ -163,6 +163,10 @@ jobs:
           export GRYLOO_COW_RUNTIME="$RUNNER_TEMP/gryloo-cow-e2e"
           node scripts/guarded-release-browser.mjs product
           pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-route-presentation.spec.ts
+          # BUILD-DEVELOPER-001: a third-party server integrates with the SDK alone (operator CLI key, strategy, approval, signed loopback
+          # webhooks) and the end user reaches FloFi's Review, where MOCKED financial authority stays blocked (no wallet transaction), on the
+          # same embedded loopback harness (no public network, no real transaction). The full lifecycle is proven by journey.pg.test.ts.
+          GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test developer-journey.spec.ts
           # BUILD-MCP-002: consumer OAuth and in-chat approval on disposable loopback infrastructure.
           GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-in-chat.spec.ts mcp-route-presentation.spec.ts
           # BUILD-007: only official digest-pinned test-time artifacts are downloaded, outside Git.
@@ -285,6 +289,8 @@ jobs:
                   'packages/reference-executor/package.json':('@defi-workflow-engine/reference-executor','AGPL-3.0-only'),
                   'packages/reference-reconciler/package.json':('@defi-workflow-engine/reference-reconciler','AGPL-3.0-only'),
                   'packages/cloud-runtime/package.json':('@defi-workflow-engine/cloud-runtime','AGPL-3.0-only'),
+                  # BUILD-DEVELOPER-001: the thin Developer API client (zero dependencies, empty lock importer).
+                  'packages/developer-sdk/package.json':('@defi-workflow-engine/developer-sdk','Apache-2.0'),
                   'apps/reference-dapp/package.json':('@defi-workflow-engine/reference-dapp','AGPL-3.0-only'),
               }
               for manifest_path,(name,license_id) in workspace.items():
@@ -295,8 +301,9 @@ jobs:
               lock=pathlib.Path('pnpm-lock.yaml').read_text()
               importer_section=lock.split('\nimporters:\n',1)[1].split('\npackages:\n',1)[0]
               import re
-              importer_paths=set(re.findall(r'(?m)^  (\S[^\n]*):$',importer_section))
-              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','packages/reference-compiler','packages/reference-executor','packages/reference-reconciler','packages/cloud-runtime','apps/reference-dapp'}:
+              # An importer without dependencies is written on one line (`  path: {}`).
+              importer_paths=set(re.findall(r'(?m)^  (\S[^\n:]*):(?: \{\})?$',importer_section))
+              if importer_paths!={'.','packages/workflow-contracts','packages/action-registry','packages/reference-linter','packages/reference-compiler','packages/reference-executor','packages/reference-reconciler','packages/cloud-runtime','packages/developer-sdk','apps/reference-dapp'}:
                   raise SystemExit('Workspace lock importer inventory differs')
               component_refs={component['bom-ref'] for component in components}
               if len(component_refs)!=265 or root_component.get('bom-ref') in component_refs:
@@ -312,8 +319,10 @@ jobs:
                   targets=entry.get('dependsOn',[])
                   if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets)-all_refs:
                       raise SystemExit('Invalid SBOM dependency references')
-              # pnpm 11.22.0 omits workspace components; the exact nine local
+              # pnpm 11.22.0 omits workspace components; the exact ten local
               # manifests and lock importers above are checked independently.
+              if re.search(r'(?m)^  packages/developer-sdk: \{\}$',importer_section) is None:
+                  raise SystemExit('Developer SDK must have no dependencies')
 
               reviewed={
                   '@img/sharp-libvips-darwin-arm64','@img/sharp-libvips-darwin-x64',
@@ -335,7 +344,7 @@ jobs:
                   actual=license_value.get('expression',license_value.get('license',{}).get('id'))
                   if actual!=expected[(name,component['version'])]:
                       raise SystemExit('SBOM license expression changed: '+name)
-              message='Ephemeral CycloneDX 1.6 SBOM: 265 exact registry components, zero workspace components (nine exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
+              message='Ephemeral CycloneDX 1.6 SBOM: 265 exact registry components, zero workspace components (ten exact manifests and importers checked separately), 16 reviewed exceptions with actual licenses, SHA-256 '+hashlib.sha256(raw).hexdigest()
               print(message)
               with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                   summary.write(message+'\n')

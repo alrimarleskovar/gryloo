@@ -12,32 +12,16 @@
  * authentication method (FloFi's server supports public clients only). Accepted documents are cached in PostgreSQL.
  */
 import { createHash } from 'node:crypto';
-import { lookup as dnsLookup } from 'node:dns/promises';
-import { request } from 'node:https';
-import { BlockList, isIP, type LookupFunction } from 'node:net';
-import type { LookupOptions } from 'node:dns';
+import { pinnedHttpsRequest } from '../../platform/pinned-https.ts';
 import type { ClientRecord } from './store.ts';
+
+/** BUILD-DEVELOPER-001: the public-address check and the pinned transport moved to the shared platform (same checks); re-exported. */
+export { isPublicAddress } from '../../platform/pinned-https.ts';
 
 export const CIMD_MAX_BYTES = 5_120;
 export const CIMD_TIMEOUT_MS = 5_000;
 export const CIMD_CACHE_SECONDS = 3_600;
 const MAX_REDIRECT_URIS = 10;
-
-// Separate lists: a BlockList also matches IPv4 addresses against IPv4-mapped IPv6 rules, which would block every IPv4 address.
-const blocked4 = new BlockList(), blocked6 = new BlockList();
-for (const [net, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12],
-  ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
-  ['224.0.0.0', 4], ['240.0.0.0', 4]] as const) blocked4.addSubnet(net, prefix, 'ipv4');
-for (const [net, prefix] of [['::', 127], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64], ['2001::', 23], ['2001:db8::', 32],
-  ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]] as const) blocked6.addSubnet(net, prefix, 'ipv6');
-
-/** True only for a globally routable unicast address. */
-export function isPublicAddress(address: string): boolean {
-  const family = isIP(address);
-  if (family === 4) return !blocked4.check(address, 'ipv4');
-  if (family === 6) return !blocked6.check(address, 'ipv6');
-  return false;
-}
 
 export type ClientIdCheck = { readonly ok: true; readonly url: URL } | { readonly ok: false; readonly reason: string };
 /** A `client_id` FloFi may fetch: an exact HTTPS URL on an allowlisted host with a path. */
@@ -82,33 +66,8 @@ export type FetchedDocument = { readonly status: number; readonly contentType: s
 export type DocumentFetcher = (url: URL) => Promise<FetchedDocument>;
 
 /** GET over HTTPS pinned to a pre-checked public address of the host, with no redirects and hard size/time bounds. */
-export const pinnedHttpsGet: DocumentFetcher = async url => {
-  const addresses = await dnsLookup(url.hostname, { all: true, verbatim: true });
-  if (addresses.length === 0 || !addresses.every(a => isPublicAddress(a.address))) throw new Error('CIMD_ADDRESS_NOT_PUBLIC');
-  const pinned = addresses[0]!;
-  return new Promise<FetchedDocument>((resolve, reject) => {
-    const req = request({ protocol: 'https:', hostname: url.hostname, port: 443, path: url.pathname, method: 'GET', agent: false,
-      headers: { accept: 'application/json', 'user-agent': 'FloFi-MCP-OAuth/1' },
-      // Connect only to the address that was checked above (DNS rebinding cannot swap it); SNI and the certificate use the host.
-      lookup: ((_host: string, options: LookupOptions, callback: (...args: unknown[]) => void) =>
-        options?.all ? callback(null, [{ address: pinned.address, family: pinned.family }]) : callback(null, pinned.address, pinned.family)) as LookupFunction }, response => {
-      const chunks: Buffer[] = [];
-      let size = 0;
-      response.on('data', (chunk: Buffer) => {
-        size += chunk.length;
-        if (size > CIMD_MAX_BYTES) { req.destroy(new Error('CIMD_TOO_LARGE')); return; }
-        chunks.push(chunk);
-      });
-      response.on('end', () => resolve({ status: response.statusCode ?? 0, contentType: String(response.headers['content-type'] ?? ''), body: Buffer.concat(chunks) }));
-      response.on('error', reject);
-    });
-    req.setTimeout(CIMD_TIMEOUT_MS, () => req.destroy(new Error('CIMD_TIMEOUT')));
-    const deadline = setTimeout(() => req.destroy(new Error('CIMD_TIMEOUT')), CIMD_TIMEOUT_MS);
-    req.on('close', () => clearTimeout(deadline));
-    req.on('error', reject);
-    req.end();
-  });
-};
+export const pinnedHttpsGet: DocumentFetcher = url => pinnedHttpsRequest({ url, method: 'GET', headers: { accept: 'application/json', 'user-agent': 'FloFi-MCP-OAuth/1' },
+  maxBytes: CIMD_MAX_BYTES, timeoutMs: CIMD_TIMEOUT_MS, errorPrefix: 'CIMD' });
 
 export type MetadataResult = { readonly ok: true; readonly client: ClientRecord } | { readonly ok: false; readonly reason: string };
 const DISPLAY = /^[\p{L}\p{N} .,'()&+_-]{1,64}$/u;

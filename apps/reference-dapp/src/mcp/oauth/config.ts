@@ -16,7 +16,10 @@
  * account never proves wallet ownership and never authorizes a transaction.
  */
 import { createHash, hkdfSync, timingSafeEqual } from 'node:crypto';
-import { deploymentEnvironment, deploymentTenant, isHostedDeployment } from '../../server/deployment.ts';
+import { deploymentEnvironment, deploymentTenant, publicOrigin } from '../../server/deployment.ts';
+
+/** BUILD-DEVELOPER-001: `publicOrigin` moved to the deployment module (every surface uses it); re-exported for existing importers. */
+export { publicOrigin } from '../../server/deployment.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 export const MCP_SCOPES = Object.freeze(['flofi.strategy', 'flofi.approval', 'flofi.runs'] as const);
@@ -35,7 +38,6 @@ export type OAuthConfig = {
 export type OAuthConfigResult = OAuthConfig | { readonly enabled: false; readonly code: 'MCP_OAUTH_NOT_ENABLED' | 'MCP_OAUTH_CONFIGURATION_INVALID'; readonly reason?: string };
 
 const HOST = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
-const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const invalid = (reason: string) => ({ enabled: false, code: 'MCP_OAUTH_CONFIGURATION_INVALID', reason } as const);
 const sha256 = (value: string) => createHash('sha256').update(value, 'utf8').digest();
 const sameSecret = (a: string, b: string | undefined) => b !== undefined && b !== '' && timingSafeEqual(sha256(a), sha256(b));
@@ -45,16 +47,6 @@ export const deriveKey = (secret: string, label: string) => Buffer.from(hkdfSync
 function hostList(raw: string | undefined, fallback: readonly string[]): readonly string[] | null {
   const hosts = raw === undefined || raw.trim() === '' ? [...fallback] : raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   return hosts.length <= 16 && hosts.every(h => HOST.test(h)) ? Object.freeze([...new Set(hosts)]) : null;
-}
-
-/** The exact origin FloFi is served from: `https://host[:port]`, or `http://` loopback on a local (non-hosted) server only. */
-export function publicOrigin(env: Env): string | null {
-  const raw = env.FLOFI_PUBLIC_ORIGIN ?? '';
-  let url: URL;
-  try { url = new URL(raw); } catch { return null; }
-  if (url.origin !== raw || url.username || url.password) return null;
-  if (url.protocol === 'https:') return url.origin;
-  return url.protocol === 'http:' && LOOPBACK.has(url.hostname) && !isHostedDeployment(env) ? url.origin : null;
 }
 
 export function readOAuthConfig(env: Env): OAuthConfigResult {

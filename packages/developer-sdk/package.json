@@ -1,0 +1,19 @@
+{
+  "name": "@defi-workflow-engine/developer-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Thin TypeScript client for the FloFi Developer API: typed requests, API-key auth, stable errors, idempotency, webhook verification. Server-side only.",
+  "engines": { "node": ">=20" },
+  "sideEffects": false,
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "LICENSE", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

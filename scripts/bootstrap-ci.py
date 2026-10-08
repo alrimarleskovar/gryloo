@@ -226,7 +226,7 @@ BUILD002_REVIEWED_LICENSE_EXCEPTIONS = {'@img/sharp-libvips-darwin-arm64@1.3.4':
 
 BUILD002_DIRECT_VERSIONS = {
     "@xyflow/react": "12.11.6",
-    "next": "16.3.6",
+    "next": "16.3.8",  # security patch for the next@<16.3.8 advisories (same dependency set; only @next/* versions move)
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "@playwright/test": "1.63.0",
@@ -332,7 +332,7 @@ def verify_dependencies():
     if lock.count("\npackages:\n") != 1 or lock.count("\nsnapshots:\n") != 1:
         raise RuntimeError("Unrecognized lockfile sections")
     resolved_sections = "packages:\n" + lock.split("\npackages:\n", 1)[1]
-    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "8d75e09e13fdaa1797d985cf0ffdabeeaf978b5b24b13d46b9a29779f7d15208":
+    if hashlib.sha256(resolved_sections.encode()).hexdigest() != "ece43a6d43b1f7201cc936011d3b9d274d211aeae639561f7a7fb71329b5e97d":
         errors.append("Baseline registry packages/snapshots or peer resolutions changed")
     packages_text = lock.split("\npackages:\n", 1)[1].split("\nsnapshots:\n", 1)[0]
     snapshots_text = lock.split("\nsnapshots:\n", 1)[1]
@@ -518,7 +518,7 @@ def verify_dependencies():
                     result[pair[0].strip("'")] = pair[1].strip("'")
         return result
 
-    next_keys = [key for key in snapshot_blocks if key.startswith("next@16.3.6(")]
+    next_keys = [key for key in snapshot_blocks if key.startswith("next@16.3.8(")]
     if len(next_keys) != 1:
         errors.append(f"Expected one pinned Next snapshot, found {len(next_keys)}")
     next_block = snapshot_blocks.get(next_keys[0], "") if len(next_keys) == 1 else ""

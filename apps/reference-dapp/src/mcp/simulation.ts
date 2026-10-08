@@ -143,7 +143,8 @@ export function assertSafeOutput(value: unknown, depth = 0): void {
   if (typeof value === 'string') {
     if (/0x[0-9a-fA-F]{67,}/.test(value) || /^[A-Za-z0-9+/]{200,}={0,2}$/.test(value)) throw new Error('MCP_OUTPUT_GUARD');
     // BUILD-MCP-002: OAuth access/refresh tokens, codes and consent tokens never appear in a tool result.
-    if (/flofi_(at|rt|code|csrf)_[A-Za-z0-9_-]/.test(value)) throw new Error('MCP_OUTPUT_GUARD');
+    // BUILD-DEVELOPER-001: nor a Developer API key or a webhook signing secret (the one response that issues a secret checks it apart).
+    if (/flofi_(at|rt|code|csrf|sk)_[A-Za-z0-9_-]/.test(value) || /whsec_[A-Za-z0-9+/]/.test(value)) throw new Error('MCP_OUTPUT_GUARD');
     return;
   }
   if (Array.isArray(value)) { for (const item of value) assertSafeOutput(item, depth + 1); return; }

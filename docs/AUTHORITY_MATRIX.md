@@ -5,6 +5,17 @@
 The human owner authorizes repository implementation through current instructions and PR review under [GOVERNANCE-LITE](SCOPE_GUARD.md). Historical exact-path approvals below do not constrain future repository edits. Financial authorization remains separate: AI cannot authorize wallet signing, public execution or real-funds submission. Owner merge remains required.
 
 
+## BUILD-DEVELOPER-001 Developer API key — no financial authority
+
+| Identity | Proven by | May | May never |
+| --- | --- | --- | --- |
+| Developer project / API key (`flofi_sk_test_…`) | HMAC digest lookup of a server-side bearer key, every request | discover capabilities; store immutable strategies; validate; run read-only simulation previews; create approval handoffs; read its own resources; read runs and evidence the owner shares; register signed webhook endpoints | hold or prove a wallet; sign; submit; approve a Strategy Manifest Review; edit a stored strategy or an approval; read unshared runs or another project's data; use a mainnet (sandbox) or issue a live key |
+| End user's wallet | EIP-4361 / Sign-In With Solana proof on FloFi's origin (HttpOnly session) | claim one developer approval; run the fresh simulation; approve its own Review; sign its own transactions; share or stop sharing status with the project | nothing on the developer's behalf |
+| Operator | CLI with the deployment's database and developer secret | create projects, issue and revoke sandbox keys, disable projects, read delivery state | issue live keys (not possible in this build) |
+
+Webhooks are notifications: no delivery or response is authority for any state transition. An approval link (`flofi_dhs_…`) only
+lets its holder see the proposal on `/approve`; it authorizes nothing.
+
 ## BUILD-UNISWAP-LIQUIDITY-PUBLIC owner-wallet liquidity authority
 
 Base Sepolia Uniswap v3 liquidity is Mode A only. The owner's browser wallet is the sole signer and sender of each

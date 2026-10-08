@@ -6,6 +6,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 import type { Database, Queryable, Row } from '@defi-workflow-engine/cloud-runtime';
+import { fixedWindow } from '../../platform/fixed-window.ts';
 import { MCP_SCOPES, type McpScope } from './config.ts';
 import type { AccessPrincipal, AuthorizationRecord, AuthorizationStatus, ClientKind, GrantResult, McpOAuthStore, TokenIssue } from './store.ts';
 
@@ -138,12 +139,8 @@ export function createPgOAuthStore(db: Database, tenantId: string): McpOAuthStor
     async accountActive(accountId) {
       return (await db.query(`SELECT 1 FROM mcp_accounts WHERE tenant_id = $1 AND account_id = $2 AND status = 'ACTIVE'`, [tenantId, accountId])).rowCount === 1;
     },
-    async allow(bucket, limit, windowSeconds, now) {
-      const windowStart = new Date(Math.floor(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000);
-      const row = (await db.query<{ count: number }>(`INSERT INTO mcp_rate_limits (tenant_id, bucket, window_start, count) VALUES ($1, $2, $3, 1)
-        ON CONFLICT (tenant_id, bucket, window_start) DO UPDATE SET count = mcp_rate_limits.count + 1 RETURNING count`, [tenantId, bucket, windowStart])).rows[0];
-      return (row?.count ?? Infinity) <= limit;
-    },
+    // BUILD-DEVELOPER-001: the shared fixed-window limiter (same SQL and buckets as before).
+    allow: (bucket, limit, windowSeconds, now) => fixedWindow(db, tenantId).allow(bucket, limit, windowSeconds, now),
     async purge(now) {
       const before = (days: number) => new Date(now.getTime() - days * DAY);
       await db.query('DELETE FROM mcp_oauth_tokens WHERE tenant_id = $1 AND family_expires_at < $2', [tenantId, before(7)]);

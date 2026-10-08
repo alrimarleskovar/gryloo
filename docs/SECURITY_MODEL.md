@@ -8,6 +8,31 @@ retain the name used at the time. Runtime identifiers remain compatible.
 
 Repository source changes now use owner PR review and ordinary CI under [GOVERNANCE-LITE](SCOPE_GUARD.md). Historical source digests, path authorization and build-phase procedures below describe the old model and no longer constrain future implementation. Product authorization, financial execution, recovery, reconciliation, evidence and dependency controls remain in force. The current secret check reuses the old credential families, allows documented placeholders and never prints matched values. Its basic patterns cannot detect every secret; owner review remains necessary.
 
+## BUILD-DEVELOPER-001 developer API boundary
+
+A developer API key authenticates an **integration**, never a wallet or a person, and is no financial authority: the Developer
+API (`/api/developer/v1`) has no route that prepares, authorizes, hands off, reports or submits a flow action, and its runtime
+port is limited to flow mode/info, owner-scoped run reads and the read-only simulation preview (a journey test records every flow
+call). Execution still requires the end user, on FloFi's `/approve`, to prove their wallet (EIP-4361 or Sign-In With Solana),
+load the re-composed proposal and run FloFi's unchanged flow: fresh simulation, Strategy Manifest Review, explicit approval,
+their own wallet signature. Keys are server-side only: requests carrying `Origin` or `Sec-Fetch-Site` are refused and no CORS
+headers exist. Keys are 256-bit opaque credentials stored as HMAC digests under an HKDF key of a dedicated
+`FLOFI_DEVELOPER_SECRET` (refused if it equals another deployment secret), looked up on every request, so revocation is
+immediate. Strategies are immutable in the database; an approval is bound by a database trigger to one strategy revision and its
+exact workflow hash, and the owner's workflow must hash exactly to it before the proposal is applied; runs of an edited workflow
+are never attributed to the approval. Run status and evidence reach a project only while the owner shares them (off by default);
+absent, unshared and other projects' resources answer identical `404`s; every query is scoped by tenant, project and environment
+from the authenticated principal. Approval-link secrets travel only in the URL fragment and are stored as digests; webhook
+secrets are derived and never stored; neither is ever stored in idempotency records. Responses pass the platform output guard
+(no calldata, transactions, signatures or secrets); logs carry ids and route templates, never keys, bodies, addresses or URLs.
+Webhooks are notifications derived from durable state: no state transition reads a delivery, deliveries are leased (no duplicate
+concurrent attempt) and signed (Standard Webhooks), and the transport delivers only to public HTTPS addresses re-resolved per
+attempt through a pinned socket without redirects. Sandbox credentials are test-funds only (mainnet strategies refused at
+creation); live credentials are refused and cannot be issued. Intentional changes for owner review: the shared approval surface
+`/approve` no longer requires MCP OAuth to be enabled (it serves every registered requester kind through per-surface link schemes
+and keys), and its AI-involvement line is requester-aware (developer proposals are disclosed as third-party, not AI). No new
+registry dependency; the SDK is an empty-importer workspace package (Apache-2.0).
+
 ## BUILD-CLOUD-001 cloud boundary
 
 The cloud API and workers run the same services as the in-process server actions and add no authority: no key,

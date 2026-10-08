@@ -39,3 +39,17 @@ export function deploymentTenant(env: Env): string {
   if (!TENANT.test(tenant)) throw new Error('TENANT_ID_INVALID');
   return tenant;
 }
+
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+/**
+ * The exact origin FloFi is served from (`FLOFI_PUBLIC_ORIGIN`): `https://host[:port]`, or `http://` loopback on a local (non-hosted)
+ * server only. Never derived from request headers. (Moved here from the MCP OAuth configuration by BUILD-DEVELOPER-001.)
+ */
+export function publicOrigin(env: Env): string | null {
+  const raw = env.FLOFI_PUBLIC_ORIGIN ?? '';
+  let url: URL;
+  try { url = new URL(raw); } catch { return null; }
+  if (url.origin !== raw || url.username || url.password) return null;
+  if (url.protocol === 'https:') return url.origin;
+  return url.protocol === 'http:' && LOOPBACK.has(url.hostname) && !isHostedDeployment(env) ? url.origin : null;
+}

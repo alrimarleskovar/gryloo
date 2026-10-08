@@ -13,7 +13,7 @@ autoInstallPeers: false
 overrides:
   'postcss@8.5.23>source-map-js': 1.2.2
   'postcss@8.5.28>source-map-js': 1.2.2
-  'next@16.3.6>sharp': 0.35.5
+  'next@16.3.8>sharp': 0.35.5
 patchedDependencies:
   '@streamparser/json@0.0.26': patches/@streamparser__json@0.0.26.patch
   '@xyflow/system@0.0.82': patches/@xyflow__system@0.0.82.patch

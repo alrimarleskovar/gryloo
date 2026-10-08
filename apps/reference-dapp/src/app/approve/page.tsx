@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-MCP-002: `/approve#<secret>` — where a proposal made in an MCP client (Claude, ChatGPT) meets its owner. The page runs the
+ * BUILD-MCP-002: `/approve#<secret>` — where an external proposal (from an MCP client today) meets its owner. The page runs the
  * whole FloFi app (same stores, same flow panels, same Review and signature path); the handoff panel on top only shows the
  * external proposal and, after the owner proves a wallet, loads it into FloFi's existing proposal card. Headers (next.config.ts):
  * no framing, no referrer, no indexing, no caching.
