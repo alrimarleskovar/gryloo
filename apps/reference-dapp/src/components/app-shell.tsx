@@ -70,6 +70,7 @@ import { DashboardWorkspace } from './dashboard/dashboard-workspace';
 import { dashboardRoute as resolveDashboardRoute } from '../lib/dashboard/routes';
 import { secondaryWorkspaceRoute } from '../domain/secondary-workspaces';
 import { SecondaryProductWorkspace } from './secondary-product-workspace';
+import { AutomationInbox } from './automations-workspace';
 
 import { useSavedWorkflows } from '../state/saved-workflows';
 import { useExecutionEnvironment } from '../state/capability-store';
@@ -85,7 +86,7 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
   // Server HTML is visible before handlers and initial canvas preferences are ready.
   const [interactive, setInteractive] = useState(false);
   useEffect(() => { setInteractive(true); }, []);
-  const { state, context, reviewError, authoringIncomplete, restoreWorkflow, restorationEpoch } = useWorkflow();
+  const { state, context, reviewError, authoringIncomplete, restoreWorkflow, restorationEpoch, propose } = useWorkflow();
   const modeA = useModeA();
   const { prepared, info } = modeA;
   const modeB = useModeB();
@@ -254,7 +255,8 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
     section?.focus({ preventScroll: true });
   }
   if (secondaryRoute) return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
-    <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={tr('{0} workspace', tr(secondaryRoute.label))}><SecondaryProductWorkspace workspace={secondaryRoute.id} workflows={{ ...workflows, loading: library.loading, connected: Boolean(owner), verification: owner && library.error === 'WALLET_SESSION_REQUIRED' ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined }}/>
+    <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={tr('{0} workspace', tr(secondaryRoute.label))}><SecondaryProductWorkspace workspace={secondaryRoute.id} workflows={{ ...workflows, loading: library.loading, connected: Boolean(owner), verification: owner && library.error === 'WALLET_SESSION_REQUIRED' ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined }}
+      automations={{ owner, proof, onPropose: command => { propose(command); setTab('Build'); } }}/>
 </main>
   </div>;
   if (tab === 'Dashboard') return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
@@ -276,6 +278,7 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
           <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : null;
   return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <AutomationInbox owner={owner} proven={Boolean(owner && proof.proven === owner.address)} open={() => navigate?.('/app/automations')}/>
     <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tr(tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace')}>
       {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath || localCowIntent ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>

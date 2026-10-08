@@ -2,6 +2,7 @@
 /** Reviewed literal values: network/protocol names, assets, units, technical codes and value-only templates.
  * This audit inventory is not a translation catalog and never changes product values. */
 export const preservedValues = new Set<string>([
+  "Telegram",
   "Base USDC → Arbitrum USDC",
   "Base Sepolia",
   "Base",

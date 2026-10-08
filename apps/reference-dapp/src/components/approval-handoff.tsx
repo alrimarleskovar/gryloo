@@ -12,6 +12,7 @@ import { useLocale } from '../i18n/locale';
 import { useEffect, useRef, useState } from 'react';
 import { approvalHandoffView, claimApprovalHandoff, markApprovalApplied, openBrowserApprovalHandoff, resumeApprovalHandoff, setApprovalSharing } from '../app/approve-action';
 import { DEVELOPER_LINK_PREFIX } from '../developer/link-format';
+import { AUTOMATION_LINK_PREFIX } from '../automations/link-format';
 import type { ApprovalView } from '../mcp/handoff/service';
 import { APPROVAL_SECRET_FORMAT } from '../platform/approval-link-format';
 import { walletDeepLinks } from '../platform/wallet-links';
@@ -176,18 +177,25 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
   // BUILD-DEVELOPER-001: who sent the link, where the page knows it (the resolved proposal, else the link's own tag). Only the wording
   // follows it; the route states, their headings and every check are the same for every requester.
   const fromApp = view ? view.requesterKind === 'DEVELOPER_PROJECT' : secret?.startsWith(DEVELOPER_LINK_PREFIX) === true;
-  if (closed) return <McpRouteState label="Approval" title="Approval closed" description="Return to the conversation that sent you here. Closing this page grants no transaction authority. You can reopen an unused link; ask for a new link if it has expired."/>;
+  // BUILD-AUTOMATION-001: a proposal the owner's own automation prepared, opened from FloFi → Automations.
+  const fromAutomation = view ? view.requesterKind === 'AUTOMATION_RULE' : secret?.startsWith(AUTOMATION_LINK_PREFIX) === true;
+  if (closed) return <McpRouteState label="Approval" title="Approval closed" description={fromAutomation
+    ? 'Closing this page grants no transaction authority. While the proposal is still waiting for you, open it again from FloFi → Automations.'
+    : 'Return to the conversation that sent you here. Closing this page grants no transaction authority. You can reopen an unused link; ask for a new link if it has expired.'}/>;
   if (!resolved) return <McpRouteState label="Approval" title={tr("Opening your approval")} loading
-    description={fromApp ? 'Getting the proposal from the app that sent you this link…' : 'Getting the proposal from your connected assistant…'}/>;
+    description={fromAutomation ? 'Getting the proposal your automation prepared…' : fromApp ? 'Getting the proposal from the app that sent you this link…' : 'Getting the proposal from your connected assistant…'}/>;
   if (!view && error && /^APPROVAL_(EXPIRED|REVOKED|SUPERSEDED|STALE)$/.test(error)) return <McpRouteState label="Approval"
-    title="This approval is no longer available" description="Return to the conversation that sent this link and ask for a new proposal."/>;
-  if (!secret || !view) return <><McpRouteState label="Approval" title={tr("Open this link from your assistant")}
-    description={fromApp ? 'Open the FloFi approval link again from the app that sent it. If the link has expired, ask that app for a new one.'
+    title="This approval is no longer available" description={fromAutomation ? 'Open the proposal again from FloFi → Automations if it is still waiting for you.'
+      : 'Return to the conversation that sent this link and ask for a new proposal.'}/>;
+  if (!secret || !view) return <><McpRouteState label="Approval" title={tr(fromAutomation ? 'Open this proposal from FloFi Automations' : 'Open this link from your assistant')}
+    description={fromAutomation ? 'Open the proposal again from FloFi → Automations: FloFi prepares a fresh approval each time you open it.'
+      : fromApp ? 'Open the FloFi approval link again from the app that sent it. If the link has expired, ask that app for a new one.'
       : error === 'APPROVAL_ACCOUNT_REQUIRED' ? 'Open this link in the browser used to connect FloFi to ChatGPT or Claude. For another browser or a mobile wallet, use the FloFi panel’s wallet action.'
       : 'Open the FloFi approval link from ChatGPT, Claude, WhatsApp or Telegram. If the link has expired, ask for a new one.'}/>
       {error && <div className="approval-page"><p role="alert">{tr(error)}</p><button type="button" onClick={() => setReload(n => n + 1)}>Try again</button></div>}</>;
   if (!available) return <McpRouteState label="Approval" title={tr("This approval is no longer available")}
-    description={fromApp ? 'Ask the app that sent this link to prepare a new FloFi approval link.' : 'Ask your connected assistant to prepare a new FloFi approval link.'}/>;
+    description={fromAutomation ? 'Open the proposal again from FloFi → Automations if it is still waiting for you.'
+      : fromApp ? 'Ask the app that sent this link to prepare a new FloFi approval link.' : 'Ask your connected assistant to prepare a new FloFi approval link.'}/>;
   const terminal = TERMINAL.includes(view.status), real = view.fundsClass === 'REAL_FUNDS', canClaim = !terminal && !view.refusal && !view.claimedByAnotherWallet;
   const fullLink = secret && SECRET.test(secret) ? `${window.location.origin}/approve#${secret}` : null;
   const links = fullLink ? walletDeepLinks(fullLink, window.location.origin) : null;
@@ -216,7 +224,9 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
     {view.explanation.length > 0 && <ul className="approval-explanation">{view.explanation.map((line, i) => <li key={i}>{tr(line)}</li>)}</ul>}
     <p className="muted approval-ai">{view.requesterKind === 'DEVELOPER_PROJECT'
       ? tr("Created by {0}, a third-party app registered with FloFi, not by FloFi. It is not financial advice; you decide, and only your wallet can sign.", view.clientName)
-      : tr("Proposed with an AI assistant from your conversation. It is not financial advice; you decide, and only your wallet can sign.")}</p>
+      : view.requesterKind === 'AUTOMATION_RULE'
+        ? tr("Prepared by your FloFi automation from a schedule or price condition you configured. It is not financial advice; you decide, and only your wallet can sign.")
+        : tr("Proposed with an AI assistant from your conversation. It is not financial advice; you decide, and only your wallet can sign.")}</p>
     {terminal && <p className="approval-ended" role="status">{tr("This request is ")}{tr(STATUS_TEXT[view.status]?.toLowerCase())}{tr(". Ask for a new proposal.")}</p>}
     {view.refusal && !terminal && <p className="approval-ended" role="status">{tr("FloFi cannot hand this proposal to a wallet on this deployment now (")}{tr(view.refusal)}).</p>}
     {view.claimedByAnotherWallet && <p className="approval-ended" role="status">{tr("Another wallet already opened this proposal. Ask for a new proposal.")}</p>}
@@ -225,7 +235,8 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
       <WalletProof namespace={view.walletNamespace} proof={proof}/>
       <p className="muted">{tr("This signs a sign-in message only. It authorizes no transaction and moves no funds.")}</p>
       <h3>{tr("2. Load the proposal into FloFi")}</h3>
-      <label className="approval-share"><input type="checkbox" checked={share === true} onChange={e => toggleShare(e.target.checked)}/>{tr("Share the status and evidence of runs started from this proposal with ")}{tr(view.clientName)}</label>
+      {/* An automation is the owner's own: its workspace reads the owner's runs with the owner's session, so there is nothing to share. */}
+      {!fromAutomation && <label className="approval-share"><input type="checkbox" checked={share === true} onChange={e => toggleShare(e.target.checked)}/>{tr("Share the status and evidence of runs started from this proposal with ")}{tr(view.clientName)}</label>}
       <div className="approval-actions"><button type="button" className="primary" disabled={busy || !proven} onClick={() => void claim()}>{tr("Load proposal")}</button></div>
     </div>}
     {claimed && <div className="approval-steps">
@@ -233,7 +244,7 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
       {view.status === 'APPLIED' && <p role="status"><strong>{tr("Ready for your review.")}</strong>{tr(" Open ")}<em>{tr("Simulate")}</em>{tr(" for a fresh simulation, review the Strategy Manifest, then ")}<em>{tr(" Execute")}</em>{tr(": your wallet asks you to sign each transaction.")}</p>}
       {view.status === 'APPLIED' && <button type="button" className="primary" onClick={onContinue}>Continue to simulation</button>}
       {recovery ? <p>Proposal restored for its proven owner. Run a fresh simulation before approval. Existing runs remain available in Your runs; reconcile an interrupted run before starting again.</p>
-        : <label className="approval-share"><input type="checkbox" checked={view.statusShared} onChange={e => toggleShare(e.target.checked)}/>{tr("Share run status and evidence with ")}{tr(view.clientName)}</label>}
+        : !fromAutomation && <label className="approval-share"><input type="checkbox" checked={view.statusShared} onChange={e => toggleShare(e.target.checked)}/>{tr("Share run status and evidence with ")}{tr(view.clientName)}</label>}
     </div>}
     {!claimed && <button type="button" disabled={busy} onClick={close}>Close approval</button>}
     {error && claimed && view.status !== 'APPLIED' && <button type="button" onClick={() => void run(async () => {

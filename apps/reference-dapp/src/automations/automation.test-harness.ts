@@ -44,8 +44,8 @@ export function automationHarness(db: Database, options: { readonly tenantId?: s
   const tenantId = options.tenantId ?? 'default';
   let clock = options.start ?? new Date('2026-10-08T10:00:00Z');
   const now = () => new Date(clock.getTime());
-  const config: AutomationConfig = Object.freeze({ enabled: true, tenantId, origin: ORIGIN, keys: automationKeys(randomBytes(32).toString('hex')),
-    policy: { ok: true, testFunds: true, mainnetNetworks: [] }, dispatchTokenDigest: null, price: { kind: 'fixture', path: '/tmp/none', maxAgeMs: 3_600_000 },
+  const config: AutomationConfig = Object.freeze<AutomationConfig>({ enabled: true, tenantId, origin: ORIGIN, keys: automationKeys(randomBytes(32).toString('hex')),
+    policy: { ok: true as const, testFunds: true, mainnetNetworks: [] }, dispatchTokenDigest: null, price: { kind: 'fixture', path: '/tmp/none', maxAgeMs: 3_600_000 },
     testClock: true, hosted: false });
   const prices = scriptedPrices();
   const lines = options.logLines ?? [];

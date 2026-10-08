@@ -24,19 +24,12 @@ export type DispatchSummary = { readonly expiredOccurrences: number; readonly ex
 /** The work queue limited to automation work: a scheduler pass never runs another service's items. */
 export const automationQueue = (queue: WorkQueue): WorkQueue => ({ ...queue, claim: limit => queue.claim(limit, AUTOMATION_WORK_KINDS) });
 
-export async function dispatchAutomations(rt: AutomationRuntime, queue: WorkQueue, logger: Logger, workerId: string, limits: DispatchLimits = DISPATCH_LIMITS): Promise<DispatchSummary> {
-  const started = Date.now(), deadline = started + limits.budgetMs, now = rt.now();
+/** Steps 1, 2, 4 and 5 (no draining): the Railway worker's sweep, whose own loop then processes the work items. */
+export async function sweepAutomations(rt: AutomationRuntime, limits: DispatchLimits = DISPATCH_LIMITS, deadline = Date.now() + limits.budgetMs) {
+  const now = rt.now();
   const expired = await rt.store.expireLapsed(now, limits.expire);
   const enqueued = await rt.store.enqueueDue(now, limits.enqueue);
-  const worker = createWorker({ queue: automationQueue(queue), handlers: automationHandlers(rt), logger, workerId, concurrency: limits.batch });
-  let processed = 0, truncated = false;
-  for (;;) {
-    if (Date.now() >= deadline) { truncated = true; break; }
-    const n = await worker.drainOnce();
-    processed += n;
-    if (n === 0) break;
-  }
-  let synced = 0;
+  let synced = 0, truncated = false;
   for (const o of await rt.store.awaitingApproval(limits.approvals)) {
     if (Date.now() >= deadline) { truncated = true; break; }
     const h = await rt.handoffs.forRequester(o.handoffId!, ruleScope(o.ruleId), rt.now()).catch(() => null);
@@ -45,7 +38,22 @@ export async function dispatchAutomations(rt: AutomationRuntime, queue: WorkQueu
   await rt.store.purge(rt.now()).catch(() => undefined);
   await rt.host.db.query(`DELETE FROM mcp_rate_limits WHERE tenant_id = $1 AND (bucket LIKE 'automation:%' OR bucket LIKE 'handoff:automation:%') AND window_start < $2`,
     [rt.host.tenantId, new Date(rt.now().getTime() - 86_400_000)]).catch(() => undefined);
-  const summary = { expiredOccurrences: expired.occurrences, expiredRules: expired.rules, enqueued, processed, synced, truncated };
-  rt.log.info('automation.dispatch', { expired: expired.occurrences + expired.rules, enqueued, processed, synced, truncated, duration_ms: Date.now() - started });
+  return { expired, enqueued, synced, truncated };
+}
+
+export async function dispatchAutomations(rt: AutomationRuntime, queue: WorkQueue, logger: Logger, workerId: string, limits: DispatchLimits = DISPATCH_LIMITS): Promise<DispatchSummary> {
+  const started = Date.now(), deadline = started + limits.budgetMs;
+  const before = await sweepAutomations(rt, limits, deadline);
+  const worker = createWorker({ queue: automationQueue(queue), handlers: automationHandlers(rt), logger, workerId, concurrency: limits.batch });
+  let processed = 0, truncated = before.truncated;
+  for (;;) {
+    if (Date.now() >= deadline) { truncated = true; break; }
+    const n = await worker.drainOnce();
+    processed += n;
+    if (n === 0) break;
+  }
+  const summary = { expiredOccurrences: before.expired.occurrences, expiredRules: before.expired.rules, enqueued: before.enqueued, processed, synced: before.synced, truncated };
+  rt.log.info('automation.dispatch', { expired: before.expired.occurrences + before.expired.rules, enqueued: before.enqueued, processed, synced: before.synced, truncated,
+    duration_ms: Date.now() - started });
   return summary;
 }

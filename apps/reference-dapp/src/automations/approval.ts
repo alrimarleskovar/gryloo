@@ -18,11 +18,12 @@ import { approvalLinkScheme, HANDOFF_SECONDS, type ApprovalContributor, type App
   type RequesterScope, type WalletRef } from '../platform/index.ts';
 import type { AutomationConfig, AutomationKeys } from './config.ts';
 import { readAutomationConfig } from './config.ts';
+import { AUTOMATION_LINK_PREFIX } from './link-format.ts';
 import { createPgAutomationStore } from './pg-store.ts';
 import type { AutomationStore, OccurrenceRecord, Owner, RuleRecord } from './store.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
-export const AUTOMATION_APPROVAL_PREFIX = 'flofi_auhs_';
+export const AUTOMATION_APPROVAL_PREFIX = AUTOMATION_LINK_PREFIX;
 export const AUTOMATION_CLIENT_ID = 'flofi-automations';
 export const AUTOMATION_DISPLAY_NAME = 'FloFi Automations';
 export const AUTOMATION_HANDOFF_RULES: HandoffRules = Object.freeze({ handoffSeconds: HANDOFF_SECONDS, maxPending: 3, rate: Object.freeze([30, 3_600] as const),

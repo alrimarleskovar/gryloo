@@ -13,8 +13,11 @@ import { portugueseAuthoring } from './pt-authoring';
 import { productPortuguese } from './pt-product';
 import { domainPortuguese } from './pt-domain';
 import { portugueseWallets } from './pt-wallets';
+import { portugueseAutomations } from './pt-automations';
 /** English source messages are stable presentation keys. Technical identifiers never enter this catalog. */
 export const portuguese: Readonly<Record<string, string>> = {
+  // BUILD-AUTOMATION-001: first, so an existing product translation of a shared word keeps precedence.
+  ...portugueseAutomations,
   'Build workspace navigation': 'Navegação do construtor',
   'Simulation workspace navigation': 'Navegação do espaço de simulação',
   'Execution workspace navigation': 'Navegação do espaço de execução',

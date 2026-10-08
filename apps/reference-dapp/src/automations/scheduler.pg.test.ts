@@ -141,6 +141,17 @@ describe('BUILD-AUTOMATION-001 scheduler: at most one occurrence per trigger eve
     expect(await occurrences(rule.ruleId)).toHaveLength(1);
   });
 
+  it('a worker of another service (kind-scoped claim) never takes automation work', async () => {
+    const h = automationHarness(t.db);
+    await h.service().create(OWNER_A, weeklyDca());
+    h.set('2026-10-12T08:00:20Z');
+    expect(await h.store.enqueueDue(h.now(), 10)).toBe(1);
+    const railway = createPostgresWorkQueue({ db: t.db, ownerId: 'railway', tenantId: 'default' });
+    expect(await railway.claim(10, ['reconcile', 'evidence.archive'])).toEqual([]);
+    await expect(railway.claim(10, [])).rejects.toThrow('WORK_CLAIM_KINDS_INVALID');
+    expect(await count(`work_items WHERE kind = 'automation.evaluate' AND state = 'READY'`)).toBe(1);
+  });
+
   it('a pause while the evaluation is queued wins: nothing is proposed', async () => {
     const h = automationHarness(t.db), rule = await h.service().create(OWNER_A, weeklyDca());
     h.set('2026-10-12T08:00:05Z');
