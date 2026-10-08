@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { createHash, randomBytes } from 'node:crypto';
 import { E2E_APP_ORIGIN, E2E_APP_PORT } from './e2e/app-origin';
 import { MCP_E2E_INVITE } from './e2e/mcp-constants';
+import { SERVER_ONLY_WOOVI_APP_ID } from './e2e/card-provider-fixtures';
 
 const cache = process.env.BUILD002_BROWSER_CACHE;
 if (!cache || basename(cache) !== 'chromium_headless_shell-1243') {
@@ -77,6 +78,11 @@ if (process.env.GRYLOO_ROUTER_TESTNET_E2E && !routerTestnetHarness) throw new Er
 const routerTestnetJournal = process.env.GRYLOO_ROUTER_TESTNET_JOURNAL ?? join(tmpdir(), 'gryloo-router-testnet-' + Date.now() + '-' + process.pid);
 if (routerTestnetHarness) process.env.GRYLOO_ROUTER_TESTNET_JOURNAL = routerTestnetJournal;
 
+// HOTFIX-WALLET-SELECTOR: Credentials → Add card runs only against the MOCKED loopback Mercado Pago harness and a routed SDK stand-in;
+// never Mercado Pago, a real card or a charge.
+const cardHarness = process.env.GRYLOO_CARD_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_CARD_E2E && !cardHarness) throw new Error('Card E2E permits only the MOCKED loopback harness');
+
 // BUILD-CLOUD-PARITY-001: the app on the embedded PostgreSQL runtime (the path a Vercel deployment runs) with the MOCKED loopback
 // Robinhood chain. A disposable LOOPBACK database is created for the run (e2e/cloud-runtime-setup.ts) and dropped afterwards; the
 // server gets no journal directory.
@@ -147,7 +153,8 @@ export default defineConfig({
     ...(devnetHarness || mcpHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(robinhoodHarness || cloudRuntime ? [{ command: 'node e2e/robinhood-transfer-harness.mjs --serve', url: 'http://127.0.0.1:8553', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(routerHarness || routerTestnetHarness || mcpHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []), {
+    ...(routerHarness || routerTestnetHarness || mcpHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(cardHarness ? [{ command: 'node e2e/card-provider-harness.mjs --serve', url: 'http://127.0.0.1:8555/__harness/health', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: 'http://127.0.0.1:8547',
     reuseExistingServer: false,
@@ -171,6 +178,8 @@ export default defineConfig({
       ...(routerHarness ? { GRYLOO_ROUTER_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_JOURNAL: routerJournal } : {}),
       ...(routerTestnetHarness ? { GRYLOO_ROUTER_TESTNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_ROUTER_TESTNET_JOURNAL: routerTestnetJournal } : {}),
       ...(copilot === 'replay' ? { FLOFI_COPILOT: 'replay' } : {}),
+      // The payment provider's server-only App ID is present (payments stay off) so the card spec can prove it is never served.
+      ...(cardHarness ? { GRYLOO_CARD_HARNESS: 'MOCKED_LOOPBACK_ONLY', WOOVI_APP_ID: SERVER_ONLY_WOOVI_APP_ID, WOOVI_ENVIRONMENT: 'sandbox' } : {}),
       ...(cloudRuntime ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {}),
       ...mcpServerEnv,
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },

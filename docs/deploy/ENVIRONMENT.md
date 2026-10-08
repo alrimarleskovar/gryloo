@@ -2,7 +2,8 @@
 
 Every variable the reference app, the backend and the build read, per environment. Values are supplied by the hosting platform or
 your own shell; none is committed. **No variable is `NEXT_PUBLIC_*`, and none may be**: everything below is read on the server,
-and the browser only talks to its own origin (CSP `connect-src 'self'`).
+and the browser only talks to its own origin plus, for Credentials → Add card, Mercado Pago's three Secure Fields origins (CSP
+`connect-src 'self' https://api.mercadopago.com https://api-static.mercadopago.com https://secure-fields.mercadopago.com`).
 
 Columns: **Dev** = local `next dev`/`next start` on WSL; **CI** = the GitHub Actions suites; **Preview** = a Vercel Preview
 deployment; **Prod** = Vercel Production + the Railway API/worker. `—` means leave unset. "Hosted" means Vercel, Railway or
@@ -124,6 +125,29 @@ it answers `503 DEVELOPER_STORE_UNAVAILABLE`. Projects and sandbox keys come fro
 | `FLOFI_DEVELOPER_DISPATCH_TOKEN_SHA256` | SHA-256 hex of the scheduler bearer for `/api/developer/v1/internal/dispatch` (Vercel Cron: the digest of `CRON_SECRET`) | digest only | optional | optional (needs an owner-added scheduler) | unset: the route does not exist |
 | `FLOFI_DEVELOPER_WEBHOOK_LOOPBACK` | `ALLOW_LOCAL_ONLY`: `http://127.0.0.1` webhook endpoints, for local tests | no | **never** | **never** (refused on hosted deployments) | off |
 
+## 5d. Card and payment providers (Mercado Pago, Woovi) — setup in [PAYMENT_PROVIDERS.md](PAYMENT_PROVIDERS.md)
+
+Each provider is off until all of its variables are set, and its environment must match the deployment: Production uses only
+production credentials; Preview, development and local servers use only test/sandbox credentials. A mismatch disables the
+provider (`*_ENVIRONMENT_MISMATCH`) instead of crossing over.
+
+| Variable | Purpose | Secret | Dev | CI | Preview | Prod | When missing |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `MERCADO_PAGO_ENVIRONMENT` | `test` or `production` (explicit) | no | `test` | — | `test` | `production` | Add card states `CARD_TOKENIZATION_PROVIDER_REQUIRED` |
+| `MERCADO_PAGO_PUBLIC_KEY` | Public key for Secure Fields; sent to the browser by a server action, never inlined | no | test key | — | test key | production key | same |
+| `MERCADO_PAGO_ACCESS_TOKEN` | Server-only token for the Customers/Cards API | **yes** | test token | — | test token | production token | same |
+| `WOOVI_ENVIRONMENT` | `sandbox` or `production` (explicit) | no | `sandbox` | — | `sandbox` | `production` | Woovi adapter absent: `PAYMENT_PROVIDER_NOT_CONFIGURED` |
+| `WOOVI_APP_ID` | Server-only Woovi App ID (`Authorization` header) | **yes** | sandbox App ID | — | sandbox App ID | production App ID | same |
+| `GRYLOO_PAYMENT` | `live` enables the stablecoin → Pix flow (quote, Simulate, Review) | no | `live` to try it | — | `live` to try it | `live` | `PAYMENT_NOT_ENABLED` |
+| `GRYLOO_PAYMENT_OWNER_EXECUTION` | `MAINNET_OWNER_APPROVED` additionally allows the owner-signed USDC transfer on Base; honored **only** with `WOOVI_ENVIRONMENT=production` | no | — | — | — | owner decision | `PAYMENT_EXECUTION_NOT_ENABLED` |
+| `GRYLOO_PAYMENT_JOURNAL` | Absolute directory of the local payment runs (local runtime only; hosted deployments use the cloud runtime) | no | a disposable dir | — | — | — | `PAYMENT_STORAGE_NOT_CONFIGURED` |
+
+Base reads for verifying the owner's USDC transfer use the Router's `GRYLOO_BASE_RPC_URL` (optional HTTPS override of the public
+endpoint). Woovi webhooks go to `POST /api/payments/woovi/webhook`.
+
+Saved-card bindings are MAC'd with a key derived from `FLOFI_SESSION_SECRET` (or `API_AUTH_TOKEN`); rotating it makes saved
+cards un-removable at the provider from FloFi (FloFi then removes only its own copy).
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),
@@ -135,7 +159,8 @@ it answers `503 DEVELOPER_STORE_UNAVAILABLE`. Projects and sandbox keys come fro
 These select local journals, loopback MOCKED harnesses or local forks. On a hosted deployment they are refused: journals and
 `/tmp` state are never used, harness gates leave the flow `off`, and fork/demo actions report themselves unavailable.
 
-`GRYLOO_*_HARNESS=MOCKED_LOOPBACK_ONLY` (supply, lending, Jupiter, Solana Devnet, Robinhood, Uniswap liquidity, Router, Router testnet),
+`GRYLOO_*_HARNESS=MOCKED_LOOPBACK_ONLY` (supply, lending, Jupiter, Solana Devnet, Robinhood, Uniswap liquidity, Router, Router testnet, card
+provider — `GRYLOO_CARD_HARNESS` points Add card at the loopback Mercado Pago stand-in on 127.0.0.1:8555),
 `GRYLOO_*_JOURNAL` (supply, public testnet, Robinhood, Jupiter, Solana Devnet, Uniswap liquidity, Router, Router testnet, liquidity,
 Mode A, bridge), `GRYLOO_PUBLIC_TESTNET_READ`, `GRYLOO_BASE_OBSERVATION=live`, `GRYLOO_MODE_A`/`_PROFILE`, `GRYLOO_MODE_B`/`_PROFILE`/
 `_EXECUTOR_KEY_FILE`/`_SMOKE_PROFILE`, `GRYLOO_COMPOSITION_MODE`/`_PROFILE`/`_EXECUTOR_KEY_FILE`/`_ALLOW_MOCKED_UI`/`_SMOKE_PROFILE`,
