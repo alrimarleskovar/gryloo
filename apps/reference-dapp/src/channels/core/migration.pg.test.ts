@@ -28,21 +28,23 @@ async function shape(db: Database): Promise<Record<string, string[]>> {
 describe('BUILD-CHANNELS-001 migration 0009 (shipped)', () => {
   it('follows 0008 in the gapless shipped sequence and is pinned', async () => {
     const all = await loadMigrations();
-    expect(all.map(m => [m.version, m.name]).slice(-2)).toEqual([[8, 'saved_workflows'], [9, 'channel_conversations']]);
-    expect(SHIPPED_MIGRATIONS.at(-1)).toEqual({ version: 9, name: 'channel_conversations', sha256: all.at(-1)!.sha256 });
+    // BUILD-AUTOMATION-001: 0010 follows; 0009 keeps its place and its pin.
+    expect(all.map(m => [m.version, m.name]).slice(7, 9)).toEqual([[8, 'saved_workflows'], [9, 'channel_conversations']]);
+    expect(SHIPPED_MIGRATIONS[8]).toEqual({ version: 9, name: 'channel_conversations', sha256: all[8]!.sha256 });
   });
 
   for (const from of [5, 6, 7, 8]) {
     it(`upgrades a database at ${String(from).padStart(4, '0')} to the current schema`, async () => {
       const t = await createTestDatabase({ migrated: false });
       try {
-        const all = await loadMigrations();
+        // Up to 0009 (BUILD-AUTOMATION-001's 0010 has its own upgrade test).
+        const all = (await loadMigrations()).slice(0, 9), shipped = SHIPPED_MIGRATIONS.slice(0, 9);
         await migrate(t.db, all.slice(0, from));
-        await expect(assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS)).rejects.toThrow('SCHEMA_NOT_MIGRATED');
+        await expect(assertSchemaCurrent(t.db, shipped)).rejects.toThrow('SCHEMA_NOT_MIGRATED');
         const before = await shape(t.db);
         expect(Object.keys(before).filter(name => name.startsWith('channel_'))).toEqual([]);
         expect(await migrate(t.db, all)).toEqual(all.slice(from).map(m => m.version));
-        expect(await assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS)).toBe(9);
+        expect(await assertSchemaCurrent(t.db, shipped)).toBe(9);
         expect(await migrate(t.db, all)).toEqual([]);
         const after = await shape(t.db);
         expect(Object.keys(after).filter(name => name.startsWith('channel_')).sort()).toEqual(CHANNEL_TABLES);

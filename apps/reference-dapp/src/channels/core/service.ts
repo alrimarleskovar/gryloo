@@ -26,13 +26,16 @@ import type { ChannelLogger } from './log.ts';
 import { parseStateLanguage } from './state-language.ts';
 import { statusReplies } from './status.ts';
 import { RETENTION, type ChannelStore, type ConversationRecord, type NewOutbox, type PendingEvent } from './store.ts';
+import { SUBSCRIBE_LIMIT, type ChannelSubscriptions } from './subscriber.ts';
 import { canonicalStrategy } from './strategy.ts';
 import type { ChannelAdapter, ChannelAddress, ChannelReply, DeliveryUpdate, InboundMessage } from './types.ts';
 
 export type ChannelContext = { readonly core: ChannelCoreConfig; readonly store: ChannelStore; readonly platform: ChannelPlatform; readonly adapter: ChannelAdapter;
   readonly interpreter: ChannelInterpreter | null; readonly log: ChannelLogger; readonly now: () => Date; readonly previewTimeoutMs?: number;
   /** Test seams for delivery: the wait between inline approval retries, the jitter source. */
-  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number };
+  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number;
+  /** BUILD-AUTOMATION-001: the subscription hook (linking a chat to an owner's automation notifications); none = not offered. */
+  readonly subscriptions?: ChannelSubscriptions | null };
 export const LEASE_SECONDS = 300;
 export const LIMITS = Object.freeze({ inbound: [20, 600] as const, model: [30, 3_600] as const, preview: [10, 3_600] as const });
 const MAX_EVENT_ATTEMPTS = 3;
@@ -147,6 +150,8 @@ export function createChannelService(ctx: ChannelContext) {
       case 'OPT_OUT': {
         // Opting out withdraws the live approval link too: nothing from this conversation stays claimable.
         await revokeChannelApproval(ctx.platform, conversationId, prior.approvalId, now).catch(() => false);
+        // ...and ends a link to automation notifications (BUILD-AUTOMATION-001).
+        await ctx.subscriptions?.unlink(conversationId).catch(() => false);
         await commit(decision.outcome, decision.replies, null, { conversationStatus: 'OPTED_OUT' });
         return { address: payload.sendTo, language: state.language };
       }
@@ -162,6 +167,21 @@ export function createChannelService(ctx: ChannelContext) {
       case 'CANCEL': {
         await revokeChannelApproval(ctx.platform, conversationId, prior.approvalId, now);
         await commit(decision.outcome, [...decision.replies, text(prior.pending ? lm.cancelled : lm.noPending)], state);
+        return { address: null, language: state.language };
+      }
+      case 'SUBSCRIBE': {
+        // BUILD-AUTOMATION-001: the code goes to the hook only; it is never stored, logged or echoed back.
+        let reply = lm.subscribeUnavailable, outcome = 'SUBSCRIBE_UNAVAILABLE';
+        if (ctx.subscriptions && decision.subscribeCode) {
+          if (!await store.allow(`channel:subscribe:${conversationId}`, SUBSCRIBE_LIMIT[0], SUBSCRIBE_LIMIT[1], now)) { reply = lm.busy; outcome = 'SUBSCRIBE_RATE_LIMITED'; }
+          else {
+            const linked = await ctx.subscriptions.link({ channel: adapter.channel, conversationId, code: decision.subscribeCode, now })
+              .catch(() => ({ ok: false, code: 'SUBSCRIBE_FAILED' }) as const);
+            reply = linked.ok ? lm.subscribed(linked.label, linked.days) : lm.subscribeFailed;
+            outcome = linked.ok ? 'SUBSCRIBED' : 'SUBSCRIBE_REFUSED';
+          }
+        }
+        await commit(outcome, [...decision.replies, text(reply)], state);
         return { address: null, language: state.language };
       }
       case 'LINK': {

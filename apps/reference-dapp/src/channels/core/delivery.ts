@@ -87,7 +87,11 @@ const UNSAFE = [/0x[0-9a-fA-F]{67,}/, /[A-Za-z0-9+/]{200,}={0,2}/, /flofi_(?:at|
 export function outputSafe(reply: ChannelReply, origin: string): boolean {
   const texts = [reply.text, ...reply.choices.map(c => c.label), reply.link?.label ?? ''];
   if (texts.some(t => UNSAFE.some(pattern => pattern.test(t)))) return false;
-  return reply.link === null || (reply.link.url.startsWith(`${origin}/approve#flofi_chs_`) && /^[^\s]+$/.test(reply.link.url));
+  if (reply.link === null) return true;
+  // BUILD-AUTOMATION-001: an automation notification links to the owner's own FloFi workspace — an opaque id, never a secret.
+  const workspace = `${origin}/app/automations`, occurrence = `${workspace}?occurrence=`;
+  if (reply.link.url === workspace || (reply.link.url.startsWith(occurrence) && /^occ_[a-z2-7]{26}$/.test(reply.link.url.slice(occurrence.length)))) return true;
+  return reply.link.url.startsWith(`${origin}/approve#flofi_chs_`) && /^[^\s]+$/.test(reply.link.url);
 }
 
 /** Sends a conversation's due messages (limited to `kinds`), in order, after settling interrupted and unconfirmed sends. */

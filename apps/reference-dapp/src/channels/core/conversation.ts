@@ -48,9 +48,11 @@ export const freshState = (language: ChannelLanguage): ChannelState =>
 export const MAX_STATE_BYTES = 32_768;
 
 export type TurnContent = InboundContent | { readonly kind: 'SECRET'; readonly language: ChannelLanguage };
-export type TurnAction = 'REPLY' | 'PROPOSE' | 'CANCEL' | 'LINK' | 'STATUS' | 'OPT_OUT' | 'OPT_IN' | 'IGNORE';
+export type TurnAction = 'REPLY' | 'PROPOSE' | 'CANCEL' | 'LINK' | 'STATUS' | 'OPT_OUT' | 'OPT_IN' | 'IGNORE' | 'SUBSCRIBE';
 export type TurnDecision = { readonly action: TurnAction; readonly command: Command | null; readonly aiInterpreted: boolean; readonly replies: readonly ChannelReply[];
-  readonly notes: readonly string[]; readonly outcome: string; readonly state: ChannelState };
+  readonly notes: readonly string[]; readonly outcome: string; readonly state: ChannelState;
+  /** BUILD-AUTOMATION-001: the one-time code of a SUBSCRIBE turn (`automations ABCD-EFGH-JKLM`), handed to the subscription hook. */
+  readonly subscribeCode?: string };
 export type TurnInput = { readonly content: TurnContent; readonly state: ChannelState; readonly optedOut: boolean; readonly interpret: ChannelInterpreter | null;
   readonly support: string; readonly privacy: string };
 
@@ -67,6 +69,9 @@ const COMMANDS: readonly (readonly [Exclude<TurnAction, 'REPLY' | 'PROPOSE' | 'I
   ['LINK', /^(?:link|new link)$/, null], ['LINK', /^(?:novo link)$/, 'PT'],
   ['OPT_OUT', /^(?:stop|unsubscribe)$/, 'EN'], ['OPT_OUT', /^(?:parar|pare|sair|descadastrar)$/, 'PT'],
   ['OPT_IN', /^(?:start)$/, 'EN'], ['OPT_IN', /^(?:voltar|iniciar)$/, 'PT'],
+  // BUILD-AUTOMATION-001: link this chat to an owner's automation notifications with the one-time code shown in FloFi. Never authority.
+  ['SUBSCRIBE', /^(?:automations?|notifications?) ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$/, 'EN'],
+  ['SUBSCRIBE', /^(?:automa[cç](?:[oõ]es|[aã]o)|notifica[cç](?:[oõ]es|[aã]o)) ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$/, 'PT'],
 ];
 /** Messages that sound like an authorization. In a channel they never are one. */
 // A confirmation — alone or chained ("yes, execute it", "sim, pode executar agora") — is answered with the zero-authority notice.
@@ -137,6 +142,7 @@ export async function decideTurn(input: TurnInput): Promise<TurnDecision> {
     if (kind === 'OPT_OUT') return decision('OPT_OUT', 'OPTED_OUT', [text(m.optedOut)], freshState(state.language));
     // NEW/CANCEL also forgets the open question; the service revokes the live approval link.
     if (kind === 'CANCEL') return decision('CANCEL', 'CANCELLED', greet([]), { ...greeted, pending: null, approvalId: null, copilot: null });
+    if (kind === 'SUBSCRIBE') return decision('SUBSCRIBE', 'SUBSCRIBE', greet([]), greeted, { subscribeCode: local[1].exec(normalized)![1]!.toUpperCase() });
     return decision(kind, kind === 'STATUS' ? 'STATUS' : 'LINK', greet([]), greeted);
   }
   const pending = state.pending, env = environment(pending), conversation = decodeCopilot(state.copilot, env);

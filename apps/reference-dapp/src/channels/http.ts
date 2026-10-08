@@ -17,6 +17,7 @@ import type { ChannelInterpreter } from './core/conversation.ts';
 import { channelInterpreter } from './core/interpreter.ts';
 import { channelLogger, type ChannelLogSink } from './core/log.ts';
 import { createChannelService } from './core/service.ts';
+import { channelSubscriptions } from './subscriptions.ts';
 import { channelProviders, type ProviderSeams } from './providers.ts';
 import { readChannelDeployment, type ChannelRoute } from './registry.ts';
 import { channelHost, channelRuntime, type ChannelHost } from './runtime.ts';
@@ -83,7 +84,7 @@ export async function handleChannelWebhook(route: ChannelRoute, request: Request
   if ('code' in host) return answer(503, host.code);
   const { store, platform } = channelRuntime(env, core, host, options.runtime);
   const service = createChannelService({ core, store, log, now, platform, previewTimeoutMs: options.previewTimeoutMs ?? 60_000, adapter: provider.adapter,
-    interpreter: options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot }),
+    interpreter: options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot }), subscriptions: channelSubscriptions(env, host),
     ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} });
   let ingested;
   try { ingested = await service.ingest(parsed.messages, parsed.deliveries); }
