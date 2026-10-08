@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { describe, expect, it } from 'vitest';
-import { assertRunOwnership, normalizePrincipal, ROUTER_OWNERSHIP } from './run-ownership.ts';
+import { assertRunOwnership, normalizePrincipal, PAYMENT_OWNERSHIP, ROUTER_OWNERSHIP } from './run-ownership.ts';
 import { FLOWS } from '../../backend/flows.ts';
 
 /** BUILD-JOURNEY-001: one ownership rule for the API and local server actions. */
@@ -27,14 +27,14 @@ describe('BUILD-JOURNEY-001 run ownership', () => {
   it('fails closed for a method the policy does not declare', async () => {
     await expect(check('somethingNew', [RUN], A)).rejects.toThrow('RUN_OWNERSHIP_UNDECLARED');
   });
-  it('covers every method of both Router flows and leaves other flows unchanged', () => {
-    for (const flow of ['crosschain-router', 'crosschain-router-testnet'] as const) {
+  it('covers every method of both Router flows and the payment flow and leaves other flows unchanged', () => {
+    for (const [flow, policy] of [['crosschain-router', ROUTER_OWNERSHIP], ['crosschain-router-testnet', ROUTER_OWNERSHIP], ['pix-payment', PAYMENT_OWNERSHIP]] as const) {
       const definition = FLOWS[flow];
-      expect(definition.ownership?.policy).toBe(ROUTER_OWNERSHIP);
+      expect(definition.ownership?.policy).toBe(policy);
       for (const method of Object.keys(definition.methods))
-        expect(ROUTER_OWNERSHIP.open.includes(method) || Object.hasOwn(ROUTER_OWNERSHIP.ownerArgument, method) || ROUTER_OWNERSHIP.runArgument.includes(method)).toBe(true);
+        expect(policy.open.includes(method) || Object.hasOwn(policy.ownerArgument, method) || policy.runArgument.includes(method)).toBe(true);
     }
-    expect(Object.values(FLOWS).filter(f => f.ownership).map(f => f.name).sort()).toEqual(['crosschain-router', 'crosschain-router-testnet']);
+    expect(Object.values(FLOWS).filter(f => f.ownership).map(f => f.name).sort()).toEqual(['crosschain-router', 'crosschain-router-testnet', 'pix-payment']);
   });
   it('accepts only lower-case EVM principals', () => {
     expect(normalizePrincipal(A)).toBe(A);

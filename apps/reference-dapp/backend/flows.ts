@@ -31,16 +31,18 @@ import { baseSepoliaLiquidityRpc, createBaseSepoliaReadRpc, UNISWAP_LIQUIDITY_RP
 import { UNI_MOCK_CODE_PINS, UNI_MOCK_RPC_URL } from '../src/server/uniswap-liquidity-mock.ts';
 import { createRouterService, ROUTER_RUN_ID, routerNeedsObservation, type RouterRecord, type RouterWalletDiagnostic } from '../src/server/router-service.ts';
 import { routerNetworkMode, routerNetworkRuntime, type RouterNetwork } from '../src/server/router-runtime.ts';
-import { ROUTER_OWNERSHIP, type OwnershipPolicy } from '../src/server/run-ownership.ts';
+import { PAYMENT_OWNERSHIP, ROUTER_OWNERSHIP, type OwnershipPolicy } from '../src/server/run-ownership.ts';
 import type { RouteProvider } from '../src/server/router-providers.ts';
 import type { RoutingProvider } from '@defi-workflow-engine/workflow-contracts';
 import { isHostedDeployment } from '../src/server/deployment.ts';
 import { createLendingCompositionService, type LendingRecord } from '../src/server/lending-composition-service.ts';
 import { createLendingRpc } from '../src/server/lending-rpc.ts';
+import { createPaymentFlowService, PAYMENT_RUN_ID, paymentNeedsObservation, type PaymentRecord, type PaymentWalletResult } from '../src/server/payment-flow-service.ts';
+import { paymentMode, paymentRuntime } from '../src/server/payment-runtime.ts';
 import { MAX_LOG_BYTES } from '@defi-workflow-engine/cloud-runtime';
 
 export type FlowName = 'robinhood-transfer' | 'aave-supply' | 'base-sepolia-swap' | 'solana-devnet-swap' | 'orca-liquidity' | 'jupiter-swap' | 'uniswap-liquidity' | 'crosschain-router'
-  | 'crosschain-router-testnet' | 'lending-composition';
+  | 'crosschain-router-testnet' | 'lending-composition' | 'pix-payment';
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 /** Network transport for one flow. Built from configuration in production; replaced by MOCKED chains in tests. */
 export type FlowDeps = { readonly rpc: Rpc; readonly mode: 'live' | 'harness'; readonly env: Readonly<Record<string, string | undefined>>; readonly http?: JupiterHttp;
@@ -608,9 +610,70 @@ const lendingComposition: FlowDefinition = {
   evidence: lendingEvidence,
 };
 
+/**
+ * Stablecoin → Pix through the configured PaymentAdapter (`payment-flow-service.ts`). Channels only draft and quote; every run is
+ * owned by the wallet that simulated it, the provider pays out only after the owner's own source transfer is verified on Base, and
+ * settlement is recorded only with the provider's Pix proof. Index logs (`<payout id>.payment`) map a provider webhook to its run.
+ */
+const paymentRequest = (value: unknown) => isObject(value) && JSON.stringify(value).length <= 8_192;
+const paymentEvidence = (value: unknown) => {
+  const record = value as PaymentRecord;
+  return record.evidence && record.state === 'PAYMENT_SETTLED' ? { bundleHash: record.evidence.bundleHash, environment: record.provenance, outcome: record.state,
+    bytes: new TextEncoder().encode(JSON.stringify(record.evidence)) } : null;
+};
+const pixPayment: FlowDefinition = {
+  name: 'pix-payment', busyCode: 'PAYMENT_BUSY', runId: PAYMENT_RUN_ID, unavailableCode: 'PAYMENT_SERVICE_UNAVAILABLE',
+  methods: {
+    info: { mutates: false, validate: shape() },
+    simulate: { mutates: true, validate: shape(paymentRequest, account) },
+    review: { mutates: true, validate: shape(id(PAYMENT_RUN_ID), commitment) },
+    invalidate: { mutates: true, validate: shape(id(PAYMENT_RUN_ID)) },
+    begin: { mutates: true, validate: shape(id(PAYMENT_RUN_ID), account) },
+    handoff: { mutates: true, validate: shape(id(PAYMENT_RUN_ID)) },
+    report: { mutates: true, validate: shape(id(PAYMENT_RUN_ID), result) },
+    observe: { mutates: true, validate: shape(id(PAYMENT_RUN_ID)) },
+    status: { mutates: false, validate: shape(id(PAYMENT_RUN_ID)) },
+  },
+  transport: (_mode, env) => ({ rpc: paymentRuntime(env).rpc }),
+  create(storage, { rpc, env }) {
+    // The runtime's gates (provider configuration, provenance, owner-execution opt-in) apply; the read client may be a test substitute.
+    const runtime = paymentRuntime(env);
+    const s = createPaymentFlowService({ storage, rpc, adapters: runtime.adapters, provenance: runtime.provenance, executionEnabled: runtime.executionEnabled });
+    const table: Record<string, (args: Args) => Promise<unknown>> = {
+      info: async () => ({ executionEnabled: s.executionEnabled }),
+      simulate: ([r, a]) => s.simulate(r as Parameters<typeof s.simulate>[0], a as string),
+      review: ([i, c]) => s.review(i as string, c as string),
+      invalidate: ([i]) => s.invalidate(i as string),
+      begin: ([i, a]) => s.begin(i as string, a as string),
+      handoff: ([i]) => s.handoff(i as string),
+      report: ([i, r]) => s.report(i as string, r as PaymentWalletResult),
+      observe: ([i]) => s.observe(i as string),
+      status: ([i]) => s.load(i as string),
+    };
+    return { call: (method, args) => table[method]!(args), load: runId => s.load(runId), observe: runId => s.observe(runId) };
+  },
+  needsObservation: paymentNeedsObservation,
+  projector(logName, bytes): Projection | null {
+    if (!logName.endsWith('.jsonl')) return null;
+    const record = lastRecord<PaymentRecord>(bytes), observe = paymentNeedsObservation(record), evidence = paymentEvidence(record);
+    return { run: { runId: record.id, workflowId: record.id, flow: 'pix-payment', status: record.state,
+      // The run log keeps the exact label; a provider sandbox is the valueless public-test class of the projection.
+      provenance: record.provenance === 'PROVIDER_SANDBOX' ? 'PUBLIC_TESTNET' : record.provenance, ownerAccount: record.facts.owner.address, recoveryOf: null,
+      errorCode: errorCode(record.error), needsObservation: observe, hasEvidence: evidence !== null,
+      attempts: record.attempt ? [{ attemptId: `${record.id}.SOURCE`, step: 'SOURCE', state: record.attempt.state, nonce: null,
+        transactionHash: record.attempt.transactionHash, preparedAtBlock: null, reconciled: record.state === 'PAYMENT_SETTLED' }] : [],
+      journal: [] },
+      // A Pix payout settles in seconds once paid out; the source transfer needs a few Base blocks first.
+      work: work('pix-payment', record.id, observe, 15_000, evidence !== null) };
+  },
+  evidence: paymentEvidence,
+  ownership: { policy: PAYMENT_OWNERSHIP, ownerOf: record => (record as PaymentRecord).facts.owner.address },
+};
+
 export const FLOWS: Readonly<Record<FlowName, FlowDefinition>> = Object.freeze({ 'robinhood-transfer': robinhood, 'aave-supply': supply, 'base-sepolia-swap': swap,
   'solana-devnet-swap': solanaDevnetSwap, 'orca-liquidity': orcaLiquidity, 'jupiter-swap': jupiterSwap, 'uniswap-liquidity': uniswapLiquidity,
-  'crosschain-router': crosschainRouter, 'crosschain-router-testnet': crosschainRouterTestnet, 'lending-composition': lendingComposition });
+  'crosschain-router': crosschainRouter, 'crosschain-router-testnet': crosschainRouterTestnet, 'lending-composition': lendingComposition,
+  'pix-payment': pixPayment });
 export const isFlowName = (value: string): value is FlowName => Object.hasOwn(FLOWS, value);
 
 /**
@@ -641,6 +704,8 @@ function configuredFlowMode(flow: FlowName, env: Readonly<Record<string, string 
   if (flow === 'crosschain-router-testnet') return routerNetworkMode('testnet', env);
   // BUILD-013 lending composition: part of the Aave family's explicit enablement; its own MOCKED loopback harness wins.
   if (flow === 'lending-composition') return env.GRYLOO_LENDING_HARNESS === 'MOCKED_LOOPBACK_ONLY' ? 'harness' : env.GRYLOO_SUPPLY_TESTNET === 'live' ? 'live' : 'off';
+  // Stablecoin → Pix: `GRYLOO_PAYMENT=live`; begin additionally needs the provider's production environment and the owner-execution opt-in.
+  if (flow === 'pix-payment') return paymentMode(env);
   if (flow === 'robinhood-transfer') {
     if (env.GRYLOO_ROBINHOOD_HARNESS === 'MOCKED_LOOPBACK_ONLY') return 'harness';
     return env.GRYLOO_ROBINHOOD_TESTNET === 'live' || env.GRYLOO_ETHEREUM_SEPOLIA_TRANSFER === 'live' ? 'live' : 'off';
@@ -651,5 +716,6 @@ function configuredFlowMode(flow: FlowName, env: Readonly<Record<string, string 
 const DISABLED: Readonly<Record<FlowName, string>> = { 'robinhood-transfer': 'TRANSFER_PUBLIC_TESTNET_NOT_ENABLED', 'aave-supply': 'SUPPLY_PUBLIC_TESTNET_NOT_ENABLED',
   'base-sepolia-swap': 'PUBLIC_RECORDING_OFF', 'solana-devnet-swap': 'DEVNET_SWAP_PUBLIC_DEVNET_NOT_ENABLED', 'orca-liquidity': 'ORCA_LIQUIDITY_PUBLIC_DEVNET_NOT_ENABLED',
   'jupiter-swap': 'JUPITER_PUBLIC_MAINNET_NOT_ENABLED', 'uniswap-liquidity': 'UNISWAP_LIQUIDITY_PUBLIC_TESTNET_NOT_ENABLED',
-  'crosschain-router': 'ROUTER_NOT_ENABLED', 'crosschain-router-testnet': 'ROUTER_TESTNET_NOT_ENABLED', 'lending-composition': 'LENDING_PUBLIC_TESTNET_NOT_ENABLED' };
+  'crosschain-router': 'ROUTER_NOT_ENABLED', 'crosschain-router-testnet': 'ROUTER_TESTNET_NOT_ENABLED', 'lending-composition': 'LENDING_PUBLIC_TESTNET_NOT_ENABLED',
+  'pix-payment': 'PAYMENT_NOT_ENABLED' };
 export const disabledCode = (flow: FlowName) => DISABLED[flow];
