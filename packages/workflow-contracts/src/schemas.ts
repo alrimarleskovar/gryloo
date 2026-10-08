@@ -1,4 +1,3 @@
-import { isDeepStrictEqual } from 'node:util';
 import { assertTransition } from './state-transitions.js';
 import { Ajv, type ValidateFunction } from 'ajv';
 import { type Static } from '@sinclair/typebox';
@@ -122,7 +121,7 @@ function checkWorkflow(value: SemanticWorkflow): void {
         fail('locked parameter references unknown parameter');
       }
       const input = node.inputs.find(candidate => candidate.name === lockedParameter.name);
-      if (!isDeepStrictEqual(input, lockedParameter)) fail('locked parameter value differs from input');
+      if (!sameJsonValue(input, lockedParameter)) fail('locked parameter value differs from input');
     }
     for (const input of node.inputs) {
       if (input.kind !== 'OUTPUT_REFERENCE') continue;
@@ -345,4 +344,17 @@ export function validateArtifact<K extends ArtifactKind>(
     unique(evidence.evidence.map(item => item.evidenceId), 'evidence ID');
   }
   return value as ArtifactByKind[K];
+}
+
+/**
+ * Strict structural equality for parsed JSON values (same semantics as `util.isDeepStrictEqual` on JSON data: `Object.is` for
+ * primitives, key order ignored). Kept local because browser bundles validate workflows too and have no `node:util`.
+ */
+function sameJsonValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right) || Object.getPrototypeOf(left) !== Object.getPrototypeOf(right)) return false;
+  const leftKeys = Object.keys(left), rightRecord = right as Record<string, unknown>;
+  return leftKeys.length === Object.keys(right).length
+    && leftKeys.every(key => Object.hasOwn(rightRecord, key) && sameJsonValue((left as Record<string, unknown>)[key], rightRecord[key]));
 }
