@@ -128,7 +128,7 @@ export function chainlinkSource(config: ChainlinkConfig): PriceSource {
     try {
       const { decimals, description } = await verifyFeed(asset, feed);
       const round = decodeRound(await call(feed, SELECTORS.latestRoundData));
-      if (round.answer <= 0n || round.updatedAt <= 0n || round.updatedAt > BigInt(Number.MAX_SAFE_INTEGER / 1000)) return { ok: false, code: 'PRICE_SOURCE_RESPONSE_INVALID' } as const;
+      if (round.answer <= 0n || round.updatedAt <= 0n || round.updatedAt > BigInt(Math.floor(Number.MAX_SAFE_INTEGER / 1000))) return { ok: false, code: 'PRICE_SOURCE_RESPONSE_INVALID' } as const;
       const observation: PriceObservation = { asset, priceUsd: scaledPrice(round.answer, decimals), observedAt: new Date(Number(round.updatedAt) * 1000).toISOString(),
         receivedAt: now.toISOString(), source: 'CHAINLINK', evidence: 'PUBLIC_READ_ONLY',
         provenance: { network: 'base', chainId: BASE_CHAIN_ID, feed: feed.toLowerCase(), roundId: round.roundId.toString(), description } };

@@ -35,7 +35,7 @@ export async function notifySubscriber(ctx: Omit<DeliveryContext, 'adapter'> & {
   if (!conversation.addressSealed) return { queued: false, code: 'SUBSCRIBER_NO_ADDRESS', report: null };
   const state = open(ctx.keys.seal, conversation.stateSealed, sealContext(ctx.tenantId, 'channel_conversations', conversationId, 'state'));
   const language = parseStateLanguage(state, ctx.fallbackLanguage), outboxId = newOutboxId();
-  const inserted = await ctx.store.enqueue(conversationId, [{ outboxId, dedupeKey, kind: 'NOTIFICATION', sequence: 0, bodySealed: sealReply(ctx, outboxId, reply(language)),
+  const inserted = await ctx.store.enqueue(conversationId, [{ outboxId, dedupeKey, kind: 'NOTIFICATION', sequence: 0, bodySealed: sealReply(ctx, outboxId, reply(language), ctx.origin),
     handoffId: null }], ctx.now());
   const report = await deliverConversation(ctx, conversationId, { kinds: ['REPLY', 'NOTIFICATION'], language });
   ctx.log.info('channel.notify', { channel: ctx.adapter.channel, conversation: conversationId, count: inserted.length, kind: 'subscriber' });

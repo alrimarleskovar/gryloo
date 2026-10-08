@@ -18,7 +18,8 @@ describe('BUILD-CLOUD-001 migrations', () => {
     const runners = [t.open(2), t.open(2), t.open(2)];
     const applied = await Promise.all(runners.map(db => migrate(db)));
     const all = await loadMigrations();
-    expect(applied.flat().sort()).toEqual(all.map(m => m.version));
+    // Numeric order (a lexicographic sort put 10 before 2 once the tenth migration shipped).
+    expect(applied.flat().sort((a, b) => a - b)).toEqual(all.map(m => m.version));
     expect(await migrate(t.db)).toEqual([]);
     expect(await assertSchemaCurrent(t.db)).toBe(all.length);
     const { rows } = await t.db.query<{ tenant_id: string }>('SELECT tenant_id FROM tenants');

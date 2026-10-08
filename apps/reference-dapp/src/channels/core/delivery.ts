@@ -76,9 +76,18 @@ const confirmBy = (ctx: Pick<DeliveryContext, 'adapter'>, now: Date) => new Date
 const bodyContext = (ctx: Pick<DeliveryContext, 'tenantId'>, outboxId: string) => sealContext(ctx.tenantId, 'channel_outbox', outboxId, 'body');
 export const addressContext = (tenantId: string, conversationId: string) => sealContext(tenantId, 'channel_conversations', conversationId, 'address');
 
-/** A sealed outbound body. An approval reply is sealed WITHOUT its link (the link is attached in memory at send time). */
-export function sealReply(ctx: Pick<DeliveryContext, 'tenantId' | 'keys'>, outboxId: string, reply: ChannelReply): Buffer {
-  return seal(ctx.keys.seal, JSON.stringify({ ...reply, link: null }), bodyContext(ctx, outboxId));
+/**
+ * A sealed outbound body. A reply is sealed WITHOUT its link (an approval link is attached in memory at send time), unless the link is
+ * a FloFi workspace link without any secret (`workspaceLink`), which a subscriber notification may keep (BUILD-AUTOMATION-001).
+ */
+export function sealReply(ctx: Pick<DeliveryContext, 'tenantId' | 'keys'>, outboxId: string, reply: ChannelReply, origin: string | null = null): Buffer {
+  const keep = origin !== null && reply.link !== null && workspaceLink(reply.link.url, origin);
+  return seal(ctx.keys.seal, JSON.stringify({ ...reply, link: keep ? reply.link : null }), bodyContext(ctx, outboxId));
+}
+/** BUILD-AUTOMATION-001: the owner's own FloFi Automations workspace, optionally one occurrence (an opaque id) — never a secret. */
+export function workspaceLink(url: string, origin: string): boolean {
+  const workspace = `${origin}/app/automations`, occurrence = `${workspace}?occurrence=`;
+  return url === workspace || (url.startsWith(occurrence) && /^occ_[a-z2-7]{26}$/.test(url.slice(occurrence.length)));
 }
 export const newOutboxId = () => channelRowId('cho');
 
@@ -89,8 +98,7 @@ export function outputSafe(reply: ChannelReply, origin: string): boolean {
   if (texts.some(t => UNSAFE.some(pattern => pattern.test(t)))) return false;
   if (reply.link === null) return true;
   // BUILD-AUTOMATION-001: an automation notification links to the owner's own FloFi workspace — an opaque id, never a secret.
-  const workspace = `${origin}/app/automations`, occurrence = `${workspace}?occurrence=`;
-  if (reply.link.url === workspace || (reply.link.url.startsWith(occurrence) && /^occ_[a-z2-7]{26}$/.test(reply.link.url.slice(occurrence.length)))) return true;
+  if (workspaceLink(reply.link.url, origin)) return true;
   return reply.link.url.startsWith(`${origin}/approve#flofi_chs_`) && /^[^\s]+$/.test(reply.link.url);
 }
 
