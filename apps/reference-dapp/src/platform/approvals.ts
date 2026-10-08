@@ -177,7 +177,8 @@ export function approvalView(h: HandoffRecord, verified: Verified | null, viewer
     statusShared: h.shareStatus, authorized: false, authority: AUTHORITY_NONE, requires: [...APPROVAL_REQUIRES] };
 }
 export type ApprovalView = ReturnType<typeof approvalView>;
-export type ClaimedProposal = { readonly view: ApprovalView; readonly command: Command; readonly workflowHash: string };
+/** `workflowId` is the identity of the draft the proposal was composed on; the claimant's pristine draft adopts it so the hash can match. */
+export type ClaimedProposal = { readonly view: ApprovalView; readonly command: Command; readonly workflowHash: string; readonly workflowId: string };
 
 /** The workflow a flow record reviewed, wherever the flow keeps it (review, workflow, or the first of several reviews). */
 function reviewedWorkflows(record: unknown): unknown[] {

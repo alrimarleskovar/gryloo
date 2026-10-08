@@ -22,6 +22,7 @@ export type EditorHistory = { readonly editor: EditorState; readonly layout: Can
 export type HistoryAction =
   | { readonly type: 'EDIT_CRYPTO_SELECTION'; readonly id: string; readonly selection: CryptoSelection; readonly context: ReviewContext; readonly beneficiary?: string }
   | { readonly type: 'RESTORE_WORKFLOW'; readonly workflow: SemanticWorkflow }
+  | { readonly type: 'ADOPT_DRAFT_IDENTITY'; readonly workflowId: string }
   | { readonly type: 'RESTORE_LENDING_CANVAS'; readonly workflow: SemanticWorkflow }
   | { readonly type: 'COMMAND'; readonly command: Command; readonly context: ReviewContext; readonly position?: { x: number; y: number }; readonly authoringId?: string; readonly authoringAmount?: string }
   | { readonly type: 'START_ACTION_SETUP'; readonly action: CanvasActionSetup['action']; readonly position: { x: number; y: number }; readonly beneficiary?: string }
@@ -147,6 +148,13 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
     if (!state.actionSetup) return state;
     const layout = { ...state.layout }; delete layout[state.actionSetup.id];
     return { ...state, actionSetup: null, layout, past: [...state.past, snapshot(state)], future: [] };
+  }
+  // An external proposal is composed on the initial draft. Only an untouched draft (revision 0) takes that draft's identity, so the
+  // applied proposal hashes exactly to the proposal; any authored draft keeps its own identity and stays a mismatch.
+  if (action.type === 'ADOPT_DRAFT_IDENTITY') {
+    const workflow = state.editor.workflow;
+    if (workflow.revision !== 0 || workflow.workflowId === action.workflowId || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(action.workflowId)) return state;
+    return { ...state, editor: { ...state.editor, workflow: freeze({ ...structuredClone(workflow), workflowId: action.workflowId }) } };
   }
   if (action.type === 'RESTORE_WORKFLOW') {
     try {

@@ -29,7 +29,7 @@ type Store = { restorationEpoch: number; state: EditorState; dispatch: Dispatch<
   editPoolSetup(id: string, input: UniswapLiquidityInput): void;
   editSwapSetupDirection(id: string, direction: Direction): void;
   reviewCanvasAmount(id: string, poolInput?: UniswapLiquidityInput): string | null; removeActionSetup(): void;
-  restoreLendingCanvas(workflow:SemanticWorkflow):void; restoreWorkflow(workflow: SemanticWorkflow): void;
+  restoreLendingCanvas(workflow:SemanticWorkflow):void; restoreWorkflow(workflow: SemanticWorkflow): void; adoptDraftIdentity(workflowId: string): void;
   canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
   moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
   addCanvasCommand(command: Command, position: { x: number; y: number }): void;
@@ -208,7 +208,7 @@ export function WorkflowProvider({ children, initialContext, initialWorkflowId =
     if (!checkChainAccess(chainRef.current, workflowRef.current, Date.now(), performance.now()).ok) { accessCheck(); return; }
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
-  return <Context.Provider value={{ restorationEpoch, state, dispatch, context, restoreLendingCanvas, restoreWorkflow: workflow => { setRestorationEpoch(n => n + 1); setPending(null); dispatchHistory({ type: 'RESTORE_WORKFLOW', workflow }); }, canvasLayout: history.layout, canUndo: history.past.length > 0,
+  return <Context.Provider value={{ restorationEpoch, state, dispatch, context, restoreLendingCanvas, adoptDraftIdentity: workflowId => dispatchHistory({ type: 'ADOPT_DRAFT_IDENTITY', workflowId }), restoreWorkflow: workflow => { setRestorationEpoch(n => n + 1); setPending(null); dispatchHistory({ type: 'RESTORE_WORKFLOW', workflow }); }, canvasLayout: history.layout, canUndo: history.past.length > 0,
     actionSetup: history.actionSetup, amountInputs: history.amountInputs, authoringIncomplete,
     bridgeNetworkInputs: history.bridgeNetworkInputs, editBridgeNetworks, cryptoSelections: history.cryptoSelections, editCryptoSelection, reviewCryptoPool,
     startActionSetup, editCanvasAmount, editPoolSetup, editSwapSetupDirection, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup,

@@ -24,6 +24,15 @@ describe('canvas edit history', () => {
     const invalid=structuredClone(workflow);invalid.nodes[2]!.inputs=[];
     expect(editorHistoryReducer(initial,{type:'RESTORE_LENDING_CANVAS',workflow:invalid})).toBe(initial);
   });
+  it('gives only an untouched draft the identity an external proposal was composed on', () => {
+    const fresh = editorHistoryReducer(initialEditorHistory(), { type: 'ADOPT_DRAFT_IDENTITY', workflowId: 'workflow-request-1' });
+    const adopted = editorHistoryReducer(fresh, { type: 'ADOPT_DRAFT_IDENTITY', workflowId: 'workflow-local' });
+    expect(adopted.editor.workflow).toEqual({ ...initialEditorHistory().editor.workflow, workflowId: 'workflow-local' });
+    expect(Object.isFrozen(adopted.editor.workflow)).toBe(true);
+    const edited = add(fresh);
+    expect(editorHistoryReducer(edited, { type: 'ADOPT_DRAFT_IDENTITY', workflowId: 'workflow-local' })).toBe(edited);
+    expect(editorHistoryReducer(fresh, { type: 'ADOPT_DRAFT_IDENTITY', workflowId: '../other' })).toBe(fresh);
+  });
   it('duplicates one selected node with a new ID and one undoable offset', () => {
     let state = initialEditorHistory();
     const before = state.past.length;

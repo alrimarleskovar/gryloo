@@ -43,7 +43,7 @@ function takeSecret(): string | null {
 
 export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange?: (available: boolean) => void }) {
   const { t: tr } = useLocale();
-  const { state, pending, propose, applyProposal } = useWorkflow();
+  const { state, pending, propose, applyProposal, adoptDraftIdentity } = useWorkflow();
   const [secret, setSecret] = useState<string | null>(null);
   const [view, setView] = useState<ApprovalView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +94,7 @@ export function ApprovalHandoff({ onAvailabilityChange }: { onAvailabilityChange
   const claim = () => run(async () => {
     const result = unwrap(await claimApprovalHandoff(secret!, share === true));
     setView(result.view); setClaimed(true);
+    adoptDraftIdentity(result.workflowId);
     // The same proposal card FloFi's own chat uses; nothing is applied until the owner clicks.
     propose(result.command);
   });

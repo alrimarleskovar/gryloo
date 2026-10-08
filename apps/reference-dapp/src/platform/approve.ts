@@ -98,7 +98,7 @@ export async function claimApproval(surface: ApprovalSurface, secret: unknown, w
   if (!claimed.ok) return refuse(claimed.code);
   if (!verified.ok) return refuse(verified.code);
   const view = approvalView(claimed.handoff, verified, await viewerOf(profile, wallets));
-  return { view, command: verified.composition.command, workflowHash: verified.composition.workflowHash };
+  return { view, command: verified.composition.command, workflowHash: verified.composition.workflowHash, workflowId: verified.composition.workflow.workflowId };
 }
 
 /**
