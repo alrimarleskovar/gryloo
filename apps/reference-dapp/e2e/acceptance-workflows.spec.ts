@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Integrated acceptance on disposable PostgreSQL and MOCKED loopback chains. No public broadcasts. */
-import { test, expect, openProposalReview, openSimulationDetails, readWorkflowIr } from './fixtures';
+import { test, expect, chooseWallet, openProposalReview, openSimulationDetails, readWorkflowIr } from './fixtures';
 import { CROSSCHAIN_ROUTER_BASE_SEPOLIA_ARBITRUM_SEPOLIA as TESTNET } from '@defi-workflow-engine/action-registry';
 import { createRouterHarness } from './router-harness';
 import type { Page } from '@playwright/test';
@@ -129,6 +129,7 @@ test('Save → Your workflows → exact Canvas restoration; grouped executions, 
   await page.getByRole('textbox', { name: 'Workflow name', exact: true }).press('Enter');
   await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
   await page.getByRole('button', { name: 'Connect wallet and prove ownership', exact: true }).click();
+  await chooseWallet(page, 'Browser wallet'); // The canonical selector (HOTFIX-WALLET-SELECTOR) asks which wallet proves ownership.
   await expect(page.getByRole('button', { name: 'Connect wallet and prove ownership', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save workflow', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Workflow saved.');
@@ -187,6 +188,7 @@ test('Save → Your workflows → exact Canvas restoration; grouped executions, 
   library = await libraryWorkspace(page, 'PT');
   await expect(library.getByRole('button', { name, exact: true })).toHaveCount(0);
   await library.getByRole('button', { name: 'Ligar carteira e verificar titularidade', exact: true }).click();
+  await chooseWallet(page, 'Browser wallet', 'Ethereum', 'PT');
   await expect(library).toContainText('Ainda não há workflows.');
   expect(errors).toEqual([]); networkGuard.assertClean();
 });
