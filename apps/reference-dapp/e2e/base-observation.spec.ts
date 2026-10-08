@@ -101,14 +101,14 @@ for (const [from, to, amount, at] of [
     await expect(page.locator('.summary-bar[data-workflow-revision="1"]')).toBeVisible();
     if (from === 'WETH') {
       await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
-      await expect(page).toHaveScreenshot('observation-recorded.png', { fullPage: true });
+      await expect(page).toHaveScreenshot('observation-recorded.png', { fullPage: true, mask: [region.locator('[data-observation-hash^="artifact:"]')] }); // Derived from the per-visit draft identity.
       await page.clock.setSystemTime(new Date('2026-09-24T14:52:05.000Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await expect(region).toContainText('OBSERVATION: EXPIRED');
       await expect(region.locator('[data-observed-value]')).toHaveCount(0);
       await expect(region.locator('[data-observation-json]')).toHaveCount(0);
       await expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
-      await expect(page).toHaveScreenshot('observation-expired.png', { fullPage: true });
+      await expect(page).toHaveScreenshot('observation-expired.png', { fullPage: true, mask: [region.locator('p', { hasText: 'Retired observation' }).locator('code')] });
     }
     networkGuard.assertClean();
   });

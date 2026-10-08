@@ -43,6 +43,12 @@ async function readJson(page: Page, key: string, label: string) {
   return { text: text!, value: JSON.parse(text!) as Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 const hash = (page: Page, key: string) => panel(page).locator(`code[data-hash="${key}"]`).textContent();
+// Each visit authors a fresh draft identity (workflow-<uuid>), so every displayed hash derived from it differs per run. Screenshots
+// mask only those values; the hashes themselves are verified against the frozen contracts by the R-5/R-6 tests above.
+const hashMask = (page: Page) => ({ mask: [panel(page).locator('code[data-hash], .retired-ids code')] });
+/** Artifact JSON without the values derived from the draft identity (its semantic workflow hash and the hashes chained from it). */
+const withoutIdentityHashes = (text: string) => JSON.stringify(JSON.parse(text), (key, value) =>
+  ['semanticWorkflowHash', 'artifactHash', 'artifactSetHash'].includes(key) ? undefined : value);
 // BUILD-003D §3.16: screenshots wait until the Simulate canvas viewport is fitted to the final layout.
 const viewportFitted = (page: Page) => expect(page.getByRole('region', { name: 'Simulation workflow graph' })).toHaveAttribute('data-viewport', 'fitted');
 
@@ -79,7 +85,7 @@ for (const [from, to, amount] of [['USDC', 'WETH', '2.25'], ['WETH', 'USDC', '0.
 }
 
 test('chat-created and canvas-created swaps yield identical mocked artifacts', async ({ page }) => {
-  const artifacts = [];
+  const artifacts: { ir: { workflowId: string; revision: number }; values: string[] }[] = [];
   for (const surface of ['chat', 'canvas'] as const) {
     await page.clock.setFixedTime(T1);
     await page.goto('/');
@@ -93,14 +99,18 @@ test('chat-created and canvas-created swaps yield identical mocked artifacts', a
       await applyPendingProposal(page);
     }
     await generate(page);
-    artifacts.push([
-      (await readJson(page, 'quote:node-002', 'mocked quote · node-002')).text,
-      (await readJson(page, 'artifact-set', 'Artifact Set')).text,
-      (await readJson(page, 'simulation-bundle', 'mocked simulation')).text,
-      await hash(page, 'simulation-bundle'),
-    ]);
+    const ir = await readIr(page) as { workflowId: string; revision: number };
+    expect(await hash(page, 'semantic-workflow')).toBe(hashArtifactBytes('semantic-workflow', bytes(ir)));
+    artifacts.push({ ir, values: [
+      withoutIdentityHashes((await readJson(page, 'quote:node-002', 'mocked quote · node-002')).text),
+      withoutIdentityHashes((await readJson(page, 'artifact-set', 'Artifact Set')).text),
+      withoutIdentityHashes((await readJson(page, 'simulation-bundle', 'mocked simulation')).text),
+    ] });
   }
-  expect(artifacts[1]).toEqual(artifacts[0]);
+  // Separate visits are separate drafts: only the identity differs, so the canonical IR and its artifacts are otherwise identical.
+  expect(artifacts[1]!.ir.workflowId).not.toBe(artifacts[0]!.ir.workflowId);
+  expect({ ...artifacts[1]!.ir, workflowId: artifacts[0]!.ir.workflowId }).toEqual(artifacts[0]!.ir);
+  expect(artifacts[1]!.values).toEqual(artifacts[0]!.values);
 });
 
 test('semantic edits invalidate; presentation, dismissal, no-op and stale proposals do not', async ({ page }) => {
@@ -112,7 +122,7 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await expect(panel(page).locator('.simulate-swap')).toBeVisible();
   await expect(panel(page).locator('.chain-strip')).toBeVisible();
   expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
-  await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true });
+  await expect(page).toHaveScreenshot('simulate-current.png', { fullPage: true, ...hashMask(page) });
   await readIr(page);
   await tab(page, 'Execute');
   await tab(page, 'Simulate');
@@ -151,7 +161,7 @@ test('semantic edits invalidate; presentation, dismissal, no-op and stale propos
   await viewportFitted(page);
   await expect(panel(page).locator('.simulate-empty')).toBeVisible();
   expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
-  await expect(page).toHaveScreenshot('simulate-invalidated.png', { fullPage: true });
+  await expect(page).toHaveScreenshot('simulate-invalidated.png', { fullPage: true, ...hashMask(page) });
 });
 
 test('refresh keeps the IR hash and replaces every downstream hash', async ({ page }) => {
@@ -180,7 +190,7 @@ test('expiry is detected on tab resume and on access without any timer firing (R
   await viewportFitted(page);
   await expect(panel(page).locator('.simulate-empty')).toBeVisible();
   expect(await panel(page).evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
-  await expect(page).toHaveScreenshot('simulate-expired.png', { fullPage: true });
+  await expect(page).toHaveScreenshot('simulate-expired.png', { fullPage: true, ...hashMask(page) });
 
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
   await expect(chip(page, 'CURRENT')).toBeVisible();

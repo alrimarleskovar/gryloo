@@ -110,7 +110,8 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   await expect(page).toHaveScreenshot('proposal.png', { fullPage: true, maxDiffPixels: 0 });
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await selectSwap(page);
-  await readWorkflowIr(page);
+  // The displayed IR carries this visit's own draft identity, so it is checked as text and masked in the screenshot below.
+  expect((JSON.parse(await readWorkflowIr(page)) as SemanticWorkflow).workflowId).toMatch(/^workflow-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('BLOCK');
   await page.locator('.build-flow-surface .composer-card').first().scrollIntoViewIfNeeded();
   // IntersectionObserver rounds a fully visible transformed card to 0.99999994.
@@ -123,7 +124,7 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   await expect(page.getByRole('button', { name: 'Simulate fees' })).toBeEnabled();
   await readyForVisualCapture(page);
-  await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0 });
+  await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0, mask: [page.locator('[data-workflow-ir]')] });
 });
 
 test('Base authoring and review fit mobile, tablet and desktop widths', async ({ page }) => {
