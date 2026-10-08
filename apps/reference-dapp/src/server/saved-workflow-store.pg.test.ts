@@ -90,8 +90,8 @@ describe('migration 0008 upgrade', () => {
     try {
       const all = await loadMigrations(); await migrate(fresh.db, all.slice(0, 7));
       expect((await fresh.db.query(`SELECT to_regclass('saved_workflows') AS saved`)).rows[0]?.saved).toBeNull();
-      expect(await migrate(fresh.db, all)).toEqual([8]); expect(await migrate(fresh.db, all)).toEqual([]);
-      expect(await assertSchemaCurrent(fresh.db, SHIPPED_MIGRATIONS)).toBe(8);
+      expect(await migrate(fresh.db, all.slice(0, 8))).toEqual([8]); expect(await migrate(fresh.db, all.slice(0, 8))).toEqual([]);
+      expect(await assertSchemaCurrent(fresh.db, SHIPPED_MIGRATIONS.slice(0, 8))).toBe(8);
       const w = workflow(); await createSavedWorkflowStore(fresh.db, 'default', owner).save({ workflow: w, name: 'Migrated', expectedVersion: 0 });
       await expect(fresh.db.query('UPDATE saved_workflows SET version=0')).rejects.toMatchObject({ code: '23514' });
       await expect(fresh.db.query(`UPDATE saved_workflows SET owner_namespace='unknown'`)).rejects.toMatchObject({ code: '23514' });

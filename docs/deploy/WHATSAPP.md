@@ -34,10 +34,8 @@ real message before then.
 
 ## 2. Running it locally (fixture provider)
 
-Requirements: the embedded runtime (`FLOFI_RUNTIME=embedded`, a loopback PostgreSQL `DATABASE_URL`) and the staged migration
-`packages/cloud-runtime/migrations-pending/0008_channel_conversations.sql` applied by hand. It is staged, not in the shipped
-sequence, because `0007` belongs to BUILD-DEVELOPER-001 and the runner requires a gapless sequence (§5). Without it the webhook
-answers `503 CHANNEL_SCHEMA_NOT_INSTALLED`.
+Requirements: the embedded runtime (`FLOFI_RUNTIME=embedded`, a loopback PostgreSQL `DATABASE_URL`) migrated through
+`0008_channel_conversations` (the normal `migrate` step). Without it the webhook answers `503 CHANNEL_SCHEMA_NOT_INSTALLED`.
 
 ```
 FLOFI_WHATSAPP=enabled

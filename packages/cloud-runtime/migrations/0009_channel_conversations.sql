@@ -1,7 +1,6 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- BUILD-CHANNELS-001 0008: persistence of FloFi's conversational channels (Channel Core). STAGED: the migration runner requires a
--- gapless sequence and 0007 (BUILD-DEVELOPER-001) is not in this stack yet, so this file moves unchanged into migrations/ (and its
--- identity into SHIPPED_MIGRATIONS) once 0007 is present. Until then only the channel PostgreSQL tests apply it.
+-- BUILD-CHANNELS-001 0009: persistence of FloFi's conversational channels (Channel Core). It follows 0008 (saved_workflows) in the
+-- shipped sequence and touches no earlier table.
 --
 -- A channel conversation is a CHANNEL_CONVERSATION requester of the shared approval model (0006): its approval handoffs live in
 -- mcp_handoffs under (requester_kind, requester_ref = conversation_id). Nothing here references or alters that table.

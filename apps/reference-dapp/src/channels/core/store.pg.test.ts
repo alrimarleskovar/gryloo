@@ -7,14 +7,13 @@
  */
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
-import { createChannelTestDatabase } from './channel-db.test-harness.ts';
+import { createTestDatabase, type TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
 import { channelKeys, channelRowId, keyedDigest, leaseToken, open, seal, sealContext } from './crypto.ts';
 import { createPgChannelStore } from './pg-store.ts';
 import type { NewOutbox } from './store.ts';
 
 let t: TestDatabase;
-beforeAll(async () => { t = await createChannelTestDatabase(); });
+beforeAll(async () => { t = await createTestDatabase(); });
 afterAll(async () => { await t?.drop(); });
 const keys = channelKeys(randomBytes(32).toString('hex'));
 const store = () => createPgChannelStore(t.db, 'default');

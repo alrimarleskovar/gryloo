@@ -44,8 +44,7 @@ MOCKED"). There is no scheduler, and delivery never touches execution.
 
 The WhatsApp adapter (`src/channels/whatsapp`, provider concerns only) is built against Cloud API-shaped fixtures. Owner decision
 D1 (WhatsApp Business Messaging Policy §4) keeps it fixture-only and refused on every hosted deployment. Data: encrypted transient
-content, content-free records, the staged migration `migrations-pending/0008_channel_conversations.sql` (three channel tables; the
-generic handoff schema is unchanged).
+content, content-free records, migration `0008_channel_conversations` (three channel tables; the generic handoff schema is unchanged).
 
 Evidence: unit, PostgreSQL and in-process journeys (testnet router bridge; lending composition), and one browser journey through
 `next start`, all on MOCKED loopback chains. Owner actions: the policy decision for any live provider (Telegram is the candidate),

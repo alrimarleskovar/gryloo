@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CROSSCHAIN_ROUTER_BASE_SEPOLIA_ARBITRUM_SEPOLIA as TESTNET } from '@defi-workflow-engine/action-registry';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
-import type { TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
+import { createTestDatabase, type TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
 import type { FlowName } from '../../../backend/flows.ts';
 import { createLendingHarness, OWNER as LENDING_OWNER } from '../../../e2e/lending-harness.mjs';
 import { createRouterHarness, ROUTER_OWNER, type RouterHarness } from '../../../e2e/router-harness.ts';
@@ -28,14 +28,13 @@ import { createEmbeddedRuntime, type EmbeddedSeams } from '../../server/flow-run
 import type { LendingRecord } from '../../server/lending-composition-service.ts';
 import type { RouterBegin, RouterRecord } from '../../server/router-service.ts';
 import { pingChannelApproval } from '../approval-ping.ts';
-import { createChannelTestDatabase } from '../core/channel-db.test-harness.ts';
 import type { ChannelInterpreter } from '../core/conversation.ts';
 import { handleWhatsAppWebhook } from './handler.ts';
 import { fixtureTransport, type FixtureRecord } from './transport.ts';
 import { inbound, USER_BSUID, USER_PHONE, webhookRequest, whatsAppEnv } from './fixtures.test-harness.ts';
 
 let t: TestDatabase;
-beforeAll(async () => { t = await createChannelTestDatabase(); });
+beforeAll(async () => { t = await createTestDatabase(); });
 afterAll(async () => { await t?.drop(); });
 type Result<T> = { ok: boolean; value?: T; code?: string };
 function ok<T>(result: Result<T>): T { if (!result.ok) throw new Error(result.code); return result.value as T; }

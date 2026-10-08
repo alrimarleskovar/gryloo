@@ -11,14 +11,13 @@
  */
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
+import { createTestDatabase, type TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
 import type { FlowName } from '../../../backend/flows.ts';
 import { applyApproval, claimApproval, PlatformRefusal, viewApproval, type EngineRuntime, type WalletRef } from '../../platform/index.ts';
 import { approvalSurface } from '../../server/approval-surface.ts';
 import { editorReducer, initialEditor } from '../../domain/editor';
 import { dappReviewContext } from '../../engine/strategy-engine';
 import type { Command } from '../../domain/commands';
-import { createChannelTestDatabase } from '../core/channel-db.test-harness.ts';
 import { handleWhatsAppWebhook } from './handler.ts';
 import { fixtureTransport, type FixtureRecord } from './transport.ts';
 import { inbound, messageId, sha256Hex, statuses, USER_BSUID, USER_PHONE, webhookRequest, whatsAppEnv } from './fixtures.test-harness.ts';
@@ -26,7 +25,7 @@ import { inbound, messageId, sha256Hex, statuses, USER_BSUID, USER_PHONE, webhoo
 const OWNER = '0x1111111111111111111111111111111111111111', OTHER = '0x2222222222222222222222222222222222222222';
 const SECOND_BSUID = 'BR.FLOFITESTUSER0002';
 let t: TestDatabase;
-beforeAll(async () => { t = await createChannelTestDatabase(); });
+beforeAll(async () => { t = await createTestDatabase(); });
 afterAll(async () => { await t?.drop(); });
 
 /** MOCKED engine runtime: flows in harness mode, a MOCKED Aave preview; any other call is recorded as an execution path. */

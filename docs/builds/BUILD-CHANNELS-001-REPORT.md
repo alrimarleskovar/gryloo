@@ -106,7 +106,7 @@ against `1558dc0`.
 
 ## 5. Migration `0008` (staged)
 
-`packages/cloud-runtime/migrations-pending/0008_channel_conversations.sql` creates three tenant-scoped tables. They hold digests,
+`packages/cloud-runtime/migrations/0008_channel_conversations.sql` creates three tenant-scoped tables. They hold digests,
 ciphertext and closed codes only, and have no reference to `mcp_handoffs`:
 
 | Table | Holds | Minimization enforced by the database |

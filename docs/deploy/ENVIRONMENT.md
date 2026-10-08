@@ -152,7 +152,7 @@ cards un-removable at the provider from FloFi (FloFi then removes only its own c
 
 Off unless enabled, and **refused on every hosted deployment in this build** (owner decision D1: `404
 CHANNEL_PROVIDER_NOT_ACTIVATED` whatever the variables say). Only the `fixture` provider exists; nothing is ever sent to Meta. It needs
-the embedded runtime and the staged migration `migrations-pending/0008_channel_conversations.sql` applied by hand. Leave all of these
+the embedded runtime migrated through `0008_channel_conversations`. Leave all of these
 unset on Preview and Production. Guide: [WHATSAPP.md](WHATSAPP.md).
 
 | Variable | Purpose | Secret | Preview | Prod | Default |
