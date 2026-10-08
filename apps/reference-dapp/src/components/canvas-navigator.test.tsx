@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { CanvasNavigator } from './canvas-navigator';
+import { CANVAS_GESTURES, CanvasNavigator } from './canvas-navigator';
 
 const viewport = vi.hoisted(() => ({ transform: [0, 0, 1], minZoom: .35, maxZoom: 1.4, width: 1044 }));
 vi.mock('@xyflow/react', async () => {
@@ -42,5 +42,14 @@ describe('shared canvas navigator', () => {
     expect(html).toContain('aria-label="Canvas zoom"');
     expect(html).toContain('aria-label="Fit workflow"');
     expect(html).toContain('>100%</button>');
+  });
+});
+
+describe('shared canvas gestures', () => {
+  it('pans on two-finger scroll 1:1 and keeps pinch and Ctrl/⌘ + wheel as zoom, scoped to the canvas pane', () => {
+    expect(CANVAS_GESTURES).toEqual({ panOnScroll: true, panOnScrollSpeed: 1, zoomOnScroll: true, zoomOnPinch: true, preventScrolling: true });
+    expect(Object.isFrozen(CANVAS_GESTURES)).toBe(true);
+    // The navigator itself opts out of canvas wheel/drag handling, so page scrolling over it is untouched.
+    expect(renderToStaticMarkup(createElement(CanvasNavigator))).toContain('class="canvas-navigator nodrag nopan nowheel"');
   });
 });

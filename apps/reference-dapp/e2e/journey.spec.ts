@@ -3,7 +3,7 @@
  * BUILD-JOURNEY-001 permissionless external-user journey on MOCKED loopback Base Sepolia / Arbitrum Sepolia chains and providers
  * (never a public network, never a broadcast). Every wallet is a fresh random test wallet that signs in with a real signature.
  */
-import { test, expect, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
+import { test, expect, chooseWallet, openProposalReview, openSimulationDetails, acceptProductReview } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createTestWallet, type TestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { BASE_SEPOLIA_HEX, guardedContext, installJourneyWallet, journeyAdvance, journeySends, resetJourneyHarness, setWalletChain, switchAccount,
@@ -16,7 +16,10 @@ const region = (page: Page) => page.getByRole('region', { name: 'Cross-chain bri
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 const transactions = (page: Page) => region(page).getByRole('list', { name: 'Base Sepolia transactions' });
 async function signIn(scope: ReturnType<typeof card>) {
-  if (await scope.getByRole('button', { name: 'Connect wallet' }).isVisible()) await scope.getByRole('button', { name: 'Connect wallet' }).click();
+  if (await scope.getByRole('button', { name: 'Connect wallet' }).isVisible()) {
+    await scope.getByRole('button', { name: 'Connect wallet' }).click();
+    await chooseWallet(scope.page(), 'Browser wallet');
+  }
   await scope.getByRole('button', { name: 'Sign in with wallet' }).click();
   await expect(scope.getByRole('status', { name: 'Signed-in wallet' })).toBeVisible();
 }

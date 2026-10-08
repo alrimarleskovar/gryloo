@@ -14,7 +14,7 @@ const profiles = phase === 'composition' ? [
   ['default-product', ['base-observation.spec.ts', 'build-roundtrip.spec.ts', 'build009.spec.ts', 'across.spec.ts',
     'canvas-keyboard.spec.ts', 'canvas-ux.spec.ts', 'contextual-proposals.spec.ts', 'cross-chain-liquidity-recovery.spec.ts',
     'cross-chain-liquidity.spec.ts', 'execution-capabilities.spec.ts', 'interface-honesty.spec.ts', 'mock-artifact-chain.spec.ts',
-    'network-isolation.spec.ts', 'public-testnet.spec.ts', 'robinhood-network.spec.ts', 'swap-authoring.spec.ts', 'visual-shell.spec.ts'], {}],
+    'network-isolation.spec.ts', 'public-testnet.spec.ts', 'robinhood-network.spec.ts', 'swap-authoring.spec.ts', 'visual-shell.spec.ts', 'credentials.spec.ts'], {}],
   ['review-execute-recovery-components', ['simulate-review-acceptance.spec.ts', 'execute-product-workspace.spec.ts', 'execute-workflow.spec.ts'], {}],
   ['supply-provenance', ['release-provenance.spec.ts'], { GRYLOO_SUPPLY_E2E: 'MOCKED_LOOPBACK_ONLY' }],
   ['unsafe-lending-simulations', ['borrow.spec.ts', 'repay.spec.ts', '--grep', 'read-only simulation blocks unsafe Borrow before Review|insufficient debt blocks read-only simulation'], { GRYLOO_SUPPLY_E2E: 'MOCKED_LOOPBACK_ONLY' }],
@@ -30,13 +30,14 @@ const profiles = phase === 'composition' ? [
   ['cloud-provenance', [boundary], { FLOFI_RELEASE_PROVENANCE_PROFILE: 'cloud', GRYLOO_CLOUD_RUNTIME_E2E: 'EMBEDDED_LOOPBACK_ONLY', TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? 'postgres://flofi@127.0.0.1:5432/postgres' }],
   ['synthetic-fork-provenance', ['release-fork-provenance.spec.ts'], { GRYLOO_MODE_A_E2E: 'synthetic' }],
   ['cow-loopback', ['cow-intent.spec.ts', 'cow-recovery.spec.ts'], { GRYLOO_COW: 'loopback' }],
+  ['card-provider-loopback', ['card-provider.spec.ts'], { GRYLOO_CARD_E2E: 'MOCKED_LOOPBACK_ONLY' }],
 ];
 
 for (const [name, specs, settings] of profiles) {
   const env = { ...process.env, GRYLOO_MODE_A_E2E: 'synthetic' };
   for (const key of ['FLOFI_COPILOT', 'FLOFI_RELEASE_PROVENANCE_PROFILE', 'GRYLOO_SUPPLY_E2E', 'GRYLOO_LENDING_E2E',
     'GRYLOO_JUPITER_E2E', 'GRYLOO_SOLANA_DEVNET_E2E', 'GRYLOO_ROBINHOOD_E2E', 'GRYLOO_UNISWAP_LIQUIDITY_E2E',
-    'GRYLOO_ROUTER_E2E', 'GRYLOO_ROUTER_TESTNET_E2E', 'GRYLOO_CLOUD_RUNTIME_E2E', 'GRYLOO_COW']) delete env[key];
+    'GRYLOO_ROUTER_E2E', 'GRYLOO_ROUTER_TESTNET_E2E', 'GRYLOO_CLOUD_RUNTIME_E2E', 'GRYLOO_COW', 'GRYLOO_CARD_E2E']) delete env[key];
   Object.assign(env, settings);
   console.log(`Guarded release profile: ${name}`);
   const result = spawnSync('pnpm', ['--filter', '@defi-workflow-engine/reference-dapp', 'exec', 'playwright', 'test', ...specs], { env, stdio: 'inherit' });

@@ -26,7 +26,7 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const ENGINE_VERSION = 'flofi-engine-2';
 /** Flows that expose `info.executionEnabled` (a separate owner-execution switch). Kept equal to `backend/flows.ts` by a test. */
 export const FLOWS_WITH_EXECUTION_SWITCH: readonly FlowName[] = Object.freeze(['solana-devnet-swap', 'jupiter-swap', 'orca-liquidity', 'uniswap-liquidity',
-  'crosschain-router', 'crosschain-router-testnet']);
+  'crosschain-router', 'crosschain-router-testnet', 'pix-payment']);
 
 /**
  * Review findings that are not defects but the owner's own pre-execution steps in FloFi: every executable flow quotes, simulates

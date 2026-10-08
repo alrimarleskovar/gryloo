@@ -1439,3 +1439,62 @@
 .mcp-route-state{width:100%;max-width:560px}
 .mcp-route-state h1{margin:0}
 .mcp-route-state a{text-decoration:none}
+
+/* Canonical wallet selector (Header, Credentials, execution panels, approval proof). Tokens follow Light and Dark. */
+.wallet-selector{width:min(440px,calc(100vw - 32px));max-height:min(640px,calc(100dvh - 32px));margin:auto;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink);box-shadow:0 24px 64px rgb(15 30 55 / .24);overflow:hidden}
+.wallet-selector::backdrop{background:rgb(12 22 38 / .38)}
+.wallet-selector-panel{display:flex;flex-direction:column;gap:14px;max-height:inherit;padding:20px 18px 18px;overflow-y:auto;overscroll-behavior:contain}
+.wallet-selector-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.wallet-selector-head h2{margin:0;font-size:18px}
+.wallet-selector-close{flex:none;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--muted)}
+.wallet-selector-close:hover{background:var(--soft);color:var(--ink)}
+.wallet-selector-note{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.wallet-selector-group{margin:0 0 8px;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase}
+.wallet-selector-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.wallet-option{width:100%;min-height:56px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);text-align:left;font:inherit}
+button.wallet-option:hover{border-color:var(--accent-border);background:var(--blue-soft)}
+button.wallet-option:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.wallet-option-unavailable{background:var(--soft);color:var(--muted)}
+.wallet-option-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.wallet-option-text strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wallet-option-text small{color:var(--muted);font-size:12px}
+.wallet-option-status{flex:none;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;font-weight:500}
+button.wallet-option .wallet-option-status{border-color:var(--accent-line);background:var(--blue-soft);color:var(--accent-ink)}
+.wallet-mark{flex:none;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;background:var(--soft);color:var(--blue);overflow:hidden}
+.wallet-mark img{width:28px;height:28px;object-fit:contain}
+.wallet-selector-empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px;line-height:1.5}
+.header-wallet-provider{flex:none;display:inline-flex}
+.header-wallet-provider .wallet-mark{width:24px;height:24px;border-radius:6px}
+.header-wallet-provider .wallet-mark img,.header-wallet-provider .wallet-mark svg{width:20px;height:20px}
+@media(max-width:480px){.wallet-selector{width:calc(100vw - 24px);border-radius:12px}.wallet-selector-panel{padding:16px 14px}}
+@media(prefers-reduced-motion:no-preference){.wallet-selector[open]{animation:wallet-selector-in 160ms ease-out}}
+@keyframes wallet-selector-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Credentials: saved vs active wallet references, inline rename/remove, card entry gate. */
+.workspace-notice{margin:-20px 0 24px;padding:10px 14px;border:1px solid var(--accent-line);border-radius:10px;background:var(--blue-soft);color:var(--accent-ink);font-size:13px;line-height:1.5}
+.workspace-notice:empty{display:none}
+.workspace-wallet-heading .workspace-wallet-status{margin-left:auto;align-self:flex-start;flex:none;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;font-weight:500;white-space:nowrap}
+.workspace-wallet-heading .workspace-wallet-status-active{border-color:var(--accent-line);background:var(--blue-soft);color:var(--accent-ink)}
+.workspace-inline-form{display:grid;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+.workspace-inline-form p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.workspace-inline-form label{font-size:12px}
+.workspace-inline-form input{height:38px;min-width:0;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.workspace-inline-form .workspace-wallet-actions{padding-top:0;border-top:0}
+.workspace-inline-error{color:var(--red)!important}
+.secondary-workspace .workspace-action-danger{border-color:var(--danger-line);background:var(--danger-soft);color:var(--red)}
+.secondary-workspace .workspace-section-heading .workspace-action:enabled{color:var(--blue)}
+.card-entry-body{display:grid;gap:8px}
+.card-entry-body p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.card-entry-body strong{color:var(--ink)}
+/* Add card: the provider's secure fields (its own iframes) sit in FloFi's input frames; FloFi renders no card-data input. */
+.card-entry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card-entry-form>*{grid-column:1/-1}
+.card-entry-form .card-entry-expirationDate,.card-entry-form .card-entry-securityCode,.card-entry-form .card-entry-document-type,.card-entry-form .card-entry-document{grid-column:auto}
+.card-entry-note{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.card-entry-field{display:grid;gap:6px;color:var(--ink);font-size:12px}
+.card-entry-secure,.card-entry-field input,.card-entry-field select{height:38px;min-width:0;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px}
+.card-entry-secure iframe{display:block;width:100%;height:100%;border:0}
+.card-entry-error{margin:0;font-size:13px}
+.card-entry-actions{gap:8px}
+.wallet-selector-footer{display:flex;justify-content:flex-end}
+.wallet-selector-footer .workspace-action{min-height:36px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);font-weight:600}

@@ -100,10 +100,7 @@ export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
     <p>Swap {fields ? `${fields.amount} ${fromLabel}` : amount(review?.amount, 'input')} to {toLabel ?? symbol('output')} on {labels.network} via {labels.provider}.</p>
     {devnet && <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>}
     {jupiter.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current swap again.</p>}
-    {!jupiter.owner && !jupiter.walletChoices && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
-    {!jupiter.owner && jupiter.walletChoices && <div role="group" aria-label="Choose a Solana wallet"><p>Choose a Solana wallet{devnet ? ' for Solana Devnet' : ''}:</p>
-      {jupiter.walletChoices.map((name, i) => <button key={name + i} type="button" disabled={jupiter.busy} onClick={() => void jupiter.chooseWallet(name)}>{name}</button>)}
-      <button type="button" className="quiet" disabled={jupiter.busy} onClick={jupiter.cancelWalletChoice}>Cancel</button></div>}
+    {!jupiter.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
     {jupiter.owner && <p>Wallet connected{devnet ? ' · Solana Devnet' : ''}: <span>{jupiter.owner}</span></p>}
     {view === 'simulate' ? <>
       <button type="button" disabled={jupiter.busy || pending} onClick={() => void jupiter.simulate()}>Simulate swap</button>

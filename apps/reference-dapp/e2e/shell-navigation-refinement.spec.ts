@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, chooseWallet } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction } from './composer-authoring-fixtures';
 import type { Page } from '@playwright/test';
@@ -11,12 +11,15 @@ function captureErrors(page: Page) {
   return errors;
 }
 
+// Disconnect records only that the owner disconnected (no address), so a reload cannot silently reconnect that wallet.
+const WALLET_PREFERENCE = 'flofi.wallet.preference.v1';
 async function publicSessionSnapshot(page: Page) {
-  return page.evaluate(() => ({
-    storage: Object.fromEntries(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])),
+  return page.evaluate(preference => ({
+    storage: Object.fromEntries(Object.keys(localStorage).filter(key => key !== preference).sort().map(key => [key, localStorage.getItem(key)])),
     requests: (window as unknown as { supplyWalletRequests: { method: string; params?: unknown[] }[] }).supplyWalletRequests,
-  }));
+  }), WALLET_PREFERENCE);
 }
+const walletPreference = (page: Page) => page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? 'null') as unknown, WALLET_PREFERENCE);
 
 for (const theme of ['light', 'dark'] as const) {
   test(`${theme} drawer reuses real Dashboard and Build, selects one route, and Logout uses Disconnect semantics`, async ({ page }) => {
@@ -67,9 +70,12 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
     expect(await page.locator('.react-flow__node').count()).toBe(nodes);
     expect(await publicSessionSnapshot(page)).toEqual(before);
+    expect(await walletPreference(page)).toEqual({ evm: null, solana: null, evmDisconnected: true });
     await trigger.click(); await expect(logout).toBeDisabled(); await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+    await chooseWallet(page, 'Browser wallet');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
+    expect(await walletPreference(page)).toEqual({ evm: 'injected', solana: null, evmDisconnected: false });
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const reconnected = await publicSessionSnapshot(page);
     await page.getByRole('button', { name: 'Disconnect', exact: true }).click();

@@ -24,6 +24,12 @@ export const ROUTER_OWNERSHIP: OwnershipPolicy = Object.freeze({
   ownerArgument: Object.freeze({ simulate: 1, begin: 1 }),
   runArgument: Object.freeze(['refresh', 'review', 'invalidate', 'begin', 'handoff', 'report', 'walletFailure', 'observe', 'status']),
 });
+/** Stablecoin → Pix payments: a run, its Review and its source transfer belong to the wallet that simulated it. */
+export const PAYMENT_OWNERSHIP: OwnershipPolicy = Object.freeze({
+  open: Object.freeze(['mode', 'info']),
+  ownerArgument: Object.freeze({ simulate: 1, begin: 1 }),
+  runArgument: Object.freeze(['review', 'invalidate', 'begin', 'handoff', 'report', 'observe', 'status']),
+});
 /** Server-to-server only: the BFF sets it from a verified session; the browser can never reach the API to set it. */
 export const WALLET_PRINCIPAL_HEADER = 'x-flofi-wallet-principal';
 const ACCOUNT = /^0x[0-9a-f]{40}$/;

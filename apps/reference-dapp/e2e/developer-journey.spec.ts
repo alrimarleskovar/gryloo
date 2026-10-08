@@ -25,7 +25,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { FloFi, verifyWebhook, type WebhookEvent } from '../../../packages/developer-sdk/src/index.ts';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
-import { openSimulationDetails } from './fixtures';
+import { chooseWallet, openSimulationDetails } from './fixtures';
 import { guardedContext, installJourneyWallet, journeySends, walletRequests } from './journey-fixtures';
 import { assertMcpHarness } from './mcp-fixtures';
 import { assertExecutionBlocked } from './release-safety-fixtures';
@@ -95,6 +95,7 @@ test.describe('BUILD-DEVELOPER-001 third-party integration (SDK → FloFi /appro
       await expect(region.getByRole('checkbox')).not.toBeChecked();
       await region.getByRole('checkbox').check();
       await region.getByRole('button', { name: 'Connect wallet and prove ownership' }).click();
+      await chooseWallet(page, 'Browser wallet');
       await expect(region).toContainText(`Signed in as ${owner.address}`);
       await region.getByRole('button', { name: 'Load proposal' }).click();
       await region.getByRole('button', { name: 'Add to my workflow' }).click();

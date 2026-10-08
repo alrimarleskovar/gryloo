@@ -8,7 +8,7 @@ import { canvasPosition } from '../domain/canvas-layout';
 import { useWorkflow } from '../state/workflow-store';
 import { ComposerCard, type ComposerCardData } from './composer-card';
 import { DarkSpotlight } from './dark-spotlight';
-import { CanvasNavigator } from './canvas-navigator';
+import { CANVAS_GESTURES, CanvasNavigator } from './canvas-navigator';
 
 const FIT_PADDING = { top: '32px', bottom: '136px', left: '32px', right: '32px' } as const;
 function InspectionCard({ data }: NodeProps) { return <ComposerCard data={data as ComposerCardData}/>; }
@@ -71,7 +71,7 @@ export function SimulateWorkflowCanvas({ workflowName, primaryAction, stage = 's
     <div className="flow-surface simulate-flow-surface" role="region" aria-label={stage === 'execute' ? 'Execution workflow graph' : 'Simulation workflow graph'} data-viewport={viewport}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={0.35} maxZoom={1.4}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} nodesFocusable={false} edgesFocusable={false}
-        deleteKeyCode={null} fitViewOptions={{ padding: FIT_PADDING }}>
+        deleteKeyCode={null} fitViewOptions={{ padding: FIT_PADDING }} {...CANVAS_GESTURES}>
         <InspectionViewport onState={setViewport}/>
         <Background gap={18} size={1} color="var(--grid)"/>
         <DarkSpotlight/>

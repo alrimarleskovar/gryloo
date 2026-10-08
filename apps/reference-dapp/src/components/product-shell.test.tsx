@@ -35,6 +35,8 @@ vi.mock('../state/lending-store', () => ({ useLending: () => ({ record: null, re
 vi.mock('../state/bridge-swap-store', () => ({ useBridgeSwap: () => ({ run: null, recovered: false }) }));
 vi.mock('../state/router-store', () => ({ useRouter: () => ({ record: null, recovered: false, network: 'testnet' }) }));
 vi.mock('../state/jupiter-store', () => ({ useJupiter: () => ({ record: null, recovered: false, owner: null, network: 'Solana' }) }));
+// Header → Connect Wallet goes through the canonical selector hook; rendering never opens it or touches a wallet.
+vi.mock('../state/wallet-connection', () => ({ useWalletConnection: () => ({ connect: wallet.connect, error: null, solanaChain: 'solana:devnet' }) }));
 
 beforeEach(() => {
   fixture.workflow = initialWorkflow();
@@ -75,6 +77,7 @@ describe('product shell rendering', () => {
     expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<\/div><div class="header-settings-control"><button type="button" class="header-settings"/);
     expect(html.replace(/<[^>]*>/g, '')).toContain(connected ? 'Wallet: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
     if (connected) expect(html).toContain('<span class="numeric wallet-address">0x1111…1111</span>');
+    if (connected) expect(html).not.toContain('header-wallet-provider');
     expect(html).not.toContain('>Disconnect</button>');
     if (!connected) expect(html).toContain('>Connect Wallet</button>');
     expect(vi.mocked(HeaderSettings).mock.calls.at(-1)?.[0]).toMatchObject({ onDisconnect: wallet.reset, disconnectDisabled: !connected });
@@ -107,6 +110,17 @@ describe('product shell rendering', () => {
     expect(wallet.connect).not.toHaveBeenCalled();
     expect(wallet.switchTo).not.toHaveBeenCalled();
     expect(wallet.reset).not.toHaveBeenCalled();
+  });
+
+  it('names the connected provider beside the address without changing the address text', () => {
+    wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34';
+    Object.assign(wallet, { provider: { key: 'io.rabby', name: 'Rabby Wallet', icon: 'data:image/svg+xml;base64,PHN2Zy8+' } });
+    const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
+    expect(html).toContain('<span class="header-wallet-provider" title="Rabby Wallet">');
+    expect(html).toContain('<span class="sr-only">Rabby Wallet</span>');
+    expect(html).toMatch(/class="build009-wallet-info wallet-connection"[^>]*>Wallet: <span class="numeric wallet-address">0x1111…1111<\/span> · Base Sepolia<\/span>/);
+    expect(wallet.connect).not.toHaveBeenCalled();
+    Object.assign(wallet, { provider: undefined });
   });
 
   it('shows the actual connected network and the canonical Journey network separately', () => {

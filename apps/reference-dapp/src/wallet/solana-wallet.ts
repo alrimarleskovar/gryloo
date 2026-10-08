@@ -4,8 +4,10 @@
  * Gryloo only asks the owner's wallet to connect and to sign one exact transaction. It never holds keys and never
  * uses sign-and-send: the returned bytes are verified against the Review before any broadcast.
  */
+import { safeWalletIcon, safeWalletName, type WalletChoice } from './wallet-registry';
+
 export type SolanaWalletAccount = { readonly address: string; readonly chains: readonly string[]; readonly features: readonly string[] };
-export type StandardWallet = { readonly name: string; readonly chains: readonly string[]; readonly accounts: readonly SolanaWalletAccount[];
+export type StandardWallet = { readonly name: string; readonly icon?: string; readonly chains: readonly string[]; readonly accounts: readonly SolanaWalletAccount[];
   readonly features: Readonly<Record<string, unknown>> };
 type ConnectFeature = { connect(input?: { silent?: boolean }): Promise<{ accounts: readonly SolanaWalletAccount[] }> };
 type SignFeature = { signTransaction(...inputs: { account: SolanaWalletAccount; transaction: Uint8Array; chain?: string }[]): Promise<readonly { signedTransaction: Uint8Array }[]> };
@@ -13,13 +15,16 @@ export const SOLANA_WALLET_CHAIN = 'solana:mainnet';
 export type SolanaWalletChain = 'solana:mainnet' | 'solana:devnet';
 
 const registered: StandardWallet[] = [];
+const registrationListeners = new Set<() => void>();
 let listening = false;
 function register(...wallets: StandardWallet[]) {
-  for (const wallet of wallets) if (!registered.includes(wallet)) registered.push(wallet);
+  let added = false;
+  for (const wallet of wallets) if (!registered.includes(wallet)) { registered.push(wallet); added = true; }
+  if (added) for (const listener of registrationListeners) listener();
   return () => undefined;
 }
 /** Wallet Standard app-ready / register-wallet handshake without an extra dependency. */
-export function solanaWallets(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): StandardWallet[] {
+function registeredWallets(): StandardWallet[] {
   if (typeof window === 'undefined') return [];
   if (!listening) {
     listening = true;
@@ -30,8 +35,31 @@ export function solanaWallets(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): S
     });
     window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api }));
   }
-  return registered.filter(wallet => Array.isArray(wallet.chains) && wallet.chains.includes(chain) &&
+  return registered;
+}
+export function solanaWallets(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): StandardWallet[] {
+  return registeredWallets().filter(wallet => Array.isArray(wallet.chains) && wallet.chains.includes(chain) &&
     'standard:connect' in wallet.features && 'solana:signTransaction' in wallet.features);
+}
+/**
+ * Selector choices, one per wallet name. Without `chain`: every wallet that can connect on some Solana cluster. With `chain`:
+ * only wallets that can connect and sign on that cluster, exactly as the Solana flows require. Multichain wallets (Phantom)
+ * appear here for Solana and separately in EVM discovery for Ethereum; the identities never merge.
+ */
+export function solanaWalletChoices(chain?: SolanaWalletChain): WalletChoice[] {
+  const seen = new Set<string>();
+  return (chain ? solanaWallets(chain) : registeredWallets()).filter(wallet => typeof wallet.name === 'string' && wallet.name && Array.isArray(wallet.chains) &&
+    wallet.chains.some(entry => typeof entry === 'string' && entry.startsWith('solana:')) && 'standard:connect' in (wallet.features ?? {}))
+    .flatMap(wallet => {
+      if (seen.has(wallet.name)) return [];
+      seen.add(wallet.name);
+      return [{ id: `solana:${wallet.name}`, ecosystem: 'solana' as const, key: wallet.name, name: safeWalletName(wallet.name, 'Solana wallet'), icon: safeWalletIcon(wallet.icon) }];
+    });
+}
+export function subscribeSolanaDiscovery(listener: () => void): () => void {
+  registeredWallets();
+  registrationListeners.add(listener);
+  return () => { registrationListeners.delete(listener); };
 }
 /** Names of the registered wallets that advertise `chain` plus connect and signTransaction, in registration order. */
 export function solanaWalletNames(chain: SolanaWalletChain = SOLANA_WALLET_CHAIN): string[] {
@@ -50,6 +78,12 @@ export async function connectSolanaWallet(name: string, chain: SolanaWalletChain
   const account = accounts.find(a => a.chains.includes(chain) && a.features.includes('solana:signTransaction')) ?? accounts[0];
   if (!account || typeof account.address !== 'string') throw new Error(`${prefix}_SOLANA_WALLET_REQUIRED`);
   return { wallet, account, chain };
+}
+type DisconnectFeature = { disconnect(): Promise<void> };
+/** Ends FloFi's use of the session. Wallets that implement `standard:disconnect` also forget the connection; it never prompts. */
+export async function disconnectSolanaWallet(session: SolanaSession): Promise<void> {
+  const feature = session.wallet.features['standard:disconnect'] as DisconnectFeature | undefined;
+  try { await feature?.disconnect(); } catch { /* the FloFi session is cleared regardless */ }
 }
 export const base64ToBytes = (text: string): Uint8Array => Uint8Array.from(atob(text), c => c.charCodeAt(0));
 export const bytesToBase64 = (bytes: Uint8Array): string => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));

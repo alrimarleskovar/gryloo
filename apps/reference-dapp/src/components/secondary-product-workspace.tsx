@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
-import { chainName, useBuild009Wallet } from '../state/build009-wallet-store';
+import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useJupiter } from '../state/jupiter-store';
+import { brandLabel, LABEL_MAX, networkLabel, type SavedCard, type SavedWallet } from '../domain/credentials';
+import { removeSavedCredential, renameSavedCredential, saveCardReference, saveWalletReference, useCredentials } from '../state/credentials-store';
+import { evmNetworkRef, useWalletConnection, type ConnectedWallet } from '../state/wallet-connection';
+import { evmWalletEntries } from '../wallet/evm-discovery';
+import { solanaWalletChoices } from '../wallet/solana-wallet';
+import { EVM_WALLET_NETWORKS } from '../wallet/evm-networks';
+import { ECOSYSTEM_LABEL, type WalletEcosystem } from '../wallet/wallet-registry';
+import { addProviderCard, cardProviderStatus, removeProviderCard } from '../app/card-action';
+import type { CardProviderClient, CardProviderStatus } from '../server/card-provider';
+import { loadMercadoPago, type MercadoPagoInstance, type MercadoPagoSecureField, type SecureFieldType } from './card-secure-fields';
 
 type IconName = 'wallet' | 'agent' | 'key' | 'plus' | 'copy' | 'card' | 'secret';
 function WorkspaceIcon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -26,49 +36,287 @@ function AddAction({ children }: { children: ReactNode }) {
   return <FutureAction><WorkspaceIcon name="plus" size={16}/>{children}</FutureAction>;
 }
 
-type PublicWallet = { address: string; name: string; ecosystem: 'EVM' | 'Solana'; network: string; icon: string | undefined };
-const evmNetworkIcons: Record<string, string> = {
-  '0x2105': '/brand/crypto/base.svg', '0x14a34': '/brand/crypto/base.svg',
-  '0xa4b1': '/brand/crypto/arbitrum.png', '0x1': '/brand/crypto/ethereum.svg',
+const ecosystemIcons = { evm: '/brand/crypto/ethereum.svg', solana: '/brand/crypto/solana.svg' } as const;
+const networkIcons: Record<string, string> = {
+  'eip155:8453': '/brand/crypto/base.svg', 'eip155:84532': '/brand/crypto/base.svg', 'eip155:42161': '/brand/crypto/arbitrum.png',
+  'eip155:1': '/brand/crypto/ethereum.svg', 'eip155:11155111': '/brand/crypto/ethereum.svg',
 };
+function credentialNetworkLabel(network: string | null): string {
+  if (network?.startsWith('eip155:')) return EVM_WALLET_NETWORKS.find(candidate => candidate.chain === network)?.label ?? `Chain ${network.slice(7)}`;
+  return networkLabel(network);
+}
 
-function WalletCard({ wallet }: { wallet: PublicWallet }) {
-  const [copyStatus, setCopyStatus] = useState('');
+/** One wallet row: a saved reference, the active session, or both. Never a key or balance. */
+type WalletEntry = { readonly saved: SavedWallet | null; readonly active: ConnectedWallet | null;
+  readonly ecosystem: WalletEcosystem; readonly address: string; readonly providerKey: string; readonly providerName: string; readonly label: string;
+  readonly network: string | null };
+const sameWallet = (saved: SavedWallet, active: ConnectedWallet) => saved.ecosystem === active.ecosystem && saved.address === active.address &&
+  saved.providerKey === active.providerKey;
+
+function WalletCredentialCard({ entry, busy, onActivate, onDisconnect, onSave, onStatus }: {
+  entry: WalletEntry; busy: boolean; onActivate(saved: SavedWallet): void; onDisconnect(): void; onSave(active: ConnectedWallet): void; onStatus(message: string): void;
+}) {
+  const [mode, setMode] = useState<'view' | 'rename' | 'remove'>('view');
+  const [draft, setDraft] = useState(entry.label);
+  const [renameError, setRenameError] = useState('');
+  const renameId = useId();
   async function copyAddress() {
-    try {
-      await navigator.clipboard.writeText(wallet.address);
-      setCopyStatus('Address copied.');
-    } catch { setCopyStatus('Address could not be copied.'); }
+    try { await navigator.clipboard.writeText(entry.address); onStatus('Address copied.'); } catch { onStatus('Address could not be copied.'); }
   }
-  return <article className="workspace-wallet-card" aria-label={`${wallet.name} on ${wallet.network}`}>
+  function rename() {
+    if (!entry.saved) return;
+    try { renameSavedCredential(entry.saved.id, draft); setMode('view'); setRenameError(''); onStatus('Wallet renamed.'); }
+    catch { setRenameError(`Use 1–${LABEL_MAX} characters.`); }
+  }
+  function remove() {
+    if (!entry.saved) return;
+    if (entry.active) onDisconnect();
+    removeSavedCredential(entry.saved.id); onStatus(`${entry.label} removed from FloFi. Your wallet and its funds are unchanged.`);
+  }
+  const status = entry.active && entry.saved ? 'Active' : entry.active ? 'Connected · not saved' : 'Saved';
+  const icon = (entry.network && networkIcons[entry.network]) ?? ecosystemIcons[entry.ecosystem];
+  return <article className="workspace-wallet-card" aria-label={`${entry.label}, ${ECOSYSTEM_LABEL[entry.ecosystem]}`} data-active={entry.active ? 'true' : 'false'}>
     <div className="workspace-wallet-heading">
-      <span className="workspace-network-icon">{wallet.icon ? <img src={wallet.icon} width="28" height="28" alt=""/> : <WorkspaceIcon name="wallet" size={26}/>}</span>
-      <div><h3>{wallet.name}</h3><p>{wallet.ecosystem} · External wallet</p></div>
+      <span className="workspace-network-icon"><img src={icon} width="28" height="28" alt=""/></span>
+      <div><h3>{entry.label}</h3><p>{entry.providerName} · {ECOSYSTEM_LABEL[entry.ecosystem]}</p></div>
+      <span className={`workspace-wallet-status${entry.active ? ' workspace-wallet-status-active' : ''}`}>{status}</span>
     </div>
-    <p className="workspace-wallet-network">{wallet.network}</p>
-    <div className="workspace-wallet-address"><code title={wallet.address}>{wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}</code>
-      <button type="button" className="workspace-copy" aria-label={`Copy ${wallet.name} address`} title="Copy address" onClick={() => void copyAddress()}><WorkspaceIcon name="copy" size={17}/></button>
+    <p className="workspace-wallet-network">{credentialNetworkLabel(entry.network)}</p>
+    <div className="workspace-wallet-address"><code title={entry.address}>{entry.address.slice(0, 6)}…{entry.address.slice(-4)}</code>
+      <button type="button" className="workspace-copy" aria-label={`Copy ${entry.label} address`} title="Copy address" onClick={() => void copyAddress()}><WorkspaceIcon name="copy" size={17}/></button>
     </div>
-    <p className="sr-only" role="status">{copyStatus}</p>
-    <div className="workspace-wallet-actions"><FutureAction>Add funds</FutureAction><FutureAction>Reveal key</FutureAction><FutureAction>Delete</FutureAction></div>
+    {mode === 'rename' && entry.saved ? <form className="workspace-inline-form" onSubmit={event => { event.preventDefault(); rename(); }}
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setMode('view'); setDraft(entry.label); setRenameError(''); } }}>
+      <label htmlFor={renameId}>Wallet name</label>
+      <input id={renameId} value={draft} maxLength={LABEL_MAX} autoComplete="off" autoFocus aria-invalid={renameError ? 'true' : undefined}
+        aria-describedby={renameError ? `${renameId}-error` : undefined} onChange={event => setDraft(event.currentTarget.value)}/>
+      {renameError && <p id={`${renameId}-error`} className="workspace-inline-error" role="alert">{renameError}</p>}
+      <div className="workspace-wallet-actions"><button type="submit" className="workspace-action">Save name</button>
+        <button type="button" className="workspace-action" onClick={() => { setMode('view'); setDraft(entry.label); setRenameError(''); }}>Cancel</button></div>
+    </form> : mode === 'remove' && entry.saved ? <div className="workspace-inline-form" role="group" aria-label={`Remove ${entry.label}`}>
+      <p>Remove {entry.label} from FloFi?{entry.active ? ' This also disconnects it.' : ''} Only FloFi&apos;s reference is removed; the wallet and its assets are not affected.</p>
+      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" onClick={remove}>Remove</button>
+        <button type="button" className="workspace-action" onClick={() => setMode('view')}>Cancel</button></div>
+    </div> : <div className="workspace-wallet-actions">
+      {entry.saved && <button type="button" className="workspace-action" aria-label={`Rename ${entry.label}`} onClick={() => { setDraft(entry.label); setMode('rename'); }}>Rename</button>}
+      {!entry.saved && entry.active && <button type="button" className="workspace-action" aria-label={`Save ${entry.label}`} onClick={() => onSave(entry.active!)}>Save</button>}
+      {entry.active ? <button type="button" className="workspace-action" aria-label={`Disconnect ${entry.label}`} disabled={busy} onClick={onDisconnect}>Disconnect</button>
+        : entry.saved && <button type="button" className="workspace-action" aria-label={`Connect ${entry.label}`} disabled={busy} onClick={() => onActivate(entry.saved!)}>Connect</button>}
+      {entry.saved && <button type="button" className="workspace-action" aria-label={`Remove ${entry.label}`} onClick={() => setMode('remove')}>Remove</button>}
+    </div>}
   </article>;
+}
+
+/** Removal codes after which the saved reference can no longer be used at the provider: FloFi's copy is removed anyway. */
+const CARD_REFERENCE_UNUSABLE = new Set(['CARD_TOKENIZATION_PROVIDER_REQUIRED', 'CARD_BINDING_INVALID', 'CARD_PROVIDER_NOT_FOUND']);
+function CardCredential({ card, onStatus }: { card: SavedCard; onStatus(message: string): void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  async function remove() {
+    setRemoving(true);
+    // The saved-card reference at the provider goes first; the card itself is never affected.
+    const removed = await removeProviderCard(card.binding).catch(() => ({ ok: false as const, code: 'CARD_PROVIDER_UNREACHABLE' }));
+    setRemoving(false);
+    if (!removed.ok && !CARD_REFERENCE_UNUSABLE.has(removed.code)) { onStatus('This card could not be removed right now. Try again.'); return; }
+    removeSavedCredential(card.id); onStatus('Card removed from FloFi.');
+  }
+  return <article className="workspace-wallet-card workspace-card-credential" aria-label={card.label}>
+    <div className="workspace-wallet-heading">
+      <span className="workspace-network-icon"><WorkspaceIcon name="card" size={24}/></span>
+      <div><h3>{card.label}</h3><p>{brandLabel(card.brand)} · {card.providerName}</p></div>
+    </div>
+    <p className="workspace-wallet-network"><span className="numeric">•••• {card.last4}</span> · Expires {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}</p>
+    {confirming ? <div className="workspace-inline-form" role="group" aria-label={`Remove ${card.label}`}>
+      <p>Remove this card from FloFi? The card itself is not affected.</p>
+      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" disabled={removing}
+        onClick={() => void remove()}>Remove</button>
+        <button type="button" className="workspace-action" onClick={() => setConfirming(false)}>Cancel</button></div>
+    </div> : <div className="workspace-wallet-actions"><button type="button" className="workspace-action" aria-label={`Remove ${card.label}`} onClick={() => setConfirming(true)}>Remove</button></div>}
+  </article>;
+}
+
+const CARD_FIELDS: readonly { readonly type: SecureFieldType; readonly label: string; readonly placeholder: string }[] = [
+  { type: 'cardNumber', label: 'Card number', placeholder: '1234 1234 1234 1234' },
+  { type: 'expirationDate', label: 'Expiry', placeholder: 'MM/YY' },
+  { type: 'securityCode', label: 'Security code', placeholder: 'CVC' },
+];
+const CARD_ERRORS: Readonly<Record<string, string>> = {
+  CARD_EMAIL_INVALID: 'Enter a valid email address.',
+  CARD_LIMIT_REACHED: 'This email already has the maximum number of saved cards.',
+  CARD_REJECTED_BY_PROVIDER: 'The card could not be saved. Check the details and try again.',
+  CARD_TOKEN_INVALID: 'The card could not be saved. Check the details and try again.',
+};
+/**
+ * The provider's own secure fields inside the Add card dialog. The card number, expiry and security code are typed into the
+ * provider's iframes; FloFi sends its server only the provider's one-time token and the email the provider saves the card
+ * under. Adding a card never charges it.
+ */
+function SecureCardForm({ client, providerName, titleId, onClose, onAdded }: {
+  client: CardProviderClient; providerName: string; titleId: string; onClose(): void; onAdded(label: string): void;
+}) {
+  const baseId = useId().replace(/[^A-Za-z0-9_-]/g, '');
+  const sdk = useRef<MercadoPagoInstance | null>(null);
+  const [phase, setPhase] = useState<'loading' | 'ready' | 'saving' | 'unavailable'>('loading');
+  const [documents, setDocuments] = useState<readonly string[]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let current = true;
+    const mounted: MercadoPagoSecureField[] = [];
+    void (async () => {
+      try {
+        const MercadoPago = await loadMercadoPago(client.sdkUrl);
+        if (!current) return;
+        const instance = new MercadoPago(client.publicKey, { locale: client.locale });
+        const tokens = getComputedStyle(document.documentElement);
+        const style = { fontSize: '14px', color: tokens.getPropertyValue('--ink').trim() || '#10233f', placeholderColor: tokens.getPropertyValue('--muted').trim() || '#6b778c' };
+        for (const field of CARD_FIELDS) mounted.push(instance.fields.create(field.type, { placeholder: field.placeholder, style }).mount(`${baseId}-${field.type}`));
+        const types = (await instance.getIdentificationTypes()).map(type => type.id).filter((id): id is string => typeof id === 'string' && /^[A-Z]{2,10}$/.test(id));
+        if (!current) return;
+        if (!types.length) throw new Error('CARD_SDK_UNAVAILABLE');
+        sdk.current = instance; setDocuments(types); setPhase('ready');
+      } catch { if (current) setPhase('unavailable'); }
+    })();
+    return () => { current = false; sdk.current = null; for (const field of mounted) try { field.unmount(); } catch { /* already gone */ } };
+  }, [baseId, client]);
+  async function submit(form: HTMLFormElement) {
+    const data = new FormData(form), text = (name: string) => String(data.get(name) ?? '').trim();
+    const holder = text('cardholderName'), documentType = text('identificationType'), documentNumber = text('identificationNumber').replace(/\D/g, ''), email = text('email');
+    if (!sdk.current || phase !== 'ready') return;
+    if (!holder || !documentType || !documentNumber || !email) { setError('Fill in every field.'); return; }
+    setError(''); setPhase('saving');
+    let token: unknown;
+    try { token = (await sdk.current.fields.createCardToken({ cardholderName: holder, identificationType: documentType, identificationNumber: documentNumber })).id; }
+    catch { setPhase('ready'); setError('Check the card details and try again.'); return; }
+    if (typeof token !== 'string') { setPhase('ready'); setError('Check the card details and try again.'); return; }
+    const added = await addProviderCard({ token, email }).catch(() => ({ ok: false as const, code: 'CARD_PROVIDER_UNREACHABLE' }));
+    if (!added.ok) { setPhase('ready'); setError(CARD_ERRORS[added.code] ?? 'The card could not be added. Nothing was saved.'); return; }
+    try {
+      const saved = saveCardReference(added.value).cards.find(card => card.providerCardId === added.value.providerCardId && card.provider === added.value.provider);
+      onAdded(saved?.label ?? 'Card');
+    } catch { setPhase('ready'); setError('The card could not be added. Nothing was saved.'); }
+  }
+  if (phase === 'unavailable') return <><div role="status" className="card-entry-body"><p>Secure card entry could not be loaded. Nothing was collected. Try again later.</p></div>
+    <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>;
+  return <form className="card-entry-form" aria-labelledby={titleId} aria-busy={phase !== 'ready'} noValidate onSubmit={event => { event.preventDefault(); void submit(event.currentTarget); }}>
+    <p className="card-entry-note">Card details are entered in {providerName}&apos;s secure fields. FloFi receives only a token, the brand, the last four digits and the expiry date.</p>
+    {CARD_FIELDS.map(field => <div key={field.type} className={`card-entry-field card-entry-${field.type}`} role="group" aria-labelledby={`${baseId}-${field.type}-label`}>
+      <span id={`${baseId}-${field.type}-label`}>{field.label}</span><div id={`${baseId}-${field.type}`} className="card-entry-secure" data-secure-field={field.type}/>
+    </div>)}
+    <label className="card-entry-field card-entry-holder">Name on card<input name="cardholderName" autoComplete="cc-name" maxLength={60} required/></label>
+    <label className="card-entry-field card-entry-document-type">Document<select name="identificationType" required>{documents.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+    <label className="card-entry-field card-entry-document">Number<input name="identificationNumber" inputMode="numeric" autoComplete="off" maxLength={18} required/></label>
+    <label className="card-entry-field card-entry-email">Email<input name="email" type="email" autoComplete="email" maxLength={254} required/></label>
+    {error && <p className="workspace-inline-error card-entry-error" role="alert">{error}</p>}
+    <div className="wallet-selector-footer card-entry-actions"><button type="button" className="workspace-action" onClick={onClose}>Cancel</button>
+      <button type="submit" className="workspace-action" disabled={phase !== 'ready'}>{phase === 'saving' ? 'Adding…' : 'Add card'}</button></div>
+  </form>;
+}
+
+/**
+ * Add card opens the configured provider's secure entry. FloFi renders no card-number or security-code field of its own;
+ * without a configured provider it states the prerequisite instead of collecting anything.
+ */
+function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label: string): void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId(), bodyId = useId();
+  const [status, setStatus] = useState<CardProviderStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const element = dialog.current, previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (element && !element.open) element.showModal();
+    let current = true;
+    void cardProviderStatus().then(value => { if (current) setStatus(value); }).catch(() => { if (current) setFailed(true); });
+    return () => { current = false; if (element?.open) element.close(); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, []);
+  const secure = status?.available && status.client.kind === 'mercado_pago_secure_fields' ? status : null;
+  return <dialog ref={dialog} className="wallet-selector card-entry" aria-labelledby={titleId} aria-describedby={secure ? undefined : bodyId}
+    onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="wallet-selector-panel">
+      <div className="wallet-selector-head"><h2 id={titleId}>Add a card</h2>
+        <button type="button" className="wallet-selector-close" aria-label="Close" autoFocus onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button></div>
+      {secure ? <SecureCardForm client={secure.client} providerName={secure.provider.name} titleId={titleId} onClose={onClose} onAdded={onAdded}/> : <>
+        <div id={bodyId} role="status" className="card-entry-body">
+          {failed ? <p>Card entry status could not be checked. Nothing was collected. Try again later.</p>
+            : !status ? <p>Checking secure card entry…</p>
+              : <><p><strong>Secure card entry isn&apos;t available yet.</strong></p>
+                <p>FloFi never asks for your card number or security code in its own forms. Cards are added only through a certified card provider&apos;s secure entry, and no card provider is connected to FloFi yet.</p></>}
+        </div>
+        <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>}
+    </div>
+  </dialog>;
 }
 
 function CredentialsWorkspace() {
   const evm = useBuild009Wallet();
-  const { session } = useJupiter();
-  // Project only current public sessions. There is no credential store or example wallet data.
-  const wallets: PublicWallet[] = [];
-  if (evm.account) wallets.push({ address: evm.account, name: 'Connected wallet', ecosystem: 'EVM', network: chainName(evm.chainId), icon: evm.chainId ? evmNetworkIcons[evm.chainId] : undefined });
-  if (session) wallets.push({ address: session.account.address, name: session.wallet.name, ecosystem: 'Solana', network: session.chain === 'solana:devnet' ? 'Solana Devnet' : 'Solana', icon: '/brand/crypto/solana.svg' });
+  const solana = useJupiter();
+  const credentials = useCredentials();
+  const connection = useWalletConnection();
+  const [status, setStatus] = useState('');
+  const [cardEntry, setCardEntry] = useState(false);
+  const active: ConnectedWallet[] = [];
+  if (evm.account) active.push({ ecosystem: 'evm', address: evm.account, providerKey: evm.provider?.key ?? 'injected', providerName: evm.provider?.name ?? 'Browser wallet', network: evmNetworkRef(evm.chainId) });
+  if (solana.session) active.push({ ecosystem: 'solana', address: solana.session.account.address, providerKey: solana.session.wallet.name, providerName: solana.session.wallet.name, network: solana.session.chain });
+  const entries: WalletEntry[] = [
+    ...credentials.wallets.map(saved => {
+      const live = active.find(wallet => sameWallet(saved, wallet)) ?? null;
+      return { saved, active: live, ecosystem: saved.ecosystem, address: saved.address, providerKey: saved.providerKey, providerName: saved.providerName,
+        label: saved.label, network: live?.network ?? saved.lastNetwork };
+    }),
+    ...active.filter(wallet => !credentials.wallets.some(saved => sameWallet(saved, wallet))).map(wallet => ({ saved: null, active: wallet,
+      ecosystem: wallet.ecosystem, address: wallet.address, providerKey: wallet.providerKey, providerName: wallet.providerName, label: wallet.providerName, network: wallet.network })),
+  ];
+  const busy = evm.busy || solana.busy;
+  function save(wallet: ConnectedWallet) {
+    try { saveWalletReference(wallet); setStatus(`${wallet.providerName} saved to Credentials.`); } catch { setStatus('This wallet could not be saved.'); }
+  }
+  async function addWallet() {
+    setStatus('');
+    const connected = await connection.connect({ title: 'Add a wallet' });
+    if (connected) save(connected);
+  }
+  function disconnect(wallet: WalletEntry) {
+    if (wallet.ecosystem === 'evm') evm.reset(); else void solana.disconnect();
+    setStatus(`${wallet.label} disconnected.`);
+  }
+  async function activate(saved: SavedWallet) {
+    setStatus('');
+    const mismatch = (address: string) => setStatus(`${saved.providerName} connected ${address.slice(0, 6)}…${address.slice(-4)}, not this saved wallet. Choose ${saved.address.slice(0, 6)}…${saved.address.slice(-4)} in ${saved.providerName} to use it.`);
+    if (saved.ecosystem === 'evm') {
+      const entry = evmWalletEntries().find(candidate => candidate.choice.key === saved.providerKey);
+      if (!entry) { setStatus(`${saved.providerName} isn't detected in this browser.`); return; }
+      const session = await evm.connectWith(entry.choice.id);
+      if (session && session.account !== saved.address) mismatch(session.account);
+      return;
+    }
+    if (!solanaWalletChoices().some(choice => choice.key === saved.providerKey)) { setStatus(`${saved.providerName} isn't detected in this browser.`); return; }
+    const session = await solana.connectWith(saved.providerKey, connection.solanaChain);
+    if (!session) setStatus(`${saved.providerName} did not connect.`);
+    else if (session.account.address !== saved.address) mismatch(session.account.address);
+  }
   return <>
-    <header className="secondary-workspace-heading"><h1>Credentials</h1><p>Keep your connected wallets, credentials, and secrets in one place.</p></header>
+    <header className="secondary-workspace-heading"><h1>Credentials</h1><p>Keep the wallets and cards you use with FloFi in one place. Saved credentials are references only: they never approve a transaction or a payment.</p></header>
+    <p className="workspace-notice" role="status">{status || connection.error || ''}</p>
     <section className="workspace-section" aria-labelledby="credentials-wallets">
-      <div className="workspace-section-heading"><div><WorkspaceIcon name="wallet"/><h2 id="credentials-wallets">Wallets</h2><span className="workspace-count">{wallets.length}</span></div><AddAction>Add wallet</AddAction></div>
-      {wallets.length ? <div className="workspace-wallet-grid">{wallets.map(wallet => <WalletCard key={`${wallet.ecosystem}:${wallet.address}`} wallet={wallet}/>)}</div>
-        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="wallet" size={28}/></span><h3>No connected wallets</h3><p>Connect a wallet from the header to see it here.</p></div>}
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="wallet"/><h2 id="credentials-wallets">Wallets</h2><span className="workspace-count">{entries.length}</span></div>
+        <button type="button" className="workspace-action" disabled={busy} onClick={() => void addWallet()}><WorkspaceIcon name="plus" size={16}/>Add wallet</button></div>
+      {entries.length ? <div className="workspace-wallet-grid">{entries.map(entry => <WalletCredentialCard key={entry.saved?.id ?? `active:${entry.ecosystem}:${entry.address}`}
+        entry={entry} busy={busy} onActivate={saved => void activate(saved)} onDisconnect={() => disconnect(entry)} onSave={save} onStatus={setStatus}/>)}</div>
+        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="wallet" size={28}/></span><h3>No wallets yet</h3><p>Add a wallet to save its public address here. FloFi never holds your keys.</p></div>}
     </section>
-    <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="card" size={18}/>Add card</FutureAction><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>Add secret</FutureAction></div>
+    <section className="workspace-section" aria-labelledby="credentials-cards">
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="card"/><h2 id="credentials-cards">Cards</h2><span className="workspace-count">{credentials.cards.length}</span></div>
+        <button type="button" className="workspace-action" onClick={() => setCardEntry(true)}><WorkspaceIcon name="plus" size={16}/>Add card</button></div>
+      {credentials.cards.length ? <div className="workspace-wallet-grid">{credentials.cards.map(card => <CardCredential key={card.id} card={card} onStatus={setStatus}/>)}</div>
+        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="card" size={28}/></span><h3>No cards yet</h3><p>Cards are added through a certified card provider&apos;s secure entry. FloFi never sees or stores your card number or security code.</p></div>}
+    </section>
+    <section className="workspace-section" aria-labelledby="credentials-payments">
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="key"/><h2 id="credentials-payments">Payment connections</h2><span className="workspace-count">0</span></div></div>
+      <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><h3>No payment provider connected</h3><p>Pix and boleto payments need a connected payment provider. None is connected yet.</p></div>
+    </section>
+    <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>Add secret</FutureAction></div>
+    {cardEntry && <CardEntryDialog onClose={() => setCardEntry(false)} onAdded={label => { setCardEntry(false); setStatus(`${label} added to Credentials.`); }}/>}
   </>;
 }
 
