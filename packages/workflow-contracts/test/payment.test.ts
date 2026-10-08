@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { crc16Ccitt, parsePixPayload, PixPayloadError } from '../src/pix.js';
+import { crc16Ccitt, parsePixKey, parsePixPayload, PixPayloadError } from '../src/pix.js';
 import { boletoDueDate, parseBoleto, BoletoError } from '../src/boleto.js';
 import { assertPaymentTransition, authorPaymentDraft, createPaymentNode, paymentAuthorizationChanges, paymentAuthorizationValid,
-  paymentDestinationCommitment, paymentManifestFacts, PAYMENT_STATES, PAYMENT_TRANSITIONS, readPaymentNode, type PaymentDraftRequest,
+  paymentDestinationCommitment, paymentManifestFacts, PAYMENT_STATES, PAYMENT_TRANSITIONS, pixKeyDestination, readPaymentNode, type PaymentDraftRequest,
   type PaymentEvidence, type PaymentFields } from '../src/payment.js';
 import { validateArtifact } from '../src/schemas.js';
 import { hashArtifactValue } from '../src/canonical.js';
@@ -51,6 +51,34 @@ describe('Pix Copia e Cola (BR Code) local validation', () => {
   ])('fails closed: %s', (_label, payload, expected) => {
     expect(code(() => parsePixPayload(payload))).toBe(expected);
     expect(() => parsePixPayload(payload)).toThrow(PixPayloadError);
+  });
+});
+
+describe('Pix key destinations', () => {
+  it('accepts DICT key formats, normalizes only CPF/CNPJ punctuation and never guesses', () => {
+    expect(parsePixKey(' 529.982.247-25 ')).toEqual({ type: 'CPF', value: '52998224725' });
+    expect(parsePixKey('11.222.333/0001-81')).toEqual({ type: 'CNPJ', value: '11222333000181' });
+    expect(parsePixKey('+5511999998888')).toEqual({ type: 'PHONE', value: '+5511999998888' });
+    expect(parsePixKey('pagamentos@example.com')).toEqual({ type: 'EMAIL', value: 'pagamentos@example.com' });
+    expect(parsePixKey('123e4567-e12b-12d1-a456-426655440000')).toEqual({ type: 'EVP', value: '123e4567-e12b-12d1-a456-426655440000' });
+    // A wrong CPF check digit, a phone without +55, spaces inside, an over-long value or a non-string: refused.
+    for (const value of ['529.982.247-26', '11999998888', 'pag amentos@example.com', `${'a'.repeat(70)}@example.com`, '', 52998224725])
+      expect(code(() => parsePixKey(value))).toBe('PIX_KEY_INVALID');
+  });
+  it('drafts a key payment with an owner-stated amount and a commitment distinct from any BR Code', () => {
+    const draft = authorPaymentDraft('pay-1', request({ destination: '529.982.247-25', pixDestination: 'PIX_KEY', ownerAmountCents: '10000' }), NOW);
+    expect(draft).toMatchObject({ state: 'DRAFT', authorizes: false, requiresProviderResolution: false,
+      destination: { rail: 'PIX', kind: 'PIX_KEY', key: { type: 'CPF', value: '52998224725' } } });
+    const fields = readPaymentNode(draft.node);
+    expect(fields).toMatchObject({ rail: 'PIX', amountCents: '10000', amountSource: 'OWNER' });
+    expect(fields.destinationCommitment).toBe(paymentDestinationCommitment('PIX', pixKeyDestination({ type: 'CPF', value: '52998224725' })));
+    expect(JSON.stringify(draft.node)).not.toContain('52998224725');
+    // The same key inside a BR Code is a different destination (the code also binds merchant, city and txid).
+    expect(fields.destinationCommitment).not.toBe(readPaymentNode(authorPaymentDraft('pay-1', request(), NOW).node).destinationCommitment);
+    expect(code(() => authorPaymentDraft('p', request({ destination: '52998224725', pixDestination: 'PIX_KEY' }), NOW))).toBe('PAYMENT_AMOUNT_REQUIRED');
+    expect(code(() => authorPaymentDraft('p', request({ pixDestination: 'PIX_KEY' }), NOW))).toBe('PIX_KEY_INVALID');
+    expect(code(() => authorPaymentDraft('p', request({ destination: '52998224725', pixDestination: 'PIX_CODE', ownerAmountCents: '100' }), NOW))).toBe('PIX_TLV_MALFORMED');
+    expect(code(() => authorPaymentDraft('p', request({ rail: 'BOLETO', destination: BANK_LINE, pixDestination: 'PIX_KEY' }), NOW))).toBe('PAYMENT_DESTINATION_KIND_INVALID');
   });
 });
 

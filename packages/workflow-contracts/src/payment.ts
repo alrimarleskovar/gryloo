@@ -13,7 +13,7 @@
 import { canonicalJson, hashRawBytes } from './canonical.js';
 import type { SemanticWorkflow } from './semantic-workflow.js';
 import type { Asset } from './common.js';
-import { parsePixPayload, type PixPayload } from './pix.js';
+import { parsePixKey, parsePixPayload, type PixKey, type PixPayload } from './pix.js';
 import { parseBoleto, type Boleto } from './boleto.js';
 
 type Node = SemanticWorkflow['nodes'][number];
@@ -47,7 +47,9 @@ const UNITS = /^[1-9][0-9]{0,77}$/, CENTS = /^(0|[1-9][0-9]{0,15})$/, ID = /^[A-
 const CHAIN = /^[a-z][a-z0-9-]*:[A-Za-z0-9._-]+$/, COMMITMENT = /^paydest:0x[0-9a-f]{64}$/;
 function fail(code: string): never { throw new Error(code); }
 
-/** Commitment to the destination: the rail plus the exact validated payload (Pix) or canonical barcode (boleto). */
+/** The canonical destination text of a Pix key payment (never a valid BR Code, which always starts with `000201`). */
+export const pixKeyDestination = (key: PixKey) => `pixkey:${key.type}:${key.value}`;
+/** Commitment to the destination: the rail plus the exact validated payload or key (Pix) or canonical barcode (boleto). */
 export function paymentDestinationCommitment(rail: PaymentRail, destination: string): string {
   if (!destination) fail('PAYMENT_DESTINATION_REQUIRED');
   const digest = hashRawBytes('intent', new TextEncoder().encode(canonicalJson({ kind: 'flofi/payment-destination', rail, destination })));
@@ -163,11 +165,15 @@ export function assertPaymentTransition(from: PaymentState, to: PaymentState, ev
 }
 
 export type PaymentChannel = 'FLOFI_UI' | 'MCP' | 'WHATSAPP' | 'AGENT';
+/** How a Pix destination was given: a Pix Copia e Cola payload (BR Code) or a bare Pix key. Never guessed from the text. */
+export type PixDestinationKind = 'PIX_CODE' | 'PIX_KEY';
 export type PaymentDraftRequest = {
   readonly channel: PaymentChannel;
   readonly rail: PaymentRail;
-  /** Pix Copia e Cola text, or a boleto barcode / linha digitável, exactly as received. */
+  /** Pix Copia e Cola text, a Pix key, or a boleto barcode / linha digitável, exactly as received. */
   readonly destination: string;
+  /** Pix only: which form `destination` is in (default `PIX_CODE`). */
+  readonly pixDestination?: PixDestinationKind;
   /** Only when the payload does not encode an amount. */
   readonly ownerAmountCents?: string;
   readonly sourceAsset: Asset;
@@ -177,7 +183,9 @@ export type PaymentDraftRequest = {
   readonly provider: { readonly id: string; readonly version: string };
   readonly expiresAt: number;
 };
-export type PaymentDestinationSummary = { readonly rail: 'PIX'; readonly pix: PixPayload } | { readonly rail: 'BOLETO'; readonly boleto: Boleto };
+export type PaymentDestinationSummary = { readonly rail: 'PIX'; readonly kind: 'PIX_CODE'; readonly pix: PixPayload }
+  | { readonly rail: 'PIX'; readonly kind: 'PIX_KEY'; readonly key: PixKey }
+  | { readonly rail: 'BOLETO'; readonly kind: 'BOLETO'; readonly boleto: Boleto };
 /** A channel-authored draft. It carries no authority: `authorizes` is always false and the state is always DRAFT. */
 export type PaymentDraft = { readonly state: 'DRAFT'; readonly authorizes: false; readonly channel: PaymentChannel; readonly node: Node;
   readonly destination: PaymentDestinationSummary; readonly requiresProviderResolution: boolean };
@@ -189,12 +197,19 @@ export type PaymentDraft = { readonly state: 'DRAFT'; readonly authorizes: false
  */
 export function authorPaymentDraft(nodeId: string, request: PaymentDraftRequest, now: Date = new Date()): PaymentDraft {
   let destination: PaymentDestinationSummary, canonical: string, encoded: string | null;
-  if (request.rail === 'PIX') {
+  if (request.rail !== 'PIX' && request.pixDestination !== undefined) fail('PAYMENT_DESTINATION_KIND_INVALID');
+  if (request.rail === 'PIX' && request.pixDestination === 'PIX_KEY') {
+    // A bare key encodes no amount: the owner states it, and the provider resolves the account holder at payout time.
+    const key = parsePixKey(request.destination);
+    destination = { rail: 'PIX', kind: 'PIX_KEY', key }; canonical = pixKeyDestination(key); encoded = null;
+  } else if (request.rail === 'PIX') {
+    if (request.pixDestination !== undefined && request.pixDestination !== 'PIX_CODE') fail('PAYMENT_DESTINATION_KIND_INVALID');
     const pix = parsePixPayload(request.destination);
-    destination = { rail: 'PIX', pix }; canonical = pix.payload; encoded = pix.amount?.cents ?? null;
+    destination = { rail: 'PIX', kind: 'PIX_CODE', pix }; canonical = pix.payload; encoded = pix.amount?.cents ?? null;
   } else if (request.rail === 'BOLETO') {
     const boleto = parseBoleto(request.destination, now);
-    destination = { rail: 'BOLETO', boleto }; canonical = boleto.barcode; encoded = boleto.amount?.kind === 'EFFECTIVE' ? boleto.amount.cents : null;
+    destination = { rail: 'BOLETO', kind: 'BOLETO', boleto }; canonical = boleto.barcode;
+    encoded = boleto.amount?.kind === 'EFFECTIVE' ? boleto.amount.cents : null;
   } else return fail('PAYMENT_RAIL_UNSUPPORTED');
   const owner = request.ownerAmountCents;
   if (owner !== undefined && (!CENTS.test(owner) || owner === '0')) fail('PAYMENT_AMOUNT_INVALID');
@@ -206,6 +221,6 @@ export function authorPaymentDraft(nodeId: string, request: PaymentDraftRequest,
     maxSourceAmount: request.maxSourceAmount, maxFeeCents: request.maxFeeCents, maxSlippageBps: request.maxSlippageBps,
     provider: request.provider, expiresAt: request.expiresAt });
   // A dynamic Pix code's recipient and amount live at the PSP location: only the provider can resolve them before Quote.
-  const requiresProviderResolution = destination.rail === 'PIX' && destination.pix.locationUrl !== null;
+  const requiresProviderResolution = destination.kind === 'PIX_CODE' && destination.pix.locationUrl !== null;
   return { state: 'DRAFT', authorizes: false, channel: request.channel, node, destination, requiresProviderResolution };
 }

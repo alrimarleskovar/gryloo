@@ -87,6 +87,19 @@ export function classifyPixKey(value: string): PixKeyType {
   if (value.length <= 77 && /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(value)) return 'EMAIL';
   return fail('PIX_KEY_INVALID');
 }
+export type PixKey = { readonly type: PixKeyType; readonly value: string };
+/**
+ * A Pix key entered as a payment destination (not inside a BR Code). Outer whitespace is removed and the usual CPF/CNPJ
+ * punctuation (`123.456.789-09`, `12.345.678/0001-95`) is accepted and reduced to digits; anything else must already be in the
+ * DICT format. Nothing is guessed: a phone key needs its `+55` prefix, and an ambiguous or invalid value fails closed.
+ */
+export function parsePixKey(input: unknown): PixKey {
+  if (typeof input !== 'string') fail('PIX_KEY_INVALID');
+  let value = (input as string).trim();
+  if (!value || value.length > 77 || !/^[\x21-\x7e]+$/.test(value)) fail('PIX_KEY_INVALID');
+  if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(value) || /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(value)) value = value.replace(/\D/g, '');
+  return { type: classifyPixKey(value), value };
+}
 /** Decimal BRL text (`12`, `12.5`, `12.50`) to integer cents, exactly. */
 function cents(text: string): string {
   const match = /^(0|[1-9]\d{0,9})(?:\.(\d{1,2}))?$/.exec(text);

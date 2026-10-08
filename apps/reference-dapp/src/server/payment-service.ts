@@ -6,7 +6,7 @@
  * function in this module that can.
  */
 import { authorPaymentDraft, paymentManifestFacts, readPaymentNode, type PaymentDraft, type PaymentDraftRequest } from '@defi-workflow-engine/workflow-contracts';
-import { paymentAdapters, PIXBLOCK_STATUS, type PaymentAdapter, type PaymentQuote } from './payment-adapter';
+import { paymentAdapters, paymentProviderStatuses, type PaymentAdapter, type PaymentQuote } from './payment-adapter.ts';
 
 export type PreparedPayment =
   | { readonly status: 'QUOTED'; readonly draft: PaymentDraft; readonly quote: PaymentQuote; readonly next: 'REVIEW_IN_FLOFI'; readonly authorizes: false }
@@ -20,16 +20,18 @@ export type PreparedPayment =
 export async function preparePayment(nodeId: string, request: PaymentDraftRequest, owner: { readonly chainId: string; readonly address: string },
   options: { readonly now?: Date; readonly adapters?: ReadonlyMap<string, PaymentAdapter> } = {}): Promise<PreparedPayment> {
   const draft = authorPaymentDraft(nodeId, request, options.now);
-  const adapter = (options.adapters ?? paymentAdapters()).get(request.provider.id);
+  const adapters = options.adapters ?? paymentAdapters();
+  const adapter = adapters.get(request.provider.id);
   if (!adapter || adapter.version !== request.provider.version) {
-    const code = request.provider.id === PIXBLOCK_STATUS.id ? PIXBLOCK_STATUS.code : 'PAYMENT_PROVIDER_NOT_CONFIGURED';
-    return { status: 'PROVIDER_UNAVAILABLE', draft, code, next: 'NONE', authorizes: false };
+    const known = paymentProviderStatuses(process.env, adapters).find(status => status.id === request.provider.id && !status.available);
+    return { status: 'PROVIDER_UNAVAILABLE', draft, code: known?.code ?? 'PAYMENT_PROVIDER_NOT_CONFIGURED', next: 'NONE', authorizes: false };
   }
   const facts = paymentManifestFacts(draft.node, owner);
   if (!adapter.rails.includes(facts.rail)) throw new Error('PAYMENT_RAIL_UNSUPPORTED_BY_PROVIDER');
-  if (!adapter.supportedSources().some(source => source.chainId === facts.sourceChain && JSON.stringify(source.asset) === JSON.stringify(facts.sourceAsset)))
+  if (!adapter.destinationKinds.includes(draft.destination.kind)) throw new Error('PAYMENT_DESTINATION_UNSUPPORTED_BY_PROVIDER');
+  if (!(await adapter.supportedSources()).some(source => source.chainId === facts.sourceChain && JSON.stringify(source.asset) === JSON.stringify(facts.sourceAsset)))
     throw new Error('PAYMENT_SOURCE_UNSUPPORTED_BY_PROVIDER');
-  const quote = await adapter.quote({ facts });
+  const quote = await adapter.quote({ facts, destination: draft.destination });
   // A quote outside the drafted bounds is refused, never silently adopted.
   if (quote.amountCents !== facts.amountCents) throw new Error('PAYMENT_QUOTE_AMOUNT_MISMATCH');
   if (BigInt(quote.feeCents) > BigInt(facts.maxFeeCents)) throw new Error('PAYMENT_QUOTE_FEE_ABOVE_LIMIT');
@@ -45,9 +47,10 @@ const brl = (cents: string) => `R$ ${(BigInt(cents) / 100n).toString().replace(/
  */
 export function paymentChannelSummary(prepared: PreparedPayment): string {
   const fields = readPaymentNode(prepared.draft.node), destination = prepared.draft.destination;
-  const recipient = destination.rail === 'PIX'
+  const recipient = destination.kind === 'PIX_CODE'
     ? `${destination.pix.merchantName}${destination.pix.key ? ` (${destination.pix.key.type} ${mask(destination.pix.key.value)})` : ''}`
-    : `Boleto ${destination.boleto.bankCode ? `bank ${destination.boleto.bankCode}` : `segment ${destination.boleto.segment}`}`;
+    : destination.kind === 'PIX_KEY' ? `Pix key (${destination.key.type} ${mask(destination.key.value)})`
+      : `Boleto ${destination.boleto.bankCode ? `bank ${destination.boleto.bankCode}` : `segment ${destination.boleto.segment}`}`;
   const lines = [prepared.status === 'QUOTED' ? 'Payment prepared' : 'Payment drafted — provider unavailable', `Recipient: ${recipient}`,
     `Amount: ${brl(fields.amountCents)}`, `Source: ${fields.sourceAsset.chainId}`, `Provider: ${fields.provider.id}`];
   if (prepared.status === 'QUOTED') lines.push(`Fee: ${brl(prepared.quote.feeCents)}`, `Expires: ${new Date(prepared.quote.expiresAt * 1000).toISOString()}`,

@@ -10,18 +10,18 @@ const USDC_BASE = { chainId: 'eip155:8453', address: '0x833589fcd6edb6e08f4c7c32
 const OWNER = { chainId: 'eip155:8453', address: '0x1111111111111111111111111111111111111111' };
 const request = (overrides: Partial<PaymentDraftRequest> = {}): PaymentDraftRequest => ({ channel: 'WHATSAPP', rail: 'PIX', destination: PIX, sourceAsset: USDC_BASE,
   maxSourceAmount: '140000000', maxFeeCents: '1500', maxSlippageBps: 50, provider: { id: 'payments.test', version: '1.0.0' }, expiresAt: SECONDS + 600, ...overrides });
-function adapter(quote: Partial<Awaited<ReturnType<PaymentAdapter['quote']>>> = {}) {
-  const value: PaymentAdapter = { id: 'payments.test', version: '1.0.0', name: 'Test provider', rails: ['PIX', 'BOLETO'],
-    supportedSources: () => [{ chainId: 'eip155:8453', asset: USDC_BASE }],
-    resolveDestination: vi.fn(), status: vi.fn(), initiate: vi.fn(),
+function adapter(quote: Partial<Awaited<ReturnType<PaymentAdapter['quote']>>> = {}, destinationKinds: PaymentAdapter['destinationKinds'] = ['PIX_CODE', 'BOLETO']) {
+  const value: PaymentAdapter = { id: 'payments.test', version: '1.0.0', name: 'Test provider', rails: ['PIX', 'BOLETO'], destinationKinds,
+    supportedSources: async () => [{ chainId: 'eip155:8453', asset: USDC_BASE }],
+    status: vi.fn(), initiate: vi.fn(), submit: vi.fn(),
     quote: vi.fn(async () => ({ providerQuoteId: 'q-1', amountCents: '74231', feeCents: '900', sourceAmount: '135000000', expiresAt: SECONDS + 300, ...quote })) };
   return { value, adapters: new Map([[value.id, value]]) };
 }
 
 describe('payment engine facade for every channel', () => {
-  it('fails closed without a configured provider and never claims PixBlock is connected', async () => {
-    expect(paymentAdapters().size).toBe(0);
-    expect(paymentProviderStatuses()).toEqual([PIXBLOCK_STATUS]);
+  it('fails closed without a configured provider and never claims PixBlock or Woovi is connected', async () => {
+    expect(paymentAdapters({}).size).toBe(0);
+    expect(paymentProviderStatuses({})).toEqual([expect.objectContaining({ id: 'woovi', available: false, code: 'PAYMENT_PROVIDER_NOT_CONFIGURED' }), PIXBLOCK_STATUS]);
     expect(PIXBLOCK_STATUS).toMatchObject({ available: false, code: 'PIXBLOCK_PAYOUT_API_UNAVAILABLE' });
     const prepared = await service.preparePayment('pay-1', request(), OWNER, { now: NOW });
     expect(prepared).toMatchObject({ status: 'PROVIDER_UNAVAILABLE', code: 'PAYMENT_PROVIDER_NOT_CONFIGURED', next: 'NONE', authorizes: false, draft: { state: 'DRAFT', authorizes: false } });
@@ -33,7 +33,8 @@ describe('payment engine facade for every channel', () => {
     const { value, adapters } = adapter();
     const prepared = await service.preparePayment('pay-1', request(), OWNER, { now: NOW, adapters });
     expect(prepared).toMatchObject({ status: 'QUOTED', next: 'REVIEW_IN_FLOFI', authorizes: false });
-    expect(value.quote).toHaveBeenCalledExactlyOnceWith({ facts: expect.objectContaining({ amountCents: '74231', settlementCurrency: 'BRL', owner: OWNER }) });
+    expect(value.quote).toHaveBeenCalledExactlyOnceWith({ facts: expect.objectContaining({ amountCents: '74231', settlementCurrency: 'BRL', owner: OWNER }),
+      destination: expect.objectContaining({ rail: 'PIX', kind: 'PIX_CODE' }) });
     expect(value.initiate).not.toHaveBeenCalled();
     const summary = service.paymentChannelSummary(prepared);
     expect(summary).toContain('Amount: R$ 742,31');
@@ -47,6 +48,20 @@ describe('payment engine facade for every channel', () => {
       await expect(service.preparePayment('pay-1', request(), OWNER, { now: NOW, adapters: adapter(quote).adapters })).rejects.toThrow(code);
     await expect(service.preparePayment('pay-1', request({ sourceAsset: { ...USDC_BASE, chainId: 'eip155:84532' } }), OWNER, { now: NOW, adapters: adapter().adapters }))
       .rejects.toThrow('PAYMENT_SOURCE_UNSUPPORTED_BY_PROVIDER');
+  });
+  it('drafts a bare Pix key with the owner-stated amount and masks it in channel summaries', async () => {
+    const { adapters } = adapter();
+    await expect(service.preparePayment('pay-1', request({ destination: 'pagamentos@example.com', pixDestination: 'PIX_KEY', ownerAmountCents: '74231' }), OWNER,
+      { now: NOW, adapters })).rejects.toThrow('PAYMENT_DESTINATION_UNSUPPORTED_BY_PROVIDER');
+    const keyed = adapter({}, ['PIX_KEY']);
+    const prepared = await service.preparePayment('pay-1', request({ destination: 'pagamentos@example.com', pixDestination: 'PIX_KEY', ownerAmountCents: '74231' }), OWNER,
+      { now: NOW, adapters: keyed.adapters });
+    expect(prepared).toMatchObject({ status: 'QUOTED', draft: { destination: { kind: 'PIX_KEY', key: { type: 'EMAIL', value: 'pagamentos@example.com' } } } });
+    const summary = service.paymentChannelSummary(prepared);
+    expect(summary).toContain('Recipient: Pix key (EMAIL pag•••om)');
+    expect(summary).not.toContain('pagamentos@example.com');
+    await expect(service.preparePayment('pay-1', request({ destination: 'pagamentos@example.com', pixDestination: 'PIX_KEY' }), OWNER, { now: NOW, adapters: keyed.adapters }))
+      .rejects.toThrow('PAYMENT_AMOUNT_REQUIRED');
   });
   it('rejects malformed destinations before any provider is contacted', async () => {
     const { value, adapters } = adapter();
