@@ -9,9 +9,11 @@ PostgreSQL. It is **off unless enabled**, and it fails closed: every configurati
 
 ## 1. Requirements
 
-- The **embedded runtime**: `DATABASE_URL` set, `API_BASE_URL` unset ([ENVIRONMENT.md §1](ENVIRONMENT.md)). On the remote
-  runtime every request answers `503 SERVICE_UNAVAILABLE` (`DEVELOPER_STORE_UNAVAILABLE`); it never falls back to memory or files.
-- Migrations `0006_approval_requesters` and `0007_developer_platform`, applied by the deployment build like the earlier ones.
+- PostgreSQL platform state: pooled `DATABASE_URL` ([ENVIRONMENT.md §1](ENVIRONMENT.md)). Production keeps `API_BASE_URL`
+  and `API_AUTH_TOKEN`: flows, previews and owner-scoped reads still use Railway; only platform state connects directly.
+  Missing/unusable state answers `503 SERVICE_UNAVAILABLE` (`DEVELOPER_STORE_UNAVAILABLE`); no memory or file fallback.
+- The current shipped schema, including `0006_approval_requesters` and `0007_developer_platform`, applied by the normal
+  migration step. Platform-state startup checks the schema and never migrates it.
 - `FLOFI_PUBLIC_ORIGIN`: the exact public origin approval links point to (shared with MCP).
 - The testnet flows you want developers to hand off, enabled as usual (`GRYLOO_ROUTER_TESTNET=live`, `GRYLOO_SUPPLY_TESTNET=live`,
   …). Capability discovery reports what is enabled; nothing else is.
@@ -70,7 +72,7 @@ the project is a checkbox, **off by default**. A claim also requires the project
 
 ## 5. Webhook delivery and the scheduler
 
-The embedded runtime has no background worker. Events are derived from durable state and delivered after Developer API requests
+Developer webhook delivery runs in the web deployment. Events are derived from durable state and delivered after Developer API requests
 (a bounded sweep for that project) and after `/approve` transitions. Without a scheduler, an `execution.*` notification waits for
 the integrator's next request or the next `/approve` action; `GET /approvals/{id}` is always current.
 

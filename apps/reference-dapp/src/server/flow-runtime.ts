@@ -19,7 +19,8 @@ import type { Database } from '@defi-workflow-engine/cloud-runtime';
 import type { Backend, BackendOptions } from '../../backend/app.ts';
 import type { FlowName } from '../../backend/flows.ts';
 import { callCloudFlow, listCloudRuns, previewCloudFlow, readCloudRun, type CloudRunSummary, type FlowResult } from './cloud-api-client.ts';
-import { deploymentTenant, isHostedDeployment } from './deployment.ts';
+import { isHostedDeployment } from './deployment.ts';
+import { serverlessPostgresConfig } from './postgres-config.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type FlowRuntimeKind = 'remote' | 'embedded' | 'local' | 'unconfigured';
@@ -46,23 +47,11 @@ export type EmbeddedRuntime = { readonly backend: Backend; readonly tenantId: st
   readonly journal: (runId: string, owner: string, after: number | null, limit: number) => Promise<CloudJournalPage | null>;
   /** BUILD-MCP-002: the same pool, for the MCP OAuth, handoff and wallet-link stores (tenant-scoped by their own queries). */
   readonly db: Database };
-/** Pool sizing for serverless: a few connections per instance; use the provider's pooled endpoint. */
-function poolMax(value: string | undefined): number {
-  if (value === undefined || value === '') return 3;
-  const n = Number(value);
-  if (!Number.isSafeInteger(n) || n < 1 || n > 20) throw new Error('DATABASE_POOL_MAX_INVALID');
-  return n;
-}
 /** Test seams of the backend (MOCKED in-process chains). The deployed path never passes any. */
 export type EmbeddedSeams = Pick<BackendOptions, 'rpc' | 'http' | 'router' | 'routers' | 'busyRetries'>;
-function embeddedConfig(env: Env) {
-  const databaseUrl = env.DATABASE_URL ?? '';
-  if (!/^postgres(ql)?:\/\//.test(databaseUrl)) throw new Error('DATABASE_URL_REQUIRED');
-  return { databaseUrl, tenantId: deploymentTenant(env), maxConnections: poolMax(env.DATABASE_POOL_MAX) };
-}
 /** A new runtime instance (one serverless instance's worth of state). Callers normally use the cached `embeddedRuntime`. */
 export async function createEmbeddedRuntime(env: Env, seams: EmbeddedSeams = {}): Promise<EmbeddedRuntime & { readonly close: () => Promise<void> }> {
-  const { databaseUrl, tenantId, maxConnections } = embeddedConfig(env);
+  const { databaseUrl, tenantId, maxConnections } = serverlessPostgresConfig(env);
   // Evidence lives in the durable run log; an optional export store must itself be durable (never a function's disk).
   if (isHostedDeployment(env) && env.EVIDENCE_DIRECTORY && !env.OBJECT_STORE_ENDPOINT && !env.OBJECT_STORE_BUCKET) throw new Error('EVIDENCE_STORE_FILESYSTEM_FORBIDDEN');
   // Loaded only when this runtime is selected, so local development never loads the database driver.
@@ -91,7 +80,7 @@ export async function createEmbeddedRuntime(env: Env, seams: EmbeddedSeams = {})
  */
 const HOSTS = Symbol.for('flofi.embedded-runtime');
 export function embeddedRuntime(env: Env = process.env): Promise<EmbeddedRuntime> {
-  const { databaseUrl, tenantId, maxConnections } = embeddedConfig(env);
+  const { databaseUrl, tenantId, maxConnections } = serverlessPostgresConfig(env);
   const holder = globalThis as unknown as Record<symbol, Map<string, Promise<EmbeddedRuntime>> | undefined>;
   const hosts = holder[HOSTS] ??= new Map(), key = `${databaseUrl}\0${tenantId}\0${maxConnections}`;
   let host = hosts.get(key);

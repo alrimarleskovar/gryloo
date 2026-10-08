@@ -17,7 +17,8 @@ const importsOf = (file: string) => {
   return [...text.matchAll(/^(?:import|export)\b[^;]*?\sfrom\s+'([^']+)';/gms), ...text.matchAll(/^import\s+'([^']+)';/gm), ...text.matchAll(/\bimport\(\s*'([^']+)'\s*\)/g)]
     .map(m => m[1]!);
 };
-const ALLOWED_APP = [/^src\/developer\//, /^src\/platform\//, /^src\/engine\//, /^src\/server\/deployment\.ts$/, /^src\/server\/flow-runtime\.ts$/];
+// Durable state is server composition. The surface no longer imports the executable flow runtime directly.
+const ALLOWED_APP = [/^src\/developer\//, /^src\/platform\//, /^src\/engine\//, /^src\/server\/deployment\.ts$/, /^src\/server\/platform-state-host\.ts$/];
 const PACKAGES = /^(node:|@defi-workflow-engine\/(cloud-runtime|workflow-contracts)|@sinclair\/typebox$)/;
 
 describe('BUILD-DEVELOPER-001 developer surface boundary', () => {

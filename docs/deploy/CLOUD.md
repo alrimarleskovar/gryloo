@@ -135,8 +135,9 @@ preview, owner approvals handed to FloFi (`request_user_approval` → `/approve`
 signing, submission or approval by the model. It runs in the same Vercel function runtime as the rest of the app and needs no
 new service. Consumer clients (Claude custom connectors, ChatGPT developer mode) authenticate through FloFi's own OAuth server
 (`/.well-known/*`, `/oauth/*`); its state (pseudonymous accounts, grants, token digests, approval handoffs, wallet links, abuse
-counters) lives in this deployment's PostgreSQL (migration `0005_mcp_oauth`, tenant-scoped, digests only). The remote runtime
-(`API_BASE_URL`) has no OAuth store and fails closed (`MCP_OAUTH_STORE_UNAVAILABLE`). Setup, clients and tools: [MCP.md](MCP.md).
+counters) lives in this deployment's PostgreSQL (migration `0005_mcp_oauth`, tenant-scoped, digests only). With `API_BASE_URL`
+and pooled `DATABASE_URL`, the shared platform-state host connects directly while financial previews/reads stay remote;
+missing/unusable state fails closed (`MCP_OAUTH_STORE_UNAVAILABLE`). Setup, clients and tools: [MCP.md](MCP.md).
 
 Owner setup for a consumer Preview (Preview-only variables, on top of the embedded runtime above):
 
@@ -158,7 +159,8 @@ evidence of runs their end users choose to share, with signed webhooks — never
 developer. It runs in the same Vercel function runtime and needs no new service. Its state (projects, key digests, strategies,
 events, webhook endpoints and deliveries, usage counters) lives in this deployment's PostgreSQL (migration
 `0007_developer_platform`, tenant-scoped, digests only); developer approvals are rows of the shared approval handoff table
-(migration `0006_approval_requesters`). The remote runtime (`API_BASE_URL`) fails closed (`DEVELOPER_STORE_UNAVAILABLE`).
+(migration `0006_approval_requesters`). With `API_BASE_URL` and pooled `DATABASE_URL`, only platform state connects directly;
+flow operations still use Railway. Missing/unusable state fails closed (`DEVELOPER_STORE_UNAVAILABLE`).
 Webhook delivery is request-driven on a Preview (Vercel Cron does not run there): events go out after developer requests and
 `/approve` actions, or when an owner-configured scheduler calls the internal dispatch endpoint. Enabling it on a Preview:
 `FLOFI_DEVELOPER=enabled`, `FLOFI_PUBLIC_ORIGIN`, a dedicated `FLOFI_DEVELOPER_SECRET` (Preview-only), redeploy, then create a

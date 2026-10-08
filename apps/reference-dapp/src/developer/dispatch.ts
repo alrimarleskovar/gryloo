@@ -9,13 +9,13 @@
  * 10 s, at most 1 KiB of the response read). Plain loopback HTTP exists only with the local test seam. Nothing in FloFi waits for, reads
  * or depends on a delivery: a failing endpoint changes no approval, claim, run or API response.
  *
- * Triggers (the embedded runtime has no worker): after Developer API responses, after /approve transitions of developer approvals, and
+ * Triggers in the web deployment: after Developer API responses, after /approve transitions of developer approvals, and
  * the internal dispatch endpoint for a scheduler (Vercel Cron or any other).
  */
 import { request as httpRequest } from 'node:http';
 import { createPgHandoffStore, deploymentEngineRuntime, pinnedHttpsRequest, resolveApprovalSecret, assertSafeOutput, type EngineRuntime,
   type HandoffStore } from '../platform/index.ts';
-import { embeddedRuntime, flowRuntimeKind } from '../server/flow-runtime.ts';
+import { platformStateHost } from '../server/platform-state-host.ts';
 import { DEVELOPER_LINK_PREFIX, developerApprovalLinkScheme } from './approval-profile.ts';
 import { readDeveloperConfig, type DeveloperConfig } from './config.ts';
 import { syncDeveloperApprovals, type SyncFilter } from './events.ts';
@@ -119,15 +119,15 @@ export async function syncAndDispatch(deps: NotifyDeps, filter: SyncFilter, budg
 /**
  * After an /approve transition (claim, apply, sharing): when the secret is a developer approval link of this deployment, derive that
  * approval's events now and deliver its project's due notifications. Any other secret, or a deployment without the Developer API or
- * the embedded runtime, is a no-op. Runs after the response; it never changes the transition.
+ * usable platform state, cannot deliver notifications. Runs after the response; it never changes the transition.
  */
 export async function developerApprovalChanged(env: Env, secret: unknown): Promise<void> {
   if (typeof secret !== 'string' || !secret.startsWith(DEVELOPER_LINK_PREFIX)) return;
   const config = readDeveloperConfig(env);
-  if (!config.enabled || flowRuntimeKind(env) !== 'embedded') return;
+  if (!config.enabled) return;
   const resolved = resolveApprovalSecret([developerApprovalLinkScheme(config)], secret);
   if (!resolved) return;
-  const host = await embeddedRuntime(env), handoffs = createPgHandoffStore(host.db, host.tenantId);
+  const host = await platformStateHost(env), handoffs = createPgHandoffStore(host.db, host.tenantId);
   const h = await handoffs.bySecret(resolved.digest, new Date(), resolved.kinds);
   if (!h) return;
   const store = createPgDeveloperStore(host.db, host.tenantId), scope = scopeOfRequesterRef(h.requesterRef);
