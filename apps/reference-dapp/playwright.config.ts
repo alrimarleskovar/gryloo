@@ -138,9 +138,10 @@ const mcpServerEnv = mcpHarness ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: pro
   FLOFI_DEVELOPER_DISPATCH_TOKEN_SHA256: createHash('sha256').update(process.env.FLOFI_E2E_DEVELOPER_DISPATCH_TOKEN!).digest('hex'),
   GRYLOO_ROUTER_TESTNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_SOLANA_DEVNET_HARNESS: 'MOCKED_LOOPBACK_ONLY', GRYLOO_LENDING_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {};
 
-// BUILD-CHANNELS-001: the WhatsApp channel's /approve path, on the MCP embedded loopback harness (its database, chains and lending
-// harness) with the FIXTURE provider: nothing is ever sent to Meta. Per-run secrets are generated here and inherited by the workers,
-// which sign webhook deliveries with them; the global setup also applies the staged channel migration to the disposable database.
+// BUILD-CHANNELS-001: the channels' /approve paths, on the MCP embedded loopback harness (its database, chains and lending harness):
+// WhatsApp with the FIXTURE provider (nothing is ever sent to Meta), Telegram against the loopback Bot API double on 8558 (nothing
+// reaches Telegram), and the scheduled dispatch behind a per-run bearer. Per-run secrets are generated here and inherited by the
+// workers, which sign or authenticate webhook deliveries with them.
 const channelHarness = process.env.GRYLOO_CHANNEL_E2E === CHANNEL_E2E;
 if (process.env.GRYLOO_CHANNEL_E2E && !channelHarness) throw new Error('Channel E2E permits only the fixture provider on loopback');
 if (channelHarness && !mcpHarness) throw new Error('Channel E2E runs on the MCP embedded loopback harness (GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY)');
@@ -148,6 +149,9 @@ if (channelHarness) {
   process.env.FLOFI_E2E_WHATSAPP_APP_SECRET ??= randomBytes(16).toString('hex');
   process.env.FLOFI_E2E_WHATSAPP_VERIFY_TOKEN ??= randomBytes(24).toString('base64url');
   process.env.FLOFI_E2E_CHANNEL_SECRET ??= randomBytes(32).toString('hex');
+  process.env.FLOFI_E2E_TELEGRAM_TOKEN ??= `7000000001:${randomBytes(30).toString('base64url').slice(0, 35)}`;
+  process.env.FLOFI_E2E_TELEGRAM_WEBHOOK_SECRET ??= randomBytes(32).toString('base64url');
+  process.env.FLOFI_E2E_CHANNEL_DISPATCH_TOKEN ??= randomBytes(24).toString('base64url');
 }
 const channelServerEnv = channelHarness ? channelE2eEnv() : {};
 
@@ -185,7 +189,8 @@ export default defineConfig({
     ...(robinhoodHarness || cloudRuntime ? [{ command: 'node e2e/robinhood-transfer-harness.mjs --serve', url: 'http://127.0.0.1:8553', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(routerHarness || routerTestnetHarness || mcpHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(cardHarness ? [{ command: 'node e2e/card-provider-harness.mjs --serve', url: 'http://127.0.0.1:8555/__harness/health', reuseExistingServer: false, timeout: 30_000 }] : []), {
+    ...(cardHarness ? [{ command: 'node e2e/card-provider-harness.mjs --serve', url: 'http://127.0.0.1:8555/__harness/health', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(channelHarness ? [{ command: 'node e2e/telegram-bot-serve.ts', url: 'http://127.0.0.1:8558/__flofi/calls', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: `http://127.0.0.1:${E2E_PORTS.health}`,
     reuseExistingServer: false,

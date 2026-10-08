@@ -7,8 +7,11 @@
  *   a CHANNEL_CONVERSATION approval after the response) → LINK for a fresh link, captured from the fixture transport in this process
  *   (an approval link is never stored anywhere, so the spec takes it the way the user's phone would) → /approve: another proven
  *   wallet is refused (intended wallet), the owner proves the intended wallet, opts in to sharing status, loads and applies the
- *   proposal → the owner's unchanged lending flow: fresh simulation, Review, five wallet-signed steps → the /approve ping hands
- *   "loaded in FloFi" and "Execution reconciled ✅ · evidence: MOCKED" to the conversation, once each.
+ *   proposal → the /approve ping hands "loaded in FloFi" to the conversation, once → the product's own simulation and Review, where
+ *   current main blocks MOCKED financial authority (no approval, no execution, no wallet transaction) → STATUS in the chat.
+ *
+ * The owner's full execution lifecycle (five wallet-signed steps, reconciliation, "Execution reconciled ✅ · evidence: MOCKED" back in
+ * the chat) is proven by `src/channels/whatsapp/journey.pg.test.ts`, as for MCP and the Developer API.
  */
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -19,8 +22,10 @@ import { fixtureTransport, type FixtureRecord } from '../src/channels/whatsapp/t
 import { inbound, signed, webhookRequest } from '../src/channels/whatsapp/fixtures.test-harness.ts';
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
 import { CHANNEL_E2E, CHANNEL_E2E_USER, channelE2eEnv } from './channel-constants';
+import { openSimulationDetails } from './fixtures';
 import { guardedContext, installJourneyWallet } from './journey-fixtures';
 import { assertMcpHarness } from './mcp-fixtures';
+import { assertExecutionBlocked } from './release-safety-fixtures';
 import { installLendingWallet, LENDING_OWNER, lendingRpc, lendingSends } from './lending-fixtures';
 
 const ROUTE = `${APP_ORIGIN}/api/channels/whatsapp`;
@@ -36,10 +41,10 @@ const texts = (sent: readonly FixtureRecord[]) => sent.map(r => { const b = r.bo
   return b.text?.body ?? b.interactive?.body.text ?? ''; });
 const approval = (page: Page) => page.getByRole('region', { name: 'External proposal' });
 
-test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKED lending chain)', () => {
+test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKED lending chain; MOCKED execution blocked)', () => {
   test.beforeAll(() => { assertMcpHarness(); if (process.env.GRYLOO_CHANNEL_E2E !== CHANNEL_E2E) throw new Error('MOCK_RESET_DENIED'); });
 
-  test('webhook → channel approval → intended wallet on /approve → five owner-signed steps → "loaded" and "reconciled" back in the chat', async ({ browser, request }) => {
+  test('webhook → channel approval → intended wallet on /approve → owner Review (MOCKED blocked) → "loaded" back in the chat', async ({ browser, request }) => {
     test.setTimeout(180_000);
     const fixtureOwner = createTestWallet(new Uint8Array(32).fill(0x43)), stranger = createTestWallet();
     expect(fixtureOwner.address).toBe(LENDING_OWNER);
@@ -110,26 +115,23 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     // The ping on the open page tells the chat the proposal is loaded (once; the message body is erased once sent).
     await expect.poll(() => notification('loaded'), { timeout: 45_000 }).toEqual([{ status: 'SENT', body: false }]);
 
-    // 5. The owner's unchanged lending flow: fresh simulation, Review, five wallet-signed steps.
+    // 5. The product's own simulation and Review of the lending composition; MOCKED financial authority cannot be approved or executed.
     const lending = signing.getByRole('region', { name: 'Lending composition' });
-    await signing.getByRole('button', { name: 'Continue to Simulate' }).click();
+    await signing.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await openSimulationDetails(signing);
     await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
     await expect(lending).toContainText('Expected output:');
-    await signing.getByRole('button', { name: 'Review lending composition', exact: true }).click();
-    await signing.getByRole('button', { name: 'Accept composed Review' }).click();
-    for (const step of ['pool approval', 'supply', 'borrow', 'router approval', 'swap']) {
-      await lending.getByRole('button', { name: `Execute ${step}`, exact: true }).click();
-      await expect(lending).toContainText(`${step.toUpperCase().replaceAll(' ', '_')}: reconciled`);
-    }
-    await expect(lending).toContainText('MOCKED / RECONCILED');
-    expect(await lendingSends(signing)).toBe(5);
+    await expect(signing.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
+    await expect(signing.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+    await expect(signing.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
+    await assertExecutionBlocked(signing, () => lendingSends(signing));
+    expect(await lendingSends(signing)).toBe(0);
 
-    // 6. Back in the chat: "reconciled" once, and STATUS reads the same public facts.
-    await expect.poll(() => notification('run:%:reconciled'), { timeout: 45_000 }).toEqual([{ status: 'SENT', body: false }]);
+    // 6. Back in the chat: STATUS reads the same public facts; no execution ran, and nothing it shows carries calldata or a full address.
     await say('status');
-    expect(texts(sent).at(-1)).toMatch(/^Proposal in a FloFi workflow[\s\S]*Execution reconciled ✅ · evidence: MOCKED · outcome: RECONCILED · bundle 0x[0-9a-f]{4}…[0-9a-f]{4}$/);
+    expect(texts(sent).at(-1)).toMatch(/^Proposal in a FloFi workflow/);
     expect(texts(sent).join('\n')).not.toMatch(/0x[0-9a-fA-F]{20,}|calldata/i);
-    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM channel_outbox WHERE kind = 'NOTIFICATION'`))[0]!.n).toBe(2);
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM channel_outbox WHERE kind = 'NOTIFICATION' AND status = 'SENT'`))[0]!.n).toBe(1);
     expect(unexpected).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();
