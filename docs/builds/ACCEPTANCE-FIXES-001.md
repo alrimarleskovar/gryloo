@@ -75,17 +75,30 @@ Running the complete CI browser gate on the restacked tree exposed three product
 
 Test changes for owner review (none removed or skipped). Separate visits are now separate drafts, so the chat-vs-canvas artifact test compares the IR with the workflow ID substituted and the artifacts without identity-derived hashes; the R-5/R-6 tests still verify every hash. Golden screenshots mask only values derived from the per-visit identity (hash codes, retired hashes, the displayed Workflow IR, whose identity is asserted as text). Eight baselines were regenerated after per-image review: EVM Default header, network selector, `Simulate fees`, `USD value unavailable` and the masked rows. Three consecutive runs with fresh identities passed. Stale expectations were updated: seven drawer rows, and `Simulate fees` in developer-journey.
 
+### Integration with HOTFIX-WALLET-SELECTOR (PR #67, main f46df0b)
+
+PR #67 merged first. This change was restacked onto it, resolving each conflict rather than choosing one branch wholesale:
+
+- **Wallet store:** PR #67's canonical selector (`connect` → selector → `connectWith`), provider identity and persistent "no silent reuse after Disconnect" are kept. This change's provider-identity/event-epoch guards, verified post-switch chain reads and stale-Connect protection wrap them. Passive reads and wallet events require both an active provider and `passiveReuseAllowed()`.
+- **Review binding:** the bound identity is account, chain, wallet revision, workflow restoration epoch and PR #67's signing-provider key together.
+- **Header and Credentials:** PR #67's provider mark, unified Connect/Disconnect, saved wallet references, cards and payment connections are kept. A connected but unsaved wallet is labeled **EVM Default** or **Solana Default**, with the provider shown beneath it; saved wallets keep their owner-chosen names. The header shows the session's actual chain; Solana mainnet reads "Solana mainnet-beta" everywhere.
+- **Solana panels and approval proof:** PR #67's canonical selector replaces this change's per-panel wallet-choice buttons; the text stays translated.
+- **EN/PT:** the wallet selector and the rebuilt Credentials page (wallets, cards, payment connections) are now in the catalog (`pt-wallets.ts`); wallet, provider and brand names stay untranslated.
+- **Tests:** wallet-synchronization races open Connect through the selector. The provider-selection race is now the owner choosing another wallet mid-Connect, because an explicit choice pins its provider.
+
 ### Gate results (local, loopback only, private network namespace)
+
+Final combined tree: main `f46df0b` (PR #67) plus this change.
 
 | Gate | Result |
 | --- | --- |
-| `pnpm check` (typecheck, lint, build, schema drift, unit) | PASS: 262 files, 2689 tests; 2 files skipped by main's own environment conditions |
-| `pnpm test:postgres` (disposable PostgreSQL 18.6, pinned digest) | PASS: 30 files, 186 tests (includes the 0007 → 0008 upgrade) |
-| `pnpm test:anvil`, `pnpm test:fork`, F1 offline rehearsal | PASS: 4 + 31 tests (10 + 29 owner-only F2 cases skipped as in CI); F1 PASS 5/5 |
-| `node scripts/guarded-release-browser.mjs product` | PASS: all 18 profiles, including `workflow-acceptance` (5) and `swap-read-acceptance` (2) |
+| `pnpm check` (typecheck, lint, build, schema drift, unit) | PASS: 274 files, 2857 tests; 2 files skipped by main's own environment conditions |
+| `pnpm test:postgres` (disposable PostgreSQL 18.6, pinned digest) | PASS: 31 files, 188 tests (includes the 0007 → 0008 upgrade) |
+| `pnpm test:anvil`, `pnpm test:fork`, F1 offline rehearsal | PASS: 4 + 31 tests (owner-only F2 cases skipped as in CI); F1 PASS 5/5 |
+| `node scripts/guarded-release-browser.mjs product` | PASS: all 19 profiles, including `workflow-acceptance` (5), `swap-read-acceptance` (2) and PR #67's `card-provider-loopback` (5) |
 | MCP route presentation, developer-journey, mcp-in-chat | PASS: 11, 1 and 21 tests |
 | Composition fork suites + `guarded-release-browser.mjs composition` | PASS: 3 tests and 1 profile |
-| `governance_lite.py` and its unittest suite; `bootstrap-ci.py --verify-dependencies` | PASS |
+| `governance_lite.py` and its unittest suite; `bootstrap-ci.py --verify-dependencies`; `schemas:check` | PASS |
 
 GitHub CI on the pull request is authoritative. All of the above is MOCKED/loopback engineering evidence.
 
