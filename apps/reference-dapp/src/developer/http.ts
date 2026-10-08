@@ -21,7 +21,7 @@ import type { TSchema } from '@sinclair/typebox';
 import { createIdempotencyStore, IDEMPOTENCY_KEY, requestHash } from '@defi-workflow-engine/cloud-runtime';
 import { compileSchema, strategyInputIssues } from '../engine/strategy-spec';
 import { assertSafeOutput, createPgHandoffStore, deploymentEngineRuntime, fixedWindow, typedId, type ApprovalHost, type EngineRuntime } from '../platform/index.ts';
-import { embeddedRuntime, flowRuntimeKind } from '../server/flow-runtime.ts';
+import { platformStateHost } from '../server/platform-state-host.ts';
 import { readDeveloperConfig, type DeveloperConfig, type DeveloperScope } from './config.ts';
 import { syncAndDispatch, type WebhookTransport } from './dispatch.ts';
 import { classify, DeveloperError, fail, PUBLIC_ERRORS } from './errors.ts';
@@ -38,7 +38,7 @@ type Fields = Readonly<Record<string, string | number | boolean | null>>;
 export type DeveloperLogger = { readonly info: (event: string, fields?: Fields) => void; readonly warn: (event: string, fields?: Fields) => void };
 export type DeveloperHttpOptions = {
   readonly env?: Env; readonly runtime?: EngineRuntime;
-  /** The deployment's database and tenant (default: the embedded runtime's). */
+  /** The deployment's database and tenant (default: the shared durable platform state host). */
   readonly host?: ApprovalHost;
   readonly now?: () => Date; readonly logger?: DeveloperLogger;
   /** Runs work after the response (Next.js `after()`); tests pass a collector. Without it, that work runs before responding. */
@@ -170,9 +170,7 @@ function queryOf(url: URL): Record<string, string> {
 
 async function hostOf(env: Env, options: DeveloperHttpOptions): Promise<ApprovalHost> {
   if (options.host) return options.host;
-  // Developer state lives in the deployment's PostgreSQL (the embedded runtime); never memory, a file or a remote fallback.
-  if (flowRuntimeKind(env) !== 'embedded') return fail('SERVICE_UNAVAILABLE', 'DEVELOPER_STORE_UNAVAILABLE');
-  try { const runtime = await embeddedRuntime(env); return { db: runtime.db, tenantId: runtime.tenantId }; }
+  try { return await platformStateHost(env); }
   catch { return fail('SERVICE_UNAVAILABLE', 'DEVELOPER_STORE_UNAVAILABLE'); }
 }
 

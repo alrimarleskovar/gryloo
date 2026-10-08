@@ -15,9 +15,9 @@ deployment; **Prod** = Vercel Production + the Railway API/worker. `—` means l
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `API_BASE_URL` | Forward every cloud flow to the remote Flofi API (`remote` runtime). HTTPS only (loopback HTTP allowed for tests). | no | Vercel | — | tests set a loopback URL | — (see note 1) | **required** (Railway API URL) | unset: embedded or local runtime |
 | `API_AUTH_TOKEN` | Bearer token between the BFF and the API (≥ 32 chars); also keys wallet sessions when `FLOFI_SESSION_SECRET` is unset. | **yes** | Vercel + API | — | test value | — | **required** (same value on both) | API refuses to start in production without it |
-| `DATABASE_URL` | PostgreSQL. API/worker: required. Vercel: selects the **embedded** runtime on a hosted deployment. Use the provider's **pooled** endpoint, `sslmode=require`. | **yes** | API, worker, Vercel (embedded) | — (or with `FLOFI_RUNTIME=embedded`) | disposable loopback DBs only | **required** for a working Preview — a database separate from Production | API/worker: **required**; Vercel: — | hosted without it and without `API_BASE_URL`: every flow `CLOUD_RUNTIME_NOT_CONFIGURED` |
+| `DATABASE_URL` | PostgreSQL. API/worker: flow state. Vercel: durable platform state; also selects **embedded** flows on a hosted deployment **only when `API_BASE_URL` is absent**. Use the provider's **pooled** endpoint, `sslmode=require`. | **yes** | API, worker, Vercel | optional for platform state or embedded flows | disposable loopback DBs only | **required** for embedded flows or MCP OAuth/Developer state — a database separate from Production | API/worker: **required**; Vercel: **required** for MCP OAuth/Developer state | no platform state without it; hosted without it and without `API_BASE_URL`: every flow `CLOUD_RUNTIME_NOT_CONFIGURED` |
 | `DATABASE_MIGRATION_URL` | Direct (unpooled) URL used only by `migrate`. | **yes** | API pre-deploy, Vercel build | — | — | optional | recommended | `DATABASE_URL` |
-| `DATABASE_POOL_MAX` | Connections per process. Embedded runtime: 1–20, default 3; API/worker: 1–100, default 10. | no | all servers | — | — | optional | optional | 3 (Vercel) / 10 (API) |
+| `DATABASE_POOL_MAX` | Connections per process. Vercel platform state and embedded runtime: 1–20, default 3; API/worker: 1–100, default 10. | no | all servers | — | — | optional | optional | 3 (Vercel) / 10 (API) |
 | `FLOFI_RUNTIME` | `embedded` runs the embedded runtime outside a hosted platform (local verification). | no | Vercel/dev | optional | `cloud-runtime.spec.ts` | — | — | not embedded unless hosted |
 | `FLOFI_DEPLOYMENT` | `hosted` declares a hosted deployment on a platform Flofi does not detect. | no | any | — | — | — | — | detected from `VERCEL` / `RAILWAY_*` |
 | `FLOFI_MIGRATE_ON_BUILD` | `preview`: the Vercel build applies the shipped migrations to the Preview `DATABASE_URL` (refused for any other `VERCEL_ENV`). | no | Vercel build | — | — | recommended with a dedicated Preview database | — (migrations run in the API pre-deploy) | no migration at build |
@@ -30,6 +30,30 @@ deployment; **Prod** = Vercel Production + the Railway API/worker. `—` means l
 
 Note 1 — a Preview that sets `API_BASE_URL` forwards to that API, which runs **its own** code (Railway deploys `main`) and its
 own tenant. Use it only to test frontend-only changes against Production; otherwise give the Preview its own `DATABASE_URL`.
+
+### Production: remote flows and direct durable platform state (BUILD-PLATFORM-STATE-001)
+
+Production Vercel may have `API_BASE_URL`, `API_AUTH_TOKEN` and `DATABASE_URL` simultaneously. `API_BASE_URL` always takes
+precedence: `flowRuntimeKind(env) === 'remote'`. Simulate, Review, execution lifecycle, runs, status, reconciliation and evidence
+continue through the Railway API/worker. `DATABASE_URL` does not move financial flows into Vercel.
+
+Vercel uses the pooled Neon `DATABASE_URL` directly for MCP OAuth, MCP accounts/wallet links/handoffs and Developer API
+projects/keys/approvals/webhooks. Both surfaces and the shared approval store use one server-side `platformStateHost`, scoped
+to exactly `deploymentTenant(env)`. Embedded deployments reuse their existing runtime pool. Remote deployments open a state
+pool without constructing a flow backend. Every new pool verifies the shipped migration identities and ensures its tenant;
+startup never applies migrations. Missing/invalid/unreachable PostgreSQL or a stale schema fails closed with the existing
+surface store-unavailable errors. The process cache holds only pools and startup promises; durable state is PostgreSQL.
+
+Reuse `DATABASE_URL`: the existing API-first selection already guarantees remote flows, and the existing PostgreSQL schema
+contains these stores. No additional database secret or migration is introduced. Production Vercel and Railway must target the
+same database and production tenant (`TENANT_ID`, default `default`); Preview tenant derivation remains branch-scoped.
+
+**Owner action after merge and acceptance:** add the pooled Neon `DATABASE_URL` to Vercel **Production** and redeploy. Keep
+`API_BASE_URL` (Railway HTTPS URL) and `API_AUTH_TOKEN` (the existing shared server token) configured. `DATABASE_POOL_MAX` is
+optional (default 3); if supplied, use 1–20. MCP consumer access still requires `FLOFI_MCP=enabled`, `FLOFI_MCP_OAUTH=enabled`,
+`FLOFI_PUBLIC_ORIGIN` and a dedicated `FLOFI_MCP_OAUTH_SECRET`; Developer access still requires `FLOFI_DEVELOPER=enabled`,
+`FLOFI_PUBLIC_ORIGIN` and a separate `FLOFI_DEVELOPER_SECRET`. Existing invite/access and sandbox policies remain in force.
+This build configures no production variables, issues no live developer credentials and adds no signing or financial authority.
 
 ## 2. Wallet session
 
@@ -91,7 +115,8 @@ The Robinhood Chain Testnet endpoint has no override.
 
 ## 5b. Remote MCP gateway (BUILD-MCP-001 / BUILD-MCP-002, `POST /api/mcp`, OAuth, `/approve`)
 
-Off unless enabled. Uses no model key. OAuth, approvals and wallet links need the embedded runtime (PostgreSQL, migration `0005`).
+Off unless enabled. Uses no model key. OAuth, approvals and wallet links need PostgreSQL platform state (`DATABASE_URL`,
+migration `0005` within the current shipped schema), with either remote or embedded flows.
 Guide: [MCP.md](MCP.md).
 
 | Variable | Purpose | Secret | Preview | Prod | Default |
@@ -113,8 +138,9 @@ Guide: [MCP.md](MCP.md).
 
 ## 5c. Developer API (BUILD-DEVELOPER-001, `/api/developer/v1`, `/approve`)
 
-Off unless enabled. Uses no model key. Needs the embedded runtime (PostgreSQL, migrations `0006` and `0007`); on the remote runtime
-it answers `503 DEVELOPER_STORE_UNAVAILABLE`. Projects and sandbox keys come from the operator CLI. Guide:
+Off unless enabled. Uses no model key. Needs PostgreSQL platform state (`DATABASE_URL`, migrations `0006` and `0007` within the
+current shipped schema), with either remote or embedded flows. Missing/unusable state answers `503 DEVELOPER_STORE_UNAVAILABLE`.
+Projects and sandbox keys come from the operator CLI. Guide:
 [DEVELOPER.md](DEVELOPER.md).
 
 | Variable | Purpose | Secret | Preview | Prod | Default |

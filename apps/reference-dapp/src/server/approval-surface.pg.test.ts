@@ -54,7 +54,7 @@ describe('BUILD-DEVELOPER-001 the deployment approval surface', () => {
     expect(approvalContributors({})).toEqual([]);
     expect(approvalContributors({ FLOFI_MCP: 'enabled' })).toEqual([]);
     await expect(approvalSurface({}, () => undefined)).rejects.toThrow('APPROVALS_NOT_ENABLED');
-    // MCP OAuth configured, but no embedded PostgreSQL runtime: fail closed (never memory, a file or /tmp).
+    // MCP OAuth configured, but no platform PostgreSQL connection: fail closed (never memory, a file or /tmp).
     await expect(approvalSurface(env, () => undefined)).rejects.toThrow('APPROVAL_STORE_UNAVAILABLE');
     expect(approvalContributors(env)).toHaveLength(1);
   });

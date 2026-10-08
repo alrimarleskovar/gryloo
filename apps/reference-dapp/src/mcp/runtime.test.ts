@@ -21,12 +21,13 @@ function fakeApi(answer: (seen: Seen) => { status: number; body: unknown }) {
 }
 
 describe('BUILD-MCP-001 runtime selection for the gateway (BUILD-CLOUD-PARITY-001 runtimes, no second runtime)', () => {
-  it('remote: previews and owner-scoped reads go to the Flofi API with the internal credential, server-side', async () => {
+  it.each([REMOTE, { ...REMOTE, DATABASE_URL: 'postgres://db/platform', VERCEL: '1', VERCEL_ENV: 'production' }])(
+    'remote: previews and owner-scoped reads go to the Flofi API with the internal credential, including with DATABASE_URL (%j)', async env => {
     const seen = fakeApi(({ url }) => url.endsWith('/v1/previews/crosschain-router-testnet') ? { status: 200, body: { ok: false, code: 'ROUTER_NO_EXECUTABLE_ROUTE' } }
       : url.includes('/journal') ? { status: 200, body: { ok: true, value: { items: [], next: null } } }
       : url.includes('/v1/flows/') ? { status: 200, body: { ok: true, value: { evidence: null, verdict: 'PENDING' } } }
       : url.endsWith(`/v1/runs/${RUN}`) ? { status: 200, body: { ok: true, value: { runId: RUN, ownerAccount: OWNER } } } : { status: 404, body: { ok: false, code: 'RUN_NOT_FOUND' } });
-    const runtime = deploymentRuntime(REMOTE);
+    const runtime = deploymentRuntime(env);
     expect(runtime.kind).toBe('remote');
     expect(await runtime.preview('crosschain-router-testnet', [{ workflowId: 'w', nodes: [] }, OWNER])).toEqual({ ok: false, code: 'ROUTER_NO_EXECUTABLE_ROUTE' });
     expect(await runtime.run(RUN, OWNER)).toEqual({ ok: true, value: { runId: RUN, ownerAccount: OWNER } });

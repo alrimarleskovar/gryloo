@@ -5,14 +5,14 @@
  * one contributor below: MCP (while its OAuth server is enabled), the Developer API (while it is enabled) and the conversational
  * channels (BUILD-CHANNELS-001, while a channel is enabled);
  * none adds a second approval page, store, secret format or claim path. With no contributor enabled, /approve answers
- * APPROVALS_NOT_ENABLED; without the embedded PostgreSQL runtime it answers APPROVAL_STORE_UNAVAILABLE (never memory, a file or /tmp).
+ * APPROVALS_NOT_ENABLED; without durable PostgreSQL state it answers APPROVAL_STORE_UNAVAILABLE (never memory, a file or /tmp).
  */
 import { channelApprovalContributor } from '../channels/approval-profile.ts';
 import { mcpApprovalContributor } from '../mcp/approval-profile.ts';
 import { developerApprovalContributor } from '../developer/approval-profile.ts';
 import { assembleApprovalSurface, createPgHandoffStore, deploymentEngineRuntime, type ApprovalContributor, type ApprovalHost, type ApprovalSurface, type CookieReader,
   type EngineRuntime } from '../platform/index.ts';
-import { embeddedRuntime, flowRuntimeKind } from './flow-runtime.ts';
+import { platformStateHost } from './platform-state-host.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 /** The enabled contributors, in registration order. */
@@ -20,8 +20,7 @@ export function approvalContributors(env: Env): readonly ApprovalContributor[] {
   return [mcpApprovalContributor(env), developerApprovalContributor(env), channelApprovalContributor(env)].filter((c): c is ApprovalContributor => c !== null);
 }
 async function approvalHost(env: Env): Promise<ApprovalHost> {
-  if (flowRuntimeKind(env) !== 'embedded') throw new Error('APPROVAL_STORE_UNAVAILABLE');
-  try { const runtime = await embeddedRuntime(env); return { db: runtime.db, tenantId: runtime.tenantId }; }
+  try { return await platformStateHost(env); }
   catch { throw new Error('APPROVAL_STORE_UNAVAILABLE'); }
 }
 /** This request's approval surface. `cookie` reads this request's cookies; `options` are test seams (a host and runtime). */

@@ -16,7 +16,7 @@ and [report](../builds/BUILD-MCP-001-REPORT.md); [MCP-002 plan](../builds/BUILD-
 | Variable | Required | Meaning |
 | --- | --- | --- |
 | `FLOFI_MCP` | yes | `enabled`. Anything else: the endpoint answers `404 MCP_NOT_ENABLED`. |
-| `FLOFI_MCP_OAUTH` | for consumer clients | `enabled`: FloFi's OAuth 2.1 authorization server (section 2). Needs the embedded runtime (PostgreSQL in this deployment). |
+| `FLOFI_MCP_OAUTH` | for consumer clients | `enabled`: FloFi's OAuth 2.1 authorization server (section 2). Needs PostgreSQL platform state (`DATABASE_URL`), with either remote or embedded flows. |
 | `FLOFI_PUBLIC_ORIGIN` | with OAuth | The exact public origin, e.g. `https://flofi-git-claude-build-mcp-002-….vercel.app`. Issuer, resource (`<origin>/api/mcp`) and approval links derive from it, never from request headers. `http://` only for loopback on a local server. |
 | `FLOFI_MCP_OAUTH_SECRET` | with OAuth | ≥ 32 characters (`openssl rand -hex 32`), dedicated: refused if equal to `API_AUTH_TOKEN` or `FLOFI_SESSION_SECRET`. Keys the token, consent, handoff, account-cookie and IP digests (one HKDF key each). |
 | `FLOFI_MCP_OAUTH_ACCESS` | no | `invite` (default): a new pseudonymous FloFi account needs an invite code. `open`: anyone may create one. |
@@ -31,8 +31,10 @@ and [report](../builds/BUILD-MCP-001-REPORT.md); [MCP-002 plan](../builds/BUILD-
 | `FLOFI_MCP_ALLOWED_ORIGINS` | no | Comma-separated browser origins (e.g. a hosted MCP inspector). Any other `Origin` header is refused (`403`). Server-to-server clients send no `Origin`. |
 
 OAuth, approvals and wallet links live in the deployment's PostgreSQL (migration `0005_mcp_oauth`, applied by the normal
-migration step; a Preview with `FLOFI_MIGRATE_ON_BUILD=preview` applies it on build). On the remote runtime (`API_BASE_URL`) or
-without a database every OAuth request fails closed with `MCP_OAUTH_STORE_UNAVAILABLE`; nothing falls back to memory or files.
+migration step; a Preview with `FLOFI_MIGRATE_ON_BUILD=preview` applies it on build). The shared platform-state host supports
+`API_BASE_URL` + `API_AUTH_TOKEN` + pooled `DATABASE_URL`: OAuth/accounts/handoffs connect directly to PostgreSQL while financial
+previews and owner-scoped reads still use Railway. Without usable/current PostgreSQL, state operations fail closed with
+`MCP_OAUTH_STORE_UNAVAILABLE`; nothing falls back to memory or files. See [ENVIRONMENT.md §1](ENVIRONMENT.md).
 No OpenAI or Anthropic key is used or needed: the client's own model interprets, FloFi only computes.
 
 **Vercel Preview reachability.** MCP clients and the consent page cannot pass Vercel Authentication. Use the branch alias

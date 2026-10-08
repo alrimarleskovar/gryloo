@@ -40,7 +40,7 @@ describe('BUILD-MCP-002 OAuth discovery', () => {
     expect([off.status, await off.json()]).toEqual([404, { ok: false, code: 'MCP_OAUTH_NOT_ENABLED' }]);
     const reused = await handleOAuthRequest('token', new Request(ORIGIN + '/oauth/token', { method: 'POST' }), { env: oauthEnv({ API_AUTH_TOKEN: 's'.repeat(48) }) });
     expect([reused.status, await reused.json()]).toEqual([503, { ok: false, code: 'MCP_OAUTH_CONFIGURATION_INVALID' }]);
-    // The remote runtime (API on another host) has no OAuth store: fail closed, never a memory or file fallback.
+    // Remote flows without a platform DATABASE_URL have no OAuth store: fail closed, never a memory or file fallback.
     const remote = await handleOAuthRequest('token', new Request(ORIGIN + '/oauth/token', { method: 'POST', body: 'grant_type=x', headers: { 'content-type': 'application/x-www-form-urlencoded' } }),
       { env: oauthEnv({ API_BASE_URL: 'https://api.flofi.test' }) });
     expect([remote.status, await remote.json()]).toEqual([503, { error: 'temporarily_unavailable', code: 'MCP_OAUTH_STORE_UNAVAILABLE' }]);

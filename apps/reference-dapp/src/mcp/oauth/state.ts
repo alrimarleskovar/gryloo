@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-MCP-002: the durable MCP state of one deployment (OAuth, approval handoffs, wallet links), all on its PostgreSQL and
- * tenant. One object per request; the pool behind it is the embedded runtime's.
+ * tenant. One object per request; the pool comes from the shared durable platform state host.
  */
 import { createPgWalletLinkStore, type WalletLinkStore } from '../handoff/links.ts';
 import { createPgHandoffStore, type HandoffStore } from '../handoff/store.ts';
