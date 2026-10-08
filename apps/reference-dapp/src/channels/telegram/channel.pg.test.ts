@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-CHANNELS-001: the Telegram channel end to end at the HTTP boundary, on a disposable loopback PostgreSQL (shipped migrations
- * through 0008) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and a Bot API double behind a
+ * through 0009) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and a Bot API double behind a
  * fake `fetch` (nothing leaves the process).
  *
  * The secret token is checked before parsing; duplicate Updates never duplicate a turn; /start greets; an exact command becomes a

@@ -18,7 +18,7 @@ WhatsApp is not part of this test: its live activation is blocked by policy ([§
 ## 0. What you need
 
 - The Vercel project `flofi` and this branch deployed as a **Preview on the embedded runtime** ([CLOUD.md](CLOUD.md#vercel-preview-on-the-embedded-runtime-build-cloud-parity-001)):
-  Preview-only `DATABASE_URL` (not Production's), `FLOFI_MIGRATE_ON_BUILD=preview` (the build applies migration `0008`),
+  Preview-only `DATABASE_URL` (not Production's), `FLOFI_MIGRATE_ON_BUILD=preview` (the build applies migrations `0008` and `0009`),
   `FLOFI_SESSION_SECRET`, `GRYLOO_ROUTER_TESTNET=live`, no `API_BASE_URL`, and **Vercel Authentication disabled for Preview
   deployments** (Telegram must reach the webhook).
 - The Preview's stable branch alias, e.g. `https://flofi-git-claude-build-channels-001-production-<team>.vercel.app` — called
@@ -210,5 +210,5 @@ WhatsApp is implemented end to end (Cloud API transport, signature-verified webh
 D1. It becomes allowed only after the owner obtains written clearance (Meta's written confirmation, or counsel's opinion the owner
 accepts) **and** a reviewed code change records it in `WHATSAPP_POLICY_CLEARANCE`. Then: the Meta app, WABA, verified number,
 system-user token, app secret, webhook and template in [WHATSAPP.md §2](WHATSAPP.md), and the variables in
-[ENVIRONMENT.md §5d](ENVIRONMENT.md) with `FLOFI_WHATSAPP_PROVIDER=live` and `FLOFI_WHATSAPP_POLICY_CLEARANCE=<reference>`. The test
+[ENVIRONMENT.md §5e](ENVIRONMENT.md) with `FLOFI_WHATSAPP_PROVIDER=live` and `FLOFI_WHATSAPP_POLICY_CLEARANCE=<reference>`. The test
 is then this runbook with WhatsApp in place of Telegram (the approval button is a CTA URL; statuses arrive as delivered/read).

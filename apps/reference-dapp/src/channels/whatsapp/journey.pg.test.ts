@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: the MOCKED WhatsApp journeys end to end, on the embedded PostgreSQL runtime (shipped migrations + staged 0008)
+ * BUILD-CHANNELS-001: the MOCKED WhatsApp journeys end to end, on the embedded PostgreSQL runtime (shipped migrations through 0009)
  * with MOCKED loopback chains and the fixture transport — no Meta endpoint, no public network, no real transaction:
  *
  *   signed webhook → Channel Core turn → canonical StrategySpec → CHANNEL_CONVERSATION approval on the shared platform → link

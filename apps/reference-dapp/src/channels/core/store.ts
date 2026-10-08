@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: Channel Core's durable state (migration 0008), behind one interface with one implementation (PostgreSQL,
+ * BUILD-CHANNELS-001: Channel Core's durable state (migration 0009), behind one interface with one implementation (PostgreSQL,
  * `pg-store.ts`). It holds conversations, content-free event records and the outbox — never a raw message, a provider id in clear,
  * a wallet, an approval secret or anything that could authorize. Approval handoffs themselves live in the shared platform store.
  *
@@ -42,7 +42,7 @@ export type ConversationRef = { readonly conversationId: string; readonly channe
 export type WatchedHandoff = ConversationRef & { readonly handoffId: string };
 
 export interface ChannelStore {
-  /** False until migration 0008 is installed: every channel operation then fails closed. */
+  /** False until migration 0009 is installed: every channel operation then fails closed. */
   readonly schemaInstalled: () => Promise<boolean>;
   /** The conversation of a sender (created on first contact); the messaging window follows the provider's send time, never delivery. */
   readonly ensureConversation: (channel: ChannelId, businessId: string, subjectDigest: Buffer, sentAt: Date, now: Date, newId: string) => Promise<ConversationRecord>;

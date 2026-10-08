@@ -32,7 +32,7 @@ LIVE PROVIDER CALL AND NO TRANSACTION YET; WHATSAPP LIVE ACTIVATION BLOCKED BY P
 
 Branch `claude/build-channels-001-production`, restacked onto main `043ab01` (BUILD-DEVELOPER-001 included). A conversational
 channel is an entry point into the shared platform (`src/platform`) with zero financial authority. Channel Core
-(`src/channels/core`) is provider-neutral and production-grade: durable, tenant-scoped PostgreSQL state (migration `0008`),
+(`src/channels/core`) is provider-neutral and production-grade: durable, tenant-scoped PostgreSQL state (migration `0009`),
 deduplication, fenced leases, the canonical StrategySpec/IR with parity checks, a `CHANNEL_CONVERSATION` approval handed to
 `/approve`, a transactional outbox with classified retries, dead letters and no resend after an uncertain send, delivery receipts
 where the provider has them, status notifications ("loaded", "in progress", "reconciled ✅ · evidence: …"), retention and a

@@ -133,7 +133,7 @@ describe('BUILD-CHANNELS-001 channel boundaries', () => {
     for (const file of [...CORE, ...WHATSAPP, ...TELEGRAM, ...WIRING]) expect(code(file), rel(file)).not.toMatch(/NEXT_PUBLIC_/);
   });
 
-  it('never writes the generic handoff table directly, and migration 0008 leaves the handoff schema alone', () => {
+  it('never writes the generic handoff table directly, and migration 0009 leaves the handoff schema alone', () => {
     for (const file of [...CORE, ...WHATSAPP, ...TELEGRAM, ...WIRING]) expect(code(file), rel(file)).not.toMatch(/mcp_handoffs|mcp_accounts|mcp_grants/);
     const migration = readFileSync(join(app, '..', '..', 'packages/cloud-runtime/migrations/0009_channel_conversations.sql'), 'utf8').replace(/--.*$/gm, '');
     expect(migration).not.toMatch(/\bmcp_|\bALTER\s+TABLE\b|\bDROP\s+(?:TABLE|COLUMN|INDEX|CONSTRAINT)\b/i);

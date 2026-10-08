@@ -102,7 +102,7 @@ No competing runtime was added. Sweeps are bounded (25 conversations, 25 approva
 
 ## 7. Deployment (Phase 9)
 
-Variables: [ENVIRONMENT.md §5d](../deploy/ENVIRONMENT.md) (all default off; mainnet handoffs off). Vercel: Preview on the embedded
+Variables: [ENVIRONMENT.md §5e](../deploy/ENVIRONMENT.md) (all default off; mainnet handoffs off). Vercel: Preview on the embedded
 runtime with `FLOFI_MIGRATE_ON_BUILD=preview` (applies `0008`), Vercel Authentication disabled for the Telegram webhook to reach
 it. Railway: nothing to add (channels refuse the remote runtime). Routes: `/api/channels/telegram`, `/api/channels/whatsapp`,
 `/api/channels/dispatch`, `/api/channels/health`. Operator CLI: `backend/channels-admin.ts`. No `vercel.json` cron was added (it

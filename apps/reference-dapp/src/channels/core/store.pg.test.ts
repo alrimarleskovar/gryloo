@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: Channel Core's durable state on a disposable loopback PostgreSQL (migration 0008). Deduplication under
+ * BUILD-CHANNELS-001: Channel Core's durable state on a disposable loopback PostgreSQL (migration 0009). Deduplication under
  * concurrent duplicate deliveries, one lease holder per conversation with fencing, the transactional outbox (claimed once, retried,
  * dead-lettered, never resent once its outcome is uncertain) and its monotonic delivery reports, the scheduled sweep's queries, the
  * content-free audit trail, tenant isolation, and data minimization enforced by the schema itself: no payload survives processing, no
@@ -30,7 +30,7 @@ const event = (conversationId: string | null, id = randomBytes(12).toString('hex
 const outbox = (key: string, sequence = 0): NewOutbox => ({ outboxId: channelRowId('cho'), dedupeKey: key, kind: 'REPLY', sequence, bodySealed: seal(keys.seal, 'body', key),
   handoffId: null });
 
-describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0008)', () => {
+describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => {
   it('reports the schema and keeps one conversation per sender, with the window following the provider send time', async () => {
     expect(await store().schemaInstalled()).toBe(true);
     const a = await conversation('sender-1'), again = await store().ensureConversation('WHATSAPP', '106540352242922', keyedDigest(keys.subject, 'sender-1'),

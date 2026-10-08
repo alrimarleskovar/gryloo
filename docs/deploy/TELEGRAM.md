@@ -18,7 +18,7 @@ owner's own allowlisted account, test funds only (`FLOFI_CHANNEL_HANDOFF_MAINNET
 
 ## 2. Configuration
 
-All server-only; enter secrets in the deployment's secret store, never in Git or a chat. Full table: [ENVIRONMENT.md §5d](ENVIRONMENT.md).
+All server-only; enter secrets in the deployment's secret store, never in Git or a chat. Full table: [ENVIRONMENT.md §5e](ENVIRONMENT.md).
 
 | Variable | Value |
 | --- | --- |

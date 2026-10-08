@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-CHANNELS-001: the WhatsApp channel end to end at the HTTP boundary, on a disposable loopback PostgreSQL (shipped migrations
- * through 0008) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and the fixture transport.
+ * through 0009) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and the fixture transport.
  *
  * Signed deliveries become content-free records and one turn each; duplicates and retries never duplicate a turn, a reply or a
  * handoff. A proposal becomes a CHANNEL_CONVERSATION approval on the shared platform — no MCP account, no grant — whose link is

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: the PostgreSQL implementation of Channel Core's store (migration 0008, tenant-scoped). Every write that
+ * BUILD-CHANNELS-001: the PostgreSQL implementation of Channel Core's store (migration 0009, tenant-scoped). Every write that
  * moves a conversation forward checks the lease's fencing token inside one short transaction; content columns are erased in the
  * same statement that ends their use, and the schema's CHECK constraints refuse any row that would keep them longer. Outbound state
  * changes append their audit row in the same statement (a data-modifying CTE), so the trail never disagrees with the outbox.

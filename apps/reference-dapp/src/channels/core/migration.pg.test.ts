@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: migration 0008 in the shipped sequence. A database at 0005, 0006 or 0007 reaches the current schema with the
- * normal runner (0008 after BUILD-DEVELOPER-001's 0007, gapless); 0008 creates only channel tables and leaves every earlier table —
- * columns, constraints, indexes — exactly as it was; a second run applies nothing; and an edited 0008 is refused.
+ * BUILD-CHANNELS-001: migration 0009 in the shipped sequence. A database at 0005, 0006, 0007 or 0008 reaches the current schema with
+ * the normal runner (0009 after ACCEPTANCE-FIXES-001's 0008 saved_workflows, gapless); 0009 creates only channel tables and leaves
+ * every earlier table — columns, constraints, indexes — exactly as it was; a second run applies nothing; and an edited 0009 is refused.
  */
 import { describe, expect, it } from 'vitest';
 import { assertSchemaCurrent, loadMigrations, migrate, SHIPPED_MIGRATIONS, type Database } from '@defi-workflow-engine/cloud-runtime';
@@ -25,8 +25,8 @@ async function shape(db: Database): Promise<Record<string, string[]>> {
   return out;
 }
 
-describe('BUILD-CHANNELS-001 migration 0008 (shipped)', () => {
-  it('follows 0007 in the gapless shipped sequence and is pinned', async () => {
+describe('BUILD-CHANNELS-001 migration 0009 (shipped)', () => {
+  it('follows 0008 in the gapless shipped sequence and is pinned', async () => {
     const all = await loadMigrations();
     expect(all.map(m => [m.version, m.name]).slice(-2)).toEqual([[8, 'saved_workflows'], [9, 'channel_conversations']]);
     expect(SHIPPED_MIGRATIONS.at(-1)).toEqual({ version: 9, name: 'channel_conversations', sha256: all.at(-1)!.sha256 });
@@ -47,7 +47,7 @@ describe('BUILD-CHANNELS-001 migration 0008 (shipped)', () => {
         const after = await shape(t.db);
         expect(Object.keys(after).filter(name => name.startsWith('channel_')).sort()).toEqual(CHANNEL_TABLES);
         if (from === 8) {
-          // 0008 is additive: every table that existed at 0007 is unchanged.
+          // 0009 is additive: every table that existed at 0008 is unchanged.
           for (const [table, items] of Object.entries(before)) expect(after[table], table).toEqual(items);
           expect(Object.keys(after).filter(name => !(name in before)).sort()).toEqual(CHANNEL_TABLES);
         }
@@ -55,7 +55,7 @@ describe('BUILD-CHANNELS-001 migration 0008 (shipped)', () => {
     });
   }
 
-  it('refuses a database whose recorded 0008 differs from the shipped file', async () => {
+  it('refuses a database whose recorded 0009 differs from the shipped file', async () => {
     const t = await createTestDatabase();
     try {
       await t.db.query(`UPDATE schema_migrations SET sha256 = $1 WHERE version = 9`, ['0'.repeat(64)]);

@@ -56,7 +56,7 @@ a chat or a ticket.
    `flofi_status_update:en_US`). Approval links are never sent through a template.
 7. **Allowlist**: `printf '%s\n' '<BSUID or phone digits>' | node apps/reference-dapp/backend/channels-admin.ts allowlist-digest`
    → `FLOFI_WHATSAPP_ALLOWED_SENDERS` (default deny: nobody else gets a reply).
-8. **Channel Core and scheduler**: the variables in [ENVIRONMENT.md §5d](ENVIRONMENT.md) (`FLOFI_CHANNEL_SECRET`,
+8. **Channel Core and scheduler**: the variables in [ENVIRONMENT.md §5e](ENVIRONMENT.md) (`FLOFI_CHANNEL_SECRET`,
    `FLOFI_PUBLIC_ORIGIN`, support contact, privacy URL, `FLOFI_CHANNEL_DISPATCH_TOKEN_SHA256`) and a scheduler for
    `/api/channels/dispatch` ([CHANNELS-OWNER-E2E.md §5](CHANNELS-OWNER-E2E.md)).
 9. Check `/api/channels/health` (bearer) shows WhatsApp `enabled`, `mode: live`.
@@ -79,7 +79,7 @@ a chat or a ticket.
 ## 4. Running it locally (fixture provider)
 
 The fixture provider runs on a local, non-hosted server against the embedded runtime (`FLOFI_RUNTIME=embedded`, a loopback
-PostgreSQL `DATABASE_URL` migrated through `0008_channel_conversations`). Outbound messages are rendered and dropped. The browser
+PostgreSQL `DATABASE_URL` migrated through `0009_channel_conversations`). Outbound messages are rendered and dropped. The browser
 suite (`e2e/whatsapp-approve.spec.ts`) and the PostgreSQL suites (`src/channels/whatsapp/*.pg.test.ts`) exercise it end to end,
 including the owner's full MOCKED execution lifecycle in `journey.pg.test.ts`.
 
