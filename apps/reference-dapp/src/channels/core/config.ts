@@ -14,6 +14,8 @@
  *   FLOFI_CHANNEL_HANDOFF_TEST_FUNDS        enabled (default) | disabled
  *   FLOFI_CHANNEL_HANDOFF_MAINNET_NETWORKS  mainnet network ids a channel proposal may name (default none:
  *                                           MAINNET_HANDOFF_DISABLED_BY_POLICY); every mainnet a workflow touches must be listed
+ *   FLOFI_CHANNEL_DISPATCH_TOKEN_SHA256     optional: SHA-256 hex of the scheduler's bearer for `/api/channels/dispatch` (Vercel Cron:
+ *                                           the digest of CRON_SECRET); without it the endpoint does not exist (404)
  *
  * None of this is financial authority. The channel's approval links carry none, and its policy only decides which proposals FloFi
  * will even hand to an owner for review.
@@ -22,7 +24,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { NETWORKS } from '../../engine/strategy-engine';
 import { NETWORK_IDS, type NetworkId } from '../../engine/strategy-spec';
 import type { HandoffPolicy } from '../../platform/index.ts';
-import { deploymentTenant, isHostedDeployment } from '../../server/deployment.ts';
+import { deploymentTenant, isHostedDeployment, publicOrigin } from '../../server/deployment.ts';
 import { channelKeys, type ChannelKeys } from './crypto.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -31,6 +33,8 @@ export type ChannelCoreConfig = {
   readonly enabled: true; readonly tenantId: string; readonly origin: string; readonly keys: ChannelKeys; readonly policy: Extract<HandoffPolicy, { ok: true }>;
   readonly copilot: boolean; readonly simulation: boolean; readonly language: ChannelLanguage; readonly supportContact: string; readonly privacyUrl: string;
   readonly hosted: boolean;
+  /** SHA-256 of the scheduler bearer for the dispatch endpoint; null = no endpoint. */
+  readonly dispatchTokenDigest: Buffer | null;
 };
 export type ChannelCoreConfigResult = ChannelCoreConfig | { readonly enabled: false; readonly code: 'CHANNEL_CONFIGURATION_INVALID'; readonly reason: string };
 
@@ -38,21 +42,13 @@ const invalid = (reason: string) => ({ enabled: false, code: 'CHANNEL_CONFIGURAT
 const sha256 = (value: string) => createHash('sha256').update(value, 'utf8').digest();
 /** Constant-time equality of two configured secrets (an unset one never matches). */
 export const sameSecret = (a: string, b: string | undefined) => b !== undefined && b !== '' && timingSafeEqual(sha256(a), sha256(b));
-const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const switchOf = (value: string | undefined, fallback: 'enabled' | 'disabled') => {
   const v = value === undefined || value === '' ? fallback : value;
   return v === 'enabled' ? true : v === 'disabled' ? false : null;
 };
 
-/** The exact origin FloFi is served from: `https://host[:port]`, or `http://` loopback on a local (non-hosted) server only. */
-export function channelPublicOrigin(env: Env): string | null {
-  const raw = env.FLOFI_PUBLIC_ORIGIN ?? '';
-  let url: URL;
-  try { url = new URL(raw); } catch { return null; }
-  if (url.origin !== raw || url.username || url.password) return null;
-  if (url.protocol === 'https:') return url.origin;
-  return url.protocol === 'http:' && LOOPBACK.has(url.hostname) && !isHostedDeployment(env) ? url.origin : null;
-}
+/** The exact origin FloFi is served from (the platform's `publicOrigin`): `https://host[:port]`, or loopback `http://` off-hosting only. */
+export const channelPublicOrigin = publicOrigin;
 const httpsUrl = (raw: string | undefined) => {
   try { const url = new URL(raw ?? ''); return url.protocol === 'https:' && !url.username && !url.password && raw!.length <= 256 ? url.toString() : null; }
   catch { return null; }
@@ -90,6 +86,8 @@ export function readChannelCoreConfig(env: Env, providerSecrets: readonly string
   if (language !== 'EN' && language !== 'PT') return invalid('FLOFI_CHANNEL_LANGUAGE');
   const policy = readChannelHandoffPolicy(env);
   if (!policy) return invalid('FLOFI_CHANNEL_HANDOFF_POLICY');
+  const dispatch = (env.FLOFI_CHANNEL_DISPATCH_TOKEN_SHA256 ?? '').trim().toLowerCase();
+  if (dispatch !== '' && !/^[0-9a-f]{64}$/.test(dispatch)) return invalid('FLOFI_CHANNEL_DISPATCH_TOKEN_SHA256');
   return Object.freeze({ enabled: true, tenantId, origin, keys: channelKeys(secret), policy, copilot, simulation, language, supportContact, privacyUrl,
-    hosted: isHostedDeployment(env) });
+    hosted: isHostedDeployment(env), dispatchTokenDigest: dispatch === '' ? null : Buffer.from(dispatch, 'hex') });
 }

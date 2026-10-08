@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { assertSchemaCurrent, loadMigrations, migrate, SHIPPED_MIGRATIONS, type Database } from '@defi-workflow-engine/cloud-runtime';
 import { createTestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
 
-const CHANNEL_TABLES = ['channel_conversations', 'channel_events', 'channel_outbox'];
+const CHANNEL_TABLES = ['channel_audit', 'channel_conversations', 'channel_events', 'channel_outbox'];
 /** Every column, constraint and index of the public schema, per table: what a migration may or may not have changed. */
 async function shape(db: Database): Promise<Record<string, string[]>> {
   const rows = (await db.query<{ table_name: string; item: string }>(`

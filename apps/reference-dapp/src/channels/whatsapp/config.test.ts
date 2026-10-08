@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-CHANNELS-001: the WhatsApp adapter's configuration fails closed, and the D1 activation guard holds whatever the variables say:
- * no hosted deployment and no live provider in this build. Channel Core then refuses a channel secret shared with any provider secret.
+ * no hosted deployment and no live provider while no clearance is recorded in code (none is). The live path itself is complete: with a
+ * clearance record (a test seam no environment value can reach) it needs the access token and Graph version and may run hosted.
+ * Channel Core then refuses a channel secret shared with any provider secret.
  */
 import { describe, expect, it } from 'vitest';
 import { readChannelDeployment } from '../registry.ts';
-import { readWhatsAppConfig } from './config.ts';
+import { readWhatsAppConfig, WHATSAPP_POLICY_CLEARANCE } from './config.ts';
 import { whatsAppEnv } from './fixtures.test-harness.ts';
 
 const code = (env: Record<string, string | undefined>) => { const c = readWhatsAppConfig(env); return c.enabled ? 'OK' : 'reason' in c ? `${c.code}:${c.reason}` : c.code; };
@@ -24,6 +26,30 @@ describe('BUILD-CHANNELS-001 WhatsApp configuration and activation guard', () =>
     expect(code({ ...whatsAppEnv().env, FLOFI_WHATSAPP_PROVIDER: 'live', WHATSAPP_ACCESS_TOKEN: 'a'.repeat(40), WHATSAPP_GRAPH_API_VERSION: 'v26.0' }))
       .toBe('WHATSAPP_LIVE_PROVIDER_NOT_CLEARED');
     expect(readChannelDeployment({ ...whatsAppEnv().env, VERCEL: '1', VERCEL_ENV: 'production' })).toMatchObject({ ok: false, status: 404, code: 'CHANNEL_PROVIDER_NOT_ACTIVATED' });
+  });
+
+  it('has no recorded clearance, so no variable can turn the live provider on (D1)', () => {
+    expect(WHATSAPP_POLICY_CLEARANCE).toBeNull();
+    const live = { ...whatsAppEnv().env, FLOFI_WHATSAPP_PROVIDER: 'live', WHATSAPP_ACCESS_TOKEN: 'a'.repeat(40), WHATSAPP_GRAPH_API_VERSION: 'v26.0' };
+    for (const clearance of ['', 'META-2026-0001', 'cleared', 'true'])
+      expect(code({ ...live, FLOFI_WHATSAPP_POLICY_CLEARANCE: clearance }), clearance).toBe('WHATSAPP_LIVE_PROVIDER_NOT_CLEARED');
+    expect(code({ ...live, FLOFI_WHATSAPP_POLICY_CLEARANCE: 'META-2026-0001', VERCEL: '1', VERCEL_ENV: 'production' })).toBe('CHANNEL_PROVIDER_NOT_ACTIVATED');
+  });
+
+  it('runs the complete live path once clearance is recorded in code and named by the deployment', () => {
+    const record = { reference: 'META-WRITTEN-2026-0001', recordedOn: '2026-10-08', basis: 'test record' };
+    const live = { ...whatsAppEnv().env, FLOFI_WHATSAPP_PROVIDER: 'live', WHATSAPP_ACCESS_TOKEN: 'a'.repeat(40), WHATSAPP_GRAPH_API_VERSION: 'v26.0',
+      FLOFI_WHATSAPP_POLICY_CLEARANCE: record.reference, VERCEL: '1', VERCEL_ENV: 'production', WHATSAPP_NOTIFICATION_TEMPLATE: 'flofi_status_update:en_US' };
+    const config = readWhatsAppConfig(live, record);
+    expect(config).toMatchObject({ enabled: true, provider: 'live', accessToken: 'a'.repeat(40), graphVersion: 'v26.0',
+      template: { name: 'flofi_status_update', language: 'en_US' } });
+    const reason = (env: Record<string, string | undefined>) => { const c = readWhatsAppConfig(env, record); return c.enabled ? 'OK' : 'reason' in c ? c.reason : c.code; };
+    expect(reason({ ...live, FLOFI_WHATSAPP_POLICY_CLEARANCE: 'META-OTHER-REFERENCE' })).toBe('CHANNEL_PROVIDER_NOT_ACTIVATED');
+    expect(reason({ ...live, WHATSAPP_ACCESS_TOKEN: undefined })).toBe('WHATSAPP_ACCESS_TOKEN');
+    expect(reason({ ...live, WHATSAPP_GRAPH_API_VERSION: undefined })).toBe('WHATSAPP_GRAPH_API_VERSION');
+    expect(reason({ ...live, WHATSAPP_NOTIFICATION_TEMPLATE: 'Status Update' })).toBe('WHATSAPP_NOTIFICATION_TEMPLATE');
+    // The fixture provider never runs hosted, cleared or not.
+    expect(reason({ ...live, FLOFI_WHATSAPP_PROVIDER: 'fixture' })).toBe('CHANNEL_PROVIDER_NOT_ACTIVATED');
   });
 
   it('fails closed on every missing or malformed provider value', () => {

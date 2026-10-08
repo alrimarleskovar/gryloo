@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001: the WhatsApp channel end to end at the HTTP boundary, on a disposable loopback PostgreSQL (shipped migrations +
- * staged 0008) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and the fixture transport.
+ * BUILD-CHANNELS-001: the WhatsApp channel end to end at the HTTP boundary, on a disposable loopback PostgreSQL (shipped migrations
+ * through 0008) with a recording engine runtime (MOCKED flows; any execution method would be recorded) and the fixture transport.
  *
  * Signed deliveries become content-free records and one turn each; duplicates and retries never duplicate a turn, a reply or a
  * handoff. A proposal becomes a CHANNEL_CONVERSATION approval on the shared platform — no MCP account, no grant — whose link is
@@ -12,12 +12,12 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../../../../../packages/cloud-runtime/test/pg-harness.ts';
-import type { FlowName } from '../../../backend/flows.ts';
-import { applyApproval, claimApproval, PlatformRefusal, viewApproval, type EngineRuntime, type WalletRef } from '../../platform/index.ts';
+import { applyApproval, claimApproval, PlatformRefusal, viewApproval, type WalletRef } from '../../platform/index.ts';
 import { approvalSurface } from '../../server/approval-surface.ts';
 import { editorReducer, initialEditor } from '../../domain/editor';
 import { dappReviewContext } from '../../engine/strategy-engine';
 import type { Command } from '../../domain/commands';
+import { recordingRuntime } from '../core/engine.test-harness.ts';
 import { handleWhatsAppWebhook } from './handler.ts';
 import { fixtureTransport, type FixtureRecord } from './transport.ts';
 import { inbound, messageId, sha256Hex, statuses, USER_BSUID, USER_PHONE, webhookRequest, whatsAppEnv } from './fixtures.test-harness.ts';
@@ -28,16 +28,6 @@ let t: TestDatabase;
 beforeAll(async () => { t = await createTestDatabase(); });
 afterAll(async () => { await t?.drop(); });
 
-/** MOCKED engine runtime: flows in harness mode, a MOCKED Aave preview; any other call is recorded as an execution path. */
-function recordingRuntime(calls: string[]): EngineRuntime {
-  const modes: Partial<Record<FlowName, 'harness'>> = { 'aave-supply': 'harness', 'crosschain-router-testnet': 'harness', 'base-sepolia-swap': 'harness' };
-  const never = async (): Promise<never> => { calls.push('EXECUTION_PATH'); throw new Error('NEVER'); };
-  return { kind: 'embedded', mode: async flow => { calls.push(`mode:${flow}`); return modes[flow] ?? 'off'; },
-    info: async flow => { calls.push(`info:${flow}`); return { executionEnabled: true }; },
-    preview: async flow => { calls.push(`preview:${flow}`); const at = new Date().toISOString();
-      return flow === 'aave-supply' ? { ok: true, value: { provenance: 'MOCKED', review: { state: { observedAt: at }, expiresAt: at } } } : { ok: false, code: 'PREVIEW_UNAVAILABLE' }; },
-    run: never, journal: never, evidence: never };
-}
 function deployment(overrides: Record<string, string | undefined> = {}) {
   const fixture = whatsAppEnv({ FLOFI_WHATSAPP_ALLOWED_SENDERS: `${sha256Hex(USER_BSUID)},${sha256Hex(SECOND_BSUID)}`, ...overrides });
   const calls: string[] = [], sent: FixtureRecord[] = [], logs: string[] = [], runtime = recordingRuntime(calls), host = { db: t.db, tenantId: 'default' };
@@ -199,35 +189,59 @@ describe('BUILD-CHANNELS-001 WhatsApp channel (PostgreSQL, fixture provider, MOC
 
   it('withdraws an approval whose message could not be delivered (its link is gone) and retries other replies in order, once', async () => {
     const d = deployment(), base = Date.now(), at = (s: number) => () => new Date(base + s * 1000);
-    let failures = 0;
-    const fixture = fixtureTransport(d.sent);
-    // The provider is unavailable for every approval message, and once for the next plain reply.
+    let failures = 0, approvalAttempts = 0;
+    const fixture = fixtureTransport(d.sent), unavailable = { kind: 'ANSWER' as const, status: 503, body: JSON.stringify({ error: { code: 131000 } }), retryAfterMs: null };
+    // The Cloud API reports itself unavailable for every approval message, and once for the next plain reply.
     const flaky: typeof fixture = Object.assign(async (request: { readonly body: Record<string, unknown> }) => {
-      const cta = (request.body.interactive as { type?: string } | undefined)?.type === 'cta_url';
-      if (cta || failures++ === 0) return { status: 503, body: '' };
+      if ((request.body.interactive as { type?: string } | undefined)?.type === 'cta_url') { approvalAttempts++; return unavailable; }
+      if (failures++ === 0) return unavailable;
       return fixture(request);
     }, { sent: fixture.sent });
     const post = (text: string, now: () => Date) => handleWhatsAppWebhook(webhookRequest(inbound([{ text }]), d.appSecret),
-      { env: d.env, host: d.host, runtime: recordingRuntime([]), transport: flaky, interpreter: null, now });
+      { env: d.env, host: d.host, runtime: recordingRuntime([]), transport: flaky, interpreter: null, now, sleep: async () => undefined });
     await post(SUPPLY('9'), at(0));
+    // The approval message was retried in place (its link exists only in that turn), then withdrawn at once with its link.
+    expect(approvalAttempts).toBe(3);
     const [handoff] = (await t.db.query(`SELECT handoff_id, status FROM mcp_handoffs WHERE client_name = 'WhatsApp' ORDER BY created_at DESC LIMIT 1`)).rows;
-    expect(handoff!.status).toBe('PENDING');
-    expect(d.sent).toHaveLength(0);
-    // The next turn, after the backoff: the approval row is due but its link existed only in the failed turn's memory.
-    await post('help', at(60));
-    expect((await t.db.query('SELECT status FROM mcp_handoffs WHERE handoff_id = $1', [handoff!.handoff_id])).rows[0]!.status).toBe('REVOKED');
+    expect(handoff!.status).toBe('REVOKED');
     const approvalRow = (await t.db.query(`SELECT status, error_code, body_ciphertext IS NULL AS erased FROM channel_outbox WHERE handoff_id = $1 AND kind = 'APPROVAL'`,
       [handoff!.handoff_id])).rows;
-    expect(approvalRow).toEqual([{ status: 'SKIPPED', error_code: 'APPROVAL_LINK_LOST', erased: true }]);
+    expect(approvalRow).toEqual([{ status: 'FAILED', error_code: 'PROVIDER_UNAVAILABLE', erased: true }]);
+    // The "send LINK" notice failed once too: it waits for its backoff, nothing was delivered yet.
+    expect(d.sent).toHaveLength(0);
+    await post('help', at(60));
     await post('status', at(120));
     const texts = d.texts();
     expect(texts.filter(t => /could not be delivered, so it was withdrawn/.test(t))).toHaveLength(1);
+    expect(texts.findIndex(t => /could not be delivered/.test(t))).toBeLessThan(texts.findIndex(t => /^What I can do/.test(t)));
     expect(texts.filter(t => /^Strategy ready/.test(t))).toHaveLength(0);
     expect(d.sent.some(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')).toBe(false);
     expect(new Set(d.sent.map(r => (r.body as { biz_opaque_callback_data: string }).biz_opaque_callback_data)).size).toBe(d.sent.length);
   });
 
-  it('erases a crashed turn\'s payload on the next delivery instead of processing it late (no scheduler)', async () => {
+  it('never resends a reply whose outcome is unknown, and lets the status webhook confirm it', async () => {
+    const d = deployment(), fixture = fixtureTransport(d.sent);
+    let calls = 0;
+    // Meta took the message but the answer was lost (a timeout after sending).
+    const lost: typeof fixture = Object.assign(async (request: { readonly body: Record<string, unknown> }) => {
+      calls++; await fixture(request); return { kind: 'UNCERTAIN' as const, code: 'PROVIDER_TIMEOUT' };
+    }, { sent: fixture.sent });
+    await handleWhatsAppWebhook(webhookRequest(inbound([{ text: 'help' }]), d.appSecret), { env: d.env, host: d.host, runtime: recordingRuntime([]), transport: lost,
+      interpreter: null });
+    const id = (d.sent.at(-1)!.body as { biz_opaque_callback_data: string }).biz_opaque_callback_data;
+    const row = async () => (await t.db.query('SELECT status, delivery, error_code, body_ciphertext IS NULL AS erased FROM channel_outbox WHERE outbox_id = $1', [id])).rows[0];
+    expect(await row()).toEqual({ status: 'UNCERTAIN', delivery: null, error_code: 'PROVIDER_TIMEOUT', erased: true });
+    // Another turn never sends it again.
+    const tried = calls;
+    await d.say('status');
+    expect(d.sent.filter(r => (r.body as { biz_opaque_callback_data: string }).biz_opaque_callback_data === id)).toHaveLength(1);
+    expect(calls).toBe(tried);
+    // Meta's status webhook echoes our correlation id: the send is confirmed.
+    await d.post(statuses([{ id: 'wamid.LOSTANSWER', status: 'delivered', correlation: id }]));
+    expect(await row()).toEqual({ status: 'SENT', delivery: 'DELIVERED', error_code: 'PROVIDER_TIMEOUT', erased: true });
+  });
+
+  it('erases a crashed turn\'s payload once it is too late to act on it, instead of processing it late', async () => {
     const d = deployment(), past = new Date(Date.now() - 20 * 60_000), id = messageId();
     // The turn never runs (the instance died after acknowledging): the event stays PENDING with its encrypted payload.
     await handleWhatsAppWebhook(webhookRequest(inbound([{ id, text: SUPPLY('8') }]), d.appSecret), { env: d.env, host: d.host, runtime: recordingRuntime([]),

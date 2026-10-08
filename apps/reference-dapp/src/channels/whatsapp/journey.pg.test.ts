@@ -58,7 +58,8 @@ function deployment(harness: Record<string, string>, seams: EmbeddedSeams, inter
   const say = (text: string) => within(async i => (await handleWhatsAppWebhook(webhookRequest(inbound([{ text }]), fixture.appSecret), { env, interpreter, ...seam(i) })).status);
   const surface = <T>(work: (s: Awaited<ReturnType<typeof approvalSurface>>) => Promise<T>) =>
     within(async i => work(await approvalSurface(env, () => undefined, { host: { db: i.db, tenantId: i.tenantId }, runtime: embeddedEngineRuntime(i) })));
-  const ping = (secret: string, wallets: readonly WalletRef[]) => within(i => pingChannelApproval(env, secret, wallets, seam(i)));
+  const ping = (secret: string, wallets: readonly WalletRef[]) => within(i => pingChannelApproval(env, secret, wallets,
+    { host: { db: i.db, tenantId: i.tenantId }, runtime: embeddedEngineRuntime(i), logger, seams: { whatsappTransport: fixtureTransport(sent) } }));
   const flow = <T>(name: FlowName, owner: string, method: string, ...args: unknown[]) => within(async i => ok<T>(await i.backend.callFlow(name, method, args, undefined, owner) as Result<T>));
   const texts = () => sent.map(r => { const b = r.body as { text?: { body: string }; interactive?: { body: { text: string } } }; return b.text?.body ?? b.interactive?.body.text ?? ''; });
   const link = () => { const b = [...sent].reverse().find(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')?.body as

@@ -2,11 +2,12 @@
 /**
  * BUILD-CHANNELS-001: the provider-independent boundary of FloFi's conversational channels.
  *
- *   provider adapter (WhatsApp today; Telegram or another permitted channel later)
- *     → InboundMessage / DeliveryUpdate  (authenticated and normalized by the adapter)
- *     → Channel Core                     (conversation, StrategySpec, shared platform, approval handoff, status, outbox)
- *     → ChannelReply                     (FloFi-written text, a few choices, at most one link)
- *     → adapter.send                     (provider formatting and transport)
+ *   provider (WhatsApp, Telegram, …: `ChannelProvider`)
+ *     → authentic(raw bytes, headers) · normalize(payload)   inbound verification and normalization, inside the provider
+ *     → InboundMessage / DeliveryUpdate                     provider-neutral events
+ *     → Channel Core                                        conversation, StrategySpec, shared platform, approval handoff, status, outbox
+ *     → ChannelReply                                        FloFi-written text, a few choices, at most one link
+ *     → adapter.send → SendResult                           provider formatting and transport; a closed failure class
  *
  * A channel conversation is a CHANNEL_CONVERSATION requester of the shared approval model. Its sender id is never a wallet identity,
  * and nothing a channel carries — a message, a choice, an approval link — is financial authority. Provider ids live only in memory or
@@ -27,7 +28,9 @@ export type InboundContent =
   /** The user tapped one of FloFi's own choices: its id and visible label. */
   | { readonly kind: 'CHOICE'; readonly id: string; readonly label: string }
   /** Media, voice, location, contacts…: never interpreted. `type` is the provider's closed type name. */
-  | { readonly kind: 'UNSUPPORTED'; readonly type: string };
+  | { readonly kind: 'UNSUPPORTED'; readonly type: string }
+  /** The provider reports that the user stopped the conversation on their side (e.g. blocked the bot): an opt-out, never answered. */
+  | { readonly kind: 'PROVIDER_OPT_OUT' };
 export type InboundMessage = {
   readonly channel: ChannelId;
   /** The provider's id of this message: the deduplication key (digested before storage). */
@@ -48,18 +51,73 @@ export type DeliveryUpdate = { readonly channel: ChannelId; readonly correlation
 export type ReplyChoice = { readonly id: string; readonly label: string };
 /** What Channel Core asks an adapter to send: FloFi-written text, up to a few choices, and at most one link (the approval link). */
 export type ChannelReply = { readonly text: string; readonly choices: readonly ReplyChoice[]; readonly link: { readonly label: string; readonly url: string } | null };
-export type SendResult = { readonly ok: true; readonly providerMessageId: string } | { readonly ok: false; readonly code: string; readonly retryable: boolean };
+/** Why a message is sent: a turn's reply, the approval message carrying the link, or a status notification outside a turn. */
+export type ReplyKind = 'REPLY' | 'APPROVAL' | 'NOTIFICATION';
 
-/** One provider, as Channel Core uses it for outbound traffic. Inbound authentication and normalization stay inside the adapter. */
+/**
+ * How a send failed, as the provider's answer allows Channel Core to know:
+ *   TRANSIENT     not accepted, safe to try again (a 5xx with the provider's error body, a connection refused before sending)
+ *   RATE_LIMITED  not accepted because of throughput; try again after `retryAfterMs` when the provider says so
+ *   PERMANENT     refused for good (authorization, policy, recipient unreachable, invalid request): never retried
+ *   UNCERTAIN     the provider may have accepted it (a timeout after sending, a malformed success): never sent again, so a user never
+ *                 receives a message twice; a provider that reports deliveries (`confirmsUncertainSends`) can still confirm it
+ */
+export type SendFailure = 'TRANSIENT' | 'RATE_LIMITED' | 'PERMANENT' | 'UNCERTAIN';
+export type SendResult = { readonly ok: true; readonly providerMessageId: string }
+  | { readonly ok: false; readonly code: string; readonly failure: SendFailure; readonly retryAfterMs: number | null };
+/** The circumstances of one send: what the message is, and whether the provider's free-form messaging window is open. */
+export type SendContext = { readonly kind: ReplyKind; readonly windowOpen: boolean };
+
+/** One provider, as Channel Core uses it for outbound traffic. */
 export interface ChannelAdapter {
   readonly channel: ChannelId;
-  /** The requester's client id on /approve, e.g. `whatsapp:<phone number id>`. */
+  /** The requester's client id on /approve, e.g. `whatsapp:<phone number id>` or `telegram:<bot id>`. */
   readonly clientId: string;
   /** The name the owner sees on /approve ("proposed via WhatsApp"). */
   readonly displayName: string;
   /** Free-form replies are allowed this many hours after the user's last message; null when the provider has no such window. */
   readonly windowHours: number | null;
+  /** Kinds this provider can still send once the window has closed (WhatsApp: notifications, through an approved template). */
+  readonly outsideWindow: readonly ReplyKind[];
+  /** Statuses the provider reports after accepting a message (WhatsApp: delivered, read, failed; Telegram's Bot API: none). */
+  readonly deliveryReports: readonly DeliveryStatus[];
+  /** Whether a later provider report can confirm an UNCERTAIN send (it echoes our correlation id). */
+  readonly confirmsUncertainSends: boolean;
   /** Whether these choices can be shown as the provider's own buttons; otherwise Channel Core lists them as numbers in the text. */
   readonly choicesFit: (choices: readonly ReplyChoice[]) => boolean;
-  readonly send: (to: ChannelAddress, reply: ChannelReply, correlationId: string) => Promise<SendResult>;
+  readonly send: (to: ChannelAddress, reply: ChannelReply, correlationId: string, context: SendContext) => Promise<SendResult>;
+}
+
+/** An authentic provider payload, normalized. */
+export type NormalizedInbound = {
+  readonly messages: readonly InboundMessage[]; readonly deliveries: readonly DeliveryUpdate[]; readonly ignored: number;
+  /** Acknowledgements the provider expects once the events are recorded (Telegram callback queries); opaque, never stored. */
+  readonly acknowledgements: readonly string[];
+};
+export type ProviderMode = 'fixture' | 'live';
+/**
+ * One configured provider endpoint: inbound verification and normalization plus the outbound adapter. Every provider exposes the
+ * same contract, so Channel Core, the webhook boundary (`src/channels/http.ts`) and the scheduled dispatch never branch on a provider.
+ */
+export interface ChannelProvider {
+  /** The webhook's path segment: `/api/channels/<route>`. */
+  readonly route: string;
+  /** `fixture` records outbound messages and sends nothing; `live` talks to the provider. */
+  readonly mode: ProviderMode;
+  /** The provider-assigned id of this endpoint (phone number id, bot id): public, part of the conversation key. */
+  readonly businessId: string;
+  readonly maxBodyBytes: number;
+  readonly adapter: ChannelAdapter;
+  /** The answer to a non-POST request the provider defines (WhatsApp's subscription handshake); null when there is none (405). */
+  readonly handshake: ((url: URL) => Response) | null;
+  /** Authenticity of a POST, decided over its exact raw bytes and headers before anything is parsed; constant-time. */
+  readonly authentic: (raw: Uint8Array, headers: Headers) => boolean;
+  /** The closed code a request that fails `authentic` is refused with (401). */
+  readonly authenticationFailure: string;
+  /** An authentic payload → events; null when it is not for this endpoint (acknowledged so the provider stops, never processed). */
+  readonly normalize: (body: unknown, receivedAt: Date) => NormalizedInbound | null;
+  /** Owed acknowledgements, best effort, after the events are recorded; a failure never changes processing. */
+  readonly acknowledge: (acknowledgements: readonly string[]) => Promise<void>;
+  /** The secrets this provider holds; Channel Core's own secret must differ from each. */
+  readonly secrets: readonly string[];
 }

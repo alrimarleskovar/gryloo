@@ -116,6 +116,8 @@ export async function decideTurn(input: TurnInput): Promise<TurnDecision> {
   const decision = (action: TurnAction, outcome: string, replies: readonly ChannelReply[], next: ChannelState = state, extra: Partial<TurnDecision> = {}): TurnDecision =>
     ({ action, command: null, aiInterpreted: false, notes: [], replies, outcome, state: next, ...extra });
   if (content.kind === 'SECRET') return decision('REPLY', 'SECRET_REFUSED', [text(channelCopy(content.language).secret)], { ...state, choices: [] });
+  // The user stopped the conversation on the provider's side (e.g. blocked the bot): honoured as STOP, and nothing is sent back.
+  if (content.kind === 'PROVIDER_OPT_OUT') return optedOut ? decision('IGNORE', 'IGNORED_OPTED_OUT', []) : decision('OPT_OUT', 'OPTED_OUT_BY_PROVIDER', [], freshState(state.language));
   if (content.kind === 'UNSUPPORTED') return optedOut ? decision('IGNORE', 'IGNORED_OPTED_OUT', []) : decision('REPLY', 'UNSUPPORTED_MESSAGE', [text(channelCopy(state.language).unsupported)]);
   // A tapped choice or a bare number answers FloFi's own last question with the label FloFi offered.
   let raw = content.kind === 'CHOICE' ? state.choices.find(c => c.id === content.id)?.label ?? content.label : content.text;
@@ -129,9 +131,10 @@ export async function decideTurn(input: TurnInput): Promise<TurnDecision> {
   const greeted = { ...state, greeted: true, choices: [] };
   if (local) {
     const [kind] = local;
-    if (kind === 'HELP') return decision('REPLY', 'HELP', [text(m.help(input.support, input.privacy))], greeted);
+    // HELP and START answer with the help text, preceded by the first-contact notice when this is the conversation's first exchange
+    // (Telegram's /start is how every Telegram conversation begins).
+    if (kind === 'HELP' || kind === 'OPT_IN') return decision('REPLY', 'HELP', greet([text(m.help(input.support, input.privacy))]), greeted);
     if (kind === 'OPT_OUT') return decision('OPT_OUT', 'OPTED_OUT', [text(m.optedOut)], freshState(state.language));
-    if (kind === 'OPT_IN') return decision('REPLY', 'HELP', [text(m.help(input.support, input.privacy))], greeted);
     // NEW/CANCEL also forgets the open question; the service revokes the live approval link.
     if (kind === 'CANCEL') return decision('CANCEL', 'CANCELLED', greet([]), { ...greeted, pending: null, approvalId: null, copilot: null });
     return decision(kind, kind === 'STATUS' ? 'STATUS' : 'LINK', greet([]), greeted);

@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- BUILD-CHANNELS-001 0009: persistence of FloFi's conversational channels (Channel Core). It follows 0008 (saved_workflows) in the
--- shipped sequence and touches no earlier table.
+-- BUILD-CHANNELS-001 0009: persistence of FloFi's conversational channels (Channel Core): conversations, inbound event records, the
+-- transactional outbox and a content-free audit trail, for every provider (WhatsApp, Telegram, …; the channel is a pattern, not an
+-- enum). It follows 0008 (saved_workflows) in the shipped sequence and touches no earlier table.
 --
 -- A channel conversation is a CHANNEL_CONVERSATION requester of the shared approval model (0006): its approval handoffs live in
 -- mcp_handoffs under (requester_kind, requester_ref = conversation_id). Nothing here references or alters that table.
@@ -49,6 +50,8 @@ CREATE TABLE channel_events (
   payload_ciphertext bytea CHECK (payload_ciphertext IS NULL OR octet_length(payload_ciphertext) BETWEEN 29 AND 16384),
   outcome text CHECK (outcome IS NULL OR outcome ~ '^[A-Z][A-Z0-9_]{2,80}$'),
   handoff_id text CHECK (handoff_id IS NULL OR handoff_id ~ '^apr_[a-z2-7]{26}$'),
+  -- The scheduled sweep follows an approval this turn created until nothing more can be reported about it.
+  handoff_settled boolean NOT NULL DEFAULT false,
   processed_at timestamptz,
   PRIMARY KEY (tenant_id, channel, event_digest),
   FOREIGN KEY (tenant_id, conversation_id) REFERENCES channel_conversations (tenant_id, conversation_id) ON DELETE CASCADE,
@@ -59,6 +62,8 @@ CREATE TABLE channel_events (
 );
 CREATE INDEX channel_events_pending ON channel_events (tenant_id, conversation_id, provider_sent_at, received_at) WHERE status = 'PENDING';
 CREATE INDEX channel_events_age ON channel_events (tenant_id, received_at);
+CREATE INDEX channel_events_stranded ON channel_events (tenant_id, received_at) WHERE status = 'PENDING';
+CREATE INDEX channel_events_watched ON channel_events (tenant_id, processed_at) WHERE handoff_id IS NOT NULL AND NOT handoff_settled;
 
 -- Outbound messages of a conversation (transactional outbox): written with the turn, delivered after commit, idempotent by key.
 CREATE TABLE channel_outbox (
@@ -70,7 +75,11 @@ CREATE TABLE channel_outbox (
   sequence integer NOT NULL DEFAULT 0 CHECK (sequence BETWEEN 0 AND 15),
   body_ciphertext bytea CHECK (body_ciphertext IS NULL OR octet_length(body_ciphertext) BETWEEN 29 AND 16384),
   handoff_id text CHECK (handoff_id IS NULL OR handoff_id ~ '^apr_[a-z2-7]{26}$'),
-  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SENDING', 'SENT', 'FAILED', 'SKIPPED')),
+  -- PENDING (due at next_attempt_at) → SENDING (claimed) → SENT; a transient failure returns to PENDING with a later next_attempt_at.
+  -- UNCERTAIN: the provider may or may not have accepted it (a timeout, a crash mid-send); it is never sent again, and is confirmed SENT
+  -- by a provider report or becomes FAILED (SEND_OUTCOME_UNKNOWN) at next_attempt_at. FAILED: refused for good. DEAD: transient
+  -- failures exhausted the attempts (dead letter). SKIPPED: never attempted (expired, window closed, no address).
+  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SENDING', 'SENT', 'UNCERTAIN', 'FAILED', 'DEAD', 'SKIPPED')),
   attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 10),
   next_attempt_at timestamptz NOT NULL DEFAULT now(),
   provider_message_digest bytea CHECK (provider_message_digest IS NULL OR octet_length(provider_message_digest) = 32),
@@ -85,4 +94,22 @@ CREATE TABLE channel_outbox (
   CHECK ((status IN ('PENDING', 'SENDING')) = (body_ciphertext IS NOT NULL))
 );
 CREATE INDEX channel_outbox_due ON channel_outbox (tenant_id, conversation_id, status, next_attempt_at);
+CREATE INDEX channel_outbox_open ON channel_outbox (tenant_id, next_attempt_at) WHERE status IN ('PENDING', 'SENDING', 'UNCERTAIN');
 CREATE UNIQUE INDEX channel_outbox_provider ON channel_outbox (tenant_id, provider_message_digest) WHERE provider_message_digest IS NOT NULL;
+
+-- Content-free audit trail of channel activity: what happened, when, with closed codes and opaque ids only (never a message, an address,
+-- a provider id, a wallet or a link). Append-only; kept 30 days, independently of the rows it describes.
+CREATE TABLE channel_audit (
+  tenant_id text NOT NULL REFERENCES tenants (tenant_id),
+  audit_id bigint GENERATED ALWAYS AS IDENTITY,
+  at timestamptz NOT NULL DEFAULT now(),
+  channel text NOT NULL CHECK (channel ~ '^[A-Z][A-Z0-9_]{1,31}$'),
+  conversation_id text CHECK (conversation_id IS NULL OR conversation_id ~ '^chc_[a-z2-7]{26}$'),
+  kind text NOT NULL CHECK (kind ~ '^[A-Z][A-Z0-9_]{2,40}$'),
+  code text CHECK (code IS NULL OR code ~ '^[A-Z0-9][A-Z0-9_]{1,80}$'),
+  handoff_id text CHECK (handoff_id IS NULL OR handoff_id ~ '^apr_[a-z2-7]{26}$'),
+  outbox_id text CHECK (outbox_id IS NULL OR outbox_id ~ '^cho_[a-z2-7]{26}$'),
+  PRIMARY KEY (tenant_id, audit_id)
+);
+CREATE INDEX channel_audit_at ON channel_audit (tenant_id, at);
+CREATE INDEX channel_audit_conversation ON channel_audit (tenant_id, conversation_id, at) WHERE conversation_id IS NOT NULL;

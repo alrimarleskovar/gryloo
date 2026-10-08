@@ -23,13 +23,16 @@ import { channelCopy, readyText, shorten, type PreviewNote } from './copy.ts';
 import { channelRowId, keyedDigest, leaseToken, open, seal, sealContext } from './crypto.ts';
 import { addressContext, deliverConversation, newOutboxId, sealReply, type DeliveryContext } from './delivery.ts';
 import type { ChannelLogger } from './log.ts';
+import { parseStateLanguage } from './state-language.ts';
 import { statusReplies } from './status.ts';
 import { RETENTION, type ChannelStore, type ConversationRecord, type NewOutbox, type PendingEvent } from './store.ts';
 import { canonicalStrategy } from './strategy.ts';
 import type { ChannelAdapter, ChannelAddress, ChannelReply, DeliveryUpdate, InboundMessage } from './types.ts';
 
 export type ChannelContext = { readonly core: ChannelCoreConfig; readonly store: ChannelStore; readonly platform: ChannelPlatform; readonly adapter: ChannelAdapter;
-  readonly interpreter: ChannelInterpreter | null; readonly log: ChannelLogger; readonly now: () => Date; readonly previewTimeoutMs?: number };
+  readonly interpreter: ChannelInterpreter | null; readonly log: ChannelLogger; readonly now: () => Date; readonly previewTimeoutMs?: number;
+  /** Test seams for delivery: the wait between inline approval retries, the jitter source. */
+  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number };
 export const LEASE_SECONDS = 300;
 export const LIMITS = Object.freeze({ inbound: [20, 600] as const, model: [30, 3_600] as const, preview: [10, 3_600] as const });
 const MAX_EVENT_ATTEMPTS = 3;
@@ -41,7 +44,8 @@ export function createChannelService(ctx: ChannelContext) {
   const { core, store, adapter, log } = ctx, keys = core.keys, tenant = core.tenantId;
   const stateContext = (conversationId: string) => sealContext(tenant, 'channel_conversations', conversationId, 'state');
   const payloadContext = (digest: Buffer) => sealContext(tenant, 'channel_events', digest.toString('hex'), 'payload');
-  const delivery: DeliveryContext = { tenantId: tenant, origin: core.origin, keys, store, adapter, handoffs: ctx.platform.handoffs, log, now: ctx.now };
+  const delivery: DeliveryContext = { tenantId: tenant, origin: core.origin, keys, store, adapter, handoffs: ctx.platform.handoffs, log, now: ctx.now,
+    ...ctx.sleep ? { sleep: ctx.sleep } : {}, ...ctx.random ? { random: ctx.random } : {} };
   const subjectKey = (m: InboundMessage) => `${m.channel}:${m.subject.business}:${m.subject.user}`;
   /** Choices the provider cannot show as buttons are listed as numbers (answerable by number), in the reply's language. */
   const fitted = (reply: ChannelReply, language: ChannelLanguage): ChannelReply => !reply.choices.length || adapter.choicesFit(reply.choices) ? reply
@@ -80,6 +84,8 @@ export function createChannelService(ctx: ChannelContext) {
 
   /** Processes a conversation's pending events in order while holding its lease, delivering after each turn. */
   async function drain(conversationId: string): Promise<{ readonly processed: number }> {
+    // Each provider's service processes only its own conversations.
+    if ((await store.conversation(conversationId))?.channel !== adapter.channel) return { processed: 0 };
     const token = leaseToken();
     if (!await store.acquire(conversationId, token, ctx.now(), LEASE_SECONDS)) return { processed: 0 };
     let processed = 0;
@@ -214,8 +220,16 @@ export function createChannelService(ctx: ChannelContext) {
     } finally { clearTimeout(timer); }
   }
 
-  /** Delivers due notifications and replies of a conversation outside a turn (never approval messages: their links live in turns). */
-  const deliver = (conversationId: string) => deliverConversation(delivery, conversationId, { kinds: ['REPLY', 'NOTIFICATION'] });
+  /**
+   * Delivers a conversation's due messages outside a turn. An approval message found here has lost its link (links live only in the
+   * turn that created them), so it is withdrawn and the user is told to send LINK.
+   */
+  const deliver = async (conversationId: string) => {
+    const conversation = await store.conversation(conversationId);
+    if (conversation?.channel !== adapter.channel) return null;
+    const state = conversation.status === 'ACTIVE' ? open(keys.seal, conversation.stateSealed, stateContext(conversationId)) : null;
+    return deliverConversation(delivery, conversationId, { kinds: ['REPLY', 'APPROVAL', 'NOTIFICATION'], language: parseStateLanguage(state, core.language) });
+  };
   return { ingest, drain, deliver };
 }
 export type ChannelService = ReturnType<typeof createChannelService>;

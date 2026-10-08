@@ -35,16 +35,19 @@ export function statusReplies(language: ChannelLanguage, found: { readonly hando
 export type PlannedNotification = { readonly key: string; readonly text: string };
 /**
  * Notifications due for a handoff's progress, each with a stable key (so a repeated check never sends twice): "loaded in FloFi" once
- * the owner claimed it and shares status, then one per run that reached a terminal state. `done` once nothing more can follow.
+ * the owner claimed it and shares status, then per run "in progress" once and its terminal outcome once. `done` once nothing more can
+ * follow.
  */
 export function plannedNotifications(language: ChannelLanguage, handoff: HandoffRecord, progress: Progress): { readonly due: readonly PlannedNotification[]; readonly done: boolean } {
   const m = channelCopy(language), due: PlannedNotification[] = [];
   if (ENDED.has(progress.status)) return { due, done: true };
   if (!handoff.shareStatus || (progress.status !== 'CLAIMED' && progress.status !== 'APPLIED')) return { due, done: false };
   due.push({ key: `notify:${handoff.handoffId}:loaded`, text: m.loaded });
-  for (const run of progress.runs.filter(r => r.terminal)) {
+  for (const run of progress.runs) {
     const id = createHash('sha256').update(run.executionId).digest('hex').slice(0, 16);
-    due.push({ key: `notify:${handoff.handoffId}:run:${id}:${run.reconciled ? 'reconciled' : 'ended'}`, text: shorten(m.run(run)) });
+    // Execution started (once, while it runs), then its outcome once it is terminal: reconciled with its evidence, or ended.
+    if (!run.terminal) due.push({ key: `notify:${handoff.handoffId}:run:${id}:started`, text: shorten(m.run(run)) });
+    else due.push({ key: `notify:${handoff.handoffId}:run:${id}:${run.reconciled ? 'reconciled' : 'ended'}`, text: shorten(m.run(run)) });
   }
   return { due, done: progress.runs.length > 0 && progress.runs.every(r => r.terminal) };
 }

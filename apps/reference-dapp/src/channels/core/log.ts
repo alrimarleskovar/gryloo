@@ -9,7 +9,7 @@ export type ChannelLogSink = { readonly info: (event: string, fields?: Fields) =
 export type ChannelLogger = ChannelLogSink;
 
 const ALLOWED = new Set(['channel', 'outcome', 'code', 'conversation', 'count', 'duration_ms', 'kind', 'attempts', 'status', 'action', 'events', 'duplicates', 'ignored',
-  'deliveries', 'sent', 'failed', 'skipped']);
+  'deliveries', 'sent', 'failed', 'skipped', 'retrying', 'uncertain', 'stranded', 'turns', 'conversations', 'handoffs', 'notified', 'truncated', 'route', 'mode']);
 const SAFE_STRING = /^(?:[A-Z][A-Z0-9_]{1,80}|chc_[a-z2-7]{26}|cho_[a-z2-7]{26}|apr_[a-z2-7]{26}|[a-z]{2,16})$/;
 function clean(fields: Fields = {}): Record<string, string | number | boolean | null> {
   const out: Record<string, string | number | boolean | null> = {};

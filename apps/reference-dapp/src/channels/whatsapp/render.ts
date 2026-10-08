@@ -7,13 +7,16 @@
  *                                    phone's default browser and its secret stays in the URL fragment
  *   a reply with ≤ 3 short choices   interactive reply buttons (≤ 3 buttons, title ≤ 20, id ≤ 256)
  *   anything else                    a text message (≤ 4096) with link previews off
+ *   a notification outside the       the owner's approved Utility template (WHATSAPP_NOTIFICATION_TEMPLATE) with the notification as its
+ *   24-hour window                   one body variable (no newline, tab or run of spaces, as Meta requires); never an approval link
  *
  * The recipient is the business-scoped user id when known (`recipient`), otherwise the phone number (`to`). Every request carries the
  * outbox id as `biz_opaque_callback_data`, which Meta echoes in status webhooks, so delivery is correlated even after a crash.
  */
 import type { ChannelAddress, ChannelReply, ReplyChoice } from '../core/types.ts';
+import type { WhatsAppTemplate } from './config.ts';
 
-export const WHATSAPP_LIMITS = Object.freeze({ text: 4_096, interactiveBody: 1_024, buttons: 3, buttonTitle: 20, footer: 60 });
+export const WHATSAPP_LIMITS = Object.freeze({ text: 4_096, interactiveBody: 1_024, buttons: 3, buttonTitle: 20, footer: 60, templateParameter: 900 });
 const clip = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 /** Whether choices can be reply buttons; otherwise Channel Core lists them as numbers in the text. */
 export const choicesFitButtons = (choices: readonly ReplyChoice[]) =>
@@ -27,4 +30,12 @@ export function renderMessage(to: ChannelAddress, reply: ChannelReply, correlati
   if (choicesFitButtons(reply.choices)) return { ...base, type: 'interactive', interactive: { type: 'button', body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
     action: { buttons: reply.choices.map(c => ({ type: 'reply', reply: { id: c.id, title: c.label } })) } } };
   return { ...base, type: 'text', text: { body: clip(reply.text, WHATSAPP_LIMITS.text), preview_url: false } };
+}
+
+/** A status notification as the approved template, for a recipient whose 24-hour window has closed. Never carries a link. */
+export function renderTemplate(to: ChannelAddress, reply: ChannelReply, correlationId: string, template: WhatsAppTemplate): Record<string, unknown> {
+  const recipient = to.kind === 'bsuid' ? { recipient: to.value } : { to: to.value };
+  const parameter = clip(reply.text.replace(/\s*\n\s*/g, ' · ').replace(/\t/g, ' ').replace(/ {2,}/g, ' ').trim(), WHATSAPP_LIMITS.templateParameter);
+  return { messaging_product: 'whatsapp', recipient_type: 'individual', ...recipient, biz_opaque_callback_data: correlationId, type: 'template',
+    template: { name: template.name, language: { code: template.language }, components: [{ type: 'body', parameters: [{ type: 'text', text: parameter }] }] } };
 }
