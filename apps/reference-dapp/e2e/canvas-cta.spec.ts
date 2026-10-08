@@ -9,7 +9,7 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
-  const cta = graph.getByRole('button', { name: 'Simular Fees', exact: true });
+  const cta = graph.getByRole('button', { name: 'Simulate fees', exact: true });
   await expect(page.getByRole('button', { name: 'Continue to Simulate', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar button')).toHaveCount(0);
   for (const floating of [false, true]) {
@@ -62,21 +62,21 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
   await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
 });
 
-test('Simular Fees keeps the same navigation-only action and guarded Supply review', async ({ page }) => {
+test('Simulate fees keeps the same navigation-only action and guarded Supply review', async ({ page }) => {
   await installSupplyWallet(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simulate fees', exact: true }).click();
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar button')).toHaveCount(0);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeVisible();
   await expect(page.locator('.flow-card.active')).toHaveCount(1);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });

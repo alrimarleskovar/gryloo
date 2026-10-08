@@ -59,7 +59,7 @@ test('lending projects the same authored strategy, shared title and links above 
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const build = await summaries(page, '.build-flow-surface');
   const positions = await page.locator('.build-flow-surface .react-flow__node').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.transform));
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
   await expect(page.locator('.simulation-workflow-canvas h2')).toHaveText('ESPARTACUS');
   expect(await summaries(page, '.simulate-flow-surface')).toEqual(build);
@@ -92,7 +92,7 @@ test('accepted Build edits refresh Simulate while current diagnostic artifacts a
   await open(page); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
   await rename(page, 'ETH Carry Strategy');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(graph(page).locator('.composer-amount')).toHaveText('1 USDC');
   const details = page.locator('.simulation-technical');
   await expect(page.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true })).toBeHidden();
@@ -111,7 +111,7 @@ test('accepted Build edits refresh Simulate while current diagnostic artifacts a
   await page.locator('.build-flow-surface .composer-card').getByRole('button', { name: 'Review amount', exact: true }).click();
   await page.getByRole('button', { name: 'Apply amount', exact: true }).click();
   await rename(page, 'Updated Strategy');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(graph(page).locator('.composer-amount')).toHaveText('2.5 USDC');
   await expect(page.locator('.simulation-workflow-canvas h2')).toHaveText('Updated Strategy');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '2');
@@ -140,7 +140,7 @@ test('empty workflows and supported isolated actions keep the same graph and ori
 test('desktop/mobile graph keeps approved action order, zoom/fit controls and card clearance', async ({ page }) => {
   await open(page); await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');

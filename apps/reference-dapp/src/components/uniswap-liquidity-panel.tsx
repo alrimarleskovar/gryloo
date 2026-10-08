@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, uniswapLiquidityProfile, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 import { createUniswapLiquidityNode, uniswapBandInput, uniswapLiquidityDetails, uniswapLiquidityInputOf, uniswapLiquidityProfileFor, UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE,
@@ -17,6 +19,7 @@ import type { UniswapLiquidityStep } from '../server/uniswap-liquidity-service';
 /** Copy is written for Base Sepolia; another network's name is substituted. Display text only. */
 const networkCopy = (text: string, network: UniswapLiquidityNetwork) => network === 'Base Sepolia' ? text : text.replaceAll('Base Sepolia', network);
 export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?: string; onDone?: () => void; reviewFormId?: string }) {
+  const { t: tr } = useLocale();
   const { state, propose, actionSetup, editPoolSetup, reviewCanvasAmount } = useWorkflow(), liquidity = useUniswapLiquidity();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId);
   const range = usePoolPriceRange(nodeId);
@@ -67,24 +70,24 @@ export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?
     try { effectiveInput = { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) }; } catch { /* submit reports the existing validation failure */ }
   }
   const unit = effectiveInput.rangeUnit === 'PRICE' ? 'price (USDC per WETH)' : 'tick', selected = uniswapLiquidityProfileFor(contributionInput.network);
-  return <form id={reviewFormId} className="inspector-fields" aria-label={networkCopy(nodeId ? 'Edit Base Sepolia liquidity position' : 'Create Base Sepolia liquidity position', contributionInput.network)} onSubmit={submit}>
-    <label>Liquidity network<select aria-label="Liquidity network" value={contributionInput.network} onChange={e => set({ network: e.target.value as UniswapLiquidityNetwork, rangeUnit: 'PRICE', lower: '', upper: '' })}>
+  return <form id={reviewFormId} className="inspector-fields" aria-label={tr(networkCopy(nodeId ? 'Edit Base Sepolia liquidity position' : 'Create Base Sepolia liquidity position', contributionInput.network))} onSubmit={submit}>
+    <label>{tr("Liquidity network")}<select aria-label={tr("Liquidity network")} value={contributionInput.network} onChange={e => set({ network: e.target.value as UniswapLiquidityNetwork, rangeUnit: 'PRICE', lower: '', upper: '' })}>
       {UNISWAP_LIQUIDITY_NETWORKS.map(network => <option key={network}>{network}</option>)}</select></label>
-    <p className="muted">Uniswap v3 · {contributionInput.network} test USDC / WETH · fee {selected.feeTier / 10_000}% · tick spacing {selected.tickSpacing}. Maxima are limits, not amounts to spend.</p>
-    <label>Maximum USDC (test)<TokenAmountInput aria-label="Maximum USDC" maxLength={40} value={contributionInput.maxUsdc} onValueChange={maxUsdc => set({ maxUsdc })}/></label>
-    <label>Maximum WETH (test)<TokenAmountInput aria-label="Maximum WETH" maxLength={40} value={contributionInput.maxWeth} onValueChange={maxWeth => set({ maxWeth })}/></label>
-    <label>Range unit<select aria-label="Range unit" value={effectiveInput.rangeUnit} onChange={e => set({ rangeUnit: e.target.value as 'PRICE' | 'TICK' })}>
-      <option value="PRICE">Price (USDC per WETH)</option><option value="TICK">Tick</option></select></label>
-    <label>Lower {unit}<input aria-label="Lower bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
-    <label>Upper {unit}<input aria-label="Upper bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
-    <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{networkCopy('Use ±10% around the current Base Sepolia price', contributionInput.network)}</button>
-    {band && <small role="status">{band}</small>}
-    <small>Prices are aligned outward to usable ticks; the exact ticks are stored and shown again at Review.</small>
-    <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={contributionInput.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
-    <p className="muted">Test tokens only. The position NFT is minted to your connected wallet.</p>
-    {error && <p role="alert">{error}</p>}
-    {!reviewFormId && <button type="submit">{nodeId ? 'Review position change' : 'Review position proposal'}</button>}
-    {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+    <p className="muted">{tr("Uniswap v3 · ")}{tr(contributionInput.network)}{tr(" test USDC / WETH · fee ")}{tr(selected.feeTier / 10_000)}{tr("% · tick spacing ")}{tr(selected.tickSpacing)}{tr(". Maxima are limits, not amounts to spend.")}</p>
+    <label>{tr("Maximum USDC (test)")}<TokenAmountInput aria-label={tr("Maximum USDC")} maxLength={40} value={contributionInput.maxUsdc} onValueChange={maxUsdc => set({ maxUsdc })}/></label>
+    <label>{tr("Maximum WETH (test)")}<TokenAmountInput aria-label={tr("Maximum WETH")} maxLength={40} value={contributionInput.maxWeth} onValueChange={maxWeth => set({ maxWeth })}/></label>
+    <label>{tr("Range unit")}<select aria-label={tr("Range unit")} value={effectiveInput.rangeUnit} onChange={e => set({ rangeUnit: e.target.value as 'PRICE' | 'TICK' })}>
+      <option value="PRICE">{tr("Price (USDC per WETH)")}</option><option value="TICK">{tr("Tick")}</option></select></label>
+    <label>{tr("Lower ")}{tr(unit)}<input aria-label={tr("Lower bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
+    <label>{tr("Upper ")}{tr(unit)}<input aria-label={tr("Upper bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
+    <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{tr(networkCopy('Use ±10% around the current Base Sepolia price', contributionInput.network))}</button>
+    {band && <small role="status">{tr(band)}</small>}
+    <small>{tr("Prices are aligned outward to usable ticks; the exact ticks are stored and shown again at Review.")}</small>
+    <label>{tr("Slippage (bps)")}<input aria-label={tr("Liquidity slippage (bps)")} inputMode="numeric" autoComplete="off" maxLength={4} value={contributionInput.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
+    <p className="muted">{tr("Test tokens only. The position NFT is minted to your connected wallet.")}</p>
+    {error && <p role="alert">{tr(error)}</p>}
+    {!reviewFormId && <button type="submit">{tr(nodeId ? 'Review position change' : 'Review position proposal')}</button>}
+    {onDone && <button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }
 
@@ -123,6 +126,7 @@ const stepLabel: Record<UniswapLiquidityStep, string> = { APPROVE_TOKEN0: 'Appro
 const explorer = (hash: string, profile: UniswapLiquidityProfile) => profile.explorer + 'tx/' + hash;
 
 export function UniswapLiquidityPanel({ view }: { view: 'simulate' | 'execute' }) {
+  const { t: tr } = useLocale();
   const { state } = useWorkflow(), wallet = useBuild009Wallet(), lp = useUniswapLiquidity();
   const node = state.workflow.nodes.find(n => uniswapLiquidityDetails(n)), fields = node ? uniswapLiquidityDetails(node) : null;
   const record = lp.record, r = record?.review, last = record?.attempts.at(-1);
@@ -138,51 +142,50 @@ export function UniswapLiquidityPanel({ view }: { view: 'simulate' | 'execute' }
   const info = lp.error ?? record?.error;
   // The reviewed chain (else the authored one) names the network; Base Sepolia before anything is authored, as before.
   const profile = uniswapLiquidityProfile(r?.chainId ?? node?.chainId) ?? UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, network = profile.network;
-  return <section className="panel" aria-label={`${network} liquidity`}><h2>{view === 'simulate' ? 'Simulate liquidity position' : 'Review liquidity position'}</h2>
-    {fields && <p>Concentrated liquidity on {network} via Uniswap v3: up to {fields.maxUsdc} USDC and {fields.maxWeth} WETH between {fields.lowerPrice} and {fields.upperPrice} USDC per WETH.</p>}
-    <p role="note">{network} test tokens only. They have no value, and no real funds are used.</p>
-    {!lp.available && <p role="status">{message('UNISWAP_LIQUIDITY_PUBLIC_TESTNET_NOT_ENABLED')}</p>}
-    {lp.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current position again.</p>}
-    {lp.recovered && record && <p role="status">Recovered run {record.id}. Its state comes from the server; nothing is resent automatically.</p>}
-    {!wallet.account ? <button type="button" disabled={wallet.busy} onClick={() => void wallet.connect()}>Connect wallet</button>
-      : <p>Wallet connected: <span>{wallet.account}</span>{wallet.chainId !== profile.chainHex && <> · <button type="button" disabled={lp.busy} onClick={() => void lp.switchNetwork()}>Switch to {network}</button></>}</p>}
-    {view === 'simulate' && <button type="button" disabled={lp.busy || pending || !lp.available || !fields} onClick={() => void lp.simulate()}>Simulate position</button>}
-    {r && !lp.retired && <dl className="swap-summary" aria-label={view === 'simulate' ? 'Liquidity simulation' : 'Liquidity review'}>
-      <dt>Network</dt><dd>{network} (chain {r.chainId}) · block {r.block.number}</dd>
-      <dt>Pool</dt><dd>Uniswap v3 USDC/WETH <code>{r.contracts.pool}</code> · fee {r.pool.fee / 10_000}% · tick spacing {r.pool.tickSpacing}</dd>
-      <dt>Token order</dt><dd>token0 {r.token0.symbol} <code>{r.token0.address}</code> · token1 {r.token1.symbol} <code>{r.token1.address}</code></dd>
-      <dt>Current price</dt><dd>{r.pool.price} USDC per WETH · tick {r.pool.tick}</dd>
-      <dt>Range</dt><dd>{r.range.lowerPrice}–{r.range.upperPrice} USDC per WETH · exact ticks {r.range.tickLower} to {r.range.tickUpper} · {r.range.state.toLowerCase().replace('_', ' ')}</dd>
-      <dd>{r.range.description}</dd>
-      <dt>Maximum inputs</dt><dd>{usdc(r.intent.amount0Max)} · {weth(r.intent.amount1Max)}</dd>
-      <dt>Expected deposit</dt><dd>{usdc(r.expected.amount0)} + {weth(r.expected.amount1)} · liquidity {r.expected.liquidity} (public simulation, not executed)</dd>
-      <dt>Minimum deposit</dt><dd>{usdc(r.minimums.amount0Min)} + {weth(r.minimums.amount1Min)} ({r.intent.slippageBps} bps); otherwise the mint reverts</dd>
-      <dt>Approvals</dt><dd>{r.approvals.length ? r.approvals.map(a => <span key={a.step}>{a.symbol}: {a.required ? `exactly ${a.symbol === 'USDC' ? usdc(a.amount) : weth(a.amount)} to the Position Manager` : 'existing allowance is sufficient'}. </span>) : 'none'}</dd>
-      <dt>Position Manager</dt><dd><code>{r.contracts.positionManager}</code></dd>
-      <dt>Position NFT recipient</dt><dd>{r.recipient} (your wallet)</dd>
-      <dt>Deadline</dt><dd>{new Date(Number(r.deadline) * 1000).toISOString()} · Review valid {fresh > 0 ? `for ${fresh}s` : 'no longer — refresh'}</dd>
-      <dt>Estimated network fees</dt><dd>at most {eth(r.fees.totalUpperBoundWei ?? r.fees.executionFeeUpperBoundWei)} for {r.calls.length} transaction{r.calls.length > 1 ? 's' : ''}{r.fees.l1FeeUpperBoundWei === null ? ' (L1 data fee not estimated)' : ''}</dd>
-      <dt>Wallet requests</dt><dd>{r.calls.map(c => stepLabel[c.step]).join(' → ')} — each needs its own Execute click and wallet signature</dd>
-      <dt>Simulation</dt><dd>{r.simulation.method} of the exact sequence at block {r.simulation.block}; independent estimate {r.simulation.localEstimate.liquidity} liquidity</dd>
+  return <section className="panel" aria-label={tr(`${network} liquidity`)}><h2>{tr(view === 'simulate' ? 'Simulate liquidity position' : 'Review liquidity position')}</h2>
+    {fields && <p>{tr("Concentrated liquidity on ")}{network}{tr(" via Uniswap v3: up to ")}{tr(fields.maxUsdc)}{tr(" USDC and ")}{tr(fields.maxWeth)}{tr(" WETH between ")}{tr(fields.lowerPrice)}{tr(" and ")}{tr(fields.upperPrice)}{tr(" USDC per WETH.")}</p>}
+    <p role="note">{network}{tr(" test tokens only. They have no value, and no real funds are used.")}</p>
+    {!lp.available && <p role="status">{tr(message('UNISWAP_LIQUIDITY_PUBLIC_TESTNET_NOT_ENABLED'))}</p>}
+    {lp.retired && <p role="alert">{tr("The workflow changed. Prior authorization is invalid. Simulate the current position again.")}</p>}
+    {lp.recovered && record && <p role="status">{tr("Recovered run ")}{record.id}{tr(". Its state comes from the server; nothing is resent automatically.")}</p>}
+    {!wallet.account ? <button type="button" disabled={wallet.busy} onClick={() => void wallet.connect()}>{tr("Connect wallet")}</button>
+      : <p>{tr("Wallet connected: ")}<span>{wallet.account}</span>{wallet.chainId !== profile.chainHex && <> · <button type="button" disabled={lp.busy} onClick={() => void lp.switchNetwork()}>{tr("Switch to ")}{network}</button></>}</p>}
+    {view === 'simulate' && <button type="button" disabled={lp.busy || pending || !lp.available || !fields} onClick={() => void lp.simulate()}>{tr("Simulate position")}</button>}
+    {r && !lp.retired && <dl className="swap-summary" aria-label={tr(view === 'simulate' ? 'Liquidity simulation' : 'Liquidity review')}>
+      <dt>{tr("Network")}</dt><dd>{network}{tr(" (chain ")}{tr(r.chainId)}{tr(") · block ")}{tr(r.block.number)}</dd>
+      <dt>{tr("Pool")}</dt><dd>{tr("Uniswap v3 USDC/WETH ")}<code>{tr(r.contracts.pool)}</code>{tr(" · fee ")}{tr(r.pool.fee / 10_000)}{tr("% · tick spacing ")}{tr(r.pool.tickSpacing)}</dd>
+      <dt>{tr("Token order")}</dt><dd>{tr("token0 ")}{tr(r.token0.symbol)} <code>{r.token0.address}</code>{tr(" · token1 ")}{tr(r.token1.symbol)} <code>{r.token1.address}</code></dd>
+      <dt>{tr("Current price")}</dt><dd>{tr(r.pool.price)}{tr(" USDC per WETH · tick ")}{tr(r.pool.tick)}</dd>
+      <dt>{tr("Range")}</dt><dd>{tr(r.range.lowerPrice)}–{tr(r.range.upperPrice)}{tr(" USDC per WETH · exact ticks ")}{tr(r.range.tickLower)}{tr(" to ")}{tr(r.range.tickUpper)} · {tr(r.range.state.toLowerCase().replace('_', ' '))}</dd>
+      <dd>{tr(r.range.description)}</dd>
+      <dt>{tr("Maximum inputs")}</dt><dd>{tr(usdc(r.intent.amount0Max))} · {tr(weth(r.intent.amount1Max))}</dd>
+      <dt>{tr("Expected deposit")}</dt><dd>{tr(usdc(r.expected.amount0))} + {tr(weth(r.expected.amount1))}{tr(" · liquidity ")}{tr(r.expected.liquidity)}{tr(" (public simulation, not executed)")}</dd>
+      <dt>{tr("Minimum deposit")}</dt><dd>{tr(usdc(r.minimums.amount0Min))} + {tr(weth(r.minimums.amount1Min))} ({tr(r.intent.slippageBps)}{tr(" bps); otherwise the mint reverts")}</dd>
+      <dt>{tr("Approvals")}</dt><dd>{r.approvals.length ? r.approvals.map(a => <span key={a.step}>{tr(a.symbol)}: {tr(a.required ? `exactly ${a.symbol === 'USDC' ? usdc(a.amount) : weth(a.amount)} to the Position Manager` : 'existing allowance is sufficient')}. </span>) : 'none'}</dd>
+      <dt>{tr("Position Manager")}</dt><dd><code>{tr(r.contracts.positionManager)}</code></dd>
+      <dt>{tr("Position NFT recipient")}</dt><dd>{tr(r.recipient)}{tr(" (your wallet)")}</dd>
+      <dt>{tr("Deadline")}</dt><dd>{tr(new Date(Number(r.deadline) * 1000).toISOString())}{tr(" · Review valid ")}{tr(fresh > 0 ? `for ${fresh}s` : 'no longer — refresh')}</dd>
+      <dt>{tr("Estimated network fees")}</dt><dd>{tr("at most ")}{tr(eth(r.fees.totalUpperBoundWei ?? r.fees.executionFeeUpperBoundWei))}{tr(" for ")}{tr(r.calls.length)}{tr(" transaction")}{tr(r.calls.length > 1 ? 's' : '')}{tr(r.fees.l1FeeUpperBoundWei === null ? ' (L1 data fee not estimated)' : '')}</dd>
+      <dt>{tr("Wallet requests")}</dt><dd>{tr(r.calls.map(c => stepLabel[c.step]).join(' → '))}{tr(" — each needs its own Execute click and wallet signature")}</dd>
+      <dt>{tr("Simulation")}</dt><dd>{tr(r.simulation.method)}{tr(" of the exact sequence at block ")}{tr(r.simulation.block)}{tr("; independent estimate ")}{tr(r.simulation.localEstimate.liquidity)}{tr(" liquidity")}</dd>
     </dl>}
     {view === 'execute' && record && <>
-      {!authorized && !pending && record.verdict === 'PENDING' && !lp.retired && fresh > 0 && <button type="button" disabled={lp.busy} onClick={() => void lp.review()}>Accept liquidity review</button>}
-      {authorized && !lp.executionEnabled && <p role="status">Execution is not enabled on this server. Simulation and Review remain read-only.</p>}
-      {canExecute && nextStep && <button type="button" className="primary" disabled={lp.busy} onClick={() => void lp.execute()}>Execute: {stepLabel[nextStep]}</button>}
-      {needsRefresh && <button type="button" disabled={lp.busy} onClick={() => void lp.refresh()}>Refresh simulation for the next step</button>}
-      {pending && <button type="button" disabled={lp.busy} onClick={() => void lp.observe()}>Observe existing transaction</button>}
-      {record.attempts.length > 0 && <ol aria-label="Liquidity transactions">{record.attempts.map(a => <li key={a.attemptId}>{stepLabel[a.step]}: {a.state.toLowerCase().replaceAll('_', ' ')}
-        {a.transactionHash && <> · <a href={explorer(a.replacementHash ?? a.transactionHash, profile)} target="_blank" rel="noreferrer">view transaction</a></>}{a.note ? ` · ${message(a.note) ?? a.note}` : ''}</li>)}</ol>}
-      {record.evidence && record.position && <section aria-label="Liquidity result" className="swap-result"><h3>Position created</h3>
-        <p>Position NFT #{record.position.tokenId} is owned by your wallet {record.position.owner}. Deposited {usdc(record.position.amount0)} and {weth(record.position.amount1)};
-          liquidity {record.position.liquidity}; ticks {record.position.tickLower} to {record.position.tickUpper}. Independently reconciled.</p>
-        <p>Remaining allowances to the Position Manager: {usdc(record.evidence.residualAllowances.token0)} · {weth(record.evidence.residualAllowances.token1)}.</p>
-        <p>Evidence: {record.evidence.evidenceClass} · bundle {record.evidence.bundleHash}</p>
-        <a download="flofi-base-sepolia-liquidity-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
-      {record.attempts.length > 0 && !record.evidence && <a download="flofi-base-sepolia-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+      {!authorized && !pending && record.verdict === 'PENDING' && !lp.retired && fresh > 0 && <button type="button" disabled={lp.busy} onClick={() => void lp.review()}>{tr("Accept liquidity review")}</button>}
+      {authorized && !lp.executionEnabled && <p role="status">{tr("Execution is not enabled on this server. Simulation and Review remain read-only.")}</p>}
+      {canExecute && nextStep && <button type="button" className="primary" disabled={lp.busy} onClick={() => void lp.execute()}>{tr("Execute: ")}{tr(stepLabel[nextStep])}</button>}
+      {needsRefresh && <button type="button" disabled={lp.busy} onClick={() => void lp.refresh()}>{tr("Refresh simulation for the next step")}</button>}
+      {pending && <button type="button" disabled={lp.busy} onClick={() => void lp.observe()}>{tr("Observe existing transaction")}</button>}
+      {record.attempts.length > 0 && <ol aria-label={tr("Liquidity transactions")}>{record.attempts.map(a => <li key={a.attemptId}>{tr(stepLabel[a.step])}: {tr(a.state.toLowerCase().replaceAll('_', ' '))}
+        {a.transactionHash && <> · <a href={explorer(a.replacementHash ?? a.transactionHash, profile)} target="_blank" rel="noreferrer">{tr("view transaction")}</a></>}{tr(a.note ? ` · ${message(a.note) ?? a.note}` : '')}</li>)}</ol>}
+      {record.evidence && record.position && <section aria-label={tr("Liquidity result")} className="swap-result"><h3>{tr("Position created")}</h3>
+        <p>{tr("Position NFT #")}{tr(record.position.tokenId)}{tr(" is owned by your wallet ")}{tr(record.position.owner)}{tr(". Deposited ")}{tr(usdc(record.position.amount0))}{tr(" and ")}{tr(weth(record.position.amount1))}{tr("; liquidity ")}{tr(record.position.liquidity)}{tr("; ticks ")}{tr(record.position.tickLower)}{tr(" to ")}{tr(record.position.tickUpper)}{tr(". Independently reconciled.")}</p>
+        <p>{tr("Remaining allowances to the Position Manager: ")}{tr(usdc(record.evidence.residualAllowances.token0))} · {tr(weth(record.evidence.residualAllowances.token1))}.</p>
+        <p>{tr("Evidence: ")}{tr(record.evidence.evidenceClass)}{tr(" · bundle ")}{record.evidence.bundleHash}</p>
+        <a download="flofi-base-sepolia-liquidity-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>{tr("Download Evidence Bundle")}</a></section>}
+      {record.attempts.length > 0 && !record.evidence && <a download="flofi-base-sepolia-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>{tr("Download execution record")}</a>}
     </>}
-    {info && <p role="status">{networkCopy(message(info) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.', network)}</p>}
-    {lp.busy && <p role="status">Working…</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, run: record?.id, commitment: r?.commitment, calls: r?.calls, attempts: record?.attempts, verdict: record?.verdict }, null, 2)}</pre></details>
+    {info && <p role="status">{tr(networkCopy(message(info) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.', network))}</p>}
+    {lp.busy && <p role="status">{tr("Working…")}</p>}
+    <details><summary>{tr("Show technical details")}</summary><pre>{JSON.stringify({ error: info, run: record?.id, commitment: r?.commitment, calls: r?.calls, attempts: record?.attempts, verdict: record?.verdict }, null, 2)}</pre></details>
   </section>;
 }

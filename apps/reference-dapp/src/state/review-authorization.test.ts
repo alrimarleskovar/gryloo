@@ -10,6 +10,7 @@ vi.mock('react', async original => ({ ...await original<typeof import('react')>(
   if (f.state === undefined) f.state = initial;
   return [f.state, (value: unknown) => { f.state = value; }];
 } }));
+vi.mock('./workflow-store', () => ({ useWorkflow: () => f.stores.workflow }));
 vi.mock('./mode-a-store', () => ({ useModeA: () => f.stores.modeA }));
 vi.mock('./mode-b-store', () => ({ useModeB: () => f.stores.modeB }));
 vi.mock('./composition-store', () => ({ useComposition: () => f.stores.composition }));
@@ -28,7 +29,8 @@ vi.mock('./capability-store', () => ({ useExecutionEnvironment: () => f.stores.e
 beforeEach(() => {
   f.state = undefined;
   f.stores = Object.fromEntries(['modeA', 'modeB', 'composition', 'liquidity', 'supply', 'lending', 'router', 'public', 'jupiter', 'solanaPool', 'uniswapPool', 'transfer', 'across'].map(key => [key, { record: null, run: null, prepared: null, status: null, info: null, busy: false, retired: false }]));
-  f.stores.wallet = { account: reviewOwner, chainId: '0x14a34' };
+  f.stores.workflow = { restorationEpoch: 0 };
+  f.stores.wallet = { revision: 0, account: reviewOwner, chainId: '0x14a34' };
   f.stores.environment = { walletKind: 'evm', walletEnvironment: 'testnet', walletChain: '0x14a34' };
 });
 function supply() {
@@ -64,6 +66,32 @@ describe('shared wallet and existing Review capability', () => {
     expect(useReviewAuthorization('supply').wallet).toMatchObject({ account: reviewOwner, chain: 'eip155:84532', changed: true });
     f.stores.wallet!.provider = { key: 'io.metamask', name: 'MetaMask', icon: null };
     expect(useReviewAuthorization('supply').wallet.changed).toBe(true);
+  });
+  it('retires old approval after restoring the identical workflow and requires a fresh simulation', () => {
+    supply(); expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
+    f.stores.workflow!.restorationEpoch = 1;
+    expect(useReviewAuthorization('supply').wallet.changed).toBe(true);
+    expect(useReviewAuthorization('supply').authorization.ready).toBe(false);
+    (f.stores.supply!.record as { id: string }).id = 'fresh-after-restore';
+    expect(useReviewAuthorization('supply').wallet.changed).toBe(false);
+    expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
+  });
+  it('invalidates the old Manifest on a wallet event even when account and network return to the same identity', () => {
+    supply(); expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
+    f.stores.wallet!.revision = 1;
+    expect(useReviewAuthorization('supply').wallet.changed).toBe(true);
+    expect(useReviewAuthorization('supply').authorization.ready).toBe(false);
+    f.stores.wallet!.revision = 0;
+    expect(useReviewAuthorization('supply').authorization.ready).toBe(false);
+    (f.stores.supply!.record as { id: string }).id = 'fresh-manifest';
+    expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
+  });
+  it('does not invalidate the active Solana identity because of an inactive EVM revision', () => {
+    f.stores.environment = { walletKind: 'solana', walletEnvironment: 'testnet', walletChain: 'solana:devnet' };
+    f.stores.jupiter!.session = { account: { address: 'solanaConnectedAccount' }, chain: 'solana:devnet' };
+    expect(useReviewAuthorization('unavailable').wallet.changed).toBe(false);
+    f.stores.wallet!.revision = 1;
+    expect(useReviewAuthorization('unavailable').wallet.changed).toBe(false);
   });
   it('reflects chain changes and never infers Mainnet for an unknown chain', () => {
     supply(); useReviewAuthorization('supply');

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
+import { YourWorkflows, type WorkflowNavigation } from './saved-workflows';
 import { useJupiter } from '../state/jupiter-store';
 import { brandLabel, LABEL_MAX, networkLabel, type SavedCard, type SavedWallet } from '../domain/credentials';
 import { removeSavedCredential, renameSavedCredential, saveCardReference, saveWalletReference, useCredentials } from '../state/credentials-store';
@@ -29,7 +32,8 @@ function WorkspaceIcon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 function FutureAction({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <button type="button" className={`workspace-action ${className}`} disabled title="Coming soon">{children}</button>;
+  const { t: tr } = useLocale();
+  return <button type="button" className={`workspace-action ${className}`} disabled title={tr("Coming soon")}>{children}</button>;
 }
 
 function AddAction({ children }: { children: ReactNode }) {
@@ -60,6 +64,7 @@ function WalletCredentialCard({ entry, busy, onActivate, onDisconnect, onSave, o
   const [draft, setDraft] = useState(entry.label);
   const [renameError, setRenameError] = useState('');
   const renameId = useId();
+  const { t: tr } = useLocale();
   async function copyAddress() {
     try { await navigator.clipboard.writeText(entry.address); onStatus('Address copied.'); } catch { onStatus('Address could not be copied.'); }
   }
@@ -249,6 +254,7 @@ function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label:
 }
 
 function CredentialsWorkspace() {
+  const { t: tr } = useLocale();
   const evm = useBuild009Wallet();
   const solana = useJupiter();
   const credentials = useCredentials();
@@ -265,7 +271,9 @@ function CredentialsWorkspace() {
         label: saved.label, network: live?.network ?? saved.lastNetwork };
     }),
     ...active.filter(wallet => !credentials.wallets.some(saved => sameWallet(saved, wallet))).map(wallet => ({ saved: null, active: wallet,
-      ecosystem: wallet.ecosystem, address: wallet.address, providerKey: wallet.providerKey, providerName: wallet.providerName, label: wallet.providerName, network: wallet.network })),
+      ecosystem: wallet.ecosystem, address: wallet.address, providerKey: wallet.providerKey, providerName: wallet.providerName,
+      // ACCEPTANCE-FIXES-001: an unsaved session is the ecosystem's default identity; the provider stays visible beneath it.
+      label: wallet.ecosystem === 'evm' ? 'EVM Default' : 'Solana Default', network: wallet.network })),
   ];
   const busy = evm.busy || solana.busy;
   function save(wallet: ConnectedWallet) {
@@ -321,33 +329,35 @@ function CredentialsWorkspace() {
 }
 
 function AgentsWorkspace() {
+  const { t: tr } = useLocale();
   return <>
-    <header className="secondary-workspace-heading"><h1>Agents</h1><p>Connect AI agents and integrations to FloFi with explicit permissions and your authorization.</p></header>
-    <section className="workspace-connect-panel" aria-labelledby="connect-agent"><h2 id="connect-agent">CONNECT AN AGENT</h2>
+    <header className="secondary-workspace-heading"><h1>{tr("Agents")}</h1><p>{tr("Connect AI agents and integrations to FloFi with explicit permissions and your authorization.")}</p></header>
+    <section className="workspace-connect-panel" aria-labelledby="connect-agent"><h2 id="connect-agent">{tr("CONNECT AN AGENT")}</h2>
       <div className="workspace-provider-list">{[
         { name: 'Claude', light: '/brand/providers/claude-spark.svg', dark: null },
         { name: 'ChatGPT', light: '/brand/providers/openai-blossom-black.svg', dark: '/brand/providers/openai-blossom-white.svg' },
       ].map(provider => <FutureAction key={provider.name} className="workspace-provider"><span className="workspace-provider-mark" aria-hidden="true">
-        <img src={provider.light} className={provider.dark ? 'provider-mark-light' : undefined} width={provider.dark ? 56 : 28} height={provider.dark ? 56 : 28} alt=""/>
-        {provider.dark && <img src={provider.dark} className="provider-mark-dark" width="56" height="56" alt=""/>}
-      </span><span>Connect with {provider.name}</span><span className="workspace-provider-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h16m-5-5 5 5-5 5"/></svg></span></FutureAction>)}</div>
+        <img src={provider.light} className={provider.dark ? 'provider-mark-light' : undefined} width={provider.dark ? 56 : 28} height={provider.dark ? 56 : 28} alt={tr("")}/>
+        {provider.dark && <img src={provider.dark} className="provider-mark-dark" width="56" height="56" alt={tr("")}/>}
+      </span><span>{tr("Connect with ")}{provider.name}</span><span className="workspace-provider-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h16m-5-5 5 5-5 5"/></svg></span></FutureAction>)}</div>
     </section>
-    <section className="workspace-section" aria-labelledby="agent-clients"><div className="workspace-section-heading"><div><WorkspaceIcon name="agent"/><h2 id="agent-clients">Agents</h2><span className="workspace-count">0 active</span></div><AddAction>Create client</AddAction></div>
-      <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="agent" size={28}/></span><h3>No agent clients yet.</h3><AddAction>Create client</AddAction></div>
+    <section className="workspace-section" aria-labelledby="agent-clients"><div className="workspace-section-heading"><div><WorkspaceIcon name="agent"/><h2 id="agent-clients">{tr("Agents")}</h2><span className="workspace-count">{tr("0 active")}</span></div><AddAction>{tr("Create client")}</AddAction></div>
+      <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="agent" size={28}/></span><h3>{tr("No agent clients yet.")}</h3><AddAction>{tr("Create client")}</AddAction></div>
     </section>
   </>;
 }
 
 function PasskeysWorkspace() {
+  const { t: tr } = useLocale();
   return <>
-    <header className="secondary-workspace-heading"><h1>Passkeys</h1><p>Manage device passkeys associated with your FloFi account or session.</p></header>
-    <section className="workspace-passkey-control" aria-labelledby="passkey-unlock"><button type="button" role="switch" className="workspace-passkey-switch" aria-checked="false" aria-labelledby="passkey-unlock" aria-describedby="passkey-help" disabled title="Coming soon"><span/></button>
-      <div><h2 id="passkey-unlock">Unlock with a passkey</h2><p id="passkey-help">Turn on to add a passkey.</p></div>
+    <header className="secondary-workspace-heading"><h1>{tr("Passkeys")}</h1><p>{tr("Manage device passkeys associated with your FloFi account or session.")}</p></header>
+    <section className="workspace-passkey-control" aria-labelledby="passkey-unlock"><button type="button" role="switch" className="workspace-passkey-switch" aria-checked="false" aria-labelledby="passkey-unlock" aria-describedby="passkey-help" disabled title={tr("Coming soon")}><span/></button>
+      <div><h2 id="passkey-unlock">{tr("Unlock with a passkey")}</h2><p id="passkey-help">{tr("Turn on to add a passkey.")}</p></div>
     </section>
-    <section className="workspace-empty workspace-passkey-empty" aria-label="Passkeys"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><p>No passkeys yet. Add one to get started.</p></section>
+    <section className="workspace-empty workspace-passkey-empty" aria-label={tr("Passkeys")}><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><p>{tr("No passkeys yet. Add one to get started.")}</p></section>
   </>;
 }
 
-export function SecondaryProductWorkspace({ workspace }: { workspace: SecondaryWorkspace['id'] }) {
-  return workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
+export function SecondaryProductWorkspace({ workspace, workflows }: { workspace: SecondaryWorkspace['id']; workflows?: WorkflowNavigation | undefined }) {
+  return workspace === 'workflows' ? <YourWorkflows {...workflows}/> : workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
 }

@@ -45,6 +45,8 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer); }, [error]);
   const connected = useRef(false);
   const generation = useRef(0);
+  const events = useRef(0);
+  const suppressed = useRef(false);
   const invalidate = () => setRevision(n => n + 1);
   useEffect(() => {
     let detach: (() => void) | undefined;
@@ -61,30 +63,48 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
       setAccount(null); setChainId(null); setBusy(false); invalidate();
       const provider = describe();
       if (!provider) return;
-      const op = generation.current;
-      // Passive reuse never opens a wallet prompt. A future landing-page connection is visible here.
-      if (passiveReuseAllowed()) Promise.all([provider.request({ method: 'eth_accounts' }), provider.request({ method: 'eth_chainId' })]).then(([accounts, chain]) => {
-        if (op !== generation.current || !Array.isArray(accounts) || !validAccount(accounts[0]) ||
-            typeof chain !== 'string' || !/^0x[0-9a-fA-F]+$/.test(chain)) return;
-        connected.current = true; setAccount(accounts[0].toLowerCase()); setChainId(chain.toLowerCase()); invalidate();
-      }).catch(() => undefined);
+      suppressed.current = false;
+      // Passive reuse never opens a wallet prompt, and never runs after the owner disconnected in FloFi (HOTFIX-WALLET-SELECTOR).
+      // Provider identity and event epoch protect passive reads from overwriting newer wallet state.
+      const synchronize = () => {
+        if (!passiveReuseAllowed()) return;
+        const op = generation.current, epoch = events.current;
+        Promise.all([provider.request({ method: 'eth_accounts' }), provider.request({ method: 'eth_chainId' })]).then(([accounts, chain]) => {
+          if (op !== generation.current || epoch !== events.current || injected() !== provider || suppressed.current || !passiveReuseAllowed()) return;
+          const next = Array.isArray(accounts) && validAccount(accounts[0]) ? accounts[0].toLowerCase() : null;
+          connected.current = Boolean(next); setAccount(next);
+          setChainId(next && typeof chain === 'string' && /^0x[0-9a-fA-F]+$/.test(chain) ? chain.toLowerCase() : null);
+          invalidate();
+        }).catch(() => undefined);
+      };
+      const active = () => injected() === provider && !suppressed.current && passiveReuseAllowed();
       const accountsChanged = (...args: unknown[]) => {
-        if (!connected.current) return;
+        if (!active()) return;
+        ++events.current;
         const accounts = args[0];
         const next = Array.isArray(accounts) && validAccount(accounts[0]) ? accounts[0].toLowerCase() : null;
-        if (!next) connected.current = false;
-        setAccount(next); invalidate();
+        connected.current = Boolean(next); setAccount(next); setChainId(null); invalidate();
+        if (next) synchronize();
       };
       const chainChanged = (...args: unknown[]) => {
-        if (!connected.current) return;
-        setChainId(typeof args[0] === 'string' ? args[0].toLowerCase() : null); invalidate();
+        if (!active()) return;
+        ++events.current;
+        setChainId(typeof args[0] === 'string' && /^0x[0-9a-fA-F]+$/.test(args[0]) ? args[0].toLowerCase() : null); invalidate();
+        if (!connected.current) synchronize();
       };
-      const disconnected = () => { connected.current = false; setAccount(null); setChainId(null); invalidate(); };
+      const disconnected = () => {
+        if (!active()) return;
+        ++generation.current; ++events.current;
+        connected.current = false; setAccount(null); setChainId(null); setBusy(false); invalidate();
+      };
+      const reconnected = () => { if (active()) synchronize(); };
+      synchronize();
+      provider.on?.('connect', reconnected);
       provider.on?.('accountsChanged', accountsChanged);
       provider.on?.('chainChanged', chainChanged);
       provider.on?.('disconnect', disconnected);
       detach = () => { provider.removeListener?.('accountsChanged', accountsChanged); provider.removeListener?.('chainChanged', chainChanged);
-        provider.removeListener?.('disconnect', disconnected); };
+        provider.removeListener?.('disconnect', disconnected); provider.removeListener?.('connect', reconnected); };
     };
     const unsubscribe = subscribeEvmSelection(bind);
     // A new announcement can change availability and names without changing the provider in use.
@@ -95,11 +115,11 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
   const session = useCallback(async (): Promise<WalletSession | null> => {
     const provider = injected();
     if (!provider || !passiveReuseAllowed()) return null;
-    const op = generation.current;
+    const op = generation.current, epoch = events.current;
     try {
       const accounts = await provider.request({ method: 'eth_accounts' });
       const chain = await provider.request({ method: 'eth_chainId' });
-      if (op !== generation.current || injected() !== provider) return null;
+      if (op !== generation.current || epoch !== events.current || injected() !== provider) return null;
       if (!Array.isArray(accounts) || !validAccount(accounts[0]) || typeof chain !== 'string' || !/^0x[0-9a-fA-F]+$/.test(chain)) return null;
       connected.current = true; setAccount(accounts[0].toLowerCase()); setChainId(chain.toLowerCase());
       return { account: accounts[0].toLowerCase(), chainId: chain.toLowerCase() };
@@ -109,13 +129,14 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
     // Recording the choice rebinds listeners to this provider before the single account request below.
     const provider = chooseEvmWallet(choiceId);
     if (!provider) { setError('That wallet is no longer available. Refresh the page and choose it again.'); return null; }
-    setBusy(true); setError(null); const op = ++generation.current;
+    suppressed.current = false;
+    setBusy(true); setError(null); const op = ++generation.current, epoch = events.current;
     try {
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
       const chain = await provider.request({ method: 'eth_chainId' });
       if (!Array.isArray(accounts) || !validAccount(accounts[0]) || typeof chain !== 'string' || !/^0x[0-9a-fA-F]+$/.test(chain))
         throw new Error('Wallet returned an invalid account or chain');
-      if (op !== generation.current || injected() !== provider) return null;
+      if (op !== generation.current || epoch !== events.current || injected() !== provider) return null;
       connected.current = true; setAccount(accounts[0].toLowerCase()); setChainId(chain.toLowerCase()); invalidate();
       setIdentity(evmWalletIdentity(provider));
       return { account: accounts[0].toLowerCase(), chainId: chain.toLowerCase() };
@@ -134,14 +155,16 @@ export function Build009WalletProvider({ children }: { children: ReactNode }) {
     setBusy(true); setError(null); const op = ++generation.current;
     try {
       await switchWalletNetwork(provider, chain);
-      if (op !== generation.current || injected() !== provider) return;
-      setChainId(chain); invalidate();
+      const epoch = events.current;
+      const actual = await provider.request({ method: 'eth_chainId' });
+      if (op !== generation.current || epoch !== events.current || injected() !== provider) return;
+      setChainId(typeof actual === 'string' && /^0x[0-9a-fA-F]+$/.test(actual) ? actual.toLowerCase() : null); invalidate();
     } catch { if (op === generation.current) setError('Could not switch networks. Check your wallet and try again.'); }
     finally { if (op === generation.current) setBusy(false); }
   }, [chainId]);
   // Disconnect ends FloFi's use of the wallet: no silent reuse until the owner picks a wallet again.
-  const reset = useCallback(() => { ++generation.current; connected.current = false; setAccount(null); setChainId(null);
-    updateWalletPreference({ evmDisconnected: true }); clearChosenEvmWallet();
+  const reset = useCallback(() => { ++generation.current; ++events.current; connected.current = false; setAccount(null); setChainId(null);
+    updateWalletPreference({ evmDisconnected: true }); clearChosenEvmWallet(); suppressed.current = true;
     setError(null); setBusy(false); invalidate(); }, []);
   return <Context.Provider value={{ available, providerError, account, chainId, provider: identity, error, revision, busy, session, connect, connectWith, switchTo, reset }}>{children}</Context.Provider>;
 }

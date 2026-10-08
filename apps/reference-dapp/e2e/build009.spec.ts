@@ -26,7 +26,7 @@ test('BUILD-009 passive wallet restoration and read-only quote cannot grant prod
     } });
   }, OWNER);
   await page.goto('/');
-  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
+  await expect(page.getByText('EVM Default: 0x1111…1111 · Base (8453)')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
@@ -36,7 +36,7 @@ test('BUILD-009 passive wallet restoration and read-only quote cannot grant prod
   await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
   await applyPendingProposal(page);
   await expect(page.getByText('Workflow network: Base (8453)', { exact: true })).toBeVisible();
-  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
+  await expect(page.getByText('EVM Default: 0x1111…1111 · Base (8453)')).toBeVisible();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await openSimulationDetails(page);
   const panel = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });
@@ -50,7 +50,7 @@ test('BUILD-009 passive wallet restoration and read-only quote cannot grant prod
   await expect(page.getByRole('button', { name: 'Rehearse MOCKED source submission', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Download Evidence Bundle' })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
+  await expect(page.getByText('EVM Default: 0x1111…1111 · Base (8453)')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
@@ -92,7 +92,7 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
   await chooseWallet(page, 'Browser wallet');
   await expect(page.getByRole('button', { name: 'Switch to Base (8453)' })).toBeVisible();
   await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
-  await expect(page.getByText('Wallet: 0x1111…1111 · Base (8453)')).toBeVisible();
+  await expect(page.getByText('EVM Default: 0x1111…1111 · Base (8453)')).toBeVisible();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await openSimulationDetails(page);
   const panel = page.getByRole('region', { name: 'Base to Arbitrum bridge and swap' });

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { createSolanaLiquidityNode, solanaLiquidityDetails, solanaLiquidityInputOf, SOLANA_LIQUIDITY_DEFAULT_SLIPPAGE, type SolanaLiquidityInput } from '../domain/solana-liquidity-authoring';
 import { poolPriceBounds, usePoolPriceRange } from './pool-price-range';
@@ -12,6 +14,7 @@ import { useSolanaLiquidity, type LiquidityOperation } from '../state/solana-liq
 
 /** Canvas form for the canonical concentrated-liquidity node on Solana Devnet (Orca Whirlpools, SOL / devUSDC test pool). */
 export function SolanaLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?: string; onDone?: () => void; reviewFormId?: string }) {
+  const { t: tr } = useLocale();
   const { state, propose } = useWorkflow(), liquidity = useSolanaLiquidity();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId);
   const range = usePoolPriceRange(nodeId);
@@ -49,19 +52,19 @@ export function SolanaLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?:
     try { effectiveInput = { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) }; } catch { /* submit reports the existing validation failure */ }
   }
   const unit = effectiveInput.rangeUnit === 'PRICE' ? 'price (devUSDC per SOL)' : 'tick';
-  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId ? 'Edit Solana Devnet liquidity position' : 'Create Solana Devnet liquidity position'} onSubmit={submit}>
-    <p className="muted">Orca Whirlpools · Devnet SOL / devUSDC (test) · fee 0.20% · tick spacing 64. Maxima are limits, not amounts to spend.</p>
-    <label>Maximum Devnet SOL<TokenAmountInput aria-label="Maximum SOL" maxLength={40} value={contributionInput.maxSol} onValueChange={maxSol => set({ maxSol })}/></label>
-    <label>Maximum devUSDC (test)<TokenAmountInput aria-label="Maximum devUSDC" maxLength={40} value={contributionInput.maxDevUsdc} onValueChange={maxDevUsdc => set({ maxDevUsdc })}/></label>
-    <label>Lower {unit}<input aria-label="Lower bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
-    <label>Upper {unit}<input aria-label="Upper bound" inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
-    <button type="button" className="quiet" disabled={liquidity.busy} onClick={() => void band()}>Use ±10% around the current Devnet price</button>
-    {liquidity.price && <small>Current pool price {liquidity.price.price} devUSDC per SOL (tick {liquidity.price.tickCurrentIndex}, slot {liquidity.price.slot}). The range is aligned outward to usable ticks.</small>}
-    <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
-    <p className="muted">Devnet test tokens have no value. The position belongs to your connected wallet.</p>
-    {error && <p role="alert">{error}</p>}
-    {!reviewFormId && <button type="submit">{nodeId ? 'Review position change' : 'Review position proposal'}</button>}
-    {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+  return <form id={reviewFormId} className="inspector-fields" aria-label={tr(nodeId ? 'Edit Solana Devnet liquidity position' : 'Create Solana Devnet liquidity position')} onSubmit={submit}>
+    <p className="muted">{tr("Orca Whirlpools · Devnet SOL / devUSDC (test) · fee 0.20% · tick spacing 64. Maxima are limits, not amounts to spend.")}</p>
+    <label>{tr("Maximum Devnet SOL")}<TokenAmountInput aria-label={tr("Maximum SOL")} maxLength={40} value={contributionInput.maxSol} onValueChange={maxSol => set({ maxSol })}/></label>
+    <label>{tr("Maximum devUSDC (test)")}<TokenAmountInput aria-label={tr("Maximum devUSDC")} maxLength={40} value={contributionInput.maxDevUsdc} onValueChange={maxDevUsdc => set({ maxDevUsdc })}/></label>
+    <label>{tr("Lower ")}{tr(unit)}<input aria-label={tr("Lower bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
+    <label>{tr("Upper ")}{tr(unit)}<input aria-label={tr("Upper bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
+    <button type="button" className="quiet" disabled={liquidity.busy} onClick={() => void band()}>{tr("Use ±10% around the current Devnet price")}</button>
+    {liquidity.price && <small>{tr("Current pool price ")}{tr(liquidity.price.price)}{tr(" devUSDC per SOL (tick ")}{tr(liquidity.price.tickCurrentIndex)}{tr(", slot ")}{tr(liquidity.price.slot)}{tr("). The range is aligned outward to usable ticks.")}</small>}
+    <label>{tr("Slippage (bps)")}<input aria-label={tr("Liquidity slippage (bps)")} inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
+    <p className="muted">{tr("Devnet test tokens have no value. The position belongs to your connected wallet.")}</p>
+    {error && <p role="alert">{tr(error)}</p>}
+    {!reviewFormId && <button type="submit">{tr(nodeId ? 'Review position change' : 'Review position proposal')}</button>}
+    {onDone && <button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }
 
@@ -104,6 +107,7 @@ const labels: Record<LiquidityOperation, string> = { OPEN: 'Open position and ad
   EXIT: 'Remove all liquidity, collect fees and close the position' };
 
 export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' }) {
+  const { t: tr } = useLocale();
   const { state } = useWorkflow(), jupiter = useJupiter(), liquidity = useSolanaLiquidity();
   const node = state.workflow.nodes.find(n => solanaLiquidityDetails(n)), fields = node ? solanaLiquidityDetails(node) : null;
   const record = liquidity.record, review = record?.review, attempt = record?.attempt, sim = review?.simulationResult;
@@ -116,87 +120,87 @@ export function SolanaLiquidityPanel({ view }: { view: 'simulate' | 'execute' })
   const canExecute = Boolean(record?.authorization && !liquidity.retired && !attempt && record.verdict === 'PENDING' && fresh > 0 && liquidity.executionEnabled);
   const observation = record?.observations.at(-1), info = liquidity.error ?? record?.error, effects = observation?.effects;
   const created = review?.accounts.mayBeCreated ?? [];
-  return <section className="panel" aria-label="Solana Devnet liquidity"><h2>{view === 'simulate' ? 'Simulate liquidity position' : 'Review liquidity position'}</h2>
-    {fields && <p>Concentrated liquidity on Solana Devnet via Orca Whirlpools: up to {fields.maxSol} Devnet SOL and {fields.maxDevUsdc} devUSDC between {fields.lowerPrice} and {fields.upperPrice} devUSDC per SOL.</p>}
-    <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>
-    {liquidity.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current position again.</p>}
-    {!liquidity.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect('solana:devnet')}>Connect Solana wallet</button>}
-    {liquidity.owner && <p>Wallet connected · Solana Devnet: <span>{liquidity.owner}</span></p>}
-    {jupiter.error && !liquidity.owner && <p role="status">{jupiter.error}</p>}
-    {liquidity.positions && <section aria-label="Your Flofi positions"><h3>Your Flofi positions on this pool</h3>
-      {liquidity.positions.length === 0 ? <p className="muted">None yet.</p> : <ul>{liquidity.positions.map(p => <li key={p.positionMint}>
-        <code>{p.positionMint}</code> · {p.status.toLowerCase().replaceAll('_', ' ')}{p.liquidity !== null ? ` · liquidity ${p.liquidity}` : ''}
-        {p.feeOwedA !== null ? ` · recorded fees owed ${sol(p.feeOwedA)} / ${usdc(p.feeOwedB)}` : ''}
-        {' · '}{p.runs.map(r => `${r.operation.toLowerCase().replaceAll('_', ' ')}: ${(r.state ?? 'not started').toLowerCase().replaceAll('_', ' ')}`).join(' → ')}
+  return <section className="panel" aria-label={tr("Solana Devnet liquidity")}><h2>{tr(view === 'simulate' ? 'Simulate liquidity position' : 'Review liquidity position')}</h2>
+    {fields && <p>{tr("Concentrated liquidity on Solana Devnet via Orca Whirlpools: up to ")}{tr(fields.maxSol)}{tr(" Devnet SOL and ")}{tr(fields.maxDevUsdc)}{tr(" devUSDC between ")}{tr(fields.lowerPrice)}{tr(" and ")}{tr(fields.upperPrice)}{tr(" devUSDC per SOL.")}</p>}
+    <p role="note">{tr("Solana Devnet test tokens only. They have no value, and no real funds are used.")}</p>
+    {liquidity.retired && <p role="alert">{tr("The workflow changed. Prior authorization is invalid. Simulate the current position again.")}</p>}
+    {!liquidity.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect('solana:devnet')}>{tr("Connect Solana wallet")}</button>}
+    {liquidity.owner && <p>{tr("Wallet connected · Solana Devnet: ")}<span>{tr(liquidity.owner)}</span></p>}
+    {jupiter.error && !liquidity.owner && <p role="status">{tr(jupiter.error)}</p>}
+    {liquidity.positions && <section aria-label={tr("Your Flofi positions")}><h3>{tr("Your Flofi positions on this pool")}</h3>
+      {liquidity.positions.length === 0 ? <p className="muted">{tr("None yet.")}</p> : <ul>{liquidity.positions.map(p => <li key={p.positionMint}>
+        <code>{tr(p.positionMint)}</code> · {tr(p.status.toLowerCase().replaceAll('_', ' '))}{tr(p.liquidity !== null ? ` · liquidity ${p.liquidity}` : '')}
+        {tr(p.feeOwedA !== null ? ` · recorded fees owed ${sol(p.feeOwedA)} / ${usdc(p.feeOwedB)}` : '')}
+        {tr(' · ')}{tr(p.runs.map(r => `${r.operation.toLowerCase().replaceAll('_', ' ')}: ${(r.state ?? 'not started').toLowerCase().replaceAll('_', ' ')}`).join(' → '))}
       </li>)}</ul>}
-      <p className="muted">Recorded fees owed update only when the position is modified; collection may include more. Principal returned by a removal is never counted as fees.</p>
-      <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.owner} onClick={() => void liquidity.refreshPositions()}>Inspect positions</button></section>}
+      <p className="muted">{tr("Recorded fees owed update only when the position is modified; collection may include more. Principal returned by a removal is never counted as fees.")}</p>
+      <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.owner} onClick={() => void liquidity.refreshPositions()}>{tr("Inspect positions")}</button></section>}
     {view === 'simulate' ? <>
-      <div role="group" aria-label="Liquidity operation">
-        <label htmlFor="orca-operation">Operation</label>
+      <div role="group" aria-label={tr("Liquidity operation")}>
+        <label htmlFor="orca-operation">{tr("Operation")}</label>
         <select id="orca-operation" value={operation} onChange={e => setOperation(e.target.value as LiquidityOperation)}>
           {(['OPEN', 'DECREASE_PARTIAL', 'EXIT'] as const).filter(op => op === 'OPEN' ? !active : Boolean(active && active.status !== 'OPEN_PENDING'))
-            .map(op => <option key={op} value={op}>{labels[op]}</option>)}
+            .map(op => <option key={op} value={op}>{tr(labels[op])}</option>)}
         </select>
-        {operation === 'DECREASE_PARTIAL' && <label>Portion to remove (basis points, 1–9999)<input aria-label="Portion to remove (bps)" inputMode="numeric" maxLength={4} value={part} onChange={e => setPart(e.target.value)}/></label>}
+        {operation === 'DECREASE_PARTIAL' && <label>{tr("Portion to remove (basis points, 1–9999)")}<input aria-label={tr("Portion to remove (bps)")} inputMode="numeric" maxLength={4} value={part} onChange={e => setPart(e.target.value)}/></label>}
       </div>
       <button type="button" disabled={liquidity.busy || pending || !liquidity.owner} onClick={() => void liquidity.simulate(operation, operation === 'OPEN' ? undefined : active?.positionMint,
-        operation === 'DECREASE_PARTIAL' ? Number(part) : undefined)}>Simulate {operation === 'OPEN' ? 'position' : 'removal'}</button>
-      {review && sim && !liquidity.retired && <dl className="swap-summary" aria-label="Liquidity simulation">
-        <dt>Operation</dt><dd>{labels[review.operation]} (1 transaction; the full lifecycle is open, partial removal, then exit)</dd>
-        <dt>Network</dt><dd>Solana Devnet (genesis {review.genesisHash})</dd><dt>Provider</dt><dd>Orca Whirlpools · program <code>{review.program}</code></dd>
-        <dt>Pool</dt><dd><code>{review.pool.address}</code> · config <code>{review.whirlpoolsConfig}</code></dd>
-        <dt>Token mints</dt><dd>Devnet SOL <code>{review.token0.mint}</code> / devUSDC (test) <code>{review.token1.mint}</code></dd>
-        <dt>Pool price</dt><dd>{review.pool.price} devUSDC per SOL · current tick {review.pool.tickCurrentIndex} · tick spacing {review.pool.tickSpacing} · fee {review.pool.feeRate / 10_000}% · slot {review.pool.slot}</dd>
-        <dt>Range</dt><dd>{review.range.lowerPrice}–{review.range.upperPrice} devUSDC per SOL · aligned ticks {review.range.tickLower} to {review.range.tickUpper} · {review.range.state.toLowerCase().replace('_', ' ')}</dd>
-        <dt>Maximum inputs</dt><dd>{sol(review.intent.amount0Max)} · {usdc(review.intent.amount1Max)}</dd>
+        operation === 'DECREASE_PARTIAL' ? Number(part) : undefined)}>{tr("Simulate ")}{tr(operation === 'OPEN' ? 'position' : 'removal')}</button>
+      {review && sim && !liquidity.retired && <dl className="swap-summary" aria-label={tr("Liquidity simulation")}>
+        <dt>{tr("Operation")}</dt><dd>{tr(labels[review.operation])}{tr(" (1 transaction; the full lifecycle is open, partial removal, then exit)")}</dd>
+        <dt>{tr("Network")}</dt><dd>{tr("Solana Devnet (genesis ")}{tr(review.genesisHash)})</dd><dt>{tr("Provider")}</dt><dd>{tr("Orca Whirlpools · program ")}<code>{tr(review.program)}</code></dd>
+        <dt>{tr("Pool")}</dt><dd><code>{review.pool.address}</code>{tr(" · config ")}<code>{tr(review.whirlpoolsConfig)}</code></dd>
+        <dt>{tr("Token mints")}</dt><dd>{tr("Devnet SOL ")}<code>{tr(review.token0.mint)}</code>{tr(" / devUSDC (test) ")}<code>{tr(review.token1.mint)}</code></dd>
+        <dt>{tr("Pool price")}</dt><dd>{tr(review.pool.price)}{tr(" devUSDC per SOL · current tick ")}{tr(review.pool.tickCurrentIndex)}{tr(" · tick spacing ")}{tr(review.pool.tickSpacing)}{tr(" · fee ")}{tr(review.pool.feeRate / 10_000)}{tr("% · slot ")}{tr(review.pool.slot)}</dd>
+        <dt>{tr("Range")}</dt><dd>{tr(review.range.lowerPrice)}–{tr(review.range.upperPrice)}{tr(" devUSDC per SOL · aligned ticks ")}{tr(review.range.tickLower)}{tr(" to ")}{tr(review.range.tickUpper)} · {tr(review.range.state.toLowerCase().replace('_', ' '))}</dd>
+        <dt>{tr("Maximum inputs")}</dt><dd>{tr(sol(review.intent.amount0Max))} · {tr(usdc(review.intent.amount1Max))}</dd>
         {review.operation === 'OPEN' ? <>
-          <dt>Expected contribution</dt><dd>{sol(review.expected.amountA)} + {usdc(review.expected.amountB)} (simulated, not executed)</dd>
-          <dt>Expected liquidity</dt><dd>{review.expected.liquidity}</dd>
-          <dt>Slippage bounds</dt><dd>{review.intent.slippageBps} bps → at most {sol(review.operationPlan.tokenA)} and {usdc(review.operationPlan.tokenB)}, never above your maxima</dd>
-          <dt>Expected residual</dt><dd>{sol(sim.residualTokenA)} not deposited (stays in your wallet) · devUSDC balance after {usdc(sim.residualTokenB)}</dd>
+          <dt>{tr("Expected contribution")}</dt><dd>{tr(sol(review.expected.amountA))} + {tr(usdc(review.expected.amountB))}{tr(" (simulated, not executed)")}</dd>
+          <dt>{tr("Expected liquidity")}</dt><dd>{tr(review.expected.liquidity)}</dd>
+          <dt>{tr("Slippage bounds")}</dt><dd>{tr(review.intent.slippageBps)}{tr(" bps → at most ")}{tr(sol(review.operationPlan.tokenA))}{tr(" and ")}{tr(usdc(review.operationPlan.tokenB))}{tr(", never above your maxima")}</dd>
+          <dt>{tr("Expected residual")}</dt><dd>{tr(sol(sim.residualTokenA))}{tr(" not deposited (stays in your wallet) · devUSDC balance after ")}{tr(usdc(sim.residualTokenB))}</dd>
         </> : <>
-          <dt>Liquidity removed</dt><dd>{review.expected.liquidity} of the position (remaining {review.expected.positionLiquidityAfter})</dd>
-          <dt>Expected principal returned</dt><dd>{sol(review.expected.amountA)} + {usdc(review.expected.amountB)}; minimum {sol(review.operationPlan.tokenA)} + {usdc(review.operationPlan.tokenB)} ({review.intent.slippageBps} bps)</dd>
-          <dt>Fees collected (simulated)</dt><dd>{sol(sim.collectedFeesA)} + {usdc(sim.collectedFeesB)} (separate from principal)</dd>
+          <dt>{tr("Liquidity removed")}</dt><dd>{tr(review.expected.liquidity)}{tr(" of the position (remaining ")}{tr(review.expected.positionLiquidityAfter)})</dd>
+          <dt>{tr("Expected principal returned")}</dt><dd>{tr(sol(review.expected.amountA))} + {tr(usdc(review.expected.amountB))}{tr("; minimum ")}{tr(sol(review.operationPlan.tokenA))} + {tr(usdc(review.operationPlan.tokenB))} ({tr(review.intent.slippageBps)}{tr(" bps)")}</dd>
+          <dt>{tr("Fees collected (simulated)")}</dt><dd>{tr(sol(sim.collectedFeesA))} + {tr(usdc(sim.collectedFeesB))}{tr(" (separate from principal)")}</dd>
         </>}
-        <dt>Owner balances</dt><dd>{sol(review.ownerBalances.lamports)} · {usdc(review.ownerBalances.tokenB ?? '0')}</dd>
-        <dt>Token accounts</dt><dd>wrapped SOL (temporary, closed in the same transaction) <code>{review.accounts.ownerTokenA}</code> · devUSDC <code>{review.accounts.ownerTokenB}</code> · position token (Token-2022) <code>{review.accounts.positionTokenAccount}</code></dd>
-        <dt>Position</dt><dd>{review.operation === 'OPEN' ? 'new' : 'existing'} position mint <code>{review.accounts.positionMint}</code> · position account <code>{review.accounts.position}</code> · owner: your wallet</dd>
-        <dt>Accounts that may be created</dt><dd>{created.length ? created.map(a => <code key={a}>{a} </code>) : 'none'}</dd>
-        <dt>Estimated network fee</dt><dd>{sol(review.estimatedFeeLamports)} ({review.signers.length} signature{review.signers.length > 1 ? 's' : ''})</dd>
-        <dt>Account deposits</dt><dd>{review.operation === 'OPEN' ? `${sol(sim.rentPaidLamports)} refundable when the position is closed` : sim.rentRefundedLamports !== '0' ? `${sol(sim.rentRefundedLamports)} refunded on close` : 'none'}</dd>
-        <dt>Programs</dt><dd>{review.programs.map(p => <code key={p}>{p} </code>)}</dd>
-        <dt>Review freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired — simulate again'}</dd>
+        <dt>{tr("Owner balances")}</dt><dd>{tr(sol(review.ownerBalances.lamports))} · {tr(usdc(review.ownerBalances.tokenB ?? '0'))}</dd>
+        <dt>{tr("Token accounts")}</dt><dd>{tr("wrapped SOL (temporary, closed in the same transaction) ")}<code>{tr(review.accounts.ownerTokenA)}</code>{tr(" · devUSDC ")}<code>{tr(review.accounts.ownerTokenB)}</code>{tr(" · position token (Token-2022) ")}<code>{tr(review.accounts.positionTokenAccount)}</code></dd>
+        <dt>{tr("Position")}</dt><dd>{tr(review.operation === 'OPEN' ? 'new' : 'existing')}{tr(" position mint ")}<code>{tr(review.accounts.positionMint)}</code>{tr(" · position account ")}<code>{tr(review.accounts.position)}</code>{tr(" · owner: your wallet")}</dd>
+        <dt>{tr("Accounts that may be created")}</dt><dd>{created.length ? created.map(a => <code key={a}>{tr(a)} </code>) : 'none'}</dd>
+        <dt>{tr("Estimated network fee")}</dt><dd>{tr(sol(review.estimatedFeeLamports))} ({tr(review.signers.length)}{tr(" signature")}{tr(review.signers.length > 1 ? 's' : '')})</dd>
+        <dt>{tr("Account deposits")}</dt><dd>{tr(review.operation === 'OPEN' ? `${sol(sim.rentPaidLamports)} refundable when the position is closed` : sim.rentRefundedLamports !== '0' ? `${sol(sim.rentRefundedLamports)} refunded on close` : 'none')}</dd>
+        <dt>{tr("Programs")}</dt><dd>{review.programs.map(p => <code key={p}>{tr(p)} </code>)}</dd>
+        <dt>{tr("Review freshness")}</dt><dd>{tr(fresh > 0 ? `Valid for ${fresh}s` : 'Expired — simulate again')}</dd>
       </dl>}
     </> : <>
-      {review && <dl className="swap-summary" aria-label="Liquidity review">
-        <dt>Owner and position authority</dt><dd>{review.owner}</dd><dt>Operation</dt><dd>{labels[review.operation]}</dd>
-        <dt>Range</dt><dd>ticks {review.range.tickLower} to {review.range.tickUpper} ({review.range.lowerPrice}–{review.range.upperPrice} devUSDC per SOL)</dd>
-        <dt>{review.operation === 'OPEN' ? 'Deposit at most' : 'Receive at least'}</dt><dd>{sol(review.operationPlan.tokenA)} + {usdc(review.operationPlan.tokenB)} · liquidity {review.operationPlan.liquidityDelta}</dd>
-        <dt>Signers</dt><dd>{review.signers.length === 2 ? <>your wallet, then a one-time position-mint key created in this browser (<code>{review.signers[1]}</code>; no authority after creation)</> : 'your wallet only'}</dd>
-        <dt>Exact message</dt><dd><code>{review.messageHash}</code> · blockhash <code>{review.blockhash}</code> · valid to block height {review.lastValidBlockHeight}</dd>
-        {!attempt && <><dt>Review freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired'}</dd></>}
+      {review && <dl className="swap-summary" aria-label={tr("Liquidity review")}>
+        <dt>{tr("Owner and position authority")}</dt><dd>{tr(review.owner)}</dd><dt>{tr("Operation")}</dt><dd>{tr(labels[review.operation])}</dd>
+        <dt>{tr("Range")}</dt><dd>{tr("ticks ")}{tr(review.range.tickLower)}{tr(" to ")}{tr(review.range.tickUpper)} ({tr(review.range.lowerPrice)}–{tr(review.range.upperPrice)}{tr(" devUSDC per SOL)")}</dd>
+        <dt>{tr(review.operation === 'OPEN' ? 'Deposit at most' : 'Receive at least')}</dt><dd>{tr(sol(review.operationPlan.tokenA))} + {tr(usdc(review.operationPlan.tokenB))}{tr(" · liquidity ")}{tr(review.operationPlan.liquidityDelta)}</dd>
+        <dt>{tr("Signers")}</dt><dd>{review.signers.length === 2 ? <>{tr("your wallet, then a one-time position-mint key created in this browser (")}<code>{tr(review.signers[1])}</code>{tr("; no authority after creation)")}</> : 'your wallet only'}</dd>
+        <dt>{tr("Exact message")}</dt><dd><code>{tr(review.messageHash)}</code>{tr(" · blockhash ")}<code>{tr(review.blockhash)}</code>{tr(" · valid to block height ")}{tr(review.lastValidBlockHeight)}</dd>
+        {!attempt && <><dt>{tr("Review freshness")}</dt><dd>{tr(fresh > 0 ? `Valid for ${fresh}s` : 'Expired')}</dd></>}
       </dl>}
-      {review && !attempt && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.</p>}
-      {record && !record.authorization && !attempt && !liquidity.retired && <button type="button" disabled={liquidity.busy || fresh === 0} onClick={() => void liquidity.review()}>Accept liquidity review</button>}
-      {record?.authorization && !attempt && !liquidity.executionEnabled && <p role="status">{message('ORCA_LIQUIDITY_EXECUTION_NOT_ENABLED')}</p>}
-      {canExecute && <button type="button" className="primary" disabled={liquidity.busy} onClick={() => void liquidity.execute()}>Execute {review?.operation === 'OPEN' ? 'position' : 'removal'}</button>}
-      {attempt && !record?.evidence && <p>Transaction: {record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' ')} {observation?.explorer && <a href={observation.explorer} target="_blank" rel="noreferrer">View transaction</a>}</p>}
-      {pending && <button type="button" disabled={liquidity.busy} onClick={() => void liquidity.observe()}>Observe existing transaction</button>}
-      {record?.evidence && observation && effects && <section aria-label="Liquidity result" className="swap-result">
-        <h3>Success</h3>
-        <p>{review?.operation === 'OPEN' ? `Position opened and independently reconciled. Deposited ${sol(effects.depositedA)} and ${usdc(effects.depositedB)}; refundable deposits ${sol(effects.rentPaidLamports)}.`
-          : `Liquidity removed and independently reconciled. Principal returned ${sol(effects.withdrawnPrincipalA)} and ${usdc(effects.withdrawnPrincipalB)}; fees collected ${sol(effects.collectedFeesA)} and ${usdc(effects.collectedFeesB)}${review?.operation === 'EXIT' ? `; position closed, ${sol(effects.rentRefundedLamports)} deposits refunded` : ''}.`} Network fee {sol(observation.feeLamports)}.</p>
-        <dl className="swap-summary"><dt>Transaction</dt><dd><code>{observation.signature}</code></dd>
-          {observation.explorer && <><dt>Explorer</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">View on Solana Explorer (Devnet)</a></dd></>}
-          <dt>Position</dt><dd><code>{review?.accounts.positionMint}</code></dd><dt>Slot</dt><dd>{observation.slot ?? '--'}</dd></dl>
-        <p>Evidence: {record.evidenceClass}</p>
-        <a download={`flofi-solana-devnet-liquidity-${review?.operation.toLowerCase()}-evidence.json`} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
-      {record && attempt && !record.evidence && <a download="flofi-solana-devnet-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+      {review && !attempt && <p role="note">{tr("Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.")}</p>}
+      {record && !record.authorization && !attempt && !liquidity.retired && <button type="button" disabled={liquidity.busy || fresh === 0} onClick={() => void liquidity.review()}>{tr("Accept liquidity review")}</button>}
+      {record?.authorization && !attempt && !liquidity.executionEnabled && <p role="status">{tr(message('ORCA_LIQUIDITY_EXECUTION_NOT_ENABLED'))}</p>}
+      {canExecute && <button type="button" className="primary" disabled={liquidity.busy} onClick={() => void liquidity.execute()}>{tr("Execute ")}{tr(review?.operation === 'OPEN' ? 'position' : 'removal')}</button>}
+      {attempt && !record?.evidence && <p>{tr("Transaction: ")}{tr(record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' '))} {observation?.explorer && <a href={observation.explorer} target="_blank" rel="noreferrer">{tr("View transaction")}</a>}</p>}
+      {pending && <button type="button" disabled={liquidity.busy} onClick={() => void liquidity.observe()}>{tr("Observe existing transaction")}</button>}
+      {record?.evidence && observation && effects && <section aria-label={tr("Liquidity result")} className="swap-result">
+        <h3>{tr("Success")}</h3>
+        <p>{tr(review?.operation === 'OPEN' ? `Position opened and independently reconciled. Deposited ${sol(effects.depositedA)} and ${usdc(effects.depositedB)}; refundable deposits ${sol(effects.rentPaidLamports)}.`
+          : `Liquidity removed and independently reconciled. Principal returned ${sol(effects.withdrawnPrincipalA)} and ${usdc(effects.withdrawnPrincipalB)}; fees collected ${sol(effects.collectedFeesA)} and ${usdc(effects.collectedFeesB)}${review?.operation === 'EXIT' ? `; position closed, ${sol(effects.rentRefundedLamports)} deposits refunded` : ''}.`)}{tr(" Network fee ")}{tr(sol(observation.feeLamports))}.</p>
+        <dl className="swap-summary"><dt>{tr("Transaction")}</dt><dd><code>{tr(observation.signature)}</code></dd>
+          {observation.explorer && <><dt>{tr("Explorer")}</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">{tr("View on Solana Explorer (Devnet)")}</a></dd></>}
+          <dt>{tr("Position")}</dt><dd><code>{tr(review?.accounts.positionMint)}</code></dd><dt>{tr("Slot")}</dt><dd>{tr(observation.slot ?? '--')}</dd></dl>
+        <p>{tr("Evidence: ")}{tr(record.evidenceClass)}</p>
+        <a download={`flofi-solana-devnet-liquidity-${review?.operation.toLowerCase()}-evidence.json`} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>{tr("Download Evidence Bundle")}</a></section>}
+      {record && attempt && !record.evidence && <a download="flofi-solana-devnet-liquidity-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>{tr("Download execution record")}</a>}
     </>}
-    {info && <p role="status">{message(info) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,
+    {info && <p role="status">{tr(message(info) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.')}</p>}
+    <details><summary>{tr("Show technical details")}</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,
       operation: review?.operation, plan: review?.operationPlan, instructions: review?.instructionSummary, accounts: review?.accounts, messageHash: review?.messageHash,
       blockhash: review?.blockhash, lastValidBlockHeight: review?.lastValidBlockHeight, simulation: sim && { ...sim, pre: undefined, post: undefined }, attempt,
       observations: record?.observations, verdict: record?.verdict }, null, 2)}</pre></details>

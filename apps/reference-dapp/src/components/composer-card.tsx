@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
+import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { useBuildEstimate } from '../state/build-estimate';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { composerSummary, composerNodeState } from '../domain/composer-presentation';
 import type { Command } from '../domain/commands';
@@ -37,10 +41,11 @@ function ValuePair({ relationship, className = '', children }: { relationship: '
 }
 
 function TokenChip({ symbol, network }: { symbol: string; network?: string }) {
+  const { t: tr } = useLocale();
   return <span className="composer-token-chip">
     <span className="composer-token-avatar" data-token={symbol}>
       <TokenBrandIcon symbol={symbol}/>
-      {network !== undefined && <span className="composer-network-badge" role="img" aria-label={`${network} network`} title={network}><NetworkBrandIcon network={network}/></span>}
+      {network !== undefined && <span className="composer-network-badge" role="img" aria-label={tr(`${network} network`)} title={network}><NetworkBrandIcon network={network}/></span>}
     </span>
     <span className="composer-amount-token">{symbol}</span>
   </span>;
@@ -48,7 +53,8 @@ function TokenChip({ symbol, network }: { symbol: string; network?: string }) {
 
 type TokenPickerControl = { label: string; expanded: boolean; controls: string; title?: string; onToggle(trigger: HTMLButtonElement): void };
 function TokenPill({ symbol, network, picker }: { symbol: string; network: string; picker: TokenPickerControl }) {
-  return <button type="button" className="composer-token-chip composer-equity-pill composer-token-pill nodrag nopan" aria-label={picker.label} aria-expanded={picker.expanded} aria-controls={picker.controls} title={picker.title}
+  const { t: tr } = useLocale();
+  return <button type="button" className="composer-token-chip composer-equity-pill composer-token-pill nodrag nopan" aria-label={tr(picker.label)} aria-expanded={picker.expanded} aria-controls={picker.controls} title={tr(picker.title)}
     onClick={event => { event.stopPropagation(); picker.onToggle(event.currentTarget); }} onKeyDown={event => event.stopPropagation()}>
     <TokenChip symbol={symbol} network={network}/>
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m3 4 3 3 3-3"/></svg>
@@ -56,11 +62,12 @@ function TokenPill({ symbol, network, picker }: { symbol: string; network: strin
 }
 
 function TokenPicker({ symbol, network, options, onChange }: { symbol: string; network: string; options: readonly string[]; onChange(symbol: string): void }) {
+  const { t: tr } = useLocale();
   const name = useId();
   const listRef = useRef<HTMLFieldSetElement>(null);
   useEffect(() => { listRef.current?.querySelector<HTMLInputElement>('input:checked')?.focus(); }, []);
   return <fieldset ref={listRef} className="composer-stock-options composer-token-options">
-    <legend className="sr-only">Choose token on {network}</legend>
+    <legend className="sr-only">{tr("Choose token on ")}{network}</legend>
     {options.map(option => <label key={option} className="composer-stock-option" data-selected={option === symbol || undefined}>
       <input className="sr-only" type="radio" name={name} value={option} aria-label={option} checked={option === symbol} onChange={() => onChange(option)}/>
       <TokenChip symbol={option}/>
@@ -73,8 +80,9 @@ function NetworkBadge({ network }: { network: string }) {
   return <span className="composer-bridge-network-icon" aria-hidden="true"><NetworkBrandIcon network={network}/></span>;
 }
 function NetworkPicker({ network, options, unavailable = [], onSelect }: { network: string; options: readonly string[]; unavailable?: readonly string[] | undefined; onSelect(network: string): void }) {
+  const { t: tr } = useLocale();
   return <fieldset className="composer-stock-options composer-network-options">
-    <legend className="sr-only">Choose network</legend>
+    <legend className="sr-only">{tr("Choose network")}</legend>
     {[...options, ...unavailable].map(option => <button key={option} type="button" className="composer-stock-option" disabled={unavailable.includes(option)} aria-label={option} aria-pressed={option === network} data-selected={option === network || undefined} onClick={() => onSelect(option)}>
       <NetworkBadge network={option}/><span>{option}</span>
       <svg className="composer-stock-check" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>
@@ -87,22 +95,23 @@ function AssetNetworkPicker({ id, side, symbol, network, tokens, networks, unava
   onTokenChange(symbol: string): void; onNetworkChange(network: string): void; onCollapse(): void;
   bridge?: boolean;
 }) {
+  const { t: tr } = useLocale();
   const sideLabel = side === 'source' ? 'Source' : 'Destination';
-  return <section id={id} className="composer-stocks-panel composer-bridge-picker nodrag nopan" aria-label={`${sideLabel} ${bridge ? 'bridge' : 'asset'} picker`}
+  return <section id={id} className="composer-stocks-panel composer-bridge-picker nodrag nopan" aria-label={tr(`${sideLabel} ${bridge ? 'bridge' : 'asset'} picker`)}
     onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} onKeyDownCapture={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCollapse(); }
     }}>
-    <button type="button" className="composer-pool-collapse" aria-label={bridge ? 'Hide bridge picker' : 'Hide token picker'} title={bridge ? 'Hide bridge picker' : 'Hide token picker'} onClick={onCollapse}>
+    <button type="button" className="composer-pool-collapse" aria-label={tr(bridge ? 'Hide bridge picker' : 'Hide token picker')} title={tr(bridge ? 'Hide bridge picker' : 'Hide token picker')} onClick={onCollapse}>
       <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m8 5-5 5 5 5m9-10-5 5 5 5"/></svg>
     </button>
     <div className="composer-bridge-picker-columns">
-      <div className="composer-bridge-picker-column" role="region" aria-label={`${sideLabel} token picker`}>
-        <span className="composer-bridge-picker-heading" aria-hidden="true">Tokens</span>
+      <div className="composer-bridge-picker-column" role="region" aria-label={tr(`${sideLabel} token picker`)}>
+        <span className="composer-bridge-picker-heading" aria-hidden="true">{tr("Tokens")}</span>
         <TokenPicker symbol={symbol} network={network} options={tokens} onChange={token => { if (tokens.includes(token)) onTokenChange(token); }}/>
       </div>
-      <div className="composer-bridge-picker-column" role="region" aria-label={bridge ? `${sideLabel} network picker` : 'Action network picker'}>
-        <span className="composer-bridge-picker-heading" title={bridge ? undefined : 'One network for all assets in this action'} aria-hidden="true">Networks</span>
-        {!networks.length && !bridge && <p className="muted">No supported networks in the connected wallet environment.</p>}
+      <div className="composer-bridge-picker-column" role="region" aria-label={tr(bridge ? `${sideLabel} network picker` : 'Action network picker')}>
+        <span className="composer-bridge-picker-heading" title={tr(bridge ? undefined : 'One network for all assets in this action')} aria-hidden="true">{tr("Networks")}</span>
+        {!networks.length && !bridge && <p className="muted">{tr("No supported networks in the connected wallet environment.")}</p>}
         <NetworkPicker network={network} options={networks} unavailable={unavailable} onSelect={choice => { if (networks.includes(choice) && choice !== network) onNetworkChange(choice); }}/>
       </div>
     </div>
@@ -110,21 +119,23 @@ function AssetNetworkPicker({ id, side, symbol, network, tokens, networks, unava
 }
 
 function EquityPill({ equity, onToggle, expanded, controls }: { equity: StockEquity; onToggle(): void; expanded: boolean; controls: string }) {
-  return <button type="button" className="composer-token-chip composer-equity-pill nodrag nopan" aria-label="Select stock" aria-expanded={expanded} aria-controls={controls}
+  const { t: tr } = useLocale();
+  return <button type="button" className="composer-token-chip composer-equity-pill nodrag nopan" aria-label={tr("Select stock")} aria-expanded={expanded} aria-controls={controls}
     onClick={event => { event.stopPropagation(); onToggle(); }} onKeyDown={event => event.stopPropagation()}>
     <span className="composer-token-avatar composer-robinhood-avatar">
-      <img src="/brand/robinhood-avatar.jpg" width="22" height="22" alt="Robinhood"/>
-      <span className="composer-network-badge" data-network="robinhood" role="img" aria-label="Robinhood Chain network" title="Robinhood Chain"><NetworkBrandIcon network="Robinhood Chain"/></span>
+      <img src="/brand/robinhood-avatar.jpg" width="22" height="22" alt={tr("Robinhood")}/>
+      <span className="composer-network-badge" data-network="robinhood" role="img" aria-label={tr("Robinhood Chain network")} title={tr("Robinhood Chain")}><NetworkBrandIcon network="Robinhood Chain"/></span>
     </span>
-    <span className="composer-amount-token">{equity}</span>
+    <span className="composer-amount-token">{tr(equity)}</span>
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m3 4 3 3 3-3"/></svg>
   </button>;
 }
 
 function StockPicker({ equity, onChange }: { equity: StockEquity; onChange(equity: StockEquity): void }) {
+  const { t: tr } = useLocale();
   const name = useId();
   return <fieldset className="composer-stock-options">
-    <legend className="sr-only">Choose stock</legend>
+    <legend className="sr-only">{tr("Choose stock")}</legend>
     {STOCK_EQUITIES.map(symbol => <label key={symbol} className="composer-stock-option" data-selected={symbol === equity || undefined}>
       <input className="sr-only" type="radio" name={name} value={symbol} checked={symbol === equity} onChange={() => onChange(symbol)}/>
       <span>{symbol}</span>
@@ -134,19 +145,20 @@ function StockPicker({ equity, onChange }: { equity: StockEquity; onChange(equit
 }
 
 const priceStrategies = [
-  { title: 'Estável', range: '± 0.03%', description: 'Bom para stablecoins ou pares de baixa volatilidade' },
-  { title: 'Amplo', range: '–50% — +100%', description: 'Bom para pares voláteis' },
-  { title: 'Unilateral inferior', range: '–50%', description: 'Fornecer liquidez se o preço descer' },
-  { title: 'Unilateral superior', range: '+100%', description: 'Fornecer liquidez se o preço subir' },
+  { title: 'Estável', label: 'Stable', range: '± 0.03%', description: 'Good for stablecoins or pairs with low volatility' },
+  { title: 'Amplo', label: 'Wide', range: '–50% — +100%', description: 'Good for volatile pairs' },
+  { title: 'Unilateral inferior', label: 'Lower single-sided', range: '–50%', description: 'Provide liquidity if the price falls' },
+  { title: 'Unilateral superior', label: 'Upper single-sided', range: '+100%', description: 'Provide liquidity if the price rises' },
 ] as const;
 
 /** Selection previews only; the authored protocol stays in the position editor. */
 function PoolProviderSelector({ provider, chain }: { provider: string; chain: string }) {
+  const { t: tr } = useLocale();
   const active = /solana|orca/i.test(`${provider} ${chain}`) ? 'Solana' : /uniswap/i.test(provider) ? 'Uniswap' : provider || 'Uniswap';
   const [choice, setChoice] = useState(active);
   useEffect(() => { setChoice(active); }, [active]);
   const options = ['Uniswap', 'Solana'].includes(active) ? ['Uniswap', 'Solana'] : [active, 'Uniswap', 'Solana'];
-  return <div className="composer-pool-mode composer-pool-provider nodrag nopan" role="group" aria-label="Liquidity provider"
+  return <div className="composer-pool-mode composer-pool-provider nodrag nopan" role="group" aria-label={tr("Liquidity provider")}
     onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
     {options.map(option => <button key={option} type="button" aria-pressed={choice === option} onClick={() => setChoice(option)}>{option}</button>)}
   </div>;
@@ -154,65 +166,69 @@ function PoolProviderSelector({ provider, chain }: { provider: string; chain: st
 
 /** Shared editable percentage; acceptance still belongs to the position form. */
 function PoolCustomRange({ value, onChange }: { value: number; onChange(value: number): void }) {
+  const { t: tr } = useLocale();
   return <div className="composer-pool-custom nodrag nopan" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-    <label className="composer-pool-custom-box"><span>Custom</span>
-      <span className="composer-pool-custom-value"><span>±</span><input type="number" aria-label="Custom range percentage" inputMode="decimal" min="0.01" max="90" step="0.01" value={value} style={{ width: `${String(value).length}ch` }} onChange={event => { if (event.target.value !== '') onChange(Number(event.target.value)); }}/><span>%</span></span>
+    <label className="composer-pool-custom-box"><span>{tr("Custom")}</span>
+      <span className="composer-pool-custom-value"><span>±</span><input type="number" aria-label={tr("Custom range percentage")} inputMode="decimal" min="0.01" max="90" step="0.01" value={value} style={{ width: `${String(value).length}ch` }} onChange={event => { if (event.target.value !== '') onChange(Number(event.target.value)); }}/><span>%</span></span>
     </label>
   </div>;
 }
 
 /** Product presentation only; authored ranges still use the existing position editor. */
 function PoolRangeSelector({ mode, onChange }: { mode: 'Tick' | 'Price'; onChange(mode: 'Tick' | 'Price'): void }) {
+  const { t: tr } = useLocale();
   return <div className="composer-pool-range nodrag nopan" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <div className="composer-pool-mode" role="group" aria-label="Liquidity range view">
+      <div className="composer-pool-mode" role="group" aria-label={tr("Liquidity range view")}>
         {(['Tick', 'Price'] as const).map(option => <button key={option} type="button" aria-pressed={mode === option} onClick={() => {
           onChange(option);
-        }}>{option}</button>)}
+        }}>{tr(option)}</button>)}
       </div>
   </div>;
 }
 
 function PoolPricePanel({ strategy, onSelect, onCollapse }: { strategy: PoolPricePreset | null; onSelect(strategy: PoolPricePreset): void; onCollapse(): void }) {
+  const { t: tr } = useLocale();
   const id = useId();
   return <fieldset className="composer-pool-presets nodrag nopan" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <legend className="sr-only">Price strategies</legend>
-      <button type="button" className="composer-pool-collapse" aria-label="Hide price strategies" title="Hide price strategies" onClick={onCollapse}>
+      <legend className="sr-only">{tr("Price strategies")}</legend>
+      <button type="button" className="composer-pool-collapse" aria-label={tr("Hide price strategies")} title={tr("Hide price strategies")} onClick={onCollapse}>
         <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 5-5 5 5 5m9-10-5 5 5 5"/></svg>
       </button>
       {priceStrategies.map(preset => <label key={preset.title} className="composer-pool-preset" data-selected={strategy === preset.title || undefined}>
         <input className="sr-only" type="radio" name={`${id}-strategy`} value={preset.title} checked={strategy === preset.title} onChange={() => onSelect(preset.title)}/>
         <span className="composer-pool-preset-heading">
-          <span className="composer-pool-preset-title">{preset.title}</span>
+          <span className="composer-pool-preset-title">{tr(preset.label)}</span>
           <span className="composer-pool-preset-check" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 8 3 3 7-7"/></svg></span>
         </span>
-        <span className="composer-pool-preset-range">{preset.range}</span>
-        <span className="composer-pool-preset-description">{preset.description}</span>
+        <span className="composer-pool-preset-range">{tr(preset.range)}</span>
+        <span className="composer-pool-preset-description">{tr(preset.description)}</span>
       </label>)}
     </fieldset>;
 }
 
 /** Display priority is shared by all value boxes in the card; token inputs keep their denomination. */
 function ValueBox({ amount, token, network, source, label, hint, editor, inputLabel, equity, picker, fiatFirst, onFiatFirstChange, readOnly = false }: { readOnly?: boolean; amount?: string | undefined; token: string; network: string; source?: boolean; label?: string; hint: string; editor?: Pick<CanvasAmountEditor, 'value' | 'formId' | 'onChange'> | undefined; inputLabel?: string; equity?: { symbol: StockEquity; onToggle(): void; expanded: boolean; controls: string }; picker?: TokenPickerControl; fiatFirst: boolean; onFiatFirstChange: (fiatFirst: boolean) => void }) {
+  const { t: tr } = useLocale();
   if (readOnly) return <span className={`numeric composer-amount-box ${source ? 'composer-amount' : 'composer-destination-box'}`}
-    role="group" aria-label={label ?? (source ? 'Source amount' : 'Destination amount')} data-symbolic={!amount || undefined} title={hint}>
-    <span className="composer-value-column"><span className="composer-amount-value">{amount ?? '—'}</span></span>{' '}
+    role="group" aria-label={tr(label ?? (source ? 'Source amount' : 'Destination amount'))} data-symbolic={!amount || undefined} title={tr(hint)}>
+    <span className="composer-value-column"><span className="composer-amount-value">{tr(amount ?? '—')}</span></span>{tr(' ')}
     <TokenChip symbol={token} network={network.replace(/ \(\d+\)$/, '').replace('Robinhood Chain Testnet', 'Robinhood Chain')}/>
   </span>;
   const tokenValue = editor ? <TokenAmountInput className={`composer-token-value ${fiatFirst ? 'composer-fiat-value' : 'composer-amount-value'}`}
-    aria-label={inputLabel ?? `Source amount (${token})`} inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80}
+    aria-label={tr(inputLabel ?? `Source amount (${token})`)} inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80}
     form={editor.formId} value={editor.value} style={fiatFirst ? { width: `${Math.max(editor.value.length, 1)}ch` } : undefined}
     onValueChange={editor.onChange} onKeyDown={event => event.stopPropagation()}/>
-    : <span className={fiatFirst ? 'composer-fiat-value' : 'composer-amount-value'}>{amount ?? '0'}</span>;
+    : <span className={fiatFirst ? 'composer-fiat-value' : 'composer-amount-value'}>{tr(amount ?? '0')}</span>;
   return <span className={`numeric composer-amount-box nodrag nopan ${source ? 'composer-amount' : 'composer-destination-box'}`}
-    role="group" aria-label={label ?? (source ? 'Source amount' : 'Destination amount (unquoted placeholder)')}
-    data-symbolic={!amount || undefined} title={hint}>
+    role="group" aria-label={tr(label ?? (source ? 'Source amount' : 'Destination amount (unquoted placeholder)'))}
+    data-symbolic={!amount || undefined} title={tr(hint)}>
     <span className="composer-value-column">
       <span className="composer-value-line">
-        {fiatFirst ? <button type="button" className="composer-primary-fiat" aria-label="Show token amount first" onClick={() => onFiatFirstChange(false)}>US$ 0,00</button> : tokenValue}
+        {fiatFirst ? <button type="button" className="composer-primary-fiat" aria-label={tr("Show token amount first")} onClick={() => onFiatFirstChange(false)}>{tr("USD value unavailable")}</button> : tokenValue}
       </span>
-      {fiatFirst ? <span className="composer-token-subline">{editor ? <>{tokenValue}<span>{token}</span></>
-        : <span>{amount ?? '0'} {token}</span>}</span>
-        : <button type="button" className="composer-fiat-value" aria-label="Show fiat amount first (estimate unavailable)" onClick={() => onFiatFirstChange(true)}>US$ 0,00</button>}
+      {fiatFirst ? <span className="composer-token-subline">{editor ? <>{tr(tokenValue)}<span>{tr(token)}</span></>
+        : <span>{tr(amount ?? '0')} {tr(token)}</span>}</span>
+        : <button type="button" className="composer-fiat-value" aria-label={tr("Show fiat amount first (estimate unavailable)")} onClick={() => onFiatFirstChange(true)}>{tr("USD value unavailable")}</button>}
     </span>
     {equity ? <EquityPill equity={equity.symbol} onToggle={equity.onToggle} expanded={equity.expanded} controls={equity.controls}/> : picker ? <TokenPill symbol={token} network={network} picker={picker}/> : <TokenChip symbol={token} network={network}/>}
   </span>;
@@ -222,6 +238,7 @@ export type ComposerCardData = {
   actionSelection?: { selection: CryptoSelection; networks: readonly string[]; valid: boolean; tokens: { source: readonly string[]; destination: readonly string[] }; onNetwork(network: string): void; onToken(side: 'source' | 'destination', token: string): void };
   composer: true; step: number; selected: boolean; vertical: boolean;
   summary: ReturnType<typeof composerSummary>;
+  estimateWorkflow?: SemanticWorkflow; estimateNodeId?: string; estimateOwner?: string | null;
   amountEditor?: CanvasAmountEditor;
   contextualProposal?: boolean;
   tokenSelection?: { source: readonly string[]; destination: readonly string[]; onSelect(side: 'source' | 'destination', symbol: string): void };
@@ -234,6 +251,8 @@ export type ComposerCardData = {
 
 /** Shared UX-002 card; inspection has no authoring or simulation-result status. */
 export function ComposerCard({ data: card }: { data: ComposerCardData }) {
+  const { t: tr } = useLocale();
+  const estimate = useBuildEstimate(card.summary.action === 'Swap' ? card.estimateWorkflow : undefined, card.estimateNodeId ?? '', card.estimateOwner);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [fiatFirst, setFiatFirst] = useState(false);
   const amountBox = !card.inspection && (card.summary.action === 'Swap' || card.summary.action === 'Bridge');
@@ -319,11 +338,11 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
   const AmountContainer = editor ? 'form' : 'div';
   const content = <div className={`flow-card composer-card ${card.selected ? 'active' : ''}`} data-state={card.inspection || quietAmount ? undefined : card.validation.tone}>
       <Handle type="target" position={card.vertical ? Position.Top : Position.Left} isConnectable={false}/>
-      <strong className="composer-action-title"><span>{card.step}. {card.summary.action}</span><ActionIcon action={actionIcons[card.summary.action] ?? 'action'}/></strong>
-      {!card.inspection && !quietAmount && card.validation.status !== 'Configured' && <span className="composer-card-state" title={card.validation.message}>{card.validation.tone !== 'neutral' && '⚠ '}{card.validation.status === 'Draft' ? 'Check settings' : card.validation.status}</span>}
+      <strong className="composer-action-title"><span>{tr(card.step)}. {tr(card.summary.action)}</span><ActionIcon action={actionIcons[card.summary.action] ?? 'action'}/></strong>
+      {!card.inspection && !quietAmount && card.validation.status !== 'Configured' && <span className="composer-card-state" title={tr(card.validation.message)}>{tr(card.validation.tone !== 'neutral' && '⚠ ')}{tr(card.validation.status === 'Draft' ? 'Check settings' : card.validation.status)}</span>}
       {poolCard ? <PoolProviderSelector provider={card.summary.provider} chain={card.summary.chain}/> : <span className="composer-metadata">
-        <span className="composer-provider">{card.summary.provider.replace(/Cross-chain Router/g, 'Router') || 'Provider not specified'}</span>
-        {!card.stocks && !bridgeCard && <>{' · '}<span className="composer-chain">{card.summary.chain}</span></>}
+        <span className="composer-provider">{tr(card.summary.provider.replace(/Cross-chain Router/g, 'Router') || 'Provider not specified')}</span>
+        {!card.stocks && !bridgeCard && <>{tr(' · ')}<span className="composer-chain">{tr(card.summary.chain)}</span></>}
       </span>}
       {card.inspection ? <>
         {card.summary.liquidityValues ? <ValuePair relationship="contribution">
@@ -331,26 +350,26 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
             label={`${index === 0 ? 'First' : 'Second'} liquidity asset amount`} hint="Configured liquidity contribution" fiatFirst={false} onFiatFirstChange={setFiatFirst}/>)}
         </ValuePair> : <div className={pairDestination ? 'composer-value-pair' : undefined}>
           {amountParts ? <ValueBox readOnly source amount={amountParts[1]} token={amountParts[2]!} network={sourceNetwork} hint={card.summary.amount} fiatFirst={false} onFiatFirstChange={setFiatFirst}/>
-            : <span className="numeric composer-amount">{card.summary.amount}</span>}
+            : <span className="numeric composer-amount">{tr(card.summary.amount)}</span>}
           {pairDestination && <><span className="composer-value-arrow" aria-hidden="true">↓</span><ValueBox readOnly token={pairDestination} network={destinationNetwork} hint="Output estimate unavailable" fiatFirst={false} onFiatFirstChange={setFiatFirst}/></>}
         </div>}
-        {pairDestination && <span className="composer-quote-note">Estimate unavailable</span>}
+        {pairDestination && <span className="composer-quote-note">{tr("Estimate unavailable")}</span>}
       </> : card.stocks ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} label="Stocks amount" inputLabel="Stocks amount" amount={card.stocks.amount} token={card.stocks.equity} network={sourceNetwork}
         hint="Stocks amount" editor={{ value: card.stocks.amount, onChange: card.stocks.onAmountChange }} equity={{ symbol: card.stocks.equity, onToggle: () => setStocksPanelOpen(open => !open), expanded: stocksPanelOpen, controls: stocksPanelId }}/>
         : amountBox ? <AmountContainer className="composer-amount-form nodrag nopan" onKeyDown={event => event.stopPropagation()} onSubmit={event => { event.preventDefault(); if (editor) setAmountError(editor.onReview()); }}>
         <ValuePair relationship="directional">
         <ValueBox source amount={amountParts?.[1]} token={amountParts?.[2] ?? pairSource ?? '—'}
           network={sourceNetwork} editor={editor} picker={picker('source')} hint={editor ? 'Enter the source amount' : card.summary.amount} fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}/>
-        <ValueBox token={pairDestination ?? '—'} network={destinationNetwork} picker={picker('destination')} hint="Destination amount not quoted; zero is a placeholder" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}/>
+        <ValueBox amount={estimate?.expected ?? '—'} token={pairDestination ?? '—'} network={destinationNetwork} picker={picker('destination')} hint="Approximate read-only output; simulate before review" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}/>
         </ValuePair>
-        <span className="composer-quote-note">{card.networkSelection?.valid === false ? 'Choose matching networks' : <>{!amountParts && <>{card.summary.amount} · </>}Estimate unavailable</>}</span>
+        <span className="composer-quote-note">{card.networkSelection?.valid === false ? tr('Choose matching networks') : <>{!amountParts && <>{tr(card.summary.amount)} · </>}{tr(estimate ? `Approximate · ${estimate.provider} · Simulate before review` : 'Estimate unavailable')}</>}</span>
         {editor?.changed && <div className="composer-amount-actions">
-          <button type="submit" className="composer-amount-review" disabled={card.networkSelection?.valid === false || card.actionSelection?.valid === false}>Review amount</button>
+          <button type="submit" className="composer-amount-review" disabled={card.networkSelection?.valid === false || card.actionSelection?.valid === false}>{tr("Review amount")}</button>
           {card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={editor.canApply} onApply={editor.onApply}/>
-            : <button type="button" className="composer-amount-apply" disabled={!editor.canApply} onClick={editor.onApply}>Apply amount</button>}
-          {editor.onCancel && <button type="button" className="composer-amount-cancel" onClick={editor.onCancel}>Cancel</button>}
+            : <button type="button" className="composer-amount-apply" disabled={!editor.canApply} onClick={editor.onApply}>{tr("Apply amount")}</button>}
+          {editor.onCancel && <button type="button" className="composer-amount-cancel" onClick={editor.onCancel}>{tr("Cancel")}</button>}
         </div>}
-        {amountError && <span className="sr-only" role="alert">{amountError}</span>}
+        {amountError && <span className="sr-only" role="alert">{tr(amountError)}</span>}
       </AmountContainer> : poolValues?.length === 2 ? <ValuePair relationship="contribution" className="nodrag nopan">
         <ValueBox source label="First liquidity asset amount" inputLabel={`First liquidity amount (${poolValues[0]!.token})`} amount={poolValues[0]!.amount} token={poolValues[0]!.token} network={sourceNetwork} hint="First liquidity contribution" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}
           picker={picker('source')} editor={card.poolProposal ? { value: poolValues[0]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(0, amount) } : undefined}/>
@@ -358,28 +377,27 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
           picker={picker('destination')} editor={card.poolProposal ? { value: poolValues[1]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(1, amount) } : undefined}/>
       </ValuePair> : !card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (amountParts || editor)
         ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} amount={amountParts?.[1]} token={amountParts?.[2] ?? 'USDC'} network={sourceNetwork} picker={picker('source')} editor={editor} hint={editor ? 'Enter the source amount' : card.summary.amount}/>
-        : <span className="numeric composer-amount">{card.summary.amount}</span>}
+        : <span className="numeric composer-amount">{tr(card.summary.amount)}</span>}
       {!card.inspection && card.supplyProposal && <div className="composer-amount-actions composer-supply-actions nodrag nopan" onClick={event => event.stopPropagation()}>
-        <button type="submit" form={card.supplyProposal.formId} className="composer-amount-review" disabled={!card.supplyProposal.canReview || card.actionSelection?.valid === false}>{card.supplyProposal.reviewLabel ?? 'Review Supply change'}</button>
+        <button type="submit" form={card.supplyProposal.formId} className="composer-amount-review" disabled={!card.supplyProposal.canReview || card.actionSelection?.valid === false}>{tr(card.supplyProposal.reviewLabel ?? 'Review Supply change')}</button>
         {card.supplyProposal.hasProposal && (card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={card.supplyProposal.canApply} onApply={card.supplyProposal.onApply}/>
-          : <button type="button" className="composer-amount-apply" disabled={!card.supplyProposal.canApply} onClick={card.supplyProposal.onApply}>Apply proposal</button>)}
+          : <button type="button" className="composer-amount-apply" disabled={!card.supplyProposal.canApply} onClick={card.supplyProposal.onApply}>{tr("Apply proposal")}</button>)}
       </div>}
-      {!amountBox && !poolCard && (!card.inspection || !pairDestination) && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{pair}</span>}
+      {!amountBox && !poolCard && (!card.inspection || !pairDestination) && pair && <span className={card.summary.detail ? 'composer-detail' : 'composer-bridge-pair'}>{tr(pair)}</span>}
       {poolCard && <div className="composer-pool-controls">
         {poolMode === 'Price' && <PoolPriceRange percent={poolRange.percent} preset={poolRange.preset} extent={poolRange.extent} reference={poolRange.reference} onChange={poolRange.edit}/>}
         <div className="composer-pool-control-row">{poolMode === 'Price' && (poolRange.preset && poolRange.preset !== 'Estável'
-          ? <button type="button" className="composer-pool-custom-box composer-pool-preset-summary nodrag nopan" aria-label="Edit custom range" onClick={event => { event.stopPropagation(); poolRange.edit(poolRange.percent); }}><span>Custom</span><span>{priceStrategies.find(preset => preset.title === poolRange.preset)!.range}</span></button>
+          ? <button type="button" className="composer-pool-custom-box composer-pool-preset-summary nodrag nopan" aria-label={tr("Edit custom range")} onClick={event => { event.stopPropagation(); poolRange.edit(poolRange.percent); }}><span>{tr("Custom")}</span><span>{tr(priceStrategies.find(preset => preset.title === poolRange.preset)!.range)}</span></button>
           : <PoolCustomRange value={poolRange.percent} onChange={poolRange.edit}/>)}<PoolRangeSelector mode={poolMode} onChange={changePoolMode}/></div>
         {card.poolProposal && <div className="composer-amount-actions nodrag nopan" onClick={event => event.stopPropagation()}>
-          <button type="submit" form={card.poolProposal.formId} className="composer-amount-review" disabled={!card.poolProposal.canReview || card.actionSelection?.valid === false || (poolRange.edited && !poolRange.reference)}>Review</button>
+          <button type="submit" form={card.poolProposal.formId} className="composer-amount-review" disabled={!card.poolProposal.canReview || card.actionSelection?.valid === false || (poolRange.edited && !poolRange.reference)}>{tr("Review")}</button>
           {card.contextualProposal ? <ProposalReviewArtifact portalFromCard canApply={card.poolProposal.canApply && (!poolRange.edited || poolRange.reviewCurrent)} onApply={() => { card.poolProposal!.onApply(); poolRange.reset(); }}/>
-            : <button type="button" className="composer-amount-apply" disabled={!card.poolProposal.canApply || (poolRange.edited && !poolRange.reviewCurrent)} onClick={() => { card.poolProposal!.onApply(); poolRange.reset(); }}>Apply</button>}
+            : <button type="button" className="composer-amount-apply" disabled={!card.poolProposal.canApply || (poolRange.edited && !poolRange.reviewCurrent)} onClick={() => { card.poolProposal!.onApply(); poolRange.reset(); }}>{tr("Apply")}</button>}
         </div>}
       </div>}
-      {!card.inspection && !quietAmount && card.validation.message && <span className="composer-warning" title={card.validation.message}>Check settings</span>}
-      {card.summary.risk && <span className="flow-card-risk">{card.summary.risk}</span>}
-      {!card.inspection && <button type="button" className="composer-selected nodrag nopan" onClick={event => { event.stopPropagation(); card.onOpenSettings?.(); }} title="Open Advanced Settings">Advanced Settings
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
+      {!card.inspection && !quietAmount && card.validation.message && <span className="composer-warning" title={tr(card.validation.message)}>{tr("Check settings")}</span>}
+      {card.summary.risk && <span className="flow-card-risk">{tr(card.summary.risk)}</span>}
+      {!card.inspection && <button type="button" className="composer-selected nodrag nopan" onClick={event => { event.stopPropagation(); card.onOpenSettings?.(); }} title={tr("Open Advanced Settings")}>{tr("Advanced Settings ")}<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m10 3-.5 3-2 1.2L4.7 6l-2 3.5 2.3 2v1l-2.3 2 2 3.5 2.8-1.2 2 1.2.5 3h4l.5-3 2-1.2 2.8 1.2 2-3.5-2.3-2v-1l2.3-2-2-3.5-2.8 1.2-2-1.2-.5-3Z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>}
       <Handle type="source" position={card.vertical ? Position.Bottom : Position.Right} isConnectable={false}/>
     </div>;
@@ -391,12 +409,12 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
     tokens={card.tokenSelection?.[bridgePanel] ?? [bridgeSymbol]} networks={card.networkSelection?.[bridgePanel] ?? [bridgeNetwork]} unavailable={card.networkSelection?.unavailable}
     onTokenChange={symbol => card.tokenSelection?.onSelect(bridgePanel, symbol)}
     onNetworkChange={network => { card.networkSelection?.onSelect(bridgePanel, network); setAmountError(null); }} onCollapse={collapseBridge}/>;
-  return poolCard ? <div ref={poolNodeRef} className="composer-pool-node">{content}{tokens}{poolPanelOpen && <PoolPricePanel strategy={poolRange.preset} onSelect={poolRange.selectPreset} onCollapse={() => setPoolPanelOpen(false)}/>}</div> : card.stocks ? <div ref={poolNodeRef} className="composer-stocks-node">{content}
-    {stocksPanelOpen && <section id={stocksPanelId} className="composer-stocks-panel nodrag nopan" aria-label="Stocks configuration" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-      <button type="button" className="composer-pool-collapse" aria-label="Hide Stocks configuration" title="Hide Stocks configuration" onClick={() => setStocksPanelOpen(false)}>
+  return poolCard ? <div ref={poolNodeRef} className="composer-pool-node">{tr(content)}{tr(tokens)}{poolPanelOpen && <PoolPricePanel strategy={poolRange.preset} onSelect={poolRange.selectPreset} onCollapse={() => setPoolPanelOpen(false)}/>}</div> : card.stocks ? <div ref={poolNodeRef} className="composer-stocks-node">{tr(content)}
+    {stocksPanelOpen && <section id={stocksPanelId} className="composer-stocks-panel nodrag nopan" aria-label={tr("Stocks configuration")} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+      <button type="button" className="composer-pool-collapse" aria-label={tr("Hide Stocks configuration")} title={tr("Hide Stocks configuration")} onClick={() => setStocksPanelOpen(false)}>
         <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m8 5-5 5 5 5m9-10-5 5 5 5"/></svg>
       </button>
       <StockPicker equity={card.stocks.equity} onChange={card.stocks.onEquityChange}/>
     </section>}
-  </div> : !card.inspection && (amountBox || ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action)) ? <div ref={poolNodeRef} className="composer-token-node">{content}{tokens}{bridge}</div> : content;
+  </div> : !card.inspection && (amountBox || ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action)) ? <div ref={poolNodeRef} className="composer-token-node">{tr(content)}{tr(tokens)}{tr(bridge)}</div> : content;
 }

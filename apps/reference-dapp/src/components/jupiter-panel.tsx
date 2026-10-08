@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { createSolanaSwapNode, formatTokenAmount, solanaSwapDetails, solanaSwapLabels, solanaTokenLabel, solanaTokensFor, type SolanaNetwork, type SolanaSwapInput,
   type SolanaSwapSymbol } from '../domain/jupiter-authoring';
@@ -7,6 +9,7 @@ import { useWorkflow } from '../state/workflow-store';
 import { useJupiter } from '../state/jupiter-store';
 
 export function SolanaSwapForm({ nodeId, onDone, direct = false, network: initialNetwork = 'Solana' }: { nodeId?: string; onDone?: () => void; direct?: boolean; network?: SolanaNetwork }) {
+  const { t: tr } = useLocale();
   const { state, propose, dispatch } = useWorkflow();
   const node = state.workflow.nodes.find(n => n.nodeId === nodeId);
   const existing = node ? solanaSwapDetails(node) : null;
@@ -25,15 +28,15 @@ export function SolanaSwapForm({ nodeId, onDone, direct = false, network: initia
       if (direct) dispatch(command); else propose(command); onDone?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'SOLANA_SWAP_INPUT_INVALID'); }
   }
-  return <form className="inspector-fields" aria-label={nodeId ? `Edit ${label} swap` : `Create ${label} swap`} onSubmit={submit}>
-    <label>{label} from token<select aria-label="From token" value={input.from} onChange={e => set({ from: e.target.value as SolanaSwapSymbol })}>{tokens.map(t => <option key={t} value={t}>{solanaTokenLabel(input.network, t)}</option>)}</select></label>
-    <label>{label} to token<select aria-label="To token" value={input.to} onChange={e => set({ to: e.target.value as SolanaSwapSymbol })}>{tokens.map(t => <option key={t} value={t}>{solanaTokenLabel(input.network, t)}</option>)}</select></label>
-    <label>{label} amount<input aria-label="Amount" inputMode="decimal" autoComplete="off" maxLength={40} value={input.amount} onChange={e => set({ amount: e.target.value })}/></label>
-    <label>{label} slippage (bps)<input aria-label="Slippage (bps)" inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
-    {devnet && <p className="muted">Devnet test tokens have no value.</p>}
-    {error && <p role="alert">{error}</p>}
-    <button type="submit">{nodeId ? 'Review swap change' : direct ? 'Add swap' : 'Review swap proposal'}</button>
-    {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+  return <form className="inspector-fields" aria-label={tr(nodeId ? `Edit ${label} swap` : `Create ${label} swap`)} onSubmit={submit}>
+    <label>{tr(label)}{tr(" from token")}<select aria-label={tr("From token")} value={input.from} onChange={e => set({ from: e.target.value as SolanaSwapSymbol })}>{tokens.map(t => <option key={t} value={t}>{tr(solanaTokenLabel(input.network, t))}</option>)}</select></label>
+    <label>{tr(label)}{tr(" to token")}<select aria-label={tr("To token")} value={input.to} onChange={e => set({ to: e.target.value as SolanaSwapSymbol })}>{tokens.map(t => <option key={t} value={t}>{tr(solanaTokenLabel(input.network, t))}</option>)}</select></label>
+    <label>{tr(label)}{tr(" amount")}<input aria-label={tr("Amount")} inputMode="decimal" autoComplete="off" maxLength={40} value={input.amount} onChange={e => set({ amount: e.target.value })}/></label>
+    <label>{tr(label)}{tr(" slippage (bps)")}<input aria-label={tr("Slippage (bps)")} inputMode="numeric" autoComplete="off" maxLength={4} value={input.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
+    {devnet && <p className="muted">{tr("Devnet test tokens have no value.")}</p>}
+    {error && <p role="alert">{tr(error)}</p>}
+    <button type="submit">{tr(nodeId ? 'Review swap change' : direct ? 'Add swap' : 'Review swap proposal')}</button>
+    {onDone && <button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }
 
@@ -80,6 +83,7 @@ function message(code: string | null | undefined, devnet: boolean): string | nul
   return (devnet ? devnetMessages : mainnetMessages)[suffix] ?? (devnet ? devnetMessages[code] : undefined) ?? shared[suffix] ?? shared[code] ?? null;
 }
 export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
+  const { t: tr } = useLocale();
   const { state } = useWorkflow(), jupiter = useJupiter();
   const node = state.workflow.nodes.find(n => solanaSwapDetails(n)), fields = node ? solanaSwapDetails(node) : null;
   const record = jupiter.record, review = record?.review, attempt = record?.attempt;
@@ -96,51 +100,51 @@ export function JupiterPanel({ view }: { view: 'simulate' | 'execute' }) {
   const pending = Boolean(attempt && record?.verdict === 'PENDING' && ['SUBMITTING', 'SUBMISSION_RESULT_UNKNOWN', 'PENDING'].includes(attempt.state));
   const notEnabled = devnet ? 'DEVNET_SWAP_EXECUTION_NOT_ENABLED' : 'JUPITER_MAINNET_EXECUTION_NOT_ENABLED';
   const fromLabel = fields ? devnet ? solanaTokenLabel('Solana Devnet', fields.from) : fields.from : null, toLabel = fields ? devnet ? solanaTokenLabel('Solana Devnet', fields.to) : fields.to : null;
-  return <section className="panel" aria-label={devnet ? 'Solana Devnet swap' : 'Jupiter swap'}><h2>{view === 'simulate' ? 'Simulate swap' : 'Review swap'}</h2>
-    <p>Swap {fields ? `${fields.amount} ${fromLabel}` : amount(review?.amount, 'input')} to {toLabel ?? symbol('output')} on {labels.network} via {labels.provider}.</p>
-    {devnet && <p role="note">Solana Devnet test tokens only. They have no value, and no real funds are used.</p>}
-    {jupiter.retired && <p role="alert">The workflow changed. Prior authorization is invalid. Simulate the current swap again.</p>}
-    {!jupiter.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>Connect Solana wallet</button>}
-    {jupiter.owner && <p>Wallet connected{devnet ? ' · Solana Devnet' : ''}: <span>{jupiter.owner}</span></p>}
+  return <section className="panel" aria-label={tr(devnet ? 'Solana Devnet swap' : 'Jupiter swap')}><h2>{tr(view === 'simulate' ? 'Simulate swap' : 'Review swap')}</h2>
+    <p>{tr("Swap ")}{tr(fields ? `${fields.amount} ${fromLabel}` : amount(review?.amount, 'input'))}{tr(" to ")}{tr(toLabel ?? symbol('output'))}{tr(" on ")}{tr(labels.network)}{tr(" via ")}{tr(labels.provider)}.</p>
+    {devnet && <p role="note">{tr("Solana Devnet test tokens only. They have no value, and no real funds are used.")}</p>}
+    {jupiter.retired && <p role="alert">{tr("The workflow changed. Prior authorization is invalid. Simulate the current swap again.")}</p>}
+    {!jupiter.owner && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.connect()}>{tr("Connect Solana wallet")}</button>}
+    {jupiter.owner && <p>{tr("Wallet connected")}{tr(devnet ? ' · Solana Devnet' : '')}: <span>{tr(jupiter.owner)}</span></p>}
     {view === 'simulate' ? <>
-      <button type="button" disabled={jupiter.busy || pending} onClick={() => void jupiter.simulate()}>Simulate swap</button>
-      {review && !jupiter.retired && <dl className="swap-summary" aria-label="Swap simulation">
-        <dt>Swap</dt><dd>{amount(review.amount, 'input')} → expected {amount(review.quote.outAmount, 'output')}</dd>
-        <dt>Network</dt><dd>{labels.network}</dd><dt>Provider</dt><dd>{labels.provider}</dd>
-        <dt>{devnet ? 'Expected output' : 'Quoted output'}</dt><dd>{amount(review.quote.outAmount, 'output')}</dd>
-        <dt>Minimum received</dt><dd>{amount(review.quote.otherAmountThreshold, 'output')}</dd>
-        <dt>Slippage</dt><dd>{(review.slippageBps / 100).toFixed(2)}%</dd>
-        <dt>Estimated network fee</dt><dd>{sol(review.estimatedFeeLamports)}</dd>
-        {review.simulationResult.accountCreationLamports !== '0' && <><dt>Token account deposit</dt><dd>{sol(review.simulationResult.accountCreationLamports)} (refundable)</dd></>}
-        <dt>Quote freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired — simulate again'}</dd>
+      <button type="button" disabled={jupiter.busy || pending} onClick={() => void jupiter.simulate()}>{tr("Simulate swap")}</button>
+      {review && !jupiter.retired && <dl className="swap-summary" aria-label={tr("Swap simulation")}>
+        <dt>{tr("Swap")}</dt><dd>{tr(amount(review.amount, 'input'))}{tr(" → expected ")}{tr(amount(review.quote.outAmount, 'output'))}</dd>
+        <dt>{tr("Network")}</dt><dd>{tr(labels.network)}</dd><dt>{tr("Provider")}</dt><dd>{tr(labels.provider)}</dd>
+        <dt>{tr(devnet ? 'Expected output' : 'Quoted output')}</dt><dd>{tr(amount(review.quote.outAmount, 'output'))}</dd>
+        <dt>{tr("Minimum received")}</dt><dd>{tr(amount(review.quote.otherAmountThreshold, 'output'))}</dd>
+        <dt>{tr("Slippage")}</dt><dd>{tr((review.slippageBps / 100).toFixed(2))}%</dd>
+        <dt>{tr("Estimated network fee")}</dt><dd>{tr(sol(review.estimatedFeeLamports))}</dd>
+        {review.simulationResult.accountCreationLamports !== '0' && <><dt>{tr("Token account deposit")}</dt><dd>{tr(sol(review.simulationResult.accountCreationLamports))}{tr(" (refundable)")}</dd></>}
+        <dt>{tr("Quote freshness")}</dt><dd>{tr(fresh > 0 ? `Valid for ${fresh}s` : 'Expired — simulate again')}</dd>
       </dl>}
     </> : <>
-      {review && <dl className="swap-summary" aria-label="Swap review">
-        <dt>Owner</dt><dd>{review.owner}</dd><dt>Network</dt><dd>{labels.network}</dd><dt>Pay</dt><dd>{amount(review.amount, 'input')}</dd>
-        <dt>Receive at least</dt><dd>{amount(review.quote.otherAmountThreshold, 'output')}</dd>
-        <dt>Route</dt><dd>{[...new Set(review.quote.routePlan.map(step => step.label))].join(' → ')}</dd>
-        {!attempt && <><dt>Quote freshness</dt><dd>{fresh > 0 ? `Valid for ${fresh}s` : 'Expired'}</dd></>}
+      {review && <dl className="swap-summary" aria-label={tr("Swap review")}>
+        <dt>{tr("Owner")}</dt><dd>{tr(review.owner)}</dd><dt>{tr("Network")}</dt><dd>{tr(labels.network)}</dd><dt>{tr("Pay")}</dt><dd>{tr(amount(review.amount, 'input'))}</dd>
+        <dt>{tr("Receive at least")}</dt><dd>{tr(amount(review.quote.otherAmountThreshold, 'output'))}</dd>
+        <dt>{tr("Route")}</dt><dd>{tr([...new Set(review.quote.routePlan.map(step => step.label))].join(' → '))}</dd>
+        {!attempt && <><dt>{tr("Quote freshness")}</dt><dd>{tr(fresh > 0 ? `Valid for ${fresh}s` : 'Expired')}</dd></>}
       </dl>}
-      {mainnet && !attempt && review && <p role="note">This swap uses real funds on Solana mainnet. Your wallet will ask you to sign one exact transaction; Flofi never signs for you.</p>}
-      {devnet && !attempt && review && <p role="note">Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.</p>}
-      {record && !record.authorization && !attempt && !jupiter.retired && <button type="button" disabled={jupiter.busy || fresh === 0} onClick={() => void jupiter.review()}>Accept swap review</button>}
-      {mainnet && record?.authorization && !attempt && <label><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)}/> I understand this executes on Solana mainnet with real funds</label>}
-      {record?.authorization && !attempt && !jupiter.executionEnabled && <p role="status">{message(notEnabled, devnet)}</p>}
-      {canExecute && <button type="button" className="primary" disabled={jupiter.busy} onClick={() => void jupiter.execute()}>Execute swap</button>}
-      {attempt && !record?.evidence && <p>Swap: {record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' ')} {observation?.explorer && <a href={observation.explorer} target="_blank" rel="noreferrer">View transaction</a>}</p>}
-      {pending && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.observe()}>Observe existing transaction</button>}
-      {record?.evidence && observation && <section aria-label="Swap result" className="swap-result">
-        <h3>Success</h3>
-        <p>Swap independently reconciled. Paid {amount(observation.inputSpent, 'input')}; received {amount(observation.outputReceived, 'output')}; fee {sol(observation.feeLamports)}.</p>
-        <dl className="swap-summary"><dt>Transaction</dt><dd><code>{observation.signature}</code></dd>
-          {observation.explorer && <><dt>Explorer</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">{devnet ? 'View on Solana Explorer (Devnet)' : 'View transaction'}</a></dd></>}
-          <dt>Network</dt><dd>{labels.network}</dd><dt>Slot</dt><dd>{observation.slot ?? '--'}</dd></dl>
-        <p>Evidence: {record.evidenceClass}</p>
-        <a download={devnet ? 'flofi-solana-devnet-swap-evidence.json' : 'flofi-jupiter-swap-evidence.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></section>}
-      {record && attempt && !record.evidence && <a download={devnet ? 'flofi-solana-devnet-execution-record.json' : 'flofi-jupiter-execution-record.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
+      {mainnet && !attempt && review && <p role="note">{tr("This swap uses real funds on Solana mainnet. Your wallet will ask you to sign one exact transaction; Flofi never signs for you.")}</p>}
+      {devnet && !attempt && review && <p role="note">{tr("Your wallet will ask you to sign one exact Solana Devnet transaction; Flofi never signs for you.")}</p>}
+      {record && !record.authorization && !attempt && !jupiter.retired && <button type="button" disabled={jupiter.busy || fresh === 0} onClick={() => void jupiter.review()}>{tr("Accept swap review")}</button>}
+      {mainnet && record?.authorization && !attempt && <label><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)}/>{tr(" I understand this executes on Solana mainnet with real funds")}</label>}
+      {record?.authorization && !attempt && !jupiter.executionEnabled && <p role="status">{tr(message(notEnabled, devnet))}</p>}
+      {canExecute && <button type="button" className="primary" disabled={jupiter.busy} onClick={() => void jupiter.execute()}>{tr("Execute swap")}</button>}
+      {attempt && !record?.evidence && <p>{tr("Swap: ")}{tr(record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' '))} {observation?.explorer && <a href={observation.explorer} target="_blank" rel="noreferrer">{tr("View transaction")}</a>}</p>}
+      {pending && <button type="button" disabled={jupiter.busy} onClick={() => void jupiter.observe()}>{tr("Observe existing transaction")}</button>}
+      {record?.evidence && observation && <section aria-label={tr("Swap result")} className="swap-result">
+        <h3>{tr("Success")}</h3>
+        <p>{tr("Swap independently reconciled. Paid ")}{tr(amount(observation.inputSpent, 'input'))}{tr("; received ")}{tr(amount(observation.outputReceived, 'output'))}{tr("; fee ")}{tr(sol(observation.feeLamports))}.</p>
+        <dl className="swap-summary"><dt>{tr("Transaction")}</dt><dd><code>{tr(observation.signature)}</code></dd>
+          {observation.explorer && <><dt>{tr("Explorer")}</dt><dd><a href={observation.explorer} target="_blank" rel="noreferrer">{tr(devnet ? 'View on Solana Explorer (Devnet)' : 'View transaction')}</a></dd></>}
+          <dt>{tr("Network")}</dt><dd>{tr(labels.network)}</dd><dt>{tr("Slot")}</dt><dd>{tr(observation.slot ?? '--')}</dd></dl>
+        <p>{tr("Evidence: ")}{tr(record.evidenceClass)}</p>
+        <a download={devnet ? 'flofi-solana-devnet-swap-evidence.json' : 'flofi-jupiter-swap-evidence.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>{tr("Download Evidence Bundle")}</a></section>}
+      {record && attempt && !record.evidence && <a download={devnet ? 'flofi-solana-devnet-execution-record.json' : 'flofi-jupiter-execution-record.json'} href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>{tr("Download execution record")}</a>}
     </>}
-    {info && <p role="status">{message(info, devnet) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.'}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,
+    {info && <p role="status">{tr(message(info, devnet) ?? 'Execution needs attention. Inspect technical details and observe any existing transaction.')}</p>}
+    <details><summary>{tr("Show technical details")}</summary><pre>{JSON.stringify({ error: info, evidenceClass: record?.evidenceClass, submissionError: record?.submissionError, walletDiagnostic: record?.walletDiagnostic,
       cluster: review?.cluster, provider: labels.provider, inputMint: review?.input.mint, outputMint: review?.output.mint, routeCommitment: review?.routeCommitment, messageHash: review?.messageHash,
       blockhash: review?.blockhash, lastValidBlockHeight: review?.lastValidBlockHeight, inspection: review?.inspection, quote: review?.quote,
       simulation: review?.simulationResult, attempt, observations: record?.observations, verdict: record?.verdict }, null, 2)}</pre></details>

@@ -30,7 +30,7 @@ test('Simulate and Execute open directly on existing content without a workspace
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(main).toBeVisible();
   await expect(main.locator('.workspace-heading, .workflow-context, .page-heading, .stage-current, .stage-guidance, #workspace-title')).toHaveCount(0);
   expect(await main.innerText()).not.toMatch(/Draft · Untitled workflow|SIMULATE \/ WORKFLOW|Current stage · Simulate|Understand the outcome|No chain selected/);
@@ -52,7 +52,7 @@ test('Simulate and Execute open directly on existing content without a workspace
   await expect(execution.getByRole('button', { name: /^(Execute|Execute Supply)$/ })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeVisible();
   await expect(page.locator('.flow-card.active')).toHaveCount(1);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });

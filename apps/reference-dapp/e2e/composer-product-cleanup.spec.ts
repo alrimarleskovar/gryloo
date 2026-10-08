@@ -112,7 +112,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} has quiet edit
   await expect(card.getByRole('alert')).toContainText('greater than 0');
   expect(await card.getByRole('alert').evaluate(element => getComputedStyle(element).clipPath)).toBe('inset(50%)');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   await openCanvasSettings(page);
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const form = panel.getByRole('form', { name: `Configure ${action === 'swap' ? 'Swap' : 'Bridge'}`, exact: true });
@@ -146,7 +146,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} shares one fia
     await expect(revision).toHaveAttribute('data-workflow-revision', '1');
   }
   async function expectFiatPrimary() {
-    await expect(card.locator('.composer-primary-fiat')).toHaveText(['US$ 0,00', 'US$ 0,00']);
+    await expect(card.locator('.composer-primary-fiat')).toHaveText(['USD value unavailable', 'USD value unavailable']);
     await expect(source.locator('.composer-token-subline input')).toHaveValue('2.5');
     await expect(source.locator('.composer-token-subline > span')).toHaveText('USDC');
     await expect(destination.locator('.composer-token-subline')).toHaveText(`0 ${destinationToken}`);
@@ -197,7 +197,7 @@ for (const action of ['borrow', 'repay', 'withdraw'] as const) test(`${action} u
   const apply = card.getByRole('button', { name: 'Apply proposal', exact: true });
   await expect(inline).toHaveValue('0');
   await expect(review).toBeVisible(); await expect(apply).toHaveCount(0);
-  await expect(block.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
+  await expect(block.locator('.composer-fiat-value')).toHaveText('USD value unavailable');
   await expect(block.locator('.composer-amount-token')).toHaveText('USDC');
   await expect(card.locator('form, .composer-destination-box, .composer-value-arrow')).toHaveCount(0);
   for (const width of [1440, 390, 320]) {
@@ -213,7 +213,7 @@ for (const action of ['borrow', 'repay', 'withdraw'] as const) test(`${action} u
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   const revision = page.locator('.summary-bar');
-  const simulate = page.getByRole('button', { name: 'Simular Fees', exact: true });
+  const simulate = page.getByRole('button', { name: 'Simulate fees', exact: true });
   const execute = page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true });
   await expect(simulate).toBeDisabled(); await expect(execute).toBeDisabled();
   await expect(revision).toHaveAttribute('data-workflow-revision', '0');
@@ -299,7 +299,7 @@ test('Supply edits inline with one shared editor value and validates through its
   }
   await inline.fill('3');
   await expect(applySupply).toHaveCount(0); await expect(lowerReview).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await reviewSupply.click(); await expect(applySupply).toBeEnabled();
   await lowerReview.getByRole('button', { name: 'Dismiss', exact: true }).click();
@@ -317,7 +317,7 @@ test('Supply edits inline with one shared editor value and validates through its
     const valueBox = (await value.boundingBox())!, tokenBox = (await token.boundingBox())!, blockBox = (await block.boundingBox())!;
     expect(valueBox.x + valueBox.width).toBeLessThan(tokenBox.x);
     expect(tokenBox.x + tokenBox.width).toBeLessThan(blockBox.x + blockBox.width);
-    await expect(block.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
+    await expect(block.locator('.composer-fiat-value')).toHaveText('USD value unavailable');
     const footerBox = (await card.locator('.composer-selected').boundingBox())!;
     expect(footerBox.y).toBeGreaterThan(blockBox.y + blockBox.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
@@ -376,7 +376,7 @@ test('header environment follows wallet changes without rewriting action amounts
     await expect(environment).toHaveText(value === 'MAINNET' ? 'Mainnet' : 'Testnet'); await expect(source).toHaveValue('0');
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
     await expect(wallet).toContainText(value === 'MAINNET' ? 'Base (8453)' : 'Base Sepolia');
-    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
     await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
   }
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /sign|send|switch|addEthereumChain/i.test(request.method)))).toEqual([]);
@@ -491,7 +491,7 @@ test('Pool uses two real liquidity asset blocks with the shared display mode and
     expect((bottom.y - top.y - top.height) / scale).toBeCloseTo(8, 1);
     for (const box of [first, second]) {
       await box.getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
-      await expect(boxes.locator('.composer-primary-fiat')).toHaveText(['US$ 0,00', 'US$ 0,00']);
+      await expect(boxes.locator('.composer-primary-fiat')).toHaveText(['USD value unavailable', 'USD value unavailable']);
       await expect(boxes.locator('.composer-token-subline input').first()).toHaveValue('1');
       await expect(boxes.locator('.composer-token-subline input').last()).toHaveValue('0.0001');
       await expect(boxes.locator('.composer-token-subline > span')).toHaveText(['USDC', 'WETH']);
@@ -546,7 +546,7 @@ test('linked Borrow edits use the existing composition command and keep Supply a
   const review = borrow.getByRole('button', { name: 'Review Borrow change', exact: true });
   const apply = borrow.getByRole('button', { name: 'Apply proposal', exact: true });
   await amount.fill('0'); await review.click(); await expect(apply).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await amount.fill('0.02'); await review.click(); await expect(apply).toBeEnabled(); await apply.click();
   await expect(supply.getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0.1');
@@ -558,7 +558,7 @@ test('linked Borrow edits use the existing composition command and keep Supply a
   await settings.fill('0.03'); await expect(amount).toHaveValue('0.03');
   await settings.fill('0.02'); await review.click(); await expect(apply).toBeEnabled(); await apply.click();
   await expect(swap.locator('.composer-amount .composer-amount-value')).toHaveText('0.02');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /send|sign/i.test(request.method)))).toEqual([]);
 });
 
@@ -579,10 +579,10 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
   await openCanvasSettings(page);
   const original = await Promise.all(['Maximum USDC', 'Maximum WETH', 'Lower bound', 'Upper bound', 'Liquidity slippage (bps)'].map(name => panel.getByLabel(name, { exact: true }).inputValue()));
   const strategies = [
-    ['Estável', '± 0.03%', 'Bom para stablecoins ou pares de baixa volatilidade'],
-    ['Amplo', '–50% — +100%', 'Bom para pares voláteis'],
-    ['Unilateral inferior', '–50%', 'Fornecer liquidez se o preço descer'],
-    ['Unilateral superior', '+100%', 'Fornecer liquidez se o preço subir'],
+    ['Stable', '± 0.03%', 'Good for stablecoins or pairs with low volatility'],
+    ['Wide', '–50% — +100%', 'Good for volatile pairs'],
+    ['Lower single-sided', '–50%', 'Provide liquidity if the price falls'],
+    ['Upper single-sided', '+100%', 'Provide liquidity if the price rises'],
   ];
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -597,13 +597,13 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
     const blue = await card.locator('.composer-action-title').evaluate(element => getComputedStyle(element).color);
     expect(await price.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(blue);
     expect(await tick.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(blue);
-    const amplo = presets.locator('.composer-pool-preset').filter({ hasText: 'Amplo' });
+    const amplo = presets.locator('.composer-pool-preset').filter({ hasText: 'Wide' });
     if (width === 1440) await expect(presets.locator('input:checked')).toHaveCount(0);
     await amplo.click();
     await expect(amplo.getByRole('radio')).toBeChecked();
     await expect(amplo.locator('.composer-pool-preset-check')).toBeVisible();
     expect(await amplo.evaluate(element => getComputedStyle(element).borderTopColor)).toBe(blue);
-    const stable = presets.locator('.composer-pool-preset').filter({ hasText: 'Estável' });
+    const stable = presets.locator('.composer-pool-preset').filter({ hasText: 'Stable' });
     await expect(stable.locator('.composer-pool-preset-check')).toBeHidden();
     expect(await amplo.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(await stable.evaluate(element => getComputedStyle(element).backgroundColor));
     await page.mouse.move(0, 0);
@@ -629,8 +629,8 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
       expect(await tile.evaluate(element => getComputedStyle(element).borderTopColor)).toBe(blue);
       await expect(presets.locator('input:checked')).toHaveCount(1);
       const boundaries: Record<string, [number, number, string, string]> = {
-        'Estável': [40, 60, '-0.03%', '+0.03%'], 'Amplo': [30, 90, '-50%', '+100%'],
-        'Unilateral inferior': [25, 50, '-50%', '0%'], 'Unilateral superior': [50, 90, '0%', '+100%'],
+        'Stable': [40, 60, '-0.03%', '+0.03%'], 'Wide': [30, 90, '-50%', '+100%'],
+        'Lower single-sided': [25, 50, '-50%', '0%'], 'Upper single-sided': [50, 90, '0%', '+100%'],
       };
       const [left, right, lowerLabel, upperLabel] = boundaries[title!]!;
       const lower = card.getByRole('slider', { name: 'Lower price boundary', exact: true });
@@ -659,7 +659,7 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
     await expect(card).toHaveClass(/active/);
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
     await waitForPoolLayout(card);
-    const expanded = (await poolNode.boundingBox())!, canvas = (await page.locator('.build-flow-surface').boundingBox())!, cta = (await page.getByRole('button', { name: 'Simular Fees', exact: true }).boundingBox())!;
+    const expanded = (await poolNode.boundingBox())!, canvas = (await page.locator('.build-flow-surface').boundingBox())!, cta = (await page.getByRole('button', { name: 'Simulate fees', exact: true }).boundingBox())!;
     expect(expanded.y).toBeGreaterThanOrEqual(canvas.y);
     expect(expanded.y + expanded.height).toBeLessThan(cta.y);
     expect(expanded.x).toBeGreaterThanOrEqual(canvas.x);
@@ -683,17 +683,17 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
     expect(tileBounds[2]!.y).toBeGreaterThan(tileBounds[0]!.y);
     await expect(page.getByRole('region', { name: 'Workflow edit review', exact: true })).toHaveCount(0);
     // Pressing the active Price segment does not overwrite a deliberate preset choice.
-    await presets.locator('.composer-pool-preset').filter({ hasText: 'Unilateral superior' }).click();
+    await presets.locator('.composer-pool-preset').filter({ hasText: 'Upper single-sided' }).click();
     await price.click();
-    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Unilateral superior' }).getByRole('radio')).toBeChecked();
+    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Upper single-sided' }).getByRole('radio')).toBeChecked();
     await presets.getByRole('button', { name: 'Hide price strategies', exact: true }).click();
     await expect(presets).toHaveCount(0);
     await expect(price).toHaveAttribute('aria-pressed', 'true');
     await price.focus(); await price.press('Enter');
-    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Unilateral superior' }).getByRole('radio')).toBeChecked();
+    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Upper single-sided' }).getByRole('radio')).toBeChecked();
     await tick.focus(); await tick.press('Enter'); await expect(presets).toHaveCount(0);
     await price.click();
-    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Unilateral superior' }).getByRole('radio')).toBeChecked();
+    await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Upper single-sided' }).getByRole('radio')).toBeChecked();
     await tick.click();
     await expect(tick).toHaveAttribute('aria-pressed', 'true');
     await expect(price).toHaveAttribute('aria-pressed', 'false');

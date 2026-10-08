@@ -1,0 +1,70 @@
+# Acceptance fixes 001
+
+Recovery starts from `f2881e3` in the existing `codex/acceptance-fixes-001` worktree. The uncommitted implementation was retained and completed.
+
+## Product behavior and causes
+
+| Issue | Cause | Completed behavior |
+| --- | --- | --- |
+| 1: internal journey panel | Router diagnostics also rendered a full tutorial in normal Build | Remove that entire block, including its controls and spacing; keep header wallet, proof infrastructure, bridge runtime and evidence |
+| 2: EN/PT | Settings changed a label without one complete presentation catalog; the broad audit mixed literals, technical values and messages | Central persistent locale provider and catalogs cover product messages, accessibility labels, lifecycle errors and empty states; token/network/protocol names, user workflow names and technical values remain unchanged |
+| 3: wallet identity | A network label also described the wallet | EVM Default / Solana Default identities are separate from environment and actual provider network |
+| 4: provider synchronization | An asynchronous connect could commit older accounts/chain after a provider event | Passive initial reads plus events, provider identity/generation/event epoch guards, verified post-switch chain reads; identity changes permanently invalidate old Review |
+| 5: simulation binding | Public swap used an ad-hoc hash instead of the domain-separated contract projection | All public-swap quote creation, simulation display and Review/begin validation use `hashArtifactBytes('semantic-workflow', ...)`; economic/revision changes invalidate binding |
+| 6: Build estimate | Destination cards had no read-only provider path | Debounced, cancellable, expiring canonical-bound estimates from existing adapters; drafts and semantic edits invalidate prior results; no runs, Review, signatures or financial authority |
+| 7: Save | No durable owner-scoped canonical document | Verified-session BFF, PostgreSQL CAS persistence, migration 0008, strict canonical validation and owner/namespace/tenant isolation |
+| 8: Your workflows | Unfinished library was placed directly in navigation; earlier Dashboard requirement was superseded | Registry navigation item opens `/app/workflows`, using the existing secondary workspace model; page owns all library states; saved/executed identities merge once; reopen returns to Build without prior quote/Review authority |
+
+New draft IDs are generated once per server request and serialized to the persistent provider hierarchy, avoiding duplicate identities across independent visits and server/client disagreement.
+
+The audit's “557 missing” was a collection of missing call literals/templates, not 557 proven untranslated product labels. Real lifecycle/provider messages were translated. The remaining reviewed literals are explicitly inventoried in `preserved-values.ts`. The product catalog test scans actual translation calls, excludes tests, checks placeholders and requires either a translation or a reviewed preserved value. A separate JSX audit found no unwrapped literal UI text/accessibility strings.
+
+## Persistence and API
+
+Migration `0008_saved_workflows.sql` adds owner-scoped canonical documents: tenant, owner namespace/account, workflow ID, display name, canonical IR, semantic revision, canonical hash, optimistic version and timestamps. Renaming increments persistence version without changing semantic revision. Existing migration ordering is preserved.
+
+The session-verified server action exposes list/get/save through the existing backend `/v1/workflows/{list,get,save}` paths. A client address is only a selection hint; verified server principal and existing authenticated backend boundary determine access. Saved and executed records group by canonical workflow ID; execution-only entries require recoverable, validated canonical data. Runs/evidence remain in Dashboard. Build reads use `/api/build-estimate` and create no durable execution record.
+
+Only canonical authoring state is restored. Owner approvals, simulation/quote artifacts, transaction permissions and signatures are never saved in workflow documents. Cross-chain destination reconciliation, unknown submission recovery and exact account/chain checks remain enforced.
+
+## Canvas and network capabilities
+
+This matrix describes existing configured capabilities, not a claim that public transactions were performed in this acceptance run. “Implemented” recovery/evidence means the existing service and tests cover it. All configured execution still requires fresh Simulate, Strategy Manifest/Review and explicit owner wallet action. Disabled deployments stay fail-closed.
+
+| Action | Network | Canvas authoring | Build read/estimate | Simulate | Review | Owner execution capability | Recovery | Evidence | Current limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Swap, Uniswap | Base Sepolia | CANVAS_READY | READ_ONLY estimate | SIMULATE_REVIEW_READY | Canonical quote binding | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen supported USDC/WETH profile; live RPC/runtime needed |
+| Swap, Uniswap | Ethereum Sepolia | CANVAS_READY | READ_ONLY estimate | SIMULATE_REVIEW_READY | Canonical quote binding | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen supported USDC/WETH profile; live RPC/runtime needed |
+| Swap, Uniswap | Base | CANVAS_READY | READ_ONLY live estimate in existing development observation mode | Local fork; production observation only | Local fork only | EXECUTION_DISABLED on mainnet | Local fork | Local fork | No registered direct Uniswap MAINNET execution row; production live observation restriction preserved |
+| Swap, Jupiter | Solana mainnet-beta | CANVAS_READY | READ_ONLY Jupiter provider | SIMULATE_REVIEW_READY | Bound quote/owner/network | MAINNET_OWNER_GATED | Implemented | Implemented | Existing Jupiter live/API setup and explicit owner-execution opt-in required |
+| Swap, Orca | Solana Devnet | CANVAS_READY | READ_ONLY RPC simulation estimate | SIMULATE_REVIEW_READY | Bound quote/owner/network | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen supported SOL/devUSDC profile and live runtime required |
+| Bridge, router | Base Sepolia → Arbitrum Sepolia | CANVAS_READY | Route estimate at Simulate | SIMULATE_REVIEW_READY | Canonical route Manifest | TESTNET_EXECUTION_READY | Destination reconcile/refund | Implemented | Supported direction/profile only; two chains are not globally atomic |
+| Bridge, router | Base → Arbitrum One | CANVAS_READY | Route estimate at Simulate | SIMULATE_REVIEW_READY | Canonical route Manifest | MAINNET_OWNER_GATED | Destination reconcile/refund | Implemented | Existing live router plus explicit owner-execution opt-in required |
+| Pool / liquidity, Uniswap | Base Sepolia | CANVAS_READY | Amount/range authoring; no swap estimate | SIMULATE_REVIEW_READY | Exact contributions/ticks/recipient | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen pool, existing live liquidity runtime and verified state required |
+| Pool / liquidity, Uniswap | Ethereum Sepolia | CANVAS_READY | Amount/range authoring; no swap estimate | SIMULATE_REVIEW_READY | Exact contributions/ticks/recipient | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen pool, existing live liquidity runtime and verified state required |
+| Pool / liquidity, Uniswap | Base | CANVAS_READY | Existing range authoring | Local fork only | Local fork only | EXECUTION_DISABLED on mainnet | Local fork | Local fork | Legacy LOCAL_FORK capability; no public MAINNET row |
+| Pool / liquidity, Orca | Solana Devnet | CANVAS_READY | Amount/range authoring | SIMULATE_REVIEW_READY | Exact ticks/contributions | TESTNET_EXECUTION_READY | Implemented | Implemented | Frozen SOL/devUSDC pool and existing live runtime required |
+| Supply, Aave | Base Sepolia; Ethereum Sepolia | CANVAS_READY | Amount authoring | SIMULATE_REVIEW_READY | Exact principal | TESTNET_EXECUTION_READY | Implemented | Implemented | USDC on Base Sepolia; WBTC on Ethereum Sepolia; live runtime and verified account state |
+| Borrow, Aave | Base Sepolia; Ethereum Sepolia | CANVAS_READY | Amount authoring | SIMULATE_REVIEW_READY | Debt/collateral constraints | TESTNET_EXECUTION_READY | Implemented | Implemented | Existing collateral, safe health factor and provider simulation required |
+| Repay, Aave | Base Sepolia; Ethereum Sepolia | CANVAS_READY | Amount authoring | SIMULATE_REVIEW_READY | Exact repayment | TESTNET_EXECUTION_READY | Implemented | Implemented | Existing debt and principal checks required |
+| Withdraw, Aave | Base Sepolia; Ethereum Sepolia | CANVAS_READY | Amount authoring | SIMULATE_REVIEW_READY | Exact withdrawal | TESTNET_EXECUTION_READY | Implemented | Implemented | Supply balance and post-withdraw health constraints required |
+| Lending composition: Supply → Borrow → Swap | Base Sepolia | CANVAS_READY | Individual Canvas node inspectors | SIMULATE_REVIEW_READY | Shared OUTPUT_REFERENCE, HF ≥ 2 | TESTNET_EXECUTION_READY | Partial failure/debt recovery | Implemented | Existing sequential provider simulation and runtime required; no automatic rollback |
+| Lending composition | Ethereum Sepolia | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | No registered composition profile |
+| Swap / Pool / Supply / Borrow / Repay / Withdraw / lending composition | Ethereum Mainnet | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | Wallet chain detection supported; no registered action execution profiles |
+| Swap / Pool / Supply / Borrow / Repay / Withdraw / lending composition | Arbitrum One; Arbitrum Sepolia | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | Incoming router bridge above is supported; no standalone profiles for these actions |
+| Bridge / Pool / Supply / Borrow / Repay / Withdraw / lending composition | Solana mainnet-beta | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | Jupiter swap above is the registered mainnet action |
+| Bridge / Supply / Borrow / Repay / Withdraw / lending composition | Solana Devnet | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | Registered Orca swap/liquidity above remain supported |
+| All eight requested DeFi actions | Robinhood registered mainnet/testnet | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | NOT_SUPPORTED | Network/wallet profiles preserved; no registered DeFi deployments for these actions |
+| Native self-transfer (separate existing capability) | Robinhood Testnet; Ethereum Sepolia | INTERNAL_FORM_REQUIRED | Native amount only | SIMULATE_REVIEW_READY | Exact native transfer | TESTNET_EXECUTION_READY | Implemented | Implemented | Advanced Action Setup remains necessary; normal Canvas parity would be a separate build |
+
+Sources: action-registry execution capabilities and frozen profiles; crypto action picker and Canvas constructors; existing runtime capability gates and service/compiler tests. No network support was invented and no existing mainnet capability was removed.
+
+## Verification and remaining owner acceptance
+
+Focused tests and disposable PostgreSQL cover race safety, canonical binding, Review invalidation, estimates, strict durable documents, isolation and restoration. Browser acceptance uses synthetic loopback providers through real API/client paths; its prices and execution records are MOCKED engineering fixtures, never public financial evidence.
+
+Required local and GitHub quality gates, totals and merge evidence are reported with the completed change. The inherited interrupted full-suite exit 130 is classified INTERRUPTED_ONLY. Sandbox process/socket failures disappear on unchanged tests with permitted local execution (ENVIRONMENT_SETUP). Old UI/copy/location expectations are TEST_EXPECTATION_STALE; real catalog omissions are I18N_CATALOG_GAP. The initial destination-finality fixture was advanced to the correct safe head rather than relaxing reconciliation.
+
+The existing Next.js 16.3.6 audit reports six security advisories. The exact 16.3.8 patch, published 2026-09-30, satisfies the seven-day age gate; only the matching Next/env/SWC identities and pinned lock baseline are updated, retaining the exact sharp override, licenses and release-age policy.
+
+The owner must still validate real extension wallets and public providers, configured deployments/migration rollout, testnet funding and gas, and personally perform any desired mainnet swaps/bridges through the normal owner-gated UI. This change does not claim MAINNET_EXECUTED or real-money financial acceptance.

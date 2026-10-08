@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { product } from '../config/product';
 import { useModeB } from '../state/mode-b-store';
 import { useModeA } from '../state/mode-a-store';
@@ -16,7 +18,6 @@ import { ROUTER_NETWORK_OPTIONS } from '../domain/router-authoring';
 import { useJupiter } from '../state/jupiter-store';
 import { FloFiLogo } from './flofi-logo';
 import { HeaderSettings } from './header-settings';
-import { walletEnvironmentLabel } from '../wallet/environment';
 import { useExecutionEnvironment } from '../state/capability-store';
 import { HeaderEnvironment } from './header-environment';
 import { NavigationDrawer } from './navigation-drawer';
@@ -27,6 +28,7 @@ import { WalletMark } from './wallet-selector';
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
 export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab: (value: ProductSection) => void; pathname?: string | null }) {
+  const { t: tr } = useLocale();
   const secondaryWorkspace = secondaryWorkspaceRoute(pathname);
   const { walletEnvironment, walletKind } = useExecutionEnvironment();
   const { info, wallet } = useModeA();
@@ -62,30 +64,30 @@ export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab:
   return <header className="top-bar">
     <div className="brand"><NavigationDrawer pathname={pathname ?? null} section={tab} onBuild={() => setTab('Build')}
       onDisconnect={disconnect} disconnectDisabled={disconnectDisabled}/><FloFiLogo/></div>
-    <nav aria-label="Workflow stages" className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={!secondaryWorkspace && tab === 'Dashboard' ? 'page' : undefined} className={!secondaryWorkspace && tab === 'Dashboard' ? 'selected' : ''}>Dashboard</button>{WORKFLOW_STAGES.map((value, index) =>
-      <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined} aria-current={!secondaryWorkspace && tab === value ? 'page' : undefined} className={!secondaryWorkspace && tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{index + 1}</span>{value}</button>)}</nav>
+    <nav aria-label={tr("Workflow stages")} className="tabs"><button type="button" onClick={() => setTab('Dashboard')} aria-current={!secondaryWorkspace && tab === 'Dashboard' ? 'page' : undefined} className={!secondaryWorkspace && tab === 'Dashboard' ? 'selected' : ''}>{tr("Dashboard")}</button>{WORKFLOW_STAGES.map((value, index) =>
+      <button key={value} type="button" onClick={() => setTab(value)} disabled={Boolean(authoringIncomplete && value !== 'Build')} title={tr(authoringIncomplete && value !== 'Build' ? 'Configure the action amount in Build first' : undefined)} aria-current={!secondaryWorkspace && tab === value ? 'page' : undefined} className={!secondaryWorkspace && tab === value ? 'selected' : ''}><span className="stage-number" aria-hidden="true">{tr(index + 1)}</span>{tr(value)}</button>)}</nav>
     <div className="top-meta">
       <HeaderEnvironment environment={walletEnvironment} disabled={solanaActive || !build009.account || build009.busy}
         onChange={value => { void build009.switchTo(value === 'mainnet' ? BASE_HEX : BASE_SEPOLIA_HEX); }}/>
-      <div className="header-wallet" role="group" aria-label="Wallet connection">
+      <div className="header-wallet" role="group" aria-label={tr("Wallet connection")}>
       {provider && <span className="header-wallet-provider" title={provider.name}><WalletMark icon={provider.icon}/><span className="sr-only">{provider.name}</span></span>}
-      {solanaActive && jupiter.session ? <span className="wallet-connection">Solana wallet: <span className="numeric wallet-address">{jupiter.session.account.address.slice(0, 6)}…{jupiter.session.account.address.slice(-4)}</span> · {walletEnvironmentLabel(walletEnvironment)}</span>
-        : !solanaActive && build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>Wallet: <span className="numeric wallet-address">{build009.account.slice(0, 6)}…{build009.account.slice(-4)}</span> · {chainName(build009.chainId)}</span>
-          : <><span className="wallet-connection">{solanaActive ? 'Solana wallet not connected' : 'Wallet not connected'}</span><button type="button" onClick={() => void connection.connect()} disabled={build009.busy || jupiter.busy}>Connect Wallet</button></>}
+      {solanaActive && jupiter.session ? <span className="wallet-connection">{tr("Solana Default: ")}<span className="numeric wallet-address">{jupiter.session.account.address.slice(0, 6)}…{jupiter.session.account.address.slice(-4)}</span> · {tr(jupiter.session.chain === 'solana:devnet' ? 'Solana Devnet' : jupiter.session.chain === 'solana:mainnet' ? 'Solana mainnet-beta' : jupiter.session.chain)}</span>
+        : !solanaActive && build009.account ? <span className="build009-wallet-info wallet-connection" title={build009.account}>{tr("EVM Default: ")}<span className="numeric wallet-address">{build009.account.slice(0, 6)}…{build009.account.slice(-4)}</span> · {tr(chainName(build009.chainId))}</span>
+          : <><span className="wallet-connection">{tr(solanaActive ? 'Solana wallet not connected' : 'Wallet not connected')}</span><button type="button" onClick={() => void connection.connect()} disabled={build009.busy || jupiter.busy}>{tr("Connect Wallet")}</button></>}
       </div>
       <HeaderSettings onDisconnect={disconnect} disconnectDisabled={disconnectDisabled}/>
     </div>
     <div className="shell-network-row">
-      {requiredChain && <span className="build009-required">Workflow network: {shellChainLabel(requiredChain)}</span>}
-      {!solanaActive && build009.account && switchTarget && build009.chainId !== switchTarget && <><span className="network-mismatch" role="status">Switch networks before execution</span><button type="button" onClick={() => void build009.switchTo(switchTarget)} disabled={build009.busy}>Switch to {chainName(switchTarget)}</button></>}
-      {!solanaActive && !build009.account && build009.providerError && <span role="status">{build009.providerError}</span>}
-      {(fork || modeB.info?.available) && <details className="shell-technical"><summary>Technical connection details</summary><div>
+      {requiredChain && <span className="build009-required">{tr("Workflow network: ")}{tr(shellChainLabel(requiredChain))}</span>}
+      {!solanaActive && build009.account && switchTarget && build009.chainId !== switchTarget && <><span className="network-mismatch" role="status">{tr("Switch networks before execution")}</span><button type="button" onClick={() => void build009.switchTo(switchTarget)} disabled={build009.busy}>{tr("Switch to ")}{tr(chainName(switchTarget))}</button></>}
+      {!solanaActive && !build009.account && build009.providerError && <span role="status">{tr(build009.providerError)}</span>}
+      {(fork || modeB.info?.available) && <details className="shell-technical"><summary>{tr("Technical connection details")}</summary><div>
         {fork && <span className="fork-badge"><StatusBadge label={`Local fork · ${fork.environment}`} tone="warning"/></span>}
         {modeB.info?.available && <StatusBadge label="Wallet permissions · local fork" tone="warning"/>}
-        <span>Wallet: {modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet}</span>
-        <span>Chain 31337 · local environment</span>
+        <span>{tr("Wallet: ")}{tr(modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet)}</span>
+        <span>{tr("Chain 31337 · local environment")}</span>
       </div></details>}
     </div>
-    {walletError && <div role="alert" className="wallet-toast">Wallet: {walletError}</div>}
+    {walletError && <div role="alert" className="wallet-toast">{tr("Wallet: ")}{tr(walletError)}</div>}
   </header>;
 }

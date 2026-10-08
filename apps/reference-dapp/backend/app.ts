@@ -13,6 +13,9 @@ import { disabledCode, flowMode, FLOWS, isFlowName, type FlowDeps, type FlowName
 import { PREVIEW_METHODS, previewStorage } from './preview.ts';
 import { assertRunOwnership, normalizePrincipal, WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
 
+import { createSavedWorkflowStore, EXECUTED_WORKFLOW_RUN, validWorkflowId } from '../src/server/saved-workflow-store.ts';
+import { validateSavedWorkflow, workflowOwner, WORKFLOW_OWNER_HEADER, type WorkflowOwner } from '../src/domain/saved-workflow.ts';
+
 /** Methods that could put a transaction on any network. Observer (worker) transports reject them unconditionally. */
 const SUBMISSION_METHODS = new Set(['sendTransaction', 'eth_sendRawTransaction', 'eth_sendTransaction']);
 export function observeOnly(rpc: Rpc): Rpc {
@@ -128,9 +131,16 @@ export function createBackend(options: BackendOptions) {
     if (!principal) throw new HttpError(400, 'WALLET_PRINCIPAL_INVALID');
     return principal;
   };
+  const indexPrincipal = (request: HttpRequest) => {
+    const raw = request.headers[WORKFLOW_OWNER_HEADER];
+    if (raw === undefined) return principalOf(request);
+    const owner = workflowOwner(raw);
+    if (!owner) throw new HttpError(400, 'WALLET_PRINCIPAL_INVALID');
+    return owner.address;
+  };
   /** A run is visible to a principal only when it is that wallet's run; operator calls (no principal) see the tenant. */
   const visibleRun = async (request: HttpRequest, runId: string) => {
-    const run = await queries(options.tenantId).getRun(runId), principal = principalOf(request);
+    const run = await queries(options.tenantId).getRun(runId), principal = indexPrincipal(request);
     if (!run || principal !== null && run.ownerAccount !== principal) throw new HttpError(404, 'RUN_NOT_FOUND');
     return run;
   };
@@ -144,7 +154,62 @@ export function createBackend(options: BackendOptions) {
     }
   };
 
+  async function executedWorkflow(id: string, owner: WorkflowOwner, tenantId: string) {
+    const runs = await db.query<{ run_id: string; flow: string }>(`SELECT run_id,flow FROM execution_runs er
+      WHERE tenant_id=$1 AND owner_account=$2 AND workflow_id=$3 AND ${EXECUTED_WORKFLOW_RUN}
+      ORDER BY updated_at DESC,run_id DESC LIMIT 100`, [tenantId, owner.address, id]);
+    for (const row of runs.rows) {
+      if (!isFlowName(row.flow)) continue;
+      try {
+        const raw = await service(row.flow, tenantId, true).load(row.run_id) as { workflow?: unknown; review?: { workflow?: unknown; account?: string }; prepared?: { workflow?: unknown }; reviews?: { workflow?: unknown }[] };
+        const recordOwner = FLOWS[row.flow].ownership?.ownerOf(raw) ?? raw.review?.account;
+        if (typeof recordOwner !== 'string' || (owner.namespace === 'eip155' ? recordOwner.toLowerCase() : recordOwner) !== owner.address) continue;
+        const workflow = validateSavedWorkflow(raw.workflow ?? raw.review?.workflow ?? raw.prepared?.workflow ?? raw.reviews?.[0]?.workflow);
+        if (workflow.workflowId === id) return { workflowId: id, name: null, workflow, version: null };
+      } catch { /* Historical records without valid canonical IR cannot be offered for reopening. */ }
+    }
+    return null;
+  }
+
+  async function callWorkflows(method: string, args: readonly unknown[], owner: WorkflowOwner | null, tenantId = options.tenantId): Promise<FlowResult> {
+    if (!owner || !workflowOwner(`${owner.namespace}:${owner.address}`)) return { ok: false, code: 'WALLET_SESSION_REQUIRED' };
+    const store = createSavedWorkflowStore(db, tenantId, owner);
+    try {
+      if (method === 'list' && args.length === 0) {
+        const list = await store.list(), items = [];
+        for (const item of list.items) if (item.saved || await executedWorkflow(item.workflowId, owner, tenantId)) items.push(item);
+        return { ok: true, value: { ...list, items } };
+      }
+      if (method === 'save' && args.length === 1) return { ok: true, value: await store.save(args[0]) };
+      if (method === 'get' && args.length === 1 && validWorkflowId(args[0])) {
+        const saved = await store.get(args[0]);
+        if (saved) return { ok: true, value: saved };
+        const document = await executedWorkflow(args[0], owner, tenantId);
+        return document ? { ok: true, value: document } : { ok: false, code: 'WORKFLOW_NOT_FOUND' };
+      }
+      return { ok: false, code: 'WORKFLOW_INVALID' };
+    } catch (error) { return { ok: false, code: error instanceof Error && CODE.test(error.message) ? error.message : 'WORKFLOW_UNAVAILABLE' }; }
+  }
+
   const routes: Route[] = [
+    { method: 'POST', name: 'workflows', pattern: /^\/v1\/workflows\/(list|get|save)$/, handler: wrap(async (request, match) => {
+      const owner = workflowOwner(request.headers[WORKFLOW_OWNER_HEADER]);
+      if (!owner) throw new HttpError(401, 'WALLET_SESSION_REQUIRED');
+      const body = request.body as { args?: unknown } | null;
+      if (!body || !Array.isArray(body.args) || Object.keys(body).length !== 1) throw new HttpError(400, 'WORKFLOW_INVALID');
+      const method = match[1]!, args = body.args;
+      if (method !== 'save') return { status: 200, body: await callWorkflows(method, args, owner) };
+      const key = request.headers['idempotency-key'];
+      if (typeof key !== 'string') throw new HttpError(400, 'IDEMPOTENCY_KEY_REQUIRED');
+      const scope = 'workflows/save', hash = requestHash(scope, [owner, ...args]), store = idempotency(options.tenantId);
+      const claim = await store.begin(scope, key, hash);
+      if (claim.kind === 'REPLAY') return { status: 200, body: claim.response };
+      if (claim.kind === 'CONFLICT') throw new HttpError(409, 'IDEMPOTENCY_KEY_REUSED');
+      if (claim.kind === 'IN_PROGRESS') throw new HttpError(409, 'IDEMPOTENCY_IN_PROGRESS');
+      const result = await callWorkflows(method, args, owner);
+      if (result.ok) await store.complete(scope, key, hash, result); else await store.release(scope, key, hash);
+      return { status: 200, body: result };
+    }) },
     { method: 'POST', name: 'flow', pattern: /^\/v1\/flows\/([a-z-]{1,40})\/([A-Za-z]{1,40})$/, handler: wrap(async (request, match) => {
       const flow = match[1]!, method = match[2]!;
       if (!isFlowName(flow)) throw new HttpError(404, 'FLOW_NOT_FOUND');
@@ -177,10 +242,15 @@ export function createBackend(options: BackendOptions) {
       const limit = integerParam(request.query.get('limit')), flow = request.query.get('flow');
       if (flow !== null && !isFlowName(flow)) throw new HttpError(400, 'FLOW_INVALID');
       // A wallet session sees only its own runs.
-      return { status: 200, body: { ok: true, value: await queries(options.tenantId).listRuns(request.query.get('cursor'), limit, { owner: principalOf(request), flow }) } };
+      return { status: 200, body: { ok: true, value: await queries(options.tenantId).listRuns(request.query.get('cursor'), limit, { owner: indexPrincipal(request), flow }) } };
     }) },
     { method: 'GET', name: 'run', pattern: /^\/v1\/runs\/([^/]+)$/, handler: wrap(async (request, match) => {
       return { status: 200, body: { ok: true, value: await visibleRun(request, runIdOf(match[1])) } };
+    }) },
+    { method: 'GET', name: 'run.record', pattern: /^\/v1\/runs\/([^/]+)\/record$/, handler: wrap(async (request, match) => {
+      const run = await visibleRun(request, runIdOf(match[1]));
+      if (!isFlowName(run.flow)) throw new HttpError(404, 'FLOW_NOT_FOUND');
+      return { status: 200, body: { ok: true, value: await service(run.flow, options.tenantId, true).load(run.runId) } };
     }) },
     { method: 'GET', name: 'run.journal', pattern: /^\/v1\/runs\/([^/]+)\/journal$/, handler: wrap(async (request, match) => {
       const runId = runIdOf(match[1]), q = queries(options.tenantId);
@@ -247,6 +317,6 @@ export function createBackend(options: BackendOptions) {
     await settle({ outcome: 'DONE' });
   };
 
-  return { routes, callFlow, previewFlow, service, storage, handlers: { reconcile, 'evidence.archive': archive } as Record<string, WorkHandler> };
+  return { routes, callFlow, callWorkflows, previewFlow, service, storage, handlers: { reconcile, 'evidence.archive': archive } as Record<string, WorkHandler> };
 }
 export type Backend = ReturnType<typeof createBackend>;

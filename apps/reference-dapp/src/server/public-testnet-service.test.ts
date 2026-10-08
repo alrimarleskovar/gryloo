@@ -3,10 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { hashArtifactBytes, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { createBaseSepoliaReviewContext } from '@defi-workflow-engine/reference-linter';
 import { editorReducer, initialEditor } from '../domain/editor';
-import { BASE_SEPOLIA, createPublicTestnetService, explorerUrl, publicRecordingEnabled, type Rpc } from './public-testnet-service';
+import { projectSimulation, type SimulationSource } from '../domain/simulation-presentation';
+import { reviewPublicRun, BASE_SEPOLIA, createPublicTestnetService, explorerUrl, publicRecordingEnabled, type Rpc } from './public-testnet-service';
 
 const account = '0x1111111111111111111111111111111111111111';
 const sponsor = '0x2222222222222222222222222222222222222222';
@@ -346,3 +347,46 @@ if (process.env.GRYLOO_PUBLIC_TESTNET_READ === '1') {
     expect(run.outcome).toBeNull();
   }, 60_000);
 }
+
+
+describe('public quote canonical workflow binding', () => {
+  const hash = (w: SemanticWorkflow) => hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(w)));
+  const project = (w: SemanticWorkflow, run: Awaited<ReturnType<ReturnType<typeof fixture>['service']['prepare']>>) =>
+    projectSimulation(w, createBaseSepoliaReviewContext(), { kind: 'public', state: { run, busy: null, error: null, retired: false, recoveryOnly: false } } as SimulationSource, Date.parse(run.quote.observedAt));
+  it('binds the actual service quote through disk, JSON and reordered reconstruction', async () => {
+    const f = fixture(), w = workflow(), run = await f.service.prepare(w);
+    expect(run.quote.workflowHash).toBe(hash(w));
+    const roundtrip = f.service.load(run.quote.executionId);
+    // Reconstruct every object with reverse insertion order while retaining arrays and semantic fields.
+    const reorder = (v: unknown): unknown => Array.isArray(v) ? v.map(reorder) : v && typeof v === 'object'
+      ? Object.fromEntries(Object.entries(v).reverse().map(([k, value]) => [k, reorder(value)])) : v;
+    for (const current of [w, JSON.parse(JSON.stringify(w)), reorder(w) as SemanticWorkflow]) {
+      expect(hash(current)).toBe(run.quote.workflowHash);
+      expect(project(current, roundtrip).status).not.toBe('blocked');
+      expect(project(current, roundtrip).steps[0]?.result).toBe('0.001 WETH');
+    }
+    expect(reviewPublicRun(roundtrip, run.quote.manifestHash, new Date(run.quote.observedAt)).reviewedManifestHash).toBe(run.quote.manifestHash);
+  });
+  it.each(['amount', 'source', 'destination', 'network', 'slippage', 'revision', 'identity', 'adapter'])('blocks a %s edit and cross-workflow quote reuse', async field => {
+    const f = fixture(), w = workflow(), run = await f.service.prepare(w), edited = structuredClone(w);
+    const node = edited.nodes.find(n => n.actionType === 'asset.swap.exact-input')!;
+    const amount = node.inputs.find(p => p.name === 'amount-in')!;
+    if (amount.kind !== 'QUANTITY') throw Error('fixture');
+    if (field === 'amount') amount.value.amount = '3000000';
+    if (field === 'source' && 'address' in amount.value.asset) amount.value.asset.address = BASE_SEPOLIA.weth;
+    if (field === 'destination') { const out = node.inputs.find(p => p.name === 'asset-out')!; if (out.kind === 'ASSET' && 'address' in out.value) out.value.address = BASE_SEPOLIA.usdc; }
+    if (field === 'network') node.chainId = 'eip155:11155111';
+    if (field === 'slippage') { const slip = node.userConstraints.find(c => c.kind === 'MAXIMUM_SLIPPAGE_BPS')!; if (slip.kind === 'MAXIMUM_SLIPPAGE_BPS') slip.maximumBps = 75; }
+    if (field === 'revision') edited.revision++;
+    if (field === 'identity') edited.workflowId = 'another-workflow';
+    if (field === 'adapter') node.adapterConstraints.protocols = ['cow-protocol'];
+    expect(project(edited, run).status).toBe('blocked');
+    expect(project(edited, run).steps[0]?.result).toBeNull();
+  });
+  it('leaves legacy history readable but refuses legacy Review and begin authority', async () => {
+    const f = fixture(), run = await f.service.prepare(workflow());
+    const legacy = { ...run, quote: { ...run.quote, workflowHash: '0x' + '1'.repeat(64) } };
+    expect(() => reviewPublicRun(legacy, legacy.quote.manifestHash, new Date(run.quote.observedAt))).toThrow('WORKFLOW_BINDING_REQUIRES_SIMULATION');
+    expect(project(workflow(), legacy).status).toBe('blocked');
+  });
+});

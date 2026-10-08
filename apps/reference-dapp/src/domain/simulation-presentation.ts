@@ -132,7 +132,11 @@ export function projectSimulation(workflow: Workflow, context: ReviewContext, so
     if ('status' in record && ['FAILED', 'RECOVERY_REQUIRED', 'PAUSED', 'PARTIALLY_COMPLETED'].includes(record.status)) return stop('The previous run needs attention before continuing.');
   }
   if (source.kind === 'unavailable') return view;
-  const same = (saved: SemanticWorkflow) => JSON.stringify(saved) === JSON.stringify(workflow);
+  const same = (saved: SemanticWorkflow) => {
+    try { return hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(saved))) ===
+      hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(workflow))); }
+    catch { return false; }
+  };
   const boundHash = (hash: string, revision: number) => {
     try { return revision === workflow.revision && hash === hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(workflow))); }
     catch { return false; }

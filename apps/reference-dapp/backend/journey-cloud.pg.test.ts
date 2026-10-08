@@ -17,6 +17,7 @@ import { createTestDatabase, type TestDatabase } from '../../../packages/cloud-r
 import { editorReducer, initialEditor } from '../src/domain/editor.ts';
 import type { RouterBridgeInput } from '../src/domain/router-authoring.ts';
 import type { RouterBegin, RouterRecord } from '../src/server/router-service.ts';
+import type { WorkflowList, WorkflowDocument, WorkflowOwner } from '../src/domain/saved-workflow.ts';
 import { WALLET_PRINCIPAL_HEADER } from '../src/server/run-ownership.ts';
 import { createRouterHarness, type RouterHarness } from '../e2e/router-harness.ts';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
@@ -158,6 +159,36 @@ describe('BUILD-JOURNEY-001 permissionless testnet journey on durable cloud stat
     expect(evidence.body.value).toEqual([expect.objectContaining({ verified: true, bundleHash: final.evidence!.bundleHash, environment: 'MOCKED', outcome: 'RECONCILED' })]);
     expect((await api4.get('run.evidence', `/v1/runs/${id}/evidence`, B)).status).toBe(404);
     expect(h.counters.sends).toBe(2);
+
+    // The execution library is a canonical workflow identity, separate from Dashboard's run/evidence routes.
+    const ownerA: WorkflowOwner = { namespace: 'eip155', address: A }, ownerB: WorkflowOwner = { namespace: 'eip155', address: B };
+    const library = async (owner: WorkflowOwner) => ok<WorkflowList>(await api4.backend.callWorkflows('list', [], owner));
+    expect((await library(ownerA)).items).toEqual([expect.objectContaining({ workflowId: w.workflowId, saved: false, runCount: 1 })]);
+    expect((await library(ownerB)).items).toEqual([]); // B's simulation has never reached the wallet.
+    const reopened = ok<WorkflowDocument>(await api4.backend.callWorkflows('get', [w.workflowId], ownerA));
+    expect(reopened.workflow).toEqual(w);
+    for (const key of ['authorization', 'review', 'quote', 'evidence', 'attempts']) expect(reopened).not.toHaveProperty(key);
+    expect(await api4.backend.callWorkflows('get', [w.workflowId], ownerB)).toEqual({ ok: false, code: 'WORKFLOW_NOT_FOUND' });
+    ok(await api4.backend.callWorkflows('save', [{ workflow: w, name: 'Base → Arbitrum bridge', expectedVersion: 0 }], ownerA));
+    expect((await library(ownerA)).items).toEqual([expect.objectContaining({ workflowId: w.workflowId, saved: true, runCount: 1, name: 'Base → Arbitrum bridge' })]);
+    const unused = { ...workflow({ amount: '3' }), workflowId: 'saved-unused-' + crypto.randomUUID() };
+    ok(await api4.backend.callWorkflows('save', [{ workflow: unused, name: 'Saved, never executed', expectedVersion: 0 }], ownerA));
+    expect((await library(ownerA)).items.find(item => item.workflowId === unused.workflowId)).toMatchObject({ saved: true, runCount: 0 });
+    const second = ok<RouterRecord>(await api4.post('simulate', [w, A], A));
+    ok(await api4.post('review', [second.id, second.review.commitment, w], A));
+    const next = ok<RouterBegin>(await api4.post('begin', [second.id, A, w], A));
+    ok(await api4.post('handoff', [second.id], A));
+    ok(await api4.post('report', [second.id, { kind: 'HASH', hash: h.wallet.send(next.transaction) }], A));
+    expect((await library(ownerA)).items.filter(item => item.workflowId === w.workflowId)).toEqual([expect.objectContaining({ saved: true, runCount: 2 })]);
+    // An executed record with no matching canonical IR must not become a broken sidebar entry.
+    await api4.db.query('INSERT INTO workflows (tenant_id,workflow_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', ['default', unused.workflowId]);
+    await api4.db.query('UPDATE execution_runs SET workflow_id=$1 WHERE run_id=$2', [unused.workflowId, second.id]);
+    // The saved document still restores safely, independent of the malformed execution projection.
+    expect(ok<WorkflowDocument>(await api4.backend.callWorkflows('get', [unused.workflowId], ownerA)).workflow).toEqual(unused);
+    await api4.db.query('DELETE FROM saved_workflows WHERE workflow_id=$1', [unused.workflowId]);
+    expect((await library(ownerA)).items.some(item => item.workflowId === unused.workflowId)).toBe(false);
+    expect(await api4.backend.callWorkflows('get', [unused.workflowId], ownerA)).toEqual({ ok: false, code: 'WORKFLOW_NOT_FOUND' });
+    expect((await api4.get('run.evidence', `/v1/runs/${id}/evidence`, A)).body.value).toEqual([expect.objectContaining({ verified: true })]);
     for (const d of [worker1, worker2]) expect(d.methods.filter(m => SEND.includes(m))).toEqual([]);
     const projected = await t.db.query(`SELECT flow, status, provenance, owner_account, has_evidence FROM execution_runs WHERE run_id = $1`, [id]);
     expect(projected.rows[0]).toEqual({ flow: FLOW, status: 'RECONCILED', provenance: 'MOCKED', owner_account: A, has_evidence: true });

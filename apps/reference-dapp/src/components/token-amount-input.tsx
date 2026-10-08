@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import type { ComponentProps } from 'react';
 
 /** Entry formatting only: leave precision and invalid input to the existing validators. */
@@ -16,7 +18,8 @@ type Props = Omit<ComponentProps<'input'>, 'value' | 'defaultValue' | 'onChange'
 
 /** A zero starting value is replaced on entry; an empty field stays editable until blur. */
 export function TokenAmountInput({ value, onValueChange, onFocus, onClick, onBlur, onKeyDown, onBeforeInput, onPaste, ...props }: Props) {
-  return <input type="text" inputMode="decimal" autoComplete="off" spellCheck={false} placeholder="0" {...props}
+  const { t: tr } = useLocale();
+  return <input type="text" inputMode="decimal" autoComplete="off" spellCheck={false} placeholder={tr("0")} {...props}
     value={value} onChange={event => onValueChange(normalizeAmountEntry(event.target.value))}
     onFocus={event => { if (event.currentTarget.value === '0') event.currentTarget.select(); onFocus?.(event); }}
     onClick={event => { if (event.currentTarget.value === '0') event.currentTarget.select(); onClick?.(event); }}

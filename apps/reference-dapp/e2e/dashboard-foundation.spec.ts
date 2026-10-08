@@ -50,7 +50,7 @@ test('Build, Simulate and Execute retain their current workflow through Dashboar
   await page.getByRole('button', { name: 'Build workflow', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(amount).toHaveValue('2.5');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await nav.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).click();

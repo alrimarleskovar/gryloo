@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createBaseSepoliaReviewContext, validateAuthoringWorkflow, type ReviewContext } from '@defi-workflow-engine/reference-linter';
+import { validateSavedWorkflow } from './saved-workflow';
 import {isLendingComposition,type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import type { Command } from './commands';
 import { directions, type Direction } from './swap-authoring';
@@ -20,6 +21,7 @@ export type EditorHistory = { readonly editor: EditorState; readonly layout: Can
   readonly past: readonly Snapshot[]; readonly future: readonly Snapshot[] };
 export type HistoryAction =
   | { readonly type: 'EDIT_CRYPTO_SELECTION'; readonly id: string; readonly selection: CryptoSelection; readonly context: ReviewContext; readonly beneficiary?: string }
+  | { readonly type: 'RESTORE_WORKFLOW'; readonly workflow: SemanticWorkflow }
   | { readonly type: 'RESTORE_LENDING_CANVAS'; readonly workflow: SemanticWorkflow }
   | { readonly type: 'COMMAND'; readonly command: Command; readonly context: ReviewContext; readonly position?: { x: number; y: number }; readonly authoringId?: string; readonly authoringAmount?: string }
   | { readonly type: 'START_ACTION_SETUP'; readonly action: CanvasActionSetup['action']; readonly position: { x: number; y: number }; readonly beneficiary?: string }
@@ -145,6 +147,12 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
     if (!state.actionSetup) return state;
     const layout = { ...state.layout }; delete layout[state.actionSetup.id];
     return { ...state, actionSetup: null, layout, past: [...state.past, snapshot(state)], future: [] };
+  }
+  if (action.type === 'RESTORE_WORKFLOW') {
+    try {
+      const workflow = validateSavedWorkflow(action.workflow);
+      return { ...initialEditorHistory(), editor: { workflow: freeze(structuredClone(workflow)), error: null } };
+    } catch { return state; }
   }
   if(action.type==='RESTORE_LENDING_CANVAS') {
     // Restore only the untouched initial Canvas from a validated durable run.

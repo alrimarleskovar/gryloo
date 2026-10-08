@@ -30,7 +30,7 @@ export function DashboardWorkspace({ workflowName, progress, recovery, wallet, c
   const [verificationIssue, setVerificationIssue] = useState<{ account: string; message: string } | null>(null);
   const key = JSON.stringify([account, runId, version]);
   useEffect(() => {
-    if (!account || !evm || isCurrent) return;
+    if (!account || isCurrent) return;
     let cancelled = false;
     const request = runId ? dashboardRunDetail(account, runId).then(response => ({ key, response })) : dashboardSnapshot(account).then(snapshot => ({ key, snapshot }));
     request.then(value => { if (!cancelled) setLoaded(value); }).catch(() => {
@@ -40,7 +40,7 @@ export function DashboardWorkspace({ workflowName, progress, recovery, wallet, c
     return () => { cancelled = true; };
   }, [account, evm, isCurrent, key, runId]);
   const visible = loaded?.key === key ? loaded : null;
-  const loading = Boolean(account && evm && !isCurrent && !visible);
+  const loading = Boolean(account && !isCurrent && !visible);
   const snapshot = visible?.snapshot;
   const detail = visible?.response?.detail;
   // A stale session/result can never flash another account's records while the new read is pending.
@@ -69,10 +69,10 @@ export function DashboardWorkspace({ workflowName, progress, recovery, wallet, c
     } finally { setVerifying(false); }
   }
   if (runId) return <RunDetailView view={isCurrent ? ownedCurrent : historical} detail={ownedDetail} loading={loading}
-    connection={!account ? 'DISCONNECTED' : visible?.response?.connection ?? (!evm ? 'NOT_CONFIGURED' : null)}
+    connection={!account ? 'DISCONNECTED' : visible?.response?.connection ?? null}
     back={() => navigate('/app/dashboard')} build={build} execute={execute} refresh={() => refresh(value => value + 1)}/>;
   const runs = dashboardRunIndex(account, snapshot?.runs ?? [], ownedCurrent);
-  return <DashboardView account={account} connection={!evm && account ? 'NOT_CONFIGURED' : snapshot?.connection ?? null} runs={runs} hasMore={snapshot?.hasMore ?? false}
+  return <DashboardView account={account} connection={snapshot?.connection ?? null} runs={runs} hasMore={snapshot?.hasMore ?? false}
     loading={loading} build={build} openRun={id => navigate(`/app/dashboard/runs/${encodeURIComponent(id)}`)} verify={() => void verify()} verifying={verifying}
     verificationIssue={verificationIssue?.account === account ? verificationIssue.message : null} refresh={() => refresh(value => value + 1)}/>;
 }

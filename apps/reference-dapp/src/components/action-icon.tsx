@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+
 import type { CanvasAction } from '../domain/canvas-authoring';
 
 export function ActionIcon({ action }: { action: CanvasAction | 'stocks' | 'transfer' | 'action' }) {

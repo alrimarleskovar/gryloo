@@ -46,7 +46,7 @@ for (const theme of ['Light', 'Dark']) test(`${theme} keeps token icons containe
       await picker.getByRole('button', { name: 'Hide token picker', exact: true }).click();
     }
     await page.screenshot({ path: `.tmp/token-layout-${theme.toLowerCase()}-${action}-build.png`, fullPage: true });
-    await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     const graph = page.getByRole('region', { name: 'Simulation workflow graph', exact: true });
     await expect(graph).toHaveAttribute('data-viewport', 'fitted');
     await tokenIconsStayInside(graph);

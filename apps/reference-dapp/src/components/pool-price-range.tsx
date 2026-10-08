@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useWorkflow } from '../state/workflow-store';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
@@ -114,6 +116,7 @@ export function poolPriceBounds(reference: RangeReference | null, percent: numbe
 }
 
 export function PoolPriceRange({ percent, preset = null, extent = 100, reference, onChange }: { percent: number; preset?: PoolPricePreset | null; extent?: number; reference: RangeReference | null; onChange(percent: number, extent?: number): void }) {
+  const { t: tr } = useLocale();
   const track = useRef<HTMLDivElement>(null);
   const offsets = poolRangeOffsets(percent, preset);
   const viewExtent = Math.max(extent, Math.abs(offsets.lower), offsets.upper);
@@ -123,18 +126,18 @@ export function PoolPriceRange({ percent, preset = null, extent = 100, reference
     if (bounds?.width) onChange(Math.abs((clientX - bounds.x) / bounds.width - 0.5) * viewExtent * 2, viewExtent);
   }
   return <div className="composer-price-range nodrag nopan" onClick={event => event.stopPropagation()}>
-    <span className="composer-range-reference" title={reference ? 'Reference pool price' : 'Reference price unavailable'}>{reference ? Number(reference.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (reference.quoteToken ? ` ${reference.quoteToken}` : '') : '--'}</span>
+    <span className="composer-range-reference" title={tr(reference ? 'Reference pool price' : 'Reference price unavailable')}>{tr(reference ? Number(reference.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (reference.quoteToken ? ` ${reference.quoteToken}` : '') : '--')}</span>
     <div className="composer-price-track" ref={track}>
       <span className="composer-price-coverage" style={{ left: `${50 + offsets.lower / viewExtent * 50}%`, right: `${50 - offsets.upper / viewExtent * 50}%` }}/>
-      <span className="composer-price-center" aria-label="Reference price"/>
+      <span className="composer-price-center" aria-label={tr("Reference price")}/>
       {(['Lower', 'Upper'] as const).map(side => <button key={side} type="button" role="slider" className="composer-price-handle"
-        style={{ left: `${50 + (side === 'Lower' ? offsets.lower : offsets.upper) / viewExtent * 50}%` }} aria-label={`${side} price boundary`}
+        style={{ left: `${50 + (side === 'Lower' ? offsets.lower : offsets.upper) / viewExtent * 50}%` }} aria-label={tr(`${side} price boundary`)}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.abs(side === 'Lower' ? offsets.lower : offsets.upper)} aria-valuetext={label(side === 'Lower' ? offsets.lower : offsets.upper)}
         onPointerDown={event => { event.preventDefault(); event.stopPropagation(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) { event.stopPropagation(); fromPointer(event.clientX); } }}
         onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
         onKeyDown={event => { event.stopPropagation(); const sign = side === 'Lower' ? -1 : 1; const start = preset ? Math.abs(side === 'Lower' ? offsets.lower : offsets.upper) : percent; if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) { event.preventDefault(); onChange(event.key === 'Home' ? 0.01 : event.key === 'End' ? 90 : start + (event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : event.key === 'ArrowRight' ? sign : -sign) * (event.shiftKey ? 5 : 1), viewExtent); } }}>
-        <span className={`composer-price-bound-label ${side.toLowerCase()}`}>{label(side === 'Lower' ? offsets.lower : offsets.upper)}</span>
+        <span className={`composer-price-bound-label ${side.toLowerCase()}`}>{tr(label(side === 'Lower' ? offsets.lower : offsets.upper))}</span>
       </button>)}
     </div>
   </div>;

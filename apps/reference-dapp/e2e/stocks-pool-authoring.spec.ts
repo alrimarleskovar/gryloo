@@ -34,7 +34,7 @@ test('floating Stocks action creates a Supply-style editable card without connec
   await expect(card.locator('.composer-metadata')).toHaveText('Robinhood');
   await expect(card.locator('.composer-amount-box')).toHaveCount(1);
   await expect(card.getByRole('textbox', { name: 'Stocks amount', exact: true })).toHaveValue('0');
-  await expect(card.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
+  await expect(card.locator('.composer-fiat-value')).toHaveText('USD value unavailable');
   await expect(card.getByRole('button', { name: 'Select stock', exact: true })).toHaveAttribute('aria-expanded', 'false');
   await expect(card.getByRole('img', { name: 'Robinhood', exact: true })).toBeVisible();
   await expect(card.getByRole('img', { name: 'Robinhood Chain network', exact: true })).toBeVisible();
@@ -114,7 +114,7 @@ test('both Pool contribution fields share the position form and require fresh Re
   const first = card.getByRole('textbox', { name: 'First liquidity amount (USDC)', exact: true });
   const second = card.getByRole('textbox', { name: 'Second liquidity amount (WETH)', exact: true });
   await expect(first).toHaveValue('0'); await expect(second).toHaveValue('0');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   await card.getByRole('button', { name: 'Review', exact: true }).click();
   await expect(card.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
   await first.fill('2.5'); await second.fill('0.0002');
@@ -134,11 +134,11 @@ test('both Pool contribution fields share the position form and require fresh Re
   await expect(first).toHaveValue('3'); await expect(second).toHaveValue('0.0003');
   await card.getByRole('button', { name: 'Price', exact: true }).click();
   const presets = page.locator('.composer-pool-presets');
-  await presets.locator('.composer-pool-preset').filter({ hasText: 'Amplo' }).click();
+  await presets.locator('.composer-pool-preset').filter({ hasText: 'Wide' }).click();
   const positions = await card.getByRole('slider').evaluateAll(elements => elements.map(element => (element as HTMLElement).style.left));
   await first.fill('4'); await second.fill('0.0004');
   expect(await card.getByRole('slider').evaluateAll(elements => elements.map(element => (element as HTMLElement).style.left))).toEqual(positions);
-  await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Amplo' }).getByRole('radio')).toBeChecked();
+  await expect(presets.locator('.composer-pool-preset').filter({ hasText: 'Wide' }).getByRole('radio')).toBeChecked();
   await expect(apply).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await card.getByRole('button', { name: 'Tick', exact: true }).click();

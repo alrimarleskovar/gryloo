@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useState, type FormEvent } from 'react';
 import { createAuthoredSupply, supplyDetails, lendingAssetFor, lendingCopy, lendingView, LENDING_NETWORKS, type LendingNetwork, type SupplyInput } from '../domain/supply-authoring';
 import { useWorkflow } from '../state/workflow-store';
@@ -7,6 +9,7 @@ import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useSupply } from '../state/supply-store';
 import { TokenAmountInput } from './token-amount-input';
 export function SupplyAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{nodeId?:string;onDone?:()=>void;direct?:boolean;reviewFormId?:string}){
+  const { t: tr } = useLocale();
   const {state,propose,dispatch,amountInputs={},editCanvasAmount}=useWorkflow(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.nodeId===nodeId);
   const existing=node?supplyDetails(node as Parameters<typeof supplyDetails>[0]):null;
@@ -19,14 +22,14 @@ export function SupplyAuthoringForm({nodeId,onDone,direct=false,reviewFormId}:{n
     const command=nodeId?{type:'SET_SUPPLY' as const,nodeId,input,source:'CANVAS' as const,baseRevision:state.workflow.revision}:{type:'ADD_SUPPLY' as const,input,source:'CANVAS' as const,baseRevision:state.workflow.revision};
     if(direct)dispatch(command);else propose(command);onDone?.();
   }catch(cause){setError(cause instanceof Error?cause.message:'SUPPLY_INPUT_INVALID');}}
-  return <form id={reviewFormId} className="inspector-fields" aria-label={nodeId?'Edit Supply':'Create Supply'} onSubmit={submit}>
-    <strong>Supply to Aave V3</strong>
-    <label>Supply network<select aria-label="Supply network" value={network} onChange={e=>setNetwork(e.target.value as LendingNetwork)}>{LENDING_NETWORKS.map(n=><option key={n}>{n}</option>)}</select></label>
-    <label>Supply asset<select aria-label="Supply asset" value={asset} onChange={()=>undefined}><option>{asset}</option></select></label>
-    <label>Supply amount ({asset})<TokenAmountInput aria-label={`Supply amount (${asset})`} value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
-    <label>Supply beneficiary<input aria-label="Supply beneficiary" autoComplete="off" value={beneficiary||wallet.account||''} maxLength={42} onChange={e=>setBeneficiary(e.target.value)}/></label>
-    {error&&<p role="alert">{error}</p>}{!reviewFormId&&<button type="submit">{nodeId?'Review Supply change':direct?'Add Supply':'Review Supply proposal'}</button>}
-    {onDone&&<button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+  return <form id={reviewFormId} className="inspector-fields" aria-label={tr(nodeId?'Edit Supply':'Create Supply')} onSubmit={submit}>
+    <strong>{tr("Supply to Aave V3")}</strong>
+    <label>{tr("Supply network")}<select aria-label={tr("Supply network")} value={network} onChange={e=>setNetwork(e.target.value as LendingNetwork)}>{LENDING_NETWORKS.map(n=><option key={n}>{tr(n)}</option>)}</select></label>
+    <label>{tr("Supply asset")}<select aria-label={tr("Supply asset")} value={asset} onChange={()=>undefined}><option>{tr(asset)}</option></select></label>
+    <label>{tr("Supply amount (")}{tr(asset)})<TokenAmountInput aria-label={tr(`Supply amount (${asset})`)} value={amount} maxLength={80} onValueChange={value=>{setError('');if(reviewFormId&&nodeId)editCanvasAmount(nodeId,value);else setAmount(value);}}/></label>
+    <label>{tr("Supply beneficiary")}<input aria-label={tr("Supply beneficiary")} autoComplete="off" value={beneficiary||wallet.account||''} maxLength={42} onChange={e=>setBeneficiary(e.target.value)}/></label>
+    {error&&<p role="alert">{tr(error)}</p>}{!reviewFormId&&<button type="submit">{tr(nodeId?'Review Supply change':direct?'Add Supply':'Review Supply proposal')}</button>}
+    {onDone&&<button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }
 function formatUnits(value:string,decimals:number){const units=BigInt(value),scale=10n**BigInt(decimals);const fraction=(units%scale).toString().padStart(decimals,'0').replace(/0+$/,'');return (units/scale).toString()+(fraction?'.'+fraction:'');}
@@ -37,35 +40,36 @@ const messages:Record<string,string>={SUPPLY_WALLET_REQUEST_REFUSED:'The wallet 
   SUPPLY_AUTHORIZATION_STALE:'The reviewed state changed or expired. Simulate and review again.',SUPPLY_OBSERVATION_BOUND_REACHED:'The bounded transaction search ended. Keep this execution record for manual observation; do not repeat the transaction.',
   SUPPLY_TRANSACTION_NOT_FOUND:'The original approval was not found. Prepare a fresh review for the same approval and nonce.',SUPPLY_RECOVERY_STATE_CHANGED_OBSERVE_EXISTING:'The wallet state changed. Observe the existing approval before proceeding.'};
 export function SupplyPanel({view}:{view:'simulate'|'execute'}){
+  const { t: tr } = useLocale();
   const {state}=useWorkflow(),supply=useSupply(),wallet=useBuild009Wallet();
   const node=state.workflow.nodes.find(n=>n.actionType==='supply'),fields=node?supplyDetails(node as Parameters<typeof supplyDetails>[0]):null;
   const record=supply.record,review=record?.review,shown=lendingView(review?.chain??node?.chainId);
   const pending=record?.notSubmitted?undefined:record?.attempts.find(a=>!a.reconciled&&!record.approvalProof),approval=record?.attempts.find(a=>a.step==='APPROVAL');
   const canExecute=Boolean(record?.authorization&&!supply.retired&&!pending&&record.verdict==='PENDING');
   const info=supply.error??record?.error;
-  return <section className="panel" aria-label="Aave Supply"><h2>{view==='simulate'?'Simulate Supply':'Review Supply'}</h2>
-    <p>Supply {fields?.amount??(review?formatUnits(review.amount,shown.decimals):'')} {shown.asset} to Aave V3 on {shown.network}.</p>
-    <p>Beneficiary: <span>{fields?.beneficiary??review?.beneficiary}</span></p>
-    {supply.retired&&<p role="alert">The workflow changed. Prior authorization is invalid. Observe any existing transaction before starting a new execution.</p>}
+  return <section className="panel" aria-label={tr("Aave Supply")}><h2>{tr(view==='simulate'?'Simulate Supply':'Review Supply')}</h2>
+    <p>{tr("Supply ")}{tr(fields?.amount??(review?formatUnits(review.amount,shown.decimals):''))} {tr(shown.asset)}{tr(" to Aave V3 on ")}{tr(shown.network)}.</p>
+    <p>{tr("Beneficiary: ")}<span>{tr(fields?.beneficiary??review?.beneficiary)}</span></p>
+    {supply.retired&&<p role="alert">{tr("The workflow changed. Prior authorization is invalid. Observe any existing transaction before starting a new execution.")}</p>}
     {view==='simulate'?<>
-      <p>{lendingCopy('Your injected wallet must hold Aave test USDC and Base Sepolia ETH for gas.',shown)}</p>
-      <button type="button" disabled={supply.busy||Boolean(pending)} onClick={()=>void supply.simulate()}>Simulate Supply</button>
-      {review&&!supply.retired&&<><p>Approval required: {review.approvalRequired?'Yes — approve exactly this Supply amount.':'No — existing allowance is sufficient.'}</p>
-        <p>Estimated maximum network cost: {formatUnits(review.manifest.gasBudgets[0]?.maximumAmount??'0',18)} ETH.</p></>}
+      <p>{tr(lendingCopy('Your injected wallet must hold Aave test USDC and Base Sepolia ETH for gas.',shown))}</p>
+      <button type="button" disabled={supply.busy||Boolean(pending)} onClick={()=>void supply.simulate()}>{tr("Simulate Supply")}</button>
+      {review&&!supply.retired&&<><p>{tr("Approval required: ")}{tr(review.approvalRequired?'Yes — approve exactly this Supply amount.':'No — existing allowance is sufficient.')}</p>
+        <p>{tr("Estimated maximum network cost: ")}{tr(formatUnits(review.manifest.gasBudgets[0]?.maximumAmount??'0',18))}{tr(" ETH.")}</p></>}
     </>:<>
-      {review&&wallet.account&&wallet.chainId!==shown.chainHex&&<button type="button" disabled={supply.busy||wallet.busy} onClick={()=>void supply.switchNetwork()}>Switch wallet to {shown.network}</button>}
-      {review&&<><p>Wallet account: {review.account}</p><p>Aave V3 Pool / spender: {review.pool}</p>
-        <p>Approval required: {review.approvalRequired?'Yes, exact amount':'No'}</p></>}
-      {record&&!record.authorization&&!record.attempts.length&&!supply.retired&&<button type="button" disabled={supply.busy} onClick={()=>void supply.review()}>Accept Supply review</button>}
-      {canExecute&&<button type="button" className="primary" disabled={supply.busy} onClick={()=>void supply.execute()}>{approval?.reconciled?'Execute Supply':'Execute'}</button>}
-      {record?.attempts.map(a=><p key={a.step}>{a.step==='APPROVAL'?'Approval':'Supply'}: {a.reconciled||a.step==='APPROVAL'&&Boolean(record.approvalProof)?'Independently verified':record.notSubmitted?(record.walletDiagnostic?.invoked?'not submitted (wallet request refused)':'not submitted (wallet was never requested)'):a.state.toLowerCase().replaceAll('_',' ')} {a.transactionHash&&<a href={`${shown.explorer}/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a>}</p>)}
-      {record&&record.attempts.length>0&&!record.evidence&&<a download="flofi-aave-supply-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>Download execution record</a>}
-      {pending&&<button type="button" disabled={supply.busy} onClick={()=>void supply.observe()}>Observe existing transaction</button>}
-      {(record?.approvalProof||record?.notSubmitted||record?.error==='SUPPLY_TRANSACTION_NOT_FOUND'||record?.walletDiagnostic?.invoked===false&&!record.attempts.length&&Boolean(record.recoveryOf))&&<><p>{record?.approvalProof?'The owner-authorized approval is independently verified. A fresh review will recheck the allowance and prepare only Supply.':record?.notSubmitted||record?.walletDiagnostic?.invoked===false?(record.walletDiagnostic?.invoked?'The wallet refused the request before submission.':'The wallet request was never invoked.'):'No approval was found after bounded observation.'} {!record?.approvalProof&&'A fresh review will verify the current allowance and nonce, and retain the exact approval intent; the wallet will choose the transaction nonce; it will not submit a transaction.'}</p>
-        <button type="button" disabled={supply.busy} onClick={()=>void supply.recoverReview()}>Prepare fresh review</button></>}
-      {record?.evidence&&<><p>Supply independently reconciled. Position increased by {formatUnits(record.observations.at(-1)?.delta??'0',shown.decimals)} {shown.asset}.</p><a download="flofi-aave-supply-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>Download Evidence Bundle</a></>}
+      {review&&wallet.account&&wallet.chainId!==shown.chainHex&&<button type="button" disabled={supply.busy||wallet.busy} onClick={()=>void supply.switchNetwork()}>{tr("Switch wallet to ")}{tr(shown.network)}</button>}
+      {review&&<><p>{tr("Wallet account: ")}{review.account}</p><p>{tr("Aave V3 Pool / spender: ")}{tr(review.pool)}</p>
+        <p>{tr("Approval required: ")}{tr(review.approvalRequired?'Yes, exact amount':'No')}</p></>}
+      {record&&!record.authorization&&!record.attempts.length&&!supply.retired&&<button type="button" disabled={supply.busy} onClick={()=>void supply.review()}>{tr("Accept Supply review")}</button>}
+      {canExecute&&<button type="button" className="primary" disabled={supply.busy} onClick={()=>void supply.execute()}>{tr(approval?.reconciled?'Execute Supply':'Execute')}</button>}
+      {record?.attempts.map(a=><p key={a.step}>{tr(a.step==='APPROVAL'?'Approval':'Supply')}: {tr(a.reconciled||a.step==='APPROVAL'&&Boolean(record.approvalProof)?'Independently verified':record.notSubmitted?(record.walletDiagnostic?.invoked?'not submitted (wallet request refused)':'not submitted (wallet was never requested)'):a.state.toLowerCase().replaceAll('_',' '))} {a.transactionHash&&<a href={`${shown.explorer}/tx/${a.transactionHash}`} target="_blank" rel="noreferrer">{tr("View transaction")}</a>}</p>)}
+      {record&&record.attempts.length>0&&!record.evidence&&<a download="flofi-aave-supply-execution-record.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record,null,2))}>{tr("Download execution record")}</a>}
+      {pending&&<button type="button" disabled={supply.busy} onClick={()=>void supply.observe()}>{tr("Observe existing transaction")}</button>}
+      {(record?.approvalProof||record?.notSubmitted||record?.error==='SUPPLY_TRANSACTION_NOT_FOUND'||record?.walletDiagnostic?.invoked===false&&!record.attempts.length&&Boolean(record.recoveryOf))&&<><p>{tr(record?.approvalProof?'The owner-authorized approval is independently verified. A fresh review will recheck the allowance and prepare only Supply.':record?.notSubmitted||record?.walletDiagnostic?.invoked===false?(record.walletDiagnostic?.invoked?'The wallet refused the request before submission.':'The wallet request was never invoked.'):'No approval was found after bounded observation.')} {tr(!record?.approvalProof&&'A fresh review will verify the current allowance and nonce, and retain the exact approval intent; the wallet will choose the transaction nonce; it will not submit a transaction.')}</p>
+        <button type="button" disabled={supply.busy} onClick={()=>void supply.recoverReview()}>{tr("Prepare fresh review")}</button></>}
+      {record?.evidence&&<><p>{tr("Supply independently reconciled. Position increased by ")}{tr(formatUnits(record.observations.at(-1)?.delta??'0',shown.decimals))} {tr(shown.asset)}.</p><a download="flofi-aave-supply-evidence.json" href={'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(record.evidence,null,2))}>{tr("Download Evidence Bundle")}</a></>}
     </>}
-    {info&&<p role="status">{lendingCopy(messages[info]??'Execution needs attention. Inspect technical details and observe any existing transaction.',shown)}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({error:info,submissionError:record?.submissionError,walletDiagnostic:record?.walletDiagnostic,notSubmitted:record?.notSubmitted,absence:record?.absence,recoveryOf:record?.recoveryOf,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
+    {info&&<p role="status">{tr(lendingCopy(messages[info]??'Execution needs attention. Inspect technical details and observe any existing transaction.',shown))}</p>}
+    <details><summary>{tr("Show technical details")}</summary><pre>{JSON.stringify({error:info,submissionError:record?.submissionError,walletDiagnostic:record?.walletDiagnostic,notSubmitted:record?.notSubmitted,absence:record?.absence,recoveryOf:record?.recoveryOf,review,attempts:record?.attempts,observations:record?.observations,verdict:record?.verdict,environment:record?.evidence?.bundle.environment},null,2)}</pre></details>
   </section>;
 }

@@ -101,7 +101,7 @@ for (const theme of ['Light', 'Dark'] as const) {
     await expect(graph.locator('.canvas-empty-mascot')).toBeVisible();
     await page.getByRole('button', { name: 'Add supply', exact: true }).click(); await configureCanvasAction(page, '1');
     await expect(graph.locator('.canvas-empty')).toHaveCount(0); await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-    await graph.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await graph.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.canvas-empty-mascot,img[src*="flofi-droplet-wave"]')).toHaveCount(0);
     await expect(page.locator('.simulate-flow-surface')).toHaveAttribute('data-viewport', 'fitted');

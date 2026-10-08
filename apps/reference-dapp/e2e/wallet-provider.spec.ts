@@ -52,7 +52,7 @@ async function install(page: Page, mode: 'legacy' | 'eip6963' | 'late', locked =
 }
 const controls = (page: Page) => page.evaluate(() => (window as unknown as { walletProviderTest: Controls }).walletProviderTest.requests);
 const panel = (page: Page) => page.getByRole('region', { name: 'Lending composition' });
-const walletLabel = `Wallet: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base Sepolia`;
+const walletLabel = `EVM Default: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base Sepolia`;
 async function approveAndExecutePoolApproval(page: Page) {
   await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
@@ -74,7 +74,7 @@ for (const mode of ['legacy', 'eip6963'] as const) {
     await install(page, mode); await page.goto('/');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
-    await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
+    await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate fees' }).click();
     await approveAndExecutePoolApproval(page);
     const requests = await controls(page);
     expect(requests.every(request => request.provider === 'MetaMask')).toBe(true);
@@ -95,7 +95,7 @@ test('connect and network switching use the same EIP-6963 MetaMask provider', as
   await page.getByText('Advanced action setup', { exact: true }).click(); await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
   await page.getByLabel('Source amount (USDC)').fill('1'); await page.getByRole('button', { name: 'Review Base → Arbitrum bridge → WETH swap' }).click();
   await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Switch to Base (8453)' }).click();
-  await expect(page.getByText(`Wallet: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base (8453)`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`EVM Default: ${LENDING_OWNER.slice(0, 6)}…${LENDING_OWNER.slice(-4)} · Base (8453)`, { exact: true })).toBeVisible();
   const requests = await controls(page);
   expect(requests.every(request => request.provider === 'MetaMask')).toBe(true);
   expect(requests.filter(request => request.method === 'eth_requestAccounts')).toHaveLength(1);
@@ -164,7 +164,7 @@ test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.
   await chooseWallet(page, 'Rabby Wallet');
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simular Fees' }).click();
+  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate fees' }).click();
   await approveAndExecutePoolApproval(page);
   const requests = await controls(page);
   expect(requests.filter(request => request.provider === 'RabbyProxy')).toEqual([]);
