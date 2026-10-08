@@ -482,3 +482,21 @@ PostgreSQL. The report separates:
 - LGPD obligations; rotating the channel secret forgets opt-outs.
 - Legal review before any production or mainnet use.
 - Copilot replay drift from the UX work.
+
+## 15. Production phase (owner instruction, 2026-10-08)
+
+The owner redefined the build's target: **a production-capable Channels service**; the MOCKED WhatsApp adapter is regression
+coverage, not acceptance. On the same branch line, restacked onto main `043ab01` (BUILD-DEVELOPER-001 included, the 18 superseded
+MCP/Developer commits not replayed), as `claude/build-channels-001-production`:
+
+| Item | Change |
+| --- | --- |
+| Restack | Only `fc84a1e..0609937`; MCP + Developer + Channel approval contributors side by side; the status ping mounted next to `ApprovalHandoff` in `ProductWorkspace` (main's `/approve` architecture); main's CI gates kept, Channels specs added |
+| Migration `0008` | Shipped after `0007` and pinned; finalized before its first shipment (outbox UNCERTAIN/DEAD states, sweep indexes, approval following, `channel_audit`) — it had never been applied outside tests |
+| D1 (WhatsApp) | Kept as a guard, now exact: the live Cloud API path is implemented in full and activates only when written clearance is recorded in code (`WHATSAPP_POLICY_CLEARANCE`, null) **and** named by the deployment. Behaviour unchanged until then |
+| D5 (status) | Extended: the `/approve` ping stays the fast path; a scheduled, bearer-protected dispatch now guarantees retries, stranded turns and status notifications without an open page or another inbound message |
+| Providers | One `ChannelProvider` contract for inbound verification/normalization and outbound send/statuses/failure classes; a multi-adapter registry |
+| Telegram | A real Bot API adapter (§11 implemented): the channel for the owner's real end-to-end test |
+| Acceptance | `COMPLETE` only after a real owner E2E; otherwise `READY_FOR_OWNER_REAL_E2E`, `BLOCKED_ON_EXTERNAL_PROVIDER` or `NOT_READY` |
+
+Unchanged: zero financial authority; D2, D3, D4, D6; data minimization; no live call, message or transaction by the build itself.

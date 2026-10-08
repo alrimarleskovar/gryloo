@@ -148,31 +148,54 @@ endpoint). Woovi webhooks go to `POST /api/payments/woovi/webhook`.
 Saved-card bindings are MAC'd with a key derived from `FLOFI_SESSION_SECRET` (or `API_AUTH_TOKEN`); rotating it makes saved
 cards un-removable at the provider from FloFi (FloFi then removes only its own copy).
 
-## 5e. Conversational channels (BUILD-CHANNELS-001, `/api/channels/whatsapp`) — dormant
+## 5e. Conversational channels (BUILD-CHANNELS-001, `/api/channels/*`, `/approve`)
 
-Off unless enabled, and **refused on every hosted deployment in this build** (owner decision D1: `404
-CHANNEL_PROVIDER_NOT_ACTIVATED` whatever the variables say). Only the `fixture` provider exists; nothing is ever sent to Meta. It needs
-the embedded runtime migrated through `0008_channel_conversations`. Leave all of these
-unset on Preview and Production. Guide: [WHATSAPP.md](WHATSAPP.md).
+Off unless a provider is enabled. Every channel is an entry point with **zero financial authority**: it composes a proposal and
+hands it to the owner on `/approve`; the owner's wallet proof, FloFi's fresh simulation, the Strategy Manifest Review and the owner's
+own signature remain the only path to execution. Needs the embedded runtime (PostgreSQL migrated through
+`0008_channel_conversations`; a Preview build applies it with `FLOFI_MIGRATE_ON_BUILD=preview`); otherwise every channel route
+answers `503 CHANNEL_STORE_UNAVAILABLE` / `CHANNEL_SCHEMA_NOT_INSTALLED`. Any invalid value disables what it configures (fail
+closed). All server-only, never `NEXT_PUBLIC_*`. Guides: [TELEGRAM.md](TELEGRAM.md), [WHATSAPP.md](WHATSAPP.md), owner test:
+[CHANNELS-OWNER-E2E.md](CHANNELS-OWNER-E2E.md).
+
+**Channel Core** (shared by every provider)
 
 | Variable | Purpose | Secret | Preview | Prod | Default |
 | --- | --- | --- | --- | --- | --- |
-| `FLOFI_WHATSAPP` | `enabled` turns the WhatsApp webhook on (local only in this build) | no | **unset** | **unset** | off (`404 WHATSAPP_NOT_ENABLED`) |
-| `FLOFI_WHATSAPP_PROVIDER` | `fixture` (render, validate, drop). `live` is refused: `WHATSAPP_LIVE_PROVIDER_NOT_CLEARED` | no | — | — | `fixture` |
-| `FLOFI_WHATSAPP_ALLOWED_SENDERS` | SHA-256 hex digests (comma-separated, ≤ 256) of allowed senders' BSUID or phone digits; others get no reply and a content-free record | digests only (keep private) | — | — | empty: deny all |
+| `FLOFI_CHANNEL_SECRET` | Channel Core key material (32–512 chars, `openssl rand -hex 32`): HKDF keys for sealing, keyed digests and the `flofi_chs_` approval links. Refused if equal to `API_AUTH_TOKEN`, `FLOFI_SESSION_SECRET`, `FLOFI_MCP_OAUTH_SECRET` or any provider secret | **yes** | required with a channel | required with a channel | invalid → `503` |
+| `FLOFI_PUBLIC_ORIGIN` | (shared with §5b/§5c) the exact `https://` origin of the `/approve` links and of the webhooks; loopback `http://` only when not hosted | no | required | required | invalid → `503` |
+| `FLOFI_CHANNEL_SUPPORT_CONTACT` | human escalation path shown at first contact and in HELP (e-mail or `https://` URL) | no | required | required | invalid → `503` |
+| `FLOFI_CHANNEL_PRIVACY_URL` | privacy policy shown at first contact and in HELP (`https://`) | no | required | required | invalid → `503` |
+| `FLOFI_CHANNEL_COPILOT` | `enabled`/`disabled`: natural language through the existing Copilot boundary (also needs `FLOFI_COPILOT`); `disabled` = exact commands only, no model call | no | optional | optional | `enabled` |
+| `FLOFI_CHANNEL_SIMULATION` | `enabled`/`disabled`: the read-only simulation preview in the reply (FloFi always simulates again on `/approve`) | no | optional | optional | `enabled` |
+| `FLOFI_CHANNEL_LANGUAGE` | `EN`/`PT` default reply language | no | optional | optional | `EN` |
+| `FLOFI_CHANNEL_HANDOFF_TEST_FUNDS` | `enabled`/`disabled`: test-funds proposals may be handed to their owner | no | optional | optional | `enabled` |
+| `FLOFI_CHANNEL_HANDOFF_MAINNET_NETWORKS` | mainnet ids a channel proposal may be handed over on | no | **leave empty** | **leave empty** | empty: mainnet refused by policy |
+| `FLOFI_CHANNEL_DISPATCH_TOKEN_SHA256` | SHA-256 hex of the scheduler bearer for `/api/channels/dispatch` and `/api/channels/health` (Vercel Cron: the digest of `CRON_SECRET`; `channels-admin.ts dispatch-token` creates both) | digest only | recommended | **required** for retries and status without an open page | unset: both endpoints `404` |
+
+**Telegram** (the live provider; a plain bot, no Mini App)
+
+| Variable | Purpose | Secret | Preview | Prod | Default |
+| --- | --- | --- | --- | --- | --- |
+| `FLOFI_TELEGRAM` | `enabled` serves `/api/channels/telegram` | no | as chosen | as chosen | off (`404 TELEGRAM_NOT_ENABLED`) |
+| `TELEGRAM_BOT_TOKEN` | the bot token from @BotFather (`<bot id>:<secret>`); also used by the operator CLI from your shell | **yes** | with Telegram | with Telegram | invalid → `503` |
+| `TELEGRAM_WEBHOOK_SECRET` | the `secret_token` registered with setWebhook (32–256 of `A-Z a-z 0-9 _ -`, `openssl rand -hex 32`); Telegram echoes it in `X-Telegram-Bot-Api-Secret-Token` | **yes** | with Telegram | with Telegram | invalid → `503` |
+| `FLOFI_TELEGRAM_ALLOWED_USERS` | SHA-256 hex digests (comma-separated, ≤ 256) of allowed Telegram user ids; others get no reply and a content-free record | digests only | with Telegram | with Telegram | empty: deny all |
+| `FLOFI_TELEGRAM_API_BASE` | loopback Bot API double for tests (`http://127.0.0.1:<port>`) | no | **never** | **never** (refused when hosted) | `https://api.telegram.org` |
+
+**WhatsApp** (implemented in full; live activation blocked by owner decision D1 until written clearance is recorded in code)
+
+| Variable | Purpose | Secret | Preview | Prod | Default |
+| --- | --- | --- | --- | --- | --- |
+| `FLOFI_WHATSAPP` | `enabled` serves `/api/channels/whatsapp` | no | **unset** | **unset** | off (`404 WHATSAPP_NOT_ENABLED`) |
+| `FLOFI_WHATSAPP_PROVIDER` | `fixture` (render, record, send nothing; never on a hosted deployment) or `live` (the Cloud API; only with recorded clearance) | no | — | — | `fixture` |
+| `FLOFI_WHATSAPP_POLICY_CLEARANCE` | live only: must equal the clearance reference recorded in `src/channels/whatsapp/config.ts` by a reviewed change (none today: `WHATSAPP_LIVE_PROVIDER_NOT_CLEARED`) | no | — | — | unset |
+| `FLOFI_WHATSAPP_ALLOWED_SENDERS` | SHA-256 hex digests (comma-separated, ≤ 256) of allowed senders' BSUID or phone digits; others get no reply and a content-free record | digests only | — | — | empty: deny all |
 | `WHATSAPP_APP_SECRET`, `WHATSAPP_APP_SECRET_PREVIOUS` | the Meta app secret(s) verifying `X-Hub-Signature-256` over the raw body (rotation: current + previous) | **yes** | — | — | invalid → `503` |
 | `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | the subscription verification token (≥ 32 chars, distinct from the app secret) | **yes** | — | — | invalid → `503` |
 | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID` | the only number and account whose deliveries are read; others are dropped | no | — | — | invalid → `503` |
-| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_GRAPH_API_VERSION` | the future live transport only; validated if present, never used in this build | **yes** (token) | — | — | unset |
-| `FLOFI_CHANNEL_SECRET` | Channel Core key material (≥ 32 chars, `openssl rand -hex 32`): HKDF keys for sealing, keyed digests and the `flofi_chs_` approval links. Refused if equal to `API_AUTH_TOKEN`, `FLOFI_SESSION_SECRET`, `FLOFI_MCP_OAUTH_SECRET` or a provider secret. Rotating it invalidates open channel approvals and stored state | **yes** | — | — | invalid → `503 CHANNEL_CONFIGURATION_INVALID` |
-| `FLOFI_PUBLIC_ORIGIN` | (shared with §5b) origin of the `/approve` links. Loopback `http://` only when not hosted | no | — | — | required |
-| `FLOFI_CHANNEL_SUPPORT_CONTACT` | human escalation path shown in the first reply (email or `https://` URL) | no | — | — | required |
-| `FLOFI_CHANNEL_PRIVACY_URL` | privacy policy shown in the first reply (`https://`) | no | — | — | required |
-| `FLOFI_CHANNEL_COPILOT` | `enabled`/`disabled`: natural language through the existing Copilot boundary (also needs `FLOFI_COPILOT`); `disabled` = exact commands only, no model call | no | — | — | `enabled` |
-| `FLOFI_CHANNEL_SIMULATION` | `enabled`/`disabled`: the read-only simulation preview in the reply (FloFi always simulates again on `/approve`) | no | — | — | `enabled` |
-| `FLOFI_CHANNEL_LANGUAGE` | `EN`/`PT` default reply language | no | — | — | `EN` |
-| `FLOFI_CHANNEL_HANDOFF_TEST_FUNDS` | `enabled`/`disabled`: test-funds proposals may be handed to their owner | no | — | — | `enabled` |
-| `FLOFI_CHANNEL_HANDOFF_MAINNET_NETWORKS` | mainnet ids a channel proposal may be handed over on | no | — | **leave empty** | empty: mainnet refused by policy |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_GRAPH_API_VERSION` | the Cloud API transport (system-user token; `vNN.0`); required for `live` | **yes** (token) | — | — | unset |
+| `WHATSAPP_NOTIFICATION_TEMPLATE` | `<name>:<language>` of an approved Utility template with one body variable, for status notifications after the 24-hour window | no | — | — | unset: nothing is sent outside the window |
 
 ## 6. Platform-provided (read, never set by hand)
 
@@ -190,7 +213,7 @@ provider — `GRYLOO_CARD_HARNESS` points Add card at the loopback Mercado Pago 
 `GRYLOO_*_JOURNAL` (supply, public testnet, Robinhood, Jupiter, Solana Devnet, Uniswap liquidity, Router, Router testnet, liquidity,
 Mode A, bridge), `GRYLOO_PUBLIC_TESTNET_READ`, `GRYLOO_BASE_OBSERVATION=live`, `GRYLOO_MODE_A`/`_PROFILE`, `GRYLOO_MODE_B`/`_PROFILE`/
 `_EXECUTOR_KEY_FILE`/`_SMOKE_PROFILE`, `GRYLOO_COMPOSITION_MODE`/`_PROFILE`/`_EXECUTOR_KEY_FILE`/`_ALLOW_MOCKED_UI`/`_SMOKE_PROFILE`,
-`GRYLOO_LIQUIDITY`/`_PROFILE`, `GRYLOO_COW`/`GRYLOO_COW_RUNTIME`, `GRYLOO_BRIDGE`, `FLOFI_DEVELOPER_WEBHOOK_LOOPBACK`, and the
+`GRYLOO_LIQUIDITY`/`_PROFILE`, `GRYLOO_COW`/`GRYLOO_COW_RUNTIME`, `GRYLOO_BRIDGE`, `FLOFI_DEVELOPER_WEBHOOK_LOOPBACK`, `FLOFI_TELEGRAM_API_BASE` (loopback Bot API double), `GRYLOO_CHANNEL_E2E`, and the
 browser-suite selectors `GRYLOO_*_E2E`,
 `GRYLOO_CLOUD_RUNTIME_E2E`, `FLOFI_E2E_*`, `TEST_DATABASE_URL`, `BUILD002_BROWSER_CACHE`, `GRYLOO_ANVIL_BIN`.
 `GRYLOO_BASE_OBSERVATION=replay` is the one safe value on a deployment (it serves committed recordings).
