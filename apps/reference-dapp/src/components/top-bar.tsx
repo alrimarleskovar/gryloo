@@ -84,7 +84,7 @@ export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab:
       {(fork || modeB.info?.available) && <details className="shell-technical"><summary>{tr("Technical connection details")}</summary><div>
         {fork && <span className="fork-badge"><StatusBadge label={`Local fork · ${fork.environment}`} tone="warning"/></span>}
         {modeB.info?.available && <StatusBadge label="Wallet permissions · local fork" tone="warning"/>}
-        <span>{tr("Wallet: ")}{tr(modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet)}</span>
+        <span>{tr("EVM Default: ")}{tr(modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet)}</span>
         <span>{tr("Chain 31337 · local environment")}</span>
       </div></details>}
     </div>
