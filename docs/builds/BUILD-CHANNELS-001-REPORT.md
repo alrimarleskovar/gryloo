@@ -1,6 +1,7 @@
 # BUILD-CHANNELS-001 — Report: FloFi Channels (production Channel Core, Telegram, WhatsApp)
 
-Date: 2026-10-08. Branch `claude/build-channels-001-production`, restacked onto main `043ab01` (BUILD-DEVELOPER-001 included).
+Date: 2026-10-08. Branch `claude/build-channels-001-production`, restacked onto main `043ab01` (BUILD-DEVELOPER-001 included), then
+onto main `a23cd6b` (PR #67 HOTFIX-WALLET-SELECTOR and PR #70 ACCEPTANCE-FIXES-001 included; §12).
 The earlier MOCKED-only branch `claude/build-channels-001` (`0609937`) is kept untouched as a safety copy.
 
 **Final status: `READY_FOR_OWNER_REAL_E2E`** — Telegram is implemented and configurable end to end and every local gate passes;
@@ -15,7 +16,7 @@ E2E has happened.
 
 | Evidence level | Result |
 | --- | --- |
-| Implemented | **yes**: production Channel Core, provider contract, Telegram (live-capable), WhatsApp (live path behind the policy guard), scheduled dispatch, readiness, operator CLI, migration `0008` shipped |
+| Implemented | **yes**: production Channel Core, provider contract, Telegram (live-capable), WhatsApp (live path behind the policy guard), scheduled dispatch, readiness, operator CLI, migration `0009` shipped (after main's `0008`, §12) |
 | MOCKED / loopback tested | **yes**: unit, PostgreSQL, in-process journeys (full MOCKED execution and reconciliation), browser journeys for both providers (§8) |
 | Live-provider tested | **NOT DONE**: no real bot or Meta number was contacted by the build; the owner-run live harness exists (`pnpm test:channels-live`) |
 | Public-chain tested | **NOT DONE** |
@@ -30,6 +31,8 @@ E2E has happened.
   `STATUS.md` and `ENVIRONMENT.md` (Developer §5c and Channels §5d both kept). `git diff --check` and `pnpm check` passed.
 
 ## 2. Commits (on top of `043ab01`)
+
+SHAs in this table are the ones before the second restack; §12 maps them to the current history.
 
 | Commit | Content |
 | --- | --- |
@@ -170,3 +173,56 @@ Fix (retry count, jitter and the 15-minute privacy bound unchanged):
    sweep); a body never attempted, or only held behind another, stays `SKIPPED / EXPIRED_UNSENT`.
 4. A deterministic `random` seam (webhook and dispatch entry points); the PostgreSQL tests pin the jitter and cover minimum and
    maximum jitter with exact attempt times, exactly six provider calls, and DEAD vs SKIPPED when the scheduler stalls.
+
+## 12. Second restack onto main `a23cd6b` and follow-up fixes
+
+**Restack.** All 18 BUILD-CHANNELS-001 commits after `043ab01` were replayed with `git rebase` onto `a23cd6b` (no merge commit;
+main's PR #67 and PR #70 treated as authoritative). Old → new: `b00ff34`→`0679b15`, `181d0e8`→`0e7619e`, `9835c7b`→`bc31d70`,
+`b7bb5cf`→`4ca96fb`, `d471837`→`b1c92b4`, `f452f46`→`1c931c5`, `b71903b`→`2961097`, `332fe0f`→`47aae32`, `1b557ad`→`4dde875`,
+`9b76c97`→`c27804d`, `8f5ec72`→`2a62dad`, `dcfbce5`→`9f531c6`, `6c6a0de`→`a79cb13`, `9b16b3c`→`b9e5f3a`, `47f23a2`→`2d406a3`,
+`8496074`→`21da939`, `ded22bd`→`d6a07a2`, `97761d6`→`d26201c`.
+
+| Conflict / collision | Resolution |
+| --- | --- |
+| `product-workspace.tsx` (f452f46) | Main's tree kept (`WalletSelectorProvider`, `initialWorkflowId`); only `<ChannelProgressPing/>` added next to `ApprovalHandoff` on `/approve` |
+| `playwright.config.ts` (332fe0f, 47f23a2) | Main's imports, swap-read env and card-provider harness kept; channel env and the Bot API double added beside them |
+| `ENVIRONMENT.md` (8f5ec72, 8496074) | Main's §5d (card and payment providers) kept; Channels moved to §5e (links updated) |
+| `migrations.ts` (dcfbce5, 6c6a0de) — **and a silent collision** | Main ships `0008_saved_workflows`, so the channel migration became **`0009_channel_conversations`** (file renamed; only its header comment changed; pin recomputed). Migration tests: 0005/0006/0007/0008 → 0009, additive over 0008, edited 0009 refused. Main's saved-workflow upgrade test now migrates to `0008` explicitly instead of "everything shipped" |
+| Port 8558 (no textual conflict) | Main's swap-read harness owns 8558; the Telegram Bot API double moved to 8559 |
+| Channel browser specs vs #67/#70 | "Connect wallet and prove ownership" opens the canonical selector (`chooseWallet(page, 'Browser wallet')`, as main's MCP/Developer specs do); the simulate button is "Simulate fees" |
+
+Against main, files main owns change only additively at Channels' integration points (approval contributor, `/approve` ping,
+browser harness, CI line, docs, migration pin); the one edit to existing behaviour is main's saved-workflow migration test (above).
+
+**Browser isolation.** The channel specs share the database with the MCP and Developer journeys, each other and, with a reused
+`FLOFI_E2E_DATABASE_URL`, earlier runs. They no longer read "the only"/"the latest" handoff or count outbox rows globally:
+`e2e/channel-fixtures.ts` resolves a spec's handoff from its own approval link (the server's keyed secret digest), or as the new
+rows since a snapshot; all outbox and notification checks are bound to those handoffs/conversations; the Telegram double's calls
+are filtered to the run's chat; and the synthetic WhatsApp BSUID and Telegram user are generated per run, so `/start` is always a
+first exchange.
+
+**ORDER_HELD.** `attempts` counted claims: a message held behind a retrying one consumed an attempt per hold (and could be
+dead-lettered after fewer than six real calls). Now it counts provider send calls only — the outcome records the calls made
+(approval inline retries each count; an end before any send counts none; an interrupted send counts once and is never resent); a
+held message keeps its own last provider error, so DEAD (attempted) vs SKIPPED (never attempted) is unchanged. A second defect,
+found while testing: a later message overtook a head whose backoff outlasted the next sweep; `waitingBehind` now holds it (except
+an approval whose link the turn holds, as before). `MAX_SEND_ATTEMPTS`, backoff, jitter and the 15-minute lifetime are unchanged.
+New dispatch tests (head recovers; head dead-letters while the next message is held more than six times) fail on the old code.
+
+**Validation on the new base** (local, pinned toolchain, loopback PostgreSQL 18.6, offline/loopback harnesses only):
+
+| Gate | Result |
+| --- | --- |
+| `git diff --check` (against `a23cd6b`) | clean |
+| `pnpm check` (typecheck, lint, build, schema drift, unit tests) | pass; 2,942 passed, 2 skipped (pre-existing `skipIf` files) |
+| `pnpm test:postgres` (all 37 files) | 242 passed |
+| Channels browser: `whatsapp-approve` + `telegram-approve` | 2/2; with `--repeat-each=2` (order T, W, T, W) 4/4 |
+| Combined in one database: Developer + MCP + Telegram + WhatsApp | 8/8 |
+| Developer browser regression (`developer-journey`) | 1/1 |
+| MCP browser regression (`mcp-in-chat` + `mcp-route-presentation` with harness; route presentation without) | 21/21; 11/11 |
+| CI browser gate `guarded-release-browser.mjs product` (incl. `credentials`, `workflow-acceptance`, `swap-read-acceptance`, card provider) | PASS, 19 profiles, 144 tests |
+| `wallet-selector` + `wallet-environment` (not in CI) | 10 passed, 2 failed — **identical on plain main `a23cd6b`** (header-label assertions that predate #70's "EVM/Solana Default" labels); not caused by Channels, not changed here |
+| `governance_lite.py` + self-tests | pass (1,469 files); 19 tests OK |
+| `pnpm audit --audit-level low` | no known vulnerabilities; no dependency or lockfile change |
+
+Evidence level is unchanged: MOCKED/loopback only; no live provider, no public chain, no real owner E2E.
