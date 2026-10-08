@@ -6,7 +6,8 @@ merged, rebased or published by the agent.
 
 **Status:** owner-reviewed on 2026-10-07 and approved with two adjustments (§0). **Implemented** (Tasks 1–8; the first
 implementation commit is the shared platform extraction, §2). Results: [BUILD-DEVELOPER-001-REPORT.md](BUILD-DEVELOPER-001-REPORT.md).
-Per the owner's instruction for this session, the branch is committed locally and not pushed (Task 8's push is withheld).
+The branch was later re-stacked onto `main` and is pushed for review as PR #68 (not merged). On 2026-10-08 Next.js was raised
+from 16.3.6 to 16.3.8 for the 2026-10-07 Next.js security advisories (report §3b).
 
 > **An API key is not financial authority.** A developer credential authenticates an *integration*, never a wallet and never a
 > person. It can discover capabilities, compose, validate, simulate, hand a strategy to its owner, and read what the owner chose
@@ -29,13 +30,13 @@ Approvals reuse the MCP-002 handoff persistence and state machine, generalized b
 then `/approve`, the claim → `propose()` bridge and the unchanged flow panels. Webhooks are notifications derived from durable
 state, never inputs to it.
 
-**Tech stack:** Next.js 16.3.6 route handler (Node runtime), TypeBox + Ajv (existing), PostgreSQL via
-`@defi-workflow-engine/cloud-runtime` (embedded runtime), `node:crypto`. **No new registry dependency.**
+**Tech stack:** Next.js 16.3.8 route handler (Node runtime; 16.3.6 when planned, security patch in report §3b), TypeBox + Ajv
+(existing), PostgreSQL via `@defi-workflow-engine/cloud-runtime` (embedded runtime), `node:crypto`. **No new registry dependency.**
 
 ## Global constraints
 
 - Toolchain: Node 24.21.0, pnpm 11.22.0, Foundry Anvil 1.8.3 (pinned). No new registry package. The lockfile changes only by
-  one workspace importer (the SDK).
+  one workspace importer (the SDK) and the Next.js 16.3.6 → 16.3.8 security patch (`next` and its nine `@next/*` packages).
 - Work on `claude/build-developer-001`. Never merge or enable auto-merge. Never rebase onto `main` unless asked. Never rewrite
   MCP-001/MCP-002 history. Never modify another worktree's branch (including CHANNELS).
 - No real financial transaction. No production or live credential. Mainnet stays disabled.

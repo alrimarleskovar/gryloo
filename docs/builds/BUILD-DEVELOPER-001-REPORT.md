@@ -3,7 +3,8 @@
 Date: 2026-10-07. Branch `claude/build-developer-001` (worktree `~/projects/flofi-developer`), originally stacked on
 `claude/build-mcp-002` at `8f9650a`, then **re-stacked onto `main` at `f2881e3`** (after PR #65) by the owner-approved plan: only the
 eight Developer commits were replayed, upstream UX/MCP safety controls were kept, and migrations 0006 and 0007 remain this build's
-(§3a). Nothing was merged, pushed or published, and no PR was opened. No real financial transaction was signed or sent: every
+(§3a). The branch is pushed for review as PR #68; nothing was merged or published. On 2026-10-08 Next.js was raised from 16.3.6
+to 16.3.8 for six Next.js security advisories (§3b). No real financial transaction was signed or sent: every
 execution in this build ran on MOCKED loopback chains, and the only "sends" in every journey are the test owner's own wallet
 transactions on those chains (the browser journey now sends none, §3a).
 
@@ -123,6 +124,51 @@ for another worktree's Playwright runs to release the fixed harness ports.
 | `pnpm audit --audit-level low` | **passed**: no known vulnerabilities (§7.1) |
 | Guarded release browser profiles, fork suites (`pnpm test:anvil`, `test:fork`), BUILD-007 composition | not run locally: outside this build's surface; CI runs them |
 
+## 3b. Next.js 16.3.8 security patch (2026-10-08)
+
+GitHub published six Next.js advisories on 2026-10-07 (20:31–20:32 UTC). PR #68's CI on `03609ea` (Next 16.3.6) passed every gate
+except **Dependency audit** (`pnpm audit --audit-level low`). Every advisory's first patched 16.x release is **16.3.8**; the GitHub
+Advisory Database lists none affecting `next@16.3.8`.
+
+| Advisory | CVE | Severity | Affected 16.x | Summary |
+| --- | --- | --- | --- | --- |
+| GHSA-cjq9-62q9-8jv4 | CVE-2026-94483 | high | ≥ 16.0.0, < 16.3.8 | Server-Side Request Forgery in Image Optimization |
+| GHSA-mcj8-r9mp-w47p | CVE-2026-94484 | medium | ≥ 16.0.0, < 16.3.8 | SSG/ISR cache poisoning: cross-user content substitution, persistent denial of service |
+| GHSA-f87g-xv8r-7p7x | CVE-2026-94485 | medium | ≥ 16.0.0, < 16.3.8 | App Router metadata image routes: information disclosure via `dynamicParams` bypass |
+| GHSA-4jqv-mc3x-m676 | CVE-2026-94543 | medium | ≥ 16.0.0, < 16.3.8 | SSG and ISR cache poisoning in self-hosted applications |
+| GHSA-3w37-wq28-93x7 | CVE-2026-94544 | medium | ≥ 16.3.0, < 16.3.8 | Pending `use cache` fill can leak Draft Mode content into regular and persisted pages |
+| GHSA-39w2-rjm5-chcv | CVE-2026-94486 | low | ≥ 16.0.0, < 16.3.8 | Information disclosure in the development server's Model Context Protocol endpoint |
+
+Exposure is limited but not excluded: the app sets `images: { unoptimized: true }`, uses no `use cache` or Draft Mode, and has only
+a static `icon.svg` metadata file, but it does prerender static App Router pages. It is patched regardless; the audit gate requires it.
+
+Change (no new registry package, no override added or weakened): `apps/reference-dapp/package.json` pins `next` 16.3.8; the
+existing `sharp` 0.35.5 override key follows (`next@16.3.8>sharp`); `pnpm-lock.yaml` replaces exactly `next` and its nine
+`@next/*` packages (`env` and eight `swc-*` platform binaries) 16.3.6 → 16.3.8, with no other identity added or removed and
+`next`'s dependency set otherwise unchanged; `scripts/bootstrap-ci.py` updates the direct pin, the Next snapshot key and the
+lockfile `packages`/`snapshots` SHA-256 (`ece43a6d…e97d`, recomputed from the lockfile and matching). `next@16.3.8` and its
+`@next/*` packages were published on 2026-09-30 (~15:56–16:07 UTC), older than the 7-day `minimumReleaseAge`; no age waiver was
+added. Historical certification documents of other builds keep their 16.3.6 records.
+
+Validation on the patched tree (worktree, 2026-10-08; environment as in §3a: PostgreSQL 18.6 pinned image on loopback port 55432,
+Anvil 1.8.3 re-acquired with `scripts/bootstrap-anvil.py` and digest-matched, headless shell 1243, `FLOFI_E2E_APP_PORT=3100`):
+
+| Gate | Result |
+| --- | --- |
+| `python3 scripts/bootstrap-ci.py --verify-dependencies` | **passed**: 265 registry entries, integrities and release ages; only the existing `source-map-js@1.2.2` waiver; 16 reviewed license exceptions |
+| `pnpm install --frozen-lockfile --offline` | **passed**: lockfile consistent with every manifest ("Already up to date") |
+| `pnpm audit --audit-level low` | **passed**: no known vulnerabilities |
+| `pnpm check` | **passed**: 251 files / 2575 tests; 2 skipped (the pre-existing env-gated BUILD-007 files, §3a). Typecheck and production build ran on 16.3.8 (build reports Next.js 16.3.8) and were replayed from Turbo's cache by the gate; lint, schema drift (11 exports) and unit tests ran fresh |
+| CI check-step extras (`eslint scripts/guarded-release-browser.mjs`, screenshot-diff self-test, linter exports) | **passed** |
+| `pnpm test:postgres` | **passed**: 29 files / 176 tests, none skipped |
+| `mcp-route-presentation.spec.ts` (OAuth disabled) | **11/11 passed** |
+| `developer-journey.spec.ts` (embedded loopback, `--repeat-each=2`) | **2/2 passed** |
+| `mcp-in-chat.spec.ts` + `mcp-route-presentation.spec.ts` (embedded loopback) | **21/21 passed** |
+| `node scripts/guarded-release-browser.mjs product` (the CI browser gate) | **passed**: all 16 profiles, 128 tests, no flaky or skipped test (default-product 56, review-execute-recovery-components 31, copilot 13, cow-loopback 9, supply-provenance 5, the other 11 profiles 14) |
+| `python3 -m unittest discover -s scripts -p 'test_governance_lite.py'` | **19/19 OK** |
+| `python3 scripts/governance_lite.py`; `git diff --check` | **passed** (1301 text files; worktree and history-free export); clean |
+| Fork suites (`pnpm test:anvil`, `test:fork`), BUILD-007 composition | not run locally: no Next.js surface; CI runs them |
+
 ## 4. Acceptance criteria
 
 | AC | Evidence | Result |
@@ -182,7 +228,8 @@ browser 1.
 1. **`pnpm audit --audit-level low`** failed on the original stack with two inherited **high** advisories (`source-map-js` 1.2.1,
    GHSA-68fv-2mgg-jv7q; `sharp` 0.35.4, GHSA-wq5f-xc86-pv6w / CVE-2026-96889) that `main` fixes with the overrides in `78be634`.
    **Resolved by the re-stack:** on `f2881e3` the audit reports no known vulnerabilities. Relative to `main`, this branch changes
-   `pnpm-lock.yaml` only by the SDK's empty importer (`packages/developer-sdk: {}`); no override was added or weakened.
+   `pnpm-lock.yaml` only by the SDK's empty importer (`packages/developer-sdk: {}`) and the Next.js 16.3.8 security patch (item 6);
+   no override was added or weakened.
 2. **Re-stack done** (§3a): onto `main` at `f2881e3` (PR #65 merged BUILD-MCP-001 and BUILD-MCP-002). The MCP edits of this build
    remain delegation in `tools.ts`, the `service.ts`/`store.ts` compatibility re-exports and the 0006 generalization.
 3. **CHANNELS overlap** (plan §22): migration numbering (`0007` here) and small textual risk in `approval-handoff.tsx`. The CHANNELS
@@ -191,6 +238,8 @@ browser 1.
    user's next `/approve` action (documented; `GET /approvals/{id}` is always current).
 5. **Regulatory:** third parties steering users to sign DeFi transactions through FloFi needs the owner's legal review before any
    production or mainnet use.
+6. **Next.js advisories of 2026-10-07** (§3b): PR #68's Dependency audit failed on 16.3.6 with six advisories (one high). Fixed by
+   the exact 16.3.8 pin. `main` is still on 16.3.6 and will fail the same audit until this or an equivalent patch lands there.
 
 ## 8. Repository gates and reproduction
 
@@ -208,5 +257,6 @@ pnpm audit --audit-level low
 ```
 
 Governance-Lite on a history-free export of the final working tree on `f2881e3` (this report included): passed; self-tests
-19/19 (§3a). Dependency integrity: no registry package added or changed by this build; the pinned toolchain is unchanged; the SDK's
+19/19 (§3a). Dependency integrity: no registry package added by this build; the only registry change is the Next.js 16.3.8
+security patch (§3b), verified by `scripts/bootstrap-ci.py --verify-dependencies`; the pinned toolchain is unchanged; the SDK's
 `LICENSE` is the unmodified Apache-2.0 text.
