@@ -141,6 +141,11 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0008)', () => 
     await s.storeAddress(c.conversationId, seal(keys.seal, 'address', 'a'));
     await s.recordEvents([event(c.conversationId, 'stranded', then)], then);
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:old`)], then);
+    // A second body that already failed transiently: past its lifetime it is a dead letter, not "never attempted".
+    await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:failed`, 1)], then);
+    const [held, failed] = await s.claimDue(c.conversationId, then, 8, ALL);
+    await s.markRetry(held!.outboxId, 'ORDER_HELD', new Date(then.getTime() + 5_000), then);
+    await s.markRetry(failed!.outboxId, 'PROVIDER_UNAVAILABLE', new Date(then.getTime() + 5_000), then);
     await t.db.query('UPDATE channel_conversations SET state_ciphertext = $2, last_activity_at = $3 WHERE conversation_id = $1',
       [c.conversationId, seal(keys.seal, '{}', 's'), then]);
     await s.purge(NOW);
@@ -148,8 +153,9 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0008)', () => 
     expect(conv).toMatchObject({ stateSealed: null, addressSealed: null });
     const ev = (await t.db.query('SELECT status, outcome, payload_ciphertext FROM channel_events WHERE conversation_id = $1', [c.conversationId])).rows[0]!;
     expect(ev).toEqual({ status: 'FAILED', outcome: 'EXPIRED_UNPROCESSED', payload_ciphertext: null });
-    const ob = (await t.db.query('SELECT status, error_code, body_ciphertext FROM channel_outbox WHERE conversation_id = $1', [c.conversationId])).rows[0]!;
-    expect(ob).toEqual({ status: 'SKIPPED', error_code: 'EXPIRED_UNSENT', body_ciphertext: null });
+    const ob = (await t.db.query('SELECT status, error_code, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence', [c.conversationId])).rows;
+    expect(ob).toEqual([{ status: 'SKIPPED', error_code: 'EXPIRED_UNSENT', body_ciphertext: null },
+      { status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE', body_ciphertext: null }]);
     // Eight days later the content-free records go too, and the idle conversation record with them.
     await s.purge(new Date(NOW.getTime() + 9 * 86_400_000));
     expect(await s.conversation(c.conversationId)).toBeNull();

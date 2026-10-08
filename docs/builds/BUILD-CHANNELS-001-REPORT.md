@@ -70,7 +70,7 @@ src/platform (unchanged)  requestApproval · HandoffStore · approvalLinkScheme(
 | Leases, restart safety | fenced per-conversation lease (300 s); stranded events re-run by the dispatch; too-old (> 15 min) answered "late", never acted on |
 | State machine, interpretation | `decideTurn`: local commands, zero-authority notice, exact grammar, then the existing Copilot as untrusted interpreter |
 | Canonical IR, Review/Manifest | `canonicalStrategy` with parity against the engine; approval through the shared platform; FloFi's own Review on `/approve` |
-| Outbox, retries, dead letter | backoff 5 s, 20 s, 1 min, 3 min, 7 min (±20 %, or retry-after), 6 attempts, then `DEAD`; permanent → `FAILED` |
+| Outbox, retries, dead letter | backoff 5 s, 15 s, 45 s, 2 min, 5 min (±20 %, or retry-after), 6 attempts, then `DEAD`; with a once-a-minute scheduler the sixth attempt comes ≤ 882 s after the first, inside the 900 s body lifetime (any jitter, any phase); a message whose next attempt cannot fit ends `DEAD` at once, and an expired body that already failed is `DEAD`, one never attempted `SKIPPED`; permanent → `FAILED` |
 | Uncertain sends | timeout / crash / malformed success → `UNCERTAIN`, never resent; WhatsApp's status webhook confirms within 10 min, else `SEND_OUTCOME_UNKNOWN`; an approval link then withdrawn with "send LINK" |
 | Receipts, correlation | outbox id as correlation (WhatsApp `biz_opaque_callback_data`); keyed provider message digest; monotonic SENT < DELIVERED < READ, FAILED |
 | Status propagation | "loaded", "in progress", "reconciled ✅ · evidence: …"/"ended", each once, only while the owner shares status; ping (fast) + dispatch (guarantee) |
@@ -150,3 +150,23 @@ does not change; CI runs them. Each gate ran on the final code; this report comm
 - **Production scheduler** for `/api/channels/dispatch`.
 - Not built: live-model acceptance of channel natural language (exact commands are used for the E2E), deep links into specific
   wallets, owner binding at claim time (D3 alternative), friendlier `/approve` copy for channel proposals (UX owner).
+
+## 11. Post-push fix (PR #69, CI run 37786549580)
+
+CI failed one PostgreSQL test: the dead-letter case of `dispatch.pg.test.ts` expected `DEAD` and found `PENDING`. **Root cause: a real
+retry-policy inconsistency, not only a flaky test.** Retries run only at scheduler ticks, so each of the five waits can grow by up to
+one scheduler interval. With the previous backoff (5, 20, 60, 180, 420 s, ±20 %) and a once-a-minute scheduler the sixth attempt
+could come up to Σ 1.2·b + 5 × 60 s = 1,122 s after the first (1,020 s at maximum jitter on tick-aligned phases) — past the 900 s
+body lifetime — so the message was neither attempted a sixth time nor dead-lettered: it would have expired as `SKIPPED /
+EXPIRED_UNSENT` ("never attempted"). The earlier unit "proof" summed the jittered backoffs (822 s) and ignored scheduler
+quantization; the local run passed by jitter luck, CI's did not.
+
+Fix (retry count, jitter and the 15-minute privacy bound unchanged):
+1. Backoff 5, 15, 45, 120, 300 s: worst case Σ 1.2·b + 5 × 60 s = 882 s ≤ 900 s, proven in closed form and by an exhaustive simulation
+   over jitter 0–1 and every scheduler phase (`delivery.test.ts`; the old schedule fails both checks).
+2. `nextRetryAt`: a transient failure whose next attempt could not be made within the body's lifetime, allowing one scheduler
+   interval (a slower scheduler, a long retry-after), ends `DEAD` immediately.
+3. An expired body that already failed transiently is recorded `DEAD` with its last provider error (delivery path and retention
+   sweep); a body never attempted, or only held behind another, stays `SKIPPED / EXPIRED_UNSENT`.
+4. A deterministic `random` seam (webhook and dispatch entry points); the PostgreSQL tests pin the jitter and cover minimum and
+   maximum jitter with exact attempt times, exactly six provider calls, and DEAD vs SKIPPED when the scheduler stalls.

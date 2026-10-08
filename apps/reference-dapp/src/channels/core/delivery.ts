@@ -5,9 +5,10 @@
  * Each due message is claimed (SENDING, `FOR UPDATE SKIP LOCKED`), opened, checked by the output guard, sent through the conversation's
  * adapter with its outbox id as the correlation id, and recorded by the provider's answer class (`SendFailure`):
  *   accepted      SENT (body erased); later provider reports raise it to DELIVERED/READ or FAILED
- *   TRANSIENT /   PENDING again after a backoff (5 s, 20 s, 1 min, 3 min, 7 min, ±20 %, or the provider's retry-after when longer),
- *   RATE_LIMITED  then DEAD (dead letter, body erased) once the attempts are exhausted; later messages of the conversation wait (but
- *                 never an approval message whose link this turn holds)
+ *   TRANSIENT /   PENDING again after a backoff (5 s, 15 s, 45 s, 2 min, 5 min, ±20 %, or the provider's retry-after when longer),
+ *   RATE_LIMITED  then DEAD (dead letter, body erased) once the attempts are exhausted — or as soon as no further attempt can happen
+ *                 within the body's 15-minute lifetime; later messages of the conversation wait (but never an approval message whose
+ *                 link this turn holds)
  *   PERMANENT     FAILED (body erased), never retried
  *   UNCERTAIN     never sent again, so nobody receives a message twice: a provider that echoes our correlation id in its reports
  *                 confirms it within 10 minutes, otherwise it ends FAILED (SEND_OUTCOME_UNKNOWN)
@@ -38,7 +39,14 @@ export type DeliveryOptions = { readonly kinds: readonly OutboxKind[]; readonly 
 export type DeliveryReport = { readonly sent: number; readonly failed: number; readonly skipped: number; readonly retrying: number; readonly uncertain: number };
 
 export const MAX_SEND_ATTEMPTS = 6;
-export const BACKOFF_SECONDS: readonly number[] = Object.freeze([5, 20, 60, 180, 420]);
+/**
+ * The waits between the six attempts. Retries run only when a sweep or a turn runs, so each wait can grow by up to one scheduler
+ * interval: with the documented once-a-minute scheduler the last attempt comes at most Σ 1.2·b + 5 × 60 s = 582 + 300 = 882 s after
+ * the first, inside the body's 900-second lifetime (`delivery.test.ts` proves it for every jitter and scheduler phase).
+ */
+export const BACKOFF_SECONDS: readonly number[] = Object.freeze([5, 15, 45, 120, 300]);
+/** The scheduler interval the schedule is designed for (`/api/channels/dispatch` once a minute). */
+export const SCHEDULER_INTERVAL_MS = 60_000;
 /** A claimed send older than this never finished. */
 export const STALE_SENDING_MS = 120_000;
 /** How long a provider that reports deliveries has to confirm an UNCERTAIN send. */
@@ -50,6 +58,19 @@ export function retryDelayMs(attempts: number, retryAfterMs: number | null, rand
   const base = (BACKOFF_SECONDS[attempts - 1] ?? BACKOFF_SECONDS.at(-1)!) * 1000 * (0.8 + 0.4 * random());
   return Math.round(Math.min(Math.max(base, retryAfterMs ?? 0), RETENTION.transientMs));
 }
+/**
+ * When a message that failed transiently (its `attempts`-th attempt) is tried next, or null when it must end DEAD: its attempts are
+ * exhausted, or the next attempt could not be made within the body's lifetime even if the next sweep comes a full scheduler interval
+ * after the retry is due (a slower scheduler, a long retry-after). A message is therefore never left to expire unattempted after a
+ * transient failure.
+ */
+export function nextRetryAt(attempts: number, createdAt: Date, now: Date, retryAfterMs: number | null, random: () => number = Math.random): Date | null {
+  if (attempts >= MAX_SEND_ATTEMPTS) return null;
+  const at = now.getTime() + retryDelayMs(attempts, retryAfterMs, random);
+  return at + SCHEDULER_INTERVAL_MS <= createdAt.getTime() + RETENTION.transientMs ? new Date(at) : null;
+}
+/** A message whose last attempt failed transiently (and was not merely held behind another). */
+export const failedTransiently = (o: Pick<OutboxRecord, 'errorCode'>) => o.errorCode !== null && o.errorCode !== 'ORDER_HELD';
 const confirmBy = (ctx: Pick<DeliveryContext, 'adapter'>, now: Date) => new Date(now.getTime() + (ctx.adapter.confirmsUncertainSends ? CONFIRM_WINDOW_MS : 0));
 const bodyContext = (ctx: Pick<DeliveryContext, 'tenantId'>, outboxId: string) => sealContext(ctx.tenantId, 'channel_outbox', outboxId, 'body');
 export const addressContext = (tenantId: string, conversationId: string) => sealContext(tenantId, 'channel_conversations', conversationId, 'address');
@@ -96,7 +117,10 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
         ctx.log.info('channel.outbound.ended', { channel: ctx.adapter.channel, conversation: conversationId, status, code, kind: o.kind });
         if (o.kind === 'APPROVAL' && status !== 'SKIPPED') await lostLink(ctx, conversationId, o, language, now);
       };
-      if (now.getTime() - o.createdAt.getTime() > RETENTION.transientMs) { await end('SKIPPED', 'EXPIRED_UNSENT'); continue; }
+      // Expired: a message that already failed transiently is a dead letter (with its last provider error); one never attempted is SKIPPED.
+      if (now.getTime() - o.createdAt.getTime() > RETENTION.transientMs) {
+        await (failedTransiently(o) ? end('DEAD', o.errorCode!) : end('SKIPPED', 'EXPIRED_UNSENT')); continue;
+      }
       if (!windowOpen && !ctx.adapter.outsideWindow.includes(o.kind)) { await end('SKIPPED', 'WINDOW_CLOSED'); continue; }
       if (!address) { await end('SKIPPED', 'NO_ADDRESS'); continue; }
       let reply: ChannelReply | null;
@@ -109,6 +133,8 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
       }
       if (!outputSafe(reply, ctx.origin)) { await end('FAILED', 'OUTPUT_GUARD'); continue; }
       const result = await send(ctx, address, reply, o, windowOpen);
+      const transient = !result.ok && (result.failure === 'TRANSIENT' || result.failure === 'RATE_LIMITED');
+      const retryAt = transient && o.kind !== 'APPROVAL' ? nextRetryAt(o.attempts, o.createdAt, now, result.retryAfterMs, ctx.random) : null;
       if (result.ok) {
         await ctx.store.markSent(o.outboxId, keyedDigest(ctx.keys.provider, result.providerMessageId), now);
         report.sent++;
@@ -118,13 +144,12 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
         if (ctx.adapter.confirmsUncertainSends) { await ctx.store.markUncertain(o.outboxId, result.code, confirmBy(ctx, now), now); report.uncertain++; }
         else await end('FAILED', 'SEND_OUTCOME_UNKNOWN');
         ctx.log.warn('channel.outbound.uncertain', { channel: ctx.adapter.channel, conversation: conversationId, code: result.code, kind: o.kind });
-      } else if ((result.failure === 'TRANSIENT' || result.failure === 'RATE_LIMITED') && o.kind !== 'APPROVAL' && o.attempts < MAX_SEND_ATTEMPTS) {
-        await ctx.store.markRetry(o.outboxId, result.code, new Date(now.getTime() + retryDelayMs(o.attempts, result.retryAfterMs, ctx.random)), now);
+      } else if (retryAt) {
+        await ctx.store.markRetry(o.outboxId, result.code, retryAt, now);
         report.retrying++;
         ctx.log.warn('channel.outbound.retry', { channel: ctx.adapter.channel, conversation: conversationId, code: result.code, attempts: o.attempts });
         hold = true;
-      } else await end(result.failure === 'TRANSIENT' || result.failure === 'RATE_LIMITED' ? (o.kind === 'APPROVAL' ? 'FAILED' : 'DEAD') : 'FAILED',
-        result.failure === 'UNCERTAIN' ? 'SEND_OUTCOME_UNKNOWN' : result.code);
+      } else await end(transient ? (o.kind === 'APPROVAL' ? 'FAILED' : 'DEAD') : 'FAILED', result.failure === 'UNCERTAIN' ? 'SEND_OUTCOME_UNKNOWN' : result.code);
     }
     if (hold) break;
   }

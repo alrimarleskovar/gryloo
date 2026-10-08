@@ -28,7 +28,7 @@ const CORRELATION = /^cho_[a-z2-7]{26}$/;
 const refOf = (row: Row): ConversationRef => ({ conversationId: String(row.conversation_id), channel: String(row.channel) });
 /** An outbox UPDATE (which must set updated_at) plus one audit row per updated row, at the row's own update time, in one statement. */
 const auditedOutbox = (update: string, kind: string, codeSql = 'u.error_code') => `WITH u AS (${update}
-    RETURNING tenant_id, conversation_id, handoff_id, outbox_id, error_code, updated_at)
+    RETURNING tenant_id, conversation_id, handoff_id, outbox_id, error_code, status, updated_at)
   INSERT INTO channel_audit (tenant_id, at, channel, conversation_id, kind, code, handoff_id, outbox_id)
   SELECT u.tenant_id, u.updated_at, c.channel, u.conversation_id, ${kind}, ${codeSql}, u.handoff_id, u.outbox_id
     FROM u JOIN channel_conversations c ON c.tenant_id = u.tenant_id AND c.conversation_id = u.conversation_id
@@ -199,8 +199,11 @@ export function createPgChannelStore(db: Database, tenantId: string): ChannelSto
         // Stranded inbound payloads (a crashed turn) are erased: the message is dropped, never processed late.
         await tx.query(`UPDATE channel_events SET status = 'FAILED', outcome = 'EXPIRED_UNPROCESSED', payload_ciphertext = NULL, processed_at = $2
           WHERE tenant_id = $1 AND status = 'PENDING' AND received_at < $3`, [tenantId, now, ago(RETENTION.transientMs)]);
-        await tx.query(auditedOutbox(`UPDATE channel_outbox SET status = 'SKIPPED', error_code = 'EXPIRED_UNSENT', body_ciphertext = NULL, updated_at = $2
-          WHERE tenant_id = $1 AND status = 'PENDING' AND created_at < $3`, `'OUTBOUND_SKIPPED'`), [tenantId, now, ago(RETENTION.transientMs)]);
+        // An unsent body past its lifetime: a dead letter (keeping its last provider error) if it already failed transiently, else SKIPPED.
+        await tx.query(auditedOutbox(`UPDATE channel_outbox SET body_ciphertext = NULL, updated_at = $2,
+            status = CASE WHEN error_code IS NOT NULL AND error_code <> 'ORDER_HELD' THEN 'DEAD' ELSE 'SKIPPED' END,
+            error_code = CASE WHEN error_code IS NOT NULL AND error_code <> 'ORDER_HELD' THEN error_code ELSE 'EXPIRED_UNSENT' END
+          WHERE tenant_id = $1 AND status = 'PENDING' AND created_at < $3`, `'OUTBOUND_' || u.status`), [tenantId, now, ago(RETENTION.transientMs)]);
         // A send interrupted long ago, or never confirmed: its outcome stays unknown (never resent).
         await tx.query(auditedOutbox(`UPDATE channel_outbox SET status = 'FAILED', error_code = 'SEND_OUTCOME_UNKNOWN', body_ciphertext = NULL, updated_at = $2
           WHERE tenant_id = $1 AND status IN ('SENDING', 'UNCERTAIN') AND created_at < $3`, `'OUTBOUND_FAILED'`), [tenantId, now, ago(2 * RETENTION.transientMs)]);

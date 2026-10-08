@@ -35,7 +35,7 @@ afterAll(async () => { await t?.drop(); });
  * One deployment with both providers, a dispatch token, and controllable clocks and provider answers. Each is its own tenant (as each
  * deployment is), so a sweep sees exactly this deployment's channel state.
  */
-async function deployment(script?: BotScript) {
+async function deployment(script?: BotScript, random: () => number = () => 0.5) {
   const tenantId = `ch-${randomBytes(6).toString('hex')}`;
   await t.db.query('INSERT INTO tenants (tenant_id) VALUES ($1)', [tenantId]);
   const token = randomBytes(24).toString('base64url'), tg = telegramEnv(), wa = whatsAppEnv();
@@ -43,7 +43,8 @@ async function deployment(script?: BotScript) {
   const api = botApi(script), waSent: FixtureRecord[] = [], host = { db: t.db, tenantId }, calls: string[] = [], runtime = recordingRuntime(calls);
   let clock = Date.now();
   const now = () => new Date(clock), advance = (seconds: number) => { clock += seconds * 1000; };
-  const common = { env, host, runtime, interpreter: null, now, sleep: async () => undefined };
+  // The retry jitter is pinned (a deterministic seam): each test states the jitter it exercises.
+  const common = { env, host, runtime, interpreter: null, now, sleep: async () => undefined, random };
   const telegram = (text: string, schedule?: (work: () => Promise<void>) => void) => handleTelegramWebhook(telegramRequest(textUpdate(text, { date: Math.floor(clock / 1000) }),
     tg.webhookSecret), { ...common, fetch: api.fetch, ...schedule ? { schedule } : {} });
   const whatsapp = (text: string) => handleWhatsAppWebhook(webhookRequest(inbound([{ text, timestamp: Math.floor(clock / 1000) }]), wa.appSecret),
@@ -92,7 +93,7 @@ describe('BUILD-CHANNELS-001 scheduled dispatch (PostgreSQL, both providers, MOC
     expect(d.calls).not.toContain('EXECUTION_PATH');
   });
 
-  it('retries a transiently failed send on schedule, after its backoff, until delivered; then dead-letters exhausted ones', async () => {
+  it('retries a transiently failed send on schedule, after its backoff, until delivered, without another inbound message', async () => {
     let failing = true;
     const d = await deployment(call => call.method === 'sendMessage' && failing ? botError(500, 'Internal Server Error') : null);
     await d.telegram('/start');
@@ -103,15 +104,50 @@ describe('BUILD-CHANNELS-001 scheduled dispatch (PostgreSQL, both providers, MOC
     d.advance(10);
     expect(await d.sweep()).toMatchObject({ conversations: 1, sent: 2 });
     expect(d.api.texts()).toEqual([expect.stringMatching(/^FloFi \(automated assistant\)/), expect.stringMatching(/^What I can do/)]);
-    // A provider that stays down: a once-a-minute scheduler tries again after each backoff (all six attempts fit in the body's 15-minute
-    // lifetime); after the last one, DEAD (dead letter, body erased), never silently dropped.
-    failing = true;
-    const attemptsBefore = d.api.sent().length;
-    await d.telegram('help');
-    for (let i = 0; i < 15; i++) { d.advance(60); await d.sweep(); }
-    expect((await outbox(d.tenantId, 'TELEGRAM')).at(-1)).toEqual({ kind: 'REPLY', status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE' });
-    // Six attempts in all: the turn's own, then five by the sweeps.
-    expect(d.api.sent().length - attemptsBefore).toBe(6);
+  });
+
+  // The documented policy: a once-a-minute scheduler gives a transiently failing message exactly six provider attempts inside its
+  // 15-minute body lifetime, at the extremes of the ±20 % jitter, then DEAD (dead letter, body erased) — never left PENDING or SKIPPED.
+  for (const [label, jitter, offsets] of [['minimum', 0, [0, 60, 120, 180, 300, 540]], ['maximum', 1, [0, 60, 120, 180, 360, 720]]] as const) {
+    it(`dead-letters after exactly six provider calls with ${label} jitter under a once-a-minute scheduler`, async () => {
+      let failing = false, clock = () => 0;
+      const attempts: number[] = [];
+      const d = await deployment(call => {
+        if (call.method !== 'sendMessage' || !failing) return null;
+        attempts.push(clock());
+        return botError(500, 'Internal Server Error');
+      }, () => jitter);
+      clock = () => d.now().getTime();
+      await d.telegram('/start');
+      d.advance(1);
+      failing = true;
+      await d.telegram('help');
+      const first = d.now().getTime();
+      for (let minute = 1; minute <= 15; minute++) { d.advance(60); await d.sweep(); }
+      expect((await outbox(d.tenantId, 'TELEGRAM')).at(-1)).toEqual({ kind: 'REPLY', status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE' });
+      expect(attempts).toHaveLength(6);
+      expect(attempts.map(at => (at - first) / 1000)).toEqual([...offsets]);
+      expect(attempts.at(-1)! - first).toBeLessThanOrEqual(15 * 60_000);
+      const body = (await t.db.query(`SELECT body_ciphertext FROM channel_outbox WHERE tenant_id = $1 AND status = 'DEAD'`, [d.tenantId])).rows;
+      expect(body).toEqual([{ body_ciphertext: null }]);
+    });
+  }
+
+  it('records an expired message that already failed as DEAD and one never attempted as SKIPPED when the scheduler stalls', async () => {
+    let calls = 0;
+    const d = await deployment(call => { if (call.method !== 'sendMessage') return null; calls++; return botError(500, 'Internal Server Error'); }, () => 1);
+    // First contact: the greeting fails once; the help text behind it is held, never sent to the provider.
+    await d.telegram('/start');
+    expect(calls).toBe(1);
+    // The scheduler stops for 16 minutes; the next sweep finds both bodies past their lifetime.
+    d.advance(16 * 60);
+    await d.sweep();
+    expect(await outbox(d.tenantId, 'TELEGRAM')).toEqual([{ kind: 'REPLY', status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE' },
+      { kind: 'REPLY', status: 'SKIPPED', error_code: 'EXPIRED_UNSENT' }]);
+    expect(calls).toBe(1);
+    const audit = (await t.db.query(`SELECT kind, code FROM channel_audit WHERE tenant_id = $1 AND kind IN ('OUTBOUND_DEAD', 'OUTBOUND_SKIPPED') ORDER BY audit_id`,
+      [d.tenantId])).rows;
+    expect(audit).toEqual([{ kind: 'OUTBOUND_DEAD', code: 'PROVIDER_UNAVAILABLE' }, { kind: 'OUTBOUND_SKIPPED', code: 'EXPIRED_UNSENT' }]);
   });
 
   it('never resends a send interrupted by a crash; WhatsApp\'s status webhook can still confirm it, Telegram\'s cannot', async () => {

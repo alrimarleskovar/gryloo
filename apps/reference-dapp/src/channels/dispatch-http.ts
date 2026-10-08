@@ -22,7 +22,7 @@ import { channelHost, channelRuntime, type ChannelHost } from './runtime.ts';
 type Env = Readonly<Record<string, string | undefined>>;
 export type ChannelOperatorOptions = { readonly env?: Env; readonly logger?: ChannelLogSink | null; readonly host?: ChannelHost; readonly runtime?: EngineRuntime;
   readonly seams?: ProviderSeams; readonly interpreter?: ChannelInterpreter | null; readonly now?: () => Date; readonly limits?: DispatchLimits;
-  readonly sleep?: (ms: number) => Promise<void> };
+  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number };
 const HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
 const json = (status: number, body: Record<string, unknown>) => Response.json(body, { status, headers: HEADERS });
 
@@ -48,9 +48,10 @@ export async function handleChannelDispatch(request: Request, options: ChannelOp
   const providers = channelProviders(result.deployment, options.seams);
   const interpreter = options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot });
   const services = new Map([...providers.adapters.values()].map(adapter => [adapter.channel, createChannelService({ core, store, log, now, platform, adapter, interpreter,
-    previewTimeoutMs: 30_000, ...options.sleep ? { sleep: options.sleep } : {} })]));
+    previewTimeoutMs: 30_000, ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} })]));
   try {
-    const summary = await dispatchChannels({ core, store, platform, log, now, adapters: providers.adapters, services, ...options.sleep ? { sleep: options.sleep } : {} },
+    const summary = await dispatchChannels({ core, store, platform, log, now, adapters: providers.adapters, services, ...options.sleep ? { sleep: options.sleep } : {},
+      ...options.random ? { random: options.random } : {} },
       options.limits ?? DISPATCH_LIMITS);
     return json(200, { ok: true, object: 'channel_dispatch', ...summary });
   } catch {

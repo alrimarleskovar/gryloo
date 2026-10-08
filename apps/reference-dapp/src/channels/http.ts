@@ -35,6 +35,8 @@ export type ChannelWebhookOptions = {
   readonly now?: () => Date;
   readonly previewTimeoutMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
+  /** The retry jitter's source (tests pin it; production uses Math.random). */
+  readonly random?: () => number;
 };
 const HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
 const answer = (status: number, code: string) => Response.json({ ok: status < 300, code }, { status, headers: HEADERS });
@@ -82,7 +84,7 @@ export async function handleChannelWebhook(route: ChannelRoute, request: Request
   const { store, platform } = channelRuntime(env, core, host, options.runtime);
   const service = createChannelService({ core, store, log, now, platform, previewTimeoutMs: options.previewTimeoutMs ?? 60_000, adapter: provider.adapter,
     interpreter: options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot }),
-    ...options.sleep ? { sleep: options.sleep } : {} });
+    ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} });
   let ingested;
   try { ingested = await service.ingest(parsed.messages, parsed.deliveries); }
   catch { log.warn('channel.store_unavailable', { channel: prefix }); return answer(503, 'CHANNEL_STORE_UNAVAILABLE'); }
