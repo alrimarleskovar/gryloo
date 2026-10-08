@@ -71,11 +71,13 @@ describe('secondary product workspaces', () => {
     expect(html).not.toMatch(/Connected · not saved|Reveal|private key/i);
   });
 
-  it('shows tokenized card metadata only', () => {
-    fixture.credentials = { wallets: [], cards: [{ id: 'pm_1NvTestToken42', provider: 'stripe', brand: 'visa', last4: '4821', expMonth: 8, expYear: 2029,
-      label: 'Visa •••• 4821', addedAt: '2026-10-07T12:00:00.000Z' }] };
+  it('shows safe saved-card metadata only, never provider references', () => {
+    fixture.credentials = { wallets: [], cards: [{ id: 'card:mercado_pago:1562188766859', provider: 'mercado_pago', providerName: 'Mercado Pago',
+      providerCustomerId: '470183340-cpunOI7UsIHlHr', providerCardId: '1562188766859', binding: `cb1.${'A'.repeat(40)}.${'B'.repeat(43)}`, paymentMethodId: 'visa',
+      brand: 'visa', last4: '4821', expMonth: 8, expYear: 2029, label: 'Visa •••• 4821', addedAt: '2026-10-07T12:00:00.000Z', updatedAt: '2026-10-07T12:00:00.000Z' }] };
     const html = markup('credentials');
-    expect(html).toContain('<h3>Visa •••• 4821</h3><p>Visa · stripe</p>');
+    expect(html).toContain('<h3>Visa •••• 4821</h3><p>Visa · Mercado Pago</p>');
+    expect(html).not.toMatch(/cb1\.|470183340|mercado_pago/);
     expect(html).toContain('•••• 4821</span> · Expires 08/29');
     expect(html).toContain('aria-label="Remove Visa •••• 4821"');
     expect(html).not.toMatch(/\d{12,}|cvv|cvc/i);

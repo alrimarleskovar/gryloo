@@ -5,14 +5,15 @@ import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useJupiter } from '../state/jupiter-store';
 import { brandLabel, LABEL_MAX, networkLabel, type SavedCard, type SavedWallet } from '../domain/credentials';
-import { removeSavedCredential, renameSavedCredential, saveWalletReference, useCredentials } from '../state/credentials-store';
+import { removeSavedCredential, renameSavedCredential, saveCardReference, saveWalletReference, useCredentials } from '../state/credentials-store';
 import { evmNetworkRef, useWalletConnection, type ConnectedWallet } from '../state/wallet-connection';
 import { evmWalletEntries } from '../wallet/evm-discovery';
 import { solanaWalletChoices } from '../wallet/solana-wallet';
 import { EVM_WALLET_NETWORKS } from '../wallet/evm-networks';
 import { ECOSYSTEM_LABEL, type WalletEcosystem } from '../wallet/wallet-registry';
-import { cardProviderStatus } from '../app/card-action';
-import type { CardVaultStatus } from '../server/card-vault';
+import { addProviderCard, cardProviderStatus, removeProviderCard } from '../app/card-action';
+import type { CardProviderClient, CardProviderStatus } from '../server/card-provider';
+import { loadMercadoPago, type MercadoPagoInstance, type MercadoPagoSecureField, type SecureFieldType } from './card-secure-fields';
 
 type IconName = 'wallet' | 'agent' | 'key' | 'plus' | 'copy' | 'card' | 'secret';
 function WorkspaceIcon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -106,31 +107,119 @@ function WalletCredentialCard({ entry, busy, onActivate, onDisconnect, onSave, o
   </article>;
 }
 
+/** Removal codes after which the saved reference can no longer be used at the provider: FloFi's copy is removed anyway. */
+const CARD_REFERENCE_UNUSABLE = new Set(['CARD_TOKENIZATION_PROVIDER_REQUIRED', 'CARD_BINDING_INVALID', 'CARD_PROVIDER_NOT_FOUND']);
 function CardCredential({ card, onStatus }: { card: SavedCard; onStatus(message: string): void }) {
   const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  async function remove() {
+    setRemoving(true);
+    // The saved-card reference at the provider goes first; the card itself is never affected.
+    const removed = await removeProviderCard(card.binding).catch(() => ({ ok: false as const, code: 'CARD_PROVIDER_UNREACHABLE' }));
+    setRemoving(false);
+    if (!removed.ok && !CARD_REFERENCE_UNUSABLE.has(removed.code)) { onStatus('This card could not be removed right now. Try again.'); return; }
+    removeSavedCredential(card.id); onStatus('Card removed from FloFi.');
+  }
   return <article className="workspace-wallet-card workspace-card-credential" aria-label={card.label}>
     <div className="workspace-wallet-heading">
       <span className="workspace-network-icon"><WorkspaceIcon name="card" size={24}/></span>
-      <div><h3>{card.label}</h3><p>{brandLabel(card.brand)} · {card.provider}</p></div>
+      <div><h3>{card.label}</h3><p>{brandLabel(card.brand)} · {card.providerName}</p></div>
     </div>
     <p className="workspace-wallet-network"><span className="numeric">•••• {card.last4}</span> · Expires {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}</p>
     {confirming ? <div className="workspace-inline-form" role="group" aria-label={`Remove ${card.label}`}>
       <p>Remove this card from FloFi? The card itself is not affected.</p>
-      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger"
-        onClick={() => { removeSavedCredential(card.id); onStatus('Card removed from FloFi.'); }}>Remove</button>
+      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" disabled={removing}
+        onClick={() => void remove()}>Remove</button>
         <button type="button" className="workspace-action" onClick={() => setConfirming(false)}>Cancel</button></div>
     </div> : <div className="workspace-wallet-actions"><button type="button" className="workspace-action" aria-label={`Remove ${card.label}`} onClick={() => setConfirming(true)}>Remove</button></div>}
   </article>;
 }
 
+const CARD_FIELDS: readonly { readonly type: SecureFieldType; readonly label: string; readonly placeholder: string }[] = [
+  { type: 'cardNumber', label: 'Card number', placeholder: '1234 1234 1234 1234' },
+  { type: 'expirationDate', label: 'Expiry', placeholder: 'MM/YY' },
+  { type: 'securityCode', label: 'Security code', placeholder: 'CVC' },
+];
+const CARD_ERRORS: Readonly<Record<string, string>> = {
+  CARD_EMAIL_INVALID: 'Enter a valid email address.',
+  CARD_LIMIT_REACHED: 'This email already has the maximum number of saved cards.',
+  CARD_REJECTED_BY_PROVIDER: 'The card could not be saved. Check the details and try again.',
+  CARD_TOKEN_INVALID: 'The card could not be saved. Check the details and try again.',
+};
 /**
- * Add card opens the secure provider entry when one is configured. FloFi renders no card-number or security-code field
- * of its own; without a configured provider it states the prerequisite instead of collecting anything.
+ * The provider's own secure fields inside the Add card dialog. The card number, expiry and security code are typed into the
+ * provider's iframes; FloFi sends its server only the provider's one-time token and the email the provider saves the card
+ * under. Adding a card never charges it.
  */
-function CardEntryDialog({ onClose }: { onClose(): void }) {
+function SecureCardForm({ client, providerName, titleId, onClose, onAdded }: {
+  client: CardProviderClient; providerName: string; titleId: string; onClose(): void; onAdded(label: string): void;
+}) {
+  const baseId = useId().replace(/[^A-Za-z0-9_-]/g, '');
+  const sdk = useRef<MercadoPagoInstance | null>(null);
+  const [phase, setPhase] = useState<'loading' | 'ready' | 'saving' | 'unavailable'>('loading');
+  const [documents, setDocuments] = useState<readonly string[]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let current = true;
+    const mounted: MercadoPagoSecureField[] = [];
+    void (async () => {
+      try {
+        const MercadoPago = await loadMercadoPago(client.sdkUrl);
+        if (!current) return;
+        const instance = new MercadoPago(client.publicKey, { locale: client.locale });
+        const tokens = getComputedStyle(document.documentElement);
+        const style = { fontSize: '14px', color: tokens.getPropertyValue('--ink').trim() || '#10233f', placeholderColor: tokens.getPropertyValue('--muted').trim() || '#6b778c' };
+        for (const field of CARD_FIELDS) mounted.push(instance.fields.create(field.type, { placeholder: field.placeholder, style }).mount(`${baseId}-${field.type}`));
+        const types = (await instance.getIdentificationTypes()).map(type => type.id).filter((id): id is string => typeof id === 'string' && /^[A-Z]{2,10}$/.test(id));
+        if (!current) return;
+        if (!types.length) throw new Error('CARD_SDK_UNAVAILABLE');
+        sdk.current = instance; setDocuments(types); setPhase('ready');
+      } catch { if (current) setPhase('unavailable'); }
+    })();
+    return () => { current = false; sdk.current = null; for (const field of mounted) try { field.unmount(); } catch { /* already gone */ } };
+  }, [baseId, client]);
+  async function submit(form: HTMLFormElement) {
+    const data = new FormData(form), text = (name: string) => String(data.get(name) ?? '').trim();
+    const holder = text('cardholderName'), documentType = text('identificationType'), documentNumber = text('identificationNumber').replace(/\D/g, ''), email = text('email');
+    if (!sdk.current || phase !== 'ready') return;
+    if (!holder || !documentType || !documentNumber || !email) { setError('Fill in every field.'); return; }
+    setError(''); setPhase('saving');
+    let token: unknown;
+    try { token = (await sdk.current.fields.createCardToken({ cardholderName: holder, identificationType: documentType, identificationNumber: documentNumber })).id; }
+    catch { setPhase('ready'); setError('Check the card details and try again.'); return; }
+    if (typeof token !== 'string') { setPhase('ready'); setError('Check the card details and try again.'); return; }
+    const added = await addProviderCard({ token, email }).catch(() => ({ ok: false as const, code: 'CARD_PROVIDER_UNREACHABLE' }));
+    if (!added.ok) { setPhase('ready'); setError(CARD_ERRORS[added.code] ?? 'The card could not be added. Nothing was saved.'); return; }
+    try {
+      const saved = saveCardReference(added.value).cards.find(card => card.providerCardId === added.value.providerCardId && card.provider === added.value.provider);
+      onAdded(saved?.label ?? 'Card');
+    } catch { setPhase('ready'); setError('The card could not be added. Nothing was saved.'); }
+  }
+  if (phase === 'unavailable') return <><div role="status" className="card-entry-body"><p>Secure card entry could not be loaded. Nothing was collected. Try again later.</p></div>
+    <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>;
+  return <form className="card-entry-form" aria-labelledby={titleId} aria-busy={phase !== 'ready'} noValidate onSubmit={event => { event.preventDefault(); void submit(event.currentTarget); }}>
+    <p className="card-entry-note">Card details are entered in {providerName}&apos;s secure fields. FloFi receives only a token, the brand, the last four digits and the expiry date.</p>
+    {CARD_FIELDS.map(field => <div key={field.type} className={`card-entry-field card-entry-${field.type}`} role="group" aria-labelledby={`${baseId}-${field.type}-label`}>
+      <span id={`${baseId}-${field.type}-label`}>{field.label}</span><div id={`${baseId}-${field.type}`} className="card-entry-secure" data-secure-field={field.type}/>
+    </div>)}
+    <label className="card-entry-field card-entry-holder">Name on card<input name="cardholderName" autoComplete="cc-name" maxLength={60} required/></label>
+    <label className="card-entry-field card-entry-document-type">Document<select name="identificationType" required>{documents.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+    <label className="card-entry-field card-entry-document">Number<input name="identificationNumber" inputMode="numeric" autoComplete="off" maxLength={18} required/></label>
+    <label className="card-entry-field card-entry-email">Email<input name="email" type="email" autoComplete="email" maxLength={254} required/></label>
+    {error && <p className="workspace-inline-error card-entry-error" role="alert">{error}</p>}
+    <div className="wallet-selector-footer card-entry-actions"><button type="button" className="workspace-action" onClick={onClose}>Cancel</button>
+      <button type="submit" className="workspace-action" disabled={phase !== 'ready'}>{phase === 'saving' ? 'Adding…' : 'Add card'}</button></div>
+  </form>;
+}
+
+/**
+ * Add card opens the configured provider's secure entry. FloFi renders no card-number or security-code field of its own;
+ * without a configured provider it states the prerequisite instead of collecting anything.
+ */
+function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label: string): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId(), bodyId = useId();
-  const [status, setStatus] = useState<CardVaultStatus | null>(null);
+  const [status, setStatus] = useState<CardProviderStatus | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     const element = dialog.current, previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -139,21 +228,22 @@ function CardEntryDialog({ onClose }: { onClose(): void }) {
     void cardProviderStatus().then(value => { if (current) setStatus(value); }).catch(() => { if (current) setFailed(true); });
     return () => { current = false; if (element?.open) element.close(); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
   }, []);
-  return <dialog ref={dialog} className="wallet-selector card-entry" aria-labelledby={titleId} aria-describedby={bodyId}
+  const secure = status?.available && status.client.kind === 'mercado_pago_secure_fields' ? status : null;
+  return <dialog ref={dialog} className="wallet-selector card-entry" aria-labelledby={titleId} aria-describedby={secure ? undefined : bodyId}
     onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="wallet-selector-panel">
       <div className="wallet-selector-head"><h2 id={titleId}>Add a card</h2>
         <button type="button" className="wallet-selector-close" aria-label="Close" autoFocus onClick={onClose}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button></div>
-      <div id={bodyId} role="status" className="card-entry-body">
-        {failed ? <p>Card entry status could not be checked. Nothing was collected. Try again later.</p>
-          : !status ? <p>Checking secure card entry…</p>
-            : status.available ? <p>Secure card entry by {status.provider.name} opens here. FloFi receives only a token, the brand, the last four digits and the expiry date.</p>
+      {secure ? <SecureCardForm client={secure.client} providerName={secure.provider.name} titleId={titleId} onClose={onClose} onAdded={onAdded}/> : <>
+        <div id={bodyId} role="status" className="card-entry-body">
+          {failed ? <p>Card entry status could not be checked. Nothing was collected. Try again later.</p>
+            : !status ? <p>Checking secure card entry…</p>
               : <><p><strong>Secure card entry isn&apos;t available yet.</strong></p>
                 <p>FloFi never asks for your card number or security code in its own forms. Cards are added only through a certified card provider&apos;s secure entry, and no card provider is connected to FloFi yet.</p></>}
-      </div>
-      <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div>
+        </div>
+        <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>}
     </div>
   </dialog>;
 }
@@ -226,7 +316,7 @@ function CredentialsWorkspace() {
       <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><h3>No payment provider connected</h3><p>Pix and boleto payments need a connected payment provider. None is connected yet.</p></div>
     </section>
     <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>Add secret</FutureAction></div>
-    {cardEntry && <CardEntryDialog onClose={() => setCardEntry(false)}/>}
+    {cardEntry && <CardEntryDialog onClose={() => setCardEntry(false)} onAdded={label => { setCardEntry(false); setStatus(`${label} added to Credentials.`); }}/>}
   </>;
 }
 

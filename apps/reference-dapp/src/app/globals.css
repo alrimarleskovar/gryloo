@@ -1486,5 +1486,15 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 .card-entry-body{display:grid;gap:8px}
 .card-entry-body p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
 .card-entry-body strong{color:var(--ink)}
+/* Add card: the provider's secure fields (its own iframes) sit in FloFi's input frames; FloFi renders no card-data input. */
+.card-entry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card-entry-form>*{grid-column:1/-1}
+.card-entry-form .card-entry-expirationDate,.card-entry-form .card-entry-securityCode,.card-entry-form .card-entry-document-type,.card-entry-form .card-entry-document{grid-column:auto}
+.card-entry-note{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.card-entry-field{display:grid;gap:6px;color:var(--ink);font-size:12px}
+.card-entry-secure,.card-entry-field input,.card-entry-field select{height:38px;min-width:0;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px}
+.card-entry-secure iframe{display:block;width:100%;height:100%;border:0}
+.card-entry-error{margin:0;font-size:13px}
+.card-entry-actions{gap:8px}
 .wallet-selector-footer{display:flex;justify-content:flex-end}
 .wallet-selector-footer .workspace-action{min-height:36px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);font-weight:600}

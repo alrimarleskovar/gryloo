@@ -2,13 +2,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { addCardReference, addWalletReference, assertNoRawSecrets, containsCardNumber, credentialLabel, EMPTY_CREDENTIALS, readCredentials,
   removeCredential, renameCredential } from './credentials';
-import { cardVaultStatus } from '../server/card-vault';
+import { cardProviderStatus as configuredCardProvider } from '../server/card-provider';
 import { cardProviderStatus } from '../app/card-action';
 
 const NOW = new Date('2026-10-07T12:00:00.000Z');
 const EVM = '0x12aB34cD56eF7890123456789012345678909aBc';
 const SOLANA = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgA91';
-const card = { provider: 'stripe', paymentMethodId: 'pm_1NvTestToken42', brand: 'visa', last4: '4821', expMonth: 8, expYear: 2029 };
+const BINDING = `cb1.${'A'.repeat(40)}.${'B'.repeat(43)}`;
+// A provider's saved-card id is numeric: this one is Luhn-valid by chance but is not shaped like the card's own number.
+const card = { provider: 'mercado_pago', providerName: 'Mercado Pago', providerCustomerId: '470183340-cpunOI7UsIHlHr', providerCardId: '1562188766859',
+  binding: BINDING, paymentMethodId: 'visa', brand: 'visa', last4: '4821', expMonth: 8, expYear: 2029 };
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('wallet credential references', () => {
@@ -47,14 +50,22 @@ describe('wallet credential references', () => {
   });
 });
 
-describe('card credentials hold tokenized metadata only', () => {
-  it('saves provider-tokenized metadata and nothing else', () => {
-    const value = addCardReference(EMPTY_CREDENTIALS, { ...card, fingerprint: 'abc', country: 'BR' }, NOW);
-    expect(value.cards).toEqual([{ id: 'pm_1NvTestToken42', provider: 'stripe', brand: 'visa', last4: '4821', expMonth: 8, expYear: 2029,
-      label: 'Visa •••• 4821', addedAt: NOW.toISOString() }]);
-    expect(Object.keys(value.cards[0]!).sort()).toEqual(['addedAt', 'brand', 'expMonth', 'expYear', 'id', 'label', 'last4', 'provider']);
+describe('card credentials hold provider references and safe metadata only', () => {
+  it('saves the provider-safe saved-card metadata and nothing else', () => {
+    const value = addCardReference(EMPTY_CREDENTIALS, card, NOW);
+    expect(value.cards).toEqual([{ id: 'card:mercado_pago:1562188766859', ...card, label: 'Visa •••• 4821', addedAt: NOW.toISOString(), updatedAt: NOW.toISOString() }]);
+    expect(Object.keys(value.cards[0]!).sort()).toEqual(['addedAt', 'binding', 'brand', 'expMonth', 'expYear', 'id', 'label', 'last4', 'paymentMethodId', 'provider',
+      'providerCardId', 'providerCustomerId', 'providerName', 'updatedAt']);
+    // Saving the same provider card again refreshes it, keeping the owner's name and the original date.
+    const renamed = renameCredential(value, value.cards[0]!.id, 'Travel card');
+    const again = addCardReference(renamed, { ...card, expYear: 2031 }, new Date('2027-01-01T00:00:00.000Z'));
+    expect(again.cards).toHaveLength(1);
+    expect(again.cards[0]).toMatchObject({ label: 'Travel card', expYear: 2031, addedAt: NOW.toISOString(), updatedAt: '2027-01-01T00:00:00.000Z' });
   });
   it.each([
+    ['an extra provider field', { ...card, first_six_digits: '423564' }, 'CARD_METADATA_INVALID'],
+    ['a provider card id shaped like this card number', { ...card, providerCardId: '4235647728025682', last4: '5682' }, 'CARD_METADATA_INVALID'],
+    ['a malformed binding', { ...card, binding: 'not-a-binding' }, 'CARD_METADATA_INVALID'],
     ['full card number field', { ...card, number: '4111111111111111' }, 'CREDENTIAL_RAW_SECRET_FIELD'],
     ['security code field', { ...card, cvc: '123' }, 'CREDENTIAL_RAW_SECRET_FIELD'],
     ['CVV nested anywhere', { ...card, details: { cvv: '999' } }, 'CREDENTIAL_RAW_SECRET_FIELD'],
@@ -73,9 +84,10 @@ describe('card credentials hold tokenized metadata only', () => {
     expect(() => assertNoRawSecrets({ cvv: null, number: '' })).not.toThrow();
   });
   it('reports the exact external prerequisite when no secure card provider is configured', async () => {
-    expect(cardVaultStatus()).toMatchObject({ available: false, code: 'CARD_TOKENIZATION_PROVIDER_REQUIRED' });
-    expect(cardVaultStatus().available || (cardVaultStatus() as { prerequisite: string }).prerequisite).toMatch(/PCI-DSS compliant card provider/);
-    await expect(cardProviderStatus()).resolves.toEqual(cardVaultStatus());
+    const status = configuredCardProvider({});
+    expect(status).toMatchObject({ available: false, code: 'CARD_TOKENIZATION_PROVIDER_REQUIRED' });
+    expect(status.available || status.prerequisite).toMatch(/PCI-DSS compliant card provider[\s\S]*MERCADO_PAGO_ACCESS_TOKEN/);
+    await expect(cardProviderStatus()).resolves.toEqual(configuredCardProvider());
   });
 });
 
@@ -88,8 +100,8 @@ describe('browser credential store persists only safe shapes', () => {
     credentials.saveWalletReference({ ecosystem: 'evm', address: EVM, providerKey: 'io.rabby', providerName: 'Rabby Wallet', network: 'eip155:84532' });
     credentials.saveCardReference(card);
     const before = store.get(credentials.CREDENTIALS_STORAGE_KEY);
-    expect(() => credentials.saveCardReference({ ...card, paymentMethodId: 'pm_OtherToken42', cvc: '123' })).toThrow('CREDENTIAL_RAW_SECRET_FIELD');
-    expect(() => credentials.saveCardReference({ ...card, paymentMethodId: 'pm_OtherToken43', number: '4111111111111111' })).toThrow('CREDENTIAL_RAW_SECRET_FIELD');
+    expect(() => credentials.saveCardReference({ ...card, providerCardId: '42', cvc: '123' })).toThrow('CREDENTIAL_RAW_SECRET_FIELD');
+    expect(() => credentials.saveCardReference({ ...card, providerCardId: '43', number: '4111111111111111' })).toThrow('CREDENTIAL_RAW_SECRET_FIELD');
     expect(store.get(credentials.CREDENTIALS_STORAGE_KEY)).toBe(before);
     expect(before).not.toMatch(/4111|cvc|cvv|number|private|seed|mnemonic/i);
     expect(JSON.parse(before!)).toEqual(credentials.loadCredentials());

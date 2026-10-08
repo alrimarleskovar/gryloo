@@ -21,16 +21,25 @@ export type SavedWallet = {
 };
 export const CARD_BRANDS = ['visa', 'mastercard', 'amex', 'elo', 'hipercard', 'discover', 'diners', 'jcb', 'unionpay', 'unknown'] as const;
 export type CardBrand = typeof CARD_BRANDS[number];
+/** A card saved at a card provider. FloFi keeps provider references and display metadata only, never card data. */
 export type SavedCard = {
-  /** The provider's payment-method token id. Never a card number. */
+  /** FloFi credential id: `card:<provider>:<provider card id>`. */
   readonly id: string;
   readonly provider: string;
+  readonly providerName: string;
+  readonly providerCustomerId: string;
+  /** The provider's saved-card id. Never a card number. */
+  readonly providerCardId: string;
+  /** Server-sealed ownership reference for this card (lets this browser remove it at the provider). Not a secret of the card. */
+  readonly binding: string;
+  readonly paymentMethodId: string;
   readonly brand: CardBrand;
   readonly last4: string;
   readonly expMonth: number;
   readonly expYear: number;
   readonly label: string;
   readonly addedAt: string;
+  readonly updatedAt: string;
 };
 export type Credentials = { readonly wallets: readonly SavedWallet[]; readonly cards: readonly SavedCard[] };
 export const EMPTY_CREDENTIALS: Credentials = Object.freeze({ wallets: Object.freeze([]), cards: Object.freeze([]) });
@@ -40,7 +49,8 @@ const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const PROVIDER_KEY = /^[A-Za-z0-9][A-Za-z0-9 ._:#-]{0,63}$/;
 const NETWORK = /^(?:eip155:[1-9][0-9]{0,18}|solana:(?:mainnet|devnet))$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const TOKEN_ID = /^[A-Za-z][A-Za-z0-9_-]{5,127}$/;
+const PROVIDER_CUSTOMER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/, PROVIDER_CARD_ID = /^[0-9]{1,24}$/, PAYMENT_METHOD_ID = /^[a-z][a-z0-9_]{1,31}$/;
+const CARD_BINDING = /^cb1\.[A-Za-z0-9_-]{16,1024}\.[A-Za-z0-9_-]{43}$/;
 export const LABEL_MAX = 40;
 
 export function validWalletAddress(ecosystem: WalletEcosystem, address: string): boolean {
@@ -53,6 +63,7 @@ export function credentialLabel(value: unknown): string | null {
   return label && label.length <= LABEL_MAX && !containsCardNumber(label) ? label : null;
 }
 export const walletCredentialId = (ecosystem: WalletEcosystem, providerKey: string, address: string) => `${ecosystem}:${providerKey}:${address}`;
+export const cardCredentialId = (provider: string, providerCardId: string) => `card:${provider}:${providerCardId}`;
 export function shortAddress(address: string): string { return `${address.slice(0, 4)}…${address.slice(-4)}`; }
 export function networkLabel(chain: string | null): string {
   if (chain === 'solana:devnet') return 'Solana Devnet';
@@ -78,6 +89,8 @@ function luhn(digits: string): boolean {
   }
   return sum % 10 === 0;
 }
+/** A provider id that is shaped like this card's own number (13–19 digits, Luhn-valid, ending in its last four) is refused. */
+export const looksLikeCardNumber = (value: string, last4: string) => /^\d{13,19}$/.test(value) && value.endsWith(last4) && containsCardNumber(value);
 const FORBIDDEN_KEY = /^(?:pan|number|card_?number|cardnumber|cvv|cvc|cvv2|cvc2|cid|csc|security_?code|track[12]?|magnetic_?stripe|pin|private_?key|secret_?key|seed|seed_?phrase|mnemonic)$/i;
 /** Fail closed if any key names a raw card/wallet secret with a value, or any string value carries a card number. */
 export function assertNoRawSecrets(value: unknown, depth = 0): void {
@@ -96,7 +109,8 @@ const exactKeys = (value: object, keys: readonly string[]) => {
   return own.length === keys.length && own.every(key => keys.includes(key));
 };
 const WALLET_KEYS = ['id', 'ecosystem', 'address', 'providerKey', 'providerName', 'label', 'lastNetwork', 'addedAt'] as const;
-const CARD_KEYS = ['id', 'provider', 'brand', 'last4', 'expMonth', 'expYear', 'label', 'addedAt'] as const;
+const CARD_KEYS = ['id', 'provider', 'providerName', 'providerCustomerId', 'providerCardId', 'binding', 'paymentMethodId', 'brand', 'last4',
+  'expMonth', 'expYear', 'label', 'addedAt', 'updatedAt'] as const;
 
 export function readSavedWallet(value: unknown): SavedWallet | null {
   if (!value || typeof value !== 'object' || !exactKeys(value, WALLET_KEYS)) return null;
@@ -111,13 +125,19 @@ export function readSavedWallet(value: unknown): SavedWallet | null {
 export function readSavedCard(value: unknown): SavedCard | null {
   if (!value || typeof value !== 'object' || !exactKeys(value, CARD_KEYS)) return null;
   const v = value as Record<string, unknown>;
-  if (typeof v.id !== 'string' || !TOKEN_ID.test(v.id) || containsCardNumber(v.id) || typeof v.provider !== 'string' || !PROVIDER_KEY.test(v.provider)
-    || !CARD_BRANDS.includes(v.brand as CardBrand) || typeof v.last4 !== 'string' || !/^\d{4}$/.test(v.last4)
+  if (typeof v.provider !== 'string' || !PROVIDER_KEY.test(v.provider) || credentialLabel(v.providerName) !== v.providerName
+    || typeof v.providerCustomerId !== 'string' || !PROVIDER_CUSTOMER_ID.test(v.providerCustomerId) || containsCardNumber(v.providerCustomerId)
+    || typeof v.last4 !== 'string' || !/^\d{4}$/.test(v.last4)
+    || typeof v.providerCardId !== 'string' || !PROVIDER_CARD_ID.test(v.providerCardId) || looksLikeCardNumber(v.providerCardId, v.last4)
+    || v.id !== cardCredentialId(v.provider, v.providerCardId) || typeof v.binding !== 'string' || !CARD_BINDING.test(v.binding)
+    || typeof v.paymentMethodId !== 'string' || !PAYMENT_METHOD_ID.test(v.paymentMethodId) || !CARD_BRANDS.includes(v.brand as CardBrand)
     || !Number.isInteger(v.expMonth) || (v.expMonth as number) < 1 || (v.expMonth as number) > 12
     || !Number.isInteger(v.expYear) || (v.expYear as number) < 2000 || (v.expYear as number) > 2100
-    || credentialLabel(v.label) !== v.label || typeof v.addedAt !== 'string' || !TIMESTAMP.test(v.addedAt)) return null;
-  return { id: v.id, provider: v.provider, brand: v.brand as CardBrand, last4: v.last4, expMonth: v.expMonth as number, expYear: v.expYear as number,
-    label: v.label as string, addedAt: v.addedAt };
+    || credentialLabel(v.label) !== v.label || typeof v.addedAt !== 'string' || !TIMESTAMP.test(v.addedAt)
+    || typeof v.updatedAt !== 'string' || !TIMESTAMP.test(v.updatedAt)) return null;
+  return { id: v.id, provider: v.provider, providerName: v.providerName as string, providerCustomerId: v.providerCustomerId, providerCardId: v.providerCardId,
+    binding: v.binding, paymentMethodId: v.paymentMethodId, brand: v.brand as CardBrand, last4: v.last4, expMonth: v.expMonth as number,
+    expYear: v.expYear as number, label: v.label as string, addedAt: v.addedAt, updatedAt: v.updatedAt };
 }
 /** Reads stored credentials, keeping only valid entries (an invalid entry is dropped, never repaired). */
 export function readCredentials(value: unknown): Credentials {
@@ -155,18 +175,32 @@ export function removeCredential(current: Credentials, id: string): Credentials 
   return { wallets: current.wallets.filter(wallet => wallet.id !== id), cards: current.cards.filter(card => card.id !== id) };
 }
 
-/** Tokenized card metadata as a provider returns it after its hosted entry; raw card data anywhere fails closed. */
-export type ProviderCardResult = { readonly provider: string; readonly paymentMethodId: string; readonly brand: string;
+/** Provider-safe saved-card metadata as FloFi's server returns it after the provider's secure entry. */
+export type ProviderCardResult = { readonly provider: string; readonly providerName: string; readonly providerCustomerId: string;
+  readonly providerCardId: string; readonly binding: string; readonly paymentMethodId: string; readonly brand: string;
   readonly last4: string; readonly expMonth: number; readonly expYear: number };
+const PROVIDER_CARD_RESULT_KEYS = ['provider', 'providerName', 'providerCustomerId', 'providerCardId', 'binding', 'paymentMethodId', 'brand',
+  'last4', 'expMonth', 'expYear'] as const;
+/**
+ * Adds (or refreshes) one saved card from the provider result. The result must have exactly the provider-safe fields; any
+ * raw card data, secret-named field or extra field fails closed and nothing is stored.
+ */
 export function addCardReference(current: Credentials, result: unknown, now: Date): Credentials {
-  assertNoRawSecrets(result);
-  const r = (result ?? {}) as Partial<Record<keyof ProviderCardResult, unknown>>;
-  const brand = typeof r.brand === 'string' && CARD_BRANDS.includes(r.brand.toLowerCase() as CardBrand) ? r.brand.toLowerCase() as CardBrand : 'unknown';
-  const label = `${brand === 'unknown' ? 'Card' : brandLabel(brand)} •••• ${typeof r.last4 === 'string' ? r.last4 : ''}`;
-  const card = readSavedCard({ id: r.paymentMethodId, provider: r.provider, brand, last4: r.last4, expMonth: r.expMonth, expYear: r.expYear,
-    label, addedAt: now.toISOString() });
+  if (!result || typeof result !== 'object') throw new Error('CARD_METADATA_INVALID');
+  // The provider's saved-card id is numeric and may pass Luhn by chance; it is checked against this card's own number shape instead.
+  const { providerCardId, ...scanned } = result as Record<string, unknown>;
+  assertNoRawSecrets(scanned);
+  if (!exactKeys(result, PROVIDER_CARD_RESULT_KEYS)) throw new Error('CARD_METADATA_INVALID');
+  const r = result as Record<keyof ProviderCardResult, unknown>;
+  const brand = typeof r.brand === 'string' && CARD_BRANDS.includes(r.brand as CardBrand) ? r.brand as CardBrand : 'unknown';
+  const id = typeof r.provider === 'string' && typeof providerCardId === 'string' ? cardCredentialId(r.provider, providerCardId) : '';
+  const existing = current.cards.find(card => card.id === id);
+  const card = readSavedCard({ id, provider: r.provider, providerName: r.providerName, providerCustomerId: r.providerCustomerId, providerCardId,
+    binding: r.binding, paymentMethodId: r.paymentMethodId, brand, last4: r.last4, expMonth: r.expMonth, expYear: r.expYear,
+    label: existing?.label ?? `${brand === 'unknown' ? 'Card' : brandLabel(brand)} •••• ${typeof r.last4 === 'string' ? r.last4 : ''}`,
+    addedAt: existing?.addedAt ?? now.toISOString(), updatedAt: now.toISOString() });
   if (!card) throw new Error('CARD_METADATA_INVALID');
-  return { ...current, cards: [...current.cards.filter(existing => existing.id !== card.id), card] };
+  return { ...current, cards: existing ? current.cards.map(entry => entry.id === id ? card : entry) : [...current.cards, card] };
 }
 export function brandLabel(brand: CardBrand): string {
   return ({ visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', elo: 'Elo', hipercard: 'Hipercard', discover: 'Discover',
