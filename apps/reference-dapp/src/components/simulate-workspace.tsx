@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import type { ReactNode, Ref } from 'react';
 import type { SimulationSource } from '../domain/simulation-presentation';
 import { useWorkflow } from '../state/workflow-store';
@@ -10,21 +12,22 @@ import { SimulateWorkflowCanvas } from './simulate-workflow-canvas';
 export function SimulateWorkspace({ workflowName, returnToBuild, reviewActionHost, simulationSource, review, simulateAction, children }: {
   workflowName: string; returnToBuild?: (() => void) | undefined; reviewActionHost?: Ref<HTMLDivElement> | undefined; children?: ReactNode; review?: ReactNode; simulateAction?: ReactNode; simulationSource?: SimulationSource | undefined;
 }) {
+  const { t: tr } = useLocale();
   const { state, context, reviewError } = useWorkflow();
-  return <section className="simulate-workspace" aria-label="Workflow simulation workspace">
+  return <section className="simulate-workspace" aria-label={tr("Workflow simulation workspace")}>
     <div className="simulate-workspace-grid">
       <SimulateWorkflowCanvas workflowName={workflowName} primaryAction={<div className="simulation-workspace-actions">
-        {returnToBuild && <button type="button" className="simulation-back" onClick={returnToBuild}>Back to Build</button>}
-        {simulateAction}
+        {returnToBuild && <button type="button" className="simulation-back" onClick={returnToBuild}>{tr("Back to Build")}</button>}
+        {tr(simulateAction)}
       </div>}/>
-      <aside className="simulation-summary panel" aria-label="Simulation Summary">
-        <div className="simulation-summary-content" role="region" aria-label="Simulation result details"><SimulationSummary workflow={state.workflow} context={context} source={simulationSource} invalidWorkflow={Boolean(reviewError)}/></div>
+      <aside className="simulation-summary panel" aria-label={tr("Simulation Summary")}>
+        <div className="simulation-summary-content" role="region" aria-label={tr("Simulation result details")}><SimulationSummary workflow={state.workflow} context={context} source={simulationSource} invalidWorkflow={Boolean(reviewError)}/></div>
         <div className="simulation-workspace-actions">
           {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
         </div>
       </aside>
     </div>
-    {review}
+    {tr(review)}
     {children}
   </section>;
 }

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import Image from 'next/image';
 import type { WalletEnvironment } from '../wallet/environment';
 import { JUPITER_SOLANA_MAINNET, ORCA_WHIRLPOOLS_DEVNET } from '@defi-workflow-engine/action-registry';
@@ -53,40 +55,41 @@ export type SimulationOverlay = { readonly symbol: Symbol; readonly expected: st
 type CardData = { overview?: boolean; lending?: boolean; title: string; amount: string; runtime?: CrossChainRuntimeStatus; locked: boolean; selected: boolean; supply: boolean; chain?: string; risk?: string; swap: boolean; solana?: boolean; solanaKind?: string; solanaProvider?: string; bridge: boolean; liquidity: boolean; composition: boolean; bridgeSwap: boolean; across: boolean; crossChain: boolean; preparation: boolean;
   simulate?: { expected: string; minimum: string } | null };
 function WorkflowCard({ data }: NodeProps) {
+  const { t: tr } = useLocale();
   if (data.composer) return <ComposerCard data={data as ComposerCardData}/>;
   const card = data as CardData;
   if (card.overview) return <div className="flow-card">
     <Handle type="target" position={card.lending ? Position.Top : Position.Left} isConnectable={false}/>
-    <span className="flow-card-kind">{card.chain}{card.supply ? ' · AAVE V3' : card.solanaProvider ? ` · ${card.solanaProvider}` : ''}</span>
-    <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
-    {card.risk && <span className="flow-card-risk">{card.risk}</span>}
+    <span className="flow-card-kind">{tr(card.chain)}{tr(card.supply ? ' · AAVE V3' : card.solanaProvider ? ` · ${card.solanaProvider}` : '')}</span>
+    <strong>{tr(card.title)}</strong><span className="numeric">{tr(card.amount)}</span>
+    {card.risk && <span className="flow-card-risk">{tr(card.risk)}</span>}
     <Handle type="source" position={card.lending ? Position.Bottom : Position.Right} isConnectable={false}/>
   </div>;
   if(card.lending)return <div className={`flow-card ${card.selected?'active':''}`}>
     <Handle type="target" position={Position.Top} isConnectable={false}/>
-    <span className="flow-card-kind">BASE SEPOLIA · {card.swap?'UNISWAP V3':'AAVE V3'}</span>
-    <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
-    <small>{card.swap?'Borrowed USDC flows into Swap':'Select to edit · simulate before review'}</small>
+    <span className="flow-card-kind">{tr("BASE SEPOLIA · ")}{tr(card.swap?'UNISWAP V3':'AAVE V3')}</span>
+    <strong>{tr(card.title)}</strong><span className="numeric">{tr(card.amount)}</span>
+    <small>{tr(card.swap?'Borrowed USDC flows into Swap':'Select to edit · simulate before review')}</small>
     <Handle type="source" position={Position.Bottom} isConnectable={false}/>
   </div>;
   if (card.simulate !== undefined) {
     return <div className={`flow-card simulated ${card.swap ? 'swap' : ''}`}>
       {((card.bridgeSwap && card.swap) || (!card.swap && !card.bridge && (!card.liquidity || card.composition))) && <Handle type="target" position={Position.Left} isConnectable={false} />}
-      <span className="flow-card-kind">{card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : 'ARBITRUM · COMPOSED STEP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE ROUTE' : 'ARBITRUM · DESTINATION SWAP') : card.bridge ? 'BASE → OPTIMISM · BRIDGE ROUTE' : card.liquidity ? 'BASE · LIQUIDITY UNOBSERVED' : card.solana ? card.solanaKind ?? 'SOLANA' : card.swap ? (card.simulate ? 'BASE · MOCKED OUTPUT' : 'BASE · NO CURRENT OUTPUT') : 'MOCK ACTION'}</span>
-      <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
+      <span className="flow-card-kind">{tr(card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : 'ARBITRUM · COMPOSED STEP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE ROUTE' : 'ARBITRUM · DESTINATION SWAP') : card.bridge ? 'BASE → OPTIMISM · BRIDGE ROUTE' : card.liquidity ? 'BASE · LIQUIDITY UNOBSERVED' : card.solana ? card.solanaKind ?? 'SOLANA' : card.swap ? (card.simulate ? 'BASE · MOCKED OUTPUT' : 'BASE · NO CURRENT OUTPUT') : 'MOCK ACTION')}</span>
+      <strong>{tr(card.title)}</strong><span className="numeric">{tr(card.amount)}</span>
       {card.swap && card.simulate ? <>
-        <span className="mocked-value" data-mocked-value=""><span>Expected {card.simulate.expected}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
-        <span className="mocked-value" data-mocked-value=""><span>Minimum {card.simulate.minimum}</span><span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></span>
-      </> : <small>{card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? 'MOCKED composed simulation · actual outputs require reconciliation' : card.across ? 'Direct Across quote in bridge review' : card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.solana ? `Live ${card.solanaProvider ?? ''} quote in Simulate` : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)'}</small>}
+        <span className="mocked-value" data-mocked-value=""><span>{tr("Expected ")}{tr(card.simulate.expected)}</span><span className="mocked-tag">{tr("MOCKED · ")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}</span></span>
+        <span className="mocked-value" data-mocked-value=""><span>{tr("Minimum ")}{tr(card.simulate.minimum)}</span><span className="mocked-tag">{tr("MOCKED · ")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}</span></span>
+      </> : <small>{tr(card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? 'MOCKED composed simulation · actual outputs require reconciliation' : card.across ? 'Direct Across quote in bridge review' : card.bridge ? 'Live LI.FI route in bridge review' : card.liquidity ? 'Use the isolated fork liquidity simulation' : card.solana ? `Live ${card.solanaProvider ?? ''} quote in Simulate` : card.swap ? 'Generate mocked artifacts to see outputs' : 'Not simulated (mock action)')}</small>}
       {((card.bridgeSwap && card.bridge) || (!card.liquidity && !card.bridge && (!card.swap || card.composition))) && <Handle type="source" position={Position.Right} isConnectable={false} />}
     </div>;
   }
   return <div className={`flow-card ${card.selected ? 'active' : ''}`}>
     <Handle type="target" position={Position.Left} isConnectable={!card.composition && !card.supply} />
-    <span className="flow-card-kind">{card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : card.preparation ? 'ARBITRUM · CALCULATED SPLIT' : card.liquidity ? 'ARBITRUM · UNISWAP V3' : 'ARBITRUM · DESTINATION SWAP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.solana ? card.solanaKind ?? 'SOLANA' : card.swap ? `${card.chain ?? 'Base'} · SWAP` : 'WORKFLOW ACTION'}</span>
-    <strong>{card.title}</strong><span className="numeric">{card.amount}</span>
-    <small>{card.supply ? 'Select to edit · simulate before review' : card.crossChain && card.runtime ? `Runtime: ${card.runtime}` : card.crossChain ? 'Select to review · non-atomic boundaries' : card.across ? 'Review route availability in Simulate' : card.bridge ? 'Review the route in Simulate' : card.composition && card.liquidity ? 'Receives the linked WETH output' : card.liquidity ? 'Select to configure the position' : card.solana ? 'Select to edit · simulate for a live quote' : card.swap ? 'Select to edit · simulate before review' : card.locked ? 'Amount locked' : 'Select to configure'}</small>
-    {card.risk && <span className="flow-card-risk">{card.risk}</span>}
+    <span className="flow-card-kind">{tr(card.supply ? 'BASE SEPOLIA · AAVE V3' : card.crossChain ? (card.bridge ? 'BASE → ARBITRUM · BRIDGE' : card.preparation ? 'ARBITRUM · CALCULATED SPLIT' : card.liquidity ? 'ARBITRUM · UNISWAP V3' : 'ARBITRUM · DESTINATION SWAP') : card.bridgeSwap ? (card.bridge ? 'BASE → ARBITRUM · UNQUOTED BRIDGE' : 'ARBITRUM · UNQUOTED SWAP') : card.bridge ? 'BASE → OPTIMISM · UNQUOTED BRIDGE' : card.composition && card.liquidity ? 'BASE · POSITION' : card.liquidity ? 'BASE · UNQUOTED POSITION' : card.solana ? card.solanaKind ?? 'SOLANA' : card.swap ? `${card.chain ?? 'Base'} · SWAP` : 'WORKFLOW ACTION')}</span>
+    <strong>{tr(card.title)}</strong><span className="numeric">{tr(card.amount)}</span>
+    <small>{tr(card.supply ? 'Select to edit · simulate before review' : card.crossChain && card.runtime ? `Runtime: ${card.runtime}` : card.crossChain ? 'Select to review · non-atomic boundaries' : card.across ? 'Review route availability in Simulate' : card.bridge ? 'Review the route in Simulate' : card.composition && card.liquidity ? 'Receives the linked WETH output' : card.liquidity ? 'Select to configure the position' : card.solana ? 'Select to edit · simulate for a live quote' : card.swap ? 'Select to edit · simulate before review' : card.locked ? 'Amount locked' : 'Select to configure')}</small>
+    {card.risk && <span className="flow-card-risk">{tr(card.risk)}</span>}
     <Handle type="source" position={Position.Right} isConnectable={!card.composition && !card.supply} />
   </div>;
 }
@@ -166,6 +169,7 @@ function SimulationViewport({ onState }: { onState: (state: ViewportState) => vo
 
 /** Read-only IR projection. Execute overview supplies no outputs or execution state. */
 function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: { mode: 'simulate' | 'execute'; workflowName: string; overlay: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode }) {
+  const { t: tr } = useLocale();
   const { state, context } = useWorkflow();
   const workflow: Workflow = state.workflow;
   const nodes = useMemo(() => workflow.nodes.filter(node => !node.actionType.startsWith('mock-')).map((node, index) => {
@@ -202,9 +206,9 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
   const swaps = workflow.nodes.filter(n => n.actionType === SWAP_ACTION).length;
   const bridges = workflow.nodes.filter(n => n.actionType === 'asset.bridge').length;
   const [viewportState, setViewportState] = useState<ViewportState>('pending');
-  return <section className="canvas simulate-canvas panel" aria-label={mode === 'execute' ? 'Workflow overview' : 'Mocked outputs graph'}>
-    <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{nodes.length} actions</span></div>
-    <div className="flow-surface" role="region" aria-label={mode === 'execute' ? 'Workflow overview graph' : 'Mocked outputs on the workflow graph'} data-viewport={viewportState}>
+  return <section className="canvas simulate-canvas panel" aria-label={tr(mode === 'execute' ? 'Workflow overview' : 'Mocked outputs graph')}>
+    <div className="canvas-head"><div><h2>{workflowName}</h2></div><span className="revision">{tr(nodes.length)}{tr(" actions")}</span></div>
+    <div className="flow-surface" role="region" aria-label={tr(mode === 'execute' ? 'Workflow overview graph' : 'Mocked outputs on the workflow graph')} data-viewport={viewportState}>
       <ReactFlow key={workflow.nodes.length} nodes={nodes} edges={edges} nodeTypes={nodeTypes} minZoom={SIMULATION_VIEWPORT.minZoom} maxZoom={SIMULATION_VIEWPORT.maxZoom}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} {...CANVAS_GESTURES}>
         <SimulationViewport onState={setViewportState} />
@@ -212,11 +216,11 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
       </ReactFlow>
       {primaryAction && <div className="canvas-primary-action simulation-canvas-actions">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot">{mode === 'execute' ? <span>Workflow overview</span> : <><span>{workflow.nodes.length - swaps - bridges} mock · {bridges ? `${bridges} bridge · ` : ''}{swaps} {workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base'} swap {swaps === 1 ? 'node' : 'nodes'}</span><span>Read-only · MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span></>}</div>
+    <div className="canvas-foot">{mode === 'execute' ? <span>{tr("Workflow overview")}</span> : <><span>{tr(workflow.nodes.length - swaps - bridges)}{tr(" mock · ")}{tr(bridges ? `${bridges} bridge · ` : '')}{tr(swaps)} {tr(workflow.nodes[0]?.nodeId === 'build009-bridge' ? 'Arbitrum' : 'Base')}{tr(" swap ")}{tr(swaps === 1 ? 'node' : 'nodes')}</span><span>{tr("Read-only · MOCKED · ")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}</span></>}</div>
   </section>;
 }
 
-type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; onToolboxModeChange?: (mode: ToolboxMode) => void; primaryAction?: ReactNode };
+type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; onSave?: () => void; estimateOwner?: string | undefined; onToolboxModeChange?: (mode: ToolboxMode) => void; primaryAction?: ReactNode };
 const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
 export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay?: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
   if ('mode' in props && props.mode === 'simulate') return <SimulateWorkflowCanvas workflowName={props.workflowName} primaryAction={props.primaryAction}/>;
@@ -224,7 +228,8 @@ export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; wor
   return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, onToolboxModeChange, primaryAction }: BuildCanvasProps) {
+function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, onSave, estimateOwner, onToolboxModeChange, primaryAction }: BuildCanvasProps) {
+  const { t: tr } = useLocale();
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review,
     actionSetup = null, amountInputs = {}, bridgeNetworkInputs = {}, cryptoSelections = {}, editCryptoSelection, startActionSetup, editCanvasAmount, editSwapSetupDirection, editBridgeNetworks, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup, pending, applyProposal, dismissProposal } = useWorkflow();
   const workflow: Workflow = state.workflow;
@@ -408,7 +413,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     position: canvasLayout[node.nodeId] ? canvasPosition(canvasLayout, node, index) :
       isLendingComposition(workflow) ? { x: 180, y: 35 + index * 230 } : canvasPosition(canvasLayout, node, index),
     selected: selectedIds.includes(node.nodeId) || selectedId === node.nodeId,
-    data: { composer: true, contextualProposal: contextualTarget === node.nodeId, onOpenSettings: () => { selectNodes([node.nodeId], node.nodeId); openSettings?.(node.nodeId); }, step: index + 1, selected: selectedId === node.nodeId,
+    data: { composer: true, estimateWorkflow: amountInputs[node.nodeId] === undefined && !cryptoSelections[node.nodeId] ? workflow : undefined, estimateNodeId: node.nodeId, estimateOwner: estimateOwner ?? wallet.account, contextualProposal: contextualTarget === node.nodeId, onOpenSettings: () => { selectNodes([node.nodeId], node.nodeId); openSettings?.(node.nodeId); }, step: index + 1, selected: selectedId === node.nodeId,
       vertical: isLendingComposition(workflow), summary: selectedSummary(composerSummary(workflow, node, context), cryptoSelections[node.nodeId]),
       ...(cryptoSelectionOf(node) ? { actionSelection: actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!, canSelectCryptoAssets(node, workflow)) } : {}),
       ...(routerDetails(node) ? {
@@ -592,32 +597,32 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     dispatch({ type: 'REMOVE', nodeId: selectedId, source: 'CANVAS', baseRevision: workflow.revision });
     selectNodes(selectedIdsRef.current.filter(id => id !== selectedId), null);
   }
-  const dockButton = <button type="button" className="toolbox-mode-toggle" title={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-label={toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar'} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button>;
-  const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label="Canvas tools">
-    <div className="canvas-primary-tools" role="group" aria-label="Workflow actions">
+  const dockButton = <button type="button" className="toolbox-mode-toggle" title={tr(toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar')} aria-label={tr(toolboxMode === 'top' ? 'Undock toolbar' : 'Dock toolbar')} aria-pressed={toolboxMode === 'floating'} onClick={() => changeToolboxMode(toolboxMode === 'top' ? 'floating' : 'top')}><DockIcon floating={toolboxMode === 'floating'}/></button>;
+  const toolbox = <div className="canvas-toolbox" role="toolbar" aria-label={tr("Canvas tools")}>
+    <div className="canvas-primary-tools" role="group" aria-label={tr("Workflow actions")}>
     {actions.map(action => <button key={action} type="button"
-      title={action === 'stocks' ? 'Stocks' : action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add ' + actionLabel(action)}
-      aria-label={action === 'stocks' ? 'Stocks' : action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{actionLabel(action)}</span></button>)}
-    <button type="button" disabled aria-label="Privacy" title="Privacy · not available yet">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/></svg><span>Privacy</span>
+      title={tr(action === 'stocks' ? 'Stocks' : action === 'lending' ? 'Add Aave Supply → Aave Borrow → Uniswap Swap' : action === 'swap' || action === 'supply' || action==='borrow' || action==='repay' || action==='withdraw' ? 'Add ' + action : 'Add ' + actionLabel(action))}
+      aria-label={tr(action === 'stocks' ? 'Stocks' : action==='lending'?'Add Supply → Borrow → Swap':'Add ' + action)} disabled={action==='lending'&&isLendingComposition(workflow)} onClick={() => addAction(action)}><ActionIcon action={action}/><span>{tr(actionLabel(action))}</span></button>)}
+    <button type="button" disabled aria-label={tr("Privacy")} title={tr("Privacy · not available yet")}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/></svg><span>{tr("Privacy")}</span>
     </button>
     </div>
-    <div className="canvas-utility-tools" role="group" aria-label="Workflow utilities">
+    <div className="canvas-utility-tools" role="group" aria-label={tr("Workflow utilities")}>
     <span className="toolbox-divider" aria-hidden="true"/>
-    <button type="button" title="Duplicate selection" aria-label="Duplicate selection" disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>Duplicate</span></button>
-    <button type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>Undo</span></button>
-    <button type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>Redo</span></button>
-    <button type="button" aria-label="Delete" title={deleteAllowed ? 'Delete' : selectedId ? 'This card is required by the workflow or protected.' : 'Select a card to delete'} disabled={!deleteAllowed} onClick={deleteSelectedCard}>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg><span>Delete</span>
+    <button type="button" title={tr("Duplicate selection")} aria-label={tr("Duplicate selection")} disabled={!duplicatePlan} onClick={duplicateSelection}><DuplicateIcon/><span>{tr("Duplicate")}</span></button>
+    <button type="button" title={tr("Undo (Ctrl+Z)")} aria-label={tr("Undo")} disabled={!canUndo} onClick={undo}><HistoryIcon direction="undo"/><span>{tr("Undo")}</span></button>
+    <button type="button" title={tr("Redo (Ctrl+Shift+Z or Ctrl+Y)")} aria-label={tr("Redo")} disabled={!canRedo} onClick={redo}><HistoryIcon direction="redo"/><span>{tr("Redo")}</span></button>
+    <button type="button" aria-label={tr("Delete")} title={tr(deleteAllowed ? 'Delete' : selectedId ? 'This card is required by the workflow or protected.' : 'Select a card to delete')} disabled={!deleteAllowed} onClick={deleteSelectedCard}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg><span>{tr("Delete")}</span>
     </button>
-    {toolboxMode === 'top' && dockButton}
+    {tr(toolboxMode === 'top' && dockButton)}
     </div>
   </div>;
-  return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label="Workflow canvas">
+  return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label={tr("Workflow canvas")}>
     <div className="canvas-head build-canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}
-      onSave={() => setFeedback('Workflow saving is not available yet. Your workflow stays in this session; Dashboard shows execution history.')}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{toolboxMode === 'top' && toolbox}{toolboxMode === 'floating' && dockButton}<span className="revision">{projectedNodes.length} {projectedNodes.length === 1 ? 'action' : 'actions'}</span></div></div>
-    {feedback && <p className="canvas-feedback" role="status">{feedback}</p>}
-    <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label="Workflow graph" onMouseDown={startMarquee}>
+      onSave={onSave}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{tr(toolboxMode === 'top' && toolbox)}{tr(toolboxMode === 'floating' && dockButton)}<span className="revision">{tr(projectedNodes.length)} {tr(projectedNodes.length === 1 ? 'action' : 'actions')}</span></div></div>
+    {feedback && <p className="canvas-feedback" role="status">{tr(feedback)}</p>}
+    <div ref={surfaceRef} className="flow-surface build-flow-surface" role="region" aria-label={tr("Workflow graph")} onMouseDown={startMarquee}>
       <ReactFlow key={isLendingComposition(workflow)?'lending':'general'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={(changes: NodeChange<Node>[]) => onNodesChange(changes.filter(change => change.type !== 'select'))} fitView fitViewOptions={{ padding: COMPOSER_FIT_PADDING }} minZoom={0.35} maxZoom={1.4}
         nodesDraggable nodesConnectable={false} deleteKeyCode={null} selectNodesOnDrag={false} panOnDrag={[1, 2]} {...CANVAS_GESTURES}
         onNodeClick={(event, node) => {
@@ -638,15 +643,15 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
       <WorkflowEditReview/>
       {projectedNodes.length === 0 && <div className="canvas-empty">
         <span className="canvas-empty-mascot" aria-hidden="true">
-          <Image className="flofi-droplet-wave-light" src="/brand/flofi-droplet-wave.svg" alt="" width={400} height={400} draggable={false} unoptimized/>
-          <Image className="flofi-droplet-wave-dark" src="/brand/flofi-droplet-wave-dark.svg" alt="" width={400} height={400} draggable={false} unoptimized/>
+          <Image className="flofi-droplet-wave-light" src="/brand/flofi-droplet-wave.svg" alt={tr("")} width={400} height={400} draggable={false} unoptimized/>
+          <Image className="flofi-droplet-wave-dark" src="/brand/flofi-droplet-wave-dark.svg" alt={tr("")} width={400} height={400} draggable={false} unoptimized/>
         </span>
-        <strong>Start your workflow</strong><p>Add an action from the toolbar, then select its card to configure it.</p>
+        <strong>{tr("Start your workflow")}</strong><p>{tr("Add an action from the toolbar, then select its card to configure it.")}</p>
       </div>}
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
-      {toolboxMode === 'floating' && <div className="floating-toolbox">{toolbox}</div>}
+      {toolboxMode === 'floating' && <div className="floating-toolbox">{tr(toolbox)}</div>}
       {primaryAction && <div className="canvas-primary-action">{primaryAction}</div>}
     </div>
-    <div className="canvas-foot"><span>{isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Step numbers show workflow order. Dragging changes layout only.'}</span><span>{isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Arrows show linked steps. Select a step to edit below.'}</span></div>
+    <div className="canvas-foot"><span>{tr(isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Step numbers show workflow order. Dragging changes layout only.')}</span><span>{tr(isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Arrows show linked steps. Select a step to edit below.')}</span></div>
   </section>;
 }

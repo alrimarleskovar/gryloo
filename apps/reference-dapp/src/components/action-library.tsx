@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import {LendingAuthoringForm} from './lending-panel';
 import { WithdrawAuthoringForm } from './withdraw-panel';
 import { RobinhoodTransferAuthoringForm } from './robinhood-transfer-panel';
@@ -27,6 +29,7 @@ import { UniswapLiquidityForm } from './uniswap-liquidity-panel';
 import { RouterForm } from './router-panel';
 
 export function ActionLibrary({ selectedId, children }: { selectedId: string | null; children?: ReactNode }) {
+  const { t: tr } = useLocale();
   const { state, context, propose } = useWorkflow();
   const cowEnabled = useCow().info?.enabled === true;
   const bridgeEnabled = useBridge().enabled;
@@ -112,121 +115,121 @@ export function ActionLibrary({ selectedId, children }: { selectedId: string | n
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Invalid swap input'); }
   }
   const networkSelect = <select id="swap-network" value={swapNetwork} onChange={event => setSwapNetwork(event.target.value as 'BASE' | 'BASE_SEPOLIA' | 'SOLANA' | 'SOLANA_DEVNET')}>
-    <option value="BASE_SEPOLIA">Base Sepolia</option><option value="BASE">Base</option><option value="SOLANA">Solana</option><option value="SOLANA_DEVNET">Solana Devnet</option>
+    <option value="BASE_SEPOLIA">{tr("Base Sepolia")}</option><option value="BASE">{tr("Base")}</option><option value="SOLANA">{tr("Solana")}</option><option value="SOLANA_DEVNET">{tr("Solana Devnet")}</option>
   </select>;
-  return <details className="library panel" aria-label="Advanced action setup"><summary>Advanced action setup</summary><div className="library-content">
+  return <details className="library panel" aria-label={tr("Advanced action setup")}><summary>{tr("Advanced action setup")}</summary><div className="library-content">
     {children}
-    <details><summary>Compatibility template · Supply → Borrow → Swap</summary><LendingAuthoringForm key={state.workflow.revision}/></details><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
-    <p className="muted">Configure provider-specific and composed actions.</p>
-    <form className="swap-create across-create" onSubmit={submitAcross} aria-label="Create direct Across bridge proposal">
-      <strong>Bridge · Base → Arbitrum via Across</strong>
-      <p className="muted">Direct Across quote. Deposit, fill and refund are simulated.</p>
-      <label htmlFor="across-amount">Across amount (USDC)</label>
+    <details><summary>{tr("Compatibility template · Supply → Borrow → Swap")}</summary><LendingAuthoringForm key={state.workflow.revision}/></details><RobinhoodTransferAuthoringForm/><WithdrawAuthoringForm/><RepayAuthoringForm/><BorrowAuthoringForm/><SupplyAuthoringForm/>
+    <p className="muted">{tr("Configure provider-specific and composed actions.")}</p>
+    <form className="swap-create across-create" onSubmit={submitAcross} aria-label={tr("Create direct Across bridge proposal")}>
+      <strong>{tr("Bridge · Base → Arbitrum via Across")}</strong>
+      <p className="muted">{tr("Direct Across quote. Deposit, fill and refund are simulated.")}</p>
+      <label htmlFor="across-amount">{tr("Across amount (USDC)")}</label>
       <input id="across-amount" type="text" inputMode="decimal" autoComplete="off" value={acrossAmount}
         onChange={event => setAcrossAmount(event.target.value)} />
-      {acrossError && <p role="alert">{acrossError}</p>}
-      <button type="submit">Review direct Across bridge</button>
+      {acrossError && <p role="alert">{tr(acrossError)}</p>}
+      <button type="submit">{tr("Review direct Across bridge")}</button>
     </form>
-    {bridgeEnabled && <form className="swap-create bridge-create" onSubmit={submitBridge} aria-label="Create Base to Optimism bridge proposal">
-      <strong>Bridge · Base → Optimism</strong>
-      <p className="muted">USDC to USDC. Recipient is your connected address. Live LI.FI route, MOCKED execution.</p>
-      <label htmlFor="bridge-amount">USDC amount</label>
+    {bridgeEnabled && <form className="swap-create bridge-create" onSubmit={submitBridge} aria-label={tr("Create Base to Optimism bridge proposal")}>
+      <strong>{tr("Bridge · Base → Optimism")}</strong>
+      <p className="muted">{tr("USDC to USDC. Recipient is your connected address. Live LI.FI route, MOCKED execution.")}</p>
+      <label htmlFor="bridge-amount">{tr("USDC amount")}</label>
       <input id="bridge-amount" type="text" inputMode="decimal" autoComplete="off" maxLength={40} value={bridgeInput.amount}
         onChange={e => setBridgeInput(value => ({ ...value, amount: e.target.value }))} aria-invalid={Boolean(bridgeError)} aria-describedby={bridgeError ? 'bridge-create-error' : undefined}/>
-      <label htmlFor="bridge-slippage">Maximum slippage (bps)</label>
+      <label htmlFor="bridge-slippage">{tr("Maximum slippage (bps)")}</label>
       <input id="bridge-slippage" type="text" inputMode="numeric" autoComplete="off" maxLength={5} value={bridgeInput.slippageBps}
         onChange={e => setBridgeInput(value => ({ ...value, slippageBps: e.target.value }))} aria-invalid={Boolean(bridgeError)} aria-describedby={bridgeError ? 'bridge-create-error' : undefined}/>
-      {bridgeError && <p id="bridge-create-error" role="alert">{bridgeError}. Use 1–300 bps and up to 1,000,000 USDC.</p>}
-      <button type="submit">{selectedBridge ? 'Review bridge edit' : 'Review bridge proposal'}</button>
+      {bridgeError && <p id="bridge-create-error" role="alert">{tr(bridgeError)}{tr(". Use 1–300 bps and up to 1,000,000 USDC.")}</p>}
+      <button type="submit">{tr(selectedBridge ? 'Review bridge edit' : 'Review bridge proposal')}</button>
     </form>}
-    <details className="swap-create router-create" aria-label="Create testnet cross-chain bridge proposal">
-      <summary>Cross-chain bridge · Base Sepolia → Arbitrum Sepolia (testnet, any wallet)</summary>
+    <details className="swap-create router-create" aria-label={tr("Create testnet cross-chain bridge proposal")}>
+      <summary>{tr("Cross-chain bridge · Base Sepolia → Arbitrum Sepolia (testnet, any wallet)")}</summary>
       <RouterForm network="testnet"/>
     </details>
-    <details className="swap-create router-create" aria-label="Create cross-chain bridge proposal">
-      <summary>Cross-chain bridge · Base → Arbitrum (Router)</summary>
+    <details className="swap-create router-create" aria-label={tr("Create cross-chain bridge proposal")}>
+      <summary>{tr("Cross-chain bridge · Base → Arbitrum (Router)")}</summary>
       <RouterForm/>
     </details>
-    <details className="swap-create build009-create" aria-label="Create Base to Arbitrum bridge swap proposal">
-      <summary>Base → Arbitrum → WETH</summary>
-      <p className="muted">Live read-only LI.FI quotes. Financial execution and reconciliation are MOCKED.</p>
-      <label htmlFor="build009-amount">Source amount (USDC)</label>
+    <details className="swap-create build009-create" aria-label={tr("Create Base to Arbitrum bridge swap proposal")}>
+      <summary>{tr("Base → Arbitrum → WETH")}</summary>
+      <p className="muted">{tr("Live read-only LI.FI quotes. Financial execution and reconciliation are MOCKED.")}</p>
+      <label htmlFor="build009-amount">{tr("Source amount (USDC)")}</label>
       <input id="build009-amount" type="text" inputMode="decimal" maxLength={40} value={bridgeInput.amount} onChange={event => setBridgeInput(value => ({ ...value, amount: event.target.value }))}/>
-      <label htmlFor="build009-bridge-slip">Bridge slippage (bps)</label>
+      <label htmlFor="build009-bridge-slip">{tr("Bridge slippage (bps)")}</label>
       <input id="build009-bridge-slip" type="text" inputMode="numeric" maxLength={5} value={bridgeInput.slippageBps} onChange={event => setBridgeInput(value => ({ ...value, slippageBps: event.target.value }))}/>
-      <label htmlFor="build009-swap-slip">Arbitrum swap slippage (bps)</label>
+      <label htmlFor="build009-swap-slip">{tr("Arbitrum swap slippage (bps)")}</label>
       <input id="build009-swap-slip" type="text" inputMode="numeric" maxLength={5} value={swapBridgeSlippage} onChange={event => setSwapBridgeSlippage(event.target.value)}/>
-      <button type="button" onClick={submitBridgeSwap}>Review Base → Arbitrum bridge → WETH swap</button>
-      {bridgeError && <p role="alert">{bridgeError}</p>}
+      <button type="button" onClick={submitBridgeSwap}>{tr("Review Base → Arbitrum bridge → WETH swap")}</button>
+      {bridgeError && <p role="alert">{tr(bridgeError)}</p>}
     </details>
-    <details className="cross-liquidity-create" aria-label="Create cross-chain liquidity proposal"><summary>Base → Arbitrum → Uniswap v3 position</summary>
-      <form className="swap-create" onSubmit={submitCross} aria-label="Compose cross-chain liquidity">
-        <p className="muted">One semantic bridge, calculated destination split and existing Uniswap v3 position. MOCKED financial rehearsal.</p>
-        <label>Composition source quantity (USDC)<input value={crossInput.amount} onChange={e => setCrossInput(v => ({ ...v, amount: e.target.value }))} inputMode="decimal" /></label>
-        <label>Composition bridge provider<select value={crossInput.provider} onChange={e => setCrossInput(v => ({ ...v, provider: e.target.value as CrossChainLiquidityInput['provider'] }))}><option value="lifi.rest">LI.FI</option><option value="across.direct">Across direct</option></select></label>
-        <label>Cross-chain bridge tolerance (bps)<input value={crossInput.bridgeSlippageBps} onChange={e => setCrossInput(v => ({ ...v, bridgeSlippageBps: e.target.value }))} inputMode="numeric" /></label>
-        <label>Composition swap slippage (bps)<input value={crossInput.swapSlippageBps} onChange={e => setCrossInput(v => ({ ...v, swapSlippageBps: e.target.value }))} inputMode="numeric" /></label>
-        <label>Composition lower tick<input value={crossInput.tickLower} onChange={e => setCrossInput(v => ({ ...v, tickLower: e.target.value }))} inputMode="numeric" /></label>
-        <label>Composition upper tick<input value={crossInput.tickUpper} onChange={e => setCrossInput(v => ({ ...v, tickUpper: e.target.value }))} inputMode="numeric" /></label>
-        <label>Composition LP recipient<input value={crossInput.recipient} onChange={e => setCrossInput(v => ({ ...v, recipient: e.target.value.toLowerCase() }))} autoComplete="off" /></label>
-        <label><input type="checkbox" checked={crossInput.noSwap} onChange={e => setCrossInput(v => ({ ...v, noSwap: e.target.checked }))} /> No swap (USDC-only range)</label>
-        <button type="submit">Review cross-chain composition</button>
-        {crossError && <p role="alert">{crossError}</p>}
+    <details className="cross-liquidity-create" aria-label={tr("Create cross-chain liquidity proposal")}><summary>{tr("Base → Arbitrum → Uniswap v3 position")}</summary>
+      <form className="swap-create" onSubmit={submitCross} aria-label={tr("Compose cross-chain liquidity")}>
+        <p className="muted">{tr("One semantic bridge, calculated destination split and existing Uniswap v3 position. MOCKED financial rehearsal.")}</p>
+        <label>{tr("Composition source quantity (USDC)")}<input value={crossInput.amount} onChange={e => setCrossInput(v => ({ ...v, amount: e.target.value }))} inputMode="decimal" /></label>
+        <label>{tr("Composition bridge provider")}<select value={crossInput.provider} onChange={e => setCrossInput(v => ({ ...v, provider: e.target.value as CrossChainLiquidityInput['provider'] }))}><option value="lifi.rest">{tr("LI.FI")}</option><option value="across.direct">{tr("Across direct")}</option></select></label>
+        <label>{tr("Cross-chain bridge tolerance (bps)")}<input value={crossInput.bridgeSlippageBps} onChange={e => setCrossInput(v => ({ ...v, bridgeSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+        <label>{tr("Composition swap slippage (bps)")}<input value={crossInput.swapSlippageBps} onChange={e => setCrossInput(v => ({ ...v, swapSlippageBps: e.target.value }))} inputMode="numeric" /></label>
+        <label>{tr("Composition lower tick")}<input value={crossInput.tickLower} onChange={e => setCrossInput(v => ({ ...v, tickLower: e.target.value }))} inputMode="numeric" /></label>
+        <label>{tr("Composition upper tick")}<input value={crossInput.tickUpper} onChange={e => setCrossInput(v => ({ ...v, tickUpper: e.target.value }))} inputMode="numeric" /></label>
+        <label>{tr("Composition LP recipient")}<input value={crossInput.recipient} onChange={e => setCrossInput(v => ({ ...v, recipient: e.target.value.toLowerCase() }))} autoComplete="off" /></label>
+        <label><input type="checkbox" checked={crossInput.noSwap} onChange={e => setCrossInput(v => ({ ...v, noSwap: e.target.checked }))} />{tr(" No swap (USDC-only range)")}</label>
+        <button type="submit">{tr("Review cross-chain composition")}</button>
+        {crossError && <p role="alert">{tr(crossError)}</p>}
       </form>
     </details>
-    {swapNetwork === 'SOLANA' || swapNetwork === 'SOLANA_DEVNET' ? <div className="swap-create" role="group" aria-label="Create swap proposal">
-      <strong>Swap</strong>
-      <label htmlFor="swap-network">Network</label>
-      {networkSelect}
+    {swapNetwork === 'SOLANA' || swapNetwork === 'SOLANA_DEVNET' ? <div className="swap-create" role="group" aria-label={tr("Create swap proposal")}>
+      <strong>{tr("Swap")}</strong>
+      <label htmlFor="swap-network">{tr("Network")}</label>
+      {tr(networkSelect)}
       <SolanaSwapForm key={swapNetwork} network={swapNetwork === 'SOLANA' ? 'Solana' : 'Solana Devnet'}/>
-      <small>{swapNetwork === 'SOLANA' ? 'Solana mainnet via Jupiter. Simulate for a live quote; execution needs your wallet signature.'
-        : 'Solana Devnet via Orca Whirlpools with valueless test tokens. Simulate for a live Devnet quote; execution needs your wallet signature.'}</small>
-    </div> : <form className="swap-create" onSubmit={submit} aria-label="Create swap proposal">
-      <strong>Swap</strong>
-      <label htmlFor="swap-network">Network</label>
-      {networkSelect}
-      <label htmlFor="swap-direction">Direction</label>
+      <small>{tr(swapNetwork === 'SOLANA' ? 'Solana mainnet via Jupiter. Simulate for a live quote; execution needs your wallet signature.'
+        : 'Solana Devnet via Orca Whirlpools with valueless test tokens. Simulate for a live Devnet quote; execution needs your wallet signature.')}</small>
+    </div> : <form className="swap-create" onSubmit={submit} aria-label={tr("Create swap proposal")}>
+      <strong>{tr("Swap")}</strong>
+      <label htmlFor="swap-network">{tr("Network")}</label>
+      {tr(networkSelect)}
+      <label htmlFor="swap-direction">{tr("Direction")}</label>
       <select id="swap-direction" value={direction} onChange={event => setDirection(event.target.value as Direction)}>
-        <option value="USDC_TO_WETH">USDC → WETH</option><option value="WETH_TO_USDC">WETH → USDC</option>
+        <option value="USDC_TO_WETH">{tr("USDC → WETH")}</option><option value="WETH_TO_USDC">{tr("WETH → USDC")}</option>
       </select>
-      <label htmlFor="swap-amount">Input amount (required)</label>
+      <label htmlFor="swap-amount">{tr("Input amount (required)")}</label>
       <input id="swap-amount" type="text" inputMode="decimal" autoComplete="off" spellCheck={false} maxLength={80} value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
-      <label htmlFor="swap-slippage">Slippage in bps (required)</label>
+      <label htmlFor="swap-slippage">{tr("Slippage in bps (required)")}</label>
       <input id="swap-slippage" type="text" inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={5} value={slippage} onChange={event => setSlippage(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? 'swap-create-error' : undefined}/>
-      {cowEnabled && swapNetwork === 'BASE' && <label className="cow-authoring-choice"><input type="checkbox" checked={allowCow} onChange={event => setAllowCow(event.target.checked)}/> Enable CoW signed intent for this swap</label>}
-      {error && <p id="swap-create-error" role="alert">{error}. Check the amount, asset cap and slippage.</p>}
-      <button type="submit">Review swap proposal</button>
-      <small>{swapNetwork === 'BASE_SEPOLIA' ? 'Use test USDC and WETH only. Simulate for a live quote before review.' : 'Base swaps use the existing local review path.'}</small>
+      {cowEnabled && swapNetwork === 'BASE' && <label className="cow-authoring-choice"><input type="checkbox" checked={allowCow} onChange={event => setAllowCow(event.target.checked)}/>{tr(" Enable CoW signed intent for this swap")}</label>}
+      {error && <p id="swap-create-error" role="alert">{tr(error)}{tr(". Check the amount, asset cap and slippage.")}</p>}
+      <button type="submit">{tr("Review swap proposal")}</button>
+      <small>{tr(swapNetwork === 'BASE_SEPOLIA' ? 'Use test USDC and WETH only. Simulate for a live quote before review.' : 'Base swaps use the existing local review path.')}</small>
     </form>}
-    <div className="swap-create" role="group" aria-label="Create liquidity position proposal">
-      <strong>Liquidity position</strong>
-      <label htmlFor="liquidity-network">Network</label>
+    <div className="swap-create" role="group" aria-label={tr("Create liquidity position proposal")}>
+      <strong>{tr("Liquidity position")}</strong>
+      <label htmlFor="liquidity-network">{tr("Network")}</label>
       <select id="liquidity-network" value={liquidityNetwork} onChange={event => setLiquidityNetwork(event.target.value as 'SOLANA_DEVNET' | 'BASE_SEPOLIA' | 'BASE')}>
-        <option value="SOLANA_DEVNET">Solana Devnet</option><option value="BASE_SEPOLIA">Base Sepolia</option>{liquidityEnabled && <option value="BASE">Base (local fork)</option>}
+        <option value="SOLANA_DEVNET">{tr("Solana Devnet")}</option><option value="BASE_SEPOLIA">{tr("Base Sepolia")}</option>{liquidityEnabled && <option value="BASE">{tr("Base (local fork)")}</option>}
       </select>
-      {liquidityNetwork === 'SOLANA_DEVNET' ? <SolanaLiquidityForm/> : liquidityNetwork === 'BASE_SEPOLIA' ? <UniswapLiquidityForm/> : <small>Use the Base Uniswap v3 position form below.</small>}
+      {liquidityNetwork === 'SOLANA_DEVNET' ? <SolanaLiquidityForm/> : liquidityNetwork === 'BASE_SEPOLIA' ? <UniswapLiquidityForm/> : <small>{tr("Use the Base Uniswap v3 position form below.")}</small>}
     </div>
-    {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label="Create or edit Base liquidity proposal">
-      <strong>Uniswap v3 position · Base</strong>
-      <p className="muted">One isolated WETH/USDC position, fee tier 500. Wallet operations are reviewed separately on the local fork.</p>
-      <label htmlFor="liquidity-weth">Maximum WETH</label>
+    {liquidityEnabled && <form className="swap-create liquidity-create" onSubmit={submitLiquidity} aria-label={tr("Create or edit Base liquidity proposal")}>
+      <strong>{tr("Uniswap v3 position · Base")}</strong>
+      <p className="muted">{tr("One isolated WETH/USDC position, fee tier 500. Wallet operations are reviewed separately on the local fork.")}</p>
+      <label htmlFor="liquidity-weth">{tr("Maximum WETH")}</label>
       <input id="liquidity-weth" type="text" inputMode="decimal" autoComplete="off" maxLength={80} value={liquidity.weth} onChange={e => setLiquidityField('weth', e.target.value)}/>
-      <label htmlFor="liquidity-usdc">Maximum USDC</label>
+      <label htmlFor="liquidity-usdc">{tr("Maximum USDC")}</label>
       <input id="liquidity-usdc" type="text" inputMode="decimal" autoComplete="off" maxLength={80} value={liquidity.usdc} onChange={e => setLiquidityField('usdc', e.target.value)}/>
-      <label htmlFor="liquidity-min-weth">Minimum WETH received or deposited</label>
+      <label htmlFor="liquidity-min-weth">{tr("Minimum WETH received or deposited")}</label>
       <input id="liquidity-min-weth" type="text" inputMode="decimal" autoComplete="off" maxLength={80} value={liquidity.minimumWeth} onChange={e => setLiquidityField('minimumWeth', e.target.value)}/>
-      <label htmlFor="liquidity-min-usdc">Minimum USDC received or deposited</label>
+      <label htmlFor="liquidity-min-usdc">{tr("Minimum USDC received or deposited")}</label>
       <input id="liquidity-min-usdc" type="text" inputMode="decimal" autoComplete="off" maxLength={80} value={liquidity.minimumUsdc} onChange={e => setLiquidityField('minimumUsdc', e.target.value)}/>
-      <label htmlFor="liquidity-lower">Lower tick</label>
+      <label htmlFor="liquidity-lower">{tr("Lower tick")}</label>
       <input id="liquidity-lower" type="text" inputMode="numeric" autoComplete="off" maxLength={8} value={liquidity.tickLower} onChange={e => setLiquidityField('tickLower', e.target.value)}/>
-      <label htmlFor="liquidity-upper">Upper tick</label>
+      <label htmlFor="liquidity-upper">{tr("Upper tick")}</label>
       <input id="liquidity-upper" type="text" inputMode="numeric" autoComplete="off" maxLength={8} value={liquidity.tickUpper} onChange={e => setLiquidityField('tickUpper', e.target.value)}/>
-      <label htmlFor="liquidity-recipient">Position NFT recipient</label>
+      <label htmlFor="liquidity-recipient">{tr("Position NFT recipient")}</label>
       <input id="liquidity-recipient" type="text" autoComplete="off" spellCheck={false} maxLength={42} value={liquidity.recipient} onChange={e => setLiquidityField('recipient', e.target.value)}/>
-      {liquidityError && <p role="alert">{liquidityError}</p>}
-      <button type="submit">{selectedLiquidity ? 'Review position edit' : 'Review position proposal'}</button>
-      {compositionEnabled && <button type="button" onClick={submitComposition}>Review swap → position composition</button>}
-      <small>Pool identity, current tick and price are checked before simulation. Editing here invalidates prior liquidity artifacts.</small>
+      {liquidityError && <p role="alert">{tr(liquidityError)}</p>}
+      <button type="submit">{tr(selectedLiquidity ? 'Review position edit' : 'Review position proposal')}</button>
+      {compositionEnabled && <button type="button" onClick={submitComposition}>{tr("Review swap → position composition")}</button>}
+      <small>{tr("Pool identity, current tick and price are checked before simulation. Editing here invalidates prior liquidity artifacts.")}</small>
     </form>}
   </div></details>;
 }

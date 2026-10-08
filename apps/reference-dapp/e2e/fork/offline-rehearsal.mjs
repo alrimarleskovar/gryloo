@@ -36,6 +36,8 @@ import { createJournal, appendJournalState } from '../../../../packages/referenc
 import { hashRawBytes, hashJournalBytes } from '../../../../packages/workflow-contracts/dist/index.js';
 import { sendSetupTransaction } from './fork-setup.mjs';
 import { validateAnvilBinary, probePort, verifyOwnerForkAccountSource } from './harness.mjs';
+import { E2E_PORTS } from './ports.ts';
+export { E2E_PORTS } from './ports.ts';
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const asHex = value => `0x${BigInt(value).toString(16)}`;
@@ -933,7 +935,6 @@ async function exerciseFixture({ call, owner, setup, sourceBlock, runtime }) {
  * a chain-31337 fork using Anvil's own default accounts (no key or phrase literal exists here), the
  * standard inclusion-aware funding, a baseline snapshot and a MOCKED profile. Loopback only.
  */
-export const E2E_PORTS = Object.freeze({ fork: 8545, source: 8546, health: 8547 });
 export async function serveSyntheticFork(runtime, binary, ports = E2E_PORTS) {
   const { rmSync, mkdirSync: makeDir } = await import('node:fs');
   const { transcriptIdentity } = await import('./harness.mjs');

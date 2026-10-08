@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { copilotInterpret, copilotStatus } from '../app/copilot-action';
 import type { Command } from '../domain/commands';
@@ -130,14 +132,16 @@ export function useFollowLatest(enabled: boolean, messages: number, busy: boolea
 /** A Copilot answer: plain text, deterministic notes, and clarification options that are sent as the next message. */
 export function CopilotMessage({ text, notes, options, disabled, onPick }: { text: string; notes?: readonly string[] | undefined; options?: readonly string[] | undefined;
   disabled: boolean; onPick(option: string): void }) {
+  const { t: tr } = useLocale();
   return <>
-    <p>{text}</p>
-    {notes && notes.length > 0 && <ul className="copilot-notes">{notes.map((note, index) => <li key={index}>{note}</li>)}</ul>}
-    {options && options.length > 0 && <div className="copilot-options" role="group" aria-label="Suggested answers">
+    <p>{tr(text)}</p>
+    {notes && notes.length > 0 && <ul className="copilot-notes">{notes.map((note, index) => <li key={index}>{tr(note)}</li>)}</ul>}
+    {options && options.length > 0 && <div className="copilot-options" role="group" aria-label={tr("Suggested answers")}>
       {options.map(option => <button key={option} type="button" className="quiet" disabled={disabled} onClick={() => onPick(option)}>{option}</button>)}</div>}
   </>;
 }
 /** Shown inside the existing proposal box when the pending proposal came from the Copilot. */
 export function CopilotProposalNotice({ sentence }: { sentence: string }) {
-  return <p className="copilot-notice" role="note">AI interpretation of your words as “{sentence}”. It has no authority: check every field.</p>;
+  const { t: tr } = useLocale();
+  return <p className="copilot-notice" role="note">{tr("AI interpretation of your words as “")}{tr(sentence)}{tr("”. It has no authority: check every field.")}</p>;
 }

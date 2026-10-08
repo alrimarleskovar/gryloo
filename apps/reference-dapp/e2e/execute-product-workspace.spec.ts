@@ -205,7 +205,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
   // the transient Connect button disappears during hydration.
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click(); await configureCanvasAction(page, '2.5');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();

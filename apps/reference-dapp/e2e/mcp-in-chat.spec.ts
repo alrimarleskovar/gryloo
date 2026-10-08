@@ -40,7 +40,7 @@ async function latestRun(flow: string, owner: string): Promise<string> {
 const approval = (page: Page) => page.getByRole('region', { name: 'External proposal' });
 const bridge = (page: Page) => page.getByRole('region', { name: 'Cross-chain bridge' });
 async function simulateStage(page: Page) {
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
 }
 async function assertHandoffReviewBlocked(page: Page, requests: () => Promise<number>) {

@@ -66,7 +66,8 @@ test('dragging updates stored layout, survives editor changes and Build navigati
   const after = await node.boundingBox();
   expect(after!.x).toBeGreaterThan(before.x + 80);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revisionBeforeDrag!);
-  const saved = await page.evaluate(id => JSON.parse(localStorage.getItem('gryloo:canvas:workflow-local') ?? '{}')[id], id);
+  const workflowId = JSON.parse((await page.locator('[data-workflow-ir]').textContent())!).workflowId as string;
+  const saved = await page.evaluate(({ id, workflowId }) => JSON.parse(localStorage.getItem(`gryloo:canvas:${workflowId}`) ?? '{}')[id], { id, workflowId });
   expect(saved.x).toBeGreaterThan(100);
   await addFromToolbox(page, 'swap');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();

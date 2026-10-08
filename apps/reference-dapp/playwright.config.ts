@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { defineConfig } from '@playwright/test';
 import { basename, dirname, join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { createHash, randomBytes } from 'node:crypto';
 import { E2E_APP_ORIGIN, E2E_APP_PORT } from './e2e/app-origin';
 import { MCP_E2E_INVITE } from './e2e/mcp-constants';
 import { SERVER_ONLY_WOOVI_APP_ID } from './e2e/card-provider-fixtures';
+import { E2E_PORTS } from './e2e/fork/ports';
 
 const cache = process.env.BUILD002_BROWSER_CACHE;
 if (!cache || basename(cache) !== 'chromium_headless_shell-1243') {
@@ -27,6 +29,7 @@ if (observation !== undefined && observation !== 'replay') {
 // `replay` serves the committed Base transcript and is an owner-only local acceptance mode.
 const modeA = process.env.GRYLOO_MODE_A_E2E ?? 'synthetic';
 if (modeA !== 'synthetic' && modeA !== 'replay') throw new Error('GRYLOO_MODE_A_E2E must be synthetic or replay');
+if (modeA === 'replay' && process.env.FLOFI_E2E_FORK_PORT) throw Error('REPLAY_PORTS_ARE_PINNED');
 const anvil = process.env.GRYLOO_ANVIL_BIN;
 if (!anvil || basename(anvil) !== 'anvil' || basename(dirname(anvil)) !== 'foundry-v1.8.3') {
   throw new Error('GRYLOO_ANVIL_BIN must name the verified foundry-v1.8.3/anvil binary');
@@ -96,9 +99,22 @@ if (cloudRuntime && !process.env.FLOFI_E2E_DATABASE_URL) {
   process.env.FLOFI_E2E_DATABASE_URL = server.href;
 }
 
-// BUILD-MCP-002: the in-chat execution journey — consumer OAuth, the MCP App panel in a minimal MCP Apps test host, /approve and the
-// owner's unchanged flows — on the embedded PostgreSQL runtime with the MOCKED loopback router and Solana Devnet harnesses. Loopback
-// database, loopback chains, a random per-run OAuth secret and a test invite only; never a public network or a real transaction.
+// The real estimate API and public-swap service read only a synthetic HTTPS loopback provider in acceptance.
+const swapReadHarness = process.env.FLOFI_SWAP_READ_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.FLOFI_SWAP_READ_E2E && !swapReadHarness) throw Error('Swap read E2E permits only the MOCKED loopback harness');
+let swapReadEnv: Record<string, string> = {};
+if (swapReadHarness) {
+  if (!cloudRuntime) throw Error('Swap read E2E requires disposable PostgreSQL');
+  const directory = mkdtempSync(join(tmpdir(), 'flofi-swap-read-')), certificate = join(directory, 'cert.pem');
+  const generated = spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=127.0.0.1',
+    '-addext', 'subjectAltName=IP:127.0.0.1', '-keyout', join(directory, 'key.pem'), '-out', certificate], { stdio: 'pipe' });
+  if (generated.status !== 0) throw Error('READ_HARNESS_CERTIFICATE_FAILED');
+  process.env.FLOFI_SWAP_READ_TLS = directory;
+  swapReadEnv = { NODE_EXTRA_CA_CERTS: certificate, GRYLOO_PUBLIC_TESTNET: 'record',
+    GRYLOO_BASE_SEPOLIA_RPC_URL: 'https://127.0.0.1:8558/base', GRYLOO_ETHEREUM_SEPOLIA_RPC_URL: 'https://127.0.0.1:8558/ethereum' };
+}
+// BUILD-MCP-002: consumer OAuth, the MCP App test host, /approve and the owner's existing flows on disposable PostgreSQL.
+// Loopback chains, a random per-run OAuth secret and a test invite only; no public broadcast.
 const mcpHarness = process.env.GRYLOO_MCP_E2E === 'EMBEDDED_LOOPBACK_ONLY';
 if (process.env.GRYLOO_MCP_E2E && !mcpHarness) throw new Error('MCP E2E permits only the embedded loopback runtime');
 if (mcpHarness && !process.env.FLOFI_E2E_DATABASE_URL) {
@@ -147,7 +163,8 @@ export default defineConfig({
     video: 'off', trace: 'off', screenshot: 'off',
   },
   projects: [{ name: 'chromium' }],
-  webServer: [...(supplyHarness ? [{ command: 'node e2e/supply-harness.mjs --serve', url: 'http://127.0.0.1:8549', reuseExistingServer: false, timeout: 30_000 }] : []),
+  webServer: [...(swapReadHarness ? [{ command: 'node e2e/public-swap-read-serve.ts', url: 'https://127.0.0.1:8558', ignoreHTTPSErrors: true, reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(supplyHarness ? [{ command: 'node e2e/supply-harness.mjs --serve', url: 'http://127.0.0.1:8549', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(lendingHarness || mcpHarness ? [{ command: 'node e2e/lending-harness.mjs --serve', url: 'http://127.0.0.1:8554', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(jupiterHarness ? [{ command: 'node e2e/jupiter-harness.mjs --serve', url: 'http://127.0.0.1:8551', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(devnetHarness || mcpHarness ? [{ command: 'node e2e/solana-devnet-harness.mjs --serve', url: 'http://127.0.0.1:8552', reuseExistingServer: false, timeout: 30_000 }] : []),
@@ -156,7 +173,7 @@ export default defineConfig({
     ...(routerHarness || routerTestnetHarness || mcpHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(cardHarness ? [{ command: 'node e2e/card-provider-harness.mjs --serve', url: 'http://127.0.0.1:8555/__harness/health', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
-    url: 'http://127.0.0.1:8547',
+    url: `http://127.0.0.1:${E2E_PORTS.health}`,
     reuseExistingServer: false,
     timeout: 180_000,
     env: { GRYLOO_MODE_A_RUNTIME: runtime, GRYLOO_ANVIL_BIN: anvil,
@@ -181,7 +198,7 @@ export default defineConfig({
       // The payment provider's server-only App ID is present (payments stay off) so the card spec can prove it is never served.
       ...(cardHarness ? { GRYLOO_CARD_HARNESS: 'MOCKED_LOOPBACK_ONLY', WOOVI_APP_ID: SERVER_ONLY_WOOVI_APP_ID, WOOVI_ENVIRONMENT: 'sandbox' } : {}),
       ...(cloudRuntime ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {}),
-      ...mcpServerEnv,
+      ...mcpServerEnv, ...swapReadEnv,
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });

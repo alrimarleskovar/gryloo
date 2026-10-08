@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { MOCKED_CHAIN_PROFILE, type ReviewContext, type Symbol } from '@defi-workflow-engine/reference-linter';
 import { INVALIDATION_V1, chainStatus, checkChainAccess, type ChainRecord } from '../domain/artifact-chain';
@@ -12,10 +14,11 @@ import { SimulateWorkspace } from './simulate-workspace';
 
 /** Every generated amount is rendered only through this element (R-1). */
 export function MockedValue({ units, symbol, context }: { units: string; symbol: Symbol; context: ReviewContext }) {
+  const { t: tr } = useLocale();
   return <span className="mocked-value" data-mocked-value="">
-    <span className="numeric">{formatHumanAmount(units, symbol, context)} {symbol}</span>
-    <small>{units} native units</small>
-    <span className="mocked-tag">MOCKED · {MOCKED_CHAIN_PROFILE.rateLabel}</span>
+    <span className="numeric">{tr(formatHumanAmount(units, symbol, context))} {symbol}</span>
+    <small>{tr(units)}{tr(" native units")}</small>
+    <span className="mocked-tag">{tr("MOCKED · ")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}</span>
   </span>;
 }
 
@@ -43,21 +46,23 @@ function jsonFor(record: ChainRecord, key: string): string {
 }
 
 function RetiredChain({ record, workflow, expired }: { record: ChainRecord; workflow: Workflow; expired: boolean }) {
+  const { t: tr } = useLocale();
   const dependents = expired ? INVALIDATION_V1.ARTIFACT_EXPIRED : INVALIDATION_V1.SEMANTIC_EDIT;
   return <div className="chain-retired" role="status">
-    <strong>{expired ? 'EXPIRED · the 60-second mock validity window ended' : `INVALIDATED · semantic edit (revision ${record.review.revision} → ${workflow.revision})`}</strong>
-    <p>Numbers and JSON of this chain are hidden. Generate new mocked artifacts for revision {workflow.revision}.</p>
-    <p>Dependents retired under the frozen v1 matrix: {dependents.join(', ')}.{expired ? ' The expired mocked quote is retired as well.' : ''} Policy, manifest, plan and authorization dependents were never created.</p>
-    <ul className="retired-ids" aria-label="Retired artifact identities">
-      <li>Semantic Workflow IR · revision {record.review.revision} <code>{record.review.semanticWorkflowHash}</code></li>
-      {record.chain.quotes.map(quote => <li key={quote.nodeId}>Retired mocked quote · {quote.nodeId} <code>{record.review.quoteHashes[quote.nodeId]}</code></li>)}
-      <li>Retired Artifact Set <code>{record.review.artifactSetHash}</code></li>
-      <li>Retired mocked simulation <code>{record.review.simulationHash}</code></li>
+    <strong>{tr(expired ? 'EXPIRED · the 60-second mock validity window ended' : `INVALIDATED · semantic edit (revision ${record.review.revision} → ${workflow.revision})`)}</strong>
+    <p>{tr("Numbers and JSON of this chain are hidden. Generate new mocked artifacts for revision ")}{tr(workflow.revision)}.</p>
+    <p>{tr("Dependents retired under the frozen v1 matrix: ")}{tr(dependents.join(', '))}.{tr(expired ? ' The expired mocked quote is retired as well.' : '')}{tr(" Policy, manifest, plan and authorization dependents were never created.")}</p>
+    <ul className="retired-ids" aria-label={tr("Retired artifact identities")}>
+      <li>{tr("Semantic Workflow IR · revision ")}{tr(record.review.revision)} <code>{tr(record.review.semanticWorkflowHash)}</code></li>
+      {record.chain.quotes.map(quote => <li key={quote.nodeId}>{tr("Retired mocked quote · ")}{quote.nodeId} <code>{record.review.quoteHashes[quote.nodeId]}</code></li>)}
+      <li>{tr("Retired Artifact Set ")}<code>{tr(record.review.artifactSetHash)}</code></li>
+      <li>{tr("Retired mocked simulation ")}<code>{tr(record.review.simulationHash)}</code></li>
     </ul>
   </div>;
 }
 
 export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, simulationSource, review, simulateAction, children }: { workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode; review?: ReactNode; simulateAction?: ReactNode; simulationSource?: SimulationSource | undefined }) {
+  const { t: tr } = useLocale();
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
   const [openJson, setOpenJson] = useState<string | null>(null);
@@ -79,65 +84,65 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, s
 
   return <SimulateWorkspace workflowName={workflowName} returnToBuild={returnToBuild} reviewActionHost={reviewActionHost} simulationSource={simulationSource} review={review} simulateAction={simulateAction}>
     <details className="shell-details technical-workspace simulation-technical" data-technical-open={showTechnical} onToggle={event => setShowTechnical(event.currentTarget.open)}>
-      <summary>View technical details</summary>
+      <summary>{tr("View technical details")}</summary>
     <div className="simulate-head">
-      <div><p className="muted">Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture ({MOCKED_CHAIN_PROFILE.rateLabel}). Mocked artifacts cannot authorize execution.</p></div>
+      <div><p className="muted">{tr("Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture (")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}{tr("). Mocked artifacts cannot authorize execution.")}</p></div>
       <div className="simulate-controls">
-        <span className={`chain-status chain-${shown.toLowerCase()}`}>ARTIFACTS: {shown}</span>
+        <span className={`chain-status chain-${shown.toLowerCase()}`}>{tr("ARTIFACTS: ")}{tr(shown)}</span>
         {current
-          ? <button type="button" onClick={refreshArtifacts}>Refresh mocked quote</button>
-          : <button type="button" onClick={generateArtifacts} disabled={!eligibility.eligible || status === 'GENERATING'}>Generate mocked artifacts for revision {workflow.revision}</button>}
+          ? <button type="button" onClick={refreshArtifacts}>{tr("Refresh mocked quote")}</button>
+          : <button type="button" onClick={generateArtifacts} disabled={!eligibility.eligible || status === 'GENERATING'}>{tr("Generate mocked artifacts for revision ")}{tr(workflow.revision)}</button>}
       </div>
     </div>
-    {status === 'REJECTED' && chain.rejected && <p className="simulate-alert" role="alert">{chain.rejected === 'DIGEST_UNAVAILABLE'
+    {status === 'REJECTED' && chain.rejected && <p className="simulate-alert" role="alert">{tr(chain.rejected === 'DIGEST_UNAVAILABLE'
       ? 'Artifact hashing self-check failed (DIGEST_UNAVAILABLE). No mocked artifacts were generated.'
-      : `Mocked artifact generation failed (${chain.rejected}). No mocked artifacts were generated.`}</p>}
-    {chain.notice && <p className="simulate-note" role="status">Generation finished for a superseded revision and was discarded.</p>}
-    {status === 'GENERATING' && <p className="simulate-note" role="status">Generating mocked artifacts for revision {chain.pending?.workflow.revision}.</p>}
+      : `Mocked artifact generation failed (${chain.rejected}). No mocked artifacts were generated.`)}</p>}
+    {chain.notice && <p className="simulate-note" role="status">{tr("Generation finished for a superseded revision and was discarded.")}</p>}
+    {status === 'GENERATING' && <p className="simulate-note" role="status">{tr("Generating mocked artifacts for revision ")}{tr(chain.pending?.workflow.revision)}.</p>}
     {!current && chain.record && (shown === 'INVALIDATED' || shown === 'EXPIRED') && <RetiredChain record={chain.record} workflow={workflow} expired={shown === 'EXPIRED'}/>}
       <div className="simulate-results">
         {current ? <>
-          <ol className="chain-strip" aria-label="Artifact links">
-            <li><span>Semantic Workflow IR · revision {current.review.revision}</span><code data-hash="semantic-workflow">{current.review.semanticWorkflowHash}</code></li>
-            {current.chain.quotes.map(quote => <li key={quote.nodeId}><span>Mocked quote · {quote.nodeId} <StatusBadge label="MOCKED" tone="info"/></span><code data-hash={`quote:${quote.nodeId}`}>{current.review.quoteHashes[quote.nodeId]}</code></li>)}
-            <li><span>Artifact Set <StatusBadge label="MOCKED" tone="info"/></span><code data-hash="artifact-set">{current.review.artifactSetHash}</code></li>
-            <li><span>Mocked simulation <StatusBadge label="MOCKED" tone="info"/></span><code data-hash="simulation-bundle">{current.review.simulationHash}</code></li>
+          <ol className="chain-strip" aria-label={tr("Artifact links")}>
+            <li><span>{tr("Semantic Workflow IR · revision ")}{tr(current.review.revision)}</span><code data-hash="semantic-workflow">{tr(current.review.semanticWorkflowHash)}</code></li>
+            {current.chain.quotes.map(quote => <li key={quote.nodeId}><span>{tr("Mocked quote · ")}{quote.nodeId} <StatusBadge label="MOCKED" tone="info"/></span><code data-hash={`quote:${quote.nodeId}`}>{current.review.quoteHashes[quote.nodeId]}</code></li>)}
+            <li><span>{tr("Artifact Set ")}<StatusBadge label="MOCKED" tone="info"/></span><code data-hash="artifact-set">{tr(current.review.artifactSetHash)}</code></li>
+            <li><span>{tr("Mocked simulation ")}<StatusBadge label="MOCKED" tone="info"/></span><code data-hash="simulation-bundle">{tr(current.review.simulationHash)}</code></li>
           </ol>
-          {views.map(view => <article key={view.nodeId} className="simulate-swap" aria-label={`Mocked results for ${view.nodeId}`}>
-            <h3>{view.nodeId} · {view.from} → {view.to} · Base</h3>
+          {views.map(view => <article key={view.nodeId} className="simulate-swap" aria-label={tr(`Mocked results for ${view.nodeId}`)}>
+            <h3>{view.nodeId} · {tr(view.from)} → {tr(view.to)}{tr(" · Base")}</h3>
             <table><tbody>
-              <tr><th scope="row">Input (authored)</th><td>{view.amount} {view.from} · {view.units} native units</td></tr>
-              <tr><th scope="row">Expected output</th><td><MockedValue units={view.expected} symbol={view.to} context={context}/></td></tr>
-              <tr><th scope="row">Minimum at {view.slippage} bps</th><td><MockedValue units={view.minimum} symbol={view.to} context={context}/></td></tr>
-              <tr><th scope="row">Adverse outcome</th><td><MockedValue units={view.adverse} symbol={view.to} context={context}/></td></tr>
-              <tr><th scope="row">Failure path</th><td><div className="failure-cell"><span>An output below the minimum is modeled as a revert that retains the input:</span><MockedValue units={view.residual} symbol={view.from} context={context}/><span>Gas not modeled.</span></div></td></tr>
+              <tr><th scope="row">{tr("Input (authored)")}</th><td>{tr(view.amount)} {tr(view.from)} · {tr(view.units)}{tr(" native units")}</td></tr>
+              <tr><th scope="row">{tr("Expected output")}</th><td><MockedValue units={view.expected} symbol={view.to} context={context}/></td></tr>
+              <tr><th scope="row">{tr("Minimum at ")}{tr(view.slippage)}{tr(" bps")}</th><td><MockedValue units={view.minimum} symbol={view.to} context={context}/></td></tr>
+              <tr><th scope="row">{tr("Adverse outcome")}</th><td><MockedValue units={view.adverse} symbol={view.to} context={context}/></td></tr>
+              <tr><th scope="row">{tr("Failure path")}</th><td><div className="failure-cell"><span>{tr("An output below the minimum is modeled as a revert that retains the input:")}</span><MockedValue units={view.residual} symbol={view.from} context={context}/><span>{tr("Gas not modeled.")}</span></div></td></tr>
             </tbody></table>
           </article>)}
-          <table className="enforcement-table" aria-label="Enforcement locations"><thead><tr><th scope="col">Limit</th><th scope="col">Enforcement</th></tr></thead><tbody>
-            <tr><td>Maximum input (authored)</td><td>NOT_ENFORCED</td></tr>
-            <tr><td>Maximum slippage (authored)</td><td>NOT_ENFORCED</td></tr>
-            <tr><td>Mocked minimum output</td><td>NOT_ENFORCED</td></tr>
-            <tr><td>Prototype cap (1,000,000 USDC or 1,000 WETH)</td><td>NOT_ENFORCED</td></tr>
+          <table className="enforcement-table" aria-label={tr("Enforcement locations")}><thead><tr><th scope="col">{tr("Limit")}</th><th scope="col">{tr("Enforcement")}</th></tr></thead><tbody>
+            <tr><td>{tr("Maximum input (authored)")}</td><td>{tr("NOT_ENFORCED")}</td></tr>
+            <tr><td>{tr("Maximum slippage (authored)")}</td><td>{tr("NOT_ENFORCED")}</td></tr>
+            <tr><td>{tr("Mocked minimum output")}</td><td>{tr("NOT_ENFORCED")}</td></tr>
+            <tr><td>{tr("Prototype cap (1,000,000 USDC or 1,000 WETH)")}</td><td>{tr("NOT_ENFORCED")}</td></tr>
           </tbody></table>
-          <ul className="chain-findings" aria-label="Mocked chain review findings">
-            {current.review.findings.map(finding => <li key={`${finding.nodeId}-${finding.code}`} className="review-block"><strong>{finding.severity} · {finding.code}</strong><span>{finding.nodeId} / {finding.field}: {finding.message}</span></li>)}
+          <ul className="chain-findings" aria-label={tr("Mocked chain review findings")}>
+            {current.review.findings.map(finding => <li key={`${finding.nodeId}-${finding.code}`} className="review-block"><strong>{tr(finding.severity)} · {tr(finding.code)}</strong><span>{finding.nodeId} / {tr(finding.field)}: {tr(finding.message)}</span></li>)}
           </ul>
-          <p className="simulate-validity">Generated locally at {current.review.observedAt}. Mock validity ends at {current.review.expiresAt} (60-second rule). Validity is re-checked on every use and when the tab resumes; there is no countdown.</p>
+          <p className="simulate-validity">{tr("Generated locally at ")}{tr(current.review.observedAt)}{tr(". Mock validity ends at ")}{tr(current.review.expiresAt)}{tr(" (60-second rule). Validity is re-checked on every use and when the tab resumes; there is no countdown.")}</p>
           <div className="artifact-json">
             {jsonKeys.map(([key, label]) => <div key={key}>
-              <button type="button" className="quiet" aria-expanded={openJson === key} onClick={() => toggleJson(key)}>{openJson === key ? 'Hide' : 'Show'} JSON · {label}</button>
-              {openJson === key && <pre data-artifact-json={key}>{jsonFor(current, key)}</pre>}
+              <button type="button" className="quiet" aria-expanded={openJson === key} onClick={() => toggleJson(key)}>{tr(openJson === key ? 'Hide' : 'Show')}{tr(" JSON · ")}{tr(label)}</button>
+              {openJson === key && <pre data-artifact-json={key}>{tr(jsonFor(current, key))}</pre>}
             </div>)}
           </div>
         </> : <div className="simulate-empty">
-          <strong>{shown === 'EMPTY' || shown === 'REJECTED' || shown === 'GENERATING' ? 'No current mocked artifacts' : 'No current mocked artifacts for this revision'}</strong>
-          <p>A generation creates one mocked quote per Base swap, an Artifact Set and a mocked simulation, all bound to revision {workflow.revision} and valid for 60 seconds.</p>
+          <strong>{tr(shown === 'EMPTY' || shown === 'REJECTED' || shown === 'GENERATING' ? 'No current mocked artifacts' : 'No current mocked artifacts for this revision')}</strong>
+          <p>{tr("A generation creates one mocked quote per Base swap, an Artifact Set and a mocked simulation, all bound to revision ")}{tr(workflow.revision)}{tr(" and valid for 60 seconds.")}</p>
         </div>}
-        <p className="not-modeled"><strong>Not modeled:</strong> balances, allowances, gas, fees, price impact, liquidity, MEV and duration. USD values: not modeled.</p>
-        <p className="simulate-next">Next step: Manifest review is unavailable for mocked artifacts; they cannot authorize execution and the workflow stays DRAFT. Local-fork Mode A uses its own separate artifacts, never these.</p>
+        <p className="not-modeled"><strong>{tr("Not modeled:")}</strong>{tr(" balances, allowances, gas, fees, price impact, liquidity, MEV and duration. USD values: not modeled.")}</p>
+        <p className="simulate-next">{tr("Next step: Manifest review is unavailable for mocked artifacts; they cannot authorize execution and the workflow stays DRAFT. Local-fork Mode A uses its own separate artifacts, never these.")}</p>
       </div>
 
-      {!current && !eligibility.eligible && <p className="simulate-note">{eligibility.reason}</p>}
+      {!current && !eligibility.eligible && <p className="simulate-note">{tr(eligibility.reason)}</p>}
       {children}
     </details>
   </SimulateWorkspace>;

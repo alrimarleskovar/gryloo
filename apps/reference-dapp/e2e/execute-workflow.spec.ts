@@ -10,7 +10,7 @@ test('Execute shows the shared authored workflow without authorizing or inventin
   await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(page.locator('.simulate-canvas').getByRole('heading', { name: 'ESPARTACUS', exact: true })).toBeVisible();
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
   const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });

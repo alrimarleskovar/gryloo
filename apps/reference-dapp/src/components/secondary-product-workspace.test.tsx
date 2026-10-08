@@ -45,12 +45,12 @@ describe('secondary product workspaces', () => {
     Object.assign(fixture, { account: EVM, chainId: '0x14a34', provider: { key: 'io.metamask', name: 'MetaMask', icon: null } });
     const html = markup('credentials');
     expect(wallets(html)).toBe(1);
-    expect(html).toContain('<h3>MetaMask</h3><p>MetaMask · Ethereum</p>');
+    expect(html).toContain('<h3>EVM Default</h3><p>MetaMask · Ethereum</p>');
     expect(html).toContain('Connected · not saved');
     expect(html).toContain('Base Sepolia');
     expect(html).toContain(`<code title="${EVM}">0x1234…7890</code>`);
-    for (const label of ['Copy MetaMask address', 'Save MetaMask', 'Disconnect MetaMask']) expect(html).toContain(`aria-label="${label}"`);
-    expect(html).not.toMatch(/aria-label="(Rename|Remove) MetaMask"/);
+    for (const label of ['Copy EVM Default address', 'Save EVM Default', 'Disconnect EVM Default']) expect(html).toContain(`aria-label="${label}"`);
+    expect(html).not.toMatch(/aria-label="(Rename|Remove) (EVM Default|MetaMask)"/);
   });
 
   it('keeps several saved wallets distinct and marks only the exact active identity as Active', () => {
@@ -95,6 +95,19 @@ describe('secondary product workspaces', () => {
     expect(html.match(/Create client/g)).toHaveLength(2);
     expect(html.match(/disabled=""/g)).toHaveLength(4);
     expect(html).not.toMatch(/>C<|>GPT<|>G<|Grok|<a\b|API key|OAuth|signing key|Connected with/i);
+  });
+
+  it('keeps EVM Default and Solana Default identities stable across provider names, accounts and networks', () => {
+    fixture.account = '0x1234567890123456789012345678901234567890'; fixture.chainId = '0x14a34';
+    fixture.session = { wallet: { name: 'Phantom', chains: ['solana:devnet'], accounts: [], features: {} }, account: { address: 'So11111111111111111111111111111111111111112', chains: ['solana:devnet'], features: [] }, chain: 'solana:devnet' };
+    let html = markup('credentials');
+    expect(html).toContain('<h3>EVM Default</h3>'); expect(html).toContain('<h3>Solana Default</h3>');
+    // The provider is shown beneath the identity (HOTFIX-WALLET-SELECTOR), never as the identity itself.
+    expect(html).not.toContain('<h3>Phantom</h3>'); expect(html).toContain('<p>Phantom · Solana</p>');
+    fixture.account = '0x' + 'a'.repeat(40); fixture.chainId = '0x2105'; fixture.session.chain = 'solana:mainnet';
+    html = markup('credentials'); expect(html).toContain('<h3>EVM Default</h3>'); expect(html).toContain('<h3>Solana Default</h3>');
+    expect(html).toContain(fixture.account); expect(html).toContain('Solana mainnet-beta'); expect(html).not.toContain('0x1234567890123456789012345678901234567890');
+    fixture.session = null; html = markup('credentials'); expect(html).toContain('<h3>EVM Default</h3>'); expect(html).not.toContain('<h3>Solana Default</h3>');
   });
 
   it('keeps the passkey switch off and disabled with a truthful empty state', () => {

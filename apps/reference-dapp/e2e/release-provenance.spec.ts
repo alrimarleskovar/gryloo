@@ -8,7 +8,7 @@ test('a valid MOCKED Supply simulation cannot grant production Review or submit 
   await installSupplyWallet(page);
   await authorSupply(page);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate Supply', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Aave Supply', exact: true });
@@ -40,7 +40,7 @@ for (const row of [
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await applyPendingProposal(page);
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-    await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     await openSimulationDetails(page);
     await page.getByRole('button', { name: `Simulate ${row.action}`, exact: true }).click();
     const panel = page.getByRole('region', { name: `Aave ${row.action}`, exact: true });
@@ -77,7 +77,7 @@ test('Ethereum Sepolia WBTC retains the correct chain, asset and amount while MO
   const card = page.locator('.build-flow-surface .composer-card').first();
   await expect(card.getByRole('textbox', { name: 'Source amount (WBTC)', exact: true })).toHaveValue('0.001');
   await expect(card).toContainText('Ethereum Sepolia');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate Supply', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Aave Supply', exact: true });

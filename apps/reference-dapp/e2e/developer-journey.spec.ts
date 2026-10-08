@@ -47,7 +47,7 @@ async function operatorKey(): Promise<{ key: string; cleanup: () => Promise<void
 }
 /** The authoritative product's simulation stage (as the MCP browser journey uses it). */
 async function simulateStage(page: Page) {
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
 }
 

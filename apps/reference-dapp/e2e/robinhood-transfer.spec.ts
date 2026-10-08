@@ -16,7 +16,7 @@ async function author(page: Page, options: TransferWalletOptions = {}) {
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Transfer');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Robinhood Chain Testnet (46630)');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('0.000001 ETH');
-  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate transfer', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeVisible();
 }
@@ -87,7 +87,7 @@ test('the wrong wallet chain blocks handoff and offers a switch to Robinhood Cha
   await expect(region(page)).toContainText('Switch your wallet to Robinhood Chain Testnet');
   expect(await chainBroadcasts()).toBe(0);
   await region(page).getByRole('button', { name: 'Switch to Robinhood Chain Testnet' }).click();
-  await expect(page.getByText('Wallet: ' + owner.slice(0, 6) + '…' + owner.slice(-4) + ' · Robinhood Chain Testnet (46630)')).toBeVisible();
+  await expect(page.getByText('EVM Default: ' + owner.slice(0, 6) + '…' + owner.slice(-4) + ' · Robinhood Chain Testnet (46630)')).toBeVisible();
   const switched = await page.evaluate(() => (window as unknown as { transferWalletRequests: { method: string; params?: unknown[] }[] }).transferWalletRequests
     .filter(r => r.method === 'wallet_switchEthereumChain').map(r => r.params?.[0]));
   expect(switched).toEqual([{ chainId: '0xb626' }]);

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useState, type FormEvent } from 'react';
 import { createAuthoredTransfer, formatEth, transferDetails, transferProfileFor, TRANSFER_NETWORKS, type RobinhoodTransferInput, type TransferNetwork } from '../domain/robinhood-transfer-authoring';
 import { useWorkflow } from '../state/workflow-store';
@@ -13,6 +15,7 @@ function transferCopy(text: string, network: TransferNetwork): string {
 }
 
 export function RobinhoodTransferAuthoringForm({ nodeId, onDone, direct = false }: { nodeId?: string; onDone?: () => void; direct?: boolean }) {
+  const { t: tr } = useLocale();
   const { state, propose, dispatch } = useWorkflow(), node = state.workflow.nodes.find(n => n.nodeId === nodeId);
   const existing = node ? transferDetails(node as Parameters<typeof transferDetails>[0]) : null;
   const [amount, setAmount] = useState(existing?.amount ?? '0.000001'), [error, setError] = useState('');
@@ -24,15 +27,15 @@ export function RobinhoodTransferAuthoringForm({ nodeId, onDone, direct = false 
       : { type: 'ADD_RH_TRANSFER' as const, input, source: 'CANVAS' as const, baseRevision: state.workflow.revision };
     if (direct) dispatch(command); else propose(command); onDone?.();
   } catch { setError('Enter an exact positive test-ETH amount up to 0.001 with at most 18 decimal places.'); } }
-  return <form className="inspector-fields" aria-label={nodeId ? 'Edit Robinhood transfer' : 'Create Robinhood transfer'} onSubmit={submit}>
-    <strong>{transferCopy('Robinhood Testnet test-ETH self-transfer', network)}</strong>
-    <label>Transfer network<select aria-label="Transfer network" value={network} onChange={e => setNetwork(e.target.value as TransferNetwork)}>
+  return <form className="inspector-fields" aria-label={tr(nodeId ? 'Edit Robinhood transfer' : 'Create Robinhood transfer')} onSubmit={submit}>
+    <strong>{tr(transferCopy('Robinhood Testnet test-ETH self-transfer', network))}</strong>
+    <label>{tr("Transfer network")}<select aria-label={tr("Transfer network")} value={network} onChange={e => setNetwork(e.target.value as TransferNetwork)}>
       {(Object.keys(TRANSFER_NETWORKS) as TransferNetwork[]).map(name => <option key={name}>{name}</option>)}</select></label>
-    <label>Transfer amount (test ETH)<input aria-label="Transfer amount (test ETH)" inputMode="decimal" value={amount} maxLength={40} onChange={e => setAmount(e.target.value)}/></label>
-    <p>Recipient: your connected owner wallet (a self-transfer), bound at Review. Only the network fee is spent. A chain execution proof, not a DeFi action.</p>
-    {error && <p role="alert">{error}</p>}
-    <button type="submit">{nodeId ? 'Review transfer change' : direct ? 'Add transfer' : 'Review transfer proposal'}</button>
-    {onDone && <button type="button" className="quiet" onClick={onDone}>Cancel</button>}
+    <label>{tr("Transfer amount (test ETH)")}<input aria-label={tr("Transfer amount (test ETH)")} inputMode="decimal" value={amount} maxLength={40} onChange={e => setAmount(e.target.value)}/></label>
+    <p>{tr("Recipient: your connected owner wallet (a self-transfer), bound at Review. Only the network fee is spent. A chain execution proof, not a DeFi action.")}</p>
+    {error && <p role="alert">{tr(error)}</p>}
+    <button type="submit">{tr(nodeId ? 'Review transfer change' : direct ? 'Add transfer' : 'Review transfer proposal')}</button>
+    {onDone && <button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }
 const messages: Record<string, string> = {
@@ -49,6 +52,7 @@ const messages: Record<string, string> = {
   TRANSFER_RPC_RATE_LIMITED: 'The public Robinhood Testnet provider is busy. Try again.',
 };
 export function RobinhoodTransferPanel({ view }: { view: 'simulate' | 'execute' }) {
+  const { t: tr } = useLocale();
   const { state } = useWorkflow(), run = useRobinhoodTransfer(), wallet = useBuild009Wallet(), record = run.record, review = record?.review;
   const node = state.workflow.nodes.find(n => n.actionType === 'asset.transfer'), fields = node ? transferDetails(node as Parameters<typeof transferDetails>[0]) : null;
   // The reviewed chain (else the authored one) names the network; Robinhood Testnet before anything is authored, as before.
@@ -57,43 +61,42 @@ export function RobinhoodTransferPanel({ view }: { view: 'simulate' | 'execute' 
   const attempt = record?.attempt, info = run.error ?? record?.error, observation = record?.observations.at(-1);
   const observing = Boolean(attempt && !attempt.reconciled && !record?.notSubmitted && record?.verdict === 'PENDING');
   const evidenceLevel = record?.evidence ? `${record.evidence.bundle.environment} / RECONCILED` : record?.verdict === 'DIVERGENT' ? 'DIVERGENT' : record?.authorization ? 'READY_FOR_OWNER_EXECUTION' : null;
-  return <section className="panel" aria-label={transferCopy('Robinhood Testnet transfer', network)}><h2>{view === 'simulate' ? `Simulate ${short(network)} transfer` : record?.evidence ? `${short(network)} transfer result` : `Review ${short(network)} transfer`}</h2>
-    <p>Self-transfer {fields?.amount ?? (review ? formatEth(review.value) : '')} test ETH on {network}. A chain execution proof, not a DeFi action.</p>
-    {run.retired && record && <p role="alert">The workflow changed. Authorization is invalid. Observe any existing transaction before starting again.</p>}
+  return <section className="panel" aria-label={tr(transferCopy('Robinhood Testnet transfer', network))}><h2>{tr(view === 'simulate' ? `Simulate ${short(network)} transfer` : record?.evidence ? `${short(network)} transfer result` : `Review ${short(network)} transfer`)}</h2>
+    <p>{tr("Self-transfer ")}{tr(fields?.amount ?? (review ? formatEth(review.value) : ''))}{tr(" test ETH on ")}{network}{tr(". A chain execution proof, not a DeFi action.")}</p>
+    {run.retired && record && <p role="alert">{tr("The workflow changed. Authorization is invalid. Observe any existing transaction before starting again.")}</p>}
     {review && <dl className="step-facts">
-      <div><dt>Network</dt><dd>{network} · chain ID {review.chainId} ({review.chain})</dd></div>
-      <div><dt>Owner</dt><dd className="numeric">{review.account}</dd></div><div><dt>Recipient</dt><dd className="numeric">{review.recipient} (owner, self-transfer)</dd></div>
-      <div><dt>Exact value</dt><dd className="numeric">{formatEth(review.value)} ETH ({review.value} wei)</dd></div>
-      <div><dt>Calldata</dt><dd><code>{review.transaction.data}</code> (none: native transfer)</dd></div>
-      <div><dt>Current balance</dt><dd className="numeric">{formatEth(review.balanceBefore)} ETH</dd></div>
-      <div><dt>Expected balance after</dt><dd className="numeric">{formatEth(review.expectedBalanceAfter)} ETH (value returns to the owner; only the fee is spent)</dd></div>
-      <div><dt>Gas estimate</dt><dd className="numeric">{review.gasEstimate} gas (limit {review.gasLimit})</dd></div>
-      <div><dt>Expected network cost</dt><dd className="numeric">{formatEth(review.expectedFee)} ETH</dd></div>
-      <div><dt>Maximum fee budget</dt><dd className="numeric">{formatEth(review.feeBudget)} ETH ({review.gasLimit} gas × {review.maxFeePerGas} wei)</dd></div>
-      <div><dt>Worst-case balance after</dt><dd className="numeric">{formatEth(review.minimumBalanceAfter)} ETH</dd></div>
-      <div><dt>Nonce</dt><dd className="numeric">{review.nonce}</dd></div>
-      <div><dt>Reviewed state</dt><dd className="numeric">block {review.state.block} · {review.state.blockHash}</dd></div>
-      <div><dt>Review expires</dt><dd>{review.expiresAt}</dd></div>
-      <div><dt>Exact transaction</dt><dd className="numeric">{JSON.stringify(review.transaction)}</dd></div>
+      <div><dt>{tr("Network")}</dt><dd>{network}{tr(" · chain ID ")}{tr(review.chainId)} ({tr(review.chain)})</dd></div>
+      <div><dt>{tr("Owner")}</dt><dd className="numeric">{review.account}</dd></div><div><dt>{tr("Recipient")}</dt><dd className="numeric">{tr(review.recipient)}{tr(" (owner, self-transfer)")}</dd></div>
+      <div><dt>{tr("Exact value")}</dt><dd className="numeric">{tr(formatEth(review.value))}{tr(" ETH (")}{tr(review.value)}{tr(" wei)")}</dd></div>
+      <div><dt>{tr("Calldata")}</dt><dd><code>{tr(review.transaction.data)}</code>{tr(" (none: native transfer)")}</dd></div>
+      <div><dt>{tr("Current balance")}</dt><dd className="numeric">{tr(formatEth(review.balanceBefore))}{tr(" ETH")}</dd></div>
+      <div><dt>{tr("Expected balance after")}</dt><dd className="numeric">{tr(formatEth(review.expectedBalanceAfter))}{tr(" ETH (value returns to the owner; only the fee is spent)")}</dd></div>
+      <div><dt>{tr("Gas estimate")}</dt><dd className="numeric">{tr(review.gasEstimate)}{tr(" gas (limit ")}{tr(review.gasLimit)})</dd></div>
+      <div><dt>{tr("Expected network cost")}</dt><dd className="numeric">{tr(formatEth(review.expectedFee))}{tr(" ETH")}</dd></div>
+      <div><dt>{tr("Maximum fee budget")}</dt><dd className="numeric">{tr(formatEth(review.feeBudget))}{tr(" ETH (")}{tr(review.gasLimit)}{tr(" gas × ")}{tr(review.maxFeePerGas)}{tr(" wei)")}</dd></div>
+      <div><dt>{tr("Worst-case balance after")}</dt><dd className="numeric">{tr(formatEth(review.minimumBalanceAfter))}{tr(" ETH")}</dd></div>
+      <div><dt>{tr("Nonce")}</dt><dd className="numeric">{tr(review.nonce)}</dd></div>
+      <div><dt>{tr("Reviewed state")}</dt><dd className="numeric">{tr("block ")}{tr(review.state.block)} · {tr(review.state.blockHash)}</dd></div>
+      <div><dt>{tr("Review expires")}</dt><dd>{tr(review.expiresAt)}</dd></div>
+      <div><dt>{tr("Exact transaction")}</dt><dd className="numeric">{JSON.stringify(review.transaction)}</dd></div>
     </dl>}
-    {evidenceLevel && <p role="status">Evidence state: {evidenceLevel}</p>}
-    {view === 'simulate' ? <button type="button" disabled={run.busy || observing} onClick={() => void run.simulate()}>Simulate transfer</button> : <>
-      {record && wallet.account && wallet.chainId !== profile.chainHex && !record.evidence && <div><p role="status">Switch your wallet to {network} to continue.</p>
-        <button type="button" disabled={run.busy} onClick={() => void run.switchNetwork()}>Switch to {network}</button></div>}
-      {record && !record.authorization && !attempt && !run.retired && record.verdict === 'PENDING' && <button type="button" disabled={run.busy} onClick={() => void run.review()}>Accept transfer review</button>}
-      {record?.authorization && !run.retired && !attempt && record.verdict === 'PENDING' && <button type="button" className="primary" disabled={run.busy} onClick={() => void run.execute()}>Execute</button>}
-      {attempt && <p>Transfer: {attempt.reconciled ? 'Reconciled from public chain state' : record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' ')}
-        {attempt.transactionHash && <> <a href={`${profile.explorer}/tx/${attempt.transactionHash}`} target="_blank" rel="noreferrer">View transaction</a></>}</p>}
-      {observing && <button type="button" disabled={run.busy} onClick={() => void run.observe()}>Observe existing transaction</button>}
-      {record?.notSubmitted && record.verdict === 'PENDING' && !run.retired && <><p>The wallet request was not submitted. Prepare a fresh explicit owner Review.</p>
-        <button type="button" disabled={run.busy} onClick={() => void run.recoverReview()}>Prepare fresh review</button></>}
-      {attempt && !record?.evidence && <a download="flofi-rh-demo-001-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>Download execution record</a>}
-      {record?.evidence && observation?.facts && <><p>Transfer reconciled. Exactly one owner-signed transaction, nonce {observation.facts.nonceBefore} → {observation.facts.nonceAfter},
-        block {observation.facts.blockNumber}; network cost {formatEth(observation.facts.fee)} ETH; balance {formatEth(observation.facts.balanceBefore)} → {formatEth(observation.facts.balanceAfter)} ETH.</p>
-        <a download="flofi-rh-demo-001-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>Download Evidence Bundle</a></>}
+    {evidenceLevel && <p role="status">{tr("Evidence state: ")}{tr(evidenceLevel)}</p>}
+    {view === 'simulate' ? <button type="button" disabled={run.busy || observing} onClick={() => void run.simulate()}>{tr("Simulate transfer")}</button> : <>
+      {record && wallet.account && wallet.chainId !== profile.chainHex && !record.evidence && <div><p role="status">{tr("Switch your wallet to ")}{network}{tr(" to continue.")}</p>
+        <button type="button" disabled={run.busy} onClick={() => void run.switchNetwork()}>{tr("Switch to ")}{network}</button></div>}
+      {record && !record.authorization && !attempt && !run.retired && record.verdict === 'PENDING' && <button type="button" disabled={run.busy} onClick={() => void run.review()}>{tr("Accept transfer review")}</button>}
+      {record?.authorization && !run.retired && !attempt && record.verdict === 'PENDING' && <button type="button" className="primary" disabled={run.busy} onClick={() => void run.execute()}>{tr("Execute")}</button>}
+      {attempt && <p>{tr("Transfer: ")}{tr(attempt.reconciled ? 'Reconciled from public chain state' : record?.notSubmitted ? 'not submitted' : attempt.state.toLowerCase().replaceAll('_', ' '))}
+        {attempt.transactionHash && <> <a href={`${profile.explorer}/tx/${attempt.transactionHash}`} target="_blank" rel="noreferrer">{tr("View transaction")}</a></>}</p>}
+      {observing && <button type="button" disabled={run.busy} onClick={() => void run.observe()}>{tr("Observe existing transaction")}</button>}
+      {record?.notSubmitted && record.verdict === 'PENDING' && !run.retired && <><p>{tr("The wallet request was not submitted. Prepare a fresh explicit owner Review.")}</p>
+        <button type="button" disabled={run.busy} onClick={() => void run.recoverReview()}>{tr("Prepare fresh review")}</button></>}
+      {attempt && !record?.evidence && <a download="flofi-rh-demo-001-execution-record.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record, null, 2))}>{tr("Download execution record")}</a>}
+      {record?.evidence && observation?.facts && <><p>{tr("Transfer reconciled. Exactly one owner-signed transaction, nonce ")}{tr(observation.facts.nonceBefore)} → {tr(observation.facts.nonceAfter)}{tr(", block ")}{tr(observation.facts.blockNumber)}{tr("; network cost ")}{tr(formatEth(observation.facts.fee))}{tr(" ETH; balance ")}{tr(formatEth(observation.facts.balanceBefore))} → {tr(formatEth(observation.facts.balanceAfter))}{tr(" ETH.")}</p>
+        <a download="flofi-rh-demo-001-evidence.json" href={'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(record.evidence, null, 2))}>{tr("Download Evidence Bundle")}</a></>}
     </>}
-    {info && <p role="status">{transferCopy(messages[info] ?? 'The transfer needs attention. Inspect technical details and observe any existing transaction.', network)}</p>}
-    <details><summary>Show technical details</summary><pre>{JSON.stringify({ error: info, attempt, observations: record?.observations, walletDiagnostic: record?.walletDiagnostic,
+    {info && <p role="status">{tr(transferCopy(messages[info] ?? 'The transfer needs attention. Inspect technical details and observe any existing transaction.', network))}</p>}
+    <details><summary>{tr("Show technical details")}</summary><pre>{JSON.stringify({ error: info, attempt, observations: record?.observations, walletDiagnostic: record?.walletDiagnostic,
       environment: record?.evidence?.bundle.environment, journal: record?.journal.entries.filter(e => e.level === 'attempt').map(e => e.toState) }, null, 2)}</pre></details>
   </section>;
 }

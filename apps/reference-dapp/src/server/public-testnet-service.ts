@@ -241,7 +241,14 @@ export function explorerUrl(txHash: string, profile: PublicSwapProfile = BASE_SE
 type Persistence = { readonly save: (run: PublicRun) => PublicRun | Promise<PublicRun>; readonly load: (id: string) => PublicRun | Promise<PublicRun>;
   readonly locked: <T>(id: string, action: () => Promise<T>) => Promise<T> };
 /** Pure Review transition, shared by the local and the durable service. */
+/** Legacy quotes remain readable for recovery/evidence, but cannot create fresh financial authority. */
+function assertCanonicalQuote(run: PublicRun): void {
+  if (run.quote.revision !== run.workflow.revision || run.quote.workflowHash !==
+      hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(run.workflow))))
+    fail('WORKFLOW_BINDING_REQUIRES_SIMULATION');
+}
 export function reviewPublicRun(run: PublicRun, manifestHash: string, now: Date): PublicRun {
+  assertCanonicalQuote(run);
   if (run.quote.manifestHash !== manifestHash || now.getTime() >= Date.parse(run.quote.expiresAt) ||
       run.attempts.some(a => a.step === 'swap' || ['PREPARED', 'HASH', 'PENDING', 'UNKNOWN'].includes(a.state)))
     fail('REVIEW_EXPIRED');
@@ -361,18 +368,9 @@ export function validatePublicRunLog(bytes: Uint8Array): void {
   }
 }
 
-function createPublicTestnetCore(rpcFor: (profile: PublicSwapProfile) => Rpc, now: () => Date, persistence: Persistence) {
-  const { locked } = persistence;
-  const save = async (run: PublicRun) => persistence.save(run), load = async (id: string) => persistence.load(id);
-  async function read(rpc: Rpc, to: string, data: string, block: string): Promise<string> {
-    return hex(await rpc('eth_call', [{ to, data }, block]));
-  }
-  async function balance(rpc: Rpc, token: string, owner: string, block: string): Promise<bigint> {
-    return BigInt(await read(rpc, token, balanceData(owner), block));
-  }
-  async function allowance(rpc: Rpc, profile: PublicSwapProfile, token: string, owner: string, block: string): Promise<bigint> {
-    return BigInt(await read(rpc, token, allowanceData(owner, profile), block));
-  }
+/** Shared verified read path. It has no persistence, Review or transaction submission port. */
+export function createPublicSwapQuoteReader(rpcFor: (profile: PublicSwapProfile) => Rpc, now: () => Date = () => new Date()) {
+  const read = async (rpc: Rpc, to: string, data: string, block: string) => hex(await rpc('eth_call', [{ to, data }, block]));
   async function quote(workflow: SemanticWorkflow, executionId: string): Promise<PublicQuote> {
     const swap = swapOf(workflow), P = swap.profile, rpc = rpcFor(P);
     const call = (to: string, data: string, block: string) => read(rpc, to, data, block);
@@ -410,13 +408,29 @@ function createPublicTestnetCore(rpcFor: (profile: PublicSwapProfile) => Rpc, no
     if (!isObject(sameBlock) || sameBlock.hash !== blockHash) fail('QUOTE_BLOCK_REORG');
     const observedAt = now().toISOString();
     const fields = { executionId, revision: workflow.revision, nodeId: swap.node.nodeId,
-      workflowHash: digest(canonical(workflow)), chainId: P.chainId, inputToken: swap.inputToken, outputToken: swap.outputToken,
+      workflowHash: hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(workflow))), chainId: P.chainId, inputToken: swap.inputToken, outputToken: swap.outputToken,
       inputSymbol: swap.inputSymbol, outputSymbol: swap.outputSymbol, amountIn: swap.amountIn.toString(),
       expectedOut: expectedOut.toString(), minimumOut: minimumOut.toString(), slippageBps: swap.slippageBps,
       pool: P.pool, fee: P.fee, blockNumber, blockHash, observedAt,
       expiresAt: new Date(now().getTime() + 60_000).toISOString(), estimatedGas: null };
     return { ...fields, manifestHash: digest(canonical(fields)) };
   }
+  return quote;
+}
+
+function createPublicTestnetCore(rpcFor: (profile: PublicSwapProfile) => Rpc, now: () => Date, persistence: Persistence) {
+  const { locked } = persistence;
+  const save = async (run: PublicRun) => persistence.save(run), load = async (id: string) => persistence.load(id);
+  async function read(rpc: Rpc, to: string, data: string, block: string): Promise<string> {
+    return hex(await rpc('eth_call', [{ to, data }, block]));
+  }
+  async function balance(rpc: Rpc, token: string, owner: string, block: string): Promise<bigint> {
+    return BigInt(await read(rpc, token, balanceData(owner), block));
+  }
+  async function allowance(rpc: Rpc, profile: PublicSwapProfile, token: string, owner: string, block: string): Promise<bigint> {
+    return BigInt(await read(rpc, token, allowanceData(owner, profile), block));
+  }
+  const quote = createPublicSwapQuoteReader(rpcFor, now);
   async function prepare(workflow: SemanticWorkflow): Promise<PublicRun> {
     const executionId = 'pub-' + randomBytes(12).toString('hex');
     const q = await quote(workflow, executionId);
@@ -436,6 +450,7 @@ function createPublicTestnetCore(rpcFor: (profile: PublicSwapProfile) => Rpc, no
     return locked(id, async () => {
       let run = await load(id);
       const owner = address(ownerValue);
+      assertCanonicalQuote(run);
       if (run.outcome || run.attempts.some(attempt => ['PREPARED', 'HASH', 'PENDING', 'UNKNOWN'].includes(attempt.state))) fail('ATTEMPT_ALREADY_ACTIVE');
       if (run.attempts.some(attempt => attempt.step === 'swap' && attempt.state !== 'REJECTED')) fail('SWAP_ALREADY_ATTEMPTED');
       if (run.reviewedManifestHash !== run.quote.manifestHash) fail('REVIEW_REQUIRED');

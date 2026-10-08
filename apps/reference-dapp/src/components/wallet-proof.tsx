@@ -13,6 +13,7 @@ import { chooseEvmWallet } from '../wallet/evm-discovery';
 import { connectSolanaWallet, signSolanaMessage, type SolanaWalletChain } from '../wallet/solana-wallet';
 import { updateWalletPreference } from '../wallet/wallet-registry';
 import { useWalletSelector } from './wallet-selector';
+import { useLocale } from '../i18n/locale';
 
 export type Namespace = 'eip155' | 'solana';
 const utf8Hex = (text: string) => '0x' + Array.from(new TextEncoder().encode(text), b => b.toString(16).padStart(2, '0')).join('');
@@ -59,9 +60,10 @@ export function useWalletProof(namespace: Namespace | null, chain: SolanaWalletC
 
 /** The proof buttons for one namespace, or the proven account. */
 export function WalletProof({ namespace, proof }: { namespace: Namespace; proof: ReturnType<typeof useWalletProof> }) {
-  if (proof.proven) return <p>Signed in as <code>{proof.proven}</code> ({namespace === 'solana' ? 'Solana' : 'Ethereum'}).</p>;
+  const { t: tr } = useLocale();
+  if (proof.proven) return <p>{tr("Signed in as ")}<code>{proof.proven}</code> ({namespace === 'solana' ? 'Solana' : 'Ethereum'}).</p>;
   if (namespace === 'eip155') return <div className="approval-actions"><button type="button" className="primary" disabled={proof.busy}
-    onClick={() => void proof.proveEvm()}>Connect wallet and prove ownership</button></div>;
+    onClick={() => void proof.proveEvm()}>{tr("Connect wallet and prove ownership")}</button></div>;
   return <div className="approval-actions"><button type="button" className="primary" disabled={proof.busy}
-    onClick={() => void proof.proveSolana()}>Connect Solana wallet and prove ownership</button></div>;
+    onClick={() => void proof.proveSolana()}>{tr("Connect Solana wallet and prove ownership")}</button></div>;
 }

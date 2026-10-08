@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { decodeSwap, encodeApprove, encodeSwap, fromHex, toHex } from '@defi-workflow-engine/reference-compiler';
 import { test as guarded, expect, openProposalReview, acceptProductReview } from './fixtures';
+import { E2E_FORK_URL } from './fork/ports';
 
 export type ModeAFixture = { readonly format: 'gryloo.mode-a-e2e-fixture.v1'; readonly environment: 'MOCKED' | 'FORK_REPRODUCED';
   readonly rpcUrl: string; readonly owner: string; readonly setup: string; baseline: string; readonly journal: string };
@@ -28,11 +29,11 @@ function runtimePath(): string {
 }
 function readFixture(): ModeAFixture {
   const value = JSON.parse(readFileSync(join(runtimePath(), 'fixture.json'), 'utf8')) as ModeAFixture;
-  if (value.format !== 'gryloo.mode-a-e2e-fixture.v1' || value.rpcUrl !== 'http://127.0.0.1:8545') throw new Error('MODE_A_FIXTURE_INVALID');
+  if (value.format !== 'gryloo.mode-a-e2e-fixture.v1' || value.rpcUrl !== E2E_FORK_URL) throw new Error('MODE_A_FIXTURE_INVALID');
   return value;
 }
 export async function forkRpc(method: string, params: unknown[] = []): Promise<unknown> {
-  const response = await fetch('http://127.0.0.1:8545', { method: 'POST', headers: { 'content-type': 'application/json' },
+  const response = await fetch(E2E_FORK_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(20_000) });
   const body = await response.json() as { result?: unknown; error?: { message?: string } };
   if (body.error || !('result' in body)) throw new Error(`FORK_RPC_${method}:${body.error?.message ?? 'invalid'}`);

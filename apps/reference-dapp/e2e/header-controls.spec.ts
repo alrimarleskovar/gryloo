@@ -27,7 +27,7 @@ test('boxed wallet preserves connect/disconnect and aligns with the Settings tog
   await expect(options).toHaveCount(0);
   await wallet.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   await chooseWallet(page, 'Browser wallet');
-  await expect(wallet).toContainText('Wallet: 0x1111…1111 · Base Sepolia');
+  await expect(wallet).toContainText('EVM Default: 0x1111…1111 · Base Sepolia');
   for (const width of [1440, 900, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const walletBox = (await wallet.boundingBox())!;

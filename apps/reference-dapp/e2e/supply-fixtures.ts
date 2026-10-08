@@ -87,7 +87,7 @@ export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNE
   await page.getByRole('button',{name:'Apply proposal',exact:true}).click();
 }
 export async function reviewSupply(page:Page){
-  await page.getByRole('button',{name:'Simular Fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
+  await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Supply',exact:true}).click();
   await acceptProductReview(page);
 }
 export async function supplySendCount(page:Page):Promise<number>{return page.evaluate(()=>{

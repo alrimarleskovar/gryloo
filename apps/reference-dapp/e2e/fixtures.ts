@@ -90,10 +90,10 @@ export async function assertPassiveWallet(page: Page): Promise<void> {
  * The canonical wallet selector: assert it is open, then explicitly choose one wallet by its name and ecosystem. Opening the
  * selector never invokes a wallet; only this choice does.
  */
-export async function chooseWallet(page: Page, name: string, ecosystem: 'Ethereum' | 'Solana' = 'Ethereum'): Promise<void> {
+export async function chooseWallet(page: Page, name: string, ecosystem: 'Ethereum' | 'Solana' = 'Ethereum', language: 'EN' | 'PT' = 'EN'): Promise<void> {
   const dialog = page.locator('dialog.wallet-selector[open]');
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: `${name} on ${ecosystem}`, exact: true }).click();
+  await dialog.getByRole('button', { name: `${name} ${language === 'PT' ? 'em' : 'on'} ${ecosystem}`, exact: true }).click();
   await expect(dialog).toHaveCount(0);
 }
 

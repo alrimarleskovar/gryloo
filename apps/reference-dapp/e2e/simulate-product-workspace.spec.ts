@@ -50,7 +50,7 @@ test('current workflow, read-only cards, honest summary and Back to Build', asyn
   const style = await cardStyle(buildCard);
   const icons = await brandIcons(buildCard);
   const revision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
   await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
   const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
@@ -99,7 +99,7 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
     await page.keyboard.press('Escape');
     const buildCard = page.locator('.build-flow-surface .composer-card');
     const style = await cardStyle(buildCard), icons = await brandIcons(buildCard);
-    await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
     expect(await cardStyle(graph(page).locator('.composer-card'))).toEqual(style);
     expect(await brandIcons(graph(page))).toEqual(icons);
@@ -146,7 +146,7 @@ test('lending links, zoom in/out and fit remain usable on desktop and mobile', a
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const positions = await page.locator('.build-flow-surface .react-flow__node').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.transform));
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(graph(page).locator('.react-flow__edge')).toHaveCount(2);
   await expect(summary(page).getByRole('button', { name: 'Review lending composition', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Simulate lending composition', exact: true })).toBeHidden();
@@ -177,7 +177,7 @@ test('empty workflow stays empty and mocked diagnostics never fill the primary s
   await graph(page).getByRole('button', { name: 'Back to Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await page.locator('.simulation-technical > summary').click();
   await page.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
   await expect(page.locator('.simulate-swap')).toBeVisible();
@@ -193,7 +193,7 @@ test('empty workflow stays empty and mocked diagnostics never fill the primary s
 test('simulation failures remain blocking and readable in both themes', async ({ page }) => {
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await graph(page).getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await expect(summary(page).getByRole('status')).toContainText(/Simulation failed|Simulation unavailable|Cannot proceed/);
   for (const theme of ['Dark', 'Light']) {

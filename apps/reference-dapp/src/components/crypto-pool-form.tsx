@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useState, type FormEvent } from 'react';
 import { cryptoInputOf, cryptoProfile } from '../domain/crypto-action-picker';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
@@ -13,6 +15,7 @@ import { usePoolPriceRange, poolPriceBounds } from './pool-price-range';
 
 /** Picker drafts use the existing pool builders and range validators at Review. */
 export function CryptoPoolForm({ nodeId }: { nodeId: string }) {
+  const { t: tr } = useLocale();
   const { state, actionSetup, cryptoSelections, editPoolSetup, reviewCryptoPool, dismissProposal } = useWorkflow();
   const liquidity = useUniswapLiquidity();
   const wallet = useBuild009Wallet(), contributions = usePoolContributionInputs(nodeId), range = usePoolPriceRange(nodeId);
@@ -47,16 +50,16 @@ export function CryptoPoolForm({ nodeId }: { nodeId: string }) {
   }
   const profile = cryptoProfile(selection)!;
   const symbols = [selection.from, selection.to!];
-  return <form id={poolReviewFormId(nodeId)} className="inspector-fields" aria-label={`Edit ${selection.network} liquidity position`} onSubmit={submit}>
-    <p className="muted">{profile.provider} · {selection.network} · {symbols.join(' / ')}</p>
-    {symbols.map((symbol, index) => <label key={symbol}>Maximum {symbol}<TokenAmountInput aria-label={`Maximum ${symbol}`} maxLength={40} value={contributions.values![index]!.amount} onValueChange={amount => contributions.edit(index, amount)}/></label>)}
-    <label>Range unit<select aria-label="Range unit" value={input.rangeUnit} onChange={event => set({ rangeUnit: event.target.value as 'PRICE' | 'TICK' })}>
-      <option value="TICK">Tick</option>{selection.network !== 'Base' && <option value="PRICE">Price</option>}
+  return <form id={poolReviewFormId(nodeId)} className="inspector-fields" aria-label={tr(`Edit ${selection.network} liquidity position`)} onSubmit={submit}>
+    <p className="muted">{tr(profile.provider)} · {tr(selection.network)} · {tr(symbols.join(' / '))}</p>
+    {symbols.map((symbol, index) => <label key={symbol}>{tr("Maximum ")}{symbol}<TokenAmountInput aria-label={tr(`Maximum ${symbol}`)} maxLength={40} value={contributions.values![index]!.amount} onValueChange={amount => contributions.edit(index, amount)}/></label>)}
+    <label>{tr("Range unit")}<select aria-label={tr("Range unit")} value={input.rangeUnit} onChange={event => set({ rangeUnit: event.target.value as 'PRICE' | 'TICK' })}>
+      <option value="TICK">{tr("Tick")}</option>{selection.network !== 'Base' && <option value="PRICE">{tr("Price")}</option>}
     </select></label>
-    <label>Lower bound<input aria-label="Lower bound" value={input.lower} onChange={event => set({ lower: event.target.value })}/></label>
-    <label>Upper bound<input aria-label="Upper bound" value={input.upper} onChange={event => set({ upper: event.target.value })}/></label>
-    {selection.network === 'Base Sepolia' || selection.network === 'Ethereum Sepolia' ? <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>Use ±10% around the current {selection.network} price</button> : <button type="button" className="quiet" onClick={() => void range.refresh()}>Refresh current pool price</button>}
-    {selection.network !== 'Base' && <label>Slippage (bps)<input aria-label="Liquidity slippage (bps)" inputMode="numeric" value={input.slippage} onChange={event => set({ slippage: event.target.value })}/></label>}
-    {error && <p role="alert">{error}</p>}
+    <label>{tr("Lower bound")}<input aria-label={tr("Lower bound")} value={input.lower} onChange={event => set({ lower: event.target.value })}/></label>
+    <label>{tr("Upper bound")}<input aria-label={tr("Upper bound")} value={input.upper} onChange={event => set({ upper: event.target.value })}/></label>
+    {selection.network === 'Base Sepolia' || selection.network === 'Ethereum Sepolia' ? <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{tr("Use ±10% around the current ")}{tr(selection.network)}{tr(" price")}</button> : <button type="button" className="quiet" onClick={() => void range.refresh()}>{tr("Refresh current pool price")}</button>}
+    {selection.network !== 'Base' && <label>{tr("Slippage (bps)")}<input aria-label={tr("Liquidity slippage (bps)")} inputMode="numeric" value={input.slippage} onChange={event => set({ slippage: event.target.value })}/></label>}
+    {error && <p role="alert">{tr(error)}</p>}
   </form>;
 }

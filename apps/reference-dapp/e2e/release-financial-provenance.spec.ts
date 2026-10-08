@@ -26,7 +26,7 @@ async function chat(page: Page, text: string) {
   await applyPendingProposal(page);
 }
 async function simulate(page: Page) {
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
 }
 

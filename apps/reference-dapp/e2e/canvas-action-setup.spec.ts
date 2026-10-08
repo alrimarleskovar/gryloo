@@ -16,7 +16,7 @@ async function expectBlocked(page: Page) {
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toBeDisabled();
   await expect(nav.getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).dispatchEvent('click');
   await nav.getByRole('button', { name: 'Execute', exact: true }).dispatchEvent('click');
   await expect(nav.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -30,7 +30,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
   const source = card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
   await expect(source).toHaveValue('0');
   await expect(card(page).locator('.composer-destination-box .composer-amount-value')).toHaveText('0');
-  await expect(card(page).locator('.composer-fiat-value')).toHaveText(['US$ 0,00', 'US$ 0,00']);
+  await expect(card(page).locator('.composer-fiat-value')).toHaveText(['USD value unavailable', 'USD value unavailable']);
   await expect(card(page).locator('.composer-network-badge')).toHaveCount(2);
   expect(await card(page).innerText()).not.toMatch(/pending|unapplied|canonical|committed|draft/i);
   await expectBlocked(page);
@@ -43,14 +43,14 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
   await expect(amountForm.getByLabel('Source amount (USDC)', { exact: true })).toHaveValue('0');
   // Display priority never edits the amount or invents a quote.
   await card(page).locator('.composer-amount').getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
-  await expect(card(page).locator('.composer-primary-fiat')).toHaveText(['US$ 0,00', 'US$ 0,00']);
-  await expect(card(page).locator('.composer-amount .composer-primary-fiat')).toHaveText('US$ 0,00');
+  await expect(card(page).locator('.composer-primary-fiat')).toHaveText(['USD value unavailable', 'USD value unavailable']);
+  await expect(card(page).locator('.composer-amount .composer-primary-fiat')).toHaveText('USD value unavailable');
   await expect(source).toHaveValue('0');
   await card(page).locator('.composer-amount').getByRole('button', { name: 'Show token amount first', exact: true }).click();
   const destination = card(page).locator('.composer-destination-box');
   await destination.getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
-  await expect(card(page).locator('.composer-primary-fiat')).toHaveText(['US$ 0,00', 'US$ 0,00']);
-  await expect(destination.locator('.composer-primary-fiat')).toHaveText('US$ 0,00');
+  await expect(card(page).locator('.composer-primary-fiat')).toHaveText(['USD value unavailable', 'USD value unavailable']);
+  await expect(destination.locator('.composer-primary-fiat')).toHaveText('USD value unavailable');
   await expect(destination.locator('.composer-token-subline')).toHaveText(action === 'swap' ? '0 WETH' : '0 USDC');
   await destination.getByRole('button', { name: 'Show token amount first', exact: true }).click();
   await expect(card(page).locator('.composer-primary-fiat')).toHaveCount(0);
@@ -77,7 +77,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
     await expect(page.getByRole('form', { name: 'Edit cross-chain bridge', exact: true }).getByLabel('Cross-chain amount (USDC)', { exact: true })).toHaveValue('2.5');
   }
   await expect(source).toHaveValue('2.5');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
   await expect(card(page)).toHaveClass(/active/);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.getByRole('main', { name: 'Simulation workspace', exact: true })).toBeVisible();
@@ -99,7 +99,7 @@ test('clearing an existing amount blocks both later stages without sending zero 
   await expect(card(page).getByRole('alert')).toContainText('greater than 0');
   await card(page).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(source).toHaveValue('2');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
   expect(await readWorkflow(page)).toEqual(original);
 });
 
@@ -145,6 +145,6 @@ test('a new isolated Bridge cannot replace an already-configured workflow throug
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(card(page)).toHaveCount(1);
   await expect(card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
   expect(await readWorkflow(page)).toEqual(original);
 });

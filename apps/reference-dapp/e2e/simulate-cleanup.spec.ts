@@ -62,7 +62,7 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await expect(panel.locator('.canvas-head').getByRole('heading', { name: 'ETH Carry Strategy', exact: true })).toBeVisible();
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
   await expect(graph.locator('.flow-card')).toBeInViewport();

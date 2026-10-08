@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect, applyPendingProposal, openProposalReview, readWorkflowIr, openFirstActionSettings, installPassiveWallet, assertPassiveWallet } from './fixtures';
 import type { Page } from '@playwright/test';
-import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
+import { hashArtifactBytes, type SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
 import { readyForVisualCapture } from './mode-a-fixtures';
 
 test.beforeEach(async ({ page }) => { await installPassiveWallet(page); });
@@ -14,7 +14,7 @@ const send = async (page: Page, text: string) => {
 };
 const apply = applyPendingProposal;
 const selectSwap = openFirstActionSettings;
-const workflow = async (page: Page) => JSON.parse(await readWorkflowIr(page)) as { revision: number; nodes: unknown[] };
+const workflow = async (page: Page) => JSON.parse(await readWorkflowIr(page)) as SemanticWorkflow;
 const hash = (value: unknown) => hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(value)));
 const createCanvas = async (page: Page, direction: 'USDC_TO_WETH' | 'WETH_TO_USDC', amount: string, slippage: string) => {
   await page.getByText('Advanced action setup', { exact: true }).click();
@@ -44,8 +44,10 @@ for (const [direction, from, to, amount] of [
     await createCanvas(page, direction, amount, '50');
     const canvas = await workflow(page);
     expect(canvas.revision).toBe(1);
-    expect(canvas).toEqual(chat);
-    expect(hash(canvas)).toBe(hash(chat));
+    expect(canvas.workflowId).not.toBe(chat.workflowId);
+    const reconstructed = { ...canvas, workflowId: chat.workflowId };
+    expect(reconstructed).toEqual(chat);
+    expect(hash(reconstructed)).toBe(hash(chat));
   });
 }
 
@@ -77,8 +79,10 @@ test('mixed surface edits, dismissal, locks and stale proposals preserve revisio
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeEnabled();
   await card.getByRole('button', { name: 'Apply amount', exact: true }).click();
   const canvasChatCanvas = await workflow(page);
-  expect(canvasChatCanvas).toEqual(chatCanvasChat);
-  expect(hash(canvasChatCanvas)).toBe(hash(chatCanvasChat));
+  expect(canvasChatCanvas.workflowId).not.toBe(chatCanvasChat.workflowId);
+  const reconstructed = { ...canvasChatCanvas, workflowId: chatCanvasChat.workflowId };
+  expect(reconstructed).toEqual(chatCanvasChat);
+  expect(hash(reconstructed)).toBe(hash(chatCanvasChat));
 
   await send(page, 'set node-002 amount 4');
   await page.getByRole('button', { name: 'Lock amount' }).click();
@@ -106,7 +110,8 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   await expect(page).toHaveScreenshot('proposal.png', { fullPage: true, maxDiffPixels: 0 });
   await page.getByRole('button', { name: 'Apply proposal' }).click();
   await selectSwap(page);
-  await readWorkflowIr(page);
+  // The displayed IR carries this visit's own draft identity, so it is checked as text and masked in the screenshot below.
+  expect((JSON.parse(await readWorkflowIr(page)) as SemanticWorkflow).workflowId).toMatch(/^workflow-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('BLOCK');
   await page.locator('.build-flow-surface .composer-card').first().scrollIntoViewIfNeeded();
   // IntersectionObserver rounds a fully visible transformed card to 0.99999994.
@@ -117,9 +122,9 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   expect(bounds!.y).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
-  await expect(page.getByRole('button', { name: 'Simular Fees' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees' })).toBeEnabled();
   await readyForVisualCapture(page);
-  await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0 });
+  await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0, mask: [page.locator('[data-workflow-ir]')] });
 });
 
 test('Base authoring and review fit mobile, tablet and desktop widths', async ({ page }) => {

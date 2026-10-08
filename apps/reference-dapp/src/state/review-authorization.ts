@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useWorkflow } from './workflow-store';
 import { useState } from 'react';
 import { LIQUIDITY_USDC, LIQUIDITY_WETH } from '@defi-workflow-engine/reference-compiler';
 import { useModeA } from './mode-a-store';
@@ -28,6 +29,7 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
   const supply = useSupply(), lending = useLending(), router = useRouter(), publicSwap = usePublicTestnet();
   const jupiter = useJupiter(), solanaPool = useSolanaLiquidity(), uniswapPool = useUniswapLiquidity(), transfer = useRobinhoodTransfer(), across = useAcross();
   const sharedWallet = useBuild009Wallet(), environment = useExecutionEnvironment();
+  const { restorationEpoch } = useWorkflow();
   const authorization: ReviewAuthorization = { key: null, manifest: null, owner: null, chain: null, ready: false, accepted: false, approve: null, approvals: [], tokens: [], limits: [], technical: null };
   const attach = (key: string, manifest: unknown, policy: unknown, accepted: boolean, approve: (() => void | Promise<void>) | null, ready: boolean, technical: unknown) => {
     const parsed = reviewedManifest(manifest);
@@ -147,11 +149,13 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
   const chain = environment.walletKind === 'solana' ? solanaWalletChainRef(environment.walletChain) : sharedWallet.chainId === '0x7a69' ? 'eip155:31337' : walletChainRef(sharedWallet.chainId);
   // The signing provider is part of the bound identity: the same address through another wallet still needs a fresh Review.
   const providerKey = environment.walletKind === 'solana' ? jupiter.session?.wallet?.name ?? null : sharedWallet.provider?.key ?? null;
-  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain, providerKey]);
+  const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.revision : null, restorationEpoch,
+    environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain, providerKey]);
   // Keep this guard mounted in the shell. Returning to the old wallet cannot revive the old Review.
   const [binding, setBinding] = useState({ key: authorization.key, identity, changed: false });
   const changed = binding.key === authorization.key && (binding.changed || binding.identity !== identity);
   if (binding.key !== authorization.key) setBinding({ key: authorization.key, identity, changed: false });
   else if (changed && !binding.changed) setBinding({ ...binding, changed: true });
+  if (changed) authorization.ready = false;
   return { authorization, wallet: { account, chain, environment: environment.walletEnvironment, changed } };
 }

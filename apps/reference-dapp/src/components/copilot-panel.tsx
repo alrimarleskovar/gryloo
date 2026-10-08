@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { useState, type FormEvent } from 'react';
 import { parseLocalCommand, summarize } from '../domain/commands';
 import { useWorkflow } from '../state/workflow-store';
@@ -9,6 +11,7 @@ import { CopilotMessage, COPILOT_PLACEHOLDER, copilotHelp, copilotIntro, copilot
 
 type Message = { role: 'system' | 'you' | 'ai'; text: string; notes?: readonly string[]; options?: readonly string[] };
 export function CopilotPanel() {
+  const { t: tr } = useLocale();
   const { state, context, propose, dismissProposal } = useWorkflow();
   const wallet = useBuild009Wallet();
   const copilot = useCopilotInterpreter();
@@ -49,13 +52,13 @@ export function CopilotPanel() {
       setMessages(old => [...old, { role: 'you', text }, { role: 'system', text: guidance }]);
     }
   }
-  return <aside className="copilot panel" aria-label="Workflow assistant">
-    <div className="copilot-head"><div><p className="eyebrow">ASSISTANT</p><h2>Copilot</h2></div></div>
-    <div ref={log} className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">{messages.map((message, index) =>
-      <div key={index} className={`message ${message.role}`}>{(message.role === 'you' || copilot.enabled) && <small>{message.role === 'you' ? 'YOU' : copilotLabel(message.role, copilot.mode)}</small>}{message.role === 'ai'
+  return <aside className="copilot panel" aria-label={tr("Workflow assistant")}>
+    <div className="copilot-head"><div><p className="eyebrow">{tr("ASSISTANT")}</p><h2>{tr("Copilot")}</h2></div></div>
+    <div ref={log} className="chat-messages" role="log" aria-live="polite" aria-label={tr("Conversation")}>{messages.map((message, index) =>
+      <div key={index} className={`message ${message.role}`}>{(message.role === 'you' || copilot.enabled) && <small>{tr(message.role === 'you' ? 'YOU' : copilotLabel(message.role, copilot.mode))}</small>}{message.role === 'ai'
         ? <CopilotMessage text={message.text} notes={message.notes} options={message.options} disabled={copilot.busy} onPick={send}/>
-        : <p>{(index === 0 && copilot.enabled && copilotIntro(copilot.mode)) || message.text}</p>}</div>)}
-      {copilot.busy && <div className="message ai" role="status"><small>{copilotLabel('ai', copilot.mode)}</small><p>Interpreting your message…</p></div>}</div>
-    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">Describe your flow</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder={copilot.enabled ? COPILOT_PLACEHOLDER : 'Action, amount, asset and chain'} maxLength={1024} autoComplete="off"/><button type="submit" disabled={copilot.busy}>Send</button></div></form>
+        : <p>{message.role === 'you' ? message.text : tr((index === 0 && copilot.enabled && copilotIntro(copilot.mode)) || message.text)}</p>}</div>)}
+      {copilot.busy && <div className="message ai" role="status"><small>{tr(copilotLabel('ai', copilot.mode))}</small><p>{tr("Interpreting your message…")}</p></div>}</div>
+    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">{tr("Describe your flow")}</label><div><input id="mock-prompt" value={input} onChange={event => setInput(event.target.value)} placeholder={tr(copilot.enabled ? COPILOT_PLACEHOLDER : 'Action, amount, asset and chain')} maxLength={1024} autoComplete="off"/><button type="submit" disabled={copilot.busy}>{tr("Send")}</button></div></form>
   </aside>;
 }

@@ -21,6 +21,13 @@ const uniswap: ConcentratedLiquidityNode = { nodeId: 'node-002', actionType: 'as
   failurePolicy: 'ABORT', requiredAuthorizationClass: 'MODE_A', lockedParameters: [], editableBounds: [] };
 const hash = (node: ConcentratedLiquidityNode) => hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify({ schemaVersion: '1.0.0', workflowId: 'w', revision: 1, nodes: [node], resourceEdges: [] })));
 describe('canonical concentrated-liquidity semantics', () => {
+  it('accepts a locked parameter equal to its input in any key order and rejects any different value', () => {
+    const amount = uniswap.inputs[0]!, fee = uniswap.inputs[6]!;
+    const reordered = { value: { amount: '100000000000000000', asset: { decimals: 18, address: weth.address, chainId: base } }, kind: 'QUANTITY', name: 'amount0-max' };
+    expect(hash({ ...uniswap, lockedParameters: [reordered, { value: 500, name: 'fee-tier', kind: 'INTEGER' }] } as never)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(() => hash({ ...uniswap, lockedParameters: [{ ...fee, value: 501 }] } as never)).toThrow('locked parameter value differs from input');
+    expect(() => hash({ ...uniswap, lockedParameters: [{ ...amount, value: { ...reordered.value, amount: '1' } }] } as never)).toThrow('locked parameter value differs from input');
+  });
   it('round-trips the neutral action and produces a schema-valid semantic workflow', () => {
     const node = createConcentratedLiquidityNode('node-002', orca);
     expect(node.actionType).toBe(CONCENTRATED_LIQUIDITY_ACTION);

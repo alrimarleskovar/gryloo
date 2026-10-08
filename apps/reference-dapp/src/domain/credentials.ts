@@ -67,7 +67,7 @@ export const cardCredentialId = (provider: string, providerCardId: string) => `c
 export function shortAddress(address: string): string { return `${address.slice(0, 4)}…${address.slice(-4)}`; }
 export function networkLabel(chain: string | null): string {
   if (chain === 'solana:devnet') return 'Solana Devnet';
-  if (chain === 'solana:mainnet') return 'Solana';
+  if (chain === 'solana:mainnet') return 'Solana mainnet-beta';
   return chain ?? 'Network unknown';
 }
 

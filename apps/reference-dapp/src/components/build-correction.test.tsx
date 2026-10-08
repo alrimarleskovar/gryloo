@@ -100,7 +100,7 @@ describe('corrected Build workspace presentation', () => {
     setWorkflow();
     const before = JSON.stringify(fixture.store.state.workflow);
     const renameWorkflow = vi.fn();
-    const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn(), workflowName: 'ETH Carry Strategy', renameWorkflow }));
+    const html = renderToStaticMarkup(createElement(WorkflowCanvas, { selectedId: null, select: vi.fn(), workflowName: 'ETH Carry Strategy', renameWorkflow, onSave: vi.fn() }));
     expect(html).toContain('<h2>ETH Carry Strategy</h2>');
     expect(html).toContain('aria-label="Rename workflow"');
     expect(html).toMatch(/class="workflow-rename"[\s\S]*?<\/button><button type="button" class="workflow-save" aria-label="Save workflow"/);
@@ -133,7 +133,7 @@ describe('corrected Build workspace presentation', () => {
     expect(canvas).toContain('Aave V3');
     expect(canvas).toContain('Base Sepolia');
     expect(canvas).toContain('Advanced Settings');
-    expect(canvas).toMatch(/<button type="button" class="composer-selected nodrag nopan"[^>]*>Advanced Settings<svg/);
+    expect(canvas).toMatch(/<button type="button" class="composer-selected nodrag nopan"[^>]*>Advanced Settings\s*<svg/);
     const name = action[0]!.toUpperCase() + action.slice(1);
     expect(canvas).toMatch(new RegExp(`class="composer-action-title"><span>1\\. ${name}</span><svg[^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg></strong>`));
     expect(canvas).not.toMatch(/Step 1|Configured/);
@@ -142,7 +142,7 @@ describe('corrected Build workspace presentation', () => {
     expect(canvas.match(/class="numeric composer-amount-box/g)).toHaveLength(1);
     expect(canvas).toContain('class="composer-token-chip"');
     expect(canvas).toContain('aria-label="Base Sepolia network"');
-    expect(canvas).toContain('US$ 0,00');
+    expect(canvas).toContain('USD value unavailable');
     expect(canvas).not.toMatch(/composer-destination-box|composer-value-arrow/);
     expect(canvas).not.toContain('Liquidity range view');
     expect(canvas).toMatch(/aria-label="Source amount \(USDC\)"[^>]*value="1"/);
@@ -261,7 +261,7 @@ describe('UX-002 canonical composer projections', () => {
     expect(html).toContain('1. Stocks'); expect(html).toContain('Robinhood'); expect(html).not.toContain('Testnet');
     expect(html.match(/class="numeric composer-amount-box/g)).toHaveLength(1);
     expect(html).toContain('aria-label="Stocks amount"'); expect(html).toContain('value="0"');
-    expect(html).toContain('US$ 0,00'); expect(html).toContain('aria-label="Select stock"');
+    expect(html).toContain('USD value unavailable'); expect(html).toContain('aria-label="Select stock"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('src="/brand/robinhood-avatar.jpg"');
     expect(html).toContain('aria-label="Robinhood Chain network"');

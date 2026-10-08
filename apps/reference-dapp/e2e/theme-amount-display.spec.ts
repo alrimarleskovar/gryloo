@@ -162,7 +162,7 @@ test('dark hover uses restrained borders and respects reduced motion', async ({ 
   await expect(card).toHaveCSS('background-image', 'none');
   await expect(card).toHaveCSS('border-top-color', 'rgb(147, 166, 255)');
   expect(await card.evaluate(element => getComputedStyle(element).transitionDuration)).toContain('0.18s');
-  const cta = page.getByRole('button', { name: 'Simular Fees', exact: true });
+  const cta = page.getByRole('button', { name: 'Simulate fees', exact: true });
   await cta.hover(); await expect(cta).toHaveCSS('background-color', 'rgb(35, 67, 217)');
   await expect(cta).toHaveCSS('animation-name', 'none');
   await page.emulateMedia({ reducedMotion: 'reduce' });

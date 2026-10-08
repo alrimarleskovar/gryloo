@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+
+import { useLocale } from '../i18n/locale';
 /** Local brand images keep their own fills, gradients and colors, independent of theme. */
 const tokenImages: Readonly<Record<string, string>> = {
   USDC: '/brand/crypto/usdc.png', devUSDC: '/brand/crypto/usdc.png',
@@ -14,8 +16,9 @@ const networkImages: Readonly<Record<string, string>> = {
   'Robinhood Chain': '/brand/robinhood-avatar.jpg',
 };
 function BrandImage({ src, fallback }: { src: string | undefined; fallback: string }) {
-  return src ? <img className="brand-icon" src={src} alt="" aria-hidden="true" draggable={false}/>
-    : <span className="brand-icon-fallback" aria-hidden="true">{fallback}</span>;
+  const { t: tr } = useLocale();
+  return src ? <img className="brand-icon" src={src} alt={tr("")} aria-hidden="true" draggable={false}/>
+    : <span className="brand-icon-fallback" aria-hidden="true">{tr(fallback)}</span>;
 }
 export function TokenBrandIcon({ symbol }: { symbol: string }) {
   return <BrandImage src={tokenImages[symbol]} fallback={symbol === '—' ? '?' : symbol.slice(0, 1)}/>;

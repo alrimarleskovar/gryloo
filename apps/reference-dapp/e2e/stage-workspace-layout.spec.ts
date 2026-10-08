@@ -70,7 +70,7 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
       await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
       const buildAmounts = await graph.locator('.composer-card input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
       for (const stage of ['Build', 'Simulate', 'Execute'] as const) {
-        if (stage === 'Simulate') await graph.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+        if (stage === 'Simulate') await graph.getByRole('button', { name: 'Simulate fees', exact: true }).click();
         if (stage === 'Execute') await nav.getByRole('button', { name: stage, exact: true }).click();
         await expect(nav.getByRole('button', { name: stage, exact: true })).toHaveAttribute('aria-current', 'page');
         await expect(canvas).toBeVisible();

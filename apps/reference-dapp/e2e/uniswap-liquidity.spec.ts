@@ -25,7 +25,7 @@ async function author(page: Page, options: UniswapWalletOptions = {}) {
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Uniswap');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('USDC');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('WETH');
-  await page.getByRole('button', { name: 'Simular Fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Simulate position', exact: true }).click();
   await expect(region(page).getByRole('definition').filter({ hasText: 'exact ticks' })).toBeVisible();
 }

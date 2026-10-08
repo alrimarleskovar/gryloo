@@ -19,7 +19,7 @@ import { actionReviewValue } from '../domain/canvas-action-setup';
 import { createCryptoActionNode, type CryptoActionInput, type CryptoSelection, type CryptoSelections } from '../domain/crypto-action-picker';
 
 type Pending = { valid: boolean; command: Command; diff: readonly string[]; review: ReviewResult | null; authoringId?: string; authoringAmount?: string };
-type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
+type Store = { restorationEpoch: number; state: EditorState; dispatch: Dispatch<Command>; context: ReviewContext;
   cryptoSelections: CryptoSelections; editCryptoSelection(id: string, selection: CryptoSelection, beneficiary?: string): void;
   reviewCryptoPool(id: string, input: CryptoActionInput): string | null;
   actionSetup: CanvasActionSetup | null; amountInputs: CanvasAmountInputs; authoringIncomplete: boolean;
@@ -29,7 +29,7 @@ type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewC
   editPoolSetup(id: string, input: UniswapLiquidityInput): void;
   editSwapSetupDirection(id: string, direction: Direction): void;
   reviewCanvasAmount(id: string, poolInput?: UniswapLiquidityInput): string | null; removeActionSetup(): void;
-  restoreLendingCanvas(workflow:SemanticWorkflow):void;
+  restoreLendingCanvas(workflow:SemanticWorkflow):void; restoreWorkflow(workflow: SemanticWorkflow): void; adoptDraftIdentity(workflowId: string): void;
   canvasLayout: CanvasLayout; canUndo: boolean; canRedo: boolean; undo(): void; redo(): void;
   moveCanvasNodes(positions: Readonly<Record<string, { x: number; y: number }>>): void;
   addCanvasCommand(command: Command, position: { x: number; y: number }): void;
@@ -39,9 +39,13 @@ type Store = { state: EditorState; dispatch: Dispatch<Command>; context: ReviewC
   chain: ChainState; eligibility: Eligibility; generateArtifacts(): void; refreshArtifacts(): void; accessCheck(): void };
 const Context = createContext<Store | null>(null);
 
-export function WorkflowProvider({ children, initialContext }: { children: ReactNode; initialContext: unknown }) {
-  const [history, dispatchHistory] = useReducer(editorHistoryReducer, undefined, initialEditorHistory);
+export function WorkflowProvider({ children, initialContext, initialWorkflowId = 'workflow-local' }: { children: ReactNode; initialContext: unknown; initialWorkflowId?: string }) {
+  const [history, dispatchHistory] = useReducer(editorHistoryReducer, undefined, () => {
+    const history = initialEditorHistory();
+    return { ...history, editor: { ...history.editor, workflow: { ...history.editor.workflow, workflowId: initialWorkflowId } } };
+  });
   const state = history.editor;
+  const [restorationEpoch, setRestorationEpoch] = useState(0);
   const authoringIncomplete = canvasAuthoringIncomplete(history.actionSetup, history.amountInputs);
   const incompleteRef = useRef(authoringIncomplete);
   incompleteRef.current = authoringIncomplete;
@@ -204,7 +208,7 @@ export function WorkflowProvider({ children, initialContext }: { children: React
     if (!checkChainAccess(chainRef.current, workflowRef.current, Date.now(), performance.now()).ok) { accessCheck(); return; }
     generateArtifacts();
   }, [accessCheck, generateArtifacts]);
-  return <Context.Provider value={{ state, dispatch, context, restoreLendingCanvas, canvasLayout: history.layout, canUndo: history.past.length > 0,
+  return <Context.Provider value={{ restorationEpoch, state, dispatch, context, restoreLendingCanvas, adoptDraftIdentity: workflowId => dispatchHistory({ type: 'ADOPT_DRAFT_IDENTITY', workflowId }), restoreWorkflow: workflow => { setRestorationEpoch(n => n + 1); setPending(null); dispatchHistory({ type: 'RESTORE_WORKFLOW', workflow }); }, canvasLayout: history.layout, canUndo: history.past.length > 0,
     actionSetup: history.actionSetup, amountInputs: history.amountInputs, authoringIncomplete,
     bridgeNetworkInputs: history.bridgeNetworkInputs, editBridgeNetworks, cryptoSelections: history.cryptoSelections, editCryptoSelection, reviewCryptoPool,
     startActionSetup, editCanvasAmount, editPoolSetup, editSwapSetupDirection, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup,

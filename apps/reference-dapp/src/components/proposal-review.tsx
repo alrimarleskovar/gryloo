@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { createPortal } from 'react-dom';
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
@@ -36,6 +38,7 @@ export function ProposalReviewArtifact(props: ReviewProps = {}) {
 }
 
 function ContextualProposal({ pending, canApply = true, onApply, portalFromCard = false }: { pending: Pending } & ReviewProps) {
+  const { t: tr } = useLocale();
   const { state, context, applyProposal, dismissProposal } = useWorkflow();
   const presentation = useMemo(() => workflowProposalSummary(state, pending.command, context), [state, pending.command, context]);
   const [openCommand, setOpenCommand] = useState<Command | null>(null);
@@ -107,24 +110,24 @@ function ContextualProposal({ pending, canApply = true, onApply, portalFromCard 
     dismissProposal();
   }
   const content = <>
-    <button ref={trigger} type="button" className="proposal-artifact nodrag nopan nowheel" aria-label={`Review proposed change: ${presentation.summary}`}
+    <button ref={trigger} type="button" className="proposal-artifact nodrag nopan nowheel" aria-label={tr(`Review proposed change: ${presentation.summary}`)}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined}
       onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setPosition(null); setOpenCommand(open ? null : pending.command); }}>
-      <span className="proposal-artifact-label">Proposed</span><span className="proposal-artifact-flow">{presentation.summary}</span>
+      <span className="proposal-artifact-label">{tr("Proposed")}</span><span className="proposal-artifact-flow">{tr(presentation.summary)}</span>
     </button>
     {open && <div ref={popover} id={id} className="proposal-review-popover nodrag nopan nowheel" role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} aria-describedby={`${id}-summary`} tabIndex={-1}
       style={{ ...position, visibility: position ? 'visible' : 'hidden' }} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
-      <strong id={`${id}-title`}>Proposed change</strong><p id={`${id}-summary`} className="proposal-review-summary">{presentation.summary}</p>
-      {presentation.detail && <p className="proposal-review-detail">{presentation.detail}</p>}
+      <strong id={`${id}-title`}>{tr("Proposed change")}</strong><p id={`${id}-summary`} className="proposal-review-summary">{tr(presentation.summary)}</p>
+      {presentation.detail && <p className="proposal-review-detail">{tr(presentation.detail)}</p>}
       <div className="proposal-review-actions">
-        <button type="button" className="proposal-dismiss" aria-label="Dismiss proposal" title="Dismiss proposal" onClick={dismiss}>
+        <button type="button" className="proposal-dismiss" aria-label={tr("Dismiss proposal")} title={tr("Dismiss proposal")} onClick={dismiss}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
         </button>
-        <button type="button" className="proposal-apply" aria-label="Apply proposal" title="Apply proposal" disabled={!canApply || !pending.valid || !presentation.current} onClick={accept}>
+        <button type="button" className="proposal-apply" aria-label={tr("Apply proposal")} title={tr("Apply proposal")} disabled={!canApply || !pending.valid || !presentation.current} onClick={accept}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
         </button>
       </div>
     </div>}
   </>;
-  return portalFromCard ? <><span ref={marker} hidden/>{portalTarget && createPortal(content, portalTarget)}</> : content;
+  return portalFromCard ? <><span ref={marker} hidden/>{tr(portalTarget && createPortal(content, portalTarget))}</> : content;
 }

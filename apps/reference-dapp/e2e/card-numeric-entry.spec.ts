@@ -17,7 +17,7 @@ for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw']
   const apply = card.getByRole('button', { name: single ? 'Apply proposal' : 'Apply amount', exact: true });
   await expect(source).toHaveValue('0'); await expect(source).toHaveAttribute('placeholder', '0');
   await expect(revision).toHaveAttribute('data-workflow-revision', '0');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   const stages = page.getByRole('navigation', { name: 'Workflow stages' });
   for (const stage of ['Simulate', 'Execute']) {
     const button = stages.getByRole('button', { name: stage, exact: true });
@@ -54,13 +54,13 @@ for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw']
   if (action === 'swap' || action === 'bridge') {
     await card.locator('.composer-amount').getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
     await source.fill('000.05'); await expect(source).toHaveValue('0.05');
-    await expect(card.locator('.composer-amount .composer-primary-fiat')).toHaveText('US$ 0,00');
+    await expect(card.locator('.composer-amount .composer-primary-fiat')).toHaveText('USD value unavailable');
     await card.locator('.composer-amount .composer-primary-fiat').click();
   }
   await source.fill(''); await source.press('Tab'); await expect(source).toHaveValue('0');
   await review.click();
   if (single) await expect(apply).toHaveCount(0); else await expect(apply).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
 
   // The Router's existing minimum is unchanged: decimal entry must not bypass it.
   if (action === 'bridge') {
@@ -79,7 +79,7 @@ for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw']
   await source.fill(''); await expect(source).toHaveValue(''); await source.press('Tab');
   await expect(source).toHaveValue('0');
   await expect(revision).toHaveAttribute('data-workflow-revision', '1');
-  await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
   const replacement = action === 'bridge' ? '3.05' : '0.5';
   await source.click(); await source.pressSequentially(replacement); await expect(source).toHaveValue(replacement);
   await review.click(); await expect(apply).toBeEnabled();

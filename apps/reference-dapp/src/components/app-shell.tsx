@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
+import { useLocale } from '../i18n/locale';
+
 import { WithdrawPanel } from './withdraw-panel';
 import { RobinhoodTransferPanel } from './robinhood-transfer-panel';
 import { useRobinhoodTransfer } from '../state/robinhood-transfer-store';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ToolboxMode } from '../domain/canvas-layout';
 import { CowPanel } from './cow-panel';
 import { useCow } from '../state/cow-store';
@@ -47,7 +49,7 @@ import { useWorkflowCapability } from '../state/capability-store';
 import { usePublicTestnet } from '../state/public-testnet-store';
 import { PublicTestnetPanel } from './public-testnet-panel';
 
-import {isLendingComposition} from '@defi-workflow-engine/workflow-contracts';
+import {isLendingComposition, type SemanticWorkflow} from '@defi-workflow-engine/workflow-contracts';
 import {useLending} from '../state/lending-store';
 import {LendingPanel} from './lending-panel';
 import { useSupply } from '../state/supply-store';
@@ -60,7 +62,7 @@ import { SolanaLiquidityPanel } from './solana-liquidity-panel';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
 import { UniswapLiquidityPanel } from './uniswap-liquidity-panel';
 import { useUniswapLiquidity } from '../state/uniswap-liquidity-store';
-import { JourneyCard, RouterPanel } from './router-panel';
+import { RouterPanel } from './router-panel';
 import { useRouter } from '../state/router-store';
 import { routerDetails } from '../domain/router-authoring';
 import { DashboardWorkspace } from './dashboard/dashboard-workspace';
@@ -68,11 +70,18 @@ import { dashboardRoute as resolveDashboardRoute } from '../lib/dashboard/routes
 import { secondaryWorkspaceRoute } from '../domain/secondary-workspaces';
 import { SecondaryProductWorkspace } from './secondary-product-workspace';
 
+import { useSavedWorkflows } from '../state/saved-workflows';
+import { useExecutionEnvironment } from '../state/capability-store';
+import { useBuild009Wallet } from '../state/build009-wallet-store';
+import { useWalletProof } from './wallet-proof';
+import { WorkflowVerification } from './saved-workflows';
+
 type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void };
 export function AppShell(props: ProductNavigation = {}) { return <ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider>; }
 
 function AppShellContent({ pathname, navigate }: ProductNavigation) {
-  const { state, context, reviewError, authoringIncomplete } = useWorkflow();
+  const { t: tr } = useLocale();
+  const { state, context, reviewError, authoringIncomplete, restoreWorkflow, restorationEpoch } = useWorkflow();
   const modeA = useModeA();
   const { prepared, info } = modeA;
   const modeB = useModeB();
@@ -93,6 +102,39 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     if (navigate && (dashboardRoute || secondaryRoute)) navigate('/');
   }, [authoringIncomplete, navigate, dashboardRoute, secondaryRoute]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
+  const connectedWallet = useBuild009Wallet();
+  const walletIdentity = useExecutionEnvironment();
+  const solanaSession = useJupiter().session;
+  const owner = walletIdentity.walletKind === 'solana'
+    ? solanaSession ? { namespace: 'solana' as const, address: solanaSession.account.address } : null
+    : connectedWallet.account ? { namespace: 'eip155' as const, address: connectedWallet.account } : null;
+  const proof = useWalletProof(owner?.namespace ?? null, solanaSession?.chain ?? 'solana:devnet');
+  const library = useSavedWorkflows(owner);
+  const refreshLibrary = library.refresh;
+  useEffect(() => { if (proof.proven === owner?.address) refreshLibrary(); }, [proof.proven, owner?.address, refreshLibrary]);
+  const [saveNotice, setSaveNotice] = useState<{ owner: string | null; message: string } | null>(null);
+  const [showVerification, setShowVerification] = useState(false);
+  const ownerKey = owner ? `${owner.namespace}:${owner.address}` : null;
+  async function saveCurrentWorkflow() {
+    if (!owner) { setSaveNotice({ owner: null, message: 'Connect your wallet to save workflows.' }); return; }
+    if (authoringIncomplete) { setSaveNotice({ owner: ownerKey, message: 'Configure the workflow before saving.' }); return; }
+    if (proof.proven !== owner.address) { setShowVerification(true); return; }
+    const saved = await library.save(state.workflow as SemanticWorkflow, workflowName);
+    if (saved) setSaveNotice({ owner: ownerKey, message: 'Workflow saved.' });
+  }
+  async function reopenWorkflow(id: string) {
+    const document = await library.open(id);
+    if (!document) return;
+    restoreWorkflow(document.workflow); setWorkflowName(document.name ?? 'Your Workflow');
+    setSaveNotice({ owner: ownerKey, message: 'Workflow restored. Simulate again before reviewing.' });
+    setTab('Build');
+  }
+  const workflows = { list: library.list, busy: library.busy, error: library.error,
+    open: (id: string) => { void reopenWorkflow(id); }, refresh: () => { void proof.refresh(); library.refresh(); } };
+  useEffect(() => { if (secondaryRoute?.id === 'workflows') refreshLibrary(); }, [secondaryRoute?.id, refreshLibrary]);
+  const verification = owner && showVerification && proof.proven !== owner.address
+    ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined;
+
   const [workspaceToolboxMode, setWorkspaceToolboxMode] = useState<ToolboxMode>('top');
   const [simulationActionHost, setSimulationActionHost] = useState<HTMLDivElement | null>(null);
   const supply = useSupply();
@@ -150,7 +192,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     capability.executionSupported && forkExecution);
   // Select the same runtime as the existing Simulate surface; presentation never changes its gates.
   const restoredLocalKind = restoredLocalExecutionKind(state.workflow, { composition: composition.recoveryOnly, liquidity: liquidity.recoveryOnly, cow: cow.recoveryOnly });
-  const simulationSource: SimulationSource = routerPath ? { kind: 'router', state: routerState }
+  let simulationSource: SimulationSource = routerPath ? { kind: 'router', state: routerState }
     : transferPath ? { kind: 'transfer', state: transfer }
     : lendingPath ? { kind: 'lending', state: lending }
     : supplyPath || borrowPath || repayPath || withdrawPath ? { kind: 'supply', state: supply }
@@ -170,6 +212,10 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     : modeB.status?.prepared && !modeB.retired ? { kind: 'delegated-swap', state: modeB }
     : { kind: 'fork-swap', state: modeA };
   const reviewBinding = useReviewAuthorization(simulationSource.kind);
+  const [restoredBinding, setRestoredBinding] = useState({ epoch: restorationEpoch, key: null as string | null });
+  if (restoredBinding.epoch !== restorationEpoch) setRestoredBinding({ epoch: restorationEpoch, key: reviewBinding.authorization.key });
+  if (restorationEpoch > 0 && (restoredBinding.epoch !== restorationEpoch || restoredBinding.key === reviewBinding.authorization.key))
+    simulationSource = { ...simulationSource, state: { ...simulationSource.state, retired: true } } as SimulationSource;
   const executionProgress = useExecutionLifecycle(simulationSource.kind, reviewBinding.wallet);
   const executionStart = useExecutionStart(simulationSource.kind, reviewBinding.wallet);
   function openSimulationControls() {
@@ -193,23 +239,24 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
   const simulationDisabled = authoringIncomplete || simulationSource.kind === 'unavailable' ||
     ('available' in simulationSource.state && simulationSource.state.available === false) ||
     ('info' in simulationSource.state && simulationSource.state.info?.available === false);
-  const simulateAction = <button type="button" className="primary" data-simulation-action="" disabled={simulationDisabled || Boolean(simulationSource.state.busy) || !state.workflow.nodes.some(node => !node.actionType.startsWith('mock-'))} onClick={() => void simulateAgain()}>{simulationSource.state.busy ? 'Simulating workflow…' : reviewBinding.authorization.key ? 'Simulate again' : 'Simulate workflow'}</button>;
+  const simulateAction = <button type="button" className="primary" data-simulation-action="" disabled={simulationDisabled || Boolean(simulationSource.state.busy) || !state.workflow.nodes.some(node => !node.actionType.startsWith('mock-'))} onClick={() => void simulateAgain()}>{tr(simulationSource.state.busy ? 'Simulating workflow…' : reviewBinding.authorization.key ? 'Simulate again' : 'Simulate workflow')}</button>;
   function focusReview() {
     const section = document.getElementById('simulation-review');
     section?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
     section?.focus({ preventScroll: true });
   }
-  if (secondaryRoute) return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
-    <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={`${secondaryRoute.label} workspace`}><SecondaryProductWorkspace workspace={secondaryRoute.id}/></main>
+  if (secondaryRoute) return <div className="app-shell"><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={tr('{0} workspace', tr(secondaryRoute.label))}><SecondaryProductWorkspace workspace={secondaryRoute.id} workflows={{ ...workflows, loading: library.loading, connected: Boolean(owner), verification: owner && library.error === 'WALLET_SESSION_REQUIRED' ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined }}/>
+</main>
   </div>;
-  if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
-    <main id="workspace" className="main" tabIndex={-1} aria-label="Dashboard"><DashboardWorkspace workflowName={workflowName} progress={executionProgress} recovery={executionProgress.recovery} wallet={reviewBinding.wallet} context={context}
+  if (tab === 'Dashboard') return <div className="app-shell"><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <main id="workspace" className="main" tabIndex={-1} aria-label={tr("Dashboard")}><DashboardWorkspace workflowName={workflowName} progress={executionProgress} recovery={executionProgress.recovery} wallet={reviewBinding.wallet} context={context}
       runId={dashboardRoute?.runId ?? null}
       build={() => setTab('Build')} execute={() => setTab('Execute')} navigate={navigate ?? (() => undefined)}/></main>
   </div>;
   const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
-  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/><main className="main"><section className="panel stage-empty"><p>Configure the action amount in Build first.</p><button type="button" onClick={() => setTab('Build')}>Return to Build</button></section></main></div>;
-  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} onToolboxModeChange={setWorkspaceToolboxMode} primaryAction={<button type="button" disabled={authoringIncomplete} title={authoringIncomplete ? 'Configure the action amount first' : undefined} onClick={() => setTab('Simulate')}>Simular Fees</button>}/><CopilotPanel/></div><ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/><JourneyCard/>
+  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell"><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/><main className="main"><section className="panel stage-empty"><p>{tr("Configure the action amount in Build first.")}</p><button type="button" onClick={() => setTab('Build')}>{tr("Return to Build")}</button></section></main></div>;
+  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas estimateOwner={solanaSession?.account.address} environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} onSave={() => void saveCurrentWorkflow()} onToolboxModeChange={setWorkspaceToolboxMode} primaryAction={<button type="button" disabled={authoringIncomplete} title={tr(authoringIncomplete ? 'Configure the action amount first' : undefined)} onClick={() => setTab('Simulate')}>{tr("Simulate fees")}</button>}/><CopilotPanel/></div>{verification}{saveNotice?.owner === ownerKey && <p role="status">{tr(saveNotice.message)}</p>}{library.busy && <p role="status">{tr('Saving workflow…')}</p>}{library.error && library.error !== 'WALLET_SESSION_REQUIRED' && <p role="alert">{tr(library.error === 'WORKFLOW_VERSION_CONFLICT' ? 'This workflow was updated in another session. Reopen it before saving.' : 'Workflow saving is unavailable. Try again.')}</p>}<ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/>
           <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
         : tab === 'Simulate' ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}><ReviewTechnicalDetails authorization={reviewBinding.authorization}/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
@@ -220,13 +267,13 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
           bridgeSwap.run ? <BridgeSwapPanel view="execute"/> : bridge.execution ? <BridgePanel view="execute"/> :
           <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : null;
-  return <div className="app-shell"><a className="skip-link" href="#workspace">Skip to workspace</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
-    <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace'}>
+  return <div className="app-shell"><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+    <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tr(tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace')}>
       {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath || localCowIntent ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
-          <details className="shell-details technical-workspace simulation-technical"><summary>View technical details</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
+          <details className="shell-details technical-workspace simulation-technical"><summary>{tr("View technical details")}</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
         </SimulateWorkspace> : stageContent}
-      {state.error && <div className="error-banner" role="alert"><strong>Edit not applied</strong><span>{tab !== 'Build' ? 'Review the workflow configuration in Build before simulating again.' : state.error}</span></div>}
+      {state.error && <div className="error-banner" role="alert"><strong>{tr("Edit not applied")}</strong><span>{tr(tab !== 'Build' ? 'Review the workflow configuration in Build before simulating again.' : state.error)}</span></div>}
     </main>{tab !== 'Execute' && <SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost} focusReview={focusReview} reviewAvailable={Boolean(reviewBinding.authorization.key && reviewBinding.authorization.ready)}/>}
   </div>;
 }

@@ -51,7 +51,7 @@ test('natural language → proposal → explicit Apply → canonical workflow �
   await revision(page, 1);
   await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('1');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base Sepolia');
-  await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
   await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate Supply', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Aave Supply', exact: true })).toContainText('Approval required: Yes');

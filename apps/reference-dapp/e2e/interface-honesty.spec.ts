@@ -4,7 +4,7 @@ import { test, expect, openSimulationDetails, openProposalReview } from './fixtu
 test('shows honest authorization and unavailable stage states', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simular Fees' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate fees' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await openSimulationDetails(page);
   await expect(page.locator('.simulation-technical > .simulate-head')).toContainText('Mocked artifacts cannot authorize execution.');
@@ -42,7 +42,7 @@ test('labels the local fork honestly and enables no execution without a reviewed
   const banner = page.getByRole('banner');
   await banner.getByText('Technical connection details', { exact: true }).click();
   await expect(banner.getByText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/)).toBeVisible();
-  await expect(banner).toContainText('Wallet: injected · not connected');
+  await expect(banner).toContainText('EVM Default: injected · not connected');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await openSimulationDetails(page);
   const fork = page.getByRole('region', { name: 'Local fork Mode A simulation' });

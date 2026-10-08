@@ -9,6 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { evmWalletEntries, incompatibleWalletMessage, requestEvmAnnouncements, subscribeEvmDiscovery } from '../wallet/evm-discovery';
 import { solanaWalletChoices, subscribeSolanaDiscovery, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { useLocale } from '../i18n/locale';
 import { ECOSYSTEM_LABEL, orderWalletChoices, undetectedWallets, walletPreference, WALLET_ECOSYSTEMS, type WalletChoice, type WalletEcosystem } from '../wallet/wallet-registry';
 
 export type WalletSelectorRequest = { readonly ecosystems?: readonly WalletEcosystem[]; readonly title?: string;
@@ -64,6 +65,7 @@ export function WalletMark({ icon }: { icon: string | null }) {
 }
 
 function WalletSelectorDialog({ request, onSettle }: { request: Pending; onSettle(choice: WalletChoice | null): void }) {
+  const { t: tr } = useLocale();
   const dialog = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const titleId = useId(), noteId = useId(), detectedId = useId(), otherId = useId();
@@ -112,32 +114,32 @@ function WalletSelectorDialog({ request, onSettle }: { request: Pending; onSettl
     onClick={event => { if (event.target === event.currentTarget) onSettle(null); }}>
     <div className="wallet-selector-panel">
       <div className="wallet-selector-head">
-        <h2 id={titleId}>{request.title}</h2>
-        <button type="button" className="wallet-selector-close" aria-label="Close wallet selector" onClick={() => onSettle(null)}>
+        <h2 id={titleId}>{tr(request.title)}</h2>
+        <button type="button" className="wallet-selector-close" aria-label={tr("Close wallet selector")} onClick={() => onSettle(null)}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </div>
-      <p id={noteId} className="wallet-selector-note">FloFi opens only the wallet you choose. Connecting shares your public address; it never approves a transaction.</p>
+      <p id={noteId} className="wallet-selector-note">{tr("FloFi opens only the wallet you choose. Connecting shares your public address; it never approves a transaction.")}</p>
       <section aria-labelledby={detectedId}>
-        <h3 id={detectedId} className="wallet-selector-group">Detected</h3>
+        <h3 id={detectedId} className="wallet-selector-group">{tr("Detected")}</h3>
         {detected.length ? <ul ref={list} className="wallet-selector-list" onKeyDown={move}>
           {detected.map(choice => <li key={choice.id}>
             <button type="button" className="wallet-option" data-wallet-option="" data-ecosystem={choice.ecosystem}
-              aria-label={`${choice.name} on ${ECOSYSTEM_LABEL[choice.ecosystem]}`} onClick={() => onSettle(choice)}>
+              aria-label={tr('{0} on {1}', choice.name, ECOSYSTEM_LABEL[choice.ecosystem])} onClick={() => onSettle(choice)}>
               <WalletMark icon={choice.icon}/>
               <span className="wallet-option-text"><strong>{choice.name}</strong><small>{ECOSYSTEM_LABEL[choice.ecosystem]}</small></span>
-              <span className="wallet-option-status">{remembered[choice.ecosystem] === choice.key ? 'Last used' : 'Detected'}</span>
+              <span className="wallet-option-status">{tr(remembered[choice.ecosystem] === choice.key ? 'Last used' : 'Detected')}</span>
             </button>
           </li>)}
-        </ul> : <p className="wallet-selector-empty" role="status">{incompatible ?? 'No wallet detected in this browser. Install or enable a wallet extension, then refresh.'}</p>}
+        </ul> : <p className="wallet-selector-empty" role="status">{tr(incompatible ?? 'No wallet detected in this browser. Install or enable a wallet extension, then refresh.')}</p>}
       </section>
       {others.length > 0 && <section aria-labelledby={otherId}>
-        <h3 id={otherId} className="wallet-selector-group">Other wallets</h3>
+        <h3 id={otherId} className="wallet-selector-group">{tr("Other wallets")}</h3>
         <ul className="wallet-selector-list">
-          {others.map(known => <li key={`${known.ecosystem}:${known.key}`} className="wallet-option wallet-option-unavailable" aria-label={`${known.name} on ${ECOSYSTEM_LABEL[known.ecosystem]}, not detected`}>
+          {others.map(known => <li key={`${known.ecosystem}:${known.key}`} className="wallet-option wallet-option-unavailable" aria-label={tr('{0} on {1}, not detected', known.name, ECOSYSTEM_LABEL[known.ecosystem])}>
             <WalletMark icon={null}/>
             <span className="wallet-option-text"><strong>{known.name}</strong><small>{ECOSYSTEM_LABEL[known.ecosystem]}</small></span>
-            <span className="wallet-option-status">Not detected</span>
+            <span className="wallet-option-status">{tr("Not detected")}</span>
           </li>)}
         </ul>
       </section>}

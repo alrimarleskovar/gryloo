@@ -182,10 +182,10 @@ test('desktop and mobile composer keep compact cards, editor placement and appro
     const canvas = await page.getByRole('region', { name: 'Workflow canvas', exact: true }).boundingBox();
     const editor = await inspector(page).boundingBox();
     expect(editor!.y).toBeGreaterThanOrEqual(canvas!.y + canvas!.height);
-    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeVisible();
     await expect(page.locator('.build-flow-surface .canvas-navigator')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    const cta = await page.getByRole('button', { name: 'Simular Fees', exact: true }).boundingBox();
+    const cta = await page.getByRole('button', { name: 'Simulate fees', exact: true }).boundingBox();
     for (const card of await cards(page).all()) {
       const box = await card.boundingBox();
       if (!box || !cta) throw new Error('Card or canvas CTA missing');
@@ -269,7 +269,7 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     expect(destinationBox.y).toBeGreaterThanOrEqual(sourceBox.y + sourceBox.height + 3);
     expect(destinationBox.width).toBe(sourceBox.width);
     for (const valueBox of [amount, destination]) {
-      await expect(valueBox.locator('.composer-fiat-value')).toHaveText('US$ 0,00');
+      await expect(valueBox.locator('.composer-fiat-value')).toHaveText('USD value unavailable');
       await expect(valueBox.locator('.composer-fiat-value')).toHaveAttribute('aria-label', /unavailable/);
       await expect(valueBox.locator('.composer-token-avatar')).toBeVisible();
       const value = (await valueBox.locator('.composer-value-column').boundingBox())!;
@@ -304,12 +304,12 @@ test('Swap and Bridge source/destination boxes select the existing editor, prese
     await expect(utilities.getByRole('button', { name: 'Undo', exact: true })).toBeInViewport();
     await utilities.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(amount.locator('.composer-token-value')).toHaveValue('1');
-    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
     await utilities.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(card).toHaveCount(0);
     await expect(utilities.getByRole('button', { name: 'Redo', exact: true })).toBeInViewport();
     await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Simular Fees', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
     await utilities.getByRole('button', { name: 'Redo', exact: true }).click();
     await expect(amount.locator('.composer-token-value')).toHaveValue('1');
     await expect(inspector(page).locator('.inspector-body')).toBeHidden();

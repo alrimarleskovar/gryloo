@@ -77,7 +77,7 @@ for (const value of ['Light', 'Dark'] as const) for (const action of ['pool', 's
       await card.getByRole('button', { name: 'Tick', exact: true }).click();
       await expect(card.locator('.composer-value-arrow')).toHaveCount(0);
     }
-    await page.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     const inspection = page.locator('.simulate-flow-surface .composer-card');
     await expect(inspection.locator('.composer-value-arrow')).toHaveCount(action === 'pool' ? 0 : 1);
     await expect(inspection.locator('input, select, button')).toHaveCount(0);

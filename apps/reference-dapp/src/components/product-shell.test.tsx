@@ -75,7 +75,7 @@ describe('product shell rendering', () => {
     if (connected) { wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x14a34'; }
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
     expect(html).toMatch(/class="header-wallet" role="group" aria-label="Wallet connection">[\s\S]*?<\/div><div class="header-settings-control"><button type="button" class="header-settings"/);
-    expect(html.replace(/<[^>]*>/g, '')).toContain(connected ? 'Wallet: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
+    expect(html.replace(/<[^>]*>/g, '')).toContain(connected ? 'EVM Default: 0x1111…1111 · Base Sepolia' : 'Wallet not connected');
     if (connected) expect(html).toContain('<span class="numeric wallet-address">0x1111…1111</span>');
     if (connected) expect(html).not.toContain('header-wallet-provider');
     expect(html).not.toContain('>Disconnect</button>');
@@ -118,7 +118,7 @@ describe('product shell rendering', () => {
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
     expect(html).toContain('<span class="header-wallet-provider" title="Rabby Wallet">');
     expect(html).toContain('<span class="sr-only">Rabby Wallet</span>');
-    expect(html).toMatch(/class="build009-wallet-info wallet-connection"[^>]*>Wallet: <span class="numeric wallet-address">0x1111…1111<\/span> · Base Sepolia<\/span>/);
+    expect(html).toMatch(/class="build009-wallet-info wallet-connection"[^>]*>EVM Default: <span class="numeric wallet-address">0x1111…1111<\/span> · Base Sepolia<\/span>/);
     expect(wallet.connect).not.toHaveBeenCalled();
     Object.assign(wallet, { provider: undefined });
   });
@@ -129,7 +129,7 @@ describe('product shell rendering', () => {
     })] });
     wallet.account = '0x1111111111111111111111111111111111111111'; wallet.chainId = '0x2105';
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Simulate', setTab: vi.fn() }));
-    expect(html.replace(/<[^>]*>/g, '')).toContain('Wallet: 0x1111…1111 · Base (8453)');
+    expect(html.replace(/<[^>]*>/g, '')).toContain('EVM Default: 0x1111…1111 · Base (8453)');
     expect(html).toContain('Workflow network: Base Sepolia');
     expect(html).toContain('Switch to Base Sepolia');
     expect(wallet.switchTo).not.toHaveBeenCalled();
