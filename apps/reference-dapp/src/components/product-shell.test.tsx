@@ -118,7 +118,7 @@ describe('product shell rendering', () => {
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
     expect(html).toContain('<span class="header-wallet-provider" title="Rabby Wallet">');
     expect(html).toContain('<span class="sr-only">Rabby Wallet</span>');
-    expect(html).toMatch(/class="build009-wallet-info wallet-connection"[^>]*>Wallet: <span class="numeric wallet-address">0x1111…1111<\/span> · Base Sepolia<\/span>/);
+    expect(html).toMatch(/class="build009-wallet-info wallet-connection"[^>]*>EVM Default: <span class="numeric wallet-address">0x1111…1111<\/span> · Base Sepolia<\/span>/);
     expect(wallet.connect).not.toHaveBeenCalled();
     Object.assign(wallet, { provider: undefined });
   });

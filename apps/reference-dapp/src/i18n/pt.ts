@@ -12,9 +12,11 @@ import { portugueseReview } from './pt-review';
 import { portugueseAuthoring } from './pt-authoring';
 import { productPortuguese } from './pt-product';
 import { domainPortuguese } from './pt-domain';
+import { portugueseWallets } from './pt-wallets';
 /** English source messages are stable presentation keys. Technical identifiers never enter this catalog. */
 export const portuguese: Readonly<Record<string, string>> = {
   ...productPortuguese,
+  ...portugueseWallets,
   ...portugueseCrossChain,
   ...portugueseLocalRuntime,
   ...portugueseBridges,

@@ -84,30 +84,30 @@ function WalletCredentialCard({ entry, busy, onActivate, onDisconnect, onSave, o
     <div className="workspace-wallet-heading">
       <span className="workspace-network-icon"><img src={icon} width="28" height="28" alt=""/></span>
       <div><h3>{entry.label}</h3><p>{entry.providerName} · {ECOSYSTEM_LABEL[entry.ecosystem]}</p></div>
-      <span className={`workspace-wallet-status${entry.active ? ' workspace-wallet-status-active' : ''}`}>{status}</span>
+      <span className={`workspace-wallet-status${entry.active ? ' workspace-wallet-status-active' : ''}`}>{tr(status)}</span>
     </div>
-    <p className="workspace-wallet-network">{credentialNetworkLabel(entry.network)}</p>
+    <p className="workspace-wallet-network">{tr(credentialNetworkLabel(entry.network))}</p>
     <div className="workspace-wallet-address"><code title={entry.address}>{entry.address.slice(0, 6)}…{entry.address.slice(-4)}</code>
-      <button type="button" className="workspace-copy" aria-label={`Copy ${entry.label} address`} title="Copy address" onClick={() => void copyAddress()}><WorkspaceIcon name="copy" size={17}/></button>
+      <button type="button" className="workspace-copy" aria-label={tr('Copy {0} address', entry.label)} title={tr("Copy address")} onClick={() => void copyAddress()}><WorkspaceIcon name="copy" size={17}/></button>
     </div>
     {mode === 'rename' && entry.saved ? <form className="workspace-inline-form" onSubmit={event => { event.preventDefault(); rename(); }}
       onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setMode('view'); setDraft(entry.label); setRenameError(''); } }}>
-      <label htmlFor={renameId}>Wallet name</label>
+      <label htmlFor={renameId}>{tr("Wallet name")}</label>
       <input id={renameId} value={draft} maxLength={LABEL_MAX} autoComplete="off" autoFocus aria-invalid={renameError ? 'true' : undefined}
         aria-describedby={renameError ? `${renameId}-error` : undefined} onChange={event => setDraft(event.currentTarget.value)}/>
-      {renameError && <p id={`${renameId}-error`} className="workspace-inline-error" role="alert">{renameError}</p>}
-      <div className="workspace-wallet-actions"><button type="submit" className="workspace-action">Save name</button>
-        <button type="button" className="workspace-action" onClick={() => { setMode('view'); setDraft(entry.label); setRenameError(''); }}>Cancel</button></div>
-    </form> : mode === 'remove' && entry.saved ? <div className="workspace-inline-form" role="group" aria-label={`Remove ${entry.label}`}>
-      <p>Remove {entry.label} from FloFi?{entry.active ? ' This also disconnects it.' : ''} Only FloFi&apos;s reference is removed; the wallet and its assets are not affected.</p>
-      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" onClick={remove}>Remove</button>
-        <button type="button" className="workspace-action" onClick={() => setMode('view')}>Cancel</button></div>
+      {renameError && <p id={`${renameId}-error`} className="workspace-inline-error" role="alert">{tr(renameError)}</p>}
+      <div className="workspace-wallet-actions"><button type="submit" className="workspace-action">{tr("Save name")}</button>
+        <button type="button" className="workspace-action" onClick={() => { setMode('view'); setDraft(entry.label); setRenameError(''); }}>{tr("Cancel")}</button></div>
+    </form> : mode === 'remove' && entry.saved ? <div className="workspace-inline-form" role="group" aria-label={tr('Remove {0}', entry.label)}>
+      <p>{tr('Remove {0} from FloFi?', entry.label)}{tr(entry.active ? ' This also disconnects it.' : '')}{tr(" Only FloFi's reference is removed; the wallet and its assets are not affected.")}</p>
+      <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" onClick={remove}>{tr("Remove")}</button>
+        <button type="button" className="workspace-action" onClick={() => setMode('view')}>{tr("Cancel")}</button></div>
     </div> : <div className="workspace-wallet-actions">
-      {entry.saved && <button type="button" className="workspace-action" aria-label={`Rename ${entry.label}`} onClick={() => { setDraft(entry.label); setMode('rename'); }}>Rename</button>}
-      {!entry.saved && entry.active && <button type="button" className="workspace-action" aria-label={`Save ${entry.label}`} onClick={() => onSave(entry.active!)}>Save</button>}
-      {entry.active ? <button type="button" className="workspace-action" aria-label={`Disconnect ${entry.label}`} disabled={busy} onClick={onDisconnect}>Disconnect</button>
-        : entry.saved && <button type="button" className="workspace-action" aria-label={`Connect ${entry.label}`} disabled={busy} onClick={() => onActivate(entry.saved!)}>Connect</button>}
-      {entry.saved && <button type="button" className="workspace-action" aria-label={`Remove ${entry.label}`} onClick={() => setMode('remove')}>Remove</button>}
+      {entry.saved && <button type="button" className="workspace-action" aria-label={tr('Rename {0}', entry.label)} onClick={() => { setDraft(entry.label); setMode('rename'); }}>{tr("Rename")}</button>}
+      {!entry.saved && entry.active && <button type="button" className="workspace-action" aria-label={tr('Save {0}', entry.label)} onClick={() => onSave(entry.active!)}>{tr("Save")}</button>}
+      {entry.active ? <button type="button" className="workspace-action" aria-label={tr('Disconnect {0}', entry.label)} disabled={busy} onClick={onDisconnect}>{tr("Disconnect")}</button>
+        : entry.saved && <button type="button" className="workspace-action" aria-label={tr('Connect {0}', entry.label)} disabled={busy} onClick={() => onActivate(entry.saved!)}>{tr("Connect")}</button>}
+      {entry.saved && <button type="button" className="workspace-action" aria-label={tr('Remove {0}', entry.label)} onClick={() => setMode('remove')}>{tr("Remove")}</button>}
     </div>}
   </article>;
 }
@@ -115,6 +115,7 @@ function WalletCredentialCard({ entry, busy, onActivate, onDisconnect, onSave, o
 /** Removal codes after which the saved reference can no longer be used at the provider: FloFi's copy is removed anyway. */
 const CARD_REFERENCE_UNUSABLE = new Set(['CARD_TOKENIZATION_PROVIDER_REQUIRED', 'CARD_BINDING_INVALID', 'CARD_PROVIDER_NOT_FOUND']);
 function CardCredential({ card, onStatus }: { card: SavedCard; onStatus(message: string): void }) {
+  const { t: tr } = useLocale();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
   async function remove() {
@@ -130,13 +131,13 @@ function CardCredential({ card, onStatus }: { card: SavedCard; onStatus(message:
       <span className="workspace-network-icon"><WorkspaceIcon name="card" size={24}/></span>
       <div><h3>{card.label}</h3><p>{brandLabel(card.brand)} · {card.providerName}</p></div>
     </div>
-    <p className="workspace-wallet-network"><span className="numeric">•••• {card.last4}</span> · Expires {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}</p>
-    {confirming ? <div className="workspace-inline-form" role="group" aria-label={`Remove ${card.label}`}>
-      <p>Remove this card from FloFi? The card itself is not affected.</p>
+    <p className="workspace-wallet-network"><span className="numeric">•••• {card.last4}</span>{tr(' · Expires {0}', `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}`)}</p>
+    {confirming ? <div className="workspace-inline-form" role="group" aria-label={tr('Remove {0}', card.label)}>
+      <p>{tr("Remove this card from FloFi? The card itself is not affected.")}</p>
       <div className="workspace-wallet-actions"><button type="button" className="workspace-action workspace-action-danger" disabled={removing}
-        onClick={() => void remove()}>Remove</button>
-        <button type="button" className="workspace-action" onClick={() => setConfirming(false)}>Cancel</button></div>
-    </div> : <div className="workspace-wallet-actions"><button type="button" className="workspace-action" aria-label={`Remove ${card.label}`} onClick={() => setConfirming(true)}>Remove</button></div>}
+        onClick={() => void remove()}>{tr("Remove")}</button>
+        <button type="button" className="workspace-action" onClick={() => setConfirming(false)}>{tr("Cancel")}</button></div>
+    </div> : <div className="workspace-wallet-actions"><button type="button" className="workspace-action" aria-label={tr('Remove {0}', card.label)} onClick={() => setConfirming(true)}>{tr("Remove")}</button></div>}
   </article>;
 }
 
@@ -159,6 +160,7 @@ const CARD_ERRORS: Readonly<Record<string, string>> = {
 function SecureCardForm({ client, providerName, titleId, onClose, onAdded }: {
   client: CardProviderClient; providerName: string; titleId: string; onClose(): void; onAdded(label: string): void;
 }) {
+  const { t: tr } = useLocale();
   const baseId = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const sdk = useRef<MercadoPagoInstance | null>(null);
   const [phase, setPhase] = useState<'loading' | 'ready' | 'saving' | 'unavailable'>('loading');
@@ -200,20 +202,20 @@ function SecureCardForm({ client, providerName, titleId, onClose, onAdded }: {
       onAdded(saved?.label ?? 'Card');
     } catch { setPhase('ready'); setError('The card could not be added. Nothing was saved.'); }
   }
-  if (phase === 'unavailable') return <><div role="status" className="card-entry-body"><p>Secure card entry could not be loaded. Nothing was collected. Try again later.</p></div>
-    <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>;
+  if (phase === 'unavailable') return <><div role="status" className="card-entry-body"><p>{tr("Secure card entry could not be loaded. Nothing was collected. Try again later.")}</p></div>
+    <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>{tr("Close")}</button></div></>;
   return <form className="card-entry-form" aria-labelledby={titleId} aria-busy={phase !== 'ready'} noValidate onSubmit={event => { event.preventDefault(); void submit(event.currentTarget); }}>
-    <p className="card-entry-note">Card details are entered in {providerName}&apos;s secure fields. FloFi receives only a token, the brand, the last four digits and the expiry date.</p>
+    <p className="card-entry-note">{tr("Card details are entered in {0}'s secure fields. FloFi receives only a token, the brand, the last four digits and the expiry date.", providerName)}</p>
     {CARD_FIELDS.map(field => <div key={field.type} className={`card-entry-field card-entry-${field.type}`} role="group" aria-labelledby={`${baseId}-${field.type}-label`}>
-      <span id={`${baseId}-${field.type}-label`}>{field.label}</span><div id={`${baseId}-${field.type}`} className="card-entry-secure" data-secure-field={field.type}/>
+      <span id={`${baseId}-${field.type}-label`}>{tr(field.label)}</span><div id={`${baseId}-${field.type}`} className="card-entry-secure" data-secure-field={field.type}/>
     </div>)}
-    <label className="card-entry-field card-entry-holder">Name on card<input name="cardholderName" autoComplete="cc-name" maxLength={60} required/></label>
-    <label className="card-entry-field card-entry-document-type">Document<select name="identificationType" required>{documents.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
-    <label className="card-entry-field card-entry-document">Number<input name="identificationNumber" inputMode="numeric" autoComplete="off" maxLength={18} required/></label>
-    <label className="card-entry-field card-entry-email">Email<input name="email" type="email" autoComplete="email" maxLength={254} required/></label>
-    {error && <p className="workspace-inline-error card-entry-error" role="alert">{error}</p>}
-    <div className="wallet-selector-footer card-entry-actions"><button type="button" className="workspace-action" onClick={onClose}>Cancel</button>
-      <button type="submit" className="workspace-action" disabled={phase !== 'ready'}>{phase === 'saving' ? 'Adding…' : 'Add card'}</button></div>
+    <label className="card-entry-field card-entry-holder">{tr("Name on card")}<input name="cardholderName" autoComplete="cc-name" maxLength={60} required/></label>
+    <label className="card-entry-field card-entry-document-type">{tr("Document")}<select name="identificationType" required>{documents.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+    <label className="card-entry-field card-entry-document">{tr("Number")}<input name="identificationNumber" inputMode="numeric" autoComplete="off" maxLength={18} required/></label>
+    <label className="card-entry-field card-entry-email">{tr("Email")}<input name="email" type="email" autoComplete="email" maxLength={254} required/></label>
+    {error && <p className="workspace-inline-error card-entry-error" role="alert">{tr(error)}</p>}
+    <div className="wallet-selector-footer card-entry-actions"><button type="button" className="workspace-action" onClick={onClose}>{tr("Cancel")}</button>
+      <button type="submit" className="workspace-action" disabled={phase !== 'ready'}>{tr(phase === 'saving' ? 'Adding…' : 'Add card')}</button></div>
   </form>;
 }
 
@@ -223,6 +225,7 @@ function SecureCardForm({ client, providerName, titleId, onClose, onAdded }: {
  */
 function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label: string): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const { t: tr } = useLocale();
   const titleId = useId(), bodyId = useId();
   const [status, setStatus] = useState<CardProviderStatus | null>(null);
   const [failed, setFailed] = useState(false);
@@ -237,18 +240,18 @@ function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label:
   return <dialog ref={dialog} className="wallet-selector card-entry" aria-labelledby={titleId} aria-describedby={secure ? undefined : bodyId}
     onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="wallet-selector-panel">
-      <div className="wallet-selector-head"><h2 id={titleId}>Add a card</h2>
-        <button type="button" className="wallet-selector-close" aria-label="Close" autoFocus onClick={onClose}>
+      <div className="wallet-selector-head"><h2 id={titleId}>{tr("Add a card")}</h2>
+        <button type="button" className="wallet-selector-close" aria-label={tr("Close")} autoFocus onClick={onClose}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button></div>
       {secure ? <SecureCardForm client={secure.client} providerName={secure.provider.name} titleId={titleId} onClose={onClose} onAdded={onAdded}/> : <>
         <div id={bodyId} role="status" className="card-entry-body">
-          {failed ? <p>Card entry status could not be checked. Nothing was collected. Try again later.</p>
-            : !status ? <p>Checking secure card entry…</p>
-              : <><p><strong>Secure card entry isn&apos;t available yet.</strong></p>
-                <p>FloFi never asks for your card number or security code in its own forms. Cards are added only through a certified card provider&apos;s secure entry, and no card provider is connected to FloFi yet.</p></>}
+          {failed ? <p>{tr("Card entry status could not be checked. Nothing was collected. Try again later.")}</p>
+            : !status ? <p>{tr("Checking secure card entry…")}</p>
+              : <><p><strong>{tr("Secure card entry isn't available yet.")}</strong></p>
+                <p>{tr("FloFi never asks for your card number or security code in its own forms. Cards are added only through a certified card provider's secure entry, and no card provider is connected to FloFi yet.")}</p></>}
         </div>
-        <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>Close</button></div></>}
+        <div className="wallet-selector-footer"><button type="button" className="workspace-action" onClick={onClose}>{tr("Close")}</button></div></>}
     </div>
   </dialog>;
 }
@@ -304,26 +307,26 @@ function CredentialsWorkspace() {
     else if (session.account.address !== saved.address) mismatch(session.account.address);
   }
   return <>
-    <header className="secondary-workspace-heading"><h1>Credentials</h1><p>Keep the wallets and cards you use with FloFi in one place. Saved credentials are references only: they never approve a transaction or a payment.</p></header>
-    <p className="workspace-notice" role="status">{status || connection.error || ''}</p>
+    <header className="secondary-workspace-heading"><h1>{tr("Credentials")}</h1><p>{tr("Keep the wallets and cards you use with FloFi in one place. Saved credentials are references only: they never approve a transaction or a payment.")}</p></header>
+    <p className="workspace-notice" role="status">{tr(status || connection.error || '')}</p>
     <section className="workspace-section" aria-labelledby="credentials-wallets">
-      <div className="workspace-section-heading"><div><WorkspaceIcon name="wallet"/><h2 id="credentials-wallets">Wallets</h2><span className="workspace-count">{entries.length}</span></div>
-        <button type="button" className="workspace-action" disabled={busy} onClick={() => void addWallet()}><WorkspaceIcon name="plus" size={16}/>Add wallet</button></div>
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="wallet"/><h2 id="credentials-wallets">{tr("Wallets")}</h2><span className="workspace-count">{entries.length}</span></div>
+        <button type="button" className="workspace-action" disabled={busy} onClick={() => void addWallet()}><WorkspaceIcon name="plus" size={16}/>{tr("Add wallet")}</button></div>
       {entries.length ? <div className="workspace-wallet-grid">{entries.map(entry => <WalletCredentialCard key={entry.saved?.id ?? `active:${entry.ecosystem}:${entry.address}`}
         entry={entry} busy={busy} onActivate={saved => void activate(saved)} onDisconnect={() => disconnect(entry)} onSave={save} onStatus={setStatus}/>)}</div>
-        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="wallet" size={28}/></span><h3>No wallets yet</h3><p>Add a wallet to save its public address here. FloFi never holds your keys.</p></div>}
+        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="wallet" size={28}/></span><h3>{tr("No wallets yet")}</h3><p>{tr("Add a wallet to save its public address here. FloFi never holds your keys.")}</p></div>}
     </section>
     <section className="workspace-section" aria-labelledby="credentials-cards">
-      <div className="workspace-section-heading"><div><WorkspaceIcon name="card"/><h2 id="credentials-cards">Cards</h2><span className="workspace-count">{credentials.cards.length}</span></div>
-        <button type="button" className="workspace-action" onClick={() => setCardEntry(true)}><WorkspaceIcon name="plus" size={16}/>Add card</button></div>
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="card"/><h2 id="credentials-cards">{tr("Cards")}</h2><span className="workspace-count">{credentials.cards.length}</span></div>
+        <button type="button" className="workspace-action" onClick={() => setCardEntry(true)}><WorkspaceIcon name="plus" size={16}/>{tr("Add card")}</button></div>
       {credentials.cards.length ? <div className="workspace-wallet-grid">{credentials.cards.map(card => <CardCredential key={card.id} card={card} onStatus={setStatus}/>)}</div>
-        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="card" size={28}/></span><h3>No cards yet</h3><p>Cards are added through a certified card provider&apos;s secure entry. FloFi never sees or stores your card number or security code.</p></div>}
+        : <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="card" size={28}/></span><h3>{tr("No cards yet")}</h3><p>{tr("Cards are added through a certified card provider's secure entry. FloFi never sees or stores your card number or security code.")}</p></div>}
     </section>
     <section className="workspace-section" aria-labelledby="credentials-payments">
-      <div className="workspace-section-heading"><div><WorkspaceIcon name="key"/><h2 id="credentials-payments">Payment connections</h2><span className="workspace-count">0</span></div></div>
-      <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><h3>No payment provider connected</h3><p>Pix and boleto payments need a connected payment provider. None is connected yet.</p></div>
+      <div className="workspace-section-heading"><div><WorkspaceIcon name="key"/><h2 id="credentials-payments">{tr("Payment connections")}</h2><span className="workspace-count">0</span></div></div>
+      <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><h3>{tr("No payment provider connected")}</h3><p>{tr("Pix and boleto payments need a connected payment provider. None is connected yet.")}</p></div>
     </section>
-    <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>Add secret</FutureAction></div>
+    <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>{tr("Add secret")}</FutureAction></div>
     {cardEntry && <CardEntryDialog onClose={() => setCardEntry(false)} onAdded={label => { setCardEntry(false); setStatus(`${label} added to Credentials.`); }}/>}
   </>;
 }

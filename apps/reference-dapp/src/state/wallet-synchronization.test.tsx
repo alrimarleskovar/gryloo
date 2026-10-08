@@ -4,6 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Build009WalletProvider, useBuild009Wallet } from './build009-wallet-store';
 import { deferred, HookHarness } from '../test-utils/hook-harness';
 vi.mock('react', async original => ({ ...await original<typeof import('react')>(), ...(await import('../test-utils/hook-harness')).hookMocks }));
+// Connect goes through the canonical selector (HOTFIX-WALLET-SELECTOR); the owner picks the wallet this browser exposes.
+vi.mock('../components/wallet-selector', async () => {
+  const { evmWalletEntries } = await import('../wallet/evm-discovery');
+  return { useWalletSelector: () => ({ open: false, choose: async () => evmWalletEntries()[0]?.choice ?? null }) };
+});
 const first = '0x' + 'a'.repeat(40), second = '0x' + 'b'.repeat(40);
 function provider() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -18,6 +23,8 @@ let host: HookHarness, wallet: ReturnType<typeof useBuild009Wallet>, source: Ret
 function Probe() { wallet = useBuild009Wallet(); return null; }
 const read = () => host.render(() => renderToStaticMarkup(<Build009WalletProvider><Probe/></Build009WalletProvider>));
 async function settle() { await Promise.resolve(); await Promise.resolve(); read(); }
+/** Connect first resolves the owner's selector choice; races are meaningful once the account request is in flight. */
+const requested = () => vi.waitFor(() => expect(source.request).toHaveBeenCalledWith({ method: 'eth_requestAccounts' }));
 beforeEach(() => { host = new HookHarness(); source = provider(); target = Object.assign(new EventTarget(), { ethereum: source, setTimeout, clearTimeout }); vi.stubGlobal('window', target); });
 afterEach(() => { host.unmount(); vi.unstubAllGlobals(); });
 describe('shared wallet synchronization lifecycle', () => {
@@ -72,7 +79,7 @@ describe('shared wallet synchronization lifecycle', () => {
   });
   it('does not let an old Connect response overwrite a newer provider account event', async () => {
     read(); await settle(); const pending = deferred<string[]>(); source.request.mockImplementationOnce(() => pending.promise);
-    const connecting = wallet.connect(); source.state.account = second; source.emit('accountsChanged', [second]); await settle();
+    const connecting = wallet.connect(); await requested(); source.state.account = second; source.emit('accountsChanged', [second]); await settle();
     pending.resolve([first]); expect(await connecting).toBeNull(); read(); expect(wallet.account).toBe(second);
   });
   it.each([['0x2105', '0x1'], ['0x14a34', '0xaa36a7'], ['0x2105', '0xa4b1']])('reflects external network changes %s → %s immediately', async (from, to) => {
@@ -86,12 +93,15 @@ describe('shared wallet synchronization lifecycle', () => {
   });
   it.each(['chainChanged', 'disconnect', 'providerSelection'])('discards stale Connect after %s', async event => {
     read(); await settle(); const pending = deferred<string[]>(); source.request.mockImplementationOnce(() => pending.promise);
-    const connecting = wallet.connect();
+    const connecting = wallet.connect(); await requested();
     if (event === 'chainChanged') { source.state.chain = '0x1'; source.emit(event, '0x1'); }
     else if (event === 'disconnect') source.emit(event);
     else {
+      // An explicit choice pins its provider; the owner picking another wallet mid-Connect is the provider-selection race.
       const replacement = provider(); replacement.state.account = second; replacement.state.chain = '0xa4b1';
       target.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: { provider: replacement, info: { rdns: 'io.metamask' } } }));
+      const { evmWalletEntries } = await import('../wallet/evm-discovery');
+      await wallet.connectWith(evmWalletEntries().find(entry => entry.provider === replacement)!.choice.id);
     }
     await settle(); pending.resolve([first]); expect(await connecting).toBeNull(); read();
     expect(wallet).toMatchObject(event === 'chainChanged' ? { account: first, chainId: '0x1' } : event === 'disconnect' ? { account: null, chainId: null } : { account: second, chainId: '0xa4b1' });
