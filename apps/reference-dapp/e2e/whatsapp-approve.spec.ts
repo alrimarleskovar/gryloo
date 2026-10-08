@@ -15,14 +15,14 @@
  */
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { createDatabase } from '@defi-workflow-engine/cloud-runtime';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { handleWhatsAppWebhook } from '../src/channels/whatsapp/handler.ts';
 import { fixtureTransport, type FixtureRecord } from '../src/channels/whatsapp/transport.ts';
 import { inbound, signed, webhookRequest } from '../src/channels/whatsapp/fixtures.test-harness.ts';
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
-import { CHANNEL_E2E, CHANNEL_E2E_USER, channelE2eEnv } from './channel-constants';
-import { openSimulationDetails } from './fixtures';
+import { CHANNEL_E2E, channelE2eEnv, channelE2eUsers } from './channel-constants';
+import { handoffIds, handoffOfLink, newHandoffs, query } from './channel-fixtures';
+import { chooseWallet, openSimulationDetails } from './fixtures';
 import { guardedContext, installJourneyWallet } from './journey-fixtures';
 import { assertMcpHarness } from './mcp-fixtures';
 import { assertExecutionBlocked } from './release-safety-fixtures';
@@ -30,10 +30,6 @@ import { installLendingWallet, LENDING_OWNER, lendingRpc, lendingSends } from '.
 
 const ROUTE = `${APP_ORIGIN}/api/channels/whatsapp`;
 const COMPOSITION = `compose supply 0.1 USDC to Aave then borrow 0.01 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner ${LENDING_OWNER}`;
-async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const db = createDatabase({ connectionString: process.env.FLOFI_E2E_DATABASE_URL!, maxConnections: 1 });
-  try { return (await db.query(sql, params)).rows as T[]; } finally { await db.close(); }
-}
 /** The same deployment the app server runs, used in this process only to turn one message into a reply the spec can read. */
 const serverEnv = () => ({ FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, FLOFI_PUBLIC_ORIGIN: APP_ORIGIN,
   GRYLOO_LENDING_HARNESS: 'MOCKED_LOOPBACK_ONLY', ...channelE2eEnv() });
@@ -49,33 +45,39 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     const fixtureOwner = createTestWallet(new Uint8Array(32).fill(0x43)), stranger = createTestWallet();
     expect(fixtureOwner.address).toBe(LENDING_OWNER);
     await lendingRpc('MOCK_reset', [{}]);
-    const env = serverEnv();
+    const env = serverEnv(), user = channelE2eUsers().whatsapp;
+    // Every handoff that exists before this spec's first delivery belongs to someone else (MCP, Developer, Telegram, an earlier run).
+    const before = await handoffIds();
 
     // 1. The real route under Next.
     const verify = await request.get(`${ROUTE}?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(env.WHATSAPP_WEBHOOK_VERIFY_TOKEN)}&hub.challenge=7071`);
     expect([verify.status(), await verify.text()]).toEqual([200, '7071']);
     const deliver = (text: string, signature?: string) => {
-      const s = signed(inbound([{ text, bsuid: CHANNEL_E2E_USER }]), env.WHATSAPP_APP_SECRET);
+      const s = signed(inbound([{ text, bsuid: user }]), env.WHATSAPP_APP_SECRET);
       return request.post(ROUTE, { headers: { 'content-type': 'application/json', 'x-hub-signature-256': signature ?? s.signature }, data: s.raw });
     };
     expect((await deliver(COMPOSITION, `sha256=${'0'.repeat(64)}`)).status()).toBe(401);
     const accepted = await deliver(COMPOSITION);
     expect([accepted.status(), await accepted.json()]).toEqual([200, { ok: true, code: 'ACCEPTED' }]);
-    // The turn ran after the response: a channel approval exists (no MCP account or grant) and its message went to the fixture provider.
-    await expect.poll(async () => (await query<{ n: number }>(`SELECT count(*)::int AS n FROM channel_outbox WHERE kind = 'APPROVAL' AND status = 'SENT'`))[0]!.n,
-      { timeout: 30_000 }).toBe(1);
-    const [first] = await query<Record<string, unknown>>(`SELECT handoff_id, requester_kind, account_id, grant_id, client_name, status FROM mcp_handoffs`);
+    // The turn ran after the response: exactly one new channel approval (no MCP account or grant), its message sent to the fixture provider.
+    await expect.poll(async () => (await newHandoffs('WhatsApp', before)).length, { timeout: 30_000 }).toBe(1);
+    const [first] = await newHandoffs('WhatsApp', before);
+    await expect.poll(async () => query<{ status: string }>(`SELECT status FROM channel_outbox WHERE kind = 'APPROVAL' AND handoff_id = $1`, [first!.handoff_id]),
+      { timeout: 30_000 }).toEqual([{ status: 'SENT' }]);
     expect(first).toMatchObject({ requester_kind: 'CHANNEL_CONVERSATION', account_id: null, grant_id: null, client_name: 'WhatsApp', status: 'PENDING' });
 
     // 2. LINK: a fresh link replaces the first (now withdrawn), read from the fixture transport the way the user's phone would.
     const sent: FixtureRecord[] = [];
-    const say = async (text: string) => expect((await handleWhatsAppWebhook(webhookRequest(inbound([{ text, bsuid: CHANNEL_E2E_USER }]), env.WHATSAPP_APP_SECRET),
+    const say = async (text: string) => expect((await handleWhatsAppWebhook(webhookRequest(inbound([{ text, bsuid: user }]), env.WHATSAPP_APP_SECRET),
       { env, transport: fixtureTransport(sent) })).status).toBe(200);
     await say('link');
     const linkMessage = sent.find(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')!.body as { interactive: { action: { parameters: { url: string } } } };
     const url = linkMessage.interactive.action.parameters.url;
     expect(url).toMatch(new RegExp(`^${APP_ORIGIN.replace(/[.]/g, '\\.')}/approve#flofi_chs_[A-Za-z0-9_-]{43}$`));
-    expect((await query<{ status: string }>(`SELECT status FROM mcp_handoffs WHERE handoff_id = $1`, [first!.handoff_id]))[0]!.status).toBe('REVOKED');
+    // The link's own handoff: new, in the same conversation as the first, which it withdrew.
+    const linked = await handoffOfLink(url);
+    expect(linked).toMatchObject({ requester_kind: 'CHANNEL_CONVERSATION', requester_ref: first!.requester_ref, client_name: 'WhatsApp', status: 'PENDING' });
+    expect((await newHandoffs('WhatsApp', before)).map(h => [h.handoff_id, h.status])).toEqual([[first!.handoff_id, 'REVOKED'], [linked.handoff_id, 'PENDING']]);
 
     // 3. /approve: a proven wallet other than the one the strategy names cannot load it.
     const { context, unexpected } = await guardedContext(browser);
@@ -86,6 +88,7 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     await expect(approval(other)).toContainText('Nothing is authorized yet.');
     await expect(approval(other).getByRole('checkbox')).not.toBeChecked();
     await approval(other).getByRole('button', { name: 'Connect wallet and prove ownership' }).click();
+    await chooseWallet(other, 'Browser wallet');
     await expect(approval(other)).toContainText(`Signed in as ${stranger.address}`);
     await approval(other).getByRole('button', { name: 'Load proposal' }).click();
     await expect(approval(other)).toContainText('CHANNEL_INTENDED_WALLET_MISMATCH');
@@ -103,21 +106,21 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     await expect(region.getByRole('checkbox')).not.toBeChecked();
     await region.getByRole('checkbox').check();
     await region.getByRole('button', { name: 'Connect wallet and prove ownership' }).click();
+    await chooseWallet(signing, 'Browser wallet');
     await expect(region).toContainText(`Signed in as ${LENDING_OWNER}`);
     await region.getByRole('button', { name: 'Load proposal' }).click();
     await region.getByRole('button', { name: 'Add to my workflow' }).click();
     await expect(region.getByRole('status')).toContainText('Ready for your review.');
-    const [handoff] = await query<{ handoff_id: string; status: string; share_status: boolean }>(
-      `SELECT handoff_id, status, share_status FROM mcp_handoffs WHERE requester_kind = 'CHANNEL_CONVERSATION' AND status = 'APPLIED'`);
-    expect(handoff).toMatchObject({ status: 'APPLIED', share_status: true });
+    const handoff = await handoffOfLink(url);
+    expect(handoff).toMatchObject({ handoff_id: linked.handoff_id, status: 'APPLIED', share_status: true });
     const notification = (suffix: string) => query<{ status: string; body: boolean }>(`SELECT status, body_ciphertext IS NOT NULL AS body FROM channel_outbox
-      WHERE kind = 'NOTIFICATION' AND dedupe_key LIKE $1`, [`notify:${handoff!.handoff_id}:${suffix}`]);
+      WHERE kind = 'NOTIFICATION' AND dedupe_key LIKE $1`, [`notify:${handoff.handoff_id}:${suffix}`]);
     // The ping on the open page tells the chat the proposal is loaded (once; the message body is erased once sent).
     await expect.poll(() => notification('loaded'), { timeout: 45_000 }).toEqual([{ status: 'SENT', body: false }]);
 
     // 5. The product's own simulation and Review of the lending composition; MOCKED financial authority cannot be approved or executed.
     const lending = signing.getByRole('region', { name: 'Lending composition' });
-    await signing.getByRole('button', { name: 'Simular Fees', exact: true }).click();
+    await signing.getByRole('button', { name: 'Simulate fees', exact: true }).click();
     await openSimulationDetails(signing);
     await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
     await expect(lending).toContainText('Expected output:');
@@ -131,7 +134,8 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     await say('status');
     expect(texts(sent).at(-1)).toMatch(/^Proposal in a FloFi workflow/);
     expect(texts(sent).join('\n')).not.toMatch(/0x[0-9a-fA-F]{20,}|calldata/i);
-    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM channel_outbox WHERE kind = 'NOTIFICATION' AND status = 'SENT'`))[0]!.n).toBe(1);
+    expect((await query<{ dedupe_key: string; status: string }>(`SELECT dedupe_key, status FROM channel_outbox WHERE kind = 'NOTIFICATION' AND conversation_id = $1`,
+      [first!.requester_ref])).map(r => [r.dedupe_key, r.status])).toEqual([[`notify:${handoff.handoff_id}:loaded`, 'SENT']]);
     expect(unexpected).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();

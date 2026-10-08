@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CHANNELS-001 loopback Telegram Bot API double (127.0.0.1:8558) for the browser suite. The app server's Telegram adapter talks to
+ * BUILD-CHANNELS-001 loopback Telegram Bot API double (127.0.0.1:8559) for the browser suite. The app server's Telegram adapter talks to
  * it through FLOFI_TELEGRAM_API_BASE (a loopback-only, never-hosted test seam): `POST /bot<token>/<method>` answers like the Bot API
  * (`sendMessage` with an increasing message id, `answerCallbackQuery` with true) and records the call; the spec reads the recorded calls
  * from `GET /__flofi/calls` the way the user's phone would show the messages. Never a public network; nothing reaches Telegram.
@@ -11,7 +11,7 @@ type Call = { readonly at: string; readonly method: string; readonly params: Rec
 const calls: Call[] = [];
 let messageId = 1_000;
 createServer(async (request, response) => {
-  const url = new URL(request.url ?? '/', 'http://127.0.0.1:8558');
+  const url = new URL(request.url ?? '/', 'http://127.0.0.1:8559');
   const json = (status: number, value: unknown) => response.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(value));
   if (request.method === 'GET' && url.pathname === '/__flofi/calls') return json(200, calls);
   if (request.method === 'POST' && url.pathname === '/__flofi/reset') { calls.length = 0; return json(200, { ok: true }); }
@@ -24,4 +24,4 @@ createServer(async (request, response) => {
   if (method === 'sendMessage') return json(200, { ok: true, result: { message_id: ++messageId, date: Math.floor(Date.now() / 1000),
     chat: { id: Number(params.chat_id), type: 'private' }, text: params.text } });
   return json(200, { ok: true, result: true });
-}).listen(8558, '127.0.0.1');
+}).listen(8559, '127.0.0.1');
