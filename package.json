@@ -15,6 +15,7 @@
     "test:fork": "vitest run .fork.test.ts",
     "test:postgres": "vitest run .pg.test.ts --maxWorkers=2 --testTimeout=120000",
     "test:copilot-live": "vitest run .live.test.ts --testTimeout=600000",
+    "test:channels-live": "vitest run apps/reference-dapp/src/channels/telegram/telegram.live.test.ts --testTimeout=60000",
     "test:cloud-remote": "vitest run .remote.test.ts --testTimeout=900000",
     "schemas:export": "node scripts/export-schemas.mjs",
     "schemas:check": "node scripts/export-schemas.mjs --check",

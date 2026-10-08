@@ -4,7 +4,10 @@
  *
  *   - Channel Core (`src/channels/core`) is provider-neutral and calls the engine only through the shared platform: no MCP surface, no
  *     provider adapter, no framework; the Copilot service is reached only by the interpreter module.
- *   - The WhatsApp adapter holds provider concerns only and reaches FloFi through Channel Core and the platform, never through MCP.
+ *   - Each provider adapter (WhatsApp, Telegram) holds provider concerns only and reaches FloFi through Channel Core and the platform,
+ *     never through MCP; the providers reach the network only through Channel Core's provider HTTPS helper.
+ *   - No channel module can act with financial authority: nothing reachable from any channel entry point signs, holds or derives a
+ *     key, submits a transaction, runs an execution flow, or claims/applies/shares an approval (those are the owner's, on /approve).
  *   - The approval-side paths (the /approve contributor, the status ping and its server action) are model-free, transitively.
  *   - The browser component holds no secret and no server code; it reads the approval secret where /approve's handoff keeps it.
  *   - No channel module writes the generic handoff table: approvals go through the platform's handoff store.
@@ -47,7 +50,8 @@ function closure(entry: string) {
   return { files: [...files].map(rel), packages: [...packages] };
 }
 
-const CORE = sourcesIn(join(here, 'core')), WHATSAPP = sourcesIn(join(here, 'whatsapp'));
+const CORE = sourcesIn(join(here, 'core')), WHATSAPP = sourcesIn(join(here, 'whatsapp')), TELEGRAM = sourcesIn(join(here, 'telegram'));
+const WIRING = sourcesIn(here);
 const PACKAGES = /^(?:node:|@defi-workflow-engine\/)/;
 const code = (file: string) => readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
@@ -64,16 +68,40 @@ describe('BUILD-CHANNELS-001 channel boundaries', () => {
     expect(violations).toEqual([]);
   });
 
-  it('keeps the WhatsApp adapter to provider concerns: FloFi only through Channel Core, the registry and the platform, never MCP', () => {
-    const violations = WHATSAPP.flatMap(file => importsOf(file).filter(([statement, specifier]) => {
+  it('keeps each provider adapter to provider concerns: FloFi only through Channel Core, the registry and the platform, never MCP', () => {
+    expect(TELEGRAM.length).toBeGreaterThanOrEqual(6);
+    const violations = [...WHATSAPP, ...TELEGRAM].flatMap(file => importsOf(file).filter(([, specifier]) => {
       if (PACKAGES.test(specifier)) return false;
       if (!specifier.startsWith('.')) return true;
       const to = target(file, specifier);
-      if (/^src\/(?:platform|channels)\//.test(to) || to === 'src/server/deployment.ts') return false;
-      return !(to === 'src/server/flow-runtime.ts' && rel(file) === 'src/channels/whatsapp/handler.ts' && /embeddedRuntime, flowRuntimeKind/.test(statement));
+      // A provider never reaches the other provider either.
+      if (rel(file).includes('/whatsapp/') && to.startsWith('src/channels/telegram/')) return true;
+      if (rel(file).includes('/telegram/') && to.startsWith('src/channels/whatsapp/')) return true;
+      return !(/^src\/(?:platform|channels)\//.test(to) || to === 'src/server/deployment.ts');
     }).map(([, specifier]) => `${rel(file)} → ${specifier}`));
     expect(violations).toEqual([]);
-    for (const file of [...CORE, ...WHATSAPP]) expect(importsOf(file).some(([, s]) => s.startsWith('.') && target(file, s).startsWith('src/mcp/')), rel(file)).toBe(false);
+    for (const file of [...CORE, ...WHATSAPP, ...TELEGRAM, ...WIRING]) expect(importsOf(file).some(([, s]) => s.startsWith('.') && target(file, s).startsWith('src/mcp/')), rel(file)).toBe(false);
+    // The only network access: Channel Core's provider HTTPS helper (fixed origins, no redirects, bounded, classified).
+    for (const file of [...WHATSAPP, ...TELEGRAM, ...WIRING, ...CORE].filter(f => !f.endsWith('provider-http.ts')))
+      expect(code(file), rel(file)).not.toMatch(/\bfetch\(|node:https?|undici/);
+  });
+
+  it('gives no channel module financial authority: no signing, key, transaction submission, execution or approval decision', () => {
+    const entries = ['src/channels/http.ts', 'src/channels/dispatch-http.ts', 'src/channels/approval-ping.ts', 'src/channels/approval-profile.ts',
+      'src/app/api/channels/whatsapp/route.ts', 'src/app/api/channels/telegram/route.ts', 'src/app/api/channels/dispatch/route.ts', 'src/app/api/channels/health/route.ts'];
+    const channelFiles = new Set<string>();
+    for (const entry of entries) for (const file of closure(join(app, entry)).files) if (file.startsWith('src/channels/') || file.startsWith('src/app/api/channels/')) channelFiles.add(file);
+    expect(channelFiles.size).toBeGreaterThan(30);
+    for (const file of channelFiles) {
+      const text = code(join(app, file));
+      // Wallet signing, keys and raw transactions.
+      expect(text, file).not.toMatch(/eth_sendTransaction|eth_signTypedData|personal_sign|sendRawTransaction|signTransaction|signMessage|privateKeyToAccount|mnemonicToAccount|fromSecretKey|Keypair\b|createWalletClient|\bprivateKey\b/);
+      // The owner's decisions on /approve and FloFi's execution: never called by a channel.
+      expect(text, file).not.toMatch(/\b(?:claimApproval|applyApproval|shareApproval)\(|runtime\.(?:run|journal)\(|callFlow\(/);
+    }
+    // Channel code reaches no execution service: only the copilot boundary, the runtime host and the deployment facts.
+    const servers = [...channelFiles].flatMap(file => importsOf(join(app, file)).map(([, s]) => s.startsWith('.') ? target(join(app, file), s) : s)).filter(t => t.startsWith('src/server/'));
+    expect([...new Set(servers)].sort()).toEqual(['src/server/copilot-service.ts', 'src/server/deployment.ts', 'src/server/flow-runtime.ts']);
   });
 
   it('keeps the approval-side paths model-free, transitively (contributor, status ping, its server action)', () => {
@@ -101,14 +129,14 @@ describe('BUILD-CHANNELS-001 channel boundaries', () => {
       : /\.tsx?$/.test(e.name) && /^(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\n)*'use client';/.test(readFileSync(join(dir, e.name), 'utf8')) ? [join(dir, e.name)] : []);
     const clients = client(src);
     expect(clients.length).toBeGreaterThan(5);
-    for (const file of clients) expect(readFileSync(file, 'utf8'), rel(file)).not.toMatch(/FLOFI_CHANNEL_|WHATSAPP_|FLOFI_WHATSAPP/);
-    for (const file of [...CORE, ...WHATSAPP]) expect(code(file), rel(file)).not.toMatch(/NEXT_PUBLIC_/);
+    for (const file of clients) expect(readFileSync(file, 'utf8'), rel(file)).not.toMatch(/FLOFI_CHANNEL_|WHATSAPP_|FLOFI_WHATSAPP|TELEGRAM_|FLOFI_TELEGRAM/);
+    for (const file of [...CORE, ...WHATSAPP, ...TELEGRAM, ...WIRING]) expect(code(file), rel(file)).not.toMatch(/NEXT_PUBLIC_/);
   });
 
   it('never writes the generic handoff table directly, and migration 0008 leaves the handoff schema alone', () => {
-    for (const file of [...CORE, ...WHATSAPP, ...sourcesIn(here)]) expect(code(file), rel(file)).not.toMatch(/mcp_handoffs|mcp_accounts|mcp_grants/);
+    for (const file of [...CORE, ...WHATSAPP, ...TELEGRAM, ...WIRING]) expect(code(file), rel(file)).not.toMatch(/mcp_handoffs|mcp_accounts|mcp_grants/);
     const migration = readFileSync(join(app, '..', '..', 'packages/cloud-runtime/migrations/0009_channel_conversations.sql'), 'utf8').replace(/--.*$/gm, '');
     expect(migration).not.toMatch(/\bmcp_|\bALTER\s+TABLE\b|\bDROP\s+(?:TABLE|COLUMN|INDEX|CONSTRAINT)\b/i);
-    expect([...migration.matchAll(/CREATE TABLE (\w+)/g)].map(m => m[1])).toEqual(['channel_conversations', 'channel_events', 'channel_outbox']);
+    expect([...migration.matchAll(/CREATE TABLE (\w+)/g)].map(m => m[1])).toEqual(['channel_conversations', 'channel_events', 'channel_outbox', 'channel_audit']);
   });
 });
