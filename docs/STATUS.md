@@ -25,6 +25,30 @@ Owner actions: a Preview with a testnet wallet for live acceptance, a scheduler 
 production or mainnet use. See the [plan](builds/BUILD-DEVELOPER-001-PLAN.md), [report](builds/BUILD-DEVELOPER-001-REPORT.md),
 [developer docs](developer/README.md) and [operator guide](deploy/DEVELOPER.md).
 
+## BUILD-CHANNELS-001 — FloFi Channels: production Channel Core, Telegram (live-capable), WhatsApp (policy-blocked)
+
+**Status: READY_FOR_OWNER_REAL_E2E (Telegram) — implementation and every local gate on MOCKED/loopback evidence; NO REAL MESSAGE, NO
+LIVE PROVIDER CALL AND NO TRANSACTION YET; WHATSAPP LIVE ACTIVATION BLOCKED BY POLICY (D1); NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.**
+
+Branch `claude/build-channels-001-production`, restacked onto main `043ab01` (BUILD-DEVELOPER-001 included). A conversational
+channel is an entry point into the shared platform (`src/platform`) with zero financial authority. Channel Core
+(`src/channels/core`) is provider-neutral and production-grade: durable, tenant-scoped PostgreSQL state (migration `0009`),
+deduplication, fenced leases, the canonical StrategySpec/IR with parity checks, a `CHANNEL_CONVERSATION` approval handed to
+`/approve`, a transactional outbox with classified retries, dead letters and no resend after an uncertain send, delivery receipts
+where the provider has them, status notifications ("loaded", "in progress", "reconciled ✅ · evidence: …"), retention and a
+content-free audit trail. A scheduled dispatch (`/api/channels/dispatch`, bearer-only) makes retries, stranded turns and status
+independent of the next inbound message; `/api/channels/health` reports readiness.
+
+Providers share one contract. **Telegram**: a real Bot API adapter (secret-token webhook, private chats, buttons, 429
+`retry_after`), configurable on a Vercel Preview today; the owner's real test is [CHANNELS-OWNER-E2E.md](deploy/CHANNELS-OWNER-E2E.md).
+**WhatsApp**: the complete Cloud API path (Graph transport, statuses, 24-hour window, templates), but live activation requires
+written policy clearance recorded in code (WhatsApp Business Messaging Policy §4); until then fixture-only and never hosted.
+
+Evidence: unit, PostgreSQL and in-process journeys (the owner's full MOCKED execution and reconciliation), browser journeys for
+Telegram and WhatsApp through `next start` to the blocked MOCKED Review, and the MCP/Developer regressions. See the
+[plan](builds/BUILD-CHANNELS-001-PLAN.md), [report](builds/BUILD-CHANNELS-001-REPORT.md), [Telegram](deploy/TELEGRAM.md) and
+[WhatsApp](deploy/WHATSAPP.md) guides.
+
 ## BUILD-MCP-002 — Consumer OAuth, trusted approval handoff and in-chat execution
 
 **Status: INTEGRATED ON CURRENT MAIN — MOCKED/LOOPBACK EVIDENCE ONLY; NO LIVE CLAUDE OR CHATGPT CLIENT YET; NO PUBLIC

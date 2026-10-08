@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-CLOUD-PARITY-001 Playwright global setup for `cloud-runtime.spec.ts`: creates and migrates the disposable LOOPBACK database
+ * BUILD-CLOUD-PARITY-001 Playwright global setup for the embedded-runtime suites: creates and migrates the disposable LOOPBACK database
  * the embedded runtime uses for this run, and drops it afterwards. It never connects to a non-loopback server.
  */
 import { createDatabase, migrate } from '@defi-workflow-engine/cloud-runtime';
@@ -13,6 +13,8 @@ export default async function setup(): Promise<() => Promise<void>> {
   const run = async (sql: string) => { const db = createDatabase({ connectionString: admin.href, maxConnections: 1 }); try { await db.query(sql); } finally { await db.close(); } };
   await run(`CREATE DATABASE ${name}`);
   const db = createDatabase({ connectionString: target.href, maxConnections: 1 });
-  try { await migrate(db); } finally { await db.close(); }
+  try {
+    await migrate(db);
+  } finally { await db.close(); }
   return async () => { await run(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`); };
 }

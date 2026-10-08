@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { baseAssetRegistry, referenceRegistry } from '@defi-workflow-engine/action-registry';
 import { AppShell } from './app-shell';
 import { ApprovalHandoff } from './approval-handoff';
+import { ChannelProgressPing } from './channel-progress-ping';
 import { WorkflowProvider } from '../state/workflow-store';
 import { BridgeProvider } from '../state/bridge-store';
 import { Build009WalletProvider } from '../state/build009-wallet-store';
@@ -32,5 +33,5 @@ export function ProductWorkspace({ initialWorkflowId }: { initialWorkflowId: str
   // MCP account management owns its page; approval exposes the existing product
   // only after the server resolves a usable handoff. Product routes keep AppShell unchanged.
   const showWorkspace = pathname !== '/connections' && (pathname !== '/approve' || approvalAvailable);
-  return <WalletSelectorProvider><WorkflowProvider initialContext={initialContext} initialWorkflowId={initialWorkflowId}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><UniswapLiquidityProvider><RouterProvider>{pathname === '/approve' && <ApprovalHandoff onAvailabilityChange={setApprovalAvailable}/>}{showWorkspace && <AppShell pathname={pathname} navigate={path => router.push(path)}/>}</RouterProvider></UniswapLiquidityProvider></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider></WalletSelectorProvider>;
+  return <WalletSelectorProvider><WorkflowProvider initialContext={initialContext} initialWorkflowId={initialWorkflowId}><BridgeProvider><Build009WalletProvider><PublicTestnetProvider><SupplyProvider><LendingProvider><RobinhoodTransferProvider><JupiterProvider><AcrossProvider><BridgeSwapProvider><ModeAProvider><CowProvider><LiquidityProvider><SolanaLiquidityProvider><UniswapLiquidityProvider><RouterProvider>{pathname === '/approve' && <><ApprovalHandoff onAvailabilityChange={setApprovalAvailable}/><ChannelProgressPing/></>}{showWorkspace && <AppShell pathname={pathname} navigate={path => router.push(path)}/>}</RouterProvider></UniswapLiquidityProvider></SolanaLiquidityProvider></LiquidityProvider></CowProvider></ModeAProvider></BridgeSwapProvider></AcrossProvider></JupiterProvider></RobinhoodTransferProvider></LendingProvider></SupplyProvider></PublicTestnetProvider></Build009WalletProvider></BridgeProvider></WorkflowProvider></WalletSelectorProvider>;
 }

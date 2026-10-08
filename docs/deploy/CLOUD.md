@@ -165,6 +165,20 @@ Webhook delivery is request-driven on a Preview (Vercel Cron does not run there)
 project and a sandbox key with the operator CLI using `--preview-branch <branch>`. Setup, CLI and scheduler:
 [DEVELOPER.md](DEVELOPER.md).
 
+## Conversational channels (BUILD-CHANNELS-001)
+
+`/api/channels/telegram` and `/api/channels/whatsapp` turn chat messages into proposals handed to the wallet owner on `/approve`
+— never signing, submission or approval by a channel. They run in the same Vercel function runtime and need no new service. Channel
+state (conversations, event records, the outbox, a content-free audit trail; digests and short-lived ciphertext only) lives in this
+deployment's PostgreSQL (migration `0009_channel_conversations`, tenant-scoped); channel approvals are rows of the shared approval
+handoff table (`0006`). The remote runtime (`API_BASE_URL`) fails closed (`CHANNEL_STORE_UNAVAILABLE`). Turns run after the webhook's
+`200` (`after()`); retries, stranded turns, status notifications and retention run on `/api/channels/dispatch`, which an
+owner-configured scheduler calls with a bearer (Vercel Cron on Production — it does not run for Previews — or any other
+scheduler; on a Preview the `/approve` page's ping and a manual call cover status). `/api/channels/health` (same bearer) reports
+readiness. Telegram is the live provider; WhatsApp stays fixture-only and never hosted until written policy clearance is recorded
+in code. Setup and the owner's real end-to-end test: [CHANNELS-OWNER-E2E.md](CHANNELS-OWNER-E2E.md); variables:
+[ENVIRONMENT.md §5e](ENVIRONMENT.md); guides: [TELEGRAM.md](TELEGRAM.md), [WHATSAPP.md](WHATSAPP.md).
+
 ## Owner-only setup (credentials and approvals)
 
 These steps need the owner's accounts. The repository already contains everything else.
