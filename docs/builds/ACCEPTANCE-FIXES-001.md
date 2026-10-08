@@ -63,8 +63,30 @@ Sources: action-registry execution capabilities and frozen profiles; crypto acti
 
 Focused tests and disposable PostgreSQL cover race safety, canonical binding, Review invalidation, estimates, strict durable documents, isolation and restoration. Browser acceptance uses synthetic loopback providers through real API/client paths; its prices and execution records are MOCKED engineering fixtures, never public financial evidence.
 
-Required local and GitHub quality gates, totals and merge evidence are reported with the completed change. The inherited interrupted full-suite exit 130 is classified INTERRUPTED_ONLY. Sandbox process/socket failures disappear on unchanged tests with permitted local execution (ENVIRONMENT_SETUP). Old UI/copy/location expectations are TEST_EXPECTATION_STALE; real catalog omissions are I18N_CATALOG_GAP. The initial destination-finality fixture was advanced to the correct safe head rather than relaxing reconciliation.
+### Restack onto main 043ab01 and fixes found by the full gates
 
-The existing Next.js 16.3.6 audit reports six security advisories. The exact 16.3.8 patch, published 2026-09-30, satisfies the seven-day age gate; only the matching Next/env/SWC identities and pinned lock baseline are updated, retaining the exact sharp override, licenses and release-age policy.
+The branch was restacked onto `043ab01` (BUILD-DEVELOPER-001). Main already carried the identical Next.js 16.3.8 security patch, so this change no longer modifies `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` or `scripts/bootstrap-ci.py`. Main shipped migrations 0006 (`approval_requesters`) and 0007 (`developer_platform`), so saved workflows are migration **0008** with an unchanged file digest. The approval page keeps main's developer-link wording, translated through the catalog.
+
+Running the complete CI browser gate on the restacked tree exposed three product regressions, now fixed:
+
+- **Approval handoffs always mismatched.** Per-request draft identities meant an MCP or developer proposal (composed on the initial `workflow-local` draft) could never hash to its handoff (`HANDOFF_WORKFLOW_MISMATCH`). The claim now returns the composition's `workflowId`, and only an untouched revision-0 draft adopts it before the proposal is applied. The server's exact hash checks for apply and shared runs are unchanged.
+- **Locking an amount crashed the page.** Browser-side `hashArtifactBytes` validated locked parameters with `node:util` `isDeepStrictEqual`, which the browser bundle lacks. `workflow-contracts` now uses a local strict structural comparison with the same semantics on JSON values.
+- The local-fork technical row still said `Wallet:` rather than the EVM Default identity.
+
+Test changes for owner review (none removed or skipped). Separate visits are now separate drafts, so the chat-vs-canvas artifact test compares the IR with the workflow ID substituted and the artifacts without identity-derived hashes; the R-5/R-6 tests still verify every hash. Golden screenshots mask only values derived from the per-visit identity (hash codes, retired hashes, the displayed Workflow IR, whose identity is asserted as text). Eight baselines were regenerated after per-image review: EVM Default header, network selector, `Simulate fees`, `USD value unavailable` and the masked rows. Three consecutive runs with fresh identities passed. Stale expectations were updated: seven drawer rows, and `Simulate fees` in developer-journey.
+
+### Gate results (local, loopback only, private network namespace)
+
+| Gate | Result |
+| --- | --- |
+| `pnpm check` (typecheck, lint, build, schema drift, unit) | PASS: 262 files, 2689 tests; 2 files skipped by main's own environment conditions |
+| `pnpm test:postgres` (disposable PostgreSQL 18.6, pinned digest) | PASS: 30 files, 186 tests (includes the 0007 → 0008 upgrade) |
+| `pnpm test:anvil`, `pnpm test:fork`, F1 offline rehearsal | PASS: 4 + 31 tests (10 + 29 owner-only F2 cases skipped as in CI); F1 PASS 5/5 |
+| `node scripts/guarded-release-browser.mjs product` | PASS: all 18 profiles, including `workflow-acceptance` (5) and `swap-read-acceptance` (2) |
+| MCP route presentation, developer-journey, mcp-in-chat | PASS: 11, 1 and 21 tests |
+| Composition fork suites + `guarded-release-browser.mjs composition` | PASS: 3 tests and 1 profile |
+| `governance_lite.py` and its unittest suite; `bootstrap-ci.py --verify-dependencies` | PASS |
+
+GitHub CI on the pull request is authoritative. All of the above is MOCKED/loopback engineering evidence.
 
 The owner must still validate real extension wallets and public providers, configured deployments/migration rollout, testnet funding and gas, and personally perform any desired mainnet swaps/bridges through the normal owner-gated UI. This change does not claim MAINNET_EXECUTED or real-money financial acceptance.
