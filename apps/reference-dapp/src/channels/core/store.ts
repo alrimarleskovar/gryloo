@@ -63,21 +63,38 @@ export interface ChannelStore {
   /** Releases the lease only when no event is pending; false means more work arrived and the holder keeps going. */
   readonly release: (conversationId: string, token: string, now: Date) => Promise<boolean>;
   /**
-   * Due outbound messages of a conversation (PENDING and due, or SENDING and stale), now marked SENDING, oldest first, limited to
-   * `kinds` (an approval message is only ever claimed by the turn that holds its link in memory).
-   */
-  /**
    * Due outbound messages of a conversation (PENDING and due), now marked SENDING, oldest first, limited to `kinds` (an approval
    * message is only ever sent by the turn that holds its link in memory; elsewhere it is withdrawn).
+   *
+   * `attempts` counts provider send calls only. A claim is not an attempt: the outcome of a claimed message records the calls actually
+   * made for it (`sends`), so a message held behind another, or ended before any send, consumes none.
    */
   readonly claimDue: (conversationId: string, now: Date, limit: number, kinds: readonly OutboxKind[]) => Promise<readonly OutboxRecord[]>;
-  readonly markSent: (outboxId: string, providerDigest: Buffer, now: Date) => Promise<void>;
-  readonly markRetry: (outboxId: string, code: string, nextAttemptAt: Date, now: Date) => Promise<void>;
+  /**
+   * The claimed messages that must still wait: an earlier message of the conversation (among `kinds`) is unsent and not in this claim —
+   * PENDING and not yet due (retrying, or itself held), or being sent by another sweep. Message order survives a head that backs off
+   * past the next sweep.
+   */
+  readonly waitingBehind: (conversationId: string, kinds: readonly OutboxKind[], claimed: readonly string[]) => Promise<ReadonlySet<string>>;
+  readonly markSent: (outboxId: string, providerDigest: Buffer, now: Date, sends: number) => Promise<void>;
+  /** PENDING again after `sends` provider calls that failed transiently (`code`), due at `nextAttemptAt`. */
+  readonly markRetry: (outboxId: string, code: string, nextAttemptAt: Date, now: Date, sends: number) => Promise<void>;
+  /**
+   * PENDING again without a send, behind an earlier message of the conversation that is retrying: no attempt is consumed, and a provider
+   * error of its own earlier attempt is kept (it still decides DEAD versus SKIPPED); a message never attempted reads ORDER_HELD.
+   */
+  readonly markHeld: (outboxId: string, nextAttemptAt: Date, now: Date) => Promise<void>;
   /** The provider may have accepted it: never sent again (body erased); confirmed by a report or FAILED after `confirmBy`. */
-  readonly markUncertain: (outboxId: string, code: string, confirmBy: Date, now: Date) => Promise<void>;
-  /** Terminal without delivery: FAILED (refused), DEAD (attempts exhausted) or SKIPPED (never attempted). The body is erased. */
-  readonly markEnded: (outboxId: string, status: 'FAILED' | 'DEAD' | 'SKIPPED', code: string, now: Date) => Promise<void>;
-  /** A send claimed before `staleBefore` never finished (a crash mid-send): UNCERTAIN until `confirmBy`, never resent. */
+  readonly markUncertain: (outboxId: string, code: string, confirmBy: Date, now: Date, sends: number) => Promise<void>;
+  /**
+   * Terminal without delivery: FAILED (refused), DEAD (attempts exhausted) or SKIPPED (never attempted). The body is erased. `sends` is
+   * 0 when it ended before any send (expired, window closed, no address, unreadable body, output guard, lost link).
+   */
+  readonly markEnded: (outboxId: string, status: 'FAILED' | 'DEAD' | 'SKIPPED', code: string, now: Date, sends: number) => Promise<void>;
+  /**
+   * A send claimed before `staleBefore` never finished (a crash mid-send): UNCERTAIN until `confirmBy`, never resent. It counts as one
+   * attempt, the call that may have reached the provider.
+   */
   readonly settleStale: (conversationId: string, staleBefore: Date, confirmBy: Date, now: Date) => Promise<number>;
   /** UNCERTAIN messages whose confirmation time passed become FAILED (SEND_OUTCOME_UNKNOWN); returned so lost links are withdrawn. */
   readonly expireUncertain: (conversationId: string, now: Date) => Promise<readonly OutboxRecord[]>;

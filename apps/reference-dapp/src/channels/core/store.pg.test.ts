@@ -87,7 +87,7 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     expect(await s.claimDue(c.conversationId, NOW, 8, ['REPLY', 'NOTIFICATION'])).toEqual([]);
     expect((await s.claimDue(c.conversationId, NOW, 8, ALL)).map(o => o.kind)).toEqual(['APPROVAL']);
     const providerA = keyedDigest(keys.provider, 'wamid.A');
-    await s.markSent(due[0]!.outboxId, providerA, NOW);
+    await s.markSent(due[0]!.outboxId, providerA, NOW, 1);
     expect(await s.applyDelivery(null, providerA, 'READ', null, NOW)).toBe(true);
     expect(await s.applyDelivery(null, providerA, 'DELIVERED', null, NOW)).toBe(false); // never backwards
     // The second message's send result was lost (crash after the provider accepted it): its own report recovers it.
@@ -100,17 +100,27 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     expect(await s.applyDelivery(due[0]!.outboxId, keyedDigest(keys.provider, 'wamid.other'), 'READ', null, NOW)).toBe(false);
   });
 
-  it('retries transient failures and erases bodies at every terminal state', async () => {
+  it('retries transient failures and erases bodies at every terminal state; attempts count provider calls only', async () => {
     const s = store(), c = await conversation();
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:x`)], NOW);
     const [first] = await s.claimDue(c.conversationId, NOW, 8, ALL);
-    await s.markRetry(first!.outboxId, 'PROVIDER_THROTTLED', new Date(NOW.getTime() + 5_000), NOW);
+    expect(first?.attempts).toBe(0); // a claim is not an attempt
+    await s.markRetry(first!.outboxId, 'PROVIDER_THROTTLED', new Date(NOW.getTime() + 5_000), NOW, 1);
     expect(await s.claimDue(c.conversationId, NOW, 8, ALL)).toEqual([]);
-    const [again] = await s.claimDue(c.conversationId, new Date(NOW.getTime() + 6_000), 8, ALL);
-    expect(again?.attempts).toBe(2);
-    await s.markEnded(again!.outboxId, 'FAILED', 'PROVIDER_POLICY_RESTRICTED', NOW);
-    const row = (await t.db.query('SELECT status, body_ciphertext, error_code FROM channel_outbox WHERE outbox_id = $1', [again!.outboxId])).rows[0]!;
-    expect(row).toMatchObject({ status: 'FAILED', body_ciphertext: null, error_code: 'PROVIDER_POLICY_RESTRICTED' });
+    // Held behind an earlier message: no attempt consumed, and its own provider error is kept (it still decides DEAD vs SKIPPED).
+    const [held] = await s.claimDue(c.conversationId, new Date(NOW.getTime() + 6_000), 8, ALL);
+    await s.markHeld(held!.outboxId, new Date(NOW.getTime() + 11_000), NOW);
+    expect((await t.db.query('SELECT status, attempts, error_code FROM channel_outbox WHERE outbox_id = $1', [held!.outboxId])).rows[0])
+      .toEqual({ status: 'PENDING', attempts: 1, error_code: 'PROVIDER_THROTTLED' });
+    const [again] = await s.claimDue(c.conversationId, new Date(NOW.getTime() + 12_000), 8, ALL);
+    expect(again?.attempts).toBe(1);
+    await s.markEnded(again!.outboxId, 'FAILED', 'PROVIDER_POLICY_RESTRICTED', NOW, 1);
+    const row = (await t.db.query('SELECT status, attempts, body_ciphertext, error_code FROM channel_outbox WHERE outbox_id = $1', [again!.outboxId])).rows[0]!;
+    expect(row).toMatchObject({ status: 'FAILED', attempts: 2, body_ciphertext: null, error_code: 'PROVIDER_POLICY_RESTRICTED' });
+    // The audit trail still shows the hold.
+    expect((await t.db.query(`SELECT kind, code FROM channel_audit WHERE outbox_id = $1 ORDER BY kind, code`, [again!.outboxId])).rows.map(r => [r.kind, r.code]))
+      .toEqual([['OUTBOUND_FAILED', 'PROVIDER_POLICY_RESTRICTED'], ['OUTBOUND_QUEUED_REPLY', null], ['OUTBOUND_RETRY', 'ORDER_HELD'],
+        ['OUTBOUND_RETRY', 'PROVIDER_THROTTLED']]);
   });
 
   it('keeps only the digest and status of an opted-out sender and refuses any content for it', async () => {
@@ -141,11 +151,15 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     await s.storeAddress(c.conversationId, seal(keys.seal, 'address', 'a'));
     await s.recordEvents([event(c.conversationId, 'stranded', then)], then);
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:old`)], then);
-    // A second body that already failed transiently: past its lifetime it is a dead letter, not "never attempted".
-    await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:failed`, 1)], then);
-    const [held, failed] = await s.claimDue(c.conversationId, then, 8, ALL);
-    await s.markRetry(held!.outboxId, 'ORDER_HELD', new Date(then.getTime() + 5_000), then);
-    await s.markRetry(failed!.outboxId, 'PROVIDER_UNAVAILABLE', new Date(then.getTime() + 5_000), then);
+    // A second body that already failed transiently: past its lifetime it is a dead letter, not "never attempted". A third failed, then
+    // was held behind another: still a dead letter with its own provider error (the hold neither counts nor hides the attempt).
+    await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:failed`, 1), outbox(`reply:${c.conversationId}:failed-held`, 2)], then);
+    const [held, failed, failedHeld] = await s.claimDue(c.conversationId, then, 8, ALL);
+    await s.markHeld(held!.outboxId, new Date(then.getTime() + 5_000), then);
+    await s.markRetry(failed!.outboxId, 'PROVIDER_UNAVAILABLE', new Date(then.getTime() + 5_000), then, 1);
+    await s.markRetry(failedHeld!.outboxId, 'PROVIDER_THROTTLED', then, then, 1);
+    const [heldAgain] = (await s.claimDue(c.conversationId, then, 8, ALL)).filter(o => o.outboxId === failedHeld!.outboxId);
+    await s.markHeld(heldAgain!.outboxId, new Date(then.getTime() + 5_000), then);
     await t.db.query('UPDATE channel_conversations SET state_ciphertext = $2, last_activity_at = $3 WHERE conversation_id = $1',
       [c.conversationId, seal(keys.seal, '{}', 's'), then]);
     await s.purge(NOW);
@@ -153,9 +167,11 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     expect(conv).toMatchObject({ stateSealed: null, addressSealed: null });
     const ev = (await t.db.query('SELECT status, outcome, payload_ciphertext FROM channel_events WHERE conversation_id = $1', [c.conversationId])).rows[0]!;
     expect(ev).toEqual({ status: 'FAILED', outcome: 'EXPIRED_UNPROCESSED', payload_ciphertext: null });
-    const ob = (await t.db.query('SELECT status, error_code, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence', [c.conversationId])).rows;
-    expect(ob).toEqual([{ status: 'SKIPPED', error_code: 'EXPIRED_UNSENT', body_ciphertext: null },
-      { status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE', body_ciphertext: null }]);
+    const ob = (await t.db.query('SELECT status, attempts, error_code, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence',
+      [c.conversationId])).rows;
+    expect(ob).toEqual([{ status: 'SKIPPED', attempts: 0, error_code: 'EXPIRED_UNSENT', body_ciphertext: null },
+      { status: 'DEAD', attempts: 1, error_code: 'PROVIDER_UNAVAILABLE', body_ciphertext: null },
+      { status: 'DEAD', attempts: 1, error_code: 'PROVIDER_THROTTLED', body_ciphertext: null }]);
     // Eight days later the content-free records go too, and the idle conversation record with them.
     await s.purge(new Date(NOW.getTime() + 9 * 86_400_000));
     expect(await s.conversation(c.conversationId)).toBeNull();
@@ -166,7 +182,7 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:u`, 0), outbox(`reply:${c.conversationId}:crash`, 1)], NOW);
     const [u, crashed] = await s.claimDue(c.conversationId, NOW, 8, ALL);
     // A timeout after sending: UNCERTAIN, body erased, never claimable again.
-    await s.markUncertain(u!.outboxId, 'PROVIDER_TIMEOUT', new Date(NOW.getTime() + 600_000), NOW);
+    await s.markUncertain(u!.outboxId, 'PROVIDER_TIMEOUT', new Date(NOW.getTime() + 600_000), NOW, 1);
     // A crash between claim and answer: the stale SENDING row is settled the same way.
     expect(await s.settleStale(c.conversationId, NOW, new Date(NOW.getTime() + 600_000), NOW)).toBe(0);
     const later = new Date(NOW.getTime() + 180_000);
@@ -175,6 +191,8 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     const statuses = async () => (await t.db.query('SELECT outbox_id, status, error_code, body_ciphertext FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence',
       [c.conversationId])).rows.map(r => [r.status, r.error_code, r.body_ciphertext]);
     expect(await statuses()).toEqual([['UNCERTAIN', 'PROVIDER_TIMEOUT', null], ['UNCERTAIN', 'SEND_INTERRUPTED', null]]);
+    // Each counts the one call that may have reached the provider.
+    expect((await t.db.query('SELECT attempts FROM channel_outbox WHERE conversation_id = $1 ORDER BY sequence', [c.conversationId])).rows).toEqual([{ attempts: 1 }, { attempts: 1 }]);
     // The provider's own report (correlated by our id) confirms the first; the second is never confirmed and ends unknown.
     expect(await s.applyDelivery(u!.outboxId, keyedDigest(keys.provider, 'wamid.U'), 'DELIVERED', null, later)).toBe(true);
     expect(await s.expireUncertain(c.conversationId, later)).toEqual([]);
@@ -188,7 +206,7 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     const s = store(), c = await conversation();
     await s.enqueue(c.conversationId, [outbox(`reply:${c.conversationId}:d`)], NOW);
     const [o] = await s.claimDue(c.conversationId, NOW, 8, ALL);
-    await s.markEnded(o!.outboxId, 'DEAD', 'PROVIDER_UNAVAILABLE', NOW);
+    await s.markEnded(o!.outboxId, 'DEAD', 'PROVIDER_UNAVAILABLE', NOW, 1);
     const row = (await t.db.query('SELECT status, error_code, body_ciphertext FROM channel_outbox WHERE outbox_id = $1', [o!.outboxId])).rows[0]!;
     expect(row).toEqual({ status: 'DEAD', error_code: 'PROVIDER_UNAVAILABLE', body_ciphertext: null });
   });
@@ -209,7 +227,7 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     // A retry not yet due is not work.
     await s.enqueue(d.conversationId, [outbox(`reply:${d.conversationId}:later`)], NOW);
     const [o] = await s.claimDue(d.conversationId, NOW, 8, ALL);
-    await s.markRetry(o!.outboxId, 'PROVIDER_THROTTLED', new Date(NOW.getTime() + 60_000), NOW);
+    await s.markRetry(o!.outboxId, 'PROVIDER_THROTTLED', new Date(NOW.getTime() + 60_000), NOW, 1);
     expect(has(await s.dueConversations(NOW, new Date(NOW.getTime() - 120_000), 500), d.conversationId)).toBe(false);
     expect(has(await s.dueConversations(new Date(NOW.getTime() + 61_000), NOW, 500), d.conversationId)).toBe(true);
     // An approval created by a turn is followed until it is settled.
@@ -232,9 +250,9 @@ describe('BUILD-CHANNELS-001 channel store (PostgreSQL, migration 0009)', () => 
     await s.completeTurn(c.conversationId, token, { channel: 'WHATSAPP', eventDigest: e.eventDigest, status: 'DONE', outcome: 'HELP', handoffId: null,
       outbox: [outbox(`reply:${c.conversationId}:audit`)] }, NOW);
     const [o] = await s.claimDue(c.conversationId, NOW, 8, ALL);
-    await s.markRetry(o!.outboxId, 'PROVIDER_THROTTLED', NOW, NOW);
+    await s.markRetry(o!.outboxId, 'PROVIDER_THROTTLED', NOW, NOW, 1);
     const [again] = await s.claimDue(c.conversationId, NOW, 8, ALL);
-    await s.markSent(again!.outboxId, keyedDigest(keys.provider, 'wamid.audit'), NOW);
+    await s.markSent(again!.outboxId, keyedDigest(keys.provider, 'wamid.audit'), NOW, 1);
     await s.applyDelivery(again!.outboxId, keyedDigest(keys.provider, 'wamid.audit'), 'READ', null, NOW);
     const rows = (await t.db.query(`SELECT channel, kind, code, outbox_id FROM channel_audit WHERE conversation_id = $1 ORDER BY audit_id`, [c.conversationId])).rows;
     expect(rows.map(r => [r.kind, r.code])).toEqual([['INBOUND_RECORDED', null], ['TURN_DONE', 'HELP'], ['OUTBOUND_QUEUED_REPLY', null], ['OUTBOUND_RETRY', 'PROVIDER_THROTTLED'],

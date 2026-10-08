@@ -25,6 +25,11 @@ function outboxOf(row: Row): OutboxRecord {
 }
 const RANK: Readonly<Record<string, number>> = { SENT: 1, DELIVERED: 2, READ: 3 };
 const CORRELATION = /^cho_[a-z2-7]{26}$/;
+/** The provider calls one outcome records (an approval's inline retries make up to three; a pre-send end makes none). */
+const sendCount = (sends: number) => {
+  if (!Number.isSafeInteger(sends) || sends < 0 || sends > 3) throw new Error('CHANNEL_SEND_COUNT_INVALID');
+  return sends;
+};
 const refOf = (row: Row): ConversationRef => ({ conversationId: String(row.conversation_id), channel: String(row.channel) });
 /** An outbox UPDATE (which must set updated_at) plus one audit row per updated row, at the row's own update time, in one statement. */
 const auditedOutbox = (update: string, kind: string, codeSql = 'u.error_code') => `WITH u AS (${update}
@@ -130,33 +135,47 @@ export function createPgChannelStore(db: Database, tenantId: string): ChannelSto
       return Boolean(row);
     },
     async claimDue(conversationId, now, limit, kinds) {
-      const rows = (await db.query(`UPDATE channel_outbox SET status = 'SENDING', attempts = attempts + 1, updated_at = $3 WHERE (tenant_id, outbox_id) IN (
+      const rows = (await db.query(`UPDATE channel_outbox SET status = 'SENDING', updated_at = $3 WHERE (tenant_id, outbox_id) IN (
           SELECT tenant_id, outbox_id FROM channel_outbox WHERE tenant_id = $1 AND conversation_id = $2 AND kind = ANY($5::text[])
             AND status = 'PENDING' AND next_attempt_at <= $3
           ORDER BY created_at, sequence FOR UPDATE SKIP LOCKED LIMIT $4)
         RETURNING *`, [tenantId, conversationId, now, limit, [...kinds]])).rows;
       return rows.map(outboxOf).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.sequence - b.sequence);
     },
-    async markSent(outboxId, providerDigest, now) {
+    async waitingBehind(conversationId, kinds, claimed) {
+      if (!claimed.length) return new Set<string>();
+      return new Set((await db.query(`SELECT c.outbox_id FROM channel_outbox c WHERE c.tenant_id = $1 AND c.conversation_id = $2 AND c.outbox_id = ANY($4::text[])
+          AND EXISTS (SELECT 1 FROM channel_outbox w WHERE w.tenant_id = $1 AND w.conversation_id = $2 AND w.kind = ANY($3::text[])
+            AND w.status IN ('PENDING', 'SENDING') AND NOT (w.outbox_id = ANY($4::text[])) AND (w.created_at, w.sequence) < (c.created_at, c.sequence))`,
+      [tenantId, conversationId, [...kinds], [...claimed]])).rows.map(r => String(r.outbox_id)));
+    },
+    async markSent(outboxId, providerDigest, now, sends) {
       await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'SENT', body_ciphertext = NULL, provider_message_digest = $3, delivery = coalesce(delivery, 'SENT'),
-        error_code = NULL, updated_at = $4 WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_SENT'`, 'NULL'),
-      [tenantId, outboxId, providerDigest, now]);
+        error_code = NULL, attempts = attempts + $5, updated_at = $4 WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_SENT'`, 'NULL'),
+      [tenantId, outboxId, providerDigest, now, sendCount(sends)]);
     },
-    async markRetry(outboxId, code, nextAttemptAt, now) {
-      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'PENDING', error_code = $3, next_attempt_at = $4, updated_at = $5 WHERE tenant_id = $1 AND outbox_id = $2
-        AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_RETRY'`), [tenantId, outboxId, code, nextAttemptAt, now]);
+    async markRetry(outboxId, code, nextAttemptAt, now, sends) {
+      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'PENDING', error_code = $3, next_attempt_at = $4, attempts = attempts + $6, updated_at = $5
+        WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_RETRY'`), [tenantId, outboxId, code, nextAttemptAt, now, sendCount(sends)]);
     },
-    async markUncertain(outboxId, code, confirmBy, now) {
-      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'UNCERTAIN', body_ciphertext = NULL, error_code = $3, next_attempt_at = $4, updated_at = $5
-        WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_UNCERTAIN'`), [tenantId, outboxId, code, confirmBy, now]);
+    async markHeld(outboxId, nextAttemptAt, now) {
+      // No send, so no attempt; the audit row says ORDER_HELD while the row keeps its own last provider error, if it has one.
+      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'PENDING', next_attempt_at = $3, updated_at = $4,
+          error_code = CASE WHEN error_code IS NULL OR error_code = 'ORDER_HELD' THEN 'ORDER_HELD' ELSE error_code END
+        WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_RETRY'`, `'ORDER_HELD'`), [tenantId, outboxId, nextAttemptAt, now]);
     },
-    async markEnded(outboxId, status, code, now) {
-      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = $3, body_ciphertext = NULL, error_code = $4, updated_at = $5 WHERE tenant_id = $1 AND outbox_id = $2
-        AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_' || $3`), [tenantId, outboxId, status, code, now]);
+    async markUncertain(outboxId, code, confirmBy, now, sends) {
+      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'UNCERTAIN', body_ciphertext = NULL, error_code = $3, next_attempt_at = $4, attempts = attempts + $6,
+        updated_at = $5 WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_UNCERTAIN'`), [tenantId, outboxId, code, confirmBy, now,
+        sendCount(sends)]);
+    },
+    async markEnded(outboxId, status, code, now, sends) {
+      await db.query(auditedOutbox(`UPDATE channel_outbox SET status = $3, body_ciphertext = NULL, error_code = $4, attempts = attempts + $6, updated_at = $5
+        WHERE tenant_id = $1 AND outbox_id = $2 AND status IN ('PENDING', 'SENDING')`, `'OUTBOUND_' || $3`), [tenantId, outboxId, status, code, now, sendCount(sends)]);
     },
     async settleStale(conversationId, staleBefore, confirmBy, now) {
       return (await db.query(auditedOutbox(`UPDATE channel_outbox SET status = 'UNCERTAIN', body_ciphertext = NULL, error_code = 'SEND_INTERRUPTED', next_attempt_at = $4,
-        updated_at = $5 WHERE tenant_id = $1 AND conversation_id = $2 AND status = 'SENDING' AND updated_at < $3`, `'OUTBOUND_UNCERTAIN'`),
+        attempts = attempts + 1, updated_at = $5 WHERE tenant_id = $1 AND conversation_id = $2 AND status = 'SENDING' AND updated_at < $3`, `'OUTBOUND_UNCERTAIN'`),
       [tenantId, conversationId, staleBefore, confirmBy, now])).rows.length;
     },
     async expireUncertain(conversationId, now) {

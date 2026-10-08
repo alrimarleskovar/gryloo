@@ -23,6 +23,7 @@ import { handleWhatsAppWebhook } from '../whatsapp/handler.ts';
 import { fixtureTransport, type FixtureRecord } from '../whatsapp/transport.ts';
 import { inbound, webhookRequest, whatsAppEnv } from '../whatsapp/fixtures.test-harness.ts';
 import { recordingRuntime } from './engine.test-harness.ts';
+import { MAX_SEND_ATTEMPTS } from './delivery.ts';
 import { createPgChannelStore } from './pg-store.ts';
 
 const OWNER = '0x1111111111111111111111111111111111111111';
@@ -133,6 +134,58 @@ describe('BUILD-CHANNELS-001 scheduled dispatch (PostgreSQL, both providers, MOC
     });
   }
 
+  // A message held behind an earlier one that is retrying waits in order and consumes none of its own attempts: `attempts` equals the
+  // provider calls made for it, whether the head recovers or ends DEAD (before this, every hold counted as an attempt, and a head backing
+  // off past the next sweep let a later message overtake it).
+  const GREETING = /^FloFi \(automated assistant\)/, HELP = /^What I can do/;
+  async function heldBehind(greetingFailures: number, helpFailures: number) {
+    const calls: { text: string; at: number; ok: boolean }[] = [];
+    let clock = () => 0;
+    const d = await deployment(call => {
+      if (call.method !== 'sendMessage') return null;
+      const text = String(call.params.text), mine = calls.filter(c => GREETING.test(text) ? GREETING.test(c.text) : HELP.test(c.text)).length;
+      const fail = mine < (GREETING.test(text) ? greetingFailures : helpFailures);
+      calls.push({ text, at: clock(), ok: !fail });
+      return fail ? botError(500, 'Internal Server Error') : null;
+    }, () => 0.5);
+    clock = () => d.now().getTime();
+    const t0 = d.now().getTime();
+    await d.telegram('/start');
+    const rows = async () => (await t.db.query(`SELECT o.status, o.attempts, o.error_code FROM channel_outbox o JOIN channel_conversations c
+      ON c.tenant_id = o.tenant_id AND c.conversation_id = o.conversation_id WHERE o.tenant_id = $1 AND c.channel = 'TELEGRAM' ORDER BY o.created_at, o.sequence`,
+      [d.tenantId])).rows;
+    for (let minute = 1; minute <= 14; minute++) {
+      d.advance(60); await d.sweep();
+      // Never out of order: the help text reaches the provider only once the greeting is delivered or has ended.
+      const [greeting] = await rows();
+      if (greeting!.status === 'PENDING') expect(calls.filter(c => HELP.test(c.text))).toEqual([]);
+    }
+    const of = (pattern: RegExp) => calls.filter(c => pattern.test(c.text));
+    return { d, rows: await rows(), greeting: of(GREETING), help: of(HELP), t0 };
+  }
+
+  it('holds a message behind a retrying one in order, without consuming its attempts, until the head is delivered', async () => {
+    const { d, rows, greeting, help, t0 } = await heldBehind(4, 1);
+    // The greeting's backoff (5, 15, 45, 120 s) outlasts a sweep at +240 s: the help text waits there too instead of overtaking it.
+    expect(greeting.map(c => [(c.at - t0) / 1000, c.ok])).toEqual([[0, false], [60, false], [120, false], [180, false], [300, true]]);
+    expect(help.map(c => [(c.at - t0) / 1000, c.ok])).toEqual([[300, false], [360, true]]);
+    expect(rows).toEqual([{ status: 'SENT', attempts: 5, error_code: null }, { status: 'SENT', attempts: 2, error_code: null }]);
+    expect(d.api.texts()).toEqual([expect.stringMatching(GREETING), expect.stringMatching(HELP)]);
+  });
+
+  it('keeps a held message\'s attempts its own when the head dead-letters: it is sent next, and retried with its own budget', async () => {
+    const { d, rows, greeting, help, t0 } = await heldBehind(6, 1);
+    expect(greeting.map(c => (c.at - t0) / 1000)).toEqual([0, 60, 120, 180, 300, 600]);
+    expect(greeting.every(c => !c.ok)).toBe(true);
+    // Held behind the greeting at every sweep for ten minutes, yet its first provider call is its first attempt.
+    expect(help.map(c => [(c.at - t0) / 1000, c.ok])).toEqual([[600, false], [660, true]]);
+    expect(rows).toEqual([{ status: 'DEAD', attempts: 6, error_code: 'PROVIDER_UNAVAILABLE' }, { status: 'SENT', attempts: 2, error_code: null }]);
+    expect(d.api.texts()).toEqual([expect.stringMatching(HELP)]);
+    const holds = (await t.db.query(`SELECT count(*)::int AS n FROM channel_audit WHERE tenant_id = $1 AND kind = 'OUTBOUND_RETRY' AND code = 'ORDER_HELD'`,
+      [d.tenantId])).rows[0]!.n as number;
+    expect(holds).toBeGreaterThan(MAX_SEND_ATTEMPTS);
+  });
+
   it('records an expired message that already failed as DEAD and one never attempted as SKIPPED when the scheduler stalls', async () => {
     let calls = 0;
     const d = await deployment(call => { if (call.method !== 'sendMessage') return null; calls++; return botError(500, 'Internal Server Error'); }, () => 1);
@@ -159,19 +212,20 @@ describe('BUILD-CHANNELS-001 scheduled dispatch (PostgreSQL, both providers, MOC
     await d.sweep();
     const sentBefore = d.api.sent().length;
     await t.db.query(`INSERT INTO channel_outbox (tenant_id, outbox_id, conversation_id, dedupe_key, kind, body_ciphertext, status, attempts, created_at, updated_at)
-      VALUES ($6, $1, $2, $3, 'REPLY', $4, 'SENDING', 1, $5, $5)`, [`cho_${'c'.repeat(26)}`, conversation!.conversation_id, `reply:crash:${randomBytes(4).toString('hex')}`,
+      VALUES ($6, $1, $2, $3, 'REPLY', $4, 'SENDING', 0, $5, $5)`, [`cho_${'c'.repeat(26)}`, conversation!.conversation_id, `reply:crash:${randomBytes(4).toString('hex')}`,
       randomBytes(64), d.now(), d.tenantId]);
     d.advance(3 * 60);
     await d.sweep();
-    expect((await t.db.query(`SELECT status, error_code, body_ciphertext FROM channel_outbox WHERE outbox_id = $1`, [`cho_${'c'.repeat(26)}`])).rows[0])
-      .toEqual({ status: 'FAILED', error_code: 'SEND_OUTCOME_UNKNOWN', body_ciphertext: null });
+    // The claim counted nothing; the interrupted send counts once (it may have reached the provider) and is never made again.
+    expect((await t.db.query(`SELECT status, attempts, error_code, body_ciphertext FROM channel_outbox WHERE outbox_id = $1`, [`cho_${'c'.repeat(26)}`])).rows[0])
+      .toEqual({ status: 'FAILED', attempts: 1, error_code: 'SEND_OUTCOME_UNKNOWN', body_ciphertext: null });
     expect(d.api.sent()).toHaveLength(sentBefore);
     expect(await store.claimDue(String(conversation!.conversation_id), new Date(d.now().getTime() + 3_600_000), 8, ['REPLY'])).toEqual([]);
     // WhatsApp: the same crash leaves it UNCERTAIN for Meta's report to confirm.
     await d.whatsapp('help');
     const [wa] = (await t.db.query(`SELECT conversation_id FROM channel_conversations WHERE tenant_id = $1 AND channel = 'WHATSAPP'`, [d.tenantId])).rows;
     await t.db.query(`INSERT INTO channel_outbox (tenant_id, outbox_id, conversation_id, dedupe_key, kind, body_ciphertext, status, attempts, created_at, updated_at)
-      VALUES ($6, $1, $2, $3, 'REPLY', $4, 'SENDING', 1, $5, $5)`, [`cho_${'d'.repeat(26)}`, wa!.conversation_id, `reply:crash:${randomBytes(4).toString('hex')}`,
+      VALUES ($6, $1, $2, $3, 'REPLY', $4, 'SENDING', 0, $5, $5)`, [`cho_${'d'.repeat(26)}`, wa!.conversation_id, `reply:crash:${randomBytes(4).toString('hex')}`,
       randomBytes(64), d.now(), d.tenantId]);
     d.advance(3 * 60);
     await d.sweep();

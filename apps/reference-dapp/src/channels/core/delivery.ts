@@ -7,12 +7,13 @@
  *   accepted      SENT (body erased); later provider reports raise it to DELIVERED/READ or FAILED
  *   TRANSIENT /   PENDING again after a backoff (5 s, 15 s, 45 s, 2 min, 5 min, ±20 %, or the provider's retry-after when longer),
  *   RATE_LIMITED  then DEAD (dead letter, body erased) once the attempts are exhausted — or as soon as no further attempt can happen
- *                 within the body's 15-minute lifetime; later messages of the conversation wait (but never an approval message whose
- *                 link this turn holds)
+ *                 within the body's 15-minute lifetime; later messages of the conversation wait without consuming an attempt (but
+ *                 never an approval message whose link this turn holds)
  *   PERMANENT     FAILED (body erased), never retried
  *   UNCERTAIN     never sent again, so nobody receives a message twice: a provider that echoes our correlation id in its reports
  *                 confirms it within 10 minutes, otherwise it ends FAILED (SEND_OUTCOME_UNKNOWN)
- * A send that was claimed but never finished (a crash) becomes UNCERTAIN the same way. Retries never wait for another inbound message:
+ * A send that was claimed but never finished (a crash) becomes UNCERTAIN the same way. `attempts` counts provider send calls: a claim,
+ * a hold behind another message and an end before any send (expired, window closed, …) count none. Retries never wait for another inbound message:
  * the scheduled dispatch (`dispatch.ts`) delivers whatever is due. Free-form messages respect the adapter's window (WhatsApp: 24
  * hours after the user's last message); a kind the adapter can send outside it (an approved template) still goes out.
  *
@@ -69,7 +70,7 @@ export function nextRetryAt(attempts: number, createdAt: Date, now: Date, retryA
   const at = now.getTime() + retryDelayMs(attempts, retryAfterMs, random);
   return at + SCHEDULER_INTERVAL_MS <= createdAt.getTime() + RETENTION.transientMs ? new Date(at) : null;
 }
-/** A message whose last attempt failed transiently (and was not merely held behind another). */
+/** A message whose own provider attempt failed transiently. ORDER_HELD marks one that was only ever held behind another: never attempted. */
 export const failedTransiently = (o: Pick<OutboxRecord, 'errorCode'>) => o.errorCode !== null && o.errorCode !== 'ORDER_HELD';
 const confirmBy = (ctx: Pick<DeliveryContext, 'adapter'>, now: Date) => new Date(now.getTime() + (ctx.adapter.confirmsUncertainSends ? CONFIRM_WINDOW_MS : 0));
 const bodyContext = (ctx: Pick<DeliveryContext, 'tenantId'>, outboxId: string) => sealContext(ctx.tenantId, 'channel_outbox', outboxId, 'body');
@@ -105,14 +106,16 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
     }
     const windowOpen = ctx.adapter.windowHours === null || (conversation?.lastInboundAt !== null && conversation?.lastInboundAt !== undefined
       && now.getTime() - conversation.lastInboundAt.getTime() < ctx.adapter.windowHours * 3_600_000);
+    // Later messages wait behind a retrying one — one that failed in this round, or an earlier one not yet due again — except an
+    // approval message whose link is in this memory: it cannot wait. Waiting consumes no attempt.
     let hold = false;
+    const behind = await ctx.store.waitingBehind(conversationId, options.kinds, due.map(o => o.outboxId));
     for (const o of due) {
-      // Later messages wait behind a retrying one — except an approval message whose link is in this memory: it cannot wait.
-      if (hold && !(o.kind === 'APPROVAL' && options.links?.has(o.outboxId))) {
-        await ctx.store.markRetry(o.outboxId, 'ORDER_HELD', new Date(now.getTime() + BACKOFF_SECONDS[0]! * 1000), now); continue;
+      if ((hold || behind.has(o.outboxId)) && !(o.kind === 'APPROVAL' && options.links?.has(o.outboxId))) {
+        await ctx.store.markHeld(o.outboxId, new Date(now.getTime() + BACKOFF_SECONDS[0]! * 1000), now); continue;
       }
-      const end = async (status: 'FAILED' | 'DEAD' | 'SKIPPED', code: string) => {
-        await ctx.store.markEnded(o.outboxId, status, code, now);
+      const end = async (status: 'FAILED' | 'DEAD' | 'SKIPPED', code: string, sends = 0) => {
+        await ctx.store.markEnded(o.outboxId, status, code, now, sends);
         report[status === 'SKIPPED' ? 'skipped' : 'failed']++;
         ctx.log.info('channel.outbound.ended', { channel: ctx.adapter.channel, conversation: conversationId, status, code, kind: o.kind });
         if (o.kind === 'APPROVAL' && status !== 'SKIPPED') await lostLink(ctx, conversationId, o, language, now);
@@ -132,40 +135,44 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
         reply = { ...reply, link: { label: channelCopy(language).linkLabel, url } };
       }
       if (!outputSafe(reply, ctx.origin)) { await end('FAILED', 'OUTPUT_GUARD'); continue; }
-      const result = await send(ctx, address, reply, o, windowOpen);
+      const { result, sends } = await send(ctx, address, reply, o, windowOpen), attempts = o.attempts + sends;
       const transient = !result.ok && (result.failure === 'TRANSIENT' || result.failure === 'RATE_LIMITED');
-      const retryAt = transient && o.kind !== 'APPROVAL' ? nextRetryAt(o.attempts, o.createdAt, now, result.retryAfterMs, ctx.random) : null;
+      const retryAt = transient && o.kind !== 'APPROVAL' ? nextRetryAt(attempts, o.createdAt, now, result.retryAfterMs, ctx.random) : null;
       if (result.ok) {
-        await ctx.store.markSent(o.outboxId, keyedDigest(ctx.keys.provider, result.providerMessageId), now);
+        await ctx.store.markSent(o.outboxId, keyedDigest(ctx.keys.provider, result.providerMessageId), now, sends);
         report.sent++;
-        ctx.log.info('channel.outbound.sent', { channel: ctx.adapter.channel, conversation: conversationId, kind: o.kind, attempts: o.attempts });
+        ctx.log.info('channel.outbound.sent', { channel: ctx.adapter.channel, conversation: conversationId, kind: o.kind, attempts });
       } else if (result.failure === 'UNCERTAIN' && (ctx.adapter.confirmsUncertainSends || o.kind !== 'APPROVAL')) {
         // Never resent. A provider that reports deliveries can still confirm it; otherwise it ends unknown.
-        if (ctx.adapter.confirmsUncertainSends) { await ctx.store.markUncertain(o.outboxId, result.code, confirmBy(ctx, now), now); report.uncertain++; }
-        else await end('FAILED', 'SEND_OUTCOME_UNKNOWN');
+        if (ctx.adapter.confirmsUncertainSends) { await ctx.store.markUncertain(o.outboxId, result.code, confirmBy(ctx, now), now, sends); report.uncertain++; }
+        else await end('FAILED', 'SEND_OUTCOME_UNKNOWN', sends);
         ctx.log.warn('channel.outbound.uncertain', { channel: ctx.adapter.channel, conversation: conversationId, code: result.code, kind: o.kind });
       } else if (retryAt) {
-        await ctx.store.markRetry(o.outboxId, result.code, retryAt, now);
+        await ctx.store.markRetry(o.outboxId, result.code, retryAt, now, sends);
         report.retrying++;
-        ctx.log.warn('channel.outbound.retry', { channel: ctx.adapter.channel, conversation: conversationId, code: result.code, attempts: o.attempts });
+        ctx.log.warn('channel.outbound.retry', { channel: ctx.adapter.channel, conversation: conversationId, code: result.code, attempts });
         hold = true;
-      } else await end(transient ? (o.kind === 'APPROVAL' ? 'FAILED' : 'DEAD') : 'FAILED', result.failure === 'UNCERTAIN' ? 'SEND_OUTCOME_UNKNOWN' : result.code);
+      } else await end(transient ? (o.kind === 'APPROVAL' ? 'FAILED' : 'DEAD') : 'FAILED', result.failure === 'UNCERTAIN' ? 'SEND_OUTCOME_UNKNOWN' : result.code, sends);
     }
     if (hold) break;
   }
   return report;
 }
 
-/** One send. An approval message is retried in place a couple of times (briefly), because its link exists only in this memory. */
-async function send(ctx: DeliveryContext, address: ChannelAddress, reply: ChannelReply, o: OutboxRecord, windowOpen: boolean): Promise<SendResult> {
+/**
+ * One send, and the provider calls it made. An approval message is retried in place a couple of times (briefly), because its link
+ * exists only in this memory; every call counts as an attempt.
+ */
+async function send(ctx: DeliveryContext, address: ChannelAddress, reply: ChannelReply, o: OutboxRecord, windowOpen: boolean): Promise<{ result: SendResult; sends: number }> {
   const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
   for (let attempt = 0; ; attempt++) {
     let result: SendResult;
     try { result = await ctx.adapter.send(address, reply, o.outboxId, { kind: o.kind, windowOpen }); }
     catch { result = { ok: false, code: 'PROVIDER_SEND_FAILED', failure: 'UNCERTAIN', retryAfterMs: null }; }
-    if (result.ok || o.kind !== 'APPROVAL' || attempt >= APPROVAL_INLINE_RETRIES || (result.failure !== 'TRANSIENT' && result.failure !== 'RATE_LIMITED')) return result;
+    const done = { result, sends: attempt + 1 };
+    if (result.ok || o.kind !== 'APPROVAL' || attempt >= APPROVAL_INLINE_RETRIES || (result.failure !== 'TRANSIENT' && result.failure !== 'RATE_LIMITED')) return done;
     const wait = Math.max(1_000 * (attempt + 1), result.retryAfterMs ?? 0);
-    if (wait > APPROVAL_INLINE_WAIT_MS) return result;
+    if (wait > APPROVAL_INLINE_WAIT_MS) return done;
     await sleep(wait);
   }
 }
