@@ -27,14 +27,15 @@ import { routerControl } from './router-fixtures';
 
 const ROUTE = `${APP_ORIGIN}/api/channels/telegram`, BRIDGE = 'bridge 1 USDC from Base Sepolia to Arbitrum Sepolia via auto slippage 50 bps';
 type BotCall = { method: string; params: { chat_id?: string; text?: string; reply_markup?: { inline_keyboard: { text: string; url?: string }[][] } } };
-/** The double's calls to this run's chat only (a dispatch may also deliver what an earlier run left in a reused database). */
+/** This test's own Telegram user (fresh per run and repetition), so /start is always the first exchange of a new conversation. */
+const user = () => channelE2eUsers(test.info().repeatEachIndex).telegram;
+/** The double's calls to this test's chat only (the dispatch may also deliver what another test's conversation left pending). */
 const calls = async (): Promise<BotCall[]> => ((await (await fetch(`${TELEGRAM_DOUBLE}/__flofi/calls`)).json()) as BotCall[])
-  .filter(c => String(c.params.chat_id) === String(channelE2eUsers().telegram));
+  .filter(c => String(c.params.chat_id) === String(user()));
 const texts = async () => (await calls()).filter(c => c.method === 'sendMessage').map(c => c.params.text ?? '');
 let updateId = Math.floor(Date.now() / 1000);
-/** This run's own Telegram user (fresh per run), so /start is always the first exchange of a new conversation. */
-const update = (text: string, user = channelE2eUsers().telegram) => ({ update_id: ++updateId, message: { message_id: updateId, date: Math.floor(Date.now() / 1000), text,
-  from: { id: user, is_bot: false, first_name: 'Owner' }, chat: { id: user, type: 'private', first_name: 'Owner' } } });
+const update = (text: string, from = user()) => ({ update_id: ++updateId, message: { message_id: updateId, date: Math.floor(Date.now() / 1000), text,
+  from: { id: from, is_bot: false, first_name: 'Owner' }, chat: { id: from, type: 'private', first_name: 'Owner' } } });
 const approval = (page: Page) => page.getByRole('region', { name: 'External proposal' });
 const bridge = (page: Page) => page.getByRole('region', { name: 'Cross-chain bridge' });
 const dispatch = () => fetch(`${APP_ORIGIN}/api/channels/dispatch`, { headers: { authorization: `Bearer ${process.env.FLOFI_E2E_CHANNEL_DISPATCH_TOKEN}` } });

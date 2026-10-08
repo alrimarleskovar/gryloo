@@ -45,7 +45,7 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     const fixtureOwner = createTestWallet(new Uint8Array(32).fill(0x43)), stranger = createTestWallet();
     expect(fixtureOwner.address).toBe(LENDING_OWNER);
     await lendingRpc('MOCK_reset', [{}]);
-    const env = serverEnv(), user = channelE2eUsers().whatsapp;
+    const env = serverEnv(), user = channelE2eUsers(test.info().repeatEachIndex).whatsapp;
     // Every handoff that exists before this spec's first delivery belongs to someone else (MCP, Developer, Telegram, an earlier run).
     const before = await handoffIds();
 

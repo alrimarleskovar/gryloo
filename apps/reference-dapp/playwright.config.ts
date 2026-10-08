@@ -154,7 +154,7 @@ if (channelHarness) {
   process.env.FLOFI_E2E_TELEGRAM_WEBHOOK_SECRET ??= randomBytes(32).toString('base64url');
   process.env.FLOFI_E2E_CHANNEL_DISPATCH_TOKEN ??= randomBytes(24).toString('base64url');
   process.env.FLOFI_E2E_WHATSAPP_USER ??= `BR.FLOFIE2E${randomBytes(8).toString('hex').toUpperCase()}`;
-  process.env.FLOFI_E2E_TELEGRAM_USER ??= String(900_000_000 + randomBytes(4).readUInt32BE() % 100_000_000);
+  process.env.FLOFI_E2E_TELEGRAM_USER ??= String(900_000_000 + randomBytes(4).readUInt32BE() % 99_999_000);
 }
 const channelServerEnv = channelHarness ? channelE2eEnv() : {};
 
