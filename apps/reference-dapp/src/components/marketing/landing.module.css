@@ -317,11 +317,15 @@
 .visionCore strong { font-size: 25px; letter-spacing: -.05em; }
 .visionCore small { color: #93A6FF; font-size: 11px; }
 .visionDestination { position: relative; z-index: 1; padding: 16px 12px; border: 1px solid rgba(147,166,255,.25); border-radius: 12px; background: #0B2241; color: #E9EDFD; font-size: 13px; text-align: center; }
-.footer { background: #06172b; color: #fff; }
-.footer > .container { display: flex; align-items: center; justify-content: space-between; gap: 25px; min-height: 92px; }
+.footer { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: clamp(460px, 36vw, 600px); overflow: hidden; background: linear-gradient(180deg, var(--pale) 0%, #E9EDFD 8%, #2343D9 28%, #06172b 58%, #06172b 100%); color: #fff; }
+.footer .horizon { inset: 0; opacity: .95; mask-image: linear-gradient(180deg, transparent 14%, #000 45%); }
+.footer .horizon::after { background: linear-gradient(180deg, transparent 45%, rgba(6,23,43,.4) 72%, #06172b 100%); }
+.footer > .container { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 25px; min-height: 110px; padding-block: 32px; }
 .footer .brandLight { font-size: 20px; }
 .footer .brandLight img { width: 36px; height: 36px; }
 .footer nav { color: #E9EDFD; font-size: 12px; }
+.footer nav a:hover { color: #fff; }
+.footer a:focus-visible { outline-color: #93A6FF; }
 .footer > .container > span { color: #93A6FF; font-size: 12px; }
 
 @media (max-width: 1050px) {
@@ -503,6 +507,7 @@
   .reviewCard { padding: 14px; }
   .reviewCardTitle { flex-wrap: wrap; }
   .reviewAllocation { grid-template-columns: minmax(0,1fr); gap: 4px; }
+  .footer { min-height: 520px; }
   .footer > .container { padding-bottom: max(24px,env(safe-area-inset-bottom)); }
 }
 @media (max-width: 389px) {

@@ -22,7 +22,8 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
       await expect(headline).toContainText(locale === 'en' ? 'Many ways in.' : 'Várias entradas.');
       expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers']);
       expect(await page.locator('main').evaluate(element => element.nextElementSibling?.tagName)).toBe('FOOTER');
-      await expect(page.locator('#product, #scenarios, #review, #about, [data-story-stage], [data-earth]')).toHaveCount(0);
+      await expect(page.locator('#product, #scenarios, #review, #about, [data-story-stage]')).toHaveCount(0);
+      await expect(page.locator('footer [data-earth]')).toHaveCount(1);
       const launch = hero.getByRole('link', { name: locale === 'en' ? /Launch FloFi/ : /Abrir FloFi/ });
       const docs = hero.getByRole('link', { name: locale === 'en' ? /Explore Docs/ : /Explorar Docs/ });
       await expect(launch).toHaveAttribute('href', '/app');
@@ -102,10 +103,11 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
   });
 }
 
-test('retired Earth artwork remains available without a fourth marketing section', async ({ request, page }) => {
+test('original Earth artwork closes the footer without a fourth marketing section', async ({ request, page }) => {
   const asset = await request.get('/flofi/closing-horizon-v2.png');
   expect(asset.ok()).toBe(true); expect(asset.headers()['content-type']).toContain('image/png');
   await page.goto('/');
   await expect(page.locator('main > section')).toHaveCount(3);
-  await expect(page.locator('[data-earth]')).toHaveCount(0);
+  await expect(page.locator('main [data-earth]')).toHaveCount(0);
+  await expect(page.locator('footer [data-earth-original]')).toHaveAttribute('href', '/flofi/closing-horizon-v2.png');
 });

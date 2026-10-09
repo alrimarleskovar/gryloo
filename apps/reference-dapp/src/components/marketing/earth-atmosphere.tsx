@@ -11,7 +11,7 @@ export function EarthAtmosphere() {
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const section = element.closest('section')!;
+    const region = element.closest('footer, section') ?? element;
     let inView = false;
     const update = () => { element.dataset.earthActive = String(inView && !document.hidden); };
     document.addEventListener('visibilitychange', update);
@@ -20,11 +20,11 @@ export function EarthAtmosphere() {
       inView = entries.some(entry => entry.isIntersecting);
       update();
     });
-    observer.observe(section);
+    observer.observe(region);
     return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); };
   }, []);
   return <div ref={ref} className={styles.horizon} data-earth data-earth-active="false" aria-hidden="true">
-    <svg className={styles.earthArtwork} viewBox="0 0 1672 941" preserveAspectRatio="xMidYMax slice" focusable="false">
+    <svg className={styles.earthArtwork} viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" focusable="false">
       <defs>
         {/* Feathered inset follows the real asset's curve; sky and illuminated rim stay fixed. */}
         <mask id={`${id}-surface`} maskUnits="userSpaceOnUse" x="0" y="0" width="1672" height="941">

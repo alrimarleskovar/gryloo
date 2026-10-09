@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import styles from './landing.module.css';
 import { LandingMotion } from './landing-motion';
+import { EarthAtmosphere } from './earth-atmosphere';
 import { ConnectedFlow } from './connected-flow';
 import { WorkflowStory } from './workflow-story';
 import { CryptoMark } from './crypto-visuals';
@@ -111,6 +112,6 @@ export default function LandingPage() {
       </div></section>
 
     </main>
-    <footer className={styles.footer}><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#workflow">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="https://github.com/alrimarleskovar/gryloo">{t.sourceCode}</a><a href="https://github.com/alrimarleskovar/gryloo/blob/main/LICENSE">{t.license}</a></nav><span>{t.footerLine}</span></div></footer>
+    <footer className={styles.footer}><EarthAtmosphere/><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#workflow">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="https://github.com/alrimarleskovar/gryloo">{t.sourceCode}</a><a href="https://github.com/alrimarleskovar/gryloo/blob/main/LICENSE">{t.license}</a></nav><span>{t.footerLine}</span></div></footer>
   </div>;
 }
