@@ -80,3 +80,28 @@ release-compliance gate before publication. That gate must verify all
 applicable notices, corresponding-source availability and user
 replacement/relink requirements. BUILD-002 dependency-governance evidence
 does not certify compliance for a future binary distribution.
+
+## BUILD-BRAND-UX-001 supplied landing artwork
+
+`apps/reference-dapp/public/ecosystem/solana-mark.png` is the Solana logomark supplied in Caio's
+`FloFi-Landing-Work-Alrimar-2026-10-03.zip`. Its handoff attributes the original download to
+[Solana branding](https://solana.com/branding), `/src/img/branding/solanaLogoMark.png`.
+The supplied mark is retained with its provenance; the public landing uses the existing registry Solana icon.
+Solana marks identify product ecosystems;
+it implies no partnership or endorsement. It remains third-party trademark material, excluded from
+FloFi source-license grants. No Solana source code or branding-page copy was imported.
+
+The original atmospheric horizon in `public/flofi/closing-horizon-v2.png` and the landing's React/CSS
+were supplied by Caio in the same archive. The handoff records the horizon as an original generated
+illustration. The adapted code retains its AGPL-3.0-only source headers; FloFi brand assets retain
+their existing provenance and trademark restrictions. See the
+[design compatibility report](docs/builds/BUILD-BRAND-UX-001-DESIGN.md).
+
+The marketing crypto illustrations reuse the existing token/network source register at
+[`public/brand/crypto/sources.md`](apps/reference-dapp/public/brand/crypto/sources.md). The added
+Bitcoin icon is supplied under BitPay's CC0/public-domain dedication, preserved in
+`bitcoin-brand.LICENSE`. The WBTC registry icon remains excluded third-party brand material.
+WBTC remains byte-identical. Bitcoin's SVG line endings and trailing whitespace are normalized;
+its parsed artwork, colors and proportions are unchanged. Original and served SHA-256 values
+are recorded in that register alongside origin and retrieval date.
+Protocol names and marks identify illustrative ecosystems and convey no endorsement or execution claim.

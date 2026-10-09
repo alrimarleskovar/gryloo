@@ -26,6 +26,7 @@ import { useBridge } from '../state/bridge-store';
 import { ActionLibrary } from './action-library';
 import { ArtifactInspector } from './artifact-inspector';
 import { CopilotPanel } from './copilot-panel';
+import { MobileBuildNavigation } from './mobile-build-navigation';
 import { ExecutionPanel } from './execution-panel';
 import { ForkSimulationPanel } from './fork-simulation-panel';
 import { ModeBPanel } from './mode-b-panel';
@@ -99,7 +100,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     if (authoringIncomplete && (section === 'Simulate' || section === 'Execute')) return;
     if (navigate && section === 'Dashboard') { navigate('/app/dashboard'); return; }
     setSection(section);
-    if (navigate && (dashboardRoute || secondaryRoute)) navigate('/');
+    if (navigate && (dashboardRoute || secondaryRoute)) navigate('/app');
   }, [authoringIncomplete, navigate, dashboardRoute, secondaryRoute]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
   const connectedWallet = useBuild009Wallet();
@@ -273,6 +274,7 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
         <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
           <details className="shell-details technical-workspace simulation-technical"><summary>{tr("View technical details")}</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
         </SimulateWorkspace> : stageContent}
+      <MobileBuildNavigation stage={tab === 'Build' ? 'Build' : tab === 'Simulate' ? 'Simulate' : 'Execute'}/>
       {state.error && <div className="error-banner" role="alert"><strong>{tr("Edit not applied")}</strong><span>{tr(tab !== 'Build' ? 'Review the workflow configuration in Build before simulating again.' : state.error)}</span></div>}
     </main>{tab !== 'Execute' && <SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost} focusReview={focusReview} reviewAvailable={Boolean(reviewBinding.authorization.key && reviewBinding.authorization.ready)}/>}
   </div>;

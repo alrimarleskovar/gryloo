@@ -11,7 +11,7 @@ import { chainBroadcasts, installTransferWallet, resetTransferHarness, sendReque
 const ROUTE = '/ethereum-sepolia' as const;
 const region = (page: Page) => page.getByRole('region', { name: 'Ethereum Sepolia transfer' });
 async function author(page: Page, options: TransferWalletOptions = {}) {
-  await installTransferWallet(page, { chain: '0xaa36a7', route: ROUTE, ...options }); await page.goto('/');
+  await installTransferWallet(page, { chain: '0xaa36a7', route: ROUTE, ...options }); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
   await form.getByLabel('Transfer network').selectOption('Ethereum Sepolia');

@@ -35,7 +35,7 @@ test.beforeAll(async () => {
 test.beforeEach(async ({ page }) => {
   const errors: string[] = []; browserErrors.set(page, errors);
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
   await page.clock.install({ time: reviewNow });
@@ -112,3 +112,25 @@ test('accepted Review fails closed on live workflow, policy, wallet and network 
   const main = await page.getByRole('main').innerText();
   expect(main).not.toMatch(/SIMULATION_FAILED|canonical|artifact|schemaVersion|undefined|null/);
 });
+
+for (const width of [320, 375, 390, 430]) {
+  test(`mobile Review keeps the manifest and explicit confirmation readable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 740 });
+    const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
+    await page.getByText('View technical details', { exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Strategy Manifest', exact: true })).toBeVisible();
+    const approve = review.getByRole('button', { name: 'Approve & Continue', exact: true });
+    await approve.scrollIntoViewIfNeeded();
+    const box = (await approve.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await approve.focus();
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => window.flofiReviewAcceptance.counts())).toEqual({ approved: 1, executed: 0, refreshed: 0, edited: 0 });
+    await page.evaluate(() => window.flofiReviewAcceptance.transition('wallet'));
+    await expect(review.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
+    expect((await page.evaluate(() => window.flofiReviewAcceptance.counts())).executed).toBe(0);
+  });
+}

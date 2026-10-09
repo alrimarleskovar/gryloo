@@ -1503,3 +1503,81 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 .saved-workflow-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .saved-workflow-open { width: 100%; justify-content: space-between; padding: 18px 20px; text-align: left; }
 .saved-workflow-open > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* BUILD-BRAND-UX-001: responsive presentation; financial gates remain in their stores. */
+.mobile-build-navigation { display: none; }
+.app-shell { min-height: 100svh; padding-bottom: env(safe-area-inset-bottom); }
+.app-shell :is(.manifest-review,.execution-panel,.review-workspace,.simulation-summary,.execution-plan,.technical-workspace) { min-width: 0; overflow-wrap: anywhere; }
+
+.app-shell :is(.payload-table,.enforcement-table,.tier-table) td { overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .app-shell :is(.payload-table,.enforcement-table,.tier-table) { display: block; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+  .top-bar { padding-left: max(12px,env(safe-area-inset-left)); padding-right: max(12px,env(safe-area-inset-right)); }
+  .top-meta { flex-wrap: wrap; }
+  .header-wallet { flex: 1; }
+  .header-wallet button, .header-settings, .navigation-trigger { min-width: 44px; min-height: 44px; }
+  .navigation-control { width: 44px; height: 44px; }
+  .navigation-drawer { padding-bottom: max(20px,env(safe-area-inset-bottom)); }
+  .header-settings-menu { max-width: calc(100vw - 24px); }
+  .header-settings-menu :is(button,.header-settings-row) { min-height: 44px; }
+  .main.workflow-workspace { position: relative; padding-top: 80px; --workspace-header-height: 240px; }
+  .mobile-build-navigation { position: absolute; top: 20px; left: 16px; right: 16px; display: flex; gap: 8px; }
+  .mobile-build-navigation button { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--blue); font-weight: 500; }
+  .workflow-workspace { --workspace-height: 580px; }
+  .canvas-head .canvas-toolbox { display: flex; flex-wrap: wrap; height: auto; overflow: visible; }
+  .canvas-head .canvas-toolbox button { flex: 0 0 auto; min-width: 44px; min-height: 44px; }
+  .canvas-toolbox button span { display: inline; }
+  .canvas-head .canvas-toolbox .toolbox-divider { display: none; }
+  .canvas-head .canvas-toolbox .crypto-action-picker { min-width: 0; }
+  .workflow-name-actions button { min-width: 44px; min-height: 44px; }
+  .workflow-workspace .build-grid > .copilot { height: clamp(390px,65svh,540px); }
+  .chat-messages { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  .copilot .chat-form input { height: 44px; font-size: 16px; scroll-margin-block: 24px; }
+  .chat-form button, .copilot-options button, .proposal-review-actions button { min-width: 44px; min-height: 44px; }
+  .chat-form { padding-bottom: max(14px,env(safe-area-inset-bottom)); }
+  .copilot:focus-within { scroll-margin-block: 16px; }
+  .wallet-selector-close { width: 44px; height: 44px; }
+  .wallet-selector { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .wallet-selector-panel { max-height: inherit; }
+  .app-shell :is(input,select,textarea) { font-size: 16px; }
+  .app-shell :is(.review-final-actions,.manifest-actions,.inspector-actions,.simulation-workspace-actions) { flex-wrap: wrap; }
+  .app-shell :is(.review-final-actions,.manifest-actions,.inspector-actions) button { flex: 1 1 160px; min-height: 44px; }
+  .review-workspace .review-final-actions button { min-height: 44px; }
+  .approval-page { padding-inline: 12px; }
+  .approval-facts { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 480px) {
+  .main.workflow-workspace { padding-inline: 12px; }
+  .main.workflow-workspace:not([data-workspace-toolbox="floating"]) { --workspace-header-height: 320px; }
+  .mobile-build-navigation { left: 12px; right: 12px; }
+  .tabs { gap: 2px; }
+  .tabs button { gap: 4px; padding-inline: 4px; font-size: 12px; }
+  .stage-number { display: none; }
+  .workflow-workspace :is(.canvas-head,.canvas-foot) { padding-inline: 12px; }
+  .canvas-head .canvas-toolbox button span { display: inline; }
+  .canvas-head .canvas-toolbox { gap: 4px; }
+  .workflow-workspace .canvas-primary-action { flex-wrap: wrap; justify-content: flex-end; }
+  .app-shell :is(.simulation-summary-values,.execution-summary .simulation-summary-values) > div { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .app-shell :is(.simulation-summary-values,.execution-summary .simulation-summary-values) dd { max-width: 100%; text-align: left; }
+  .app-shell :is(.review-strategy,.review-confirmation,.simulation-summary,.execution-plan,.manifest-review) { padding: 16px; }
+  .review-facts, .manifest-facts { grid-template-columns: minmax(0,1fr); }
+  .summary-bar > div:first-child { flex-wrap: wrap; }
+}
+@media (max-width: 800px) {
+  .main.workflow-workspace { --workspace-height: 820px; }
+  .main.workflow-workspace[data-workspace-toolbox="floating"] { --workspace-height: 760px; --workspace-header-height: 50px; }
+  .workflow-workspace[data-workspace-toolbox="floating"] :is(.build-grid,.simulate-workspace-grid,.execute-workspace-grid) > .canvas > .canvas-head { padding-block: 3px; }
+  .canvas-head .canvas-toolbar-row .canvas-toolbox { flex-wrap: wrap; gap: 6px; }
+  .canvas-toolbar-row .canvas-primary-tools { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; gap: 4px; padding: 0; }
+  .canvas-toolbar-row .canvas-utility-tools { flex-wrap: wrap; gap: 4px; padding: 0; }
+  .canvas-toolbar-row .canvas-toolbox button { min-height: 44px; min-width: 44px; font-size: 12px; padding-inline: 8px; }
+  .canvas-head .canvas-utility-tools button { flex: 0 0 auto; }
+  .canvas-toolbar-row .canvas-primary-tools button span { display: inline; }
+  .canvas-name :is(.workflow-rename,.workflow-save) { width: 44px; height: 44px; }
+  .floating-toolbox { padding: 3px; }
+  .floating-toolbox .canvas-toolbox button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+}
+@media (max-width: 480px) {
+  .canvas-head .canvas-utility-tools button { width: 44px; padding-inline: 0; }
+  .canvas-head .canvas-utility-tools button span { display: none; }
+}

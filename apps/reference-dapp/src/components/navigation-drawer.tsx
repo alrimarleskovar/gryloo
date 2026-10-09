@@ -31,7 +31,7 @@ export function NavigationDrawer({ pathname, section = 'Build', onBuild, onDisco
   const [open, setOpen] = useState(false);
   const selected = secondaryWorkspaceRoute(pathname)?.id
     ?? (dashboardRoute(pathname) || (!pathname && section === 'Dashboard') ? 'dashboard'
-      : (!pathname || pathname === '/') && section === 'Build' ? 'build' : null);
+      : (!pathname || pathname === '/app') && section === 'Build' ? 'build' : null);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -107,7 +107,7 @@ export function NavigationDrawer({ pathname, section = 'Build', onBuild, onDisco
             <Link ref={firstItem} href="/app/dashboard" className="navigation-row" aria-current={selected === 'dashboard' ? 'page' : undefined} onClick={() => close(true)}>
               <NavigationIcon item="dashboard"/><span>{tr("Dashboard")}</span>
             </Link>
-            <Link href="/" className="navigation-row" aria-current={selected === 'build' ? 'page' : undefined}
+            <Link href="/app" className="navigation-row" aria-current={selected === 'build' ? 'page' : undefined}
               onClick={event => { event.preventDefault(); onBuild(); close(true); }}>
               <NavigationIcon item="build"/><span>{tr("Build Workflow")}</span>
             </Link>

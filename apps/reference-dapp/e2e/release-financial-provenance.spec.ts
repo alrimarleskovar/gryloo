@@ -20,7 +20,7 @@ const profiles = ['lending', 'jupiter', 'solana-devnet', 'solana-liquidity', 'tr
 if (!profiles.some(value => value === profile)) throw new Error('An exact FLOFI_RELEASE_PROVENANCE_PROFILE is required');
 
 async function chat(page: Page, text: string) {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByLabel('Describe your flow').fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);
@@ -76,7 +76,7 @@ if (profile === 'transfer' || profile === 'cloud') for (const route of profile =
     else await resetTransferHarness({}, route);
     const broadcastsBefore = await chainBroadcasts(route);
     await installTransferWallet(page, { ...(route ? { chain: '0xaa36a7', route } : {}) });
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByText('Advanced action setup', { exact: true }).click();
     const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
     if (route) await form.getByLabel('Transfer network').selectOption('Ethereum Sepolia');
@@ -104,7 +104,7 @@ if (profile === 'transfer' || profile === 'cloud') for (const route of profile =
 }
 
 if (profile === 'uniswap') test('MOCKED Uniswap liquidity retains exact approval amounts, ticks and recipient while Review rejects execution', async ({ page }) => {
-  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/');
+  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.locator('#liquidity-network').selectOption('BASE_SEPOLIA');
   const form = page.getByRole('form', { name: 'Create Base Sepolia liquidity position' });

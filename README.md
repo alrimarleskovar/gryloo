@@ -1,117 +1,147 @@
-# Flofi
+<p align="center">
+  <img src="apps/reference-dapp/public/brand/flofi-symbol-light.svg" width="64" alt="FloFi logo" />
+</p>
 
-Flofi is a non-custodial, conversational and visual compiler plus bounded
-executor for multichain DeFi workflows. Chat, canvas, and integrations will use
-one canonical Semantic Workflow IR; AI proposals never constitute financial
-authority.
+<h1 align="center">FloFi — financial intent, made executable.</h1>
 
-Flofi was previously named Gryloo. [BUILD-BRAND-001](docs/builds/BUILD-BRAND-001-PLAN.md)
-records the transition; historical evidence and runtime compatibility identifiers
-retain their original names. BUILD-013 remains OPEN on its separate branch and PR #48.
+<p align="center">A non-custodial multichain DeFi workflow platform.<br />Compose through conversation or a visual builder. Simulate, review, then authorize with your own wallet.</p>
 
-## Current status
+<p align="center">
+  <a href="docs/developer/README.md">Developer docs</a> ·
+  <a href="docs/deploy/MCP.md">MCP</a> ·
+  <a href="docs/SECURITY_MODEL.md">Security model</a> ·
+  <a href="docs/STATUS.md">Evidence &amp; status</a>
+</p>
 
-BUILD-003 and BUILD-004 are certified only for their recorded controlled local-fork evidence. BUILD-005 is COMPLETE / CERTIFIED: MOCKED under DEC-0035 after PR #15 merged and post-merge checks passed. Its CoW signed-intent journey in the reference app uses a deterministic loopback orderbook, disposable local wallet and `MOCKED` scripted settlement. BUILD-006 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0037, for its isolated Uniswap v3 Mode A liquidity lifecycle on local chain 31337 only. BUILD-007 is COMPLETE / CERTIFIED: FORK_REPRODUCED under DEC-0043, for its finite Mode B swap-to-liquidity composition on local chain 31337 only. BUILD-008 is COMPLETE / CERTIFIED: MOCKED under DEC-0046 for the Base → Optimism USDC bridge. Its live LI.FI quote/route is read-only provider evidence; bridge execution, recovery and destination reconciliation are deterministic MOCKED. BUILD-009 and BUILD-010 are merged without separate certification claims; BUILD-011 canvas/product UX implementation is approved and remains unmerged. See the [current status](docs/STATUS.md), [BUILD-006 plan](docs/builds/BUILD-006-PLAN.md), [BUILD-006 report](docs/builds/BUILD-006-REPORT.md), [BUILD-005 plan](docs/builds/BUILD-005-PLAN.md), [report](docs/builds/BUILD-005-REPORT.md) and [local signed-intent contract](docs/contracts/COW_SIGNED_INTENT_V1.md). No public CoW, public-chain or production certification follows. Flofi remains a global non-custodial multichain product; Solana retains its stated roadmap priority.
+![FloFi crypto workflow illustration](apps/reference-dapp/e2e/visual-evidence/build-brand-ux-001/after-landing-hero-1440.png)
 
-## Licensing
+*Illustrative ETH/USDC swap and Base → Arbitrum bridge. Marketing scenarios describe the product vision; they do not establish enabled mainnet execution or production readiness.*
 
-Flofi is multi-licensed. [LICENSE](LICENSE) routes to the official license
-texts, and [the license map](docs/LICENSE_MAP.md) classifies each path.
-`docs/assets/**` is excluded as third-party reference material. The licenses
-grant no Flofi or Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
+## What is FloFi?
 
-## Repository workflow
+DeFi strategies span networks, protocols, approvals and transactions. FloFi gives those steps a shared, inspectable workflow: an intent becomes a canonical **Semantic Workflow IR**, supported actions are simulated, and the user reviews a **Strategy Manifest** before authorizing execution. Observed results are reconciled against the approved operation and recorded in an Evidence Bundle.
 
-Use [GOVERNANCE-LITE](docs/SCOPE_GUARD.md): branch → code → tests → PR → CI →
-human owner merge. Legitimate product paths need no build-specific permission
-manifest or byte-pin update. Secrets, dependency integrity, correctness and
-explicit owner wallet authorization remain required.
+Builders can use the same lifecycle through the app, a server API or MCP. An AI answer, an API key and a chat message have **zero financial authority**. The user's wallet remains the signing authority.
 
-## Sources of truth
+FloFi is under active development. Current `main` contains the implementations described below, with evidence ranging from mocked integration to specific owner-executed testnet/Devnet demonstrations. Availability depends on the action, network, runtime and operator configuration. There is no general mainnet production or audited-security claim. Historical reports can describe older checkpoints or unmerged branches; consult their scope before treating a feature as delivered.
 
-- [Master Product Specification v3.2](docs/specs/MASTER_SPEC_V3.2.md)
-- [Astra Development Master Prompt v1.2](prompts/DEFI_WORKFLOW_ENGINE_MASTER_PROMPT_ASTRA_v1.2_EN.md)
-- [Governance decisions](docs/DECISIONS.md)
+## How it works
 
-The files in `docs/assets/` are visual direction only. They do not authorize
-copying third-party branding, interface text, or unsupported safety claims.
+1. **Build** — describe an action in chat or configure its card on the visual canvas. Review proposed changes before applying them.
+2. **Simulate** — obtain the supported path's quote, state and simulation artifacts. Unsupported combinations fail explicitly.
+3. **Review** — inspect assets, amounts, limits, permissions, costs and the Strategy Manifest. Material edits or expired artifacts require fresh simulation and review.
+4. **Authorize & execute** — approve the reviewed operation and sign the required transactions in your own wallet. Connecting a wallet does not authorize a transaction.
+5. **Verify** — follow execution status, recovery and reconciliation; inspect transaction identifiers and the canonical Evidence Bundle.
 
-## Contract packages
+Simulation is scoped evidence, not a guarantee of a future outcome. Mocked browser demonstrations remain blocked from financial authorization by the production Review gates.
 
-- `@defi-workflow-engine/workflow-contracts@0.1.0`: artifact contracts, raw-byte
-  ingress, canonical hashes, invalidation, revision checks, and state transitions.
-- `@defi-workflow-engine/action-registry@0.1.0`: declarative action definitions
-  and capability contracts.
+![FloFi workflow review illustration](apps/reference-dapp/e2e/visual-evidence/build-brand-ux-001/after-review-1440.png)
 
-Both packages are private and Apache-2.0. Exports are limited to the documented
-root API, `./schemas`, `./schemas/v1/*.schema.json`, and `./package.json`.
-See [compatibility](docs/contracts/COMPATIBILITY_V1.md),
-[canonicalization](docs/contracts/CANONICALIZATION_V1.md), and
-[invalidation](docs/contracts/INVALIDATION_V1.md).
+*Product illustration: review an ETH → USDC strategy, its permissions and execution intent before authorizing with your wallet.*
 
-CI bootstraps verified official Node.js `24.21.0` and pnpm `11.22.0` archives
-with runner Python, Git, and Bash and no third-party Actions. Dependencies use
-exact pins and a frozen lockfile; install scripts are disabled. SBOM validation
-emits a digest; no retained SBOM artifact is claimed.
+## Product capabilities
 
-BUILD-002's approved private [reference application](apps/reference-dapp)
-provides the local mocked visual shell (originally Gryloo, now Flofi) and shared revisioned workflow
-state. Its source is AGPL-3.0-only. The exact third-party license and
-attribution inventory is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);
-the current validation record is the
-[BUILD-002 report](docs/builds/BUILD-002-REPORT.md).
+| Capability on `main` | Scope |
+| --- | --- |
+| Conversation and visual builder | Shared revisioned workflow model; explicit proposal acceptance. The optional Copilot asks for missing facts and proposes supported edits. |
+| Simulation and Strategy Manifest | Hash-linked artifacts, validity checks, permission review and invalidation after material changes. |
+| Wallet connection and authorization | User-selected EVM/Solana wallets; separate wallet proof, review and transaction signatures. |
+| Execution and evidence | Supported path adapters, durable status, recovery, reconciliation and evidence without upgrading its provenance level. |
+| Dashboard and saved workflows | Wallet-scoped views and reusable workflows; restoring a workflow requires fresh simulation/review. |
+| Developer API, SDK and webhooks | Server-side sandbox integration. Live credentials and mainnet strategies are refused. |
+| Remote MCP gateway | Read-only discovery/composition/simulation, OAuth and trusted approval handoffs; operator-enabled. |
+| Conversational channels | Shared Channel Core; Telegram adapter awaits owner live acceptance. WhatsApp live activation remains policy-blocked and fixture-only. |
 
-## BUILD-003A
+The canvas and chat are two ways to author the same workflow. Visual layout changes do not change financial semantics. A proposal can describe a strategy without giving an agent permission to execute it.
 
-The private `@defi-workflow-engine/reference-linter@0.1.0` package adds
-deterministic, non-enforcing review of isolated Base USDC↔WETH exact-input
-intent. The existing [reference application](apps/reference-dapp) supports the
-same intent through local chat and canvas controls. It provides no quote,
-protocol connection, wallet or execution. Both the app and linter are
-AGPL-3.0-only. See the [approved plan](docs/builds/BUILD-003A-PLAN.md) and
-[implementation report](docs/builds/BUILD-003A-REPORT.md) for exact scope and
-separate local and remote evidence.
+## Multichain, with explicit capability boundaries
 
-## BUILD-003B
+FloFi resolves capabilities by **action × network × environment**. Recognizing a chain is different from supporting every action on it.
 
-The Simulate tab of the [reference application](apps/reference-dapp) now
-builds a `MOCKED` Quote/State Artifact, Artifact Set and Simulation Bundle for
-each authored Base swap, from a fixed synthetic rate of 1 WETH = 1,000 USDC.
-The chain is hash-linked to one workflow revision, expires after 60 seconds and
-is invalidated by any semantic edit. It is not a live quote or a financial
-simulation, and Execute remains unavailable. See the
-[approved plan](docs/builds/BUILD-003B-PLAN.md) and
-[implementation report](docs/builds/BUILD-003B-REPORT.md).
+| Path | Implementation and evidence boundary |
+| --- | --- |
+| EVM testnets | Selected Uniswap v3, Aave V3 and native-transfer profiles on Base Sepolia, Ethereum Sepolia and Robinhood Testnet. Exact supported assets/actions differ by chain. Specific Base Sepolia operations have recorded owner execution; Ethereum Sepolia implementation alone does not establish public execution. |
+| Solana Devnet | Orca swap and concentrated-liquidity paths. A recorded owner swap establishes `DEVNET_EXECUTED` for that exact operation using valueless test tokens. |
+| Cross-chain workflows | Selected Across/LI.FI and bridge-to-swap paths with environment-specific gates, recovery and destination evidence. Broader arbitrary sequences are unsupported. |
+| Local fork / loopback | Isolated Uniswap, finite Safe/Zodiac Roles permissions, composition and CoW intent demonstrations. Their evidence remains `FORK_REPRODUCED` or `MOCKED`. |
+| Mainnet profiles | Some adapters and discovery code exist, including Jupiter. This does not imply mainnet production readiness, public acceptance or enabled integration authority. |
 
-## BUILD-003C (merged through PR #9)
+See the [evidence levels](docs/EVIDENCE_LEVELS.md), [current status](docs/STATUS.md) and [build reports](docs/builds). One demonstrated transaction does not certify another asset, protocol, chain or workflow.
 
-The approved [plan](docs/builds/BUILD-003C-PLAN.md) adds a separate read-only Base/Uniswap v3 quote observation with every state read pinned by block hash and canonicality. It never feeds the mocked artifact chain or authorization. The public recording stopped after two HTTP 429 responses at 2/4 attempts and 24/84 requests. The original Alchemy Free attempt received HTTP 403 at its first request and remains preserved at 1/3 attempts and 1/63 requests. After the owner enabled Base Mainnet only and approved DEC-0022, the bounded owner-run continuation verified both hash-pinned methods and completed both directions in attempts 2 and 3, ending at 3/3 cumulative Alchemy attempts and 43/63 requests. The [BUILD-003C report](docs/builds/BUILD-003C-REPORT.md) records the two real transcript hashes, four reviewed code pins, replay fixture, ten visual baselines and passing local checks. The provider remains fixed to Base mainnet with a server-only Bearer credential; no paid plan, charge or further RPC request is authorized. Wallet, signing, execution and a subsequent build remain unavailable. The owner retains merge.
+## Build on FloFi
 
-## BUILD-003D (closed under Option B)
+- **Developer API + TypeScript SDK:** discover capabilities, create an immutable StrategySpec, validate, obtain a read-only preview, and hand approval to the user. Follow status and evidence the owner chooses to share. Server keys never sign, submit or approve. Start with the [quickstart](docs/developer/QUICKSTART.md), [API](docs/developer/API.md) and [SDK](packages/developer-sdk/README.md).
+- **MCP:** expose the shared engine to a configured client through Streamable HTTP, OAuth and a trusted FloFi approval handoff. Local integration tests do not establish live ChatGPT or Claude acceptance. See the [MCP operator guide](docs/deploy/MCP.md).
+- **Channels:** Telegram and WhatsApp share proposal, approval and status handling. The financial flow remains in FloFi with the user's wallet. See [Telegram](docs/deploy/TELEGRAM.md), [WhatsApp](docs/deploy/WHATSAPP.md) and [owner acceptance](docs/deploy/CHANNELS-OWNER-E2E.md) for activation boundaries.
 
-The approved [plan](docs/builds/BUILD-003D-PLAN.md) aimed for a Mode A vertical slice on a recorded, controlled Base fork.
+## Architecture
 
-**What BUILD-003D delivers**, all accepted offline with scripted transports and synthetic loopback upstreams (see the [report](docs/builds/BUILD-003D-REPORT.md)):
+```mermaid
+flowchart TD
+  A[Chat + visual builder] --> P[Shared FloFi platform]
+  B[Developer API + SDK] --> P
+  C[MCP + channels] --> P
+  P --> IR[Canonical Semantic Workflow IR]
+  IR --> R[Capability registry + validation]
+  R --> S[Supported simulation + artifacts]
+  S --> M[Strategy Manifest + explicit review]
+  M --> W[Owner wallet authorization]
+  W --> X[Bounded execution adapters]
+  X --> E[Reconciliation + Evidence Bundle]
+```
 
-- a deterministic Simulate viewport and screenshot-diff forensics;
-- an offline Anvil compatibility gate;
-- the additive enforcement-matrix contract and exact-payload profile;
-- pure compiler, executor and reconciler packages;
-- the fork harness and replay infrastructure.
+The Next.js application lives in [`apps/reference-dapp`](apps/reference-dapp). Shared contracts and the action registry define the workflow boundary. The reference linter, compiler, executor and reconciler implement the lifecycle. The embedded cloud runtime uses durable PostgreSQL state; specific flow runtimes remain separately configured. The [cloud deployment guide](docs/deploy/CLOUD.md) explains that separation.
 
-**What it does not deliver.** All three owner-run recording attempts stopped, so no recorded Base state, fork execution, wallet signing, reconciliation evidence or certification exists. The recording, fork application integration and manual-wallet acceptance move to BUILD-003F, which is not approved. BUILD-004 planning waits for BUILD-003 certification. The application still offers no wallet, signing, submission or execution.
+## Getting started
 
-## BUILD-003F (local fork acceptance; delivered)
+Use **Node 24.21.0** and **pnpm 11.22.0**, as pinned in the repository.
 
-DEC-0028 approved the [BUILD-003F plan](docs/builds/BUILD-003F-PLAN.md). One owner-run Alchemy Free recording acquired finalized Base state under a fixed request/CU cap, and a credential-free transcript replay reproduced all seven scenarios byte-identically. The reference app's opt-in Mode A path on local chain 31337 lets a human review two exact payloads before an injected wallet signs them. The owner operated MetaMask on the replayed fork; independent verification found both signed payloads exact, both receipts successful and a `RECONCILED:EXACT` Evidence Bundle. See the [report](docs/builds/BUILD-003F-REPORT.md) for the actual transcript, source block, wallet/version, test counts and limitations.
+```bash
+git clone https://github.com/alrimarleskovar/gryloo.git
+cd gryloo
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm build
+pnpm --filter @defi-workflow-engine/reference-dapp dev
+```
 
-This is **local-fork evidence**, not a Base mainnet or public-testnet transaction and not a production wallet or hosted execution service. Gryloo never holds the wallet key. After PR #11 passed 4/4 checks, merge `4bf7d4f6e96c5ef433b0c930dad067d4001f2956` and successful post-merge checks, DEC-0030 accepted ADR-0004 and certified BUILD-003 `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 only. No later-build implementation, public-chain, production, live-provider, wallet-custody or financial-execution authority is approved.
+Open `http://127.0.0.1:3000` for the public landing or `/app` for the builder. The local shell supports authoring without a wallet. Provider-dependent simulation, persistence, integrations and financial paths need their documented operator configuration; installation alone does not enable execution. Preserve existing `GRYLOO_*` settings and persisted identifiers for compatibility.
 
-## BUILD-004 finite Mode B local fork (certified `FORK_REPRODUCED`, local chain 31337)
+```bash
+pnpm check                          # types, lint, production build, schemas, unit tests
+python3 scripts/governance_lite.py
+python3 scripts/test_governance_lite.py
+```
 
-The approved [BUILD-004 plan](docs/builds/BUILD-004-PLAN.md) adds an opt-in Safe 1.4.1 plus Zodiac Roles 2.1.0 path for one exact Uniswap swap on local chain 31337. The app reviews the finite permission and separate owner transactions, displays remaining native-unit budget and residual token allowance, runs a browser-independent disposable executor, reconciles chain effects, and requests four distinct revocation signatures. The [report](docs/builds/BUILD-004-REPORT.md) records the automated local proof and the owner-operated MetaMask acceptance. DEC-0033 certifies BUILD-004 `COMPLETE / CERTIFIED: FORK_REPRODUCED` on local chain 31337 only, after PR #13 merged as `e71de3946c7aac6095023ca1ee6f1e1a58a98112` and both post-merge checks passed; this is not public-chain or production authority. DEC-0030 still certifies BUILD-003 only at `FORK_REPRODUCED`.
+Browser and fork suites require the pinned Chromium headless shell, Foundry Anvil and loopback fixtures. PostgreSQL suites require a disposable local database. Follow [the CI workflow](.github/workflows/contracts.yml) for exact setup and guarded profiles; do not replace recorded/mock fixtures with live financial execution.
 
+## Documentation
 
-## BUILD-007 local composition (certified, DEC-0043)
+| Reference | Purpose |
+| --- | --- |
+| [Product specification](docs/specs/MASTER_SPEC_V3.2.md) | Product model and intended scope |
+| [Developer documentation](docs/developer/README.md) | API, SDK and webhooks |
+| [Deployment guides](docs/deploy) | Runtime and integration configuration |
+| [Canonicalization](docs/contracts/CANONICALIZATION_V1.md) · [Compatibility](docs/contracts/COMPATIBILITY_V1.md) · [Invalidation](docs/contracts/INVALIDATION_V1.md) | Stable contracts and artifact semantics |
+| [Authority matrix](docs/AUTHORITY_MATRIX.md) · [Security model](docs/SECURITY_MODEL.md) | Permission and execution boundaries |
+| [Status](docs/STATUS.md) · [Build reports](docs/builds) · [Decisions](docs/DECISIONS.md) | Historical evidence, limitations and provenance |
+| [Original engineering README](docs/builds/README-ENGINEERING-HISTORY.md) | Preserved build history from the previous README |
 
-The approved [BUILD-007 plan](docs/builds/BUILD-007-PLAN.md) adds one finite Safe/Roles USDC → WETH swap followed by a Safe-owned Uniswap v3 WETH/USDC fee tier 500 mint on local chain 31337. The new authoring, review, fixed worker and recovery path is opt-in. Synthetic rehearsals are `MOCKED`; a distinct read-only Base recording and closed fork evidence are required for any `FORK_REPRODUCED` claim. Earlier certified builds remain separate. No public-chain transaction, production wallet, real funds or PR merge is authorized.
+## Security principles and scope
+
+FloFi does not hold the user's private keys or seed phrase. AI proposals and integration credentials cannot authorize funds. Execution requires the supported path's fresh artifacts, explicit review and the applicable wallet authorization. Changes, expiry, mismatched identity and unsupported capabilities fail closed. Recovery and reconciliation retain the original evidence level.
+
+Source availability and automated tests are not a security audit. Simulations cannot guarantee execution prices or outcomes. Public demonstrations use the exact testnet/Devnet profiles documented in their reports; real funds and broader mainnet use require separate review and owner action. See [security policy](docs/SECURITY_MODEL.md) and [evidence scope](docs/EVIDENCE_LEVELS.md).
+
+## Roadmap
+
+Current priorities include broader protocol and network coverage, additional supported compositions, live acceptance of configured integrations, and production readiness backed by independent evidence. Privacy and advanced automation remain separately scoped work; visible future controls do not imply executable capabilities. Open PRs and roadmap items are not shipped features. Track the [next-build record](docs/NEXT_BUILD.md) and [repository issues](https://github.com/alrimarleskovar/gryloo/issues).
+
+Tempo is the next supported network in the product roadmap; this branch does not add or enable its runtime integration.
+
+## Contributing and licensing
+
+Follow [GOVERNANCE-LITE](docs/SCOPE_GUARD.md): branch → implementation → tests → PR → CI → human owner merge. Preserve wallet authority, fail-closed gates, evidence provenance, dependency integrity and attribution. Explain limitations and unexecuted checks in your PR.
+
+FloFi is multi-licensed: workflow contracts, action registry, Developer SDK and eligible documentation use **Apache-2.0**; the reference app and reference linter/compiler/executor/reconciler use **AGPL-3.0-only**. Consult [LICENSE](LICENSE) and the authoritative [license map](docs/LICENSE_MAP.md), including third-party exclusions. [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) preserve attribution and provenance. No source license grants FloFi or Gryloo trademark rights; see [TRADEMARKS.md](TRADEMARKS.md).
+
+FloFi was formerly Gryloo. Historical records and runtime identifiers retain that name; the [brand ADR](docs/adr/ADR-0006-flofi-product-brand.md) documents the transition. Founder licensing authority and repository administration remain as recorded in [DEC-0008](docs/DECISIONS.md) and the license map.

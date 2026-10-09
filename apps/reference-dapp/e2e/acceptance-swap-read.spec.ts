@@ -12,7 +12,7 @@ for (const [network, chain] of [['Base Sepolia', '0x14a34'], ['Ethereum Sepolia'
     const owner = createTestWallet(); await installJourneyWallet(page, [owner], { chain });
     const workflows: SemanticWorkflow[] = [];
     page.on('request', event => { if (event.url().endsWith('/api/build-estimate')) workflows.push(event.postDataJSON().workflow as SemanticWorkflow); });
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByRole('group', { name: 'Wallet connection' })).toContainText(network);
     await page.getByRole('button', { name: 'Add swap', exact: true }).click();
     const card = page.locator('.build-flow-surface .composer-card').first();

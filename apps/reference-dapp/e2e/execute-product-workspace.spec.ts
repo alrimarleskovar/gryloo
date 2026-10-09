@@ -51,7 +51,7 @@ test.beforeAll(async () => {
 test.beforeEach(async ({ page }) => {
   const errors: string[] = []; browserErrors.set(page, errors);
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
   const fontClasses = await page.locator('html').getAttribute('class');
@@ -200,7 +200,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
       }, on() {}, removeListener() {},
     } });
   });
-  await page.goto('/');
+  await page.goto('/app');
   // This provider already exposes an account. Wait for the shared wallet's passive reuse;
   // the transient Connect button disappears during hydration.
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
@@ -541,3 +541,18 @@ test('primary Execute copy stays human-readable across progress, recovery and re
   }
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
 });
+
+for (const width of [320, 375, 390, 430]) {
+  test(`mobile transaction evidence and status remain readable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 740 });
+    await page.evaluate(() => window.flofiExecuteAcceptance.evidence('bridge-reconciled'));
+    const plan = page.getByRole('region', { name: 'Execution plan', exact: true });
+    await expect(plan).toContainText('Reconciled');
+    await page.getByText('View technical details', { exact: true }).click();
+    await expect(page.locator('.execution-evidence-details')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const result = await page.locator('.execution-transaction').evaluateAll(items => items.every(item => item.getBoundingClientRect().right <= innerWidth));
+    expect(result).toBe(true);
+    expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
+  });
+}

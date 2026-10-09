@@ -4,7 +4,7 @@ import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 
 for (const action of ['swap', 'bridge'] as const) test(`${action} reviews and applies in its card with validated acceptance and a stable hover glow`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   const source = card.getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
@@ -67,7 +67,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} reviews and ap
 });
 
 test('amount acceptance is scoped to the reviewed card and stale reviews cannot accept another card', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   const cards = page.locator('.build-flow-surface .composer-card');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '2');

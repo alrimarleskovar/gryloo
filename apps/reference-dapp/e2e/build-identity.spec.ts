@@ -4,7 +4,7 @@ import { installSupplyWallet } from './supply-fixtures';
 
 test('workflow naming confirms inline, cancels without clearing selection and survives navigation', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
   const rename = canvas.getByRole('button', { name: 'Rename workflow', exact: true });
   await expect(canvas.getByRole('heading', { name: 'Your Workflow', exact: true })).toBeVisible();
@@ -46,7 +46,7 @@ test('workflow naming confirms inline, cancels without clearing selection and su
 
 test('Privacy is a disabled affordance in both toolbar positions and never authors an action', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   const toolbar = page.getByRole('toolbar', { name: 'Canvas tools', exact: true });
   for (const floating of [false, true]) {
     if (floating) await page.getByRole('button', { name: 'Undock toolbar', exact: true }).click();
@@ -62,7 +62,7 @@ test('Privacy is a disabled affordance in both toolbar positions and never autho
 
 test('Copilot keeps existing commands and proposal review while removing internal presentation', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   const assistant = page.getByRole('complementary', { name: 'Workflow assistant' });
   const prompt = assistant.getByLabel('Describe your flow', { exact: true });
   const send = assistant.getByRole('button', { name: 'Send', exact: true });

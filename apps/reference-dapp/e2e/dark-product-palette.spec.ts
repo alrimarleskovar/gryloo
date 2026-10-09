@@ -39,7 +39,7 @@ async function readable(values: Locator) {
 
 test('graphite palette follows the real lifecycle shell, settings and workspace at every product width', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await installSupplyWallet(page); await page.goto('/'); await dark(page);
+  await installSupplyWallet(page); await page.goto('/app'); await dark(page);
   const tokens = await page.locator('html').evaluate(element => {
     const style = getComputedStyle(element);
     return Object.fromEntries(['app-bg', 'surface', 'surface-raised', 'border', 'text-primary', 'text-secondary', 'accent', 'accent-soft', 'primary', 'success', 'warning-surface', 'warning-text']
@@ -99,10 +99,10 @@ test('graphite palette follows the real lifecycle shell, settings and workspace 
 });
 
 test('all Dark authoring cards and pickers share graphite surfaces with intact asset branding', async ({ page }) => {
-  await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/'); await dark(page);
+  await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/app'); await dark(page);
   await expect(page.locator('.header-mainnet-dot')).toHaveCSS('background-color', 'rgb(74, 222, 128)');
   for (const action of ['swap', 'bridge', 'pool', 'supply', 'borrow', 'repay', 'withdraw', 'Stocks']) {
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByRole('button', { name: action === 'Stocks' ? action : `Add ${action}`, exact: true }).click();
     const card = page.locator('.build-flow-surface .composer-card');
     await expect(card).toHaveCSS('background-color', 'rgb(21, 24, 31)');

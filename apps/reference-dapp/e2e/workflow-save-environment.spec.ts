@@ -6,7 +6,7 @@ import { configureCanvasAction } from './composer-authoring-fixtures';
 for (const theme of ['light', 'dark'] as const) {
   test(`${theme} workflow save utility is truthful and preserves title, cards and session identity`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
     const rename = canvas.getByRole('button', { name: 'Rename workflow', exact: true });
     const save = canvas.getByRole('button', { name: 'Save workflow', exact: true });
@@ -60,7 +60,7 @@ for (const theme of ['light', 'dark'] as const) {
 
   test(`${theme} environment menu supports keyboard selection, escape, outside click and focus exit`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     const trigger = page.getByRole('combobox', { name: 'Environment', exact: true });
     const menu = page.getByRole('listbox', { name: 'Environment options', exact: true });
     await expect(trigger).toHaveText('Testnet');
@@ -90,7 +90,7 @@ for (const theme of ['light', 'dark'] as const) {
 
   test(`${theme} rounded environment panel and workflow utilities fit responsive headers`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     const header = page.getByRole('banner');
     const trigger = header.getByRole('combobox', { name: 'Environment', exact: true });
     const menu = header.getByRole('listbox', { name: 'Environment options', exact: true });

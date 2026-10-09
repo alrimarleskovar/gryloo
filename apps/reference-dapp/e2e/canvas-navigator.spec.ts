@@ -6,7 +6,7 @@ import type { Page, Locator } from '@playwright/test';
 
 async function prepare(page: Page, theme: 'light' | 'dark') {
   await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.evaluate(() => document.fonts.ready);

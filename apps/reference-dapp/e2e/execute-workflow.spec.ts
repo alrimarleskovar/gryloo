@@ -2,7 +2,7 @@
 import { test, expect, applyPendingProposal } from './fixtures';
 
 test('Execute shows the shared authored workflow without authorizing or inventing execution', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await page.getByRole('button', { name: 'Rename workflow', exact: true }).click();
   await page.getByRole('textbox', { name: 'Workflow name', exact: true }).fill('ESPARTACUS');

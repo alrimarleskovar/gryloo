@@ -11,6 +11,6 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 export const metadata: Metadata = { title: 'FloFi · Review a proposal', robots: { index: false, follow: false }, referrer: 'no-referrer' };
 export default function ApprovePage() {
-  // The root layout mounts the handoff inside the current product workspace's providers.
+  // The product layout mounts the handoff inside the current workspace's providers.
   return null;
 }

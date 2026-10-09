@@ -5,7 +5,7 @@ import { installSupplyWallet } from './supply-fixtures';
 
 test('Simulate and Execute open directly on existing content without a workspace introduction', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();

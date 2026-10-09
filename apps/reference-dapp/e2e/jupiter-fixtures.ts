@@ -59,7 +59,7 @@ export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof 
     signMessage: Boolean(behavior.signMessage) } });
 }
 export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
-  await page.goto('/');
+  await page.goto('/app');
   if (via === 'chat') {
     await page.locator('#mock-prompt').fill('Swap 10 USDC to SOL on Solana');
     await page.getByRole('button', { name: 'Send', exact: true }).click();

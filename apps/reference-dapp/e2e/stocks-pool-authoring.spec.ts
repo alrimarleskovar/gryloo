@@ -15,7 +15,7 @@ async function workflowJson(page: Page) {
 }
 
 test('floating Stocks action creates a Supply-style editable card without connecting a wallet', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Undock toolbar', exact: true }).click();
   const toolbox = page.locator('.floating-toolbox');
   const stocks = toolbox.getByRole('button', { name: 'Stocks', exact: true });
@@ -47,7 +47,7 @@ test('floating Stocks action creates a Supply-style editable card without connec
 });
 
 test('Stocks amount, equities and settings share UI state while canonical workflow and wallet requests stay untouched', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await setSupplyWalletChain(page, '0x2105');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '2');
@@ -91,7 +91,7 @@ test('Stocks amount, equities and settings share UI state while canonical workfl
 });
 
 test('Stocks coexists with a Pool card and can be removed without changing the canonical Pool', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Stocks', exact: true }).click();
   const stock = cards(page).filter({ hasText: 'Robinhood' });
   await stock.getByRole('textbox', { name: 'Stocks amount', exact: true }).fill('3');
@@ -108,7 +108,7 @@ test('Stocks coexists with a Pool card and can be removed without changing the c
 });
 
 test('both Pool contribution fields share the position form and require fresh Review before Apply', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add pool', exact: true }).click();
   const card = cards(page);
   const first = card.getByRole('textbox', { name: 'First liquidity amount (USDC)', exact: true });
@@ -148,7 +148,7 @@ test('both Pool contribution fields share the position form and require fresh Re
 });
 
 test('Orca Pool contribution fields use the existing Solana position review and keep both amounts synchronized', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
   // Enter authored bounds directly; this check needs no quote or provider calls.
   const prompt = page.locator('#mock-prompt');
@@ -171,7 +171,7 @@ test('Orca Pool contribution fields use the existing Solana position review and 
 });
 
 test('Stocks pill opens a compact stock list with shared selection and no extra form fields', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.locator('.library .action-list, .library-note')).toHaveCount(0);
   await expect(page.getByText('One semantic plan', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Stocks', exact: true }).click();

@@ -10,7 +10,7 @@ const region = (page: Page) => page.getByRole('region', { name: 'Base Sepolia li
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 const transactions = (page: Page) => region(page).getByRole('list', { name: 'Liquidity transactions' });
 async function author(page: Page, options: UniswapWalletOptions = {}) {
-  await installUniswapWallet(page, options); await page.goto('/');
+  await installUniswapWallet(page, options); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.locator('#liquidity-network').selectOption('BASE_SEPOLIA');
   const form = page.getByRole('form', { name: 'Create Base Sepolia liquidity position' });

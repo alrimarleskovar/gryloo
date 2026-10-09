@@ -7,7 +7,7 @@ const stage = (page: import('@playwright/test').Page, name: 'Execute') =>
   page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 
 test('an unknown wallet result survives a browser restart and is recovered from the fork without a duplicate', async ({ page, fork, testWallet }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await reviewAndConnect(page);
@@ -40,7 +40,7 @@ test('an unknown wallet result survives a browser restart and is recovered from 
 });
 
 test('delayed mining keeps each step PENDING until its block exists, then reconciles', async ({ page, fork, testWallet }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await reviewAndConnect(page);
@@ -59,7 +59,7 @@ test('delayed mining keeps each step PENDING until its block exists, then reconc
 });
 
 test('a reverted swap leaves a residual allowance that only a separate revocation clears', async ({ page, fork, testWallet }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await authorSwap(page, 'WETH_TO_USDC', '1', '0');
   await simulateOnFork(page);
   await reviewAndConnect(page);

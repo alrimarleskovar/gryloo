@@ -5,7 +5,7 @@ import { openCanvasSettings } from './composer-authoring-fixtures';
 
 test('Build places the existing assistant beside the canvas and selected settings below', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
   const assistant = page.getByRole('complementary', { name: 'Workflow assistant' });
   const inspector = page.getByRole('region', { name: 'Action inspector' });
@@ -39,7 +39,7 @@ test('Build places the existing assistant beside the canvas and selected setting
 
 test('Build keeps existing toolbar actions and zoom behavior at their new positions', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Undock toolbar', exact: true }).click();
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
   const toolbar = graph.locator('.floating-toolbox');
