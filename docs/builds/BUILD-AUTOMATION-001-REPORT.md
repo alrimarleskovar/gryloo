@@ -187,7 +187,7 @@ per-render owner object reset the workspace; a channel-variable-like error code 
   `src/server/automation-operation.test.ts`. Modified: `backend/main.ts` (API loads the routes when enabled), `app/automation-action.ts`,
   `app/approve-action.ts` (automation links forwarded on the remote runtime), `server/flow-runtime.ts` (`ownerRunReaders` shared with the
   API), `automations/{http,runtime,dispatch}.ts` (comments).
-- **New — routes and UI:** `src/app/api/automations/{dispatch,health}/route.ts`, `src/app/app/automations/page.tsx`,
+- **New — routes and UI:** `src/app/api/automations/{dispatch,health}/route.ts`, `src/app/(product)/app/automations/page.tsx`,
   `src/app/automation-action.ts`, `src/components/automations-workspace.tsx`, `src/i18n/pt-automations.ts`.
 - **New — persistence:** `packages/cloud-runtime/migrations/0010_automations.sql`; pinned in `src/migrations.ts`.
 - **New — Channel Core:** `src/channels/core/subscriber.ts`, `src/channels/subscriptions.ts` (wiring).
