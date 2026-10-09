@@ -45,4 +45,4 @@ No complete E2E rerun, live provider acceptance, real financial transaction, mai
 
 Final screenshots live in `apps/reference-dapp/e2e/visual-evidence/build-brand-ux-001/`. Before captures and earlier recovery records are retained. Desktop/mobile marketing and mobile builder captures are refreshed by the focused brand suite. The README links the hero and review illustrations separately from financial evidence.
 
-Implementation and focused validation are complete. PR creation is the next action; the branch remains unmerged for owner review.
+Implementation and focused validation are complete in commit `8c4bf71bd153f77895f1026074cf1314c426d359`. [PR #73](https://github.com/alrimarleskovar/gryloo/pull/73) was opened against `main` after validation. The branch remains unmerged for owner review; a following documentation commit records this final handoff.

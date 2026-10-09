@@ -2,6 +2,8 @@
 
 Updated: 2026-10-09. Current worktree: `/home/asus/projects/flofi-brand-ux`; branch: `codex/build-brand-ux-001`; starting HEAD: `fefda242e4abea5b8be5db57a9b8a09adbd2b65a`. Preserve all existing work. Do not restart, explore the full repository, run the complete browser suite repeatedly, merge, or touch unrelated branches/PRs.
 
+Validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR: [#73](https://github.com/alrimarleskovar/gryloo/pull/73), opened against `main` after validation and left unmerged. The following documentation commit records this final checkpoint.
+
 ## Completed work
 
 - Caio's bilingual landing is integrated at `/`, with approved FloFi identity assets, palette, typography, isolated marketing styles, motion/reduced-motion presentation and developer links. See `BUILD-BRAND-UX-001-DESIGN.md` and `BUILD-BRAND-UX-001-RECOVERY.md` for the completed audit.
@@ -14,7 +16,7 @@ Updated: 2026-10-09. Current worktree: `/home/asus/projects/flofi-brand-ux`; bra
 
 ## Remaining tasks
 
-Implementation and focused validation are complete. Commit/push this branch and open its PR; leave it unmerged. Record the resulting commit and PR here. No further repository investigation or complete E2E run is needed.
+Implementation, focused validation, commit/push and PR creation are complete. Only normal CI and owner review remain. No further repository investigation or complete local E2E run is needed. Do not merge.
 
 ## Known issues
 
@@ -24,7 +26,7 @@ Implementation and focused validation are complete. Commit/push this branch and 
 - The old Docker container `flofi-ws-pg-7095` no longer exists. Available disposable local PostgreSQL: `flofi-automation-pg`, port **56450**. Use `TEST_DATABASE_URL=postgres://flofi@127.0.0.1:56450/postgres`; browser setup creates/drops its own `flofi_e2e_*` database.
 - Sandboxed Next build compiled but could not spawn TypeScript config parsing; rerun outside the sandbox passed. Browser fixture listeners also require approved execution outside the sandbox. No code workaround or guard weakening was introduced.
 - Earlier 42/8 and 47/5 browser checkpoints are superseded only for the subsequently rerun cases; do not report those complete runs as passing. Mobile input, Review sizing, wallet-dialog and route assertion corrections are already present.
-- The build report is complete. Desktop/mobile screenshots are refreshed and visually reviewed; the prior recovery report's missing-mobile-screenshot statement is superseded. No remaining implementation issue is known. PR creation is the next action.
+- The build report is complete. Desktop/mobile screenshots are refreshed and visually reviewed; the prior recovery report's missing-mobile-screenshot statement is superseded. No remaining implementation issue is known. PR #73 is open; CI/review status is external and may change after this checkpoint.
 - Mainnet execution, live integrations, financial broadcasts and audited production readiness are outside this build's evidence.
 
 ## Tests completed and results
@@ -64,10 +66,10 @@ Initial session audit inspected only changed files, build reports and relevant d
 
 ## Next exact actions
 
-1. Run the final governance/whitespace gate, stage only this build's files, commit, push `codex/build-brand-ux-001` and open a PR against `main`. A read-only query found no existing open PR for this branch.
+1. Check only this PR's current CI/review state: `gh pr checks 73 --repo alrimarleskovar/gryloo` and `gh pr view 73 --repo alrimarleskovar/gryloo`. Address an actual reported failure or owner review request; do not repeat completed implementation or all tests by default.
 2. Required browser environment: `NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 BUILD002_BROWSER_CACHE=/home/asus/.cache/ms-playwright/chromium_headless_shell-1243 GRYLOO_ANVIL_BIN=/tmp/claude-1000/auto001/foundry-v1.8.3/anvil GRYLOO_MODE_A_RUNTIME=/tmp/flofi-brand-handoff-fork`; normal runner port 3108. Keep localhost 3000 on `next dev`, whose output is `.next/dev`.
-3. After PR creation, update this document/report with the PR URL and implementation commit, commit that documentation checkpoint and push it to the same PR.
-4. Leave merge and any real financial acceptance to the owner. If resuming later, check only this PR's CI state and unresolved review feedback; do not restart completed implementation or validation.
+3. For a new failure, use its existing log and the smallest relevant test/profile; all recorded validation commands and fixture paths remain above.
+4. Leave merge and any real financial acceptance to the owner. Preserve this branch and all prior evidence.
 
 ## Latest public landing correction (owner request during this session)
 
