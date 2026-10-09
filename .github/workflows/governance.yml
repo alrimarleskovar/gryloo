@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+# Supersede only older executions of this workflow for the SAME PR. Every push
+# has its own group: even pending/active main certifications cannot be cancelled.
+concurrency:
+  group: build-ci-governance-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -40,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s scripts -p 'test_governance_lite.py'
+          python3 -m unittest discover -s scripts -p 'test_ci_*.py'
           python3 scripts/governance_lite.py
           git diff --check
           git diff --check HEAD^1 HEAD

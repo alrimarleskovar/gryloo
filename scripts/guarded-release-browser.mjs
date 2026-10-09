@@ -42,7 +42,9 @@ for (const [name, specs, settings] of profiles) {
     'GRYLOO_ROUTER_E2E', 'GRYLOO_ROUTER_TESTNET_E2E', 'GRYLOO_CLOUD_RUNTIME_E2E', 'FLOFI_SWAP_READ_E2E', 'GRYLOO_COW', 'GRYLOO_CARD_E2E']) delete env[key];
   Object.assign(env, settings);
   console.log(`Guarded release profile: ${name}`);
+  const started = performance.now();
   const result = spawnSync('pnpm', ['--filter', '@defi-workflow-engine/reference-dapp', 'exec', 'playwright', 'test', ...specs], { env, stdio: 'inherit' });
+  console.log(`Guarded release profile duration: ${name}: ${((performance.now() - started) / 1000).toFixed(2)}s; ${result.error || result.status !== 0 ? 'FAIL' : 'PASS'}`);
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }

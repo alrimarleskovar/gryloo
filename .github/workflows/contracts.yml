@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+# Supersede only older executions of this workflow for the SAME PR. Every push
+# has its own group: even pending/active main certifications cannot be cancelled.
+concurrency:
+  group: build-ci-contracts-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -18,6 +24,8 @@ jobs:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      FLOFI_CI_ARCHIVE_CACHE: ${{ runner.temp }}/flofi-ci-archives
+      PYTHONDONTWRITEBYTECODE: "1"
     # BUILD-CLOUD-001: a disposable PostgreSQL bound to the runner's loopback interface, pinned by digest.
     # Test-only trust authentication; it holds no data beyond the suites' own throwaway databases.
     services:
@@ -63,16 +71,36 @@ jobs:
           git clean -ffdx
           unset auth GH_TOKEN
 
+      - name: Start CI resource observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'After checkout'
+
+      - name: Cache only untrusted raw approved tool archives
+        id: archives
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5; official immutable commit, Node 24
+        with:
+          path: |
+            ${{ runner.temp }}/flofi-ci-archives/node-v24.21.0-linux-x64.tar.xz
+            ${{ runner.temp }}/flofi-ci-archives/pnpm-11.22.0.tgz
+            ${{ runner.temp }}/flofi-ci-archives/foundry_v1.8.3_linux_amd64.tar.gz
+            ${{ runner.temp }}/flofi-ci-archives/chrome-headless-shell-linux64.zip
+          # No restore prefixes or executable outputs. Every archive is hashed before parsing.
+          key: flofi-archives-v1-${{ runner.os }}-${{ runner.arch }}-node24.21.0-pnpm11.22.0-anvil1.8.3-browser1243-${{ hashFiles('scripts/bootstrap-*.py', 'scripts/ci_archive_cache.py', 'pnpm-lock.yaml', '.npmrc', 'pnpm-workspace.yaml') }}
+
       - name: Verify and bootstrap exact official Node and pnpm archives
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'Toolchain bootstrap'
           python3 scripts/bootstrap-ci.py
 
       - name: Print exact verified toolchain before installation
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'Toolchain identity'
           git --version
           python3 --version
           node --version
@@ -86,25 +114,58 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'Frozen dependency install'
           pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Verify every registry integrity, license and release age
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'Dependency integrity license and age'
           python3 scripts/bootstrap-ci.py --verify-dependencies
 
-      - name: Typecheck, lint, build, schema drift and contract tests
+      - name: Dependency audit
         shell: bash
         run: |
           set -euo pipefail
-          # turbo.json caps task concurrency at 2: the default (10 parallel tsc/next tasks) peaked at ~3.4 GB
-          # and triggered the OOM killer on the 8 GB self-hosted runner. Same tasks, same gates.
+          source scripts/ci-observe.sh 'Dependency audit'
+          pnpm audit --audit-level low
+
+      - name: Typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh Typecheck
+          # Keep Turbo concurrency at 2 on the shared 8 GiB runner.
           pnpm typecheck
+
+      - name: Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh Lint
           pnpm lint
           pnpm exec eslint scripts/guarded-release-browser.mjs
+
+      - name: Production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'Production build'
           pnpm build
+
+      - name: Schema drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'Schema drift'
           pnpm schemas:check
+
+      - name: Unit and contract tests and exported API checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'Unit and contract tests'
           pnpm test
           python3 scripts/summarize-screenshot-diffs.py --self-test
           test -f packages/reference-linter/dist/index.js
@@ -115,15 +176,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'PostgreSQL'
           export TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres"
           pnpm test:postgres
 
-      - name: Bootstrap exact approved anvil and run the offline compatibility gate and fork suite
+      - name: Bootstrap exact approved anvil
         shell: bash
         run: |
           set -euo pipefail
-          export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
+          source scripts/ci-observe.sh 'Anvil bootstrap'
           python3 scripts/bootstrap-anvil.py "$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3"
+
+      - name: Offline compatibility gate and fork suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'Anvil and offline forks'
+          export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
           # DEC-0026/DEC-0027: pure G1 checks run; owner-secret pinned-account cases are owner-only local F2 gates.
           pnpm test:anvil
           pnpm test:fork --testTimeout=30000
@@ -142,7 +211,15 @@ jobs:
           test -f apps/reference-dapp/e2e/fork/composition-transcript.json
           node --input-type=module -e "import { readFileSync } from 'node:fs'; import { verifyCompositionTranscript } from './apps/reference-dapp/e2e/fork/composition-replay-upstream.mjs'; const t=JSON.parse(readFileSync('apps/reference-dapp/e2e/fork/composition-transcript.json','utf8')); const r=verifyCompositionTranscript(t,t.identity.accounts); if(t.sourceChainId!==8453||r.providerRequests<1||t.codeFingerprints.composition.syntheticCodePins) process.exit(1); console.log('BUILD-007 closed transcript verified',r.providerRequests,r.localReplies);"
 
-      - name: Bootstrap exact approved headless shell and run guarded browser suite
+      - name: Bootstrap exact approved headless shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/ci-observe.sh 'Browser bootstrap'
+          export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
+          python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
+
+      - name: Run guarded browser suite
         id: browser
         shell: bash
         env:
@@ -151,11 +228,11 @@ jobs:
           FLOFI_E2E_APP_PORT: '3100'
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'Guarded browser suites'
           export BUILD002_BROWSER_CACHE="$RUNNER_TEMP/gryloo-playwright/chromium_headless_shell-1243"
           # BUILD-003F: the browser suite drives the MOCKED synthetic local fork on loopback chain 31337.
           export GRYLOO_ANVIL_BIN="$RUNNER_TEMP/gryloo-anvil/foundry-v1.8.3/anvil"
           export GRYLOO_MODE_A_RUNTIME="$RUNNER_TEMP/gryloo-mode-a-e2e"
-          python3 scripts/bootstrap-playwright.py "$BUILD002_BROWSER_CACHE"
           # Approved production Review rejects MOCKED financial authority. Run the current
           # product paths and explicit provenance boundaries in the same profiles as local verification.
           # Positive local financial lifecycle/recovery remains enforced by pnpm test, PostgreSQL
@@ -207,7 +284,10 @@ jobs:
           export GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_SHA256="$(sha256sum "$GRYLOO_COMPOSITION_INTERIM_TRANSCRIPT_PATH" | cut -d' ' -f1)"
           node apps/reference-dapp/e2e/fork/composition-harness.mjs serve > "$RUNNER_TEMP/gryloo-b007-harness.log" 2>&1 &
           b007_pid=$!
-          trap 'kill "$b007_pid" 2>/dev/null || true; rm -rf "$GRYLOO_MODE_B_RUNTIME"' EXIT
+          flofi_ci_cleanup() {
+            kill "$b007_pid" 2>/dev/null || true
+            rm -rf "$GRYLOO_MODE_B_RUNTIME"
+          }
           for attempt in $(seq 1 120); do
             if [ -s "$GRYLOO_MODE_B_RUNTIME/profile.json" ] && [ -s "$GRYLOO_MODE_B_RUNTIME/mode-b-keys.json" ]; then break; fi
             if ! kill -0 "$b007_pid" 2>/dev/null; then cat "$RUNNER_TEMP/gryloo-b007-harness.log"; exit 1; fi
@@ -242,16 +322,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Dependency audit
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm audit --audit-level low
-
       - name: Validate and remove ephemeral CycloneDX 1.6 SBOM
         shell: bash
         run: |
           set -euo pipefail
+          source scripts/ci-observe.sh 'SBOM'
           pnpm sbom --sbom-format cyclonedx --sbom-spec-version 1.6 --lockfile-only --out "$RUNNER_TEMP/build-003a.cdx.json"
           python3 - <<'PYCODE'
           import hashlib, json, os, pathlib, sys
@@ -357,3 +432,20 @@ jobs:
           finally:
               path.unlink(missing_ok=True)
           PYCODE
+
+      - name: CI timing summary after failure
+        if: failure()
+        shell: bash
+        env:
+          FLOFI_ARCHIVE_CACHE_HIT: ${{ steps.archives.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci-observe.py summary
+
+      - name: CI timing summary after success
+        shell: bash
+        env:
+          FLOFI_ARCHIVE_CACHE_HIT: ${{ steps.archives.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci-observe.py summary

@@ -6,7 +6,6 @@ The accepted digest is locally observed, not a publisher-issued checksum.
 """
 
 import argparse
-import hashlib
 import os
 from pathlib import Path, PurePosixPath
 import platform
@@ -17,6 +16,8 @@ import tempfile
 import urllib.error
 import urllib.request
 import zipfile
+
+from ci_archive_cache import verified_archive
 
 PLAYWRIGHT_VERSION = "1.63.0"
 REVISION = "1243"
@@ -90,59 +91,52 @@ def bootstrap(destination):
     redirect = ApprovedRedirect()
     # Ignore environment proxies; they cannot supply alternate destinations.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), redirect)
-    archive_path = None
     staging = None
+    def download(output):
+        count = 0
+        with opener.open(SOURCE, timeout=90) as response:
+            if response.status != 200 or response.url != FINAL or redirect.redirects != 1:
+                raise RuntimeError("STOP: unapproved browser response")
+            while chunk := response.read(1024 * 1024):
+                count += len(chunk)
+                if count > SIZE:
+                    raise RuntimeError("STOP: browser archive exceeds approved size")
+                output.write(chunk)
     try:
-        with tempfile.NamedTemporaryFile(prefix="browser-", suffix=".zip", dir=parent, delete=False) as output:
-            archive_path = Path(output.name)
-            digest = hashlib.sha256()
-            count = 0
-            with opener.open(SOURCE, timeout=90) as response:
-                if response.status != 200 or response.url != FINAL or redirect.redirects != 1:
-                    raise RuntimeError("STOP: unapproved browser response")
-                while chunk := response.read(1024 * 1024):
-                    count += len(chunk)
-                    if count > SIZE:
-                        raise RuntimeError("STOP: browser archive exceeds approved size")
-                    digest.update(chunk)
-                    output.write(chunk)
-        if count != SIZE or digest.hexdigest() != SHA256:
-            raise RuntimeError("STOP: browser archive size or SHA-256 mismatch")
-        # Never open the ZIP before its exact bytes have been verified.
-        with zipfile.ZipFile(archive_path) as archive:
-            entries = validate_entries(archive)
-            staging = Path(tempfile.mkdtemp(prefix="browser-staging-", dir=parent))
-            for entry in entries:
-                target = staging.joinpath(*PurePosixPath(entry.filename).parts).resolve()
-                if not target.is_relative_to(staging):
-                    raise RuntimeError("STOP: extraction escaped staging directory")
-                if entry.is_dir():
-                    target.mkdir(parents=True, exist_ok=True)
-                else:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    with archive.open(entry) as source, target.open("xb") as output:
-                        shutil.copyfileobj(source, output)
-                    target.chmod(0o644)
-        executable = staging / EXECUTABLE
-        executable.chmod(0o755)
-        version = subprocess.check_output([str(executable), "--version"], text=True, timeout=30).strip()
-        if version != "Google Chrome for Testing " + BROWSER_VERSION:
-            raise RuntimeError("STOP: browser executable version mismatch")
-        if destination.exists():
-            raise RuntimeError("STOP: destination appeared during validation")
-        staging.rename(destination)
-        staging = None
-        print("Browser:", version)
-        print("Playwright:", PLAYWRIGHT_VERSION, "revision:", REVISION, "platform:", PLATFORM)
-        print("Source:", SOURCE)
-        print("Final:", FINAL)
-        print("Archive:", ARCHIVE, "bytes:", count, "SHA-256:", digest.hexdigest())
-        print("Entries:", ENTRY_COUNT)
-        print("Executable:", destination / EXECUTABLE)
-        print("Integrity classification:", CLASSIFICATION)
+        with verified_archive(ARCHIVE, parent, download, SHA256, size=SIZE) as archive_path:
+            # Never open the ZIP before its exact bytes have been verified.
+            with zipfile.ZipFile(archive_path) as archive:
+                entries = validate_entries(archive)
+                staging = Path(tempfile.mkdtemp(prefix="browser-staging-", dir=parent))
+                for entry in entries:
+                    target = staging.joinpath(*PurePosixPath(entry.filename).parts).resolve()
+                    if not target.is_relative_to(staging):
+                        raise RuntimeError("STOP: extraction escaped staging directory")
+                    if entry.is_dir():
+                        target.mkdir(parents=True, exist_ok=True)
+                    else:
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(entry) as source, target.open("xb") as output:
+                            shutil.copyfileobj(source, output)
+                        target.chmod(0o644)
+            executable = staging / EXECUTABLE
+            executable.chmod(0o755)
+            version = subprocess.check_output([str(executable), "--version"], text=True, timeout=30).strip()
+            if version != "Google Chrome for Testing " + BROWSER_VERSION:
+                raise RuntimeError("STOP: browser executable version mismatch")
+            if destination.exists():
+                raise RuntimeError("STOP: destination appeared during validation")
+            staging.rename(destination)
+            staging = None
+            print("Browser:", version)
+            print("Playwright:", PLAYWRIGHT_VERSION, "revision:", REVISION, "platform:", PLATFORM)
+            print("Source:", SOURCE)
+            print("Final:", FINAL)
+            print("Archive:", ARCHIVE, "bytes:", SIZE, "SHA-256:", SHA256)
+            print("Entries:", ENTRY_COUNT)
+            print("Executable:", destination / EXECUTABLE)
+            print("Integrity classification:", CLASSIFICATION)
     finally:
-        if archive_path is not None:
-            archive_path.unlink(missing_ok=True)
         if staging is not None:
             shutil.rmtree(staging)
 

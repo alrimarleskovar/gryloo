@@ -2,6 +2,7 @@
 """Bootstrap the approved toolchain using only Python's standard library."""
 
 import base64
+import gzip
 import hashlib
 import io
 import json
@@ -14,6 +15,7 @@ import tarfile
 import tempfile
 import urllib.request
 from governance_lite import AGE_WAIVER, dependency_age_waivers, dependency_release_age_allowed
+from ci_archive_cache import verified_archive
 
 NODE_VERSION = "24.21.0"
 PNPM_VERSION = "11.22.0"
@@ -25,11 +27,49 @@ PNPM_URL = f"https://registry.npmjs.org/pnpm/-/pnpm-{PNPM_VERSION}.tgz"
 PNPM_SHA512 = "H/hwxMYTPf2I+yr8Rt0T1H8JyXlLQ4xv20fKmMrzvBY4HuC+k6CRuOOCTPAfiJ9G19niCRD7C+GrD7W6qA3WIQ=="
 
 
-def fetch(url):
-    with urllib.request.urlopen(url, timeout=90) as response:
+def fetch(url, *, compressed=False):
+    request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"} if compressed else {})
+    with urllib.request.urlopen(request, timeout=90) as response:
         if response.status != 200:
             raise RuntimeError(f"Download unavailable: {url}")
-        return response.read()
+        data = response.read()
+        encoding = response.headers.get("Content-Encoding", "identity")
+        if encoding == "gzip":
+            return gzip.decompress(data)
+        if encoding != "identity":
+            raise RuntimeError("Unsupported registry content encoding")
+        return data
+
+
+def registry_metadata(locked):
+    """One fresh full metadata response per name; retain every locked version.
+
+    No disk cache, abbreviated metadata or offline fallback: publication times,
+    license and dist.integrity are still checked against the live registry.
+    Keep the existing eight network workers and bound retained data to the pins.
+    """
+    import concurrent.futures
+
+    grouped = {}
+    for identity in sorted(locked):
+        name, version = identity.rsplit("@", 1)
+        grouped.setdefault(name, []).append(version)
+
+    def acquire(item):
+        name, versions = item
+        try:
+            metadata = json.loads(fetch("https://registry.npmjs.org/" + name.replace("/", "%2f"), compressed=True))
+            return {name + "@" + version: (metadata["versions"][version], metadata["time"][version], None)
+                    for version in versions}
+        except Exception as exc:
+            return {name + "@" + version: (None, None, str(exc)) for version in versions}
+
+    result = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        for records in pool.map(acquire, sorted(grouped.items())):
+            result.update(records)
+    print("Fresh registry metadata responses:", len(grouped), "locked versions:", len(locked), flush=True)
+    return result
 
 
 def extract(data, destination):
@@ -64,19 +104,26 @@ def main():
     entries = [line.split() for line in sums if line.split()[-1:] == [NODE_ARCHIVE]]
     if entries != [[NODE_SHA256, NODE_ARCHIVE]]:
         raise RuntimeError("Official Node checksum entry differs from approved digest")
-    node_bytes = fetch(NODE_URL)
+    base = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
+    def download_node(output):
+        output.write(fetch(NODE_URL))
+    with verified_archive(NODE_ARCHIVE, base, download_node, NODE_SHA256) as archive:
+        node_bytes = archive.read_bytes()
     node_digest = hashlib.sha256(node_bytes).hexdigest()
     print("Node SHA-256 expected:", NODE_SHA256, flush=True)
     print("Node SHA-256 actual:  ", node_digest, flush=True)
     if node_digest != NODE_SHA256:
         raise RuntimeError("Node archive checksum mismatch")
-    pnpm_bytes = fetch(PNPM_URL)
+    def download_pnpm(output):
+        output.write(fetch(PNPM_URL))
+    with verified_archive(f"pnpm-{PNPM_VERSION}.tgz", base, download_pnpm,
+                          base64.b64decode(PNPM_SHA512).hex(), algorithm="sha512") as archive:
+        pnpm_bytes = archive.read_bytes()
     pnpm_digest = base64.b64encode(hashlib.sha512(pnpm_bytes).digest()).decode()
     print("pnpm SRI expected: sha512-" + PNPM_SHA512, flush=True)
     print("pnpm SRI actual:   sha512-" + pnpm_digest, flush=True)
     if pnpm_digest != PNPM_SHA512:
         raise RuntimeError("pnpm archive integrity mismatch")
-    base = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
     target = Path(tempfile.mkdtemp(prefix="build-001-toolchain-", dir=base))
     extract(node_bytes, target / "node")
     extract(pnpm_bytes, target / "pnpm")
@@ -310,7 +357,6 @@ def verify_dependencies():
     optional status, publication age, or direct pin differs.
     """
     import collections
-    import concurrent.futures
     import datetime
     import re
 
@@ -576,17 +622,15 @@ def verify_dependencies():
 
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10080)
     allowed_licenses = {"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"}
+    metadata_records = registry_metadata(locked)
 
     def inspect(item):
         identity, integrity = item
         name, version = identity.rsplit("@", 1)
         issues = []
-        try:
-            metadata = json.loads(fetch("https://registry.npmjs.org/" + name.replace("/", "%2f")))
-            package = metadata["versions"][version]
-            published = metadata["time"][version]
-        except Exception as exc:
-            return None, [f"Registry metadata unavailable: {identity}: {exc}"], None
+        package, published, metadata_error = metadata_records[identity]
+        if metadata_error is not None:
+            return None, [f"Registry metadata unavailable: {identity}: {metadata_error}"], None
         if package.get("dist", {}).get("integrity") != integrity:
             issues.append(f"Registry integrity changed: {identity}")
         try:
@@ -623,14 +667,13 @@ def verify_dependencies():
 
     records = []
     rejected_identities = set()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        for (identity, _), (record, issues, rejected) in zip(
-                sorted(locked.items()), pool.map(inspect, sorted(locked.items()))):
-            errors.extend(issues)
-            if record is not None:
-                records.append(record)
-            if rejected:
-                rejected_identities.add(identity)
+    for (identity, _), (record, issues, rejected) in zip(
+            sorted(locked.items()), map(inspect, sorted(locked.items()))):
+        errors.extend(issues)
+        if record is not None:
+            records.append(record)
+        if rejected:
+            rejected_identities.add(identity)
     expected_rejected = set(BUILD002_REVIEWED_LICENSE_EXCEPTIONS)
     if rejected_identities != expected_rejected:
         errors.append(f"Full rejected set drift: missing={sorted(expected_rejected - rejected_identities)}, "
