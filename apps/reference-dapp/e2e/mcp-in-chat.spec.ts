@@ -4,8 +4,8 @@
  * MOCKED loopback router and Solana Devnet harnesses (never a public network, never a real transaction):
  *
  *   consumer OAuth (consent page, invite) → compose_strategy → request_user_approval → the FloFi panel in an MCP Apps host →
- *   "Connect wallet & execute in FloFi" (ui/open-link to a fresh FloFi approval session) → the FloFi signing window → wallet proof
- *   (EIP-4361 / Sign-In With Solana) → claim → the existing proposal card → the owner's unchanged flow (fresh simulation,
+ *   "Review with your wallet in FloFi" (ui/open-link to a fresh FloFi approval session) → the FloFi signing window → wallet proof
+ *   (EIP-4361 / Sign-In With Solana) → load the exact proposal into the workflow → the owner's flow (fresh simulation,
  *   Review) → current main blocks MOCKED financial authority → prepared status back in the panel and model context.
  *   The separate PostgreSQL journey retains the positive owner-driven lifecycle and reconciled evidence coverage.
  *
@@ -50,11 +50,12 @@ async function assertHandoffReviewBlocked(page: Page, requests: () => Promise<nu
   await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
   expect(await requests()).toBe(0);
   await assertExecutionBlocked(page, requests);
-  // An applied signing-session link is consumed. Recovery remains in the existing FloFi workspace.
+  // The signing-session link stays consumed. Its proven claimant may restore the authoring proposal, with no prior Review authority.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Open this link from your assistant' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Workflow stages' })).toHaveCount(0);
-  await page.getByRole('link', { name: 'Go to FloFi', exact: true }).click();
+  await expect(approval(page)).toContainText('Nothing is authorized yet.');
+  await expect(approval(page).getByRole('button', { name: 'Load proposal' })).toBeVisible();
+  await approval(page).getByRole('button', { name: 'Load proposal' }).click();
+  await expect(approval(page).getByRole('status')).toContainText('Ready for your review.');
   await assertExecutionBlocked(page, requests);
 }
 
@@ -68,13 +69,14 @@ async function chatToSigningWindow(context: BrowserContext, strategy: Record<str
   const result = await client.toolResult('request_user_approval', args);
   expect(result.structuredContent).toMatchObject({ ok: true, status: 'PENDING', authority: 'NONE' });
   // The text result alone already lets a host without MCP Apps send the user to FloFi (fallback E).
-  expect(result.content?.[0]?.text).toContain(`${APP_ORIGIN}/approve#flofi_hs_`);
+  expect(result.content?.[0]?.text).toContain(`${APP_ORIGIN}/approve#apr_`);
+  expect(JSON.stringify(result.structuredContent) + result.content?.[0]?.text).not.toContain('flofi_hs_');
   const host = await context.newPage();
   const panel = await openHost(host, client, await panelHtmlOf(client, PANEL_URI), args, result);
   await expect(panel.getByText('Nothing is authorized yet.', { exact: false })).toBeVisible();
   await expect(panel.getByText(String(composed.workflowHash))).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Check this chat environment (diagnostics)' })).toBeVisible();
-  await panel.getByRole('button', { name: 'Connect wallet & execute in FloFi' }).click();
+  await panel.getByRole('button', { name: 'Review with your wallet in FloFi' }).click();
   await expect.poll(async () => (await hostLog(host)).openLinks.length).toBe(1);
   const url = (await hostLog(host)).openLinks[0]!;
   expect(url).toMatch(new RegExp(`^${APP_ORIGIN.replace(/[.]/g, '\\.')}/approve#flofi_hs_[A-Za-z0-9_-]{43}$`));
@@ -98,7 +100,6 @@ async function proposalIntoWorkflow(signing: Page, url: string, wallet: 'evm' | 
   else { await region.getByRole('button', { name: 'Connect Solana wallet and prove ownership' }).click(); await chooseWallet(signing, MOCKED_SOLANA_WALLET, 'Solana'); }
   await expect(region).toContainText(`Signed in as ${account ?? ''}`);
   await region.getByRole('button', { name: 'Load proposal' }).click();
-  await region.getByRole('button', { name: 'Add to my workflow' }).click();
   await expect(region.getByRole('status')).toContainText('Ready for your review.');
 }
 

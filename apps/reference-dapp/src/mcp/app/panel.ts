@@ -5,7 +5,7 @@
  * proposal (network, funds class, steps, workflow hash, authority NONE) and offers ways to reach the owner's own wallet:
  *
  *   B. FloFi signing window (desktop default)  app-only `open_approval_session` → `ui/open-link` to a fresh FloFi URL
- *   C. Wallet in-app browsers (mobile)          the same URL inside Phantom / MetaMask, whose browsers inject their own provider
+ *   C. Wallet in-app browsers (mobile)          MetaMask keeps the fragment; Phantom opens the public page for an owner-pasted link
  *   E. /approve link (universal fallback)       always shown as text, also in the tool result for hosts without MCP Apps
  *   A. In-frame wallet                          NOT an execution path: an environment probe only (is a wallet injected here? may
  *                                               this frame open popups?) reported for the owner's host experiments; off unless the
@@ -29,22 +29,24 @@ export function panelMain(settings: PanelSettings): void {
   type Step = { index: number; action: string; network: string; destinationNetwork: string | null; protocol: string; kind: string };
   type Approval = { approvalId: string; approvalUrl?: string; workflowHash: string; expiresAt: string; status: string; networkEnvironment: string; fundsClass: string;
     steps: Step[]; authority: string; requires?: string[]; summary?: string; walletNamespace?: string };
-  const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
+  const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> }>();
   const view: { approval: Approval | null; progress: Json | null; error: string | null; host: string; opened: string | null; probe: Json | null; reported: string } =
     { approval: null, progress: null, error: null, host: '', opened: null, probe: null, reported: '' };
   let nextId = 1, timer: ReturnType<typeof setTimeout> | null = null, polls = 0;
+  let opening = false, disposed = false;
   const post = (message: Json) => window.parent.postMessage({ jsonrpc: '2.0', ...message }, '*');
   const request = (method: string, params: Json) => new Promise<unknown>((resolve, reject) => {
     const id = nextId++;
-    pending.set(id, { resolve, reject });
+    const timeout = setTimeout(() => { if (pending.delete(id)) reject(new Error('HOST_TIMEOUT')); }, 30_000);
+    pending.set(id, { resolve, reject, timeout });
     post({ id, method, params });
-    setTimeout(() => { if (pending.delete(id)) reject(new Error('HOST_TIMEOUT')); }, 30_000);
   });
   const callTool = async (name: string, args: Json): Promise<Json> => {
-    const result = await request('tools/call', { name, arguments: args }) as { structuredContent?: Json; isError?: boolean };
+    const result = await request('tools/call', { name, arguments: args }) as { structuredContent?: Json; isError?: boolean; _meta?: Json };
     const content = result?.structuredContent ?? {};
     if (result?.isError || content.ok === false) throw new Error(typeof content.code === 'string' ? content.code : 'TOOL_FAILED');
-    return content;
+    const links = result?._meta?.['flofi/approval'];
+    return links && typeof links === 'object' ? { ...content, ...links as Json } : content;
   };
   const el = (tag: string, text?: string, className?: string) => {
     const node = document.createElement(tag);
@@ -55,6 +57,7 @@ export function panelMain(settings: PanelSettings): void {
   const button = (label: string, onClick: () => void, primary = false) => {
     const node = el('button', label, primary ? 'primary' : 'secondary') as HTMLButtonElement;
     node.type = 'button'; node.addEventListener('click', onClick);
+    node.disabled = opening;
     return node;
   };
   const isApproval = (value: unknown): value is Approval => !!value && typeof value === 'object' && typeof (value as Json).approvalId === 'string' &&
@@ -63,7 +66,8 @@ export function panelMain(settings: PanelSettings): void {
 
   /** Opens a FloFi URL through the host (MCP Apps `ui/open-link`; ChatGPT's `openExternal` when the standard call is refused). */
   async function openLink(url: string) {
-    try { await request('ui/open-link', { url }); return; }
+    try { const result = await request('ui/open-link', { url }) as { isError?: boolean } | undefined;
+      if (result?.isError) throw new Error('OPEN_LINK_REFUSED'); return; }
     catch {
       const openai = (window as unknown as { openai?: { openExternal?: (input: { href: string }) => unknown } }).openai;
       if (openai?.openExternal) { await openai.openExternal({ href: url }); return; }
@@ -71,17 +75,27 @@ export function panelMain(settings: PanelSettings): void {
     }
   }
   async function connect(target: 'window' | 'phantom' | 'metamask') {
-    if (!view.approval) return;
-    view.error = null;
+    if (!view.approval || opening) return;
+    const approvalId = view.approval.approvalId;
+    opening = true; view.error = null; render();
     try {
-      const session = await callTool('open_approval_session', { approvalId: view.approval.approvalId });
+      const session = await callTool('open_approval_session', { approvalId });
+      if (disposed || view.approval?.approvalId !== approvalId) return;
       const links = (session.walletLinks ?? {}) as Record<string, string>;
       const url = target === 'window' ? String(session.approvalUrl) : links[target];
-      if (!url || !url.startsWith('https://') && !url.startsWith(settings.origin)) throw new Error('APPROVAL_LINK_INVALID');
+      const approval = new URL(String(session.approvalUrl));
+      if (approval.origin !== settings.origin || approval.pathname !== '/approve' || approval.search
+        || !/^#flofi_hs_[A-Za-z0-9_-]{43}$/.test(approval.hash)) throw new Error('APPROVAL_LINK_INVALID');
+      const expected = target === 'window' ? approval.href : target === 'metamask'
+        ? `https://metamask.app.link/dapp/${approval.origin.replace(/^https?:\/\//, '')}/approve${approval.hash}`
+        : `https://phantom.com/ul/browse/${encodeURIComponent(approval.origin + '/approve')}?ref=${encodeURIComponent(settings.origin)}`;
+      if (url !== expected) throw new Error('APPROVAL_LINK_INVALID');
+      view.approval.approvalUrl = String(session.approvalUrl);
       await openLink(url);
       view.opened = target;
       schedule(2_000);
     } catch (error) { view.error = error instanceof Error ? error.message : 'OPEN_FAILED'; }
+    finally { opening = false; }
     render();
   }
   /** Adapter A: report what this frame can do; never request accounts, never sign. */
@@ -100,13 +114,17 @@ export function panelMain(settings: PanelSettings): void {
     render();
   }
   function schedule(delay: number) {
+    if (disposed) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { void poll(); }, delay);
   }
   async function poll() {
-    if (!view.approval || polls++ > 360) return;
+    if (disposed || !view.approval || polls++ > 360) return;
+    const approvalId = view.approval.approvalId;
     try {
-      view.progress = await callTool('get_execution_progress', { approvalId: view.approval.approvalId });
+      const progress = await callTool('get_execution_progress', { approvalId });
+      if (disposed || view.approval?.approvalId !== approvalId) return;
+      view.progress = progress;
       view.error = null;
       report();
     } catch (error) { view.error = error instanceof Error ? error.message : 'PROGRESS_FAILED'; }
@@ -119,14 +137,20 @@ export function panelMain(settings: PanelSettings): void {
   function report() {
     const progress = view.progress;
     if (!progress) return;
-    const runs = Array.isArray(progress.runs) ? progress.runs as Json[] : [];
-    const summary = JSON.stringify({ status: progress.status, runs: runs.map(r => [r.executionId, r.status, r.evidenceEnvironment ?? null, r.evidenceBundleHash ?? null]) });
+    // Explicit projection: even a malformed progress response cannot smuggle a capability/payload into model context.
+    const token = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(v) && !v.startsWith('flofi_') ? v : null;
+    const hash = (v: unknown) => typeof v === 'string' && /^0x[0-9a-f]{64}$/.test(v) ? v : null;
+    const runs = (Array.isArray(progress.runs) ? progress.runs as Json[] : []).filter(r => r && typeof r === 'object').map(r => ({
+      executionId: token(r.executionId), flow: token(r.flow), status: token(r.status), reconciled: r.reconciled === true,
+      terminal: r.terminal === true, evidenceEnvironment: token(r.evidenceEnvironment), evidenceBundleHash: hash(r.evidenceBundleHash) }));
+    const status = token(progress.status);
+    const summary = JSON.stringify({ status, runs });
     if (summary === view.reported) return;
     view.reported = summary;
-    const lines = [`FloFi approval ${view.approval?.approvalId}: ${String(progress.status)}.`, ...runs.map(r =>
+    const lines = [`FloFi approval ${view.approval?.approvalId}: ${String(status)}.`, ...runs.map(r =>
       `Run ${String(r.executionId)} (${String(r.flow)}): ${String(r.status)}${r.evidenceEnvironment ? `, evidence ${String(r.evidenceEnvironment)} ${String(r.evidenceBundleHash ?? '')}` : ''}.`)];
     void request('ui/update-model-context', { content: [{ type: 'text', text: lines.join(' ') }],
-      structuredContent: { flofiApproval: { approvalId: view.approval?.approvalId, status: progress.status, runs } } }).catch(() => undefined);
+      structuredContent: { flofiApproval: { approvalId: view.approval?.approvalId, status, runs } } }).catch(() => undefined);
   }
 
   function render() {
@@ -156,17 +180,20 @@ export function panelMain(settings: PanelSettings): void {
     }
     if (!terminal(status) && status !== 'APPLIED') {
       const actions = el('div', undefined, 'actions');
-      actions.append(button('Connect wallet & execute in FloFi', () => void connect('window'), true));
+      actions.append(button('Review with your wallet in FloFi', () => void connect('window'), true));
       root.append(actions);
       const mobile = el('div', undefined, 'actions');
-      mobile.append(el('span', 'On your phone:', 'muted'), button('Open in Phantom', () => void connect('phantom')), button('Open in MetaMask', () => void connect('metamask')));
+      mobile.append(el('span', 'On your phone:', 'muted'), a.walletNamespace === 'solana'
+        ? button('Open Phantom browser', () => void connect('phantom')) : button('Open in MetaMask', () => void connect('metamask')));
       root.append(mobile);
+      if (a.walletNamespace === 'solana') root.append(el('p', 'In Phantom, paste the private FloFi approval link below into its browser. Keep this link private.', 'muted'));
       root.append(el('p', 'Wallet in this chat window: not used. FloFi opens its own page so your wallet extension or app can sign there.', 'muted'));
     }
     if (a.approvalUrl && !terminal(status)) {
       const fallback = el('p', 'Or open this link in a browser with your wallet: ', 'muted');
       fallback.append(el('code', a.approvalUrl));
       root.append(fallback);
+      if (!a.approvalUrl.includes('flofi_')) root.append(el('p', 'Use the same browser you used to connect FloFi to your assistant.', 'muted'));
     }
     if (view.opened) root.append(el('p', 'FloFi is open. Prove your wallet, run the fresh simulation, review the Strategy Manifest and sign there. This panel follows the result.', 'muted'));
     if (settings.inFrameProbeHosts.includes(view.host)) {
@@ -174,6 +201,7 @@ export function panelMain(settings: PanelSettings): void {
       if (view.probe) root.append(el('pre', JSON.stringify(view.probe, null, 1)));
     }
     if (view.error) root.append(el('p', view.error, 'error'));
+    root.append(button('Refresh status', () => { polls = 0; void poll(); }));
     post({ method: 'ui/notifications/size-changed', params: { height: document.documentElement.scrollHeight } });
   }
 
@@ -183,14 +211,23 @@ export function panelMain(settings: PanelSettings): void {
     if (!message || message.jsonrpc !== '2.0') return;
     if (typeof message.id === 'number' && pending.has(message.id) && !message.method) {
       const waiter = pending.get(message.id)!; pending.delete(message.id);
+      clearTimeout(waiter.timeout);
       if (message.error) waiter.reject(new Error(message.error.message ?? 'HOST_ERROR')); else waiter.resolve(message.result);
       return;
     }
     if (message.method === 'ui/notifications/tool-result') {
       const content = (message.params as { structuredContent?: unknown } | undefined)?.structuredContent;
-      if (isApproval(content)) { view.approval = content; view.error = null; schedule(10_000); }
+      if (isApproval(content)) {
+        const privateLinks = (message.params?._meta as Json | undefined)?.['flofi/approval'] as Json | undefined;
+        view.approval = { ...content, ...(typeof privateLinks?.approvalUrl === 'string' ? { approvalUrl: privateLinks.approvalUrl } : {}) };
+        view.error = null; view.progress = null; view.reported = ''; polls = 0; schedule(10_000);
+      }
       else view.error = typeof (content as Json | undefined)?.code === 'string' ? String((content as Json).code) : 'NO_APPROVAL';
       render();
+    } else if (message.method === 'ui/resource-teardown') {
+      disposed = true; if (timer) clearTimeout(timer);
+      for (const waiter of pending.values()) { clearTimeout(waiter.timeout); waiter.reject(new Error('APP_CLOSED')); }
+      pending.clear(); if (typeof message.id === 'number') post({ id: message.id, result: {} });
     } else if (message.method === 'ui/notifications/host-context-changed') {
       const theme = (message.params as { theme?: string } | undefined)?.theme;
       if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
@@ -231,7 +268,7 @@ export function panelHtml(settings: PanelSettings): string {
 /** MCP Apps resource metadata: no network, no frames, no external resources; ChatGPT's mirror allows opening FloFi links only. */
 export function panelResourceMeta(origin: string) {
   return { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [], baseUriDomains: [] }, prefersBorder: true },
-    'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: [origin, 'https://phantom.app', 'https://metamask.app.link'] },
+    'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: [origin, 'https://phantom.com', 'https://metamask.app.link'] },
     'openai/widgetDescription': 'FloFi approval: shows the proposal and opens FloFi so the user can review and sign with their own wallet. It never signs.',
     'openai/widgetPrefersBorder': true };
 }

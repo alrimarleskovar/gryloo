@@ -14,7 +14,8 @@ const CHANNEL_SECRET = /^flofi_chs_[A-Za-z0-9_-]{43}$/;
 export const APPROVAL_SECRET_STORAGE_KEY = 'flofi.approval.secret';
 const INTERVAL_MS = 20_000, FIRST_MS = 3_000, MAX_MS = 30 * 60_000;
 function channelSecret(): string | null {
-  const fromHash = decodeURIComponent(window.location.hash.slice(1));
+  let fromHash: string;
+  try { fromHash = decodeURIComponent(window.location.hash.slice(1)); } catch { return null; }
   if (CHANNEL_SECRET.test(fromHash)) return fromHash;
   try { const stored = sessionStorage.getItem(APPROVAL_SECRET_STORAGE_KEY); return stored && CHANNEL_SECRET.test(stored) ? stored : null; } catch { return null; }
 }

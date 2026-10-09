@@ -95,7 +95,9 @@ describe('BUILD-PLATFORM-STATE-001 direct durable state with remote flows', () =
     const tokens = await signIn(consumer, { scope: 'flofi.strategy flofi.approval flofi.runs' });
     const mcp = session({ env: { ...oauthEnv(env), FLOFI_MCP: 'enabled' }, token: tokens.access_token });
     const composed = (await mcp.callTool('compose_strategy', { strategy: BRIDGE })).output;
-    const handoff = (await mcp.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: composed.workflowHash })).output;
+    const handoffResult = await mcp.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: composed.workflowHash });
+    expect(handoffResult.text).not.toContain('flofi_hs_');
+    const handoff = { ...handoffResult.output, ...handoffResult.meta['flofi/approval'] as Record<string, unknown> };
     expect(handoff).toMatchObject({ ok: true, authority: 'NONE' });
     const mcpSurface = await approvalSurface(oauthEnv(env), () => undefined);
     expect(await viewApproval(mcpSurface, decodeURIComponent(new URL(String(handoff.approvalUrl)).hash.slice(1)), [])).toMatchObject({

@@ -1,5 +1,10 @@
 # FloFi Remote MCP Gateway — operator and integrator guide (BUILD-MCP-001, BUILD-MCP-002)
 
+BUILD-CHANNEL-SIGNING-001 updates approval transport: model-visible results now carry an account-authenticated, nonsecret
+`/approve#apr_…` reference; private capability URLs are delivered to the panel only in tool-result `_meta['flofi/approval']`.
+The public fallback requires the browser that completed FloFi OAuth. See [universal signing](UNIVERSAL-SIGNING.md) and the
+[host/wallet capability matrix and four owner E2E procedures](UNIVERSAL-SIGNING-OWNER-E2E.md). In-frame signing remains disabled.
+
 The gateway is `POST /api/mcp` on the FloFi web deployment (Next.js route, Vercel function). It speaks the Model Context
 Protocol over Streamable HTTP through the official TypeScript SDK v2 (`@modelcontextprotocol/server` 2.2.0): the 2026-07-28
 revision and, statelessly, the 2025-era revisions current clients use (2025-11-25, 2025-06-18, 2025-03-26). Each request gets
@@ -84,7 +89,7 @@ Every tool input is a closed JSON Schema. Errors are `{ ok: false, code }`; sche
 | `compose_strategy` | `{ strategy }` | canonical IR, `workflowHash`, steps, explanation, `executionPlan` |
 | `validate_strategy` / `review_strategy` | `{ strategy, workflowHash? }` | authoring rules + hash binding; BLOCK / WARNING / INFORMATION findings; authorize nothing |
 | `simulate_strategy` | `{ strategy, workflowHash, simulationSubject }` | the flow's own simulation, read-only; one step at a time; never calldata |
-| `request_user_approval` | `{ strategy, workflowHash }` | re-composes and re-checks; returns `approvalId`, `approvalUrl` (`<origin>/approve#<secret>`), `workflowHash`, `expiresAt`, `status`, `networkEnvironment`, `fundsClass`, `steps`, `authority: "NONE"`, `requires`, `preExecution`; attaches the panel |
+| `request_user_approval` | `{ strategy, workflowHash }` | re-composes and re-checks; returns `approvalId`, the nonsecret `approvalUrl` (`<origin>/approve#apr_…`), `workflowHash`, `expiresAt`, `status`, `networkEnvironment`, `fundsClass`, `steps`, `authority: "NONE"`, `requires`, `preExecution`; attaches the panel. Private capability URLs are delivered to the panel through client-only `_meta`, outside model-visible content. |
 | `get_approval_status` | `{ approvalId }` | PENDING / CLAIMED / APPLIED / EXPIRED / SUPERSEDED / REVOKED / STALE, and the runs started from it while the owner shares them |
 | `get_execution_status`, `get_evidence` | `{ executionId, … }` | owner-scoped; anything not readable is `RUN_NOT_FOUND` |
 
@@ -100,13 +105,15 @@ the existing lending composition. Any other sequence is composed and reviewed pe
    genuine review blocker, a path no existing flow executes with the owner's wallet, a flow the deployment has not enabled, or
    funds the policy does not allow — with the four facts in the refusal.
 2. The user sees the FloFi panel in the chat (hosts with MCP Apps) or the approval link (every host).
-3. **Connect wallet & execute in FloFi** opens a fresh, five-minute FloFi approval link (`ui/open-link`) in the browser: the
-   signing window. On a phone, **Open in Phantom / MetaMask** opens it in the wallet's own browser. The link in the text
-   result works everywhere (`/approve`).
+3. **Review with your wallet in FloFi** opens a fresh, five-minute FloFi approval link (`ui/open-link`) in the browser: the
+   signing window. MetaMask's mobile link carries the private capability in the fragment. Phantom opens the public FloFi
+   landing page; the owner pastes the private approval link into its browser. The model-visible fallback (`/approve#apr_…`)
+   requires the requesting account's existing browser cookie or an already-proven owner resuming an applied proposal.
 4. `/approve` shows that the proposal is external, from which client, its network, funds class, steps, summary, workflow hash,
    the REAL_FUNDS warning when relevant, the AI disclosure, and that nothing is authorized. The owner proves a wallet
    (EIP-4361 or Sign-In With Solana), loads the proposal (FloFi re-composes it and re-checks hash, engine, deployment and
-   policy) and adds it to their workflow. From there it is FloFi's unchanged flow: fresh simulation, Strategy Manifest Review,
+   policy) and restores it to their workflow with one explicit **Load proposal** action. **Continue to simulation** opens
+   FloFi's existing flow: fresh simulation, Strategy Manifest Review,
    explicit approval, the wallet's own signature, reconciliation, evidence.
 5. The panel follows the run (`get_execution_progress`) and, once reconciled, puts the status and the evidence environment and
    bundle hash into the model's context. Status is shared with the requesting account only while the owner leaves the

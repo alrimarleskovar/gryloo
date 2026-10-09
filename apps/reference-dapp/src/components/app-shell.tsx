@@ -5,7 +5,7 @@ import { useLocale } from '../i18n/locale';
 import { WithdrawPanel } from './withdraw-panel';
 import { RobinhoodTransferPanel } from './robinhood-transfer-panel';
 import { useRobinhoodTransfer } from '../state/robinhood-transfer-store';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ToolboxMode } from '../domain/canvas-layout';
 import { CowPanel } from './cow-panel';
 import { useCow } from '../state/cow-store';
@@ -76,10 +76,10 @@ import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useWalletProof } from './wallet-proof';
 import { WorkflowVerification } from './saved-workflows';
 
-type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void };
+type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void; simulationRequest?: number };
 export function AppShell(props: ProductNavigation = {}) { return <ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider>; }
 
-function AppShellContent({ pathname, navigate }: ProductNavigation) {
+function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductNavigation) {
   const { t: tr } = useLocale();
   const { state, context, reviewError, authoringIncomplete, restoreWorkflow, restorationEpoch } = useWorkflow();
   const modeA = useModeA();
@@ -101,6 +101,10 @@ function AppShellContent({ pathname, navigate }: ProductNavigation) {
     setSection(section);
     if (navigate && (dashboardRoute || secondaryRoute)) navigate('/');
   }, [authoringIncomplete, navigate, dashboardRoute, secondaryRoute]);
+  const lastSimulationRequest = useRef(0);
+  useEffect(() => {
+    if (simulationRequest > lastSimulationRequest.current) { lastSimulationRequest.current = simulationRequest; setTab('Simulate'); }
+  }, [simulationRequest, setTab]);
   const [workflowName, setWorkflowName] = useState('Your Workflow');
   const connectedWallet = useBuild009Wallet();
   const walletIdentity = useExecutionEnvironment();

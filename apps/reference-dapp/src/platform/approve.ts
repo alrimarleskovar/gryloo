@@ -19,7 +19,7 @@ import { semanticWorkflowHash } from '../engine/strategy-engine';
 import type { HandoffPolicy } from '../mcp/execution.ts';
 import type { McpRuntime as EngineRuntime } from '../mcp/runtime.ts';
 import { resolveApprovalSecret, type ApprovalLinkScheme } from './approval-links.ts';
-import { approvalView, CLAIM_SECONDS, planNamespace, verifyHandoff, type ApprovalView, type ClaimedProposal } from './approvals.ts';
+import { approvalView, CLAIM_SECONDS, openApprovalSession, planNamespace, verifyHandoff, type ApprovalView, type ClaimedProposal } from './approvals.ts';
 import type { ApprovalRequesterKind, HandoffRecord, HandoffStore, RequesterScope, WalletRef } from './handoff-store.ts';
 import { refuse } from './refusal.ts';
 
@@ -74,6 +74,31 @@ const viewerOf = async (profile: ApprovalKindProfile, wallets: readonly WalletRe
 const claimantOf = (h: HandoffRecord, wallets: readonly WalletRef[]) =>
   wallets.find(w => w.namespace === h.claimed?.namespace && w.address === h.claimed.address) ?? refuse('HANDOFF_NOT_FOUND');
 
+/** Nonsecret MCP fallback. Only the creating account's existing HttpOnly OAuth cookie can turn an id into a handoff session. */
+export async function openBrowserApproval(surface: ApprovalSurface, approvalId: unknown, origin: string) {
+  if (typeof approvalId !== 'string' || !/^apr_[a-z2-7]{26}$/.test(approvalId)) return refuse('HANDOFF_NOT_FOUND');
+  const scope = await surface.profiles.MCP_ACCOUNT?.viewerRequester?.();
+  if (!scope || scope.kind !== 'MCP_ACCOUNT') return refuse('APPROVAL_ACCOUNT_REQUIRED');
+  const h = await surface.handoffs.forRequester(approvalId, scope, new Date()) ?? refuse('HANDOFF_NOT_FOUND');
+  const scheme = surface.schemes.find(s => s.kinds.includes('MCP_ACCOUNT')) ?? refuse('HANDOFF_NOT_FOUND');
+  return openApprovalSession({ origin, scheme, handoffs: surface.handoffs }, { kind: 'MCP_ACCOUNT', ref: scope.ref,
+    grantId: h.grantId!, clientId: h.clientId, displayName: h.clientName }, approvalId);
+}
+
+/** An APPLIED link is consumed. Recovery uses its public id plus the claimant's proven wallet, re-verifying the exact proposal.
+ * No capability is reissued, no status changes, no simulation/Review/authorization survives a reload. */
+export async function resumeApproval(surface: ApprovalSurface, approvalId: unknown, wallets: readonly WalletRef[]): Promise<ClaimedProposal> {
+  if (typeof approvalId !== 'string' || !/^apr_[a-z2-7]{26}$/.test(approvalId)) return refuse('HANDOFF_NOT_FOUND');
+  let h: HandoffRecord | null = null;
+  for (const wallet of wallets) { h = await surface.handoffs.forClaimant(approvalId, wallet); if (h) break; }
+  if (!h) return refuse('HANDOFF_NOT_FOUND');
+  const profile = surface.profiles[h.requesterKind] ?? refuse('HANDOFF_NOT_FOUND');
+  const verified = await verifyHandoff(h, surface.runtime, profile.policy);
+  if (!verified.ok) return refuse(verified.code);
+  return { view: approvalView(h, verified, await viewerOf(profile, wallets)), command: verified.composition.command,
+    workflow: verified.composition.workflow, workflowHash: verified.composition.workflowHash, workflowId: verified.composition.workflow.workflowId };
+}
+
 /** The proposal behind a secret, re-verified now. Seeing it grants nothing. */
 export async function viewApproval(surface: ApprovalSurface, secret: unknown, wallets: readonly WalletRef[], now = new Date()): Promise<ApprovalView> {
   const { handoff: h, profile } = await locate(surface, secret, now);
@@ -98,7 +123,8 @@ export async function claimApproval(surface: ApprovalSurface, secret: unknown, w
   if (!claimed.ok) return refuse(claimed.code);
   if (!verified.ok) return refuse(verified.code);
   const view = approvalView(claimed.handoff, verified, await viewerOf(profile, wallets));
-  return { view, command: verified.composition.command, workflowHash: verified.composition.workflowHash, workflowId: verified.composition.workflow.workflowId };
+  return { view, command: verified.composition.command, workflow: verified.composition.workflow,
+    workflowHash: verified.composition.workflowHash, workflowId: verified.composition.workflow.workflowId };
 }
 
 /**
@@ -110,6 +136,8 @@ export async function applyApproval(surface: ApprovalSurface, secret: unknown, w
   let appliedHash: string;
   try { appliedHash = semanticWorkflowHash(workflow as Workflow); } catch { appliedHash = ''; }
   if (appliedHash !== current.workflowHash) refuse('HANDOFF_WORKFLOW_MISMATCH');
+  const verified = await verifyHandoff(current, surface.runtime, profile.policy);
+  if (!verified.ok) return refuse(verified.code);
   const applied = await surface.handoffs.apply(digest, claimantOf(current, wallets), now, kinds);
   if (!applied.ok) return refuse(applied.code);
   return approvalView(applied.handoff, await verifyHandoff(applied.handoff, surface.runtime, profile.policy), await viewerOf(profile, wallets));

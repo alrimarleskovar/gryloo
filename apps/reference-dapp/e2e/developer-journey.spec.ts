@@ -98,7 +98,6 @@ test.describe('BUILD-DEVELOPER-001 third-party integration (SDK → FloFi /appro
       await chooseWallet(page, 'Browser wallet');
       await expect(region).toContainText(`Signed in as ${owner.address}`);
       await region.getByRole('button', { name: 'Load proposal' }).click();
-      await region.getByRole('button', { name: 'Add to my workflow' }).click();
       await expect(region.getByRole('status')).toContainText('Ready for your review.');
       // The authoritative product's simulation and Review; a MOCKED route cannot authorize execution.
       await simulateStage(page);

@@ -135,7 +135,14 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
         if (!principalScopes(ctx.principal).includes(scope)) failWith('MCP_INSUFFICIENT_SCOPE');
         const output = await run(args);
         assertSafeOutput(output);
-        result = { content: [{ type: 'text', text: JSON.stringify(output) }], structuredContent: output };
+        // MCP Apps tool-result _meta is delivered to the UI, outside model context. App visibility alone does not redact results.
+        const privateLinks = name === 'request_user_approval' || name === 'open_approval_session';
+        const { approvalUrl, walletLinks, ...publicFields } = output;
+        const visible = privateLinks && typeof approvalUrl === 'string'
+          ? { ...publicFields, approvalUrl: `${ctx.oauth!.origin}/approve#${String(output.approvalId)}` }
+          : output;
+        result = { content: [{ type: 'text', text: JSON.stringify(visible) }], structuredContent: visible,
+          ...(privateLinks && typeof approvalUrl === 'string' ? { _meta: { 'flofi/approval': { approvalUrl, walletLinks } } } : {}) };
       } catch (error) {
         outcome = error instanceof Error && CODE.test(error.message) ? mcpCode(error.message) : 'MCP_INTERNAL_ERROR';
         const body = { ok: false, code: outcome, ...error instanceof PlatformRefusal ? error.extra : {} };

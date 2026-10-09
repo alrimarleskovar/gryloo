@@ -25,7 +25,7 @@ const MODERN_META = { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', '
 export type Session = {
   readonly post: (body: unknown, headers?: Record<string, string>) => Promise<{ status: number; headers: Headers; text: string; message: Record<string, unknown> | null }>;
   readonly request: (method: string, params?: Record<string, unknown>, options?: { modern?: boolean }) => Promise<Record<string, unknown>>;
-  readonly callTool: (name: string, args: unknown) => Promise<{ isError: boolean; output: Record<string, unknown>; text: string }>;
+  readonly callTool: (name: string, args: unknown) => Promise<{ isError: boolean; output: Record<string, unknown>; text: string; meta: Record<string, unknown> }>;
 };
 /** One client of one gateway configuration. `token: null` sends no Authorization header. */
 export function session(options: { env: Record<string, string>; token: string | null; runtime?: McpRuntime; logger?: GatewayLogger; state?: McpState;
@@ -52,9 +52,9 @@ export function session(options: { env: Record<string, string>; token: string | 
   };
   return { post, request, async callTool(name, args) {
     const message = await request('tools/call', { name, arguments: args });
-    const result = message.result as { content?: { text?: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean } | undefined;
+    const result = message.result as { content?: { text?: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean; _meta?: Record<string, unknown> } | undefined;
     if (!result) throw new Error('MCP_TOOL_PROTOCOL_ERROR: ' + JSON.stringify(message.error));
     const text = result.content?.[0]?.text ?? '';
-    return { isError: result.isError === true, output: result.structuredContent ?? { text }, text };
+    return { isError: result.isError === true, output: result.structuredContent ?? { text }, text, meta: result._meta ?? {} };
   } };
 }
