@@ -287,7 +287,7 @@ export function createAutomationService(deps: ServiceDeps) {
     },
 
     async telegramLinkCode(owner: Owner): Promise<LinkCodeView> {
-      if (!deps.telegramAvailable) refuse('AUTOMATION_TELEGRAM_NOT_AVAILABLE');
+      if (!deps.telegramAvailable) refuse('AUTOMATION_CHAT_NOTIFICATIONS_UNAVAILABLE');
       const now = deps.now();
       if (!await deps.allow(ownerBucket(config.keys, owner), 5, 3_600, now)) refuse('AUTOMATION_LINK_RATE_LIMITED');
       const { code, expiresAt } = await createLinkCode(deps.db, config.tenantId, config.keys, owner, now);
