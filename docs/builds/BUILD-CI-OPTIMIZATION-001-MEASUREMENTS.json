@@ -1,0 +1,188 @@
+{
+  "build": "BUILD-CI-OPTIMIZATION-001",
+  "starting_commit": "fefda242e4abea5b8be5db57a9b8a09adbd2b65a",
+  "integrated_main": "68249fad76f515dee9c953cb42df115492f191dd",
+  "historical_successful_run": 37850860794,
+  "historical_job": {
+    "started_at": "2026-10-08T22:21:26Z",
+    "completed_at": "2026-10-08T22:41:36Z",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:23Z",
+        "completed_at": "2026-10-08T22:21:26Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:26Z",
+        "completed_at": "2026-10-08T22:21:35Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:35Z",
+        "completed_at": "2026-10-08T22:21:35Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:35Z",
+        "completed_at": "2026-10-08T22:21:39Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:39Z",
+        "completed_at": "2026-10-08T22:21:50Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:50Z",
+        "completed_at": "2026-10-08T22:21:51Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:51Z",
+        "completed_at": "2026-10-08T22:21:53Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:53Z",
+        "completed_at": "2026-10-08T22:23:53Z"
+      },
+      {
+        "name": "Typecheck, lint, build, schema drift and contract tests",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:23:53Z",
+        "completed_at": "2026-10-08T22:28:56Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:28:56Z",
+        "completed_at": "2026-10-08T22:30:30Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil and run the offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:30:30Z",
+        "completed_at": "2026-10-08T22:31:30Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell and run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:31:30Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:20Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:20Z",
+        "completed_at": "2026-10-08T22:41:20Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:20Z",
+        "completed_at": "2026-10-08T22:41:22Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:23Z",
+        "completed_at": "2026-10-08T22:41:23Z"
+      }
+    ]
+  },
+  "setup_only_measurements": {
+    "anvil-cold": {
+      "wall_seconds": 44.7,
+      "max_rss_kib": 32756,
+      "user_seconds": 2.82,
+      "system_seconds": 1.5,
+      "completed_at_utc": "2026-10-09T12:54:58.675025+00:00"
+    },
+    "anvil-warm": {
+      "wall_seconds": 3.81,
+      "max_rss_kib": 30504,
+      "user_seconds": 2.02,
+      "system_seconds": 1.21,
+      "completed_at_utc": "2026-10-09T12:55:32.129382+00:00"
+    },
+    "browser-cold": {
+      "wall_seconds": 19.5,
+      "max_rss_kib": 31104,
+      "user_seconds": 2.2,
+      "system_seconds": 1.63,
+      "completed_at_utc": "2026-10-09T12:55:51.374412+00:00"
+    },
+    "browser-warm": {
+      "wall_seconds": 2.28,
+      "max_rss_kib": 30848,
+      "user_seconds": 1.31,
+      "system_seconds": 0.89,
+      "completed_at_utc": "2026-10-09T12:56:22.986403+00:00"
+    },
+    "dependencies-after": {
+      "wall_seconds": 20.96,
+      "max_rss_kib": 680272,
+      "user_seconds": 5.47,
+      "system_seconds": 2.42,
+      "completed_at_utc": "2026-10-09T12:53:06.907825+00:00"
+    },
+    "dependencies-before": {
+      "wall_seconds": 71.09,
+      "max_rss_kib": 670392,
+      "completed_at_utc": "2026-10-09T12:52:09.512889+00:00"
+    },
+    "toolchain-cold": {
+      "wall_seconds": 11.57,
+      "max_rss_kib": 148076,
+      "completed_at_utc": "2026-10-09T12:49:49.326276+00:00"
+    },
+    "toolchain-invalidation": {
+      "wall_seconds": 11.71,
+      "max_rss_kib": 145284,
+      "user_seconds": 2.81,
+      "system_seconds": 2.7,
+      "completed_at_utc": "2026-10-09T12:53:36.319574+00:00"
+    },
+    "toolchain-warm": {
+      "wall_seconds": 5.18,
+      "max_rss_kib": 149612,
+      "user_seconds": 2.77,
+      "system_seconds": 2.22,
+      "completed_at_utc": "2026-10-09T12:52:34.666214+00:00"
+    }
+  },
+  "dependency_evidence_sha256": "fd91062750e250f43799556490d09c96b550eae2624532ddbb93f753d501584f",
+  "optimized_dependency_evidence_identical": true,
+  "method": "One sequential setup-only sample per case on the shared WSL host; GNU time wall and max RSS. No local build, DB, fork or browser suite. This excludes Actions cache transfer and post-job costs and is not a controlled full-CI benchmark. Main CI began at 12:52:50 UTC during setup measurements.",
+  "full_ci_cold": "NOT MEASURED",
+  "full_ci_warm": "NOT MEASURED",
+  "full_ci_invalidation": "NOT MEASURED",
+  "full_ci_improvement_percent": "NOT MEASURED"
+}

@@ -303,6 +303,7 @@ class WorkflowInvariants(unittest.TestCase):
         for command in ['pnpm test:postgres', 'pnpm exec eslint scripts/guarded-release-browser.mjs',
                         'pnpm sbom --sbom-format cyclonedx', 'pnpm exec vitest run packages/reference-compiler/test/composition.fork.test.ts',
                         'playwright test developer-journey.spec.ts', 'playwright test mcp-in-chat.spec.ts mcp-route-presentation.spec.ts',
+                        'playwright test channel-signing.spec.ts',
                         'playwright test whatsapp-approve.spec.ts telegram-approve.spec.ts']:
             steps = [step for step in re.split(r'(?m)^      - name:', body) if command in step]
             self.assertEqual(len(steps), 1, command)
