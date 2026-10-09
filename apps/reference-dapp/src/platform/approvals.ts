@@ -41,6 +41,7 @@ export const AUTHORITY_NONE = 'NONE' as const;
  *   MCP_ACCOUNT           an OAuth grant of a pseudonymous FloFi account (BUILD-MCP-002); `ref` is the account id
  *   DEVELOPER_PROJECT     a developer project (BUILD-DEVELOPER-001, not yet served)
  *   CHANNEL_CONVERSATION  a conversation on a messaging channel (BUILD-CHANNELS-001, not yet served)
+ *   AUTOMATION_RULE       an owner's automation rule (BUILD-AUTOMATION-001): its proposals can only be claimed by that owner's wallet
  * `context` holds immutable, non-secret facts the kind's claim policy needs on /approve (e.g. an intended wallet); MCP has none.
  */
 export type ApprovalRequester =
@@ -70,7 +71,8 @@ const stepView = (s: PlanStep) => ({ index: s.index, action: s.action, network: 
 const gateView = (g: Gates) => ({ supportedByCode: g.supportedByCode, enabledByDeployment: g.enabledByDeployment, enabledByPolicy: g.enabledByPolicy,
   demonstratedEvidence: g.demonstratedEvidence });
 /** Abuse-limit buckets are named per requester (an MCP account's bucket keeps its BUILD-MCP-002 name). */
-const BUCKET_SEGMENT: Readonly<Record<ApprovalRequesterKind, string>> = Object.freeze({ MCP_ACCOUNT: 'account', DEVELOPER_PROJECT: 'project', CHANNEL_CONVERSATION: 'conversation' });
+const BUCKET_SEGMENT: Readonly<Record<ApprovalRequesterKind, string>> = Object.freeze({ MCP_ACCOUNT: 'account', DEVELOPER_PROJECT: 'project', CHANNEL_CONVERSATION: 'conversation',
+  AUTOMATION_RULE: 'automation' });
 const requestBucket = (requester: ApprovalRequester) => `handoff:${BUCKET_SEGMENT[requester.kind]}:${requester.ref}`;
 /** A requester the store can persist: a well-formed ref and names, and a small, non-secret context (MCP: none). */
 function requesterValid(requester: ApprovalRequester): boolean {

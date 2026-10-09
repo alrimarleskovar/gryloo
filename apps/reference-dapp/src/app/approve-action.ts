@@ -10,12 +10,16 @@
  * re-composes the stored strategy with the current engine, requires the same workflow hash and re-evaluates deployment and policy;
  * the result is the same authoring command the FloFi chat would produce, which then enters FloFi's existing proposal → flow → Review
  * → signature path. These actions only read this request's cookies and delegate to the shared platform (`src/platform/approve.ts`).
+ * BUILD-AUTOMATION-001: on the remote runtime (production: Vercel → Railway API) an automation link (`flofi_auhs_`) is served by the
+ * API, which holds the automation state and keys: the same platform functions, called there with the wallets this request proved
+ * (`server/automation-operation.ts`); PR #72's recovery of an applied proposal falls back to the API there. Every other link is unchanged.
  */
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { developerApprovalChanged } from '../developer/dispatch';
 import { applyApproval, claimApproval, openBrowserApproval, resumeApproval, shareApproval, viewApproval, type ApprovalView, type ClaimedProposal } from '../platform/index';
 import { approvalSurface } from '../server/approval-surface';
+import { remoteApproval, remoteAutomationApproval, remoteAutomationRecovery } from '../server/automation-operation';
 import { currentWalletPrincipals } from '../server/session-principal';
 
 type Result<T> = { ok: true; value: T } | { ok: false; code: string };
@@ -37,12 +41,20 @@ export async function openBrowserApprovalHandoff(approvalId: string): Promise<Re
 }
 export async function resumeApprovalHandoff(approvalId: string): Promise<Result<ClaimedProposal>> {
   try { return { ok: true, value: await resumeApproval(await surface(), approvalId, await currentWalletPrincipals()) }; }
-  catch (cause) { return failure(cause); }
+  catch (cause) {
+    // BUILD-AUTOMATION-001: on the remote runtime an automation proposal's profile is the API's. The id names no kind, so a recovery this
+    // deployment cannot resolve is asked of the API, with the wallets this request proved; otherwise this deployment's refusal stands.
+    if (remoteAutomationRecovery()) { try { return { ok: true, value: await remoteApproval<ClaimedProposal>('resume', [approvalId]) }; } catch { /* refused there too */ } }
+    return failure(cause);
+  }
 }
 
 /** The proposal behind a secret, re-verified now. Seeing it grants nothing. */
 export async function approvalHandoffView(secret: string): Promise<Result<ApprovalView>> {
-  try { return { ok: true, value: await viewApproval(await surface(), secret, await currentWalletPrincipals()) }; } catch (cause) { return failure(cause); }
+  try {
+    if (remoteAutomationApproval(secret)) return { ok: true, value: await remoteApproval<ApprovalView>('view', [secret]) };
+    return { ok: true, value: await viewApproval(await surface(), secret, await currentWalletPrincipals()) };
+  } catch (cause) { return failure(cause); }
 }
 
 /**
@@ -50,8 +62,10 @@ export async function approvalHandoffView(secret: string): Promise<Result<Approv
  * command. `share` is the owner's choice to let the requester see the status of runs started from it.
  */
 export async function claimApprovalHandoff(secret: string, share: boolean): Promise<Result<ClaimedProposal>> {
-  try { const value = await claimApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value }; }
-  catch (cause) { return failure(cause); }
+  try {
+    if (remoteAutomationApproval(secret)) return { ok: true, value: await remoteApproval<ClaimedProposal>('claim', [secret, share === true]) };
+    const value = await claimApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value };
+  } catch (cause) { return failure(cause); }
 }
 
 /**
@@ -59,12 +73,16 @@ export async function claimApprovalHandoff(secret: string, share: boolean): Prom
  * proposal's workflow hash. Anything else — an edit, another proposal — is a mismatch and the handoff stays CLAIMED.
  */
 export async function markApprovalApplied(secret: string, workflow: unknown): Promise<Result<ApprovalView>> {
-  try { const value = await applyApproval(await surface(), secret, await currentWalletPrincipals(), workflow); notify(secret); return { ok: true, value }; }
-  catch (cause) { return failure(cause); }
+  try {
+    if (remoteAutomationApproval(secret)) return { ok: true, value: await remoteApproval<ApprovalView>('apply', [secret, workflow]) };
+    const value = await applyApproval(await surface(), secret, await currentWalletPrincipals(), workflow); notify(secret); return { ok: true, value };
+  } catch (cause) { return failure(cause); }
 }
 
 /** The claimant turns status sharing with the requester on or off. */
 export async function setApprovalSharing(secret: string, share: boolean): Promise<Result<{ statusShared: boolean }>> {
-  try { const value = await shareApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value }; }
-  catch (cause) { return failure(cause); }
+  try {
+    if (remoteAutomationApproval(secret)) return { ok: true, value: await remoteApproval<{ statusShared: boolean }>('share', [secret, share === true]) };
+    const value = await shareApproval(await surface(), secret, await currentWalletPrincipals(), share === true); notify(secret); return { ok: true, value };
+  } catch (cause) { return failure(cause); }
 }

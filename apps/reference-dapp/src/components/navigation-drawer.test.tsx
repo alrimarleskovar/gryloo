@@ -20,13 +20,13 @@ describe('navigation drawer shell', () => {
     expect(html).toContain('M4 6h16M4 12h16M4 18h16');
   });
 
-  it('contains six ordered workspace links and a separate bottom Logout action', () => {
+  it('contains seven ordered workspace links and a separate bottom Logout action', () => {
     const html = render({ section: 'Simulate' });
-    expect(html.match(/class="navigation-row"/g)).toHaveLength(7);
+    expect(html.match(/class="navigation-row"/g)).toHaveLength(8);
     expect(html).toContain('href="/app/dashboard"');
     expect(html).toContain('href="/app"');
-    const labels = [...html.matchAll(/<span>(Dashboard|Build Workflow|Your workflows|Credentials|Agents|Passkeys|Logout)<\/span>/g)].map(match => match[1]);
-    expect(labels).toEqual(['Dashboard', 'Build Workflow', 'Your workflows', 'Credentials', 'Agents', 'Passkeys', 'Logout']);
+    const labels = [...html.matchAll(/<span>(Dashboard|Build Workflow|Your workflows|Automations|Credentials|Agents|Passkeys|Logout)<\/span>/g)].map(match => match[1]);
+    expect(labels).toEqual(['Dashboard', 'Build Workflow', 'Your workflows', 'Automations', 'Credentials', 'Agents', 'Passkeys', 'Logout']);
     expect(html).toMatch(/class="navigation-footer"><button[^>]*aria-label="Logout"[^>]*disabled=""/);
     for (const item of SECONDARY_WORKSPACES) {
       expect(html).toContain(`href="${item.href}"`);

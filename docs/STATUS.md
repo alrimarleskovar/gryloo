@@ -7,6 +7,28 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-AUTOMATION-001 — FloFi Automations (automated evaluation, owner-confirmed execution)
+
+**Status: READY_FOR_OWNER_PUSH — implementation and every local gate on MOCKED/fixture/loopback evidence; NO LIVE PRICE PROVIDER CALL,
+NO REAL TELEGRAM MESSAGE AND NO TRANSACTION; NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.** Branch `claude/build-automation-001-production`
+restacked onto main `7175cd0` (PR #71 platform state, PR #72 conversational signing and recovery, PR #73 brand UX, PR #74 CI
+optimization). Owners create scheduled DCAs (DAILY/WEEKLY in IANA zones, DST-correct, `LATEST_WITHIN_GRACE` missed-run policy),
+deterministic price triggers (below/above/percentage, fire once per crossing, re-arm on clear, cooldown) and daily market watches in a new
+Automations workspace (EN/PT). Execution mode is only `CONFIRM_EACH_TIME`: an occurrence (unique per trigger event, migration
+`0010_automations`) becomes an `AUTOMATION_RULE` handoff on the shared approval model when the owner opens it, claimable only by the owner's
+proven wallet; FloFi's unchanged flow follows (fresh simulation, Strategy Manifest Review, the owner's signature). Actions are bound by value
+to a canonical StrategySpec and hash; a saved-workflow edit stops proposals until an explicit, limit-checked rebind. Enforced limits per
+execution, per day/week/month, cooldown, slippage, expiry. It runs on FloFi's existing production topology: Vercel BFF → Railway API
+(owner CRUD/state on `/v1/automations/*` with the verified owner header, automation approval links on `/v1/approvals/*`) → Neon, and the
+Railway worker evaluates durable work items — its 60 s sweep is the scheduler (no cron, no Vercel Pro, no new service). The protected
+`/api/automations/dispatch` remains an optional trigger for embedded deployments (Previews, recovery). Daily-watch Buy/Sell is the
+owner's own new Build trade, not automation execution. Prices: read-only Chainlink feeds on Base mainnet (configured, verified on-chain) or a test
+fixture. Notifications: in-app everywhere; Telegram through the existing Channel Core after a one-time link code where Channel Core
+and automations share a process (an embedded runtime) — not in standard production, whose Railway API/worker carry no Telegram
+configuration (no secret in any message; WhatsApp unchanged). BTC can be watched but has no swap route (`BTC_EXECUTION_ROUTE_UNAVAILABLE`); Base mainnet swaps are not
+owner-executable on main. See the [plan](builds/BUILD-AUTOMATION-001-PLAN.md), [report](builds/BUILD-AUTOMATION-001-REPORT.md) and
+[operator guide](deploy/AUTOMATIONS.md).
+
 ## BUILD-DEVELOPER-001 — FloFi for Developers (Developer API, SDK, webhooks)
 
 **Status: IMPLEMENTATION COMPLETE ON A STACKED BRANCH — MOCKED/LOCAL-INTEGRATION EVIDENCE ONLY; NO LIVE PREVIEW SESSION; NO

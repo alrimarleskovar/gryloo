@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { YourWorkflows, type WorkflowNavigation } from './saved-workflows';
+import { AutomationsWorkspace, type AutomationNavigation } from './automations-workspace';
 import { useJupiter } from '../state/jupiter-store';
 import { brandLabel, LABEL_MAX, networkLabel, type SavedCard, type SavedWallet } from '../domain/credentials';
 import { removeSavedCredential, renameSavedCredential, saveCardReference, saveWalletReference, useCredentials } from '../state/credentials-store';
@@ -361,6 +362,8 @@ function PasskeysWorkspace() {
   </>;
 }
 
-export function SecondaryProductWorkspace({ workspace, workflows }: { workspace: SecondaryWorkspace['id']; workflows?: WorkflowNavigation | undefined }) {
-  return workspace === 'workflows' ? <YourWorkflows {...workflows}/> : workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
+export function SecondaryProductWorkspace({ workspace, workflows, automations }: { workspace: SecondaryWorkspace['id']; workflows?: WorkflowNavigation | undefined;
+  automations?: AutomationNavigation | undefined }) {
+  return workspace === 'workflows' ? <YourWorkflows {...workflows}/> : workspace === 'automations' ? <AutomationsWorkspace {...automations}/>
+    : workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
 }

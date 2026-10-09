@@ -228,14 +228,15 @@ export function createPgChannelStore(db: Database, tenantId: string): ChannelSto
           WHERE tenant_id = $1 AND status IN ('SENDING', 'UNCERTAIN') AND created_at < $3`, `'OUTBOUND_FAILED'`), [tenantId, now, ago(2 * RETENTION.transientMs)]);
         await tx.query(`UPDATE channel_conversations SET state_ciphertext = NULL, updated_at = $2 WHERE tenant_id = $1 AND state_ciphertext IS NOT NULL
           AND last_activity_at < $3 AND (lease_until IS NULL OR lease_until <= $2)`, [tenantId, now, ago(RETENTION.stateIdleMs)]);
+        // BUILD-AUTOMATION-001: a conversation the owner linked to automation notifications keeps its address while the link lives.
         await tx.query(`UPDATE channel_conversations SET address_ciphertext = NULL, updated_at = $2 WHERE tenant_id = $1 AND address_ciphertext IS NOT NULL
-          AND coalesce(last_inbound_at, created_at) < $3`, [tenantId, now, ago(RETENTION.addressMs)]);
+          AND coalesce(last_inbound_at, created_at) < $3 AND (retain_until IS NULL OR retain_until <= $2)`, [tenantId, now, ago(RETENTION.addressMs)]);
         await tx.query('DELETE FROM channel_events WHERE tenant_id = $1 AND received_at < $2 AND status <> \'PENDING\'', [tenantId, ago(RETENTION.recordMs)]);
         await tx.query(`DELETE FROM channel_outbox WHERE tenant_id = $1 AND created_at < $2 AND status NOT IN ('PENDING', 'SENDING', 'UNCERTAIN')`,
           [tenantId, ago(RETENTION.recordMs)]);
         await tx.query('DELETE FROM channel_audit WHERE tenant_id = $1 AND at < $2', [tenantId, ago(RETENTION.auditMs)]);
         await tx.query(`DELETE FROM channel_conversations WHERE tenant_id = $1 AND status = 'ACTIVE' AND last_activity_at < $2 AND coalesce(last_inbound_at, created_at) < $2
-          AND (lease_until IS NULL OR lease_until <= $3)`, [tenantId, ago(RETENTION.conversationIdleMs), now]);
+          AND (lease_until IS NULL OR lease_until <= $3) AND (retain_until IS NULL OR retain_until <= $3)`, [tenantId, ago(RETENTION.conversationIdleMs), now]);
         await tx.query(`DELETE FROM mcp_rate_limits WHERE tenant_id = $1 AND (bucket LIKE 'channel:%' OR bucket LIKE 'handoff:conversation:%') AND window_start < $2`,
           [tenantId, ago(86_400_000)]);
       });

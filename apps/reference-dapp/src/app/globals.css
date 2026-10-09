@@ -1583,3 +1583,50 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
   .canvas-head .canvas-utility-tools button { width: 44px; padding-inline: 0; }
   .canvas-head .canvas-utility-tools button span { display: none; }
 }
+
+/* BUILD-AUTOMATION-001: the Automations workspace (secondary workspace) and its in-app notice on the product stages. */
+.automation-list{display:grid;gap:16px}
+.automation-card{min-width:0;padding:20px 22px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.automation-card p{line-height:1.55;margin:10px 0}
+.automation-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.automation-card-head h3{font-size:16px;margin:0 0 4px;overflow-wrap:anywhere}
+.automation-card-head p{margin:0;font-size:12px;color:var(--muted)}
+.automation-badge{flex:none;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);color:var(--muted);font-size:12px;white-space:nowrap}
+.automation-badge:is([data-state=ACTIVE],[data-state=PENDING_OWNER]){color:var(--blue);border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.automation-pending[data-highlighted=true]{border-color:var(--blue);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 25%,transparent)}
+.automation-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:16px 0 0}
+.automation-facts dt{font-size:12px;color:var(--muted);margin-bottom:3px}
+.automation-facts dd{margin:0;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.automation-row-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.secondary-workspace .workspace-action.primary-action{background:var(--blue);border-color:var(--blue);color:var(--on-accent)}
+.secondary-workspace .workspace-action.primary-action:disabled{background:var(--soft);border-color:var(--line);color:var(--muted)}
+.automation-attention{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:8px;background:var(--soft);font-size:13px}
+.automation-authority{font-size:12px}
+.automation-watch{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px}
+.automation-watch li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.automation-watch .automation-row-actions{margin-top:0}
+.automation-observation{font-size:13px}
+.automation-inline-form{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:8px}
+.automation-inline-form label,.automation-field{display:grid;gap:6px;font-size:13px;color:var(--muted)}
+.automation-inline-form :is(input,select),.automation-field :is(input,select){min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+.automation-form{display:grid;gap:18px;padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.automation-form fieldset{margin:0;padding:0;border:0;min-width:0}
+.automation-form legend{font-size:13px;font-weight:500;margin-bottom:10px}
+.automation-kind{display:flex;flex-wrap:wrap;gap:8px}
+.automation-kind-option{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:13px;cursor:pointer}
+.automation-kind-option[data-selected=true]{border-color:var(--blue);color:var(--blue)}
+.automation-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.automation-field-wide{grid-column:1/-1}
+.automation-pair{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.automation-assets{display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+.automation-assets label{display:inline-flex;align-items:center;gap:6px}
+.automation-assets p{flex-basis:100%}
+.automation-execution{margin:0;font-size:13px}
+.automation-history-list{list-style:none;padding:0;margin:8px 0 16px;display:grid;gap:6px;font-size:13px;line-height:1.5}
+.automation-history h3{font-size:14px;margin:16px 0 6px}
+.automation-archived summary{cursor:pointer;color:var(--muted);font-size:13px;margin:14px 0}
+.automation-inbox{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--soft);font-size:13px}
+.automation-inbox .workspace-action{display:inline-flex;align-items:center;min-height:30px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-weight:500}
+:root[data-theme="dark"] :is(.automation-card,.automation-form){background:var(--surface-raised)}
+@media(max-width:800px){.automation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.automation-facts{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:480px){.automation-grid{grid-template-columns:minmax(0,1fr)}.automation-card,.automation-form{padding:16px}}

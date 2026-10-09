@@ -18,7 +18,8 @@
 import type { Database, Queryable, Row } from '@defi-workflow-engine/cloud-runtime';
 import type { ExecutionPlan } from '../mcp/execution.ts';
 
-export const APPROVAL_REQUESTER_KINDS = Object.freeze(['MCP_ACCOUNT', 'DEVELOPER_PROJECT', 'CHANNEL_CONVERSATION'] as const);
+// BUILD-AUTOMATION-001: AUTOMATION_RULE (migration 0010) — an owner's automation, proposing to that same owner.
+export const APPROVAL_REQUESTER_KINDS = Object.freeze(['MCP_ACCOUNT', 'DEVELOPER_PROJECT', 'CHANNEL_CONVERSATION', 'AUTOMATION_RULE'] as const);
 export type ApprovalRequesterKind = (typeof APPROVAL_REQUESTER_KINDS)[number];
 /** A requester's isolation scope. For an MCP account, `ref` is its account id. */
 export type RequesterScope = { readonly kind: ApprovalRequesterKind; readonly ref: string };

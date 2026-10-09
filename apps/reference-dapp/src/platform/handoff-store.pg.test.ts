@@ -41,7 +41,8 @@ const store = (tenant = 'default'): HandoffStore => {
 };
 const schemes: Record<RequesterScope['kind'], ApprovalLinkScheme> = { MCP_ACCOUNT: approvalLinkScheme('flofi_hs_', randomBytes(32), ['MCP_ACCOUNT']),
   DEVELOPER_PROJECT: approvalLinkScheme('flofi_dhs_', randomBytes(32), ['DEVELOPER_PROJECT']),
-  CHANNEL_CONVERSATION: approvalLinkScheme('flofi_chs_', randomBytes(32), ['CHANNEL_CONVERSATION']) };
+  CHANNEL_CONVERSATION: approvalLinkScheme('flofi_chs_', randomBytes(32), ['CHANNEL_CONVERSATION']),
+  AUTOMATION_RULE: approvalLinkScheme('flofi_auhs_', randomBytes(32), ['AUTOMATION_RULE']) };
 const BRIDGE = { action: 'bridge', sourceNetwork: 'base-sepolia', destinationNetwork: 'arbitrum-sepolia', asset: 'USDC', amount: '5' };
 const OPEN: HandoffCreateRules = { maxPending: 10, supersedeSameWorkflow: false };
 const evm = (n: number): WalletRef => ({ namespace: 'eip155', address: '0x' + String(n).repeat(40).slice(0, 40) });

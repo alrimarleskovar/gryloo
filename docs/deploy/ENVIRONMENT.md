@@ -224,6 +224,40 @@ closed). All server-only, never `NEXT_PUBLIC_*`. Guides: [TELEGRAM.md](TELEGRAM.
 | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_GRAPH_API_VERSION` | the Cloud API transport (system-user token; `vNN.0`); required for `live` | **yes** (token) | — | — | unset |
 | `WHATSAPP_NOTIFICATION_TEMPLATE` | `<name>:<language>` of an approved Utility template with one body variable, for status notifications after the 24-hour window | no | — | — | unset: nothing is sent outside the window |
 
+## 5f. Automations (BUILD-AUTOMATION-001, `/app/automations`, `/v1/automations/*`, `/v1/approvals/*`, `/api/automations/*`, `/approve`)
+
+Off unless enabled. **Automated evaluation and owner-confirmed execution** (`CONFIRM_EACH_TIME`): FloFi evaluates schedules and price
+conditions and asks the owner; the scheduler, the price source and every notification have zero financial authority, and execution
+still needs `/approve` → wallet proof → fresh simulation → Strategy Manifest Review → the owner's own signature. Needs PostgreSQL migrated
+through `0010_automations` (`AUTOMATION_SCHEMA_NOT_INSTALLED` otherwise). Any invalid value disables automations on that process only
+(fail closed). All server-only, never `NEXT_PUBLIC_*`. Guide: [AUTOMATIONS.md](AUTOMATIONS.md).
+
+**Where the variables go.** In **standard production** (Vercel BFF → Railway API → Neon + Railway worker) the **API** holds the
+automation configuration and serves the workspace and automation approval links; the **worker** evaluates (its 60 s sweep is the
+scheduler); **Vercel needs nothing new** (its `API_BASE_URL` / `API_AUTH_TOKEN` carry the calls; PR #71's platform-state
+`DATABASE_URL` on Vercel is not used by automations). On an **embedded** web runtime (e.g. a
+Preview) the web deployment holds the API's column and, without a worker, the optional dispatch.
+
+| Variable | Purpose | Secret | Railway API (prod) | Railway worker (prod) | Embedded web (Preview) | Default |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FLOFI_AUTOMATIONS` | `enabled` loads the automation routes (API), handlers and sweep (worker), or the workspace and dispatch (embedded web) | no | **set** | **set** | as chosen | off |
+| `FLOFI_AUTOMATION_SECRET` | 32–512 chars (`openssl rand -hex 32`): HKDF keys of the approval-link scheme and the Telegram link codes. Refused if equal to `API_AUTH_TOKEN`, `FLOFI_SESSION_SECRET`, `FLOFI_MCP_OAUTH_SECRET`, `FLOFI_DEVELOPER_SECRET` or `FLOFI_CHANNEL_SECRET` | **yes** | **set** | **never** | with automations | invalid → disabled |
+| `FLOFI_PUBLIC_ORIGIN` | (shared) the web origin of `/approve` and of notification links | no | the Vercel origin | the Vercel origin | required | invalid → disabled |
+| `FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256` | SHA-256 hex of the bearer of the optional `/api/automations/dispatch` and `/health` (Vercel Cron: the digest of `CRON_SECRET`) | digest only | — | — | only for the optional dispatch | unset: both `404` |
+| `FLOFI_AUTOMATION_HANDOFF_TEST_FUNDS` | `enabled`/`disabled`: test-funds proposals may be handed to their owner | no | optional | — | optional | `enabled` |
+| `FLOFI_AUTOMATION_HANDOFF_MAINNET_NETWORKS` | mainnet ids an automation may hand to its owner | no | **leave empty** | — | **leave empty** | empty: mainnet refused by policy |
+| `FLOFI_AUTOMATION_PRICE_SOURCE` | `off`, `chainlink` (read-only Base mainnet feeds) or `fixture` (tests only; refused when hosted) | no | same as worker (observable assets only; the API never queries a price) | as chosen | as chosen | `off`: price rules never trigger |
+| `FLOFI_AUTOMATION_CHAINLINK_FEEDS` | `ETH=0x…,BTC=0x…,SOL=0x…`: Chainlink USD proxy addresses on **Base mainnet**, copied from data.chain.link; each is verified on-chain (chain 8453, `description()` = `<ASSET> / USD`, decimals) before use | no | with `chainlink` | with `chainlink` | with `chainlink` | — |
+| `FLOFI_AUTOMATION_CHAINLINK_RPC_URL` | Base mainnet JSON-RPC (`https://`, no userinfo); only `eth_chainId` and `eth_call` are ever sent | if keyed | with `chainlink` | recommended (keyed) | optional | `GRYLOO_BASE_RPC_URL`, else `https://mainnet.base.org` |
+| `FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS` | an observation older than this (by the feed's own `updatedAt`) is stale and ignored | no | same as worker | optional | optional | `3600` |
+| `FLOFI_AUTOMATION_PRICE_FIXTURE` | fixture source: absolute path under `/tmp/` | no | **never** | **never** | **never** | — |
+| `FLOFI_AUTOMATION_TEST_CLOCK` | `enabled`: the bearer dispatch accepts `x-flofi-automation-now` (browser tests) | no | — | — | **never** (refused when hosted) | off |
+| Channels Telegram variables (§5e) | Telegram notifications through Channel Core in the processes that serve automations | as §5e | — (not set in standard production: Telegram stays unavailable for automations, although PR #71 runs Channel Core on Vercel) | only to deliver notifications for an embedded web runtime | as §5e | no Telegram |
+
+The worker never needs `FLOFI_AUTOMATION_SECRET`, the dispatch digest or the handoff policy variables: it mints no approval, links no
+chat and serves no route. Startup logs: `automation.api_enabled` / `automation.api_disabled` (API), `automation.worker_enabled` /
+`automation.worker_disabled` (worker); a disabled or failed load leaves every other route and the reconciliation running.
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),

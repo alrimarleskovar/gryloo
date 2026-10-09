@@ -13,7 +13,8 @@ export type WorkItem = { readonly id: string; readonly tenantId: string; readonl
   readonly leaseToken: string; readonly traceParent: string | null; readonly createdAt: Date };
 export interface WorkQueue {
   readonly enqueue: (tenantId: string, kind: string, dedupeKey: string, runId: string | null, payload?: Readonly<Record<string, string>>, delayMs?: number) => Promise<boolean>;
-  readonly claim: (limit: number) => Promise<readonly WorkItem[]>;
+  /** BUILD-AUTOMATION-001: `kinds` limits the claim to those work kinds (a scheduler endpoint that drains only its own work). */
+  readonly claim: (limit: number, kinds?: readonly string[]) => Promise<readonly WorkItem[]>;
   readonly heartbeat: (item: WorkItem) => Promise<boolean>;
   readonly complete: (item: WorkItem) => Promise<boolean>;
   readonly retry: (item: WorkItem, delayMs: number, reason: string) => Promise<boolean>;
@@ -39,18 +40,19 @@ export function createPostgresWorkQueue(input: { db: Database; ownerId: string; 
       [tenantId, kind, dedupeKey, runId, JSON.stringify(payload), delayMs]);
       return rows.length === 1;
     },
-    async claim(limit) {
+    async claim(limit, kinds) {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('WORK_CLAIM_LIMIT_INVALID');
+      if (kinds !== undefined && (!kinds.length || kinds.length > 16 || kinds.some(kind => !/^[a-z][a-z0-9.-]{1,63}$/.test(kind)))) throw new Error('WORK_CLAIM_KINDS_INVALID');
       const { rows } = await db.query<ItemRow>(`WITH candidate AS (
           SELECT id FROM work_items
           WHERE ((state = 'READY' AND available_at <= now()) OR (state = 'LEASED' AND lease_expires_at < now()))
-            AND ($4::text IS NULL OR tenant_id = $4)
+            AND ($4::text IS NULL OR tenant_id = $4) AND ($5::text[] IS NULL OR kind = ANY($5::text[]))
           ORDER BY available_at, id LIMIT $1 FOR UPDATE SKIP LOCKED)
         UPDATE work_items w SET state = 'LEASED', lease_owner = $2, lease_token = gen_random_uuid(),
           lease_expires_at = now() + make_interval(secs => $3::double precision / 1000), deliveries = w.deliveries + 1, updated_at = now()
         FROM candidate WHERE w.id = candidate.id
         RETURNING w.id::text AS id, w.tenant_id, w.kind, w.dedupe_key, w.run_id, w.payload, w.deliveries, w.lease_token::text AS lease_token,
-          w.trace_parent, w.created_at`, [limit, ownerId, leaseMs, tenantId]);
+          w.trace_parent, w.created_at`, [limit, ownerId, leaseMs, tenantId, kinds === undefined ? null : [...kinds]]);
       return rows.map(row => Object.freeze({ id: row.id, tenantId: row.tenant_id, kind: row.kind, dedupeKey: row.dedupe_key, runId: row.run_id,
         payload: row.payload, deliveries: row.deliveries, leaseToken: row.lease_token, traceParent: row.trace_parent, createdAt: row.created_at }));
     },

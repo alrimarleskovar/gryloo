@@ -14,7 +14,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { assertSchemaCurrent, createDatabase, createHttpServer, createLogger, createPostgresWorkQueue, createWorker, migrate,
-  readEvidenceStore, readRuntimeConfig, sweep } from '@defi-workflow-engine/cloud-runtime';
+  readEvidenceStore, readRuntimeConfig, sweep, type WorkHandler } from '@defi-workflow-engine/cloud-runtime';
 import { createFileLogStore, utf8 } from '@defi-workflow-engine/reference-executor';
 import { createRobinhoodTransferService } from '../src/server/robinhood-transfer-service.ts';
 import { createSupplyService } from '../src/server/supply-service.ts';
@@ -86,7 +86,15 @@ async function main(): Promise<void> {
   stage = command;
 
   if (command === 'api') {
-    const server = createHttpServer({ routes: backend.routes, logger, authToken: config.apiAuthToken,
+    // BUILD-AUTOMATION-001: with FLOFI_AUTOMATIONS=enabled the API also serves the Automations workspace and automation approval links
+    // (owner CRUD/state, no-authority handoffs). Off by default; a load failure leaves every existing route serving.
+    let routes = backend.routes;
+    if (process.env.FLOFI_AUTOMATIONS === 'enabled') {
+      const extra = await import('./automation-api.ts').then(m => m.loadAutomationApi(process.env, { db, tenantId: config.tenantId, backend, logger })).catch(() => null);
+      if (extra) { routes = [...routes, ...extra]; logger.info('automation.api_enabled', { routes: extra.map(r => r.name).join(',') }); }
+      else logger.error('automation.api_disabled', { error_code: 'AUTOMATION_API_LOAD_FAILED' });
+    }
+    const server = createHttpServer({ routes, logger, authToken: config.apiAuthToken,
       ready: async () => { await db.query('SELECT 1'); return true; } });
     server.keepAliveTimeout = 65_000;
     server.listen(config.port, config.host, () => logger.info('api.listening', { port: config.port }));
@@ -95,10 +103,24 @@ async function main(): Promise<void> {
     return;
   }
   if (!evidenceStore) throw new Error('EVIDENCE_STORE_REQUIRED');
+  // BUILD-AUTOMATION-001: with FLOFI_AUTOMATIONS=enabled this worker also evaluates automations (proposals for owners, never execution)
+  // and its sweep is their scheduler heartbeat. Off by default: without it nothing below changes. A misconfiguration disables
+  // automations only (logged), never the worker's reconciliation.
+  let automations: { readonly handlers: Readonly<Record<string, WorkHandler>>; readonly sweep: () => Promise<unknown> } | null = null;
+  if (process.env.FLOFI_AUTOMATIONS === 'enabled') {
+    const parts = await import('./automation-worker.ts').then(m => m.loadAutomationWorker(process.env, db, config.tenantId, logger))
+      .catch(() => ({ disabled: 'AUTOMATION_WORKER_LOAD_FAILED', reason: null }));
+    if ('disabled' in parts) logger.error('automation.worker_disabled', { error_code: parts.disabled, reason: parts.reason ?? undefined });
+    else { automations = parts; logger.info('automation.worker_enabled', { kinds: Object.keys(parts.handlers).join(','), telegram: parts.telegram }); }
+  }
+  const handlers = { ...automations?.handlers, ...backend.handlers };
   // BUILD-CLOUD-PARITY-001: a worker serves only its deployment's tenant, so a shared database never mixes deployments' runs.
-  const queue = createPostgresWorkQueue({ db, ownerId: config.workerId, tenantId: config.tenantId });
-  const worker = createWorker({ queue, handlers: backend.handlers, logger, workerId: config.workerId, concurrency: config.workerConcurrency,
-    sweep: () => sweep(db, { tenantId: config.tenantId }) });
+  // BUILD-AUTOMATION-001: and it claims only the work kinds it has handlers for: another service's items are left to that service
+  // instead of being dead-lettered here.
+  const tenantQueue = createPostgresWorkQueue({ db, ownerId: config.workerId, tenantId: config.tenantId });
+  const queue = { ...tenantQueue, claim: (limit: number) => tenantQueue.claim(limit, Object.keys(handlers)) };
+  const worker = createWorker({ queue, handlers, logger, workerId: config.workerId, concurrency: config.workerConcurrency,
+    sweep: async () => { try { await sweep(db, { tenantId: config.tenantId }); } finally { await automations?.sweep(); } } });
   const shutdown = () => { logger.info('worker.stopping'); worker.stop().finally(() => db.close().finally(() => process.exit(0))); setTimeout(() => process.exit(1), 120_000).unref(); };
   process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
   await worker.start();
