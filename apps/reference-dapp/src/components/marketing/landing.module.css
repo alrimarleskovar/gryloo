@@ -138,7 +138,12 @@
 .workflowVisual { display: flex; flex-direction: column; justify-content: center; min-height: 224px; margin-top: 26px; padding: 18px; border: 1px solid #E9EDFD; border-radius: 16px; background: #F5F8FB; }
 .workflowInputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .workflowInputs > span { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; padding: 10px 3px; border: 1px solid #D9E2EC; border-radius: 8px; background: #fff; font-size: 10px; font-weight: 500; }
-.workflowInputs i { color: #2343D9; font: 500 10px var(--font-ibm-plex-mono), monospace; }
+.workflowInputs > span:hover { border-color: #93A6FF; background: #F7F9FF; }
+.workflowChannelIcon { display: grid; place-items: center; position: relative; flex: none; width: 20px; height: 20px; color: #2343D9; }
+.workflowChannelIcon img { display: block; max-width: none; width: 20px; height: 20px; object-fit: contain; }
+/* The supplied OpenAI canvas includes clear space: retain it, with a 20px visible mark. */
+.workflowChannelIcon[data-channel-icon="GPT"] img { width: 40px; height: 40px; position: absolute; }
+@media (max-width: 389px) { .workflowInputs > span { flex-direction: column; gap: 4px; padding: 6px 3px; line-height: 1.4; } }
 .workflowMerge { height: 30px; color: #93A6FF; }
 .workflowMerge svg { display: block; width: 100%; height: 100%; }
 .workflowModel { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 8px; border: 1px solid #C9D2F8; border-radius: 10px; background: #fff; font-size: 12px; }

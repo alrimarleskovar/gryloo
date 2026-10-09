@@ -63,7 +63,7 @@ export function DocsShell({ children, navigation, index }: { children: ReactNode
     {[...new Set(navigation.map(item => item.group))].map(group => <div className={styles.navGroup} key={group}><p>{group}</p>{navigation.filter(item => item.group === group).map(item => <Link key={item.slug} href={`/docs/${item.slug}`} aria-current={path === `/docs/${item.slug}` ? 'page' : undefined} onClick={() => mobile.current?.close()}>{item.title}</Link>)}</div>)}
     <div className={styles.sidebarNote}><span className={styles.statusDot}/>Built for explicit decisions<span>Intent → review → verify</span></div>
   </nav>;
-  return <div className={styles.root} data-docs-theme={theme ?? 'system'} data-docs-ready={ready}>
+  return <div className={styles.root} data-docs-theme={theme ?? 'system'} data-docs-ready={ready} data-docs-search-open={searchOpen}>
     <a className={styles.skipLink} href="#docs-content">Skip to content</a>
     <header className={styles.header}>
       <Link href="/" aria-label="FloFi home" className={styles.brand}><Image className={styles.lightLogo} src="/brand/flofi-symbol-light.svg" width={32} height={30} alt="" unoptimized/><Image className={styles.darkLogo} src="/brand/flofi-symbol-dark.svg" width={32} height={30} alt="" unoptimized/><Image className={styles.lightLogo} src="/brand/flofi-wordmark-light.png" width={79} height={30} alt="FloFi" unoptimized/><Image className={styles.darkLogo} src="/brand/flofi-wordmark-dark.png" width={79} height={30} alt="FloFi" unoptimized/></Link>
@@ -72,7 +72,7 @@ export function DocsShell({ children, navigation, index }: { children: ReactNode
       <div className={styles.headerActions}><a className={styles.github} href="https://github.com/alrimarleskovar/gryloo">Source code ↗</a><button className={styles.themeButton} onClick={themeToggle} aria-label={`Switch to ${dark ? 'light' : 'dark'} theme`}><span aria-hidden="true">{dark ? '☀' : '☾'}</span></button><Link className={styles.launch} href="/app">Launch FloFi <span aria-hidden="true">↗</span></Link></div>
     </header>
     <div className={styles.mobileBar}><button onClick={() => mobile.current?.showModal()} aria-haspopup="dialog">☰ <span>Browse docs</span></button><span>{navigation.find(item => path.endsWith(`/${item.slug}`))?.title ?? 'Overview'}</span></div>
-    <div className={styles.layout}><aside className={styles.sidebar}>{nav}</aside><div className={styles.content}>{children}</div></div>
+    <div className={styles.layout}><aside className={styles.sidebar}>{nav}</aside><div className={styles.content}><div key={path} className={styles.articleEntrance} data-docs-article-transition>{children}</div></div></div>
     <dialog ref={mobile} className={styles.mobileDialog} aria-label="Browse documentation" onKeyDown={containFocus}><div className={styles.dialogHeading}><strong>Documentation</strong><button aria-label="Close navigation" onClick={() => mobile.current?.close()}>✕</button></div>{nav}</dialog>
     <dialog ref={search} className={styles.searchDialog} aria-labelledby="docs-search-title" onKeyDown={containFocus} onClose={() => setSearchOpen(false)} onClick={event => { if (event.target === event.currentTarget) closeSearch(); }}>
       <div className={styles.searchInside}><div className={styles.dialogHeading}><strong id="docs-search-title">Search documentation</strong><button onClick={closeSearch} aria-label="Close search">Esc</button></div>

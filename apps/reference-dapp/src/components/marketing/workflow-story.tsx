@@ -6,6 +6,7 @@ import Image from 'next/image';
 import styles from './landing.module.css';
 import type { LandingCopy, LandingLocale } from './landing-copy';
 import { MascotDock } from './mascot-journey';
+import { WorkflowChannelIcon, workflowChannels } from './workflow-channel-icon';
 
 function FlowIcon({ kind }: { kind: 'workflow' | 'review' | 'wallet' }) {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -44,7 +45,7 @@ export function WorkflowStory({ t, locale = 'en' }: { t: LandingCopy; locale?: L
           </div>
           <div className={styles.workflowVisual}>
             {index === 0 ? <>
-              <div className={styles.workflowInputs}>{['Chat', 'Canvas', 'GPT', 'Claude', 'WhatsApp', 'Telegram'].map((source, i) => <span key={source}><i aria-hidden="true">{['↳', '⊞', 'G', 'C', 'W', 'T'][i]}</i>{source}</span>)}</div>
+              <div className={styles.workflowInputs}>{workflowChannels.map(source => <span key={source}><WorkflowChannelIcon channel={source}/>{source}</span>)}</div>
               <div className={styles.workflowMerge} aria-hidden="true"><svg viewBox="0 0 240 30" fill="none"><path d="M40 0C40 18 120 6 120 23M120 0V30M200 0C200 18 120 6 120 23" stroke="currentColor" strokeWidth="1.2"/></svg></div>
               <div className={styles.workflowModel}><Image src="/brand/flofi-symbol-light.svg" alt="" width={28} height={28}/><strong>{t.storyBuildModel}</strong></div>
             </> : index === 1 ? <div className={styles.workflowManifest}>

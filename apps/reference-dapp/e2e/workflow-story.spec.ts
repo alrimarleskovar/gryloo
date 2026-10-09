@@ -22,6 +22,20 @@ for (const width of [320, 375, 390, 430, 768, 1440]) {
       const layout = await story.evaluate(element => ({ height: element.getBoundingClientRect().height, pinned: [...element.querySelectorAll('*')].filter(item => ['sticky', 'fixed'].includes(getComputedStyle(item).position)).length }));
       expect(layout.pinned).toBe(0); expect(layout.height).toBeLessThan(width >= 1024 ? 1100 : 2000);
       for (const name of ['Chat', 'Canvas', 'GPT', 'Claude', 'WhatsApp', 'Telegram']) await expect(cards.first()).toContainText(name);
+      await cards.first().scrollIntoViewIfNeeded();
+      await expect.poll(() => cards.first().locator('[data-channel-icon] img').evaluateAll(images => images.every(element => {
+        const image = element as HTMLImageElement;
+        return image.complete && image.naturalWidth > 0;
+      }))).toBe(true);
+      await expect(cards.first().locator('[data-channel-icon]')).toHaveCount(6);
+      await expect(cards.first().locator('[data-channel-icon] svg')).toHaveCount(2);
+      await expect(cards.first().locator('[data-channel-icon] img')).toHaveCount(4);
+      expect(await cards.first().locator('[data-channel-icon]').evaluateAll(icons => icons.every(icon => {
+        const rect = icon.getBoundingClientRect(), pill = icon.parentElement!.getBoundingClientRect();
+        const image = icon.querySelector('img');
+        return rect.width === 20 && rect.height === 20 && rect.left >= pill.left && rect.right <= pill.right
+          && (!image || (image.complete && image.naturalWidth > 0 && new URL(image.src).origin === location.origin));
+      }))).toBe(true);
       await expect(cards.nth(1)).toContainText('Strategy Manifest');
       await expect(cards.nth(1)).toContainText(locale === 'en' ? 'Your explicit approval' : 'Sua aprovação explícita');
       await expect(cards.nth(2)).toContainText(locale === 'en' ? 'Your wallet signature' : 'Assinatura da sua carteira');

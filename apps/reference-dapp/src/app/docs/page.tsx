@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import Image from 'next/image';
 import Link from 'next/link';
 import { ArticleFrame } from '../../components/docs/article';
+import { DocsMascot } from '../../components/docs/docs-mascot';
 import styles from '../../components/docs/docs.module.css';
 
 const sections = [{ id: 'start-building', title: 'Start building' }, { id: 'the-workflow-lifecycle', title: 'The workflow lifecycle' }, { id: 'build-on-flofi', title: 'Build on FloFi' }];
 export default function DocsHome() {
   return <ArticleFrame title="Documentation" group="Welcome to FloFi" description="Everything you need to turn intent into a workflow you can build, inspect and verify." sections={sections}>
-    <div className={styles.homeHero}><div><span className={styles.heroTag}><span className={styles.statusDot}/>INTENT → EXECUTION</span><h2>Build with clarity.<br/><span>Execute with confidence.</span></h2><p>From your first workflow to a deeply integrated experience. Your decisions stay explicit, every step stays inspectable.</p><div className={styles.homeActions}><Link href="/docs/getting-started">Get started <span aria-hidden="true">→</span></Link><Link href="/docs/developer-api">Explore the API <span aria-hidden="true">↗</span></Link></div></div><div className={styles.heroMascot} aria-hidden="true"><span/><Image src="/brand/flofi-symbol-light.svg" alt="" width={150} height={140} unoptimized/><small>YOUR INTENT. YOUR CONTROL.</small></div></div>
+    <div className={styles.homeHero}><div><span className={styles.heroTag}><span className={styles.statusDot}/>INTENT → EXECUTION</span><h2>Build with clarity.<br/><span>Execute with confidence.</span></h2><p>From your first workflow to a deeply integrated experience. Your decisions stay explicit, every step stays inspectable.</p><div className={styles.homeActions}><Link href="/docs/getting-started">Get started <span aria-hidden="true">→</span></Link><Link href="/docs/developer-api">Explore the API <span aria-hidden="true">↗</span></Link></div></div><DocsMascot/></div>
     <section className={styles.homeSection} aria-labelledby="start-building"><div className={styles.sectionHeading}><span className={styles.eyebrow}>YOUR NEXT STEP</span><h2 id="start-building">Start building</h2><p>A short path from an idea to an informed decision.</p></div><div className={styles.guideCards}>{([
       ['01', 'Your First Workflow', 'A practical walkthrough of build, simulate, review and verify.', '/docs/your-first-workflow'],
       ['02', 'Chat & Visual Builder', 'Two interfaces. One canonical workflow. Clear proposals.', '/docs/chat-visual-builder'],

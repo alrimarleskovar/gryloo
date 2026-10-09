@@ -1,5 +1,15 @@
 # Third-party notices for BUILD-002
 
+## Workflow channel trademark artwork
+
+The landing workflow illustration includes unmodified official OpenAI, Claude,
+WhatsApp and Telegram SVG marks. These remain their owners' trademarks and are
+excluded from the repository's source-code licenses. They identify possible
+entry points, without claiming endorsement or live production acceptance.
+Exact official sources, package members, usage terms and SHA-256 checksums are
+recorded in the [channel asset register](apps/reference-dapp/public/brand/channels/sources.md)
+and [provider asset register](apps/reference-dapp/public/brand/providers/sources.md).
+
 This register identifies unmodified registry dependencies in the private
 reference application. The listed materials are byte-identical copies from
 SRI-verified npm archives. They retain their upstream licenses and are not
