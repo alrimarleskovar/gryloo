@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * BUILD-CHANNELS-001: the wiring shared by every channel entry point (provider webhooks, the scheduled dispatch, the /approve ping): the
- * deployment's embedded PostgreSQL host (channels never run on memory, files or /tmp), the channel store, and the slice of the shared
+ * deployment's shared PostgreSQL platform state host (channels never run on memory, files or /tmp), the channel store, and the slice of the shared
  * platform a channel uses (`ChannelPlatform`). Model-free: the interpreter is attached only by the entry points that run turns.
  */
 import type { Database } from '@defi-workflow-engine/cloud-runtime';
 import { createPgHandoffStore, deploymentEngineRuntime, type EngineRuntime } from '../platform/index.ts';
-import { embeddedRuntime, flowRuntimeKind } from '../server/flow-runtime.ts';
+import { platformStateHost } from '../server/platform-state-host.ts';
 import { channelApprovalScheme, type ChannelPlatform } from './core/approval.ts';
 import type { ChannelCoreConfig } from './core/config.ts';
 import { createPgChannelStore } from './core/pg-store.ts';
@@ -16,12 +16,11 @@ type Env = Readonly<Record<string, string | undefined>>;
 export type ChannelHost = { readonly db: Database; readonly tenantId: string };
 export type ChannelRuntime = { readonly store: ChannelStore; readonly platform: ChannelPlatform };
 
-/** The embedded runtime's database for this deployment's tenant, or a closed code (never a fallback store). */
+/** PR #71's database host, independent of where financial flows run, or a closed code (never a fallback store). */
 export async function channelHost(env: Env, core: ChannelCoreConfig, host?: ChannelHost): Promise<ChannelHost | { readonly code: string }> {
   let resolved = host;
   if (!resolved) {
-    if (flowRuntimeKind(env) !== 'embedded') return { code: 'CHANNEL_STORE_UNAVAILABLE' };
-    try { const runtime = await embeddedRuntime(env); resolved = { db: runtime.db, tenantId: runtime.tenantId }; } catch { return { code: 'CHANNEL_STORE_UNAVAILABLE' }; }
+    try { resolved = await platformStateHost(env); } catch { return { code: 'CHANNEL_STORE_UNAVAILABLE' }; }
   }
   if (resolved.tenantId !== core.tenantId) return { code: 'CHANNEL_STORE_UNAVAILABLE' };
   const store = createPgChannelStore(resolved.db, resolved.tenantId);

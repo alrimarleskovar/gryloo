@@ -39,7 +39,9 @@ function runtime(calls: string[] = []): McpRuntime {
 async function mcpApproval() {
   const tokens = await signIn(oauthClient({ env, store: createPgOAuthStore(t.db, 'default') }), { scope: 'flofi.strategy flofi.approval' });
   const client = session({ env, token: tokens.access_token, state: stateOf(host()), runtime: runtime() });
-  const out = (await client.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: HASH })).output as
+  const result = await client.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: HASH });
+  expect(result.text).not.toContain('flofi_hs_');
+  const out = { ...result.output, ...result.meta['flofi/approval'] as Record<string, unknown> } as
     { approvalId: string; approvalUrl: string };
   const account = (await t.db.query<{ account_id: string }>('SELECT account_id FROM mcp_handoffs WHERE handoff_id = $1', [out.approvalId])).rows[0]!.account_id;
   return { ...out, secret: decodeURIComponent(new URL(out.approvalUrl).hash.slice(1)), account };

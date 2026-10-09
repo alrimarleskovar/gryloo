@@ -178,11 +178,12 @@ cards un-removable at the provider from FloFi (FloFi then removes only its own c
 
 Off unless a provider is enabled. Every channel is an entry point with **zero financial authority**: it composes a proposal and
 hands it to the owner on `/approve`; the owner's wallet proof, FloFi's fresh simulation, the Strategy Manifest Review and the owner's
-own signature remain the only path to execution. Needs the embedded runtime (PostgreSQL migrated through
-`0009_channel_conversations`; a Preview build applies it with `FLOFI_MIGRATE_ON_BUILD=preview`); otherwise every channel route
+own signature remain the only path to execution. Needs PR #71's shared PostgreSQL platform state host (schema migrated through
+`0009_channel_conversations`; a Preview build applies it with `FLOFI_MIGRATE_ON_BUILD=preview`). Embedded and remote-flow deployments
+reuse that host; `DATABASE_URL` hosts channel/approval state independently of `API_BASE_URL`. Without ready durable state, every channel route
 answers `503 CHANNEL_STORE_UNAVAILABLE` / `CHANNEL_SCHEMA_NOT_INSTALLED`. Any invalid value disables what it configures (fail
 closed). All server-only, never `NEXT_PUBLIC_*`. Guides: [TELEGRAM.md](TELEGRAM.md), [WHATSAPP.md](WHATSAPP.md), owner test:
-[CHANNELS-OWNER-E2E.md](CHANNELS-OWNER-E2E.md).
+[CHANNELS-OWNER-E2E.md](CHANNELS-OWNER-E2E.md), [universal signing and host/wallet acceptance](UNIVERSAL-SIGNING-OWNER-E2E.md).
 
 **Channel Core** (shared by every provider)
 

@@ -169,6 +169,8 @@ jobs:
           GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test developer-journey.spec.ts
           # BUILD-MCP-002: consumer OAuth and in-chat approval on disposable loopback infrastructure.
           GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test mcp-in-chat.spec.ts mcp-route-presentation.spec.ts
+          # Each invocation gets a fresh disposable database; keep the production OAuth registration rate limit intact.
+          GRYLOO_MCP_E2E=EMBEDDED_LOOPBACK_ONLY TEST_DATABASE_URL="postgres://flofi@127.0.0.1:5432/postgres" pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test channel-signing.spec.ts
           # BUILD-CHANNELS-001: the channels' /approve paths on the same embedded loopback harness — WhatsApp with the FIXTURE provider (nothing
           # is sent to Meta) and Telegram against the loopback Bot API double (nothing reaches Telegram): the real webhook routes, the
           # intended-wallet rule, the owner's Review where MOCKED authority stays blocked, the status ping and the scheduled dispatch.

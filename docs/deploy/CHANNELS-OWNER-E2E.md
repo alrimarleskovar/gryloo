@@ -143,7 +143,7 @@ previous link stops working. `STATUS` → `Proposal waiting for you to open it i
 2. The page shows `EXTERNAL PROPOSAL · FROM TELEGRAM` and `Nothing is authorized yet.` The link's secret leaves the address bar.
 3. Tick **Share run status and evidence with Telegram** (off by default — without it, the chat learns nothing about the run).
 4. **Connect wallet and prove ownership**: one sign-in message (EIP-4361, `personal_sign`), which authorizes no transaction.
-5. **Load proposal** → **Add to my workflow** → `Ready for your review.` — within ~20 s Telegram receives
+5. **Load proposal** → `Ready for your review.` → **Continue to simulation** — within ~20 s Telegram receives
    `Your proposal is loaded in FloFi for the connected wallet. Nothing is signed yet: …`
 
 ### 6.4 Simulate, review, execute on testnet (FloFi, your wallet)

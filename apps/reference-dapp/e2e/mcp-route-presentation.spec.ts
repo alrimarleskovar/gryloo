@@ -102,7 +102,7 @@ test.describe(`MCP route presentation (OAuth ${enabled ? 'enabled' : 'disabled'}
       await expect(page.locator('.app-shell')).toHaveCount(1);
       await expect(page.locator('.mcp-route-main')).toHaveCount(0);
       expect(page.url()).not.toContain(secret);
-      expect(await page.evaluate(() => sessionStorage.getItem('flofi.approval.secret'))).toBe(secret);
+      expect(await page.evaluate(() => sessionStorage.getItem('flofi.approval.secret'))).toMatch(/^flofi_hs_/);
       // Leaving a validated approval resets its gate before another approval is resolved.
       await stages(page).getByRole('button', { name: 'Dashboard', exact: true }).click();
       await expect(page).toHaveURL(/\/dashboard$/);

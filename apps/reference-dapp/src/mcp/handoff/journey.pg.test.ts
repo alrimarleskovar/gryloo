@@ -70,7 +70,9 @@ describe('BUILD-MCP-002 in-chat execution journey (embedded runtime, MOCKED chai
     const h = createRouterHarness({ profile: TESTNET, nonce: 21n }), d = deployment(h);
     const tokens = await d.connect('flofi.strategy flofi.approval flofi.runs');
     const composed = (await d.mcp(tokens.access_token, 'compose_strategy', { strategy: STRATEGY })).output as { strategy: unknown; workflowHash: string; workflow: SemanticWorkflow };
-    const approval = (await d.mcp(tokens.access_token, 'request_user_approval', { strategy: composed.strategy, workflowHash: composed.workflowHash })).output as
+    const approvalResult = await d.mcp(tokens.access_token, 'request_user_approval', { strategy: composed.strategy, workflowHash: composed.workflowHash });
+    expect(approvalResult.text).not.toContain('flofi_hs_');
+    const approval = { ...approvalResult.output, ...approvalResult.meta['flofi/approval'] as Record<string, unknown> } as
       { ok: boolean; approvalId: string; approvalUrl: string; gates: { enabledByDeployment: { mockedHarness: boolean } } };
     expect(approval).toMatchObject({ ok: true, status: 'PENDING', authority: 'NONE', gates: { enabledByDeployment: { enabled: true, mockedHarness: true } } });
     expect(h.counters.sends).toBe(0);

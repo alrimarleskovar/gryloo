@@ -109,7 +109,6 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     await chooseWallet(signing, 'Browser wallet');
     await expect(region).toContainText(`Signed in as ${LENDING_OWNER}`);
     await region.getByRole('button', { name: 'Load proposal' }).click();
-    await region.getByRole('button', { name: 'Add to my workflow' }).click();
     await expect(region.getByRole('status')).toContainText('Ready for your review.');
     const handoff = await handoffOfLink(url);
     expect(handoff).toMatchObject({ handoff_id: linked.handoff_id, status: 'APPLIED', share_status: true });

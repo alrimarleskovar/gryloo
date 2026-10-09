@@ -28,6 +28,8 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByText('No wallets yet', { exact: true })).toBeVisible();
     // Opening Add wallet never launches a wallet; Escape returns focus to the button.
     const add = page.getByRole('button', { name: 'Add wallet', exact: true });
+    // focus() does not wait for the server-rendered shell to become interactive.
+    await expect(page.locator('.app-shell')).not.toHaveAttribute('inert', '');
     await add.focus(); await page.keyboard.press('Enter');
     await expect(page.locator('dialog.wallet-selector[open]')).toBeVisible();
     expect(await promptingCalls(page)).toEqual([]);

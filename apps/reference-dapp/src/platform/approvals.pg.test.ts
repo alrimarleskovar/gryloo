@@ -18,7 +18,7 @@ import type { McpRuntime } from '../mcp/runtime.ts';
 import { SIMULATIONS_PER_ACCOUNT_HOUR } from '../mcp/tools.ts';
 import { MCP_HANDOFF_RULES, mcpApprovalLinkScheme } from '../mcp/approval-profile.ts';
 import { readOAuthConfig, type OAuthConfig } from '../mcp/oauth/config.ts';
-import { approvalForRequester, approvalProgress, HANDOFF_RATE, MAX_PENDING_HANDOFFS, openApprovalSession, PlatformRefusal, requestApproval, simulatePreview,
+import { assembleApprovalSurface, openBrowserApproval, approvalForRequester, approvalProgress, HANDOFF_RATE, MAX_PENDING_HANDOFFS, openApprovalSession, PlatformRefusal, requestApproval, simulatePreview,
   type ApprovalDeps, type ApprovalRequester } from './index.ts';
 
 let t: TestDatabase;
@@ -39,7 +39,9 @@ function runtime(calls: string[] = []): McpRuntime {
 async function account(calls: string[] = []) {
   const tokens = await signIn(oauthClient({ env, store: createPgOAuthStore(t.db, 'default') }), { scope: 'flofi.strategy flofi.approval' });
   const client = session({ env, token: tokens.access_token, state: state(), runtime: runtime(calls) });
-  const first = (await client.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: hashOf(BRIDGE) })).output as Record<string, unknown>;
+  const result = await client.callTool('request_user_approval', { strategy: BRIDGE, workflowHash: hashOf(BRIDGE) });
+  expect(result.text).not.toContain('flofi_hs_');
+  const first = { ...result.output, ...result.meta['flofi/approval'] as Record<string, unknown> };
   const row = (await t.db.query<{ account_id: string; grant_id: string; client_id: string; client_name: string }>(
     'SELECT account_id, grant_id, client_id, client_name FROM mcp_handoffs WHERE handoff_id = $1', [first.approvalId])).rows[0]!;
   const requester: ApprovalRequester = { kind: 'MCP_ACCOUNT', ref: row.account_id, grantId: row.grant_id, clientId: row.client_id, displayName: row.client_name };
@@ -52,6 +54,20 @@ const comparable = (value: Record<string, unknown>) => ({ ...value, approvalId: 
 const refusal = async (work: Promise<unknown>) => { try { await work; return 'NO_REFUSAL'; } catch (error) { return error instanceof PlatformRefusal ? error.message : 'UNEXPECTED'; } };
 
 describe('BUILD-DEVELOPER-001 platform approval service', () => {
+  it('opens the nonsecret MCP fallback only for its creating browser account and never revives a withdrawn approval', async () => {
+    const a = await account(), b = await account();
+    const surface = (ref: string | null) => assembleApprovalSurface([{ scheme: a.deps().scheme, profiles: { MCP_ACCOUNT: { policy: a.deps().policy,
+      viewerRequester: async () => ref ? { kind: 'MCP_ACCOUNT', ref } : null } } }], a.deps().handoffs, a.deps().runtime);
+    const id = String(a.first.approvalId);
+    expect(await refusal(openBrowserApproval(surface(null), id, ORIGIN))).toBe('APPROVAL_ACCOUNT_REQUIRED');
+    expect(await refusal(openBrowserApproval(surface(b.requester.ref), id, ORIGIN))).toBe('HANDOFF_NOT_FOUND');
+    const session = await openBrowserApproval(surface(a.requester.ref), id, ORIGIN);
+    expect(session).toMatchObject({ approvalId: id, authority: 'NONE' });
+    expect(session.approvalUrl).toMatch(/#flofi_hs_[A-Za-z0-9_-]{43}$/);
+    await a.deps().handoffs.revokeForRequester(id, { kind: 'MCP_ACCOUNT', ref: a.requester.ref }, new Date());
+    expect(await refusal(openBrowserApproval(surface(a.requester.ref), id, ORIGIN))).toBe('APPROVAL_REVOKED');
+  });
+
   it('produces the same approval and stored handoff as MCP for the same requester, and nothing executes', async () => {
     const calls: string[] = [], a = await account(calls);
     const platform = await requestApproval(a.deps(), a.requester, BRIDGE, hashOf(BRIDGE));
@@ -75,7 +91,7 @@ describe('BUILD-DEVELOPER-001 platform approval service', () => {
     expect(await refusal(approvalForRequester(b.deps().handoffs, b.requester, String(a.first.approvalId), new Date()))).toBe('APPROVAL_NOT_FOUND');
     expect((await b.client.callTool('get_approval_status', { approvalId: a.first.approvalId })).output).toEqual({ ok: false, code: 'APPROVAL_NOT_FOUND' });
     const opened = await openApprovalSession(a.deps(), a.requester, String(a.first.approvalId));
-    expect(opened).toMatchObject({ approvalId: a.first.approvalId, authority: 'NONE', walletLinks: { phantom: expect.stringContaining('phantom.app'), metamask: expect.any(String) } });
+    expect(opened).toMatchObject({ approvalId: a.first.approvalId, authority: 'NONE', walletLinks: { phantom: expect.stringContaining('phantom.com'), metamask: expect.any(String) } });
     expect(opened.approvalUrl).toMatch(/#flofi_hs_[A-Za-z0-9_-]{43}$/);
     expect(await refusal(openApprovalSession(b.deps(), b.requester, String(a.first.approvalId)))).toBe('APPROVAL_NOT_FOUND');
     await a.deps().handoffs.revoke(String(a.first.approvalId), a.requester.ref, new Date());

@@ -64,6 +64,8 @@ export interface HandoffStore {
   readonly create: (handoff: NewHandoff, now: Date, rules: HandoffCreateRules) => Promise<{ readonly ok: true } | { readonly ok: false; readonly code: 'HANDOFF_PENDING_LIMIT' }>;
   /** One requester's handoff (never another requester's), with lazy expiry. */
   readonly forRequester: (handoffId: string, requester: RequesterScope, now: Date) => Promise<HandoffRecord | null>;
+  /** Read-only recovery of an applied proposal, limited to its proven claimant and this tenant. Never a claim/session capability. */
+  readonly forClaimant: (handoffId: string, wallet: WalletRef) => Promise<HandoffRecord | null>;
   /** The handoff a browser holds a secret for: the approval secret, or a live approval-session secret. */
   readonly bySecret: (digest: Buffer, now: Date, kinds?: Kinds) => Promise<HandoffRecord | null>;
   /**
@@ -160,6 +162,11 @@ export function createPgHandoffStore(db: Database, tenantId: string): HandoffSto
       return { ok: true } as const;
     }),
     forRequester,
+    forClaimant: async (handoffId, wallet) => {
+      const row = (await db.query(`SELECT * FROM mcp_handoffs WHERE tenant_id = $1 AND handoff_id = $2
+        AND claimed_namespace = $3 AND claimed_address = $4 AND status = 'APPLIED'`, [tenantId, handoffId, wallet.namespace, wallet.address])).rows[0];
+      return row ? recordOf(row) : null;
+    },
     bySecret: (digest, now, kinds) => db.transaction(tx => locked(tx, digest, now, kinds)),
     claim: (digest, wallet, now, claimSeconds, decide, kinds) => db.transaction(async tx => {
       const h = await locked(tx, digest, now, kinds);

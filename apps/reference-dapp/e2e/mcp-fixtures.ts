@@ -70,7 +70,7 @@ window.addEventListener('message', async event => {
   const m = event.data;
   if (!m || m.jsonrpc !== '2.0') return;
   const reply = body => send({ id: m.id, ...body });
-  if (m.method === 'ui/initialize') reply({ result: { protocolVersion: '2026-01-26', hostInfo: { name: '${HOST_NAME}', version: '1' }, hostCapabilities: {},
+  if (m.method === 'ui/initialize') reply({ result: { protocolVersion: '2026-01-26', hostInfo: { name: window.fixtureHostName || '${HOST_NAME}', version: '1' }, hostCapabilities: {},
     hostContext: { theme: 'light', displayMode: 'inline' } } });
   else if (m.method === 'ui/notifications/initialized') {
     window.hostLog.initialized = true;
@@ -79,7 +79,7 @@ window.addEventListener('message', async event => {
   } else if (m.method === 'tools/call') {
     window.hostLog.toolCalls.push(m.params.name);
     try { reply({ result: await window.hostCallTool(m.params.name, m.params.arguments) }); } catch (e) { reply({ error: { code: -32000, message: String(e && e.message) } }); }
-  } else if (m.method === 'ui/open-link') { window.hostLog.openLinks.push(m.params.url); reply({ result: {} }); }
+  } else if (m.method === 'ui/open-link') { window.hostLog.openLinks.push(m.params.url); reply({ result: window.fixtureOpenLinkRefused ? { isError: true } : {} }); }
   else if (m.method === 'ui/update-model-context') { window.hostLog.modelContext.push(m.params); reply({ result: {} }); }
   else if (m.id !== undefined) reply({ error: { code: -32601, message: 'unsupported in the test host' } });
 });
@@ -87,14 +87,16 @@ window.addEventListener('message', async event => {
 export type HostLog = { openLinks: string[]; modelContext: { content?: { text: string }[]; structuredContent?: Record<string, unknown> }[]; toolCalls: string[]; initialized: boolean };
 
 /** Loads the panel HTML in the test host with the tool call's input and result. */
-export async function openHost(page: Page, client: ReturnType<typeof mcpClient>, panelHtml: string, toolInput: Record<string, unknown>, toolResult: ToolResult): Promise<FrameLocator> {
+export async function openHost(page: Page, client: ReturnType<typeof mcpClient>, panelHtml: string, toolInput: Record<string, unknown>, toolResult: ToolResult,
+  options: { hostName?: string; openLinkRefused?: boolean } = {}): Promise<FrameLocator> {
   await page.exposeFunction('hostCallTool', (name: string, args: Record<string, unknown>) => client.toolResult(name, args));
   await page.setContent(HOST_HTML);
-  await page.evaluate(({ html, input, result }) => {
-    const w = window as unknown as { toolInput: unknown; toolResult: unknown };
+  await page.evaluate(({ html, input, result, options }) => {
+    const w = window as unknown as { toolInput: unknown; toolResult: unknown; fixtureHostName?: string; fixtureOpenLinkRefused?: boolean };
     w.toolInput = input; w.toolResult = result;
+    w.fixtureHostName = options.hostName ?? 'flofi-e2e-host'; w.fixtureOpenLinkRefused = options.openLinkRefused === true;
     (document.getElementById('app') as HTMLIFrameElement).srcdoc = html;
-  }, { html: panelHtml, input: toolInput, result: toolResult });
+  }, { html: panelHtml, input: toolInput, result: toolResult, options });
   return page.frameLocator('#app');
 }
 export const hostLog = (page: Page) => page.evaluate(() => (window as unknown as { hostLog: HostLog }).hostLog);
