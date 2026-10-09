@@ -234,7 +234,8 @@ through `0010_automations` (`AUTOMATION_SCHEMA_NOT_INSTALLED` otherwise). Any in
 
 **Where the variables go.** In **standard production** (Vercel BFF → Railway API → Neon + Railway worker) the **API** holds the
 automation configuration and serves the workspace and automation approval links; the **worker** evaluates (its 60 s sweep is the
-scheduler); **Vercel needs nothing new** (its `API_BASE_URL` / `API_AUTH_TOKEN` carry the calls). On an **embedded** web runtime (e.g. a
+scheduler); **Vercel needs nothing new** (its `API_BASE_URL` / `API_AUTH_TOKEN` carry the calls; PR #71's platform-state
+`DATABASE_URL` on Vercel is not used by automations). On an **embedded** web runtime (e.g. a
 Preview) the web deployment holds the API's column and, without a worker, the optional dispatch.
 
 | Variable | Purpose | Secret | Railway API (prod) | Railway worker (prod) | Embedded web (Preview) | Default |
@@ -251,7 +252,7 @@ Preview) the web deployment holds the API's column and, without a worker, the op
 | `FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS` | an observation older than this (by the feed's own `updatedAt`) is stale and ignored | no | same as worker | optional | optional | `3600` |
 | `FLOFI_AUTOMATION_PRICE_FIXTURE` | fixture source: absolute path under `/tmp/` | no | **never** | **never** | **never** | — |
 | `FLOFI_AUTOMATION_TEST_CLOCK` | `enabled`: the bearer dispatch accepts `x-flofi-automation-now` (browser tests) | no | — | — | **never** (refused when hosted) | off |
-| Channels Telegram variables (§5e) | Telegram notifications through Channel Core, which needs the embedded runtime | as §5e | — (Channel Core does not run there) | only to deliver notifications for an embedded web runtime | as §5e | no Telegram |
+| Channels Telegram variables (§5e) | Telegram notifications through Channel Core in the processes that serve automations | as §5e | — (not set in standard production: Telegram stays unavailable for automations, although PR #71 runs Channel Core on Vercel) | only to deliver notifications for an embedded web runtime | as §5e | no Telegram |
 
 The worker never needs `FLOFI_AUTOMATION_SECRET`, the dispatch digest or the handoff policy variables: it mints no approval, links no
 chat and serves no route. Startup logs: `automation.api_enabled` / `automation.api_disabled` (API), `automation.worker_enabled` /

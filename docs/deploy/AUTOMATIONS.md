@@ -12,16 +12,19 @@ notification carry zero financial authority. See [the plan](../builds/BUILD-AUTO
 ## 1. What runs where
 
 **Standard production — FloFi's existing topology, unchanged:** Vercel frontend/BFF → Railway API → Neon PostgreSQL, plus the Railway
-worker. Automations need no embedded web runtime, no cron, no Vercel Pro and no new service.
+worker. Automations need no embedded web runtime, no cron, no Vercel Pro and no new service. Since PR #71 (BUILD-PLATFORM-STATE-001)
+Vercel may also hold the pooled Neon `DATABASE_URL` for durable platform state (MCP, Developer, Channels, the shared approval store);
+`API_BASE_URL` still selects the remote runtime, and automations stay on the API: Vercel holds no automation variable and reads no
+automation state itself.
 
 | Piece | Where (production) | Notes |
 | --- | --- | --- |
 | Workspace `/app/automations` and its server actions | Vercel (BFF) | every action re-verifies the owner's HttpOnly wallet session, then forwards the operation to the API with the API bearer and the verified owner in the server-to-server `x-flofi-workflow-owner` header — the saved-workflow convention |
 | Automation CRUD/state: `POST /v1/automations/:method` | Railway API (`main.ts api`) | overview, create, pause/resume/archive, rebind, history, open, dismiss, watch Buy/Sell, Telegram link/unlink — every query scoped to the owner header; another owner's id answers NOT FOUND; `create` is idempotency-keyed |
-| `/approve` for automation links: `POST /v1/approvals/:method` | Vercel `/approve` → Railway API | view / claim / apply / share on the SHARED approval model (same platform functions, same handoff store), with the wallets the browser proved in `x-flofi-wallet-principals`; other link kinds are unchanged |
+| `/approve` for automation links: `POST /v1/approvals/:method` | Vercel `/approve` → Railway API | view / claim / apply / share on the SHARED approval model (same platform functions, same handoff store), with the wallets the browser proved in `x-flofi-wallet-principals`; other link kinds are unchanged. PR #72's recovery of an APPLIED proposal by its id (`resume`) is tried on Vercel's own surface first and, on the remote runtime, then on the API — for its proven claimant only, reissuing nothing |
 | Scheduler | Railway worker (`main.ts worker`) | its sweep (every 60 s) discovers due rules, expires, syncs approvals and applies retention; its claim loop runs `automation.evaluate` (the same handlers, work items and leases as the dispatch) |
 | State | Neon/PostgreSQL, migration `0010_automations` | rules, occurrences, history, Telegram links; approvals in the shared `mcp_handoffs` |
-| Telegram notifications | Channel Core | not in this topology today: Channel Core needs the embedded runtime (Channels §5e), so no chat can be linked and no notification item is queued; owners see proposals in the app (§5) |
+| Telegram notifications | Channel Core | not in this topology today. Since PR #71 Channel Core also runs on Vercel, but automation Telegram uses it where automations run — the API decides availability and mints link codes, the worker delivers — and the standard Railway API/worker carry no Telegram configuration (nor Vercel any automation configuration). The API therefore reports Telegram unavailable, no chat can be linked and no notification item is queued; owners see proposals in the app (§5) |
 
 Authority does not move: the API does CRUD/state and mints no-authority approval links on the shared model; the worker only
 evaluates; neither can sign, submit, run a flow or skip the owner's fresh simulation, Strategy Manifest Review or wallet signature
@@ -117,9 +120,13 @@ test-pool prices, not at the observed market price.
   `/app/automations?occurrence=…` — never an approval secret; the owner's FloFi session is still required. STOP in the chat or *Unlink*
   in FloFi ends it; a link lasts 90 days. A failed delivery changes nothing about the proposal. WhatsApp is never used (policy, D1).
 - **Who delivers, by topology.** Telegram runs only through the existing Channel Core (webhook, link codes, outbox, retries) — there is
-  no second bot stack. Channel Core needs the embedded runtime (Channels §5e), so in **standard production** (remote runtime) Telegram
-  is not available for automations: the API reports it unavailable, no chat can be linked, no notification item is ever queued, and
-  owners see every proposal in the app. Where Channel Core does run (an embedded web runtime with Telegram), the occurrence's
+  no second bot stack. Automations use it in the processes that serve them: availability and link codes where the owner operations run,
+  delivery where evaluation runs, link-code consumption in the bot's webhook only where automations are enabled. Since PR #71 Channel
+  Core runs on Vercel in the remote topology as well, but in **standard production** the Railway API and worker hold no Telegram
+  configuration and Vercel holds no automation configuration, so Telegram is not available for automations: the API reports it
+  unavailable, no chat can be linked, no notification item is ever queued, and owners see every proposal in the app. Wiring it there
+  would mean placing the Channels Telegram configuration on Railway and the automation configuration on Vercel; this build does neither
+  and has not tested that combination (an owner decision). Where Channel Core and automations share a process (an embedded web runtime with Telegram), the occurrence's
   notification item is queued only for an owner with a live linked chat and is delivered by a process that has the Channels Telegram
   configuration: the web deployment's optional dispatch, or the worker if that configuration is also set on it. In every topology the
   occurrence is created first, in its own transaction; delivery can never block or change it.

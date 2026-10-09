@@ -2,8 +2,9 @@
 /**
  * BUILD-AUTOMATION-001: production's own entry points, as production runs them — `node backend/main.ts api` and `node backend/main.ts
  * worker`, plain Node with no bundler — on a disposable loopback PostgreSQL, driven by the web deployment's BFF in REMOTE mode
- * (`API_BASE_URL`; the web process has no database and no automation variable). The fixture price source (MOCKED, a file under /tmp)
- * stands in for Chainlink; nothing reaches a price provider, a chat or a chain.
+ * (`API_BASE_URL`; the web process needs no database and no automation variable for automations — PR #71's platform-state
+ * DATABASE_URL is not used by them). The fixture price source (MOCKED, a file under /tmp) stands in for Chainlink; nothing reaches a
+ * price provider, a chat or a chain.
  *
  *   BFF → API process: create a price trigger → the worker process's own startup sweep evaluates it (armed above the threshold) →
  *   the price falls and the 15-minute cadence is compressed → a second worker sweep proposes ONCE → the owner sees it through the API

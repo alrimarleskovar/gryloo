@@ -6,8 +6,9 @@
  *
  *   the owner proves a wallet → creates a weekly DCA ("Every Monday 09:00 Europe/Lisbon, buy 50 USDC of WETH, ask me each time") →
  *   it is ACTIVE → the scheduler, at the test clock's slot, creates ONE occurrence → "Waiting for you" → Review in FloFi → /approve
- *   ("FROM FLOFI AUTOMATIONS", nothing authorized) → Load → Add to my workflow → FloFi's own Simulate and Strategy Manifest Review are
- *   reached → the spec stops before approving: no wallet transaction or typed-data signature was ever requested.
+ *   ("FROM FLOFI AUTOMATIONS", nothing authorized) → Load proposal (the exact workflow, PR #72) → a reload restores it only for its
+ *   proven owner, reissuing nothing → Continue to simulation → FloFi's own Simulate and Strategy Manifest Review are reached → the spec
+ *   stops before approving: no wallet transaction or typed-data signature was ever requested.
  *
  * And a price trigger ("If ETH falls below $3,000, ask me to buy 100 USDC") fires once on the crossing, never again while the price stays
  * below; a BTC purchase shows FloFi's honest capability blocker.
@@ -89,13 +90,24 @@ test.describe('BUILD-AUTOMATION-001 Automations (fixture prices, test clock, loo
     expect(page.url()).not.toContain('flofi_auhs_');
     await expect(approval).toContainText(`Signed in as ${owner.address.toLowerCase()}`);
     await approval.getByRole('button', { name: 'Load proposal', exact: true }).click();
-    await approval.getByRole('button', { name: 'Add to my workflow', exact: true }).click();
     await expect(approval.getByRole('status')).toContainText('Ready for your review.');
-    expect((await query<{ status: string; requester_kind: string }>('SELECT status, requester_kind FROM mcp_handoffs WHERE handoff_id = (SELECT handoff_id FROM automation_occurrences WHERE occurrence_id = $1)',
-      [occurrence!.occurrence_id]))[0]).toEqual({ status: 'APPLIED', requester_kind: 'AUTOMATION_RULE' });
+    const handoffOf = () => query<{ handoff_id: string; status: string; requester_kind: string }>('SELECT handoff_id, status, requester_kind FROM mcp_handoffs WHERE handoff_id = (SELECT handoff_id FROM automation_occurrences WHERE occurrence_id = $1)',
+      [occurrence!.occurrence_id]);
+    const applied = (await handoffOf())[0]!;
+    expect(applied).toMatchObject({ status: 'APPLIED', requester_kind: 'AUTOMATION_RULE' });
+
+    // PR #72's recovery: after a reload the consumed link is restored only for its proven owner, re-verified; no new approval or
+    // occurrence exists and nothing was signed.
+    await page.reload();
+    await approval.getByRole('button', { name: 'Load proposal', exact: true }).click();
+    await expect(approval).toContainText('Proposal restored for its proven owner.');
+    await expect(approval.getByRole('status')).toContainText('Ready for your review.');
+    expect(await handoffOf()).toEqual([applied]);
+    expect(await query<{ n: number }>('SELECT count(*)::int AS n FROM mcp_handoffs WHERE requester_kind = $1', ['AUTOMATION_RULE'])).toEqual([{ n: 1 }]);
+    expect((await occurrencesOf(rule.rule_id)).map(o => o.occurrence_id)).toEqual([occurrence!.occurrence_id]);
 
     // FloFi's own fresh simulation and Strategy Manifest Review: reached, not approved by the test.
-    await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+    await approval.getByRole('button', { name: 'Continue to simulation', exact: true }).click();
     await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     const summary = page.getByRole('complementary', { name: 'Simulation Summary', exact: true });
     await expect(summary.getByRole('region', { name: 'Expected result' })).toContainText('0.025 WETH');

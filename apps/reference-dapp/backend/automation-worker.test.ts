@@ -70,7 +70,7 @@ describe('BUILD-AUTOMATION-001 worker-side source resolution', () => {
       console.log(JSON.stringify(routes.map(r => [r.method, r.name, r.pattern.source])));`);
     expect(result.code).toBe(0);
     expect(JSON.parse(result.stdout.trim())).toEqual([['POST', 'automations', '^\\/v1\\/automations\\/([A-Za-z]{1,40})$'],
-      ['POST', 'approvals', '^\\/v1\\/approvals\\/(view|claim|apply|share)$']]);
+      ['POST', 'approvals', '^\\/v1\\/approvals\\/(view|claim|apply|share|resume)$']]);
   });
 
   it('a misconfigured or foreign-tenant worker disables automations only, with a closed code and no secret required', async () => {

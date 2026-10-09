@@ -13,7 +13,7 @@ import { createLogger, createPostgresWorkQueue } from '@defi-workflow-engine/clo
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../../../../packages/cloud-runtime/test/pg-harness.ts';
 import { composeStrategy } from '../engine/strategy-engine';
-import { applyApproval, claimApproval, PlatformRefusal, viewApproval, type WalletRef } from '../platform/index.ts';
+import { applyApproval, claimApproval, PlatformRefusal, resumeApproval, viewApproval, type WalletRef } from '../platform/index.ts';
 import { automationHarness, OWNER_A, OWNER_B, weeklyDca, type Harness } from './automation.test-harness.ts';
 import { dispatchAutomations } from './dispatch.ts';
 
@@ -27,6 +27,8 @@ const dispatch = (h: Harness) => dispatchAutomations(h.rt(), createPostgresWorkQ
 const wallet = (owner: typeof OWNER_A): WalletRef => ({ namespace: owner.namespace, address: owner.address });
 const secretOf = (url: string) => decodeURIComponent(new URL(url).hash.slice(1));
 const refusal = async (work: Promise<unknown>) => { try { await work; return 'NO_REFUSAL'; } catch (e) { return e instanceof PlatformRefusal || e instanceof Error ? e.message : String(e); } };
+const counts = () => t.db.query<{ handoffs: number; occurrences: number }>(`SELECT (SELECT count(*)::int FROM mcp_handoffs) AS handoffs,
+  (SELECT count(*)::int FROM automation_occurrences) AS occurrences`).then(r => r.rows[0]!);
 /** A weekly DCA with a pending occurrence (Monday 2026-10-12 09:00 Europe/Lisbon). */
 async function pending(h: Harness) {
   const rule = await h.service().create(OWNER_A, weeklyDca());
@@ -68,6 +70,29 @@ describe('BUILD-AUTOMATION-001 occurrence → shared approval → the owner’s 
     const final = (await h.service().history(OWNER_A, rule.ruleId));
     expect(final.occurrences[0]).toMatchObject({ state: 'COMPLETED', outcome: 'APPROVAL_APPLIED', approval: { status: 'APPLIED', runs: [] } });
     expect(final.entries.map(e => e.outcome)).toEqual(expect.arrayContaining(['TRIGGERED', 'APPROVAL_REQUESTED', 'APPROVAL_APPLIED']));
+  });
+
+  it('PR #72 recovery: an applied automation proposal is restored only for the owner who claimed it, re-verified, with nothing reissued', async () => {
+    const h = automationHarness(t.db), { occurrence } = await pending(h);
+    const secret = secretOf((await h.service().open(OWNER_A, occurrence.occurrenceId)).approvalUrl), surface = h.surface();
+    const { approvalId } = await viewApproval(surface, secret, [], h.now());
+    await claimApproval(surface, secret, [wallet(OWNER_A)], false, h.now());
+    // Recovery is for an APPLIED proposal only: a claimed one is not recoverable by id, so the claim stays the only way in.
+    expect(await refusal(resumeApproval(surface, approvalId, [wallet(OWNER_A)]))).toBe('HANDOFF_NOT_FOUND');
+    const canonical = composeStrategy({ action: 'swap', network: 'base-sepolia', inputAsset: 'USDC', outputAsset: 'WETH', amount: '50', slippageBps: 50 });
+    if (!canonical.ok) throw new Error(canonical.code);
+    await applyApproval(surface, secret, [wallet(OWNER_A)], canonical.workflow, h.now());
+    const before = await counts();
+    const restored = await resumeApproval(surface, approvalId, [wallet(OWNER_A)]);
+    expect(restored).toMatchObject({ workflowHash: canonical.workflowHash, view: { requesterKind: 'AUTOMATION_RULE', status: 'APPLIED', authorized: false, authority: 'NONE' } });
+    expect(restored.workflow).toMatchObject({ workflowId: restored.workflowId });
+    // Wallet B (even proven), no wallet, or a malformed id: nothing.
+    expect(await refusal(resumeApproval(surface, approvalId, [wallet(OWNER_B)]))).toBe('HANDOFF_NOT_FOUND');
+    expect(await refusal(resumeApproval(surface, approvalId, []))).toBe('HANDOFF_NOT_FOUND');
+    expect(await refusal(resumeApproval(surface, secret, [wallet(OWNER_A)]))).toBe('HANDOFF_NOT_FOUND');
+    // No second approval, no second occurrence, no status change: the owner's own simulation, Review and signature still follow.
+    expect(await counts()).toEqual(before);
+    expect((await t.db.query('SELECT status FROM mcp_handoffs WHERE handoff_id = $1', [approvalId])).rows[0]).toEqual({ status: 'APPLIED' });
   });
 
   it('refuses a claim while the automation is paused, and lets it through once resumed', async () => {

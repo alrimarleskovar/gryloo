@@ -12,14 +12,14 @@
  * → signature path. These actions only read this request's cookies and delegate to the shared platform (`src/platform/approve.ts`).
  * BUILD-AUTOMATION-001: on the remote runtime (production: Vercel → Railway API) an automation link (`flofi_auhs_`) is served by the
  * API, which holds the automation state and keys: the same platform functions, called there with the wallets this request proved
- * (`server/automation-operation.ts`). Every other link is unchanged.
+ * (`server/automation-operation.ts`); PR #72's recovery of an applied proposal falls back to the API there. Every other link is unchanged.
  */
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { developerApprovalChanged } from '../developer/dispatch';
 import { applyApproval, claimApproval, openBrowserApproval, resumeApproval, shareApproval, viewApproval, type ApprovalView, type ClaimedProposal } from '../platform/index';
 import { approvalSurface } from '../server/approval-surface';
-import { remoteApproval, remoteAutomationApproval } from '../server/automation-operation';
+import { remoteApproval, remoteAutomationApproval, remoteAutomationRecovery } from '../server/automation-operation';
 import { currentWalletPrincipals } from '../server/session-principal';
 
 type Result<T> = { ok: true; value: T } | { ok: false; code: string };
@@ -41,7 +41,12 @@ export async function openBrowserApprovalHandoff(approvalId: string): Promise<Re
 }
 export async function resumeApprovalHandoff(approvalId: string): Promise<Result<ClaimedProposal>> {
   try { return { ok: true, value: await resumeApproval(await surface(), approvalId, await currentWalletPrincipals()) }; }
-  catch (cause) { return failure(cause); }
+  catch (cause) {
+    // BUILD-AUTOMATION-001: on the remote runtime an automation proposal's profile is the API's. The id names no kind, so a recovery this
+    // deployment cannot resolve is asked of the API, with the wallets this request proved; otherwise this deployment's refusal stands.
+    if (remoteAutomationRecovery()) { try { return { ok: true, value: await remoteApproval<ClaimedProposal>('resume', [approvalId]) }; } catch { /* refused there too */ } }
+    return failure(cause);
+  }
 }
 
 /** The proposal behind a secret, re-verified now. Seeing it grants nothing. */

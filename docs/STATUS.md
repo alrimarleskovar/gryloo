@@ -11,7 +11,7 @@ This separate branding build does not resume its execution work. BUILD-CLOUD-001
 
 **Status: READY_FOR_OWNER_PUSH — implementation and every local gate on MOCKED/fixture/loopback evidence; NO LIVE PRICE PROVIDER CALL,
 NO REAL TELEGRAM MESSAGE AND NO TRANSACTION; NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.** Branch `claude/build-automation-001-production`
-from main `8f91a01`. Owners create scheduled DCAs (DAILY/WEEKLY in IANA zones, DST-correct, `LATEST_WITHIN_GRACE` missed-run policy),
+restacked onto main `68249fa` (PR #71 platform state, PR #72 conversational signing and recovery). Owners create scheduled DCAs (DAILY/WEEKLY in IANA zones, DST-correct, `LATEST_WITHIN_GRACE` missed-run policy),
 deterministic price triggers (below/above/percentage, fire once per crossing, re-arm on clear, cooldown) and daily market watches in a new
 Automations workspace (EN/PT). Execution mode is only `CONFIRM_EACH_TIME`: an occurrence (unique per trigger event, migration
 `0010_automations`) becomes an `AUTOMATION_RULE` handoff on the shared approval model when the owner opens it, claimable only by the owner's
@@ -22,8 +22,9 @@ execution, per day/week/month, cooldown, slippage, expiry. It runs on FloFi's ex
 Railway worker evaluates durable work items — its 60 s sweep is the scheduler (no cron, no Vercel Pro, no new service). The protected
 `/api/automations/dispatch` remains an optional trigger for embedded deployments (Previews, recovery). Daily-watch Buy/Sell is the
 owner's own new Build trade, not automation execution. Prices: read-only Chainlink feeds on Base mainnet (configured, verified on-chain) or a test
-fixture. Notifications: in-app, and Telegram through the existing Channel Core after a one-time link code (no secret in any message;
-WhatsApp unchanged). BTC can be watched but has no swap route (`BTC_EXECUTION_ROUTE_UNAVAILABLE`); Base mainnet swaps are not
+fixture. Notifications: in-app everywhere; Telegram through the existing Channel Core after a one-time link code where Channel Core
+and automations share a process (an embedded runtime) — not in standard production, whose Railway API/worker carry no Telegram
+configuration (no secret in any message; WhatsApp unchanged). BTC can be watched but has no swap route (`BTC_EXECUTION_ROUTE_UNAVAILABLE`); Base mainnet swaps are not
 owner-executable on main. See the [plan](builds/BUILD-AUTOMATION-001-PLAN.md), [report](builds/BUILD-AUTOMATION-001-REPORT.md) and
 [operator guide](deploy/AUTOMATIONS.md).
 

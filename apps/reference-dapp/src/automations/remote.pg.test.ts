@@ -2,7 +2,8 @@
 /**
  * BUILD-AUTOMATION-001 on FloFi's production topology — Vercel BFF → Railway API → PostgreSQL, plus the Railway worker — on a disposable
  * loopback PostgreSQL: the REAL API HTTP server (its existing routes plus the automation routes, behind the bearer token) and the REAL BFF
- * functions the server actions call (remote runtime: `API_BASE_URL`; the web process has no database and no automation variable).
+ * functions the server actions call (remote runtime: `API_BASE_URL`; the web process needs no database and no automation variable for
+ * automations — PR #71's platform-state DATABASE_URL is not used by them).
  *
  *   the owner's workspace through the API (same views as in process) → only the verified owner crosses the boundary, and the API
  *   enforces it on its own → wallet A / wallet B isolation → a remotely created automation is evaluated by the worker's sweep (no cron),
@@ -15,7 +16,7 @@ import { createTestDatabase, type TestDatabase } from '../../../../packages/clou
 import { createBackend, type Backend } from '../../backend/app.ts';
 import { composeStrategy } from '../engine/strategy-engine';
 import type { WorkflowOwner } from '../domain/saved-workflow';
-import { automationAvailability, automationOperation, remoteApproval, remoteAutomationApproval } from '../server/automation-operation';
+import { automationAvailability, automationOperation, remoteApproval, remoteAutomationApproval, remoteAutomationRecovery } from '../server/automation-operation';
 import { automationApiRoutes } from './api.ts';
 import { automationHarness, OWNER_A, OWNER_B, weeklyDca } from './automation.test-harness.ts';
 import { dispatchAutomations } from './dispatch.ts';
@@ -154,7 +155,10 @@ describe('BUILD-AUTOMATION-001 on the remote runtime (Vercel BFF → Railway API
     expect(remoteAutomationApproval(secret, web().env)).toBe(true);
     expect(remoteAutomationApproval('flofi_hs_' + 'a'.repeat(43), web().env)).toBe(false);
     expect(remoteAutomationApproval(secret, { DATABASE_URL: 'postgres://x', FLOFI_RUNTIME: 'embedded' })).toBe(false);
-    const view = await remoteApproval<{ authorized: boolean; authority: string; requesterKind: string; status: string }>('view', [secret], as(OWNER_A));
+    // PR #71: production Vercel may also hold DATABASE_URL for platform state; API_BASE_URL still selects the remote runtime and forwarding.
+    expect(remoteAutomationApproval(secret, { ...web().env, DATABASE_URL: 'postgres://neon.example/db' })).toBe(true);
+    expect([remoteAutomationRecovery(web().env), remoteAutomationRecovery({ DATABASE_URL: 'postgres://x', FLOFI_RUNTIME: 'embedded' })]).toEqual([true, false]);
+    const view = await remoteApproval<{ approvalId: string; authorized: boolean; authority: string; requesterKind: string; status: string }>('view', [secret], as(OWNER_A));
     expect(view).toMatchObject({ authorized: false, authority: 'NONE', requesterKind: 'AUTOMATION_RULE', status: 'PENDING' });
     expect(await refusal(remoteApproval('claim', [secret, false], as(OWNER_A, [])))).toBe('EVM_WALLET_PROOF_REQUIRED');
     const claimed = await remoteApproval<{ command: { type: string; amount: string }; workflowHash: string }>('claim', [secret, false], as(OWNER_A));
@@ -163,6 +167,15 @@ describe('BUILD-AUTOMATION-001 on the remote runtime (Vercel BFF → Railway API
     expect(claimed).toMatchObject({ command: { type: 'ADD_TESTNET_SWAP', amount: '50' }, workflowHash: canonical.workflowHash });
     expect(await refusal(remoteApproval('apply', [secret, { ...canonical.workflow, revision: 99 }], as(OWNER_A)))).toBe('HANDOFF_WORKFLOW_MISMATCH');
     expect((await remoteApproval<{ status: string }>('apply', [secret, canonical.workflow], as(OWNER_A))).status).toBe('APPLIED');
+    // PR #72's recovery of the applied proposal on the API, for its proven claimant only; it reissues no approval and changes no state.
+    const handoffs = () => t.db.query<{ n: number }>('SELECT count(*)::int AS n FROM mcp_handoffs').then(r => r.rows[0]!.n), before = await handoffs();
+    const { approvalId } = view;
+    expect(await remoteApproval<{ workflowHash: string; view: { status: string } }>('resume', [approvalId], as(OWNER_A)))
+      .toMatchObject({ workflowHash: canonical.workflowHash, view: { status: 'APPLIED' } });
+    expect(await refusal(remoteApproval('resume', [approvalId], as(OWNER_A, [OWNER_B])))).toBe('HANDOFF_NOT_FOUND');
+    expect(await refusal(remoteApproval('resume', [approvalId], as(OWNER_A, [])))).toBe('HANDOFF_NOT_FOUND');
+    expect(await refusal(remoteApproval('resume', ['apr_' + 'a'.repeat(26)], as(OWNER_A)))).toBe('HANDOFF_NOT_FOUND');
+    expect(await handoffs()).toBe(before);
     await railwayWorker()();
     expect((await t.db.query('SELECT state, outcome FROM automation_occurrences WHERE occurrence_id = $1', [occurrence.occurrenceId])).rows[0])
       .toEqual({ state: 'COMPLETED', outcome: 'APPROVAL_APPLIED' });

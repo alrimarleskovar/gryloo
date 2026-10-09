@@ -61,6 +61,13 @@ describe('BUILD-AUTOMATION-001 Automations BFF on the remote runtime', () => {
     expect(await remoteApproval('view', [link], { env: REMOTE, transport, principals: async () => [evm, solana] })).toEqual({ status: 'PENDING' });
     expect((transport.mock.calls[0] as [URL, RequestInit])[1].headers)
       .toMatchObject({ 'x-flofi-wallet-principals': `eip155:${evm.address},solana:${solana.address}`, authorization: 'Bearer api-token' });
+    // PR #72's recovery by approval id goes to the same route family, with the same proven wallets and nothing else.
+    const resume = reply({ ok: true, value: { workflowHash: 'h' } });
+    expect(await remoteApproval('resume', ['apr_' + 'a'.repeat(26)], { env: REMOTE, transport: resume, principals: async () => [evm] })).toEqual({ workflowHash: 'h' });
+    const [resumeUrl, resumeInit] = resume.mock.calls[0] as unknown as [URL, RequestInit];
+    expect([resumeUrl.href, JSON.parse(String(resumeInit.body))]).toEqual(['https://api.flofi.example/v1/approvals/resume', { args: ['apr_' + 'a'.repeat(26)] }]);
+    expect(resumeInit.headers).toMatchObject({ 'x-flofi-wallet-principals': `eip155:${evm.address}`, authorization: 'Bearer api-token' });
+    expect(resumeInit.headers).not.toHaveProperty('x-flofi-workflow-owner');
     await expect(remoteApproval('claim', [link, false], { env: REMOTE, transport: reply({ ok: false, code: 'AUTOMATION_OWNER_MISMATCH' }), principals: async () => [evm] }))
       .rejects.toThrow('AUTOMATION_OWNER_MISMATCH');
     await expect(remoteApproval('view', [link], { env: REMOTE, transport: vi.fn().mockRejectedValue(new Error('offline')), principals: async () => [] }))

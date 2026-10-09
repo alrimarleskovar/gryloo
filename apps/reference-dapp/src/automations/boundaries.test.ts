@@ -97,7 +97,7 @@ describe('BUILD-AUTOMATION-001 authority boundary', () => {
       expect(code(file), file).not.toMatch(/\bcallFlow\(|previewFlow\(|runtime\.(?:run|journal|record|preview)\(|\.call\(|callCloudFlow|cloudFlow\(/);
     }
     // The API adds exactly two POST routes (owner operations, automation approval links); the closed operation list has no execution verb.
-    expect(code('src/automations/api.ts').match(/pattern: \/\^.*?\$\//g)).toEqual(['pattern: /^\\/v1\\/automations\\/([A-Za-z]{1,40})$/', 'pattern: /^\\/v1\\/approvals\\/(view|claim|apply|share)$/']);
+    expect(code('src/automations/api.ts').match(/pattern: \/\^.*?\$\//g)).toEqual(['pattern: /^\\/v1\\/automations\\/([A-Za-z]{1,40})$/', 'pattern: /^\\/v1\\/approvals\\/(view|claim|apply|share|resume)$/']);
     expect(code('src/automations/operations.ts')).toMatch(/AUTOMATION_OPERATIONS = Object\.freeze\(\['overview', 'create', 'setState', 'rebind', 'history', 'open', 'dismiss', 'prepareWatch', 'telegramLinkCode',\s+'telegramUnlink'\]/);
   });
 

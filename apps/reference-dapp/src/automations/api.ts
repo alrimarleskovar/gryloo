@@ -7,9 +7,11 @@
  *   POST /v1/automations/:method   the owner operations of `operations.ts` (and `availability`, which names nobody). The owner is the
  *                                  server-to-server `x-flofi-workflow-owner` header the BFF sets from the verified wallet session; every
  *                                  query is scoped to it, so another owner's id answers NOT FOUND. `create` needs an idempotency key.
- *   POST /v1/approvals/:method     `/approve` for automation links (view, claim, apply, share): the shared platform functions with the
- *                                  automation contributor only, the shared handoff store and this API's own engine gates. The proven
- *                                  wallets travel in `x-flofi-wallet-principals`, set by the BFF from the HttpOnly session cookies.
+ *   POST /v1/approvals/:method     `/approve` for automation links (view, claim, apply, share — and resume, PR #72's recovery of an
+ *                                  APPLIED proposal by its id for its proven claimant, which reissues nothing): the shared platform
+ *                                  functions with the automation contributor only, the shared handoff store and this API's own engine
+ *                                  gates. The proven wallets travel in `x-flofi-wallet-principals`, set by the BFF from the HttpOnly
+ *                                  session cookies.
  *
  * CRUD, state changes and no-authority approval links only: nothing here signs, submits, runs or previews a flow (the engine runtime is
  * used for its read-only gates and the owner's own run status). Evaluation is the worker's (`worker.ts`), never a request's.
@@ -17,7 +19,7 @@
 import { createIdempotencyStore, createRunQueries, HttpError, requestHash, type Database, type HttpRequest, type Logger, type Route } from '@defi-workflow-engine/cloud-runtime';
 import type { Backend } from '../../backend/app.ts';
 import { workflowOwner, WORKFLOW_OWNER_HEADER } from '../domain/saved-workflow.ts';
-import { applyApproval, assembleApprovalSurface, claimApproval, createPgHandoffStore, embeddedEngineRuntime, shareApproval, viewApproval,
+import { applyApproval, assembleApprovalSurface, claimApproval, createPgHandoffStore, embeddedEngineRuntime, resumeApproval, shareApproval, viewApproval,
   type WalletRef } from '../platform/index.ts';
 import { ownerRunReaders } from '../server/flow-runtime.ts';
 import { APPROVAL_PRINCIPALS_HEADER } from './api-headers.ts';
@@ -88,7 +90,7 @@ export function automationApiRoutes(env: Env, deps: AutomationApiDeps): Route[] 
       if (result.ok) await idempotency.complete(scope, key, hash, result); else await idempotency.release(scope, key, hash);
       return { status: 200, body: result };
     } },
-    { method: 'POST', name: 'approvals', pattern: /^\/v1\/approvals\/(view|claim|apply|share)$/, handler: async (request, match) => {
+    { method: 'POST', name: 'approvals', pattern: /^\/v1\/approvals\/(view|claim|apply|share|resume)$/, handler: async (request, match) => {
       const method = match[1]!, wallets = principalsOf(request.headers[APPROVAL_PRINCIPALS_HEADER]), args = argsOf(request);
       const secret = args[0];
       try {
@@ -99,6 +101,7 @@ export function automationApiRoutes(env: Env, deps: AutomationApiDeps): Route[] 
         if (method === 'claim' && args.length === 2) return { status: 200, body: { ok: true, value: await claimApproval(surface, secret, wallets, args[1] === true, now()) } };
         if (method === 'apply' && args.length === 2) return { status: 200, body: { ok: true, value: await applyApproval(surface, secret, wallets, args[1], now()) } };
         if (method === 'share' && args.length === 2) return { status: 200, body: { ok: true, value: await shareApproval(surface, secret, wallets, args[1] === true, now()) } };
+        if (method === 'resume' && args.length === 1) return { status: 200, body: { ok: true, value: await resumeApproval(surface, secret, wallets) } };
         return { status: 200, body: { ok: false, code: 'APPROVAL_REQUEST_INVALID' } };
       } catch (error) { return { status: 200, body: closed(error, 'APPROVAL_FAILED') }; }
     } },

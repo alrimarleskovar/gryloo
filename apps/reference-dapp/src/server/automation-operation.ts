@@ -6,8 +6,9 @@
  *   - the owner the browser names is only a selection hint: it must be a wallet THIS request proved (HttpOnly session cookies);
  *   - embedded runtime: the operation runs here, on this deployment's PostgreSQL (`automations/operations.ts`);
  *   - remote runtime (production: Vercel → Railway API): it is forwarded to `POST /v1/automations/:method` with the API bearer and the
- *     verified owner in `x-flofi-workflow-owner`; an automation approval link to `POST /v1/approvals/:method` with the proven wallets in
- *     `x-flofi-wallet-principals`. Both headers are server-to-server: the browser never reaches the API;
+ *     verified owner in `x-flofi-workflow-owner`; an automation approval link (and PR #72's recovery of an applied proposal by its id) to
+ *     `POST /v1/approvals/:method` with the proven wallets in `x-flofi-wallet-principals`. Both headers are server-to-server: the browser
+ *     never reaches the API;
  *   - anything else fails closed.
  */
 import { randomUUID } from 'node:crypto';
@@ -75,8 +76,14 @@ export async function automationAvailability(seams: Pick<Seams, 'transport' | 'e
 export const remoteAutomationApproval = (secret: unknown, env: Env = process.env) =>
   flowRuntimeKind(env) === 'remote' && typeof secret === 'string' && secret.startsWith(AUTOMATION_LINK_PREFIX);
 
+/**
+ * Whether `/approve` may ask the API to recover an applied proposal by its id (PR #72's `resumeApproval`): on the remote runtime only. An
+ * id names no requester kind, so this is a fallback after this deployment's own surface; the API resolves only automation proposals.
+ */
+export const remoteAutomationRecovery = (env: Env = process.env) => flowRuntimeKind(env) === 'remote';
+
 /** `/approve` for an automation link on the remote runtime. Throws the API's closed code, exactly as the in-process surface would. */
-export async function remoteApproval<T>(method: 'view' | 'claim' | 'apply' | 'share', args: readonly unknown[], seams: Seams = {}): Promise<T> {
+export async function remoteApproval<T>(method: 'view' | 'claim' | 'apply' | 'share' | 'resume', args: readonly unknown[], seams: Seams = {}): Promise<T> {
   const env = seams.env ?? process.env, wallets = await (seams.principals ?? currentWalletPrincipals)();
   let result: FlowResult<T>;
   try {
