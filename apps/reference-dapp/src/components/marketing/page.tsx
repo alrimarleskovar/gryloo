@@ -170,7 +170,7 @@ export default function LandingPage() {
     <MascotJourney locale={locale}/>
     <header className={styles.siteHeader}><div className={styles.headerInner}>
       <a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand /></a>
-      <nav aria-label={t.mainNavigation}><a href="#product">{t.navProduct}</a><a href="#networks">{t.navNetworks}</a><a href="#developers">{t.navDevelopers}</a><a href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.navDocs}</a></nav>
+      <nav aria-label={t.mainNavigation}><a href="#product">{t.navProduct}</a><a href="#networks">{t.navNetworks}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a></nav>
       <div className={styles.headerActions}><div className={styles.languageSwitch} role="group" aria-label={t.language}><button type="button" lang="pt-BR" aria-pressed={locale === 'pt'} onClick={() => changeLocale('pt')}>PT</button><span aria-hidden="true">/</span><button type="button" lang="en" aria-pressed={locale === 'en'} onClick={() => changeLocale('en')}>EN</button></div><a className={styles.headerCta} href="/app">{t.launch} <Arrow /></a></div>
     </div></header>
 
@@ -213,15 +213,15 @@ export default function LandingPage() {
         <FlowDiagram t={t} />
         <div className={styles.developerStatement}><strong>{t.oneIntegration}</strong><span>{t.partnerBody}</span></div>
         <div className={styles.developerValues}><div><strong>{t.uxYours}</strong><span>{t.uxYoursBody}</span></div><div><strong>{t.executionStructured}</strong><span>{t.executionStructuredBody}</span></div><div><strong>{t.outcomesInspectable}</strong><span>{t.outcomesInspectableBody}</span></div></div>
-        <a className={styles.primaryButton} href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.buildWith} <Arrow /></a>
+        <a className={styles.primaryButton} href="/docs/developer-api">{t.buildWith} <Arrow /></a>
         <div id="documentation" className={styles.documentation}><strong>{t.developerDocs}</strong><span>{t.developerDocsBody}</span><a href="/app">{t.openBuilder} <Arrow /></a></div>
       </div></section>
 
       <section className={styles.closingSection} id="about" data-landing-reveal><EarthAtmosphere/><div className={styles.container}><div className={styles.closingGrid}>
-        <div><SectionKicker>{t.visionEyebrow}</SectionKicker><h2>{t.visionTitleFirst}<br /><span>{t.visionTitleSecond}</span></h2><p>{t.visionBody}</p><MascotDock scene="cta" white/><div className={styles.heroActions}><a className={styles.primaryButton} href="/app" data-mascot-cta>{t.launch} <Arrow /></a><a className={styles.darkSecondaryButton} href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.buildWith}</a></div><p className={styles.closingFootnote}>{t.visionFootnote}</p></div>
+        <div><SectionKicker>{t.visionEyebrow}</SectionKicker><h2>{t.visionTitleFirst}<br /><span>{t.visionTitleSecond}</span></h2><p>{t.visionBody}</p><MascotDock scene="cta" white/><div className={styles.heroActions}><a className={styles.primaryButton} href="/app" data-mascot-cta>{t.launch} <Arrow /></a><a className={styles.darkSecondaryButton} href="/docs/developer-api">{t.buildWith}</a></div><p className={styles.closingFootnote}>{t.visionFootnote}</p></div>
         <VisionVisual t={t} />
       </div></div></section>
     </main>
-    <footer className={styles.footer}><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#product">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="#about">{t.navAbout}</a></nav><span>{t.footerLine}</span></div></footer>
+    <footer className={styles.footer}><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#product">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="#about">{t.navAbout}</a></nav><span>{t.footerLine}</span></div></footer>
   </div>;
 }

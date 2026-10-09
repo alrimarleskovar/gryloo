@@ -47,7 +47,7 @@ for (const width of widths) {
     await expect.poll(() => page.locator('main img').evaluateAll(images => images
       .filter(img => !(img as HTMLImageElement).complete || (img as HTMLImageElement).naturalWidth === 0)
       .map(img => img.getAttribute('src')))).toEqual([]);
-    await expect(page.getByRole('link', { name: 'Docs', exact: true }).first()).toHaveAttribute('href', 'https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer');
+    await expect(page.getByRole('link', { name: 'Docs', exact: true }).first()).toHaveAttribute('href', '/docs');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
     await page.keyboard.press('Enter');

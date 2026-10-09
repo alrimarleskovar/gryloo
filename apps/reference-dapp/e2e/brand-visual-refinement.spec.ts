@@ -23,6 +23,8 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // Wait for the measured client diagram before tests mutate its DOM or resize it.
+  await expect(page.locator('[data-flow-diagram="light"]')).toHaveAttribute('data-flow-ready', 'true');
 
 });
 
@@ -83,20 +85,16 @@ test('geometry follows live resizing, changing card dimensions and transformed S
   }
 });
 
-test('original Earth moves subtly over time, sleeps offscreen and respects live reduced motion', async ({ page }) => {
+test('original Earth surface rotates perceptibly over time regardless of the mascot flag, sleeps offscreen and respects live reduced motion', async ({ page }) => {
   const earth = page.locator('[data-earth-surface]');
   await page.locator('#about').scrollIntoViewIfNeeded();
   await expect(page.locator('[data-earth]')).toHaveAttribute('data-earth-active', 'true');
-  expect(await earth.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('/flofi/closing-horizon-v2.png');
-  if (!enabled) {
-    expect(await earth.evaluate(element => element.getAnimations().length)).toBe(0);
-    return;
-  }
+  await expect(page.locator('[data-earth-original]')).toHaveAttribute('href', '/flofi/closing-horizon-v2.png');
   await expect.poll(() => earth.evaluate(element => element.getAnimations().length)).toBe(1);
   await expect(page.locator('#about')).toHaveAttribute('data-visible', 'true');
   await expect.poll(() => page.locator('[data-flow-diagram="dark"]').evaluate(element => element.parentElement!.getAnimations().every(animation => animation.playState === 'finished'))).toBe(true);
   const first = await earth.evaluate(element => ({ transform: getComputedStyle(element).transform, time: element.getAnimations()[0]!.currentTime }));
-  expect(await earth.evaluate(element => element.getAnimations()[0]!.effect!.getTiming().duration)).toBe(48000);
+  expect(await earth.evaluate(element => element.getAnimations()[0]!.effect!.getTiming().duration)).toBe(60000);
   if (capture) await page.locator('#about').screenshot({ path: `${evidence}/earth-t0-1440.png` });
   // Wait for eight seconds on the real animation clock; screenshot scroll/visibility can briefly pause it.
   await expect.poll(() => earth.evaluate((element, initial) => Number(element.getAnimations()[0]!.currentTime) - initial, Number(first.time)), { timeout: 12000, intervals: [200, 500] }).toBeGreaterThanOrEqual(8000);
@@ -107,15 +105,15 @@ test('original Earth moves subtly over time, sleeps offscreen and respects live 
     const a = new DOMMatrix(initial); const b = new DOMMatrix(getComputedStyle(element).transform);
     return { distance: Math.hypot(b.m41 - a.m41, b.m42 - a.m42), scale: [b.a, b.b, b.c, b.d] };
   }, first.transform);
-  expect(displacement.distance).toBeGreaterThan(1);
-  expect(displacement.distance).toBeLessThan(15);
+  expect(displacement.distance).toBeGreaterThan(30);
+  expect(displacement.distance).toBeLessThan(80);
   expect(displacement.scale).toEqual([1, 0, 0, 1]);
   if (capture) await page.locator('#about').screenshot({ path: `${evidence}/earth-t8-1440.png` });
   await page.evaluate(() => scrollTo(0, 0));
   await expect(page.locator('[data-earth]')).toHaveAttribute('data-earth-active', 'false');
   expect(await earth.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('paused');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'still');
+  if (enabled) await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'still');
   expect(await earth.evaluate(element => element.getAnimations().length)).toBe(0);
   expect(await page.locator('[data-flow-signal]').evaluateAll(items => items.flatMap(item => item.getAnimations()).length)).toBe(0);
   for (const width of [1440, 390]) {
@@ -127,10 +125,10 @@ test('original Earth moves subtly over time, sleeps offscreen and respects live 
     }
   }
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'running');
+  if (enabled) await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'running');
   await expect.poll(() => earth.evaluate(element => element.getAnimations().length)).toBe(1);
-  // Mobile uses a smaller amplitude and the same duration, with no scale or spinning.
-  expect(await earth.evaluate(element => getComputedStyle(element).animationName)).toContain('earthOrbitMobile');
+  // Shared SVG coordinates retain the same cycle with smaller physical travel on mobile.
+  expect(await earth.evaluate(element => getComputedStyle(element).animationName)).toContain('earthSurfaceRotation');
 });
 
 test('connector signals are finite illustrative accents', async ({ page }) => {

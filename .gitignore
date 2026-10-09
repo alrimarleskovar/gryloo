@@ -77,6 +77,7 @@ web_modules/
 # Next.js build output
 .next
 .next-motion
+.next-docs
 out
 
 # Nuxt.js build / generate output

@@ -6,7 +6,8 @@ const config: NextConfig = {
   poweredByHeader: false,
   images: { unoptimized: true },
   // Optional isolated preview output: keep the owner's existing .next/dev server running.
-  distDir: process.env.FLOFI_MOTION_PREVIEW === 'true' ? '.next-motion' : '.next',
+  distDir: process.env.FLOFI_DOCS_PREVIEW === 'true' ? '.next-docs' : process.env.FLOFI_MOTION_PREVIEW === 'true' ? '.next-motion' : '.next',
+  ...(process.env.FLOFI_DOCS_PREVIEW === 'true' ? { typescript: { tsconfigPath: 'tsconfig.docs-preview.json' } } : {}),
   // BUILD-CLOUD-PARITY-001: committed, read-only replay fixtures read at runtime (`FLOFI_COPILOT=replay`, recorded Base observation
   // replay) ship with the serverless functions, so those modes behave on a Vercel deployment as they do locally.
   outputFileTracingIncludes: {
