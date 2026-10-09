@@ -10,23 +10,18 @@ import styles from './mascot-motion.module.css';
 const enabled = process.env.NEXT_PUBLIC_FLOFI_MASCOT_MOTION === 'true';
 const introKey = 'flofi-alive-intro-v1';
 const text = {
-  en: { skip: 'Skip intro', compose: 'Compose', simulate: 'Simulate', review: 'Review', authorize: 'You authorize', execute: 'Execute', note: 'Your wallet. Your authorization.' },
-  pt: { skip: 'Pular introdução', compose: 'Compor', simulate: 'Simular', review: 'Revisar', authorize: 'Você autoriza', execute: 'Executar', note: 'Sua carteira. Sua autorização.' },
+  en: { skip: 'Skip intro' },
+  pt: { skip: 'Pular introdução' },
 };
 
 type Scene = 'hero' | 'swap' | 'bridge' | 'lending' | 'automate' | 'multichain' | 'networks' | 'workflow' | 'review' | 'infrastructure' | 'cta';
 
 /** Space is reserved in the first render, so enabling motion never shifts content on hydration. */
-export function MascotDock({ scene, compact = false, white = false, locale = 'en' }: { scene: Scene; compact?: boolean; white?: boolean; locale?: LandingLocale }) {
+export function MascotDock({ scene, compact = false, white = false, local = false }: { scene: Scene; compact?: boolean; white?: boolean; local?: boolean; locale?: LandingLocale }) {
   if (!enabled) return null;
-  const t = text[locale];
-  return <div className={`${styles.dock} ${compact ? styles.compact : ''} ${scene === 'hero' ? styles.hero : ''} ${white ? styles.dark : ''}`} data-mascot-dock={scene}>
+  return <div className={`${styles.dock} ${compact ? styles.compact : ''} ${scene === 'hero' ? styles.hero : ''} ${white ? styles.dark : ''} ${local ? styles.local : ''}`} data-mascot-dock={scene} data-mascot-local={local || undefined}>
     <div className={styles.perch} data-mascot-perch><FloFiMascot white={white}/></div>
     <span className={styles.orbit} aria-hidden="true"><i/><i/><i/></span>
-    {scene === 'workflow' && !compact && <div className={styles.workflowGuide}>
-      <ol aria-label={locale === 'pt' ? 'Etapas com autorização explícita' : 'Steps with explicit authorization'}>{(['compose', 'simulate', 'review', 'authorize', 'execute'] as const).map((step, index) => <li key={step} data-mascot-step={index}><span aria-hidden="true">{step === 'authorize' ? '◇' : '·'}</span>{t[step]}</li>)}</ol>
-      <small>{t.note}</small>
-    </div>}
   </div>;
 }
 
@@ -64,7 +59,7 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
     }
 
     root.dataset.alive = 'running';
-    const docks = [...root.querySelectorAll<HTMLElement>('[data-mascot-dock]')];
+    const docks = [...root.querySelectorAll<HTMLElement>('[data-mascot-dock]:not([data-mascot-local])')];
     const mobile = window.matchMedia('(max-width: 760px)');
     const pointer = window.matchMedia('(hover: hover) and (pointer: fine)');
     const visible = new Set<HTMLElement>();
@@ -76,7 +71,6 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
     let introducing = false;
     let introFinished = false;
     let lastReaction = 0;
-    let lastStage = -1;
     let position = { x: 0, y: 0 };
     let movement: Animation | null = null;
     let sequence: Animation | null = null;
@@ -179,35 +173,10 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
       } else if (scene === 'cta') { react('celebrate', true); pulse(section?.querySelector<HTMLElement>('[data-mascot-cta]') ?? null, true); }
       else react('jump', true);
     };
-    const workflow = (dock: HTMLElement) => {
-      if (dock.dataset.mascotDock !== 'workflow') return;
-      const section = dock.closest('section')!;
-      const desktopStage = Number(section.dataset.storyStage ?? 0);
-      const mobileStages = [...section.querySelectorAll<HTMLElement>('[data-story-mobile-stage]')];
-      const focused = mobile.matches ? mobileStages.findIndex(item => {
-        const rect = item.getBoundingClientRect();
-        return rect.top < window.innerHeight * .65 && rect.bottom > window.innerHeight * .25;
-      }) : desktopStage;
-      const stage = Math.max(0, focused);
-      if (stage === lastStage) return;
-      lastStage = stage;
-      dock.querySelectorAll<HTMLElement>('[data-mascot-step]').forEach((step, i) => { step.dataset.lit = String(i === stage); });
-      // The user-authorization pause is explicit; celebrate the explanation only, never an execution result.
-      react(stage === 3 ? 'look' : stage === 4 ? 'celebrate' : 'jump', true);
-      const strategy = section.querySelector<HTMLElement>('[data-story-panel="Strategy"]');
-      if (stage === 1 && strategy) animate(strategy, [{ translate: '0 0' }, { translate: '5px 0', offset: .4 }, { translate: '0 0' }], 700);
-    };
     const update = () => {
       frame = 0;
       if (document.hidden || introducing) return;
       const candidates = [...visible].filter(dock => dock.getBoundingClientRect().width > 0);
-      // Keep guiding the sticky desktop story and the complete mobile timeline while their dock scrolls away.
-      const story = root.querySelector<HTMLElement>('#workflow');
-      const storyBox = story?.getBoundingClientRect();
-      if (storyBox && storyBox.top < window.innerHeight * .4 && storyBox.bottom > window.innerHeight * .65) {
-        const storyDock = docks.find(dock => dock.dataset.mascotDock === 'workflow' && dock.getBoundingClientRect().width > 0);
-        if (storyDock && !candidates.includes(storyDock)) candidates.push(storyDock);
-      }
       let best = candidates.sort((a, b) => Math.abs(a.getBoundingClientRect().top - window.innerHeight * .35) - Math.abs(b.getBoundingClientRect().top - window.innerHeight * .35))[0];
       if (!best) { traveler.style.visibility = 'hidden'; return; }
       const peers = best.closest('#scenarios') && !mobile.matches ? candidates.filter(dock => dock.closest('#scenarios') && Math.abs(dock.getBoundingClientRect().top - best!.getBoundingClientRect().top) < 8).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left) : [];
@@ -240,7 +209,6 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
         place(best, !!previous && !mobile.matches);
         if (!movement) sectionReaction(best);
       } else if (!movement) place(best, false);
-      workflow(best);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
     const observer = new IntersectionObserver(entries => {
@@ -248,11 +216,6 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
       schedule();
     }, { rootMargin: '-5% 0px -15% 0px', threshold: 0 });
     docks.forEach(dock => observer.observe(dock));
-    // The existing story commits its discrete stage after its own scroll frame.
-    // Observe that commit instead of racing React or rendering on every scroll.
-    const stageObserver = new MutationObserver(schedule);
-    const storySection = root.querySelector('#workflow');
-    if (storySection) stageObserver.observe(storySection, { attributes: true, attributeFilter: ['data-story-stage'] });
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
     root.addEventListener('animationend', schedule);
@@ -264,7 +227,7 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
     document.addEventListener('visibilitychange', visibility);
 
     // Deliberate local pointer responses, never global cursor chasing. Touch devices use scroll choreography.
-    root.querySelectorAll<HTMLElement>('article, [data-mascot-cta], [data-mascot-dock]').forEach(element => {
+    root.querySelectorAll<HTMLElement>('article, [data-mascot-cta], [data-mascot-dock]:not([data-mascot-local])').forEach(element => {
       const enter = () => {
         if (!pointer.matches || !active || introducing) return;
         const cardDock = element.tagName === 'ARTICLE' ? element.querySelector<HTMLElement>('[data-mascot-dock]') : null;
@@ -343,7 +306,6 @@ function JourneyController({ locale }: { locale: LandingLocale }) {
     return () => {
       disposed = true;
       observer.disconnect();
-      stageObserver.disconnect();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(introFrame);
       window.clearTimeout(rowTimer);

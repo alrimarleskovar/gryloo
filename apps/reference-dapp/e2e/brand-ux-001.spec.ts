@@ -150,15 +150,16 @@ for (const width of [320, 375, 390, 430]) {
   });
 }
 
-test('reduced motion exposes every workflow stage without a scroll-driven scene', async ({ page }) => {
+test('reduced motion exposes all three workflow phases without pinning', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[class*="mobileStory"]')).toBeVisible();
-  await expect(page.locator('[class*="storySticky"]')).toBeHidden();
-  await expect(page.locator('[class*="mobileStage"]')).toHaveCount(5);
+  await expect(page.locator('#workflow [data-story-phase]')).toHaveCount(3);
+  for (const card of await page.locator('#workflow [data-story-phase]').all()) {
+    await expect(card).toBeVisible();
+    expect(await card.evaluate(element => getComputedStyle(element).position)).not.toBe('sticky');
+  }
   const animated = await page.locator('main').evaluate(element => [...element.querySelectorAll('*')].filter(item => getComputedStyle(item).animationName !== 'none').length);
   expect(animated).toBe(0);
 });
-
 
 test('desktop workflow showcase uses the actual builder', async ({ page }) => {
   await page.goto('/app');
@@ -170,21 +171,16 @@ test('desktop workflow showcase uses the actual builder', async ({ page }) => {
   if (process.env.FLOFI_BRAND_EVIDENCE) await page.screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-build-1440.png', fullPage: true });
 });
 
-test('desktop scroll story presents each stage with normal motion', async ({ page }) => {
+test('desktop three-step story is readable together and scrolls naturally', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
   const story = page.locator('#workflow');
-  await expect(story.locator('[class*="storySticky"]')).toBeVisible();
-  await expect(story.locator('[class*="mobileStory"]')).toBeHidden();
-  const titles = await story.locator('[class*="storyPanels"] h3').allTextContents();
-  expect(titles).toHaveLength(5);
-  for (let index = 0; index < titles.length; index++) {
-    await story.evaluate((element, stage) => {
-      const rect = element.getBoundingClientRect();
-      window.scrollTo(0, scrollY + rect.top + (rect.height - innerHeight) * ((stage + .5) / 5));
-    }, index);
-    await expect(story.locator('[aria-hidden="false"] h3')).toHaveText(titles[index]!);
-  }
+  const cards = story.locator('[data-story-phase]');
+  expect(await cards.evaluateAll(items => items.map(item => item.getAttribute('data-story-phase')))).toEqual(['Build', 'Review', 'Execute']);
+  for (const card of await cards.all()) await expect(card).toBeVisible();
+  expect((await story.boundingBox())!.height).toBeLessThan(1100);
+  await page.locator('#review').scrollIntoViewIfNeeded();
+  await expect(page.locator('#review')).toBeInViewport();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await connectedInfrastructure(page);

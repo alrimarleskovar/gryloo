@@ -124,15 +124,15 @@ test('pointer reactions, explicit workflow authorization without a pause control
   await swap.hover();
   await expect(page.locator('[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-state', 'look');
   const story = page.locator('#workflow');
-  const box = (await story.boundingBox())!;
-  const y = await page.evaluate(() => scrollY);
-  for (const [index, progress] of [0, .23, .43, .63, .83].entries()) {
-    await page.evaluate(({ top, travel, progress }) => scrollTo(0, top + travel * progress), { top: y + box.y, travel: box.height - 900, progress });
-    await expect(story).toHaveAttribute('data-story-stage', String(index));
-    await expect(story.locator('[data-mascot-step]').nth(index)).toHaveAttribute('data-lit', 'true');
+  await story.scrollIntoViewIfNeeded();
+  await expect(story.locator('[data-story-phase]')).toHaveCount(3);
+  for (const card of await story.locator('[data-story-phase]').all()) {
+    await expect(card).toHaveAttribute('data-story-seen', 'true');
+    await expect(card.locator('[data-mascot-local] [data-mascot-character]')).toBeVisible();
   }
-  await expect(story.locator('[data-mascot-step="3"]')).toContainText('You authorize');
-  await expect(story).toContainText('Your wallet. Your authorization.');
+  await expect(story).toContainText('Your explicit approval');
+  await expect(story).toContainText('Your wallet signature');
+  await expect.poll(() => story.locator('[data-mascot-body]').evaluateAll(items => items.every(item => item.getAnimations().every(animation => animation.playState === 'finished')))).toBe(true);
   await page.evaluate(() => scrollTo(0, 0));
   await expect(page.getByRole('button', { name: /pause motion|resume motion|pausar animações|retomar animações/i })).toHaveCount(0);
   await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'running');
@@ -147,7 +147,7 @@ test('reduced motion, live preference changes and PT presentation', async ({ pag
   await expect(page.getByRole('button', { name: 'Skip intro', exact: true })).toHaveCount(0);
   expect(await page.locator('[data-mascot-body], [data-mascot-shadow]').evaluateAll(items => items.reduce((count, item) => count + item.getAnimations().length, 0))).toBe(0);
   await page.getByRole('button', { name: 'PT', exact: true }).click();
-  await expect(page.locator('#workflow')).toContainText('Você autoriza');
+  await expect(page.locator('#workflow')).toContainText('Sua aprovação explícita');
   await expect(page.locator('main')).not.toContainText(/devnet|testnet|mock|sandbox|synthetic/i);
   await overflow(page);
   if (process.env.FLOFI_MOTION_EVIDENCE) await page.screenshot({ path: `${evidence}/reduced-motion-1440.png` });
@@ -180,8 +180,11 @@ test('scroll skips intro, keyboard controls and mobile workflow stay usable', as
   await page.evaluate(() => scrollTo(0, 500));
   await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-intro', 'complete');
   await expect(page.getByRole('button', { name: 'Skip intro', exact: true })).toHaveCount(0);
-  for (let index = 0; index < 5; index++) {
-    const dock = await activeScene(page, 'workflow', index);
+  for (let index = 0; index < 3; index++) {
+    const card = page.locator('#workflow [data-story-phase]').nth(index);
+    await card.scrollIntoViewIfNeeded();
+    await expect(card).toHaveAttribute('data-story-seen', 'true');
+    const dock = card.locator('[data-mascot-local]');
     await expect(dock.locator('[data-mascot-character]')).toBeVisible();
     await overflow(page);
   }

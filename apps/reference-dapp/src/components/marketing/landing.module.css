@@ -123,66 +123,56 @@
 .stageActive .stageDot { color: #fff; background: #2343D9; }
 .stageComplete .stageDot { color: #2343D9; background: #E9EDFD; }
 
-.workflowStory { position: relative; height: 400vh; background: linear-gradient(180deg, #F5F8FB 0%, #fff 15%, #fff 82%, #F5F8FB 100%); }
-.storySticky { position: sticky; top: 0; display: flex; align-items: center; min-height: 100vh; }
-.storyGrid { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); align-items: center; gap: clamp(35px, 5vw, 75px); }
-.storyCopy h2, .mobileStory h2 { margin: 20px 0 24px; font-size: clamp(46px, 4.7vw, 72px); letter-spacing: -.065em; line-height: 1.06; }
-.storyCopy > p:not(.kicker), .mobileStory > .container > p:not(.kicker) { max-width: 480px; color: var(--muted); font-size: 19px; line-height: 1.55; }
-.storySteps { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 44px 0 55px; list-style: none; color: #72849b; font-size: 15px; }
-.storySteps li { padding: 7px 10px; border-radius: 99px; }
-.storySteps li:not(:last-child)::after { content: '·'; margin-left: 14px; color: #9eafbd; }
-.storySteps .storyStepCurrent { color: #2343D9; background: #E9EDFD; font-weight: 600; }
-.storySteps li { transition: background-color .35s ease, color .35s ease; }
-.scrollCue { color: var(--muted); font-size: 13px; }
-.scrollCue span { display: inline-block; margin-left: 6px; }
-.storyScene { position: relative; padding: 22px 18px 26px 10px; perspective: 1600px; isolation: isolate; }
-.storyScene::before { content: ''; position: absolute; z-index: -2; inset: 5% -7%; background: radial-gradient(ellipse, rgba(35,67,217,.19), transparent 68%); filter: blur(25px); pointer-events: none; }
-.storySceneBack { position: absolute; z-index: -1; inset: 30px 8px 24px 34px; border: 1px solid #E9EDFD; border-radius: 28px; background: linear-gradient(135deg, rgba(255,255,255,.83), rgba(35,67,217,.7)); box-shadow: 0 24px 70px rgba(25,114,141,.09); transform: rotate(-2deg) translateY(10px); }
-.storyFrame { position: relative; min-height: 515px; padding: 0 24px 25px; border: 1px solid var(--line); border-radius: 25px; background: #fff; box-shadow: 0 35px 78px rgba(28,88,109,.16); overflow: hidden; transform: perspective(1500px) rotateY(calc(-3deg + var(--tilt-x, 0deg))) rotateX(calc(1deg + var(--tilt-y, 0deg))) rotateZ(.5deg); transition: transform .38s cubic-bezier(.22,1,.36,1); }
-.storyFrameTop { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; min-height: 68px; border-bottom: 1px solid var(--line); font-size: 13px; }
-.storyFrameTop strong { display: inline-flex; align-items: center; gap: 2px; font-size: 20px; letter-spacing: -.06em; }
-.storyFrameTop > span { justify-self: end; color: var(--muted); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
-.storyFrameTabs { display: flex; align-items: center; gap: 17px; align-self: stretch; color: #8a9aab; font-size: 11px; }
-.storyFrameTabs span { display: grid; place-items: center; border-bottom: 2px solid transparent; }
-.storyFrameTabs span:first-child { color: var(--navy); border-color: var(--aqua); font-weight: 600; }
-.storyPrompt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 54px; margin: 22px 0; padding: 9px 15px; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 18px rgba(28,88,109,.05); font-size: 13px; }
-.storyPrompt span { color: #2343D9; font-size: 20px; }
-.storyFrameBody { display: grid; grid-template-columns: 105px 1fr; gap: 20px; }
-.storyFrameStages { display: grid; gap: 20px; align-content: start; margin: 0; padding: 6px 0; list-style: none; }
-.storyFrameStages li { display: flex; gap: 9px; align-items: center; color: #8a9aab; font-size: 11px; }
-.storyFrameStages li span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: #E9EDFD; font-size: 10px; font-weight: 600; }
-.storyFrameStages .storyFrameCurrent { color: #2343D9; font-weight: 600; }
-.storyFrameCurrent span { background: #E9EDFD !important; color: #2343D9; }
-.storyFrameComplete span { background: #E9EDFD !important; color: #2343D9; }
-.storyPanels { position: relative; min-height: 390px; overflow: hidden; }
-.storyPanel, .storyPanelActive { position: absolute; inset: 0; padding: 4px 0; transition: opacity .32s ease, transform .32s ease; }
-.storyPanel { opacity: 0; transform: translateY(12px); visibility: hidden; }
-.storyPanelActive { opacity: 1; transform: translateY(0); visibility: visible; }
-.storyPanels h3 { margin: 8px 0 5px; font-size: 29px; letter-spacing: -.05em; line-height: 1.1; }
-.storyPanels p { color: var(--muted); font-size: 13px; line-height: 1.45; margin-bottom: 17px; }
-.storyFacts { display: grid; border: 1px solid var(--line); border-radius: 12px; padding: 7px 13px; }
-.storyFacts > div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; font-size: 11px; }
-.storyFacts > div + div { border-top: 1px solid var(--line); }
-.storyFacts span { color: var(--muted); }
-.storyFacts strong { max-width: 58%; text-align: right; }
-.storyStageDetail { min-height: 68px; margin-top: 12px; padding: 11px 13px; border: 1px solid #E9EDFD; border-radius: 11px; background: linear-gradient(135deg, #F5F8FB, #F5F8FB); }
-.storyDetailLabel { display: block; margin-bottom: 8px; color: #2343D9; font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.storyDetailRow { display: flex; align-items: center; gap: 11px; font-size: 11px; }
-.storyDetailRow > div { display: grid; gap: 2px; flex: 1; }
-.storyDetailRow small { margin: 0; color: var(--muted); font-size: 10px; }
-.storyDetailGlyph { display: grid; place-items: center; width: 29px; height: 29px; flex: none; border-radius: 8px; background: #E9EDFD; color: #2343D9; font-weight: 600; }
-.storyDetailGlyph:has(img) { border-radius: 50%; background: radial-gradient(circle at 30% 20%, #263450, #0a1426 76%); }
-.storyDetailPills { display: flex; gap: 7px; flex-wrap: wrap; }
-.storyDetailPills span { padding: 5px 9px; border: 1px solid #E9EDFD; border-radius: 999px; background: #fff; color: #2343D9; font-size: 10px; font-weight: 600; }
-.storyPanel > small, .storyPanelActive > small { display: block; margin-top: 13px; color: #2343D9; font-size: 11px; }
-.mobileStory { display: none; }
-.mobileQualifier { display: inline-block; margin: 0 0 24px; padding: 7px 12px; border: 1px solid #E9EDFD; border-radius: 999px; color: #2343D9; background: #F5F8FB; font-size: 11px; }
-.mobileStage { position: relative; margin-left: 12px; padding: 18px 0 31px 25px; border-left: 1px solid #E9EDFD; }
-.mobileStage::before { content: ''; position: absolute; top: 22px; left: -6px; width: 11px; height: 11px; border: 2px solid #fff; border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 1px #E9EDFD; }
-.mobileStage > span { color: var(--aqua-dark); font-size: 12px; font-weight: 600; letter-spacing: .12em; }
-.mobileStage h3 { margin: 8px 0; font-size: 24px; letter-spacing: -.04em; }
-.mobileStage p { color: var(--muted); font-size: 15px; }
-.mobileStage .storyStageDetail { margin-top: 14px; }
+.workflowStory { position: relative; padding: 112px 0; background: linear-gradient(180deg, #F5F8FB, #fff 35%, #F5F8FB); }
+.workflowHeading { max-width: 780px; margin-bottom: 48px; }
+.workflowHeading h2 { margin: 20px 0; font-size: clamp(42px, 4.7vw, 68px); letter-spacing: -.055em; line-height: 1.08; }
+.workflowHeading h2 span { color: #2343D9; }
+.workflowHeading > p:last-child { color: var(--muted); font-size: 19px; line-height: 1.55; }
+.workflowCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 0; margin: 0; list-style: none; }
+.workflowCard { display: flex; flex-direction: column; min-width: 0; padding: 26px; border: 1px solid #D9E2EC; border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(4,27,61,.035); }
+.workflowCardTop { display: flex; align-items: center; justify-content: space-between; min-height: 54px; gap: 12px; margin-bottom: 18px; }
+.workflowStep { display: inline-flex; align-items: center; gap: 10px; font: 500 11px var(--font-ibm-plex-mono), monospace; letter-spacing: .08em; color: #2343D9; }
+.workflowStep small { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #D9E2EC; border-radius: 9px; font: inherit; color: #4B5B73; }
+.workflowIntro h3 { margin: 0 0 12px; font-size: clamp(24px, 2.05vw, 30px); letter-spacing: -.04em; line-height: 1.15; }
+.workflowIntro > p { margin: 0; color: #4B5B73; font-size: 16px; line-height: 1.5; }
+.workflowVisual { display: flex; flex-direction: column; justify-content: center; min-height: 224px; margin-top: 26px; padding: 18px; border: 1px solid #E9EDFD; border-radius: 16px; background: #F5F8FB; }
+.workflowInputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.workflowInputs > span { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; padding: 10px 3px; border: 1px solid #D9E2EC; border-radius: 8px; background: #fff; font-size: 10px; font-weight: 500; }
+.workflowInputs i { color: #2343D9; font: 500 10px var(--font-ibm-plex-mono), monospace; }
+.workflowMerge { height: 30px; color: #93A6FF; }
+.workflowMerge svg { display: block; width: 100%; height: 100%; }
+.workflowModel { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 8px; border: 1px solid #C9D2F8; border-radius: 10px; background: #fff; font-size: 12px; }
+.workflowVisualTitle { display: flex; align-items: center; gap: 10px; color: #041B3D; font-size: 14px; }
+.workflowVisualTitle svg, .workflowSignature svg { flex: none; color: #2343D9; }
+.workflowChecks { display: grid; gap: 10px; margin: 20px 0; color: #4B5B73; font-size: 12px; }
+.workflowChecks span { display: flex; gap: 10px; align-items: center; }
+.workflowChecks i { color: #2343D9; font-style: normal; }
+.workflowApproval { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 5px; border: 1px solid #C9D2F8; border-radius: 8px; background: #E9EDFD; color: #2343D9; font-size: 12px; font-weight: 500; }
+.workflowSignature { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #C9D2F8; border-radius: 10px; background: #fff; font-size: 12px; }
+.workflowFollow { display: grid; grid-template-columns: 22px 1fr; gap: 5px 10px; align-items: center; margin: 20px 12px 12px; font-size: 12px; }
+.workflowFollow svg { color: #2343D9; }
+.workflowFollow > span:last-child { grid-column: 1 / -1; text-align: center; color: #93A6FF; }
+.workflowExecution > p { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 12px; border-top: 1px solid #D9E2EC; color: #4B5B73; font-size: 11px; line-height: 1.4; }
+.workflowFootnote { margin: auto 0 0; padding-top: 22px; color: #4B5B73; font-size: 12px; line-height: 1.5; }
+@media (min-width: 1024px) { .workflowIntro { min-height: 164px; } }
+@media (max-width: 1023px) {
+  .workflowCards { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .workflowCard { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); grid-template-areas: 'intro visual' 'foot visual'; column-gap: 28px; }
+  .workflowIntro { grid-area: intro; }
+  .workflowVisual { grid-area: visual; margin: 0; }
+  .workflowFootnote { grid-area: foot; }
+}
+@media (max-width: 599px) {
+  .workflowStory { padding: 76px 0; }
+  .workflowHeading { margin-bottom: 32px; }
+  .workflowHeading > p:last-child { font-size: 17px; }
+  .workflowCard { display: flex; padding: 22px; border-radius: 18px; }
+  .workflowCardTop { margin-bottom: 12px; }
+  .workflowVisual { min-height: 0; margin-top: 24px; padding: 16px; }
+  .workflowIntro h3 { font-size: 27px; }
+  .workflowInputs { gap: 6px; }
+  .workflowFootnote { padding-top: 18px; }
+}
 
 .reviewSection, .developerSection { padding: 136px 0; }
 .reviewSection { background: linear-gradient(165deg, #F5F8FB, #fff 62%); }
@@ -321,10 +311,6 @@
   .headerInner { gap: 15px; }
   .headerActions { gap: 9px; }
   .siteHeader nav { gap: 15px; font-size: 12px; }
-  .storyGrid { gap: 30px; }
-  .storyScene { padding-inline: 6px; }
-  .storyFrame { padding-inline: 16px; }
-  .storyFrameBody { grid-template-columns: 90px 1fr; gap: 10px; }
   .splitGrid, .reviewSection .splitGrid { gap: 42px; }
   .diagramSource { padding-left: 10px; gap: 9px; font-size: 13px; }
   .diagramSourceIcon { width: 34px; height: 34px; }
@@ -355,10 +341,6 @@
   .heroPreviewMain { display: block; min-height: 258px; }
   .heroCanvas, .heroAssistantHeading { display: none; }
   .heroPreviewContent { padding: 26px 20px; }
-  .workflowStory { height: auto; }
-  .storySticky { display: none; }
-  .mobileStory { display: block; padding: 88px 0; }
-  .mobileStory > .container > p:not(.kicker) { margin-bottom: 30px; }
   .reviewSection, .developerSection { padding: 88px 0; }
   .splitGrid, .reviewSection .splitGrid, .closingGrid { grid-template-columns: 1fr; }
   .reviewSection .reviewPreview { order: 2; }
@@ -459,10 +441,9 @@
   .earthSurface { animation: none; opacity: 0; }
   .earthLighting { animation: none; opacity: 0; }
   .earthAtmosphere { animation: none; }
-  .storyPanel, .storyPanelActive, .storyFrame, .heroPreview, .reviewPreview { transition: none; }
+  .heroPreview, .reviewPreview { transition: none; }
   .heroStageAura { transition: none; }
   .heroPreview { transform: none; }
-  .storyFrame { transform: none; }
   .reviewPreview { transform: none; }
   .headerCta:hover, .primaryButton:hover, .secondaryButton:hover, .darkSecondaryButton:hover { transform: none; }
 }
@@ -476,16 +457,16 @@
 .brand .wordmark, .brandLight .wordmark { width: auto; height: 25px; }
 .productChrome .brand img { width: auto; height: 28px; }
 .productChrome .brand .wordmark { width: auto; height: 21px; }
-.kicker, .previewEyebrow, .storyDetailLabel { font-family: var(--font-ibm-plex-mono), monospace; font-weight: 500; }
+.kicker, .previewEyebrow { font-family: var(--font-ibm-plex-mono), monospace; font-weight: 500; }
 .heroCopy h1 { letter-spacing: -.045em; }
 .heroCopy h1 span { background: none; -webkit-text-fill-color: currentColor; color: var(--brand-primary); }
 .primaryButton { background: var(--brand-primary); color: #fff !important; }
 .primaryButton:hover { background: #1A35B8; }
 .stageActive .stageDot { background: var(--brand-primary); }
 .root .languageSwitch button { min-width: 44px; }
-.root :is(.productQualifier,.storyFrameTop > span,.stageTrack li,.storyFrameStages li,.storyFrameTabs,.productTabs,.reviewProgress) { color: var(--brand-muted); }
+.root :is(.productQualifier,.stageTrack li,.productTabs,.reviewProgress) { color: var(--brand-muted); }
 .closingSection .kicker, .closingGrid h2 span { color: #93A6FF; }
-.root :is(.storyFacts,.reviewCardTitle,.reviewAllocation) { overflow-wrap: anywhere; }
+.root :is(.reviewCardTitle,.reviewAllocation) { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .headerInner, .container { width: calc(100% - 32px); }
   .siteHeader { height: auto; }
@@ -506,9 +487,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
-  .workflowStory { height: auto; }
-  .storySticky { display: none; }
-  .mobileStory { display: block; padding: 72px 0; }
 }
 
 /* Product illustrations use real assets; execution availability is checked in the app. */

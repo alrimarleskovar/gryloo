@@ -22,12 +22,9 @@
 .dark .orbit { border-color: rgba(201,210,248,.3); }
 .dock[data-mascot-dock="cta"] { justify-content: start; padding-left: 36px; }
 .dock[data-mascot-dock="cta"] .orbit { left: 0; }
-.workflowGuide { max-width: 430px; }
-.workflowGuide ol { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; list-style: none; }
-.workflowGuide li { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #4B5B73; padding: 6px 8px; border: 1px solid #D9E2EC; border-radius: 99px; background: #fff; }
-.workflowGuide li[data-mascot-step="3"] { border-color: #2343D9; color: #2343D9; }
-.workflowGuide li[data-lit="true"] { background: #E9EDFD; box-shadow: 0 0 0 2px rgba(147,166,255,.22); }
-.workflowGuide small { display: block; margin-top: 9px; color: #4B5B73; font-size: 10px; }
+.local { min-height: 48px; margin: 0; gap: 0; }
+.local .perch { width: 48px; height: 48px; }
+.local .orbit { display: none; }
 .layer { position: static; }
 .traveler { position: absolute; left: 0; top: 0; z-index: 5; width: 108px; height: 108px; pointer-events: none; visibility: hidden; will-change: transform; }
 .introSkip { position: absolute; top: 94px; right: max(16px, calc((100% - 1280px) / 2)); z-index: 7; display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; max-width: calc(100% - 32px); }
@@ -55,7 +52,6 @@
 @keyframes orbitWake { 0% { opacity: .3; transform: rotate(-8deg) scale(.9); } 45% { opacity: 1; transform: rotate(-8deg) scale(1.06); } 100% { opacity: .65; transform: rotate(-8deg) scale(1); } }
 
 @media (max-width: 1050px) {
-  .workflowGuide { max-width: 310px; }
   .dock { gap: 14px; }
 }
 @media (max-width: 760px) {
@@ -69,9 +65,6 @@
   .traveler { display: none; }
   .introSkip { top: 150px; left: 16px; right: 16px; justify-content: center; }
   .introSkip button { font-size: 10px; min-height: 44px; padding-inline: 10px; }
-  .workflowGuide { max-width: 185px; }
-  .workflowGuide ol { gap: 4px; }
-  .workflowGuide li { font-size: 9px; padding: 4px 6px; }
   :global([data-alive="running"]) .perch .character { visibility: visible; }
   :global([data-alive="running"]) .dock:not([data-active="true"]) .body,
   :global([data-alive="running"]) .dock:not([data-active="true"]) .shadow { animation: none; }
@@ -81,3 +74,13 @@
   .traveler { display: none; }
   .body, .shadow, .orbit { animation: none !important; }
 }
+
+.local.local { min-height: 48px; margin: 0; }
+.local.local .perch { width: 48px; height: 48px; }
+:global([data-alive="running"]) .local .perch .character { visibility: visible; }
+:global([data-alive="running"]) .local.local .body,
+:global([data-alive="running"]) .local.local .shadow { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  :global([data-alive="running"]) :global([data-story-seen="true"]) .local .body { animation: storyHello .75s cubic-bezier(.22,1,.36,1) both; }
+}
+@keyframes storyHello { from { transform: translateY(5px) rotate(-4deg); } to { transform: translateY(0) rotate(0); } }
