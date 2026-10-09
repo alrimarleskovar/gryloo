@@ -24,7 +24,6 @@ jobs:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      FLOFI_CI_ARCHIVE_CACHE: ${{ runner.temp }}/flofi-ci-archives
       PYTHONDONTWRITEBYTECODE: "1"
     # BUILD-CLOUD-001: a disposable PostgreSQL bound to the runner's loopback interface, pinned by digest.
     # Test-only trust authentication; it holds no data beyond the suites' own throwaway databases.
@@ -49,6 +48,7 @@ jobs:
           test -n "${RUNNER_TEMP:-}"
           mkdir -p "$RUNNER_TEMP"
           printf 'TMPDIR=%s\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'FLOFI_CI_ARCHIVE_CACHE=%s/flofi-ci-archives\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           # Diagnostics only: the persistent runner shares RAM with the RAM-backed /tmp tmpfs.
           free -h
           df -h "$RUNNER_TEMP" /tmp

@@ -270,6 +270,14 @@ class FullDependencyGate(unittest.TestCase):
 
 
 class WorkflowInvariants(unittest.TestCase):
+    def test_runner_paths_are_initialized_after_job_dispatch(self):
+        body = (ROOT / '.github/workflows/contracts.yml').read_text()
+        job_env = re.search(r'(?m)^    env:\n((?:      .+\n)+)', body).group(1)
+        # Job env is evaluated before runner assignment; these contexts are
+        # available only in step configuration, not jobs.<job_id>.env.
+        self.assertNotRegex(job_env, r'\$\{\{\s*(?:runner|steps|job|env)\.')
+        self.assertIn('printf \'FLOFI_CI_ARCHIVE_CACHE=%s/flofi-ci-archives\\n\' "$RUNNER_TEMP" >> "$GITHUB_ENV"', body)
+
     def test_concurrency_is_pr_only_and_workflow_specific(self):
         keys = []
         for workflow in ['contracts', 'governance']:

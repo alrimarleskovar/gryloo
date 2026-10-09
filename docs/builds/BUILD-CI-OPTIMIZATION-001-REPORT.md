@@ -213,7 +213,7 @@ ignored cache directory, with no scanner or ignore-rule relaxation.
 
 ## 9. Governance results
 
-On the updated PR #72 baseline: **19 existing governance tests PASS**, **21 new
+On the updated PR #72 baseline: **19 existing governance tests PASS**, **22 new
 CI tests PASS**, safety/secret scanner PASS, screenshot-summary self-test PASS,
 working-tree and implementation-commit whitespace checks PASS. Governance's
 implementation and existing self-tests were not modified. The new CI unittest
@@ -242,6 +242,12 @@ checks, full dependency inventory and integrity/license/age/platform/missing
 metadata failures. A real failing Python assertion exits nonzero and prevents a
 later success marker. Termination records interruption with exit 143. Cleanup
 preserves exit 17. Concurrency scenarios isolate PRs, workflows and pushes.
+
+The first push [37935180748](https://github.com/alrimarleskovar/gryloo/actions/runs/37935180748)
+failed before job execution because `runner.temp` was used in job-level env.
+The cache path is now initialized through `GITHUB_ENV` in the existing runner
+setup step; a new regression test checks context placement. This failure is
+recorded as failure, with no timing or acceptance credit.
 
 Full typecheck, lint, production build, schema drift, units/contracts, PostgreSQL,
 offline compatibility/forks, guarded browser profiles (including PR #72 channel
@@ -286,8 +292,10 @@ ignore them. For cache-only rollback, remove the cache action and
 
 ## 14. Final readiness status
 
-- **Implemented:** focused CI changes, reporting, tests and documentation.
-- **Locally verified:** 40 focused tests, scanner/static/whitespace checks,
+- **Implemented:** focused CI changes, reporting, tests and documentation;
+  delivered as draft [PR #74](https://github.com/alrimarleskovar/gryloo/pull/74),
+  with automatic merging disabled.
+- **Locally verified:** 41 focused tests, scanner/static/whitespace checks,
   updated-main command preservation, live setup and invalid-cache recovery.
 - **CI verified:** pending this branch's updated-main full workflow results.
 - **Benchmark verified:** setup-only samples; full-CI cold/warm/invalidation and
