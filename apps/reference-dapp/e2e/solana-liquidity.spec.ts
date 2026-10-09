@@ -8,7 +8,7 @@ import { devnetControl, installDevnetWallet, resetDevnetHarness } from './solana
 const panel = (page: Page) => page.getByRole('region', { name: 'Solana Devnet liquidity' });
 test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) console.error('Liquidity failure:', await panel(page).locator('pre').textContent().catch(() => 'no panel')); });
 async function authorCanvas(page: Page) {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup').click();
   await page.locator('#liquidity-network').selectOption('SOLANA_DEVNET');
   const form = page.getByRole('form', { name: 'Create Solana Devnet liquidity position' });
@@ -19,7 +19,7 @@ async function authorCanvas(page: Page) {
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 async function authorChat(page: Page) {
-  await page.goto('/');
+  await page.goto('/app');
   await page.locator('#mock-prompt').fill('Add liquidity 0.01 SOL and 0.30 devUSDC ticks -39104 to -36992 on Solana Devnet');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal' }).click();

@@ -48,7 +48,7 @@ async function checkTokenPills(card: Locator) {
 }
 
 for (const action of ['swap', 'bridge'] as const) test(`${action} has quiet editable values and opens settings only explicitly`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   const panel = page.getByRole('region', { name: 'Action inspector' });
@@ -130,7 +130,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} has quiet edit
 });
 
 for (const action of ['swap', 'bridge'] as const) test(`${action} shares one fiat/token display mode across both value boxes without changing amounts`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   await configureCanvasAction(page, '2.5');
   const card = page.locator('.build-flow-surface .composer-card');
@@ -183,7 +183,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} shares one fia
 });
 
 for (const action of ['borrow', 'repay', 'withdraw'] as const) test(`${action} uses Supply's editable zero-based value block and validated Review/Apply`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   const block = card.locator('.composer-amount-box');
@@ -250,7 +250,7 @@ for (const action of ['borrow', 'repay', 'withdraw'] as const) test(`${action} u
 });
 
 test('Supply edits inline with one shared editor value and validates through its existing review/apply path', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
@@ -331,7 +331,7 @@ test('Supply edits inline with one shared editor value and validates through its
 });
 
 test('floating toolbox exposes the existing guarded Delete action alongside every tool', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Undock toolbar', exact: true }).click();
   const toolbox = page.locator('.floating-toolbox');
   const remove = toolbox.getByRole('button', { name: 'Delete', exact: true });
@@ -361,7 +361,7 @@ test('floating toolbox exposes the existing guarded Delete action alongside ever
 });
 
 test('header environment follows wallet changes without rewriting action amounts', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   const header = page.getByRole('banner');
   const environment = header.getByRole('combobox', { name: 'Environment', exact: true });
   await environment.click();
@@ -414,7 +414,7 @@ async function waitForPoolLayout(card: ReturnType<import('@playwright/test').Pag
 }
 
 test('Pool uses two real liquidity asset blocks with the shared display mode and existing position editor', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add pool', exact: true }).click();
   await configureCanvasPool(page);
   const card = page.locator('.build-flow-surface .composer-card');
@@ -534,7 +534,7 @@ test('Pool uses two real liquidity asset blocks with the shared display mode and
 
 
 test('linked Borrow edits use the existing composition command and keep Supply and Swap linkage intact', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const supply = page.locator('.react-flow__node[data-id="lending-supply"] .composer-card');
@@ -564,7 +564,7 @@ test('linked Borrow edits use the existing composition command and keep Supply a
 
 
 test('Pool Tick/Price selector reveals attached right-side price tiles without changing the authored position', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add pool', exact: true }).click();
   await configureCanvasPool(page);
   const card = page.locator('.build-flow-surface .composer-card');
@@ -708,7 +708,7 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
 
 
 test('Pool custom price handles mirror live, share the percentage, and keep unavailable prices unapplied', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add pool', exact: true }).click();
   await configureCanvasPool(page);
   const card = page.locator('.build-flow-surface .composer-card');

@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { composerWalletRequests: string[] }).composerWalletRequests.filter(method => /sign|send/i.test(method)))).toEqual([]);
 });
 async function open(page: Page) {
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible({ timeout: 15000 });
 }
 async function lending(page: Page) {

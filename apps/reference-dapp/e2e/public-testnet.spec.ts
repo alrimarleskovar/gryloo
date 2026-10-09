@@ -2,7 +2,7 @@
 import { test, expect, applyPendingProposal, openSimulationDetails } from './fixtures';
 
 test('public recording remains off in standard browser CI', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create swap proposal' });
   await form.getByLabel('Network').selectOption('BASE_SEPOLIA');
@@ -28,7 +28,7 @@ test('an existing injected session is reused without a new connection prompt', a
       throw new Error('unexpected method ' + method);
     } } });
   });
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByText('EVM Default: 0x1111…1111 · Base Sepolia')).toBeVisible();
   await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create swap proposal' });

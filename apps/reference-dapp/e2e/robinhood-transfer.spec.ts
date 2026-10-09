@@ -6,7 +6,7 @@ import { installTransferWallet, resetTransferHarness, chainBroadcasts, sendReque
 const region = (page: Page) => page.getByRole('region', { name: 'Robinhood Testnet transfer' });
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 async function author(page: Page, options: TransferWalletOptions = {}) {
-  await installTransferWallet(page, options); await page.goto('/');
+  await installTransferWallet(page, options); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
   await form.getByLabel('Transfer amount (test ETH)').fill('0.000001');

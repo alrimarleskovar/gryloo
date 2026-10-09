@@ -38,7 +38,7 @@ for (const theme of ['light', 'dark'] as const) {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (address: string) => { state.copiedAddresses.push(address); } } });
       for (const method of ['create', 'get'] as const) Object.defineProperty(navigator.credentials, method, { configurable: true, value: async () => { state.credentialCalls.push(method); return null; } });
     }, theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     await page.evaluate(() => { (window as unknown as { shellMarker: string }).shellMarker = 'persistent-shell'; });
     const stages = page.getByRole('navigation', { name: 'Workflow stages' });
@@ -67,7 +67,8 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('.workspace-wallet-card')).toContainText('Base Sepolia');
     await expect(page.locator('.workspace-wallet-address code')).toHaveAttribute('title', SUPPLY_OWNER);
     await expect(page.locator('.workspace-wallet-address code')).toHaveCSS('font-family', /IBM Plex Mono/);
-    const copy = page.getByRole('button', { name: 'Copy Browser wallet address' });
+    const walletName = await page.locator('.workspace-wallet-card h3').innerText();
+    const copy = page.getByRole('button', { name: `Copy ${walletName} address`, exact: true });
     await copy.focus(); await copy.press('Enter');
     await expect(copy).toHaveCSS('outline-style', 'solid');
     await expect(page.getByRole('status')).toHaveText('Address copied.');
@@ -109,7 +110,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page).toHaveURL('/app/dashboard');
     await expect(page.getByRole('main', { name: 'Dashboard', exact: true })).toBeVisible();
     await stages.getByRole('button', { name: 'Build', exact: true }).click();
-    await expect(page).toHaveURL('/'); await expect(page.locator('.canvas-empty-mascot')).toBeVisible();
+    await expect(page).toHaveURL('/app'); await expect(page.locator('.canvas-empty-mascot')).toBeVisible();
     expect(errors).toEqual([]);
   });
 
@@ -150,7 +151,7 @@ for (const theme of ['light', 'dark'] as const) {
   test(`${theme} secondary navigation preserves workflow data and stage geometry`, async ({ page }, testInfo) => {
     const errors = watchErrors(page);
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await page.getByRole('button', { name: 'Add supply', exact: true }).click(); await configureCanvasAction(page, '1');
@@ -166,7 +167,7 @@ for (const theme of ['light', 'dark'] as const) {
         measurements[`${width}-${stage}`] = before;
         await navigateWorkspace(page, workspaces[index]!);
         await stages.getByRole('button', { name: stage, exact: true }).click();
-        await expect(page).toHaveURL('/');
+        await expect(page).toHaveURL('/app');
         await expect(stages.getByRole('button', { name: stage, exact: true })).toHaveAttribute('aria-current', 'page');
         await page.evaluate(() => window.scrollTo(0, 0));
         expect(await stageGeometry(page)).toEqual(before);

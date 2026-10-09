@@ -30,7 +30,7 @@ for (const [direction, from, to, amount] of [
   ['WETH_TO_USDC', 'WETH', 'USDC', '0.125'],
 ] as const) {
   test(`${from} to ${to}: actual chat and canvas inputs yield equal semantic hashes`, async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/app');
     await send(page, `swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
     await openProposalReview(page);
     await expect(page.getByRole('dialog', { name: 'Proposed change' })).toContainText(`${from}`);
@@ -52,7 +52,7 @@ for (const [direction, from, to, amount] of [
 }
 
 test('mixed surface edits, dismissal, locks and stale proposals preserve revisions', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await send(page, 'swap 2 USDC to WETH on Base slippage 50 bps');
   await openProposalReview(page);
   await page.getByRole('button', { name: 'Dismiss proposal' }).click();
@@ -100,7 +100,7 @@ test('mixed surface edits, dismissal, locks and stale proposals preserve revisio
 });
 
 test('proposal and blocked review snapshots show unquoted unavailable state', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await send(page, 'swap 0.125 WETH to USDC on Base slippage 301 bps');
   await openProposalReview(page);
   await expect(page.getByRole('dialog', { name: 'Proposed change' })).toContainText('WETH');
@@ -128,7 +128,7 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
 });
 
 test('Base authoring and review fit mobile, tablet and desktop widths', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await createCanvas(page, 'USDC_TO_WETH', '2', '50');
   await selectSwap(page);
   await readWorkflowIr(page);

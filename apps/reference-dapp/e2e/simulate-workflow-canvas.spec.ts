@@ -45,7 +45,7 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { inspectionWalletRequests: string[] }).inspectionWalletRequests.filter(method => /sign|send/i.test(method)))).toEqual([]);
 });
 async function open(page: Page) {
-  await page.goto('/'); await expect(page.locator('.build009-wallet-info')).toBeVisible({ timeout: 15000 });
+  await page.goto('/app'); await expect(page.locator('.build009-wallet-info')).toBeVisible({ timeout: 15000 });
 }
 async function rename(page: Page, name: string) {
   await page.getByRole('button', { name: 'Rename workflow', exact: true }).click();

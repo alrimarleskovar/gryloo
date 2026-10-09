@@ -4,7 +4,7 @@ import { installSupplyWallet } from './supply-fixtures';
 import { openCanvasSettings } from './composer-authoring-fixtures';
 
 for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw'] as const) test(`${action} uses consistent zero replacement, decimal entry and empty-on-blur behavior`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');

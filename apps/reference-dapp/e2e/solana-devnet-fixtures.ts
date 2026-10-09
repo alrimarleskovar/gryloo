@@ -24,7 +24,7 @@ export const installDevnetWallet = (page: Page, wallet: ReturnType<typeof create
   installSolanaWallet(page, wallet, { chains: ['solana:mainnet', 'solana:devnet'], ...behavior });
 export const devnetPanel = (page: Page) => page.getByRole('region', { name: 'Solana Devnet swap' });
 export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
-  await page.goto('/');
+  await page.goto('/app');
   if (via === 'chat') {
     await page.locator('#mock-prompt').fill('Swap 10 test USDC to test SOL on Solana Devnet');
     await page.getByRole('button', { name: 'Send', exact: true }).click();

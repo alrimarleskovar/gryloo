@@ -34,7 +34,7 @@ for (const row of [
   test(`a valid MOCKED ${row.action} simulation preserves its economic review but cannot authorize execution`, async ({ page, networkGuard }) => {
     await resetSupplyHarness(row.options);
     await installSupplyWallet(page, { account: row.owner });
-    await page.goto('/');
+    await page.goto('/app');
     const verb = row.action.toLowerCase();
     await page.getByLabel('Describe your flow').fill(`${verb} ${row.amount} USDC ${row.action === 'Repay' ? 'to' : 'from'} Aave on Base Sepolia`);
     await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -70,7 +70,7 @@ for (const row of [
 test('Ethereum Sepolia WBTC retains the correct chain, asset and amount while MOCKED Review refuses authority', async ({ page, networkGuard }) => {
   await resetSupplyHarness({}, '/ethereum-sepolia');
   await installSupplyWallet(page, { chain: '0xaa36a7', route: '/ethereum-sepolia' });
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByLabel('Describe your flow').fill(`supply 0.001 WBTC to Aave on Ethereum Sepolia beneficiary ${SUPPLY_OWNER}`);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);

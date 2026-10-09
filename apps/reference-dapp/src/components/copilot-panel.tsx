@@ -59,6 +59,6 @@ export function CopilotPanel({ interactive = true }: { interactive?: boolean }) 
         ? <CopilotMessage text={message.text} notes={message.notes} options={message.options} disabled={copilot.busy} onPick={send}/>
         : <p>{message.role === 'you' ? message.text : tr((index === 0 && copilot.enabled && copilotIntro(copilot.mode)) || message.text)}</p>}</div>)}
       {copilot.busy && <div className="message ai" role="status"><small>{tr(copilotLabel('ai', copilot.mode))}</small><p>{tr("Interpreting your message…")}</p></div>}</div>
-    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">{tr("Describe your flow")}</label><div><input id="mock-prompt" disabled={!interactive} value={input} onChange={event => setInput(event.target.value)} placeholder={tr(copilot.enabled ? COPILOT_PLACEHOLDER : 'Action, amount, asset and chain')} maxLength={1024} autoComplete="off"/><button type="submit" disabled={!interactive || copilot.busy}>{tr("Send")}</button></div></form>
+    <form className="chat-form" onSubmit={submit}><label htmlFor="mock-prompt">{tr("Describe your flow")}</label><div><input id="mock-prompt" disabled={!interactive} value={input} onChange={event => setInput(event.target.value)} placeholder={tr(copilot.enabled ? COPILOT_PLACEHOLDER : 'Action, amount, asset and chain')} maxLength={1024} autoComplete="off" enterKeyHint="send"/><button type="submit" disabled={!interactive || copilot.busy}>{tr("Send")}</button></div></form>
   </aside>;
 }

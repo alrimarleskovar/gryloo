@@ -9,7 +9,7 @@ const region = (page: Page) => page.getByRole('region', { name: 'Cross-chain bri
 const stage = (page: Page, name: 'Build' | 'Simulate' | 'Execute') => page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name, exact: true }).click();
 const transactions = (page: Page) => region(page).getByRole('list', { name: 'Base transactions' });
 async function authorByChat(page: Page, text = 'Bridge 10 USDC from Base to Arbitrum', options: { rejectStep?: number } = {}) {
-  await installRouterWallet(page, options); await page.goto('/');
+  await installRouterWallet(page, options); await page.goto('/app');
   await page.locator('#mock-prompt').fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await openProposalReview(page);
@@ -96,7 +96,7 @@ test('a route change after Review clears the authorization, sends nothing and ne
 });
 test('Canvas authoring with an explicit recipient and Across-only routing reaches the same Review path', async ({ page, networkGuard }) => {
   const recipient = '0x6666666666666666666666666666666666666666';
-  await installRouterWallet(page); await page.goto('/');
+  await installRouterWallet(page); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Cross-chain bridge · Base → Arbitrum (Router)', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create cross-chain bridge' });

@@ -1,0 +1,128 @@
+{
+  "region": {
+    "x": [
+      0.74,
+      0.97
+    ],
+    "y": [
+      0.5,
+      0.64
+    ]
+  },
+  "surface": [
+    {
+      "width": 390,
+      "from": 0,
+      "to": 5,
+      "meanAbsoluteRgbDifference": 6.508523592085221,
+      "pixelsChangedByAtLeast2": 0.8963470319634703
+    },
+    {
+      "width": 390,
+      "from": 5,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 6.906341958396753,
+      "pixelsChangedByAtLeast2": 0.9138508371385083
+    },
+    {
+      "width": 390,
+      "from": 0,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 12.441045154743794,
+      "pixelsChangedByAtLeast2": 0.9800608828006089
+    },
+    {
+      "width": 768,
+      "from": 0,
+      "to": 5,
+      "meanAbsoluteRgbDifference": 2.863752913752914,
+      "pixelsChangedByAtLeast2": 0.6488636363636363
+    },
+    {
+      "width": 768,
+      "from": 5,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 4.464073426573435,
+      "pixelsChangedByAtLeast2": 0.9797202797202798
+    },
+    {
+      "width": 768,
+      "from": 0,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 7.006148018648022,
+      "pixelsChangedByAtLeast2": 0.9995629370629371
+    },
+    {
+      "width": 1440,
+      "from": 0,
+      "to": 5,
+      "meanAbsoluteRgbDifference": 3.2629778311191986,
+      "pixelsChangedByAtLeast2": 0.7936100649753756
+    },
+    {
+      "width": 1440,
+      "from": 5,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 4.5922277862848295,
+      "pixelsChangedByAtLeast2": 0.9644911641766337
+    },
+    {
+      "width": 1440,
+      "from": 0,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 7.5914414600835824,
+      "pixelsChangedByAtLeast2": 0.9998344576418491
+    },
+    {
+      "width": 1920,
+      "from": 0,
+      "to": 5,
+      "meanAbsoluteRgbDifference": 3.356280973928061,
+      "pixelsChangedByAtLeast2": 0.7893503555268261
+    },
+    {
+      "width": 1920,
+      "from": 5,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 4.6618095956331,
+      "pixelsChangedByAtLeast2": 0.9609189829778065
+    },
+    {
+      "width": 1920,
+      "from": 0,
+      "to": 10,
+      "meanAbsoluteRgbDifference": 7.736972994325844,
+      "pixelsChangedByAtLeast2": 0.9997306614953674
+    }
+  ],
+  "seams": [
+    {
+      "width": 390,
+      "from": 29990,
+      "to": 30010,
+      "meanAbsoluteRgbDifference": 0.23069507864027883,
+      "pixelsChangedByAtLeast2": 0.0030441400304414
+    },
+    {
+      "width": 390,
+      "from": 59990,
+      "to": 60010,
+      "meanAbsoluteRgbDifference": 0.2382546930492082,
+      "pixelsChangedByAtLeast2": 0.0024353120243531205
+    },
+    {
+      "width": 1440,
+      "from": 29990,
+      "to": 30010,
+      "meanAbsoluteRgbDifference": 0.024955510491246977,
+      "pixelsChangedByAtLeast2": 0
+    },
+    {
+      "width": 1440,
+      "from": 59990,
+      "to": 60010,
+      "meanAbsoluteRgbDifference": 0.027797320972837446,
+      "pixelsChangedByAtLeast2": 0
+    }
+  ]
+}

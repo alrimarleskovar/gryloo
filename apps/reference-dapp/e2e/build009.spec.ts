@@ -25,7 +25,7 @@ test('BUILD-009 passive wallet restoration and read-only quote cannot grant prod
       removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     } });
   }, OWNER);
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByText('EVM Default: 0x1111…1111 · Base (8453)')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __build009WalletTest: { accountRequests: number } }).__build009WalletTest.accountRequests)).toBe(0);
   await page.getByText('Advanced action setup', { exact: true }).click();
@@ -82,7 +82,7 @@ test('BUILD-009 switches back to Base and invalidates quote on chain/account/pro
       removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     } });
   }, OWNER);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → WETH', { exact: true }).click();
   await page.getByLabel('Source amount (USDC)').fill('1');

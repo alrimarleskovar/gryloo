@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => { await installPassiveWallet(page); });
 test.afterEach(async ({ page }) => { await assertPassiveWallet(page); });
 
 test('chat and canvas round-trip through the same semantic revision', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await page.getByLabel('Describe your flow').fill('swap 2 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();

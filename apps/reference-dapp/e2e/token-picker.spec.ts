@@ -5,7 +5,7 @@ import { installSupplyWallet } from './supply-fixtures';
 
 for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw', 'pool']) {
   test(`${action} token pills expand with supported options and preserve amounts and network context`, async ({ page }) => {
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
     const card = page.locator('.build-flow-surface .composer-card');
     await card.getByRole('textbox').first().fill('2.5');
@@ -41,7 +41,7 @@ for (const action of ['swap', 'bridge', 'supply', 'borrow', 'repay', 'withdraw',
 }
 
 test('Swap token selection synchronizes both pills and settings, invalidates review, and applies the selected supported direction', async ({ page }) => {
-  await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/'); await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Mainnet'); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await installSupplyWallet(page, { chain: '0x2105' }); await page.goto('/app'); await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Mainnet'); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   const card = page.locator('.build-flow-surface .composer-card');
   await card.getByRole('textbox').fill('0.25');
   await card.getByRole('button', { name: 'Review amount', exact: true }).click();
@@ -86,7 +86,7 @@ test('Swap token selection synchronizes both pills and settings, invalidates rev
 });
 
 for (const theme of ['Light', 'Dark']) test(`${theme} Advanced Settings has clean hover and accessible keyboard emphasis`, async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await selectSettingsTheme(page, theme);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -105,7 +105,7 @@ for (const theme of ['Light', 'Dark']) test(`${theme} Advanced Settings has clea
 });
 
 test('token panels fit compact and mobile canvases and collapse on outside interaction', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/'); await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet'); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await installSupplyWallet(page); await page.goto('/app'); await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet'); await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   const pill = page.getByRole('button', { name: 'Select source token', exact: true });
   await pill.click();
   const panel = page.getByRole('region', { name: 'Source token picker', exact: true });

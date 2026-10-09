@@ -29,7 +29,7 @@ async function tokenIconsStayInside(surface: Locator) {
 for (const theme of ['Light', 'Dark']) test(`${theme} keeps token icons contained in Pool, Swap, picker and Simulate pills`, async ({ page }) => {
   await installSupplyWallet(page);
   for (const action of ['pool', 'swap'] as const) {
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await selectSettingsTheme(page, theme);
     await page.keyboard.press('Escape');

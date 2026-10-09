@@ -25,7 +25,7 @@ async function expectBlocked(page: Page) {
 }
 
 for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfigured at zero, blocks later stages and accepts only a validated positive amount`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const source = card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
   await expect(source).toHaveValue('0');
@@ -85,7 +85,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
 });
 
 test('clearing an existing amount blocks both later stages without sending zero to the IR, and Cancel restores its value', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '2');
   const original = await readWorkflow(page);
@@ -104,7 +104,7 @@ test('clearing an existing amount blocks both later stages without sending zero 
 });
 
 test('changing the field after reviewing invalidates acceptance, and delete/history restores an incomplete card safely', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add bridge', exact: true }).click();
   const source = card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
   await source.fill('2'); await card(page).getByRole('button', { name: 'Review amount', exact: true }).click();
@@ -129,7 +129,7 @@ test('changing the field after reviewing invalidates acceptance, and delete/hist
 
 
 test('a new isolated Bridge cannot replace an already-configured workflow through amount acceptance', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '2');
   const original = await readWorkflow(page);

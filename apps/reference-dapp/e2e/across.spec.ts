@@ -5,7 +5,7 @@ import { test, expect, applyPendingProposal, openSimulationDetails, installPassi
 // and packages/reference-executor/test/across.test.ts; it is not production authorization.
 test('a direct Across fixture quote never authorizes production Execute or fabricates Evidence', async ({ page }) => {
   await installPassiveWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByLabel('Across amount (USDC)').fill('1');
   await page.getByRole('button', { name: 'Review direct Across bridge' }).click();

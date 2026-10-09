@@ -6,7 +6,7 @@ import {installSupplyWallet,resetSupplyHarness,supplySendCount,supplyHarnessRpc}
 import {withdrawOptions,WITHDRAW_OWNER as owner} from './withdraw-fixtures';
 const region=(page:Page)=>page.getByRole('region',{name:'Aave Withdraw'});
 async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1]={}){
-  await installSupplyWallet(page,{account:owner,...options});await page.goto('/');await page.getByRole('button',{name:'Add withdraw',exact:true}).click();
+  await installSupplyWallet(page,{account:owner,...options});await page.goto('/app');await page.getByRole('button',{name:'Add withdraw',exact:true}).click();
   await configureCanvasAction(page,'0.1');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Withdraw');
   await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Withdraw',exact:true}).click();await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();

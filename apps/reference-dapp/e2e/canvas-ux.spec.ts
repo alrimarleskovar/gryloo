@@ -38,7 +38,7 @@ async function connect(page: Page, source: string, target: string) {
 }
 test('toolbox creates typed actions, selects them, and keeps setup below the canvas', async ({ page }) => {
   for (const action of ['swap', 'bridge', 'pool']) {
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByRole('region', { name: 'Workflow graph' })).toBeVisible();
     await expect(page.getByText('Advanced action setup', { exact: true })).toBeVisible();
     await expect(page.locator('.build-grid .library')).toHaveCount(0);
@@ -53,7 +53,7 @@ test('toolbox creates typed actions, selects them, and keeps setup below the can
   }
 });
 test('dragging updates stored layout, survives editor changes and Build navigation', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const node = await addFromToolbox(page, 'swap');
   const revisionBeforeDrag = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
   const id = await node.getAttribute('data-id');
@@ -78,7 +78,7 @@ test('dragging updates stored layout, survives editor changes and Build navigati
   expect(Number(position.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+, ([^,]+)/)?.[1])).toBeCloseTo(saved.x, 2);
 });
 test('node and edge selection, deletion, text entry and composition guards', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   const second = page.locator('.react-flow__node[data-id="node-002"]');
   await second.locator('.composer-card').click();
@@ -106,7 +106,7 @@ test('node and edge selection, deletion, text entry and composition guards', asy
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
 });
 test('selected action parameters edit shared IR', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   const card = page.locator('.build-flow-surface .composer-card');
   await card.getByRole('textbox', { name: 'Source amount (USDC)' }).fill('2.5');
@@ -120,7 +120,7 @@ test('selected action parameters edit shared IR', async ({ page }) => {
 });
 
 test('toolbox mode is presentation-only and persists across Build navigation', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   const original = await graph.locator('.react-flow__node').count();
   const revisionBeforeSwitch = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
@@ -143,7 +143,7 @@ test('toolbox mode is presentation-only and persists across Build navigation', a
   await expect(page.getByText('Demo mode', { exact: true })).toHaveCount(0);
 });
 test('duplicate selection copies independent swaps in one undoable edit', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   await addFromToolbox(page, 'swap');
   await addFromToolbox(page, 'swap');
@@ -165,7 +165,7 @@ test('duplicate selection copies independent swaps in one undoable edit', async 
 test('floating toolbox keeps a clickable gutter from viewport controls', async ({ page }) => {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByRole('button', { name: 'Undock toolbar' }).click();
     const graph = page.getByRole('region', { name: 'Workflow graph' });
     const toolbox = await graph.locator('.floating-toolbox').boundingBox();
@@ -180,7 +180,7 @@ test('floating toolbox keeps a clickable gutter from viewport controls', async (
 });
 
 test('marquee follows the pointer, stays clipped, and selects exactly the intersecting group', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   await addFromToolbox(page, 'swap');
   await addFromToolbox(page, 'swap');
@@ -226,7 +226,7 @@ test('marquee follows the pointer, stays clipped, and selects exactly the inters
 });
 
 test('drag keeps node mounted and invalid connections leave semantic edges unchanged', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   await addFromToolbox(page, 'swap');
   const node = page.locator('.react-flow__node[data-id="node-003"]');
@@ -248,7 +248,7 @@ test('drag keeps node mounted and invalid connections leave semantic edges uncha
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
 });
 test('text controls guard deletion and approved workflow edges stay protected', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByLabel('Describe your flow').fill('compose supply 1 USDC to Aave then borrow 0.1 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner 0x1111111111111111111111111111111111111111');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);
@@ -283,7 +283,7 @@ test('the first toolbar action waits for initialization and survives preference 
   const shell = page.locator('.app-shell');
   const undock = shell.locator('.toolbox-mode-toggle');
   try {
-    await page.goto('/', { waitUntil: 'commit' });
+    await page.goto('/app', { waitUntil: 'commit' });
     await expect(shell).toHaveAttribute('inert', '');
     await expect(page.getByLabel('Describe your flow')).toBeDisabled();
     await expect(shell.locator('.chat-form button[type="submit"]')).toBeDisabled();
@@ -304,7 +304,7 @@ test('the first toolbar action waits for initialization and survives preference 
 
 test('floating toolbox stays inside a narrow editor without page overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Undock toolbar' }).click();
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
@@ -317,7 +317,7 @@ test('floating toolbox stays inside a narrow editor without page overflow', asyn
 
 
 test('dragging a swap preserves current mocked artifacts', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await addFromToolbox(page, 'swap');
   await page.getByRole('button', { name: 'Simulate', exact: true }).click();
   await openSimulationDetails(page);

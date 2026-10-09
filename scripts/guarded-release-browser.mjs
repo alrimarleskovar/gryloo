@@ -12,7 +12,7 @@ const boundary = 'release-financial-provenance.spec.ts';
 const profiles = phase === 'composition' ? [
   ['composition-provenance', ['release-composition-provenance.spec.ts'], {}],
 ] : [
-  ['default-product', ['base-observation.spec.ts', 'build-roundtrip.spec.ts', 'build009.spec.ts', 'across.spec.ts',
+  ['default-product', ['brand-ux-001.spec.ts', 'base-observation.spec.ts', 'build-roundtrip.spec.ts', 'build009.spec.ts', 'across.spec.ts',
     'canvas-keyboard.spec.ts', 'canvas-ux.spec.ts', 'contextual-proposals.spec.ts', 'cross-chain-liquidity-recovery.spec.ts',
     'cross-chain-liquidity.spec.ts', 'execution-capabilities.spec.ts', 'interface-honesty.spec.ts', 'mock-artifact-chain.spec.ts',
     'network-isolation.spec.ts', 'public-testnet.spec.ts', 'robinhood-network.spec.ts', 'swap-authoring.spec.ts', 'visual-shell.spec.ts', 'credentials.spec.ts'], {}],

@@ -52,7 +52,7 @@ test('review exact owner setup, complete with browser closed, reconcile Safe NFT
       if (final.includes('MINT RECONCILED')) break;
     }
     expect(final).toContain('MINT RECONCILED');
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
     const recovered = page.getByRole('region', { name: 'Mode B swap to liquidity composition' });
     await expect(recovered).toContainText('prior execution was loaded after browser restart');

@@ -8,7 +8,7 @@ if (process.env.GRYLOO_MODE_A_E2E !== 'synthetic') throw new Error('Release fork
 
 for (const direction of ['WETH_TO_USDC', 'USDC_TO_WETH'] as const) {
   test(`${direction}: exact synthetic fork simulation cannot authorize a production wallet request`, async ({ page, fork, testWallet }) => {
-    await page.goto('/');
+    await page.goto('/app');
     await authorSwap(page, direction, direction === 'WETH_TO_USDC' ? '1' : '2500', '100');
     await simulateOnFork(page);
     await expect(forkPanel(page)).toContainText('MOCKED');

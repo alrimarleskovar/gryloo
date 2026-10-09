@@ -15,6 +15,10 @@ import { domainPortuguese } from './pt-domain';
 import { portugueseWallets } from './pt-wallets';
 /** English source messages are stable presentation keys. Technical identifiers never enter this catalog. */
 export const portuguese: Readonly<Record<string, string>> = {
+  'Build workspace navigation': 'Navegação do construtor',
+  'Simulation workspace navigation': 'Navegação do espaço de simulação',
+  'Execution workspace navigation': 'Navegação do espaço de execução',
+  'Canvas': 'Canvas',
   ...productPortuguese,
   ...portugueseWallets,
   ...portugueseCrossChain,

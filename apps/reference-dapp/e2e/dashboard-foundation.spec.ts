@@ -34,7 +34,7 @@ test('Build, Simulate and Execute retain their current workflow through Dashboar
         throw new Error(`Unexpected wallet method: ${method}`);
       }, on() {}, removeListener() {} } });
   });
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   const amount = page.getByRole('textbox', { name: 'Source amount (USDC)', exact: true });

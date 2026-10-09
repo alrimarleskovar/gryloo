@@ -2,7 +2,7 @@
 import { test, expect, applyPendingProposal } from './fixtures';
 
 test('canvas Delete, Backspace, Escape and text-entry guards use semantic IR', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const prompt = page.getByLabel('Describe your flow');
   const addSwap = async () => {
     await prompt.fill('swap 2 USDC to WETH on Base slippage 50 bps');

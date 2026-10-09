@@ -71,7 +71,7 @@ test.beforeEach(async () => { await resetLending(); });
 
 for (const mode of ['legacy', 'eip6963'] as const) {
   test(`${mode}: top bar and lending execution use MetaMask Base Sepolia instead of aggregate Brave`, async ({ page }) => {
-    await install(page, mode); await page.goto('/');
+    await install(page, mode); await page.goto('/app');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
     await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate fees' }).click();
@@ -86,7 +86,7 @@ for (const mode of ['legacy', 'eip6963'] as const) {
   });
 }
 test('connect and network switching use the same EIP-6963 MetaMask provider', async ({ page }) => {
-  await install(page, 'eip6963', true); await page.goto('/'); await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  await install(page, 'eip6963', true); await page.goto('/app'); await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   // The selector is open and no wallet has been asked for accounts yet; Brave is never offered.
   expect((await controls(page)).filter(request => request.method === 'eth_requestAccounts')).toHaveLength(0);
   await expect(page.locator('dialog.wallet-selector').getByRole('button', { name: /Brave/ })).toHaveCount(0);
@@ -102,7 +102,7 @@ test('connect and network switching use the same EIP-6963 MetaMask provider', as
   expect(requests.filter(request => request.method === 'wallet_switchEthereumChain')).toEqual([{ provider: 'MetaMask', method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] }]);
 });
 test('late MetaMask discovery rebinds listeners and ignores the old Brave wallet events', async ({ page }) => {
-  await install(page, 'late'); await page.goto('/');
+  await install(page, 'late'); await page.goto('/app');
   await expect(page.getByText('No compatible wallet. Enable MetaMask or Rabby for this site and refresh; Brave Wallet cannot be used.', { exact: true })).toBeVisible();
   await expect(page.locator('.build009-wallet-info')).toHaveCount(0);
   expect(await controls(page)).toEqual([]);
@@ -116,7 +116,7 @@ test('late MetaMask discovery rebinds listeners and ignores the old Brave wallet
   await expect(page.getByRole('button', { name: 'Connect Wallet', exact: true })).toBeVisible();
 });
 test('without an injected provider, the selector says so truthfully and connects nothing', async ({ page }) => {
-  await page.goto('/'); await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
+  await page.goto('/app'); await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   const selector = page.locator('dialog.wallet-selector[open]');
   await expect(selector.getByRole('status')).toHaveText('No wallet detected in this browser. Install or enable a wallet extension, then refresh.');
   await expect(selector.getByRole('listitem', { name: 'MetaMask on Ethereum, not detected' })).toBeVisible();
@@ -157,7 +157,7 @@ test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.
     announce();
     w.walletProviderTest = { requests };
   }, { owner: LENDING_OWNER });
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Connect Wallet' }).click();
   // Only silent reads may precede the owner's choice; no account request reaches any wallet.
   expect((await controls(page)).filter(request => !['eth_accounts', 'eth_chainId'].includes(request.method))).toEqual([]);

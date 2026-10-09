@@ -45,7 +45,7 @@ test.describe(`MCP route presentation (OAuth ${enabled ? 'enabled' : 'disabled'}
     test(`${path} returns to the existing FloFi workspace`, async ({ page }) => {
       await page.goto(path);
       await page.getByRole('link', { name: 'Go to FloFi', exact: true }).click();
-      await expect(page).toHaveURL(/\/$/);
+      await expect(page).toHaveURL(/\/app$/);
       await expect(stages(page)).toBeVisible();
       await expect(page.locator('.app-shell')).toHaveCount(1);
       await expect(page.locator('.mcp-route-main')).toHaveCount(0);

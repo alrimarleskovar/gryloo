@@ -24,7 +24,7 @@ describe('navigation drawer shell', () => {
     const html = render({ section: 'Simulate' });
     expect(html.match(/class="navigation-row"/g)).toHaveLength(7);
     expect(html).toContain('href="/app/dashboard"');
-    expect(html).toContain('href="/"');
+    expect(html).toContain('href="/app"');
     const labels = [...html.matchAll(/<span>(Dashboard|Build Workflow|Your workflows|Credentials|Agents|Passkeys|Logout)<\/span>/g)].map(match => match[1]);
     expect(labels).toEqual(['Dashboard', 'Build Workflow', 'Your workflows', 'Credentials', 'Agents', 'Passkeys', 'Logout']);
     expect(html).toMatch(/class="navigation-footer"><button[^>]*aria-label="Logout"[^>]*disabled=""/);
@@ -45,7 +45,7 @@ describe('navigation drawer shell', () => {
   it.each([
     { pathname: '/app/dashboard', section: 'Dashboard' as const, href: '/app/dashboard' },
     { pathname: '/app/dashboard/runs/owner-run', section: 'Dashboard' as const, href: '/app/dashboard' },
-    { pathname: '/', section: 'Build' as const, href: '/' },
+    { pathname: '/app', section: 'Build' as const, href: '/app' },
   ])('selects only the existing $section workspace for $pathname', ({ pathname, section, href }) => {
     const html = render({ pathname, section });
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
@@ -53,14 +53,14 @@ describe('navigation drawer shell', () => {
   });
 
   it.each(['Simulate', 'Execute'] as const)('does not select Build Workflow in %s', section => {
-    expect(render({ pathname: '/', section })).not.toContain('aria-current="page"');
+    expect(render({ pathname: '/app', section })).not.toContain('aria-current="page"');
   });
 
   it('enables Logout only when the existing disconnect availability permits it', () => {
     expect(render({ disconnectDisabled: false })).toMatch(/aria-label="Logout"(?! disabled)/);
   });
 
-  it.each(['/', '/app/dashboard', '/app/credentials/unknown', null, undefined])('does not select a secondary workspace for %s', pathname => {
+  it.each(['/app', '/app/dashboard', '/app/credentials/unknown', null, undefined])('does not select a secondary workspace for %s', pathname => {
     expect(secondaryWorkspaceRoute(pathname)).toBeNull();
   });
 });

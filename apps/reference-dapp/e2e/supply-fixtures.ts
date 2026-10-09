@@ -73,7 +73,7 @@ export async function resetSupplyHarness(options:Record<string,unknown>={},route
   await rm(process.env.GRYLOO_SUPPLY_JOURNAL,{recursive:true,force:true});await supplyHarnessRpc('MOCK_reset',[options],route);
 }
 export async function authorSupply(page:Page,amount='10',beneficiary=SUPPLY_OWNER){
-  await page.goto('/');await page.getByRole('button',{name:'Add supply',exact:true}).click();
+  await page.goto('/app');await page.getByRole('button',{name:'Add supply',exact:true}).click();
   const card=page.locator('.build-flow-surface .composer-card.active');
   await card.getByRole('textbox',{name:'Source amount (USDC)',exact:true}).fill(amount);
   await card.getByRole('button',{name:'Review Supply change',exact:true}).click();

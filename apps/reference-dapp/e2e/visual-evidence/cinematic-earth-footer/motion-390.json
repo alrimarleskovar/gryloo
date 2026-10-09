@@ -1,0 +1,39 @@
+{
+  "width": 390,
+  "box": {
+    "x": 0,
+    "y": 480.34375,
+    "width": 390,
+    "height": 520
+  },
+  "measurements": [
+    {
+      "seconds": 0,
+      "clock": 133.36399999923486,
+      "transform": "matrix(1, 0, 0, 1, -124.444, 41.8133)",
+      "opacity": "0.00822411"
+    },
+    {
+      "seconds": 5,
+      "clock": 5166.541999999235,
+      "transform": "matrix(1, 0, 0, 1, -103.473, 34.7668)",
+      "opacity": "0.318603"
+    },
+    {
+      "seconds": 10,
+      "clock": 10216.349999999235,
+      "transform": "matrix(1, 0, 0, 1, -82.4319, 27.6971)",
+      "opacity": "0.630008"
+    }
+  ],
+  "movement": {
+    "distance": 45.12655905439723,
+    "matrix": [
+      1,
+      0,
+      0,
+      1
+    ],
+    "duration": 60000
+  }
+}

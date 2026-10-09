@@ -65,7 +65,7 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
         request: ({ method, params }: { method: string; params?: unknown[] }) => bridge(method, params ?? []),
       }) });
     });
-    await page.goto('/');
+    await page.goto('/app');
     if (evidenceDir) {
       mkdirSync(evidenceDir, { recursive: true });
       await page.getByText('Technical connection details', { exact: true }).click();
@@ -120,7 +120,7 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
       expect((await service.reconcile(executionId)).outcome).toBe('RECONCILED');
     } finally { await vite.close(); }
     const recovered = page;
-    await recovered.goto('/');
+    await recovered.goto('/app');
     await recovered.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
     const after = recovered.getByRole('region', { name: 'Finite Mode B authority' });
     await expect(after).toContainText('RECONCILED');

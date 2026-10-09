@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect, openProposalReview, applyPendingProposal, installPassiveWallet, assertPassiveWallet } from './fixtures';
 
-test.beforeEach(async ({ page }) => { await installPassiveWallet(page, '0x14a34'); await page.goto('/'); });
+test.beforeEach(async ({ page }) => { await installPassiveWallet(page, '0x14a34'); await page.goto('/app'); });
 test.afterEach(async ({ page }) => { await assertPassiveWallet(page); });
 
 test('outside click and Escape close the proposal without applying or dismissing it', async ({ page }) => {
