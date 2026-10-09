@@ -5,6 +5,8 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
+  // Optional isolated preview output: keep the owner's existing .next/dev server running.
+  distDir: process.env.FLOFI_MOTION_PREVIEW === 'true' ? '.next-motion' : '.next',
   // BUILD-CLOUD-PARITY-001: committed, read-only replay fixtures read at runtime (`FLOFI_COPILOT=replay`, recorded Base observation
   // replay) ship with the serverless functions, so those modes behave on a Vercel deployment as they do locally.
   outputFileTracingIncludes: {

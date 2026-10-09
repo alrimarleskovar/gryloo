@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import styles from './landing.module.css';
 import type { LandingCopy } from './landing-copy';
+import { MascotDock } from './mascot-journey';
 
 const marks = {
   BTC: '/brand/crypto/bitcoin.svg', WBTC: '/brand/crypto/wbtc.png',
@@ -36,7 +37,8 @@ export function CryptoScenarios({ t }: { t: LandingCopy }) {
   return <section className={styles.scenariosSection} id="scenarios" aria-labelledby="scenarios-title">
     <div className={styles.container}>
       <div className={styles.scenariosHeading}><div><p className={styles.kicker}>{t.scenariosEyebrow}</p><h2 id="scenarios-title">{t.scenariosTitle}</h2></div><p>{t.scenariosBody}</p></div>
-      <div className={styles.scenariosGrid}>{scenarios.map(scenario => <article key={scenario.title} className={styles.scenarioCard}>
+      <div className={styles.scenariosGrid}>{scenarios.map((scenario, index) => <article key={scenario.title} className={styles.scenarioCard}>
+        <MascotDock scene={(['swap', 'bridge', 'lending', 'automate', 'multichain'] as const)[index]!} compact/>
         <span className={styles.scenarioQualifier}>{scenario.future ? t.futureScenario : t.illustrativeScenario}</span>
         <CryptoFlow assets={scenario.assets}/><h3>{scenario.title}</h3><p>{scenario.body}</p><small>{scenario.context}</small>
       </article>)}</div>

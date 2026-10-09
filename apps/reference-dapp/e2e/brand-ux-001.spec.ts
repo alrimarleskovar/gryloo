@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect, applyPendingProposal } from './fixtures';
+import { assertConnectedFlow } from './connected-flow-assertions';
 
 const widths = [320, 375, 390, 430, 768, 1024, 1440];
 async function noOverflow(page: import('@playwright/test').Page) {
@@ -7,39 +8,10 @@ async function noOverflow(page: import('@playwright/test').Page) {
 }
 
 async function connectedInfrastructure(page: import('@playwright/test').Page) {
-  const diagram = page.locator('[data-flow-diagram]');
+  const diagram = page.locator('[data-flow-diagram="light"]');
   await diagram.scrollIntoViewIfNeeded();
-  await expect(diagram.locator('[data-flow-source] svg')).toHaveCount(3);
-  for (const icon of await diagram.locator('[data-flow-source] svg').all()) await expect(icon).toBeVisible();
-  // Compare rendered path endpoints with the actual ports, including after the
-  // responsive orientation changes. A floating curve fails even if it is visible.
-  const geometry = await diagram.evaluate(root => {
-    const center = (element: Element) => {
-      const box = element.getBoundingClientRect();
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    };
-    const ports = [...root.querySelectorAll('[data-flow-port]')].map(center);
-    const junctions = [...root.querySelectorAll('[data-flow-junction]')].map(center);
-    const anchors = [...ports, ...junctions];
-    const endpoints = [...root.querySelectorAll('svg')]
-      .filter(svg => !svg.closest('[data-flow-source]') && svg.getBoundingClientRect().width > 0)
-      .flatMap(svg => [...svg.querySelectorAll('path')].flatMap(path => {
-        const matrix = path.getScreenCTM()!;
-        return [path.getPointAtLength(0), path.getPointAtLength(path.getTotalLength())]
-          .map(point => new DOMPoint(point.x, point.y).matrixTransform(matrix));
-      }));
-    const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
-    return {
-      pathCount: endpoints.length / 2,
-      maxGap: Math.max(...endpoints.map(endpoint => Math.min(...anchors.map(anchor => distance(endpoint, anchor))))),
-      connectedPorts: ports.map(port => endpoints.some(endpoint => distance(port, endpoint) <= 2)),
-      junctionDegrees: junctions.map(junction => endpoints.filter(endpoint => distance(junction, endpoint) <= 2).length),
-    };
-  });
-  expect(geometry.pathCount).toBe(7);
-  expect(geometry.maxGap).toBeLessThanOrEqual(2);
-  expect(geometry.connectedPorts).toEqual(Array(7).fill(true));
-  expect(geometry.junctionDegrees).toEqual([4, 3]);
+  await assertConnectedFlow(diagram);
+  await assertConnectedFlow(page.locator('[data-flow-diagram="dark"]'), 1);
 }
 
 for (const width of widths) {
@@ -81,9 +53,9 @@ for (const width of widths) {
     await page.keyboard.press('Enter');
     await expect(page.locator('#main')).toBeFocused();
     await connectedInfrastructure(page);
-    await expect(page.locator('[data-flow-diagram]')).toContainText('Onchain protocols');
+    await expect(page.locator('[data-flow-diagram="light"]')).toContainText('Onchain protocols');
     await noOverflow(page);
-    if (process.env.FLOFI_BRAND_EVIDENCE && [320,390,768,1024,1440].includes(width)) await page.locator('[data-flow-diagram]').screenshot({ path: `e2e/visual-evidence/build-brand-ux-001/after-infrastructure-${width}.png` });
+    if (process.env.FLOFI_BRAND_EVIDENCE && [320,390,768,1024,1440].includes(width)) await page.locator('[data-flow-diagram="light"]').screenshot({ path: `e2e/visual-evidence/build-brand-ux-001/after-infrastructure-${width}.png` });
     if (process.env.FLOFI_BRAND_EVIDENCE && [390,1440].includes(width)) await page.screenshot({ path: `e2e/visual-evidence/build-brand-ux-001/after-landing-${width}.png`, fullPage: true });
     if (process.env.FLOFI_BRAND_EVIDENCE && width === 1440) {
       await page.locator('#product').screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-landing-hero-1440.png' });
@@ -98,7 +70,7 @@ for (const width of widths) {
     await expect(page.locator('main')).not.toContainText(/devnet|testnet|sepolia|mock|sandbox|synthetic|fundos de teste/i);
     await expect(page.getByRole('region', { name: 'Redes compatíveis', exact: true })).toContainText('Próxima rede compatível');
     await connectedInfrastructure(page);
-    await expect(page.locator('[data-flow-diagram]')).toContainText('Protocolos onchain');
+    await expect(page.locator('[data-flow-diagram="light"]')).toContainText('Protocolos onchain');
     await page.getByRole('button', { name: 'EN', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Launch FloFi' }).first()).toBeVisible();
     await page.getByRole('link', { name: 'Launch FloFi' }).first().click();

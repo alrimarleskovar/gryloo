@@ -6,9 +6,12 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import styles from './landing.module.css';
 import { LandingMotion } from './landing-motion';
+import { ConnectedFlow } from './connected-flow';
+import { EarthAtmosphere } from './earth-atmosphere';
 import { WorkflowStory } from './workflow-story';
 import { CryptoFlow, CryptoMark, CryptoScenarios } from './crypto-visuals';
 import { SupportedNetworks } from './supported-networks';
+import { MascotDock, MascotJourney } from './mascot-journey';
 import { landingText, type LandingCopy, type LandingLocale } from './landing-copy';
 
 
@@ -70,7 +73,7 @@ function ReviewPreview({ t }: { t: LandingCopy }) {
     <div className={styles.reviewProgress}><span>✓ {t.stageIntent}</span><span>✓ {t.stageStrategy}</span><strong>● {t.stageReview}</strong><span>○ {t.reviewAuthorizeStage}</span><span>○ {t.stageVerify}</span></div>
     <h3>{t.reviewTitle}</h3>
     <p>{t.reviewSubtitle}</p>
-    <div className={styles.reviewCard}>
+    <div className={styles.reviewCard} data-mascot-review>
       <div className={styles.reviewCardTitle}><span className={styles.tokenPair}><CryptoMark name="ETH"/><CryptoMark name="USDC"/></span><div><strong>{t.reviewSwap}</strong><small>Uniswap · Ethereum · {t.illustrativeScenario}</small></div><span className={styles.reviewProtocol}>Uniswap</span></div>
       <div className={styles.reviewAllocation}><span>{t.intentAmount}</span><strong>{t.intentAmountValue}</strong><small>{t.finalAmountHint}</small></div>
       <div className={styles.reviewFacts}>
@@ -97,22 +100,13 @@ function SourceIcon({ source }: { source: 'wallet' | 'app' | 'agent' }) {
 
 function FlowDiagram({ t }: { t: LandingCopy }) {
   const sources = [{ source: 'wallet', label: t.diagramWallet }, { source: 'app', label: t.diagramApp }, { source: 'agent', label: t.diagramAgent }] as const;
-  return <div className={styles.diagram} role="group" aria-label={t.executionInfrastructure} data-flow-diagram>
-    <div className={styles.diagramInputs}>
+  return <ConnectedFlow className={styles.diagram} label={t.executionInfrastructure}>
+    <div className={styles.diagramInputs} data-flow-nodes>
       {sources.map(({ source, label }) => <div className={styles.diagramSource} data-flow-source={source} key={source}>
         <span className={styles.diagramSourceIcon}><SourceIcon source={source}/></span>
-        <span>{label}</span><span className={styles.diagramSourceLine} aria-hidden="true"/>
+        <span>{label}</span>
         <span className={`${styles.diagramPort} ${styles.diagramSourcePort}`} data-flow-port aria-hidden="true"/>
       </div>)}
-    </div>
-    <div className={`${styles.diagramConnector} ${styles.diagramMerge}`} aria-hidden="true">
-      <svg className={styles.diagramHorizontal} viewBox="0 0 96 264" preserveAspectRatio="none">
-        <path d="M0 36 C40 36 24 132 64 132"/><path d="M0 132 H64"/><path d="M0 228 C40 228 24 132 64 132"/><path d="M64 132 H96"/>
-      </svg>
-      <svg className={styles.diagramVertical} viewBox="0 0 300 80" preserveAspectRatio="none">
-        <path d="M50 0 V12 C50 40 150 24 150 52"/><path d="M150 0 V52"/><path d="M250 0 V12 C250 40 150 24 150 52"/><path d="M150 52 V80"/>
-      </svg>
-      <span className={styles.diagramJunction} data-flow-junction/><span className={styles.diagramArrow}/>
     </div>
     <div className={styles.diagramCore} data-flow-core>
       <span className={`${styles.diagramPort} ${styles.diagramCoreInput}`} data-flow-port="input" aria-hidden="true"/>
@@ -120,32 +114,32 @@ function FlowDiagram({ t }: { t: LandingCopy }) {
       <div><span>{t.stageStrategy}</span><span>{t.stageReview}</span><span>{t.diagramAuthorization}</span><span>{t.diagramVerification}</span></div>
       <span className={`${styles.diagramPort} ${styles.diagramCoreOutput}`} data-flow-port="output" aria-hidden="true"/>
     </div>
-    <div className={`${styles.diagramConnector} ${styles.diagramBranch}`} aria-hidden="true">
-      <svg className={styles.diagramHorizontal} viewBox="0 0 96 264" preserveAspectRatio="none">
-        <path d="M0 132 H32"/><path d="M32 132 C56 132 56 84 80 84 H96"/><path d="M32 132 C56 132 56 180 80 180 H96"/>
-      </svg>
-      <svg className={styles.diagramVertical} viewBox="0 0 300 64" preserveAspectRatio="none">
-        <path d="M150 0 V20"/><path d="M150 20 C150 40 75 40 75 48 V64"/><path d="M150 20 C150 40 225 40 225 48 V64"/>
-      </svg>
-      <span className={styles.diagramJunction} data-flow-junction/><span className={styles.diagramArrow}/><span className={styles.diagramArrow}/>
-    </div>
-    <div className={styles.diagramOutputs}>
+    <div className={styles.diagramOutputs} data-flow-nodes>
       <p className={styles.diagramOutputLabel}>{t.diagramProtocols}</p>
       <div className={styles.diagramDestination} data-flow-destination="orca"><span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/><CryptoMark name="SOL"/><span><strong>Orca · Solana</strong><small>{t.illustrativeScenario}</small></span></div>
       <div className={styles.diagramDestination} data-flow-destination="aave"><span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/><CryptoMark name="ETH"/><span><strong>Aave · Ethereum</strong><small>{t.illustrativeScenario}</small></span></div>
       <p className={styles.diagramMore}>{t.more} <small>{t.ecosystemDirection}</small></p>
     </div>
-  </div>;
+  </ConnectedFlow>;
 }
 
 function VisionVisual({ t }: { t: LandingCopy }) {
-  return <div className={styles.visionVisual} aria-label={t.visionEyebrow}>
-    <div className={styles.visionSources}><span>{t.diagramAgent}</span><span>{t.diagramWallet}</span><span>{t.diagramApp}</span></div>
-    <svg aria-hidden="true" viewBox="0 0 90 220" preserveAspectRatio="none"><path d="M0 30 C55 30 35 110 90 110 M0 110 C50 110 40 110 90 110 M0 190 C55 190 35 110 90 110" /></svg>
-    <div className={styles.visionCore}><Image src="/brand/flofi-symbol-dark.svg" alt="" width={55} height={55} /><strong>FloFi</strong><small>{t.executionLayer}</small></div>
-    <svg aria-hidden="true" viewBox="0 0 65 220" preserveAspectRatio="none"><path d="M0 110 C30 110 35 110 65 110" /></svg>
-    <span className={styles.visionDestination}>{t.onchainFinance}</span>
-  </div>;
+  const sources = [{ source: 'agent', label: t.diagramAgent }, { source: 'wallet', label: t.diagramWallet }, { source: 'app', label: t.diagramApp }] as const;
+  return <ConnectedFlow className={styles.visionVisual} label={t.visionEyebrow} variant="dark">
+    <div className={styles.visionSources} data-flow-nodes>{sources.map(({ source, label }) => <div className={styles.visionSource} data-flow-source={source} key={source}>
+      <span className={styles.diagramSourceIcon}><SourceIcon source={source}/></span><span>{label}</span>
+      <span className={`${styles.diagramPort} ${styles.diagramSourcePort}`} data-flow-port aria-hidden="true"/>
+    </div>)}</div>
+    <div className={styles.visionCore} data-flow-core>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreInput}`} data-flow-port="input" aria-hidden="true"/>
+      <Image src="/brand/flofi-symbol-dark.svg" alt="" width={55} height={55}/><strong>FloFi</strong><small>{t.executionLayer}</small>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreOutput}`} data-flow-port="output" aria-hidden="true"/>
+    </div>
+    <div className={styles.visionDestination} data-flow-destination="onchain">
+      <span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/>
+      {t.onchainFinance}
+    </div>
+  </ConnectedFlow>;
 }
 
 export default function LandingPage() {
@@ -170,9 +164,10 @@ export default function LandingPage() {
     try { window.localStorage.setItem('flofi-landing-language', next); } catch { /* Optional preference. */ }
   };
 
-  return <div className={styles.root} lang={locale === 'pt' ? 'pt-BR' : 'en'}>
+  return <div className={styles.root} lang={locale === 'pt' ? 'pt-BR' : 'en'} data-mascot-motion={process.env.NEXT_PUBLIC_FLOFI_MASCOT_MOTION === 'true' ? 'true' : undefined}>
     <LandingMotion />
     <a className={styles.skipLink} href="#main">{t.skip}</a>
+    <MascotJourney locale={locale}/>
     <header className={styles.siteHeader}><div className={styles.headerInner}>
       <a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand /></a>
       <nav aria-label={t.mainNavigation}><a href="#product">{t.navProduct}</a><a href="#networks">{t.navNetworks}</a><a href="#developers">{t.navDevelopers}</a><a href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.navDocs}</a></nav>
@@ -184,8 +179,9 @@ export default function LandingPage() {
         <div className={styles.heroGlow} data-landing-halo aria-hidden="true" />
         <div className={styles.container}>
           <div className={styles.heroCopy}>
+            <MascotDock scene="hero"/>
             <SectionKicker>{t.heroEyebrow}</SectionKicker>
-            <h1>{t.heroTitleFirst}<br />{t.heroTitleSecond} <span>{t.heroTitleAccent}</span></h1>
+            <h1 data-mascot-headline>{t.heroTitleFirst}<br />{t.heroTitleSecond} <span>{t.heroTitleAccent}</span></h1>
             <p>{t.heroBody}</p>
             <div className={styles.heroActions}><a className={styles.primaryButton} href="/app">{t.launch} <Arrow /></a><a className={styles.secondaryButton} href="#developers">{t.buildWith}</a></div>
             <p className={styles.heroFootnote}>{t.heroFootnote}</p>
@@ -197,11 +193,12 @@ export default function LandingPage() {
 
       <CryptoScenarios t={t}/>
       <SupportedNetworks t={t}/>
-      <WorkflowStory t={t} />
+      <WorkflowStory t={t} locale={locale}/>
 
       <section className={styles.reviewSection} id="review" data-landing-reveal><div className={styles.container}><div className={styles.splitGrid}>
         <div className={styles.reviewScene}><span className={styles.reviewGhost} aria-hidden="true" /><ReviewPreview t={t} /></div>
         <div className={styles.sectionCopy}>
+          <MascotDock scene="review"/>
           <SectionKicker>{t.clarityEyebrow}</SectionKicker>
           <h2>{t.clarityTitle}</h2>
           <p>{t.clarityBody}</p>
@@ -212,6 +209,7 @@ export default function LandingPage() {
 
       <section className={styles.developerSection} id="developers" data-landing-reveal><div className={styles.container}>
         <div className={styles.centerHeading}><SectionKicker>{t.buildersEyebrow}</SectionKicker><h2>{t.buildersTitleFirst}<br />{t.buildersTitleSecond}</h2><p>{t.buildersBody}</p></div>
+        <MascotDock scene="infrastructure"/>
         <FlowDiagram t={t} />
         <div className={styles.developerStatement}><strong>{t.oneIntegration}</strong><span>{t.partnerBody}</span></div>
         <div className={styles.developerValues}><div><strong>{t.uxYours}</strong><span>{t.uxYoursBody}</span></div><div><strong>{t.executionStructured}</strong><span>{t.executionStructuredBody}</span></div><div><strong>{t.outcomesInspectable}</strong><span>{t.outcomesInspectableBody}</span></div></div>
@@ -219,8 +217,8 @@ export default function LandingPage() {
         <div id="documentation" className={styles.documentation}><strong>{t.developerDocs}</strong><span>{t.developerDocsBody}</span><a href="/app">{t.openBuilder} <Arrow /></a></div>
       </div></section>
 
-      <section className={styles.closingSection} id="about" data-landing-reveal><div className={styles.horizon} aria-hidden="true" /><div className={styles.container}><div className={styles.closingGrid}>
-        <div><SectionKicker>{t.visionEyebrow}</SectionKicker><h2>{t.visionTitleFirst}<br /><span>{t.visionTitleSecond}</span></h2><p>{t.visionBody}</p><div className={styles.heroActions}><a className={styles.primaryButton} href="/app">{t.launch} <Arrow /></a><a className={styles.darkSecondaryButton} href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.buildWith}</a></div><p className={styles.closingFootnote}>{t.visionFootnote}</p></div>
+      <section className={styles.closingSection} id="about" data-landing-reveal><EarthAtmosphere/><div className={styles.container}><div className={styles.closingGrid}>
+        <div><SectionKicker>{t.visionEyebrow}</SectionKicker><h2>{t.visionTitleFirst}<br /><span>{t.visionTitleSecond}</span></h2><p>{t.visionBody}</p><MascotDock scene="cta" white/><div className={styles.heroActions}><a className={styles.primaryButton} href="/app" data-mascot-cta>{t.launch} <Arrow /></a><a className={styles.darkSecondaryButton} href="https://github.com/alrimarleskovar/gryloo/tree/main/docs/developer">{t.buildWith}</a></div><p className={styles.closingFootnote}>{t.visionFootnote}</p></div>
         <VisionVisual t={t} />
       </div></div></section>
     </main>

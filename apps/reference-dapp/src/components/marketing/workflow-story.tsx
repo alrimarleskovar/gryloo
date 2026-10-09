@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import styles from './landing.module.css';
 import { CryptoFlow, CryptoMark } from './crypto-visuals';
-import type { LandingCopy } from './landing-copy';
+import type { LandingCopy, LandingLocale } from './landing-copy';
+import { MascotDock } from './mascot-journey';
 
 const stages = ['Intent', 'Strategy', 'Review', 'Execute', 'Verify'] as const;
 type Stage = typeof stages[number];
@@ -71,7 +72,7 @@ function StageDetail({ stage, t }: { stage: Stage; t: LandingCopy }) {
   </div>;
 }
 
-export function WorkflowStory({ t }: { t: LandingCopy }) {
+export function WorkflowStory({ t, locale = 'en' }: { t: LandingCopy; locale?: LandingLocale }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const stageContent = getStageContent(t);
@@ -97,9 +98,10 @@ export function WorkflowStory({ t }: { t: LandingCopy }) {
     return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
   }, []);
 
-  return <section className={styles.workflowStory} id="workflow" ref={sectionRef} aria-label={t.storyEyebrow}>
+  return <section className={styles.workflowStory} id="workflow" ref={sectionRef} aria-label={t.storyEyebrow} data-story-stage={activeIndex}>
     <div className={styles.storySticky}><div className={styles.container}><div className={styles.storyGrid}>
       <div className={styles.storyCopy}>
+        <MascotDock scene="workflow" locale={locale}/>
         <p className={styles.kicker}>{t.storyEyebrow}</p>
         <h2>{t.storyTitleFirst}<br />{t.storyTitleSecond}</h2>
         <p>{t.storyBody}</p>
@@ -115,7 +117,7 @@ export function WorkflowStory({ t }: { t: LandingCopy }) {
           <ol className={styles.storyFrameStages}>{stages.map((stage, index) => <li key={stage} className={index === activeIndex ? styles.storyFrameCurrent : index < activeIndex ? styles.storyFrameComplete : ''}><span>{index < activeIndex ? '✓' : index + 1}</span>{stageLabels[index]}</li>)}</ol>
           <div className={styles.storyPanels}>{stages.map((stage, index) => {
             const content = stageContent[stage];
-            return <div key={stage} className={index === activeIndex ? styles.storyPanelActive : styles.storyPanel} aria-hidden={index !== activeIndex}>
+            return <div key={stage} className={index === activeIndex ? styles.storyPanelActive : styles.storyPanel} aria-hidden={index !== activeIndex} data-story-panel={stage}>
               <span className={styles.previewEyebrow}>{content.eyebrow}</span>
               <h3>{content.title}</h3>
               <p>{content.body}</p>
@@ -130,7 +132,7 @@ export function WorkflowStory({ t }: { t: LandingCopy }) {
     <div className={styles.mobileStory}><div className={styles.container}><p className={styles.kicker}>{t.storyEyebrow}</p><h2>{t.storyTitleFirst}<br />{t.storyTitleSecond}</h2><p>{t.storyMobileBody}</p><span className={styles.mobileQualifier}>{t.storyMobileQualifier}</span>
       {stages.map((stage, index) => {
         const content = stageContent[stage];
-        return <article key={stage} className={styles.mobileStage}><span>{String(index + 1).padStart(2, '0')} / {stageLabels[index]}</span><h3>{content.title}</h3><p>{content.body}</p><StageDetail stage={stage} t={t} /></article>;
+        return <article key={stage} className={styles.mobileStage} data-story-mobile-stage={index}><MascotDock scene="workflow" compact locale={locale}/><span>{String(index + 1).padStart(2, '0')} / {stageLabels[index]}</span><h3>{content.title}</h3><p>{content.body}</p><StageDetail stage={stage} t={t} /></article>;
       })}
     </div></div>
   </section>;
