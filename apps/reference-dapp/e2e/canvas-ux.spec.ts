@@ -276,6 +276,32 @@ test('text controls guard deletion and approved workflow edges stay protected', 
 });
 
 
+test('the first toolbar action waits for initialization and survives preference restoration', async ({ page }) => {
+  let release!: () => void;
+  const scripts = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/_next/static/**/*.js', async route => { await scripts; await route.fallback(); });
+  const shell = page.locator('.app-shell');
+  const undock = shell.locator('.toolbox-mode-toggle');
+  try {
+    await page.goto('/app', { waitUntil: 'commit' });
+    await expect(shell).toHaveAttribute('inert', '');
+    await expect(page.getByLabel('Describe your flow')).toBeDisabled();
+    await expect(shell.locator('.chat-form button[type="submit"]')).toBeDisabled();
+    await expect(undock).toBeVisible();
+    await undock.focus();
+    await expect(undock).not.toBeFocused();
+  } finally { release(); }
+  await page.waitForLoadState('load');
+  await expect(shell).not.toHaveAttribute('inert', '');
+  await expect(page.getByLabel('Describe your flow')).toBeEnabled();
+  await page.getByRole('button', { name: 'Undock toolbar' }).click();
+  await expect(page.locator('.floating-toolbox')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.floating-toolbox')).toBeVisible();
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
+  await expect(page.locator('.react-flow__node')).toHaveCount(0);
+});
+
 test('floating toolbox stays inside a narrow editor without page overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app');

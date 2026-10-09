@@ -87,7 +87,6 @@ test.describe('BUILD-CHANNELS-001 Telegram → /approve (loopback Bot API double
     await chooseWallet(page, 'Browser wallet');
     await expect(region).toContainText(`Signed in as ${owner.address}`);
     await region.getByRole('button', { name: 'Load proposal' }).click();
-    await region.getByRole('button', { name: 'Add to my workflow' }).click();
     await expect(region.getByRole('status')).toContainText('Ready for your review.');
     expect((await query<{ status: string; share_status: boolean }>(`SELECT status, share_status FROM mcp_handoffs WHERE handoff_id = $1`, [handoff.handoff_id]))[0])
       .toEqual({ status: 'APPLIED', share_status: true });

@@ -14,7 +14,7 @@
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { developerApprovalChanged } from '../developer/dispatch';
-import { applyApproval, claimApproval, shareApproval, viewApproval, type ApprovalView, type ClaimedProposal } from '../platform/index';
+import { applyApproval, claimApproval, openBrowserApproval, resumeApproval, shareApproval, viewApproval, type ApprovalView, type ClaimedProposal } from '../platform/index';
 import { approvalSurface } from '../server/approval-surface';
 import { currentWalletPrincipals } from '../server/session-principal';
 
@@ -30,6 +30,15 @@ async function surface() {
  * (a no-op for every other link). It runs after the response and never changes the transition.
  */
 const notify = (secret: string) => after(() => developerApprovalChanged(process.env, secret).catch(() => undefined));
+
+export async function openBrowserApprovalHandoff(approvalId: string): Promise<Result<{ approvalUrl: string }>> {
+  try { return { ok: true, value: await openBrowserApproval(await surface(), approvalId, process.env.FLOFI_PUBLIC_ORIGIN!) }; }
+  catch (cause) { return failure(cause); }
+}
+export async function resumeApprovalHandoff(approvalId: string): Promise<Result<ClaimedProposal>> {
+  try { return { ok: true, value: await resumeApproval(await surface(), approvalId, await currentWalletPrincipals()) }; }
+  catch (cause) { return failure(cause); }
+}
 
 /** The proposal behind a secret, re-verified now. Seeing it grants nothing. */
 export async function approvalHandoffView(secret: string): Promise<Result<ApprovalView>> {

@@ -5,7 +5,7 @@
  *
  *   the provider's enablement and activation guard (404) → configuration (503) → a non-POST: the provider's handshake or 405 →
  *   POST: content type (415) and the provider's body bound (413) → authenticity over the exact raw bytes and headers (401) → JSON (400)
- *   → this provider endpoint's payload (else 200 IGNORED) → the embedded PostgreSQL runtime and the channel schema (503, never memory or
+ *   → this provider endpoint's payload (else 200 IGNORED) → the shared PostgreSQL platform state host and the channel schema (503, never memory or
  *   files) → content-free event records (deduplicated) → 200 ACCEPTED
  *
  * The turns run after the response (`schedule`: Next's `after()` in the routes), one lease holder per conversation, so provider retries

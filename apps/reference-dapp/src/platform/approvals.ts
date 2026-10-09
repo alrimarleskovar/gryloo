@@ -24,6 +24,8 @@ import type { McpRuntime as EngineRuntime } from '../mcp/runtime.ts';
 import { mintApprovalSecret, type ApprovalLinkScheme } from './approval-links.ts';
 import { REQUESTER_REF, type ApprovalRequesterKind, type HandoffRecord, type HandoffStore, type RequesterScope, type WalletRef } from './handoff-store.ts';
 import { refuse } from './refusal.ts';
+export { walletDeepLinks } from './wallet-links.ts';
+import { walletDeepLinks } from './wallet-links.ts';
 
 export const HANDOFF_SECONDS = 900;
 export const CLAIM_SECONDS = 600;
@@ -116,11 +118,6 @@ export async function approvalForRequester(handoffs: HandoffStore, requester: Ap
   return await handoffs.forRequester(approvalId, requesterScope(requester), now) ?? refuse('APPROVAL_NOT_FOUND');
 }
 
-/** Mobile wallets open FloFi in their own in-app browser, where their provider is injected. The fragment stays inside the encoded URL. */
-export function walletDeepLinks(url: string, origin: string) {
-  return { phantom: `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(origin)}`,
-    metamask: `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, '')}` };
-}
 /**
  * A fresh, short-lived FloFi link for one of this requester's open handoffs (for the signing window or a wallet in-app browser). It
  * replaces the previous session secret and only shows the proposal; it authorizes nothing. Refusals: `APPROVAL_NOT_FOUND`,
@@ -178,7 +175,7 @@ export function approvalView(h: HandoffRecord, verified: Verified | null, viewer
 }
 export type ApprovalView = ReturnType<typeof approvalView>;
 /** `workflowId` is the identity of the draft the proposal was composed on; the claimant's pristine draft adopts it so the hash can match. */
-export type ClaimedProposal = { readonly view: ApprovalView; readonly command: Command; readonly workflowHash: string; readonly workflowId: string };
+export type ClaimedProposal = { readonly view: ApprovalView; readonly command: Command; readonly workflow: Workflow; readonly workflowHash: string; readonly workflowId: string };
 
 /** The workflow a flow record reviewed, wherever the flow keeps it (review, workflow, or the first of several reviews). */
 function reviewedWorkflows(record: unknown): unknown[] {

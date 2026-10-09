@@ -2,7 +2,7 @@
 'use client';
 import { useLocale } from '../i18n/locale';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { UNISWAP_V3_BASE_SEPOLIA_LIQUIDITY, uniswapLiquidityProfile, type UniswapLiquidityProfile } from '@defi-workflow-engine/action-registry';
 import { createUniswapLiquidityNode, uniswapBandInput, uniswapLiquidityDetails, uniswapLiquidityInputOf, uniswapLiquidityProfileFor, UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE,
   UNISWAP_LIQUIDITY_NETWORKS, type UniswapLiquidityInput, type UniswapLiquidityNetwork } from '../domain/uniswap-liquidity-authoring';
@@ -30,6 +30,8 @@ export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?
   const [input, setInput] = useState<UniswapLiquidityInput>(existing ? uniswapLiquidityInputOf(existing)
     : { network: 'Base Sepolia', maxUsdc: '', maxWeth: '', rangeUnit: 'PRICE', lower: '', upper: '', slippage: UNISWAP_LIQUIDITY_DEFAULT_SLIPPAGE });
   const [band, setBand] = useState<string | null>(null), [error, setError] = useState('');
+  const bandRequest = useRef(false);
+  const [bandPending, setBandPending] = useState(false);
   const formInput = setup?.input ?? input;
   const contributionInput = contributions.values ? { ...formInput, maxUsdc: contributions.values[0]!.amount, maxWeth: contributions.values[1]!.amount } : formInput;
   const set = (patch: Partial<UniswapLiquidityInput>) => {
@@ -43,15 +45,21 @@ export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?
     if (editsRange) setBand(null);
   };
   async function aroundCurrent() {
-    const price = await liquidity.fetchPrice(uniswapLiquidityProfileFor(contributionInput.network).chain);
-    if (!price) return;
-    const derived = uniswapBandInput(price.sqrtPriceX96, 1_000, contributionInput.network);
-    range.reset();
-    set({ rangeUnit: derived.rangeUnit, lower: derived.lower, upper: derived.upper });
-    setBand(`±10% around ${price.price} USDC per WETH (block ${price.blockNumber}) → ticks ${derived.lower} to ${derived.upper} = ${derived.lowerPrice}–${derived.upperPrice} USDC per WETH.`);
+    if (bandRequest.current || liquidity.busy) return;
+    bandRequest.current = true; setBandPending(true);
+    try {
+      const price = await liquidity.fetchPrice(uniswapLiquidityProfileFor(contributionInput.network).chain);
+      if (!price) return;
+      const derived = uniswapBandInput(price.sqrtPriceX96, 1_000, contributionInput.network);
+      range.reset();
+      set({ rangeUnit: derived.rangeUnit, lower: derived.lower, upper: derived.upper });
+      setBand(`±10% around ${price.price} USDC per WETH (block ${price.blockNumber}) → ticks ${derived.lower} to ${derived.upper} = ${derived.lowerPrice}–${derived.upperPrice} USDC per WETH.`);
+    } finally { bandRequest.current = false; setBandPending(false); }
   }
   function submit(event: FormEvent) {
     event.preventDefault();
+    // A click or keyboard submission must wait for the price-derived bounds.
+    if (bandRequest.current || liquidity.busy) return;
     try {
       const reviewedInput = range.edited ? { ...contributionInput, ...poolPriceBounds(range.reference, range.percent, range.preset) } : contributionInput;
       createUniswapLiquidityNode(nodeId ?? 'node-preview', reviewedInput); setError('');
@@ -80,13 +88,13 @@ export function UniswapLiquidityForm({ nodeId, onDone, reviewFormId }: { nodeId?
       <option value="PRICE">{tr("Price (USDC per WETH)")}</option><option value="TICK">{tr("Tick")}</option></select></label>
     <label>{tr("Lower ")}{tr(unit)}<input aria-label={tr("Lower bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.lower} onChange={e => set({ lower: e.target.value })}/></label>
     <label>{tr("Upper ")}{tr(unit)}<input aria-label={tr("Upper bound")} inputMode="decimal" autoComplete="off" maxLength={40} value={effectiveInput.upper} onChange={e => set({ upper: e.target.value })}/></label>
-    <button type="button" className="quiet" disabled={liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{tr(networkCopy('Use ±10% around the current Base Sepolia price', contributionInput.network))}</button>
+    <button type="button" className="quiet" disabled={bandPending || liquidity.busy || !liquidity.available} onClick={() => void aroundCurrent()}>{tr(networkCopy('Use ±10% around the current Base Sepolia price', contributionInput.network))}</button>
     {band && <small role="status">{tr(band)}</small>}
     <small>{tr("Prices are aligned outward to usable ticks; the exact ticks are stored and shown again at Review.")}</small>
     <label>{tr("Slippage (bps)")}<input aria-label={tr("Liquidity slippage (bps)")} inputMode="numeric" autoComplete="off" maxLength={4} value={contributionInput.slippage} onChange={e => set({ slippage: e.target.value })}/></label>
     <p className="muted">{tr("Test tokens only. The position NFT is minted to your connected wallet.")}</p>
     {error && <p role="alert">{tr(error)}</p>}
-    {!reviewFormId && <button type="submit">{tr(nodeId ? 'Review position change' : 'Review position proposal')}</button>}
+    {!reviewFormId && <button type="submit" disabled={bandPending || liquidity.busy}>{tr(nodeId ? 'Review position change' : 'Review position proposal')}</button>}
     {onDone && <button type="button" className="quiet" onClick={onDone}>{tr("Cancel")}</button>}
   </form>;
 }

@@ -15,7 +15,7 @@ import { composeWorkflow } from '../engine/strategy-engine';
 import { readHandoffPolicy } from '../mcp/execution.ts';
 import type { McpRuntime } from '../mcp/runtime.ts';
 import { applyApproval, approvalLinkScheme, approvalSecretDigest, assembleApprovalSurface, claimApproval, createPgHandoffStore, newId, openApprovalSession, PlatformRefusal, requestApproval,
-  shareApproval, viewApproval, type ApprovalDeps, type ApprovalRequester, type ClaimPolicy, type HandoffPolicy, type HandoffRules, type WalletRef } from './index.ts';
+  resumeApproval, shareApproval, viewApproval, type ApprovalDeps, type ApprovalRequester, type ClaimPolicy, type HandoffPolicy, type HandoffRules, type WalletRef } from './index.ts';
 
 const ORIGIN = 'https://flofi.test';
 let t: TestDatabase;
@@ -59,6 +59,35 @@ function setup(options: { policy?: HandoffPolicy; claimPolicy?: ClaimPolicy } = 
 const refusal = async (work: Promise<unknown>) => { try { await work; return 'NO_REFUSAL'; } catch (error) { return error instanceof PlatformRefusal ? error.message : String(error); } };
 
 describe('BUILD-DEVELOPER-001 /approve for any requester kind', () => {
+  it('recovers an applied proposal by public id only for its proven claimant, across new store instances', async () => {
+    const { surface, handoffs, request, deps, calls } = setup(), a = await request();
+    const session = await openApprovalSession(deps(), a.requester, a.approvalId), secret = new URL(session.approvalUrl).hash.slice(1);
+    await claimApproval(surface, secret, [evm(1)], true);
+    await applyApproval(surface, secret, [evm(1)], a.workflow);
+    expect(await refusal(viewApproval(surface, secret, [evm(1)]))).toBe('HANDOFF_NOT_FOUND');
+    const reopened = assembleApprovalSurface([{ scheme, profiles: surface.profiles }], createPgHandoffStore(t.db, 'default'), surface.runtime);
+    expect(await refusal(resumeApproval(reopened, a.approvalId, []))).toBe('HANDOFF_NOT_FOUND');
+    expect(await refusal(resumeApproval(reopened, a.approvalId, [evm(2), SOLANA]))).toBe('HANDOFF_NOT_FOUND');
+    const recovered = await resumeApproval(reopened, a.approvalId, [evm(1)]);
+    expect(recovered.view).toMatchObject({ status: 'APPLIED', claimedByYou: true, authority: 'NONE', authorized: false, statusShared: true });
+    expect(recovered.workflowHash).toBe(a.workflowHash);
+    expect(JSON.stringify(recovered)).not.toMatch(/flofi_chs_|"signature"|calldata|"transaction"/i);
+    expect(await handoffs.forClaimant(a.approvalId, evm(2))).toBeNull();
+    expect(await createPgHandoffStore(t.db, 'another-tenant').forClaimant(a.approvalId, evm(1))).toBeNull();
+    expect(calls.every(c => c.startsWith('mode:') || c.startsWith('info:'))).toBe(true);
+  });
+
+  it('never uses recovery to claim a pending/withdrawn proposal or bypass a changed deployment policy', async () => {
+    const { surface, request, handoffs } = setup(), pending = await request(), a = await request();
+    expect(await refusal(resumeApproval(surface, pending.approvalId, [evm(1)]))).toBe('HANDOFF_NOT_FOUND');
+    await handoffs.revokeForRequester(pending.approvalId, pending.requester, new Date());
+    expect(await refusal(resumeApproval(surface, pending.approvalId, [evm(1)]))).toBe('HANDOFF_NOT_FOUND');
+    await claimApproval(surface, a.secret, [evm(1)], false);
+    await applyApproval(surface, a.secret, [evm(1)], a.workflow);
+    const disabled = assembleApprovalSurface([{ scheme, profiles: { CHANNEL_CONVERSATION: { policy: readHandoffPolicy({ FLOFI_MCP_HANDOFF_TEST_FUNDS: 'disabled' }) } } }], handoffs, surface.runtime);
+    expect(await refusal(resumeApproval(disabled, a.approvalId, [evm(1)]))).toBe('TEST_FUNDS_HANDOFF_DISABLED_BY_POLICY');
+  });
+
   it('serves a non-MCP requester\'s proposal with no MCP OAuth configured, showing its origin and never its private context', async () => {
     expect(process.env.FLOFI_MCP_OAUTH).toBeUndefined();
     const { surface, request } = setup(), a = await request(BRIDGE, { intendedWallet: evm(1) });

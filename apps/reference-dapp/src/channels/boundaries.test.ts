@@ -101,7 +101,7 @@ describe('BUILD-CHANNELS-001 channel boundaries', () => {
     }
     // Channel code reaches no execution service: only the copilot boundary, the runtime host and the deployment facts.
     const servers = [...channelFiles].flatMap(file => importsOf(join(app, file)).map(([, s]) => s.startsWith('.') ? target(join(app, file), s) : s)).filter(t => t.startsWith('src/server/'));
-    expect([...new Set(servers)].sort()).toEqual(['src/server/copilot-service.ts', 'src/server/deployment.ts', 'src/server/flow-runtime.ts']);
+    expect([...new Set(servers)].sort()).toEqual(['src/server/copilot-service.ts', 'src/server/deployment.ts', 'src/server/platform-state-host.ts']);
   });
 
   it('keeps the approval-side paths model-free, transitively (contributor, status ping, its server action)', () => {

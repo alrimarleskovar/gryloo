@@ -36,7 +36,8 @@ export const conversationScope = (conversationId: string): RequesterScope => ({ 
 export const intendedWalletPolicy: ClaimPolicy = (handoff, wallet) => {
   const intended = (handoff.requesterContext as { intendedWallet?: WalletRef }).intendedWallet;
   if (!intended) return { ok: true };
-  return intended.namespace === wallet.namespace && intended.address.toLowerCase() === wallet.address.toLowerCase() ? { ok: true }
+  return intended.namespace === wallet.namespace && (wallet.namespace === 'eip155'
+    ? intended.address.toLowerCase() === wallet.address.toLowerCase() : intended.address === wallet.address) ? { ok: true }
     : { ok: false, code: 'CHANNEL_INTENDED_WALLET_MISMATCH' };
 };
 

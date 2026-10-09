@@ -44,6 +44,7 @@ async function consumer(scope = 'flofi.strategy flofi.approval', extra: Record<s
   const approve = (strategy: unknown, workflowHash = hashOf(strategy)) => client.callTool('request_user_approval', { strategy, workflowHash });
   return { tokens, client, approve };
 }
+const uiOutput = (r: { output: Record<string, unknown>; meta: Record<string, unknown> }) => ({ ...r.output, ...r.meta['flofi/approval'] as Record<string, unknown> });
 const secretOf = (url: string) => credentialOf('handoff', decodeURIComponent(new URL(url).hash.slice(1)))!;
 const evm = (n: number): WalletRef => ({ namespace: 'eip155', address: '0x' + String(n).repeat(40).slice(0, 40) });
 const policy: HandoffPolicy = readHandoffPolicy({});
@@ -57,15 +58,18 @@ describe('BUILD-MCP-002 request_user_approval', () => {
       networkEnvironment: 'PUBLIC_TESTNET', fundsClass: 'TEST_FUNDS', executionPlan: 'SINGLE_FLOW', authority: 'NONE', walletNamespace: 'eip155',
       requires: ['Open FloFi', 'Prove wallet ownership', 'Fresh simulation', 'Strategy Manifest Review', 'Explicit wallet signature'],
       steps: [{ index: 0, action: 'bridge', network: 'base-sepolia', destinationNetwork: 'arbitrum-sepolia' }], preExecution: ['ROUTER_ROUTE_REQUIRED'] });
-    expect(String(out.approvalUrl)).toMatch(new RegExp(`^${ORIGIN}/approve#flofi_hs_[A-Za-z0-9_-]{43}$`));
+    expect(out.approvalUrl).toBe(`${ORIGIN}/approve#${String(out.approvalId)}`);
+    expect(result.text + JSON.stringify(out)).not.toMatch(/flofi_hs_|walletLinks/);
+    const privateUrl = String(uiOutput(result).approvalUrl);
+    expect(privateUrl).toMatch(new RegExp(`^${ORIGIN}/approve#flofi_hs_[A-Za-z0-9_-]{43}$`));
     expect(Date.parse(String(out.expiresAt)) - Date.now()).toBeGreaterThan(14 * 60_000);
     const text = JSON.stringify(out);
     for (const forbidden of [/calldata/i, /unsigned/i, /"signature/i, /privateKey/i, /flofi_(at|rt|code)_/, /0x[0-9a-f]{67,}/, /"transaction/i]) expect(text).not.toMatch(forbidden);
     // Only the digest of the secret is stored.
     const row = (await t.db.query<{ secret_digest: Buffer; strategy: unknown; status: string }>('SELECT secret_digest, strategy, status FROM mcp_handoffs WHERE handoff_id = $1',
       [out.approvalId])).rows[0]!;
-    expect(row.secret_digest.equals(credentialDigest(HANDOFF_KEY, secretOf(String(out.approvalUrl))))).toBe(true);
-    expect(JSON.stringify(row)).not.toContain(secretOf(String(out.approvalUrl)));
+    expect(row.secret_digest.equals(credentialDigest(HANDOFF_KEY, secretOf(privateUrl)))).toBe(true);
+    expect(JSON.stringify(row)).not.toContain(secretOf(privateUrl));
     // Nothing executed: the gates read flow enablement only.
     expect(calls.every(c => c.startsWith('mode:') || c.startsWith('info:'))).toBe(true);
   });
@@ -138,7 +142,7 @@ describe('BUILD-MCP-002 request_user_approval', () => {
 
 describe('BUILD-MCP-002 handoff claim lifecycle', () => {
   async function pending(strategy: unknown = BRIDGE, extra: Record<string, string> = {}) {
-    const { client, approve, tokens } = await consumer(undefined, extra), out = (await approve(strategy)).output as { approvalId: string; approvalUrl: string };
+    const { client, approve, tokens } = await consumer(undefined, extra), out = uiOutput(await approve(strategy)) as { approvalId: string; approvalUrl: string };
     return { client, tokens, approvalId: out.approvalId, digest: credentialDigest(HANDOFF_KEY, secretOf(out.approvalUrl)) };
   }
   const claim = async (digest: Buffer, wallet: WalletRef, at = new Date(), p = policy) => {
@@ -192,12 +196,13 @@ describe('BUILD-MCP-002 handoff claim lifecycle', () => {
 
   it('opens short-lived approval sessions for an open handoff only, and the view never authorizes anything', async () => {
     const { client, digest, approvalId } = await pending();
-    const opened = (await client.callTool('open_approval_session', { approvalId })).output as { approvalUrl: string; walletLinks: Record<string, string>; authority: string };
+    const opened = uiOutput(await client.callTool('open_approval_session', { approvalId })) as { approvalUrl: string; walletLinks: Record<string, string>; authority: string };
     expect(opened.authority).toBe('NONE');
     const sessionDigest = credentialDigest(HANDOFF_KEY, secretOf(opened.approvalUrl));
     expect((await store().bySecret(sessionDigest, new Date()))?.handoffId).toBe(approvalId);
     expect(await store().bySecret(sessionDigest, new Date(Date.now() + 6 * 60_000))).toBeNull();
-    expect(opened.walletLinks.phantom).toMatch(/^https:\/\/phantom\.app\/ul\/browse\/https%3A%2F%2Fflofi\.test%2Fapprove%23flofi_hs_/);
+    expect(opened.walletLinks.phantom).toBe('https://phantom.com/ul/browse/https%3A%2F%2Fflofi.test%2Fapprove?ref=https%3A%2F%2Fflofi.test');
+    expect(opened.walletLinks.phantom).not.toContain('flofi_hs_');
     expect(opened.walletLinks.metamask).toMatch(/^https:\/\/metamask\.app\.link\/dapp\/flofi\.test\/approve#flofi_hs_/);
     const h = (await store().bySecret(digest, new Date()))!;
     const view = approvalView(h, await verifyHandoff(h, runtime(), policy), { wallets: [], accountId: null });

@@ -42,7 +42,7 @@ describe('BUILD-MCP-002 MCP App panel resource', () => {
     expect(listed).toEqual([expect.objectContaining({ uri: PANEL_URI, mimeType: PANEL_MIME })]);
     const read = ((await c.request('resources/read', { uri: PANEL_URI })).result as { contents: { uri: string; mimeType: string; text: string; _meta: Record<string, unknown> }[] }).contents[0]!;
     expect(read).toMatchObject({ uri: PANEL_URI, mimeType: 'text/html;profile=mcp-app', _meta: { ui: { csp: { connectDomains: [], resourceDomains: [], frameDomains: [], baseUriDomains: [] },
-      prefersBorder: true }, 'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: [ORIGIN, 'https://phantom.app', 'https://metamask.app.link'] } } });
+      prefersBorder: true }, 'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: [ORIGIN, 'https://phantom.com', 'https://metamask.app.link'] } } });
     expect(read.text).toContain(JSON.stringify(ORIGIN));
     const tools = ((await c.request('tools/list')).result as { tools: { name: string; _meta?: Record<string, unknown> }[] }).tools;
     expect(tools.find(x => x.name === 'request_user_approval')?._meta).toMatchObject({ ui: { resourceUri: PANEL_URI }, 'openai/outputTemplate': PANEL_URI,
