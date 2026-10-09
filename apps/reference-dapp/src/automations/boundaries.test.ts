@@ -69,6 +69,23 @@ describe('BUILD-AUTOMATION-001 authority boundary', () => {
     expect([...new Set(servers)].sort()).toEqual(['src/server/deployment.ts', 'src/server/flow-runtime.ts']);
   });
 
+  it('gives the Railway worker’s automation entry the same zero authority, and no approval key or engine runtime', () => {
+    const entries = ['backend/automation-worker.ts', 'src/automations/worker.ts'];
+    const reached = new Set(entries.flatMap(e => closure(join(app, e))));
+    const own = [...reached].filter(f => f.startsWith('src/automations/') || f === 'backend/automation-worker.ts' || f === 'backend/source-resolution.ts');
+    expect(own).toEqual(expect.arrayContaining(['backend/automation-worker.ts', 'backend/source-resolution.ts', 'src/automations/worker.ts', 'src/automations/evaluator.ts']));
+    for (const file of own) {
+      expect(code(file), file).not.toMatch(SIGNING);
+      expect(code(file), file).not.toMatch(OWNER_DECISIONS);
+    }
+    for (const file of reached) expect(code(file), file).not.toMatch(KEY_HOLDING);
+    // (The worker process already runs the backend's observe-only flow services; this entry adds no browser code and no server action.)
+    expect([...reached].filter(f => /^src\/(?:state|components)\/|-action\.ts$|owner-submission|^backend\/main\.ts$/.test(f))).toEqual([]);
+    // It builds the work runtime only: no automation keys (no approval or link-code minting), no engine runtime, no owner service.
+    for (const file of entries) expect(code(file), file).not.toMatch(/automationRuntime\(|deploymentEngineRuntime|automationKeys|createAutomationService|requestApproval|FLOFI_AUTOMATION_SECRET/);
+    expect(code('src/automations/worker.ts')).toMatch(/readAutomationWorkerConfig\(env\)/);
+  });
+
   it('reaches the network only through the read-only price transport, which refuses every non-read method', () => {
     for (const file of SOURCES.filter(f => !f.endsWith('price-source.ts'))) expect(code(file), file).not.toMatch(/\bfetch\(|node:https?|undici/);
     const transport = code('src/automations/price-source.ts');

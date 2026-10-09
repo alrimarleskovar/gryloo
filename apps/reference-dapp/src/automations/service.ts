@@ -8,8 +8,9 @@
  *                 that this deployment would hand the action to its owner at all (supported by code, enabled, allowed by policy)
  *   open          an open occurrence → re-verify the binding and the source workflow, request a handoff on the SHARED approval model
  *                 (authority NONE), then attach it under the rule lock with the limits re-checked; the owner continues on /approve
- *                 (wallet proof, fresh simulation, Strategy Manifest Review, own signature). The previous handoff is withdrawn.
- *   dismiss       the owner declines: the occurrence ends and its handoff is withdrawn
+ *                 (wallet proof, fresh simulation, Strategy Manifest Review, own signature). The previous handoff is withdrawn
+ *                 first; if the owner already applied it, the occurrence is completed instead (one occurrence, one proposal)
+ *   dismiss       the owner declines: its handoff is withdrawn first (an applied one completes the occurrence instead), then it ends
  *   watch         Buy / Sell on a watch report prepares FloFi's ordinary authoring command for the owner's own Build draft
  *                 (Apply proposal → Simulate → Review → sign); it is the owner's manual action, never an automated proposal
  *   rebind        the owner's explicit acceptance of a changed saved workflow (or re-composition after an engine change), re-checked
@@ -32,7 +33,7 @@ import { bindingViolation } from './limits.ts';
 import type { AutomationLogger } from './log.ts';
 import type { PriceSource } from './price-source.ts';
 import { nextSlotAfter } from './schedule.ts';
-import { MAX_RULES_PER_OWNER, type AutomationStore, type EvaluationRecord, type OccurrenceRecord, type Owner, type RuleRecord } from './store.ts';
+import { MAX_RULES_PER_OWNER, OPEN_OCCURRENCE, type AutomationStore, type EvaluationRecord, type OccurrenceRecord, type Owner, type RuleRecord } from './store.ts';
 import { createLinkCode, ownerBucket, targetsOf, unlinkOwner } from './subscriptions.ts';
 import { conditionThreshold, OBSERVED_ASSETS, type ObservedAsset } from './trigger.ts';
 import type { ActionView, CapabilityView, HistoryEntryView, LinkCodeView, ObservationView, OccurrenceView, OpenedView, OverviewView, RuleHistoryView, RuleView,
@@ -145,6 +146,18 @@ export function createAutomationService(deps: ServiceDeps) {
       action: actionView(o.strategy), observations: observations(o.observation), outcome: o.outcome, decidedAt: o.decidedAt?.toISOString() ?? null, approval,
       notifications: notified.get(o.occurrenceId) ?? [] };
   }
+  /**
+   * Withdraws an occurrence's current handoff before the occurrence is proposed again or dismissed. Revocation is a transaction on the
+   * shared handoff row, so a withdrawn handoff can no longer be claimed or applied; one the owner ALREADY applied means the occurrence
+   * was used — it is completed (and keeps counting against the limits), never proposed or dismissed a second time. Fails closed.
+   */
+  async function withdraw(o: OccurrenceRecord, now: Date): Promise<void> {
+    if (!o.handoffId) return;
+    const h = await deps.handoffs.revokeForRequester(o.handoffId, ruleScope(o.ruleId), now);
+    if (h?.status !== 'APPLIED') return;
+    await store.completeApproval(o.occurrenceId, h.handoffId, now);
+    refuse('AUTOMATION_OCCURRENCE_COMPLETED');
+  }
   async function notificationsOf(owner: Owner, list: readonly OccurrenceRecord[]) {
     const map = new Map<string, { channel: string; status: string; code: string | null }[]>();
     for (const n of await store.notifications(owner, list.map(o => o.occurrenceId))) (map.get(n.occurrenceId) ?? map.set(n.occurrenceId, []).get(n.occurrenceId)!)
@@ -236,6 +249,8 @@ export function createAutomationService(deps: ServiceDeps) {
         const saved = await savedWorkflows(owner).get(rule.binding!.source.workflowId);
         if (sourceDrift(rule.binding!.source, saved ? { workflowHash: savedWorkflowHash(saved.workflow), version: saved.version } : null)) refuse('AUTOMATION_WORKFLOW_CHANGED');
       }
+      // The previous handoff is withdrawn FIRST, so it can never be used alongside the new one (one occurrence, at most one proposal).
+      await withdraw(o, now);
       const approval = await requestApproval({ origin: config.origin, scheme, handoffs: deps.handoffs, allow: deps.allow, runtime: deps.runtime, policy: config.policy,
         rules: AUTOMATION_HANDOFF_RULES, now }, automationRequester(rule, o), o.strategy, o.workflowHash!);
       if (!approval.ok) refuse(approval.code);
@@ -252,14 +267,16 @@ export function createAutomationService(deps: ServiceDeps) {
         await deps.handoffs.revokeForRequester(created.approvalId, ruleScope(rule.ruleId), now).catch(() => null);
         refuse(attached.code);
       }
-      if (o.handoffId) await deps.handoffs.revokeForRequester(o.handoffId, ruleScope(rule.ruleId), now).catch(() => null);
       deps.log.info('automation.approval_requested', { rule: rule.ruleId, occurrence: occurrenceId, handoff: created.approvalId });
       return { approvalUrl: created.approvalUrl, expiresAt: created.expiresAt };
     },
 
     async dismiss(owner: Owner, occurrenceId: string): Promise<OccurrenceView> {
-      const now = deps.now(), o = await store.decide(owner, occurrenceId, 'DISMISSED', 'OWNER_DISMISSED', now);
-      if (o.handoffId) await deps.handoffs.revokeForRequester(o.handoffId, ruleScope(o.ruleId), now).catch(() => null);
+      const now = deps.now(), current = await store.getOccurrence(owner, occurrenceId, now) ?? refuse('AUTOMATION_OCCURRENCE_NOT_FOUND');
+      if (!OPEN_OCCURRENCE.includes(current.state)) refuse(`AUTOMATION_OCCURRENCE_${current.state}`);
+      // A proposal the owner already added to their workflow is not dismissed (it keeps counting against the limits).
+      await withdraw(current, now);
+      const o = await store.decide(owner, occurrenceId, 'DISMISSED', 'OWNER_DISMISSED', now, current.handoffId);
       deps.log.info('automation.dismissed', { rule: o.ruleId, occurrence: o.occurrenceId });
       return occurrenceView(o, new Map(), false, new Map());
     },

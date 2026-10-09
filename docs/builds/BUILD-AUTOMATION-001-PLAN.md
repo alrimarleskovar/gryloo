@@ -74,12 +74,15 @@ states). `DUE` is not persisted: an occurrence is created, limit-checked and que
 
 ## 6. Scheduler semantics
 
-- **Discovery**: `/api/automations/dispatch` (Vercel Cron or any scheduler, bearer) inserts `automation.evaluate` work items for ACTIVE
-  rules whose `next_evaluation_at <= now`, deduplicated by `<rule>:<next_evaluation_at>`.
-- **Processing**: the same endpoint claims only `automation.*` items (fenced leases) and runs their handlers; any number of concurrent
-  calls and replicas is safe. (Implementation note: the Railway worker runs `backend/main.ts` under Node's TypeScript stripping, which
-  cannot load the extensionless engine modules, so it does not host automation handlers in this build; it now claims only the work kinds
-  it has handlers for, so it can never dead-letter automation items. Moving evaluation there later needs no schema change.)
+- **Discovery**: `/api/automations/dispatch` (an external scheduler or Vercel Cron, bearer) and, when `FLOFI_AUTOMATIONS=enabled` is set
+  on it, the Railway worker's 60 s sweep insert `automation.evaluate` work items for ACTIVE rules whose `next_evaluation_at <= now`,
+  deduplicated by `<rule>:<next_evaluation_at>`.
+- **Processing**: the dispatch claims only `automation.*` items (fenced leases) and runs their handlers; the Railway worker runs the
+  same handlers in its own claim loop, claiming only the kinds it has handlers for. Any number of concurrent calls, replicas and
+  workers is safe. (Final review, 2026-10-09: the worker could not load these modules at first because `backend/main.ts` runs under
+  Node's TypeScript stripping without a bundler, while `src/` modules use bundler-style extensionless imports. One scoped resolution
+  rule, `backend/source-resolution.ts`, installed only when the worker enables automations, lets plain Node load the same files — no
+  second engine, no schema change; see the report §3.)
   Phase 1 reads the rule and makes the read-only observation (outside any transaction). Phase 2 locks the rule row, re-checks state,
   version and due time (a paused, archived, re-bound or already-advanced rule is a no-op), applies the trigger state machine and
   limits, inserts the occurrence `ON CONFLICT DO NOTHING`, advances `next_evaluation_at`, writes history and enqueues the notification —

@@ -94,6 +94,60 @@ describe('BUILD-AUTOMATION-001 occurrence → shared approval → the owner’s 
     expect((await t.db.query(`SELECT status FROM mcp_handoffs ORDER BY created_at`)).rows.map(r => r.status)).toEqual(['EXPIRED', 'REVOKED', 'CLAIMED']);
   });
 
+  const canonicalSwap = () => {
+    const canonical = composeStrategy({ action: 'swap', network: 'base-sepolia', inputAsset: 'USDC', outputAsset: 'WETH', amount: '50', slippageBps: 50 });
+    if (!canonical.ok) throw new Error(canonical.code);
+    return canonical;
+  };
+  const applyOccurrence = async (h: Harness, occurrenceId: string) => {
+    const secret = secretOf((await h.service().open(OWNER_A, occurrenceId)).approvalUrl);
+    await claimApproval(h.surface(), secret, [wallet(OWNER_A)], false, h.now());
+    expect((await applyApproval(h.surface(), secret, [wallet(OWNER_A)], canonicalSwap().workflow, h.now())).status).toBe('APPLIED');
+  };
+  const stateOf = async (occurrenceId: string) => (await t.db.query(`SELECT state, outcome FROM automation_occurrences WHERE occurrence_id = $1`, [occurrenceId])).rows[0];
+
+  it('one occurrence yields at most one applied proposal: reopening after Add to my workflow completes it instead', async () => {
+    const h = automationHarness(t.db), { occurrence } = await pending(h);
+    // Applied, and before the scheduler syncs it a stale page asks for another review: no second handoff, the occurrence is completed.
+    await applyOccurrence(h, occurrence.occurrenceId);
+    expect(await refusal(h.service().open(OWNER_A, occurrence.occurrenceId))).toBe('AUTOMATION_OCCURRENCE_COMPLETED');
+    expect(await stateOf(occurrence.occurrenceId)).toEqual({ state: 'COMPLETED', outcome: 'APPROVAL_APPLIED' });
+    expect(await refusal(h.service().dismiss(OWNER_A, occurrence.occurrenceId))).toBe('AUTOMATION_OCCURRENCE_COMPLETED');
+    expect((await t.db.query(`SELECT status FROM mcp_handoffs ORDER BY created_at`)).rows.map(r => r.status)).toEqual(['APPLIED']);
+  });
+
+  it('dismissing a proposal already added to the workflow completes it instead, so it keeps counting against the limits', async () => {
+    const h = automationHarness(t.db), { occurrence } = await pending(h);
+    await applyOccurrence(h, occurrence.occurrenceId);
+    expect(await refusal(h.service().dismiss(OWNER_A, occurrence.occurrenceId))).toBe('AUTOMATION_OCCURRENCE_COMPLETED');
+    expect(await stateOf(occurrence.occurrenceId)).toEqual({ state: 'COMPLETED', outcome: 'APPROVAL_APPLIED' });
+    expect((await t.db.query(`SELECT status FROM mcp_handoffs ORDER BY created_at`)).rows.map(r => r.status)).toEqual(['APPLIED']);
+  });
+
+  it('reopening a claimed review withdraws it before the new one exists: the old one can no longer be applied', async () => {
+    const h = automationHarness(t.db), { occurrence } = await pending(h), canonical = canonicalSwap();
+    const first = secretOf((await h.service().open(OWNER_A, occurrence.occurrenceId)).approvalUrl);
+    expect((await claimApproval(h.surface(), first, [wallet(OWNER_A)], false, h.now())).view.status).toBe('CLAIMED');
+    const second = secretOf((await h.service().open(OWNER_A, occurrence.occurrenceId)).approvalUrl);
+    expect(await refusal(applyApproval(h.surface(), first, [wallet(OWNER_A)], canonical.workflow, h.now()))).toBe('HANDOFF_REVOKED');
+    await claimApproval(h.surface(), second, [wallet(OWNER_A)], false, h.now());
+    expect((await applyApproval(h.surface(), second, [wallet(OWNER_A)], canonical.workflow, h.now())).status).toBe('APPLIED');
+    expect((await t.db.query(`SELECT status FROM mcp_handoffs ORDER BY created_at`)).rows.map(r => r.status)).toEqual(['REVOKED', 'APPLIED']);
+  });
+
+  it('a review opened while the owner dismisses never leaves a live approval on a dismissed occurrence', async () => {
+    for (let round = 0; round < 6; round++) {
+      await t.db.query('TRUNCATE automation_evaluations, automation_occurrences, automation_rules, work_items, mcp_handoffs, mcp_rate_limits CASCADE');
+      const h = automationHarness(t.db), { occurrence } = await pending(h);
+      await h.service().open(OWNER_A, occurrence.occurrenceId);
+      const results = await Promise.all([refusal(h.service(t.open(2)).open(OWNER_A, occurrence.occurrenceId)), refusal(h.service(t.open(2)).dismiss(OWNER_A, occurrence.occurrenceId))]);
+      const o = (await t.db.query(`SELECT state, handoff_id FROM automation_occurrences WHERE occurrence_id = $1`, [occurrence.occurrenceId])).rows[0]!;
+      const live = (await t.db.query(`SELECT handoff_id FROM mcp_handoffs WHERE status IN ('PENDING', 'CLAIMED')`)).rows.map(r => r.handoff_id);
+      if (o.state === 'DISMISSED') expect([results, live]).toEqual([[expect.any(String), 'NO_REFUSAL'], []]);
+      else expect([o.state, results[1], live]).toEqual(['APPROVAL_CREATED', 'AUTOMATION_OCCURRENCE_CHANGED', [o.handoff_id]]);
+    }
+  });
+
   it('a dismissed or expired occurrence cannot be opened or claimed', async () => {
     const h = automationHarness(t.db), { occurrence } = await pending(h);
     const opened = await h.service().open(OWNER_A, occurrence.occurrenceId);

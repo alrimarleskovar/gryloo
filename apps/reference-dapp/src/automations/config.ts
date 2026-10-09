@@ -92,25 +92,51 @@ export function readAutomationConfig(env: Env): AutomationConfigResult {
   const hosted = isHostedDeployment(env);
   const testClock = switchOf(env.FLOFI_AUTOMATION_TEST_CLOCK, 'disabled');
   if (testClock === null || (testClock && hosted)) return invalid('FLOFI_AUTOMATION_TEST_CLOCK');
-  const maxAgeSeconds = env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS === undefined || env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS === '' ? 3_600
-    : /^[0-9]{2,5}$/.test(env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS) ? Number(env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS) : NaN;
-  if (!(maxAgeSeconds >= 60 && maxAgeSeconds <= 86_400)) return invalid('FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS');
-  const kind = env.FLOFI_AUTOMATION_PRICE_SOURCE === undefined || env.FLOFI_AUTOMATION_PRICE_SOURCE === '' ? 'off' : env.FLOFI_AUTOMATION_PRICE_SOURCE;
-  let price: PriceSourceConfig;
-  if (kind === 'off') price = { kind: 'off' };
-  else if (kind === 'chainlink') {
-    const url = rpcUrl(env.FLOFI_AUTOMATION_CHAINLINK_RPC_URL || env.GRYLOO_BASE_RPC_URL || 'https://mainnet.base.org', hosted);
-    if (!url) return invalid('FLOFI_AUTOMATION_CHAINLINK_RPC_URL');
-    const feeds = parseFeeds(env.FLOFI_AUTOMATION_CHAINLINK_FEEDS ?? '');
-    if (!feeds || !Object.keys(feeds).length) return invalid('FLOFI_AUTOMATION_CHAINLINK_FEEDS');
-    price = { kind: 'chainlink', rpcUrl: url, feeds, maxAgeMs: maxAgeSeconds * 1000 };
-  } else if (kind === 'fixture') {
-    const path = env.FLOFI_AUTOMATION_PRICE_FIXTURE ?? '';
-    if (hosted || !path.startsWith('/tmp/') || path.includes('..') || path.length > 256) return invalid('FLOFI_AUTOMATION_PRICE_FIXTURE');
-    price = { kind: 'fixture', path, maxAgeMs: maxAgeSeconds * 1000 };
-  } else return invalid('FLOFI_AUTOMATION_PRICE_SOURCE');
+  const price = readPriceSourceConfig(env, hosted);
+  if ('reason' in price) return invalid(price.reason);
   return Object.freeze({ enabled: true, tenantId, origin, keys: automationKeys(secret), policy: { ok: true as const, testFunds, mainnetNetworks: Object.freeze([...new Set(listed as NetworkId[])]) },
     dispatchTokenDigest: dispatch === '' ? null : Buffer.from(dispatch, 'hex'), price, testClock, hosted });
+}
+
+/** The price source settings (shared by the web deployment and the Railway worker); `reason` names the invalid variable. */
+function readPriceSourceConfig(env: Env, hosted: boolean): PriceSourceConfig | { readonly reason: string } {
+  const maxAgeSeconds = env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS === undefined || env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS === '' ? 3_600
+    : /^[0-9]{2,5}$/.test(env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS) ? Number(env.FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS) : NaN;
+  if (!(maxAgeSeconds >= 60 && maxAgeSeconds <= 86_400)) return { reason: 'FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS' };
+  const kind = env.FLOFI_AUTOMATION_PRICE_SOURCE === undefined || env.FLOFI_AUTOMATION_PRICE_SOURCE === '' ? 'off' : env.FLOFI_AUTOMATION_PRICE_SOURCE;
+  if (kind === 'off') return { kind: 'off' };
+  if (kind === 'chainlink') {
+    const url = rpcUrl(env.FLOFI_AUTOMATION_CHAINLINK_RPC_URL || env.GRYLOO_BASE_RPC_URL || 'https://mainnet.base.org', hosted);
+    if (!url) return { reason: 'FLOFI_AUTOMATION_CHAINLINK_RPC_URL' };
+    const feeds = parseFeeds(env.FLOFI_AUTOMATION_CHAINLINK_FEEDS ?? '');
+    if (!feeds || !Object.keys(feeds).length) return { reason: 'FLOFI_AUTOMATION_CHAINLINK_FEEDS' };
+    return { kind: 'chainlink', rpcUrl: url, feeds, maxAgeMs: maxAgeSeconds * 1000 };
+  }
+  if (kind === 'fixture') {
+    const path = env.FLOFI_AUTOMATION_PRICE_FIXTURE ?? '';
+    if (hosted || !path.startsWith('/tmp/') || path.includes('..') || path.length > 256) return { reason: 'FLOFI_AUTOMATION_PRICE_FIXTURE' };
+    return { kind: 'fixture', path, maxAgeMs: maxAgeSeconds * 1000 };
+  }
+  return { reason: 'FLOFI_AUTOMATION_PRICE_SOURCE' };
+}
+
+/**
+ * What the Railway worker needs to evaluate automations and deliver their notifications — and nothing more: no approval-link key, no
+ * link-code key, no scheduler bearer, no handoff policy (the worker never mints approvals, links chats or serves the dispatch route).
+ * `FLOFI_AUTOMATION_SECRET` therefore never has to reach the worker.
+ */
+export type AutomationWorkerConfig = { readonly enabled: true; readonly tenantId: string; readonly origin: string; readonly price: PriceSourceConfig };
+export function readAutomationWorkerConfig(env: Env): AutomationWorkerConfig | { readonly enabled: false; readonly code: 'AUTOMATIONS_NOT_ENABLED' | 'AUTOMATION_CONFIGURATION_INVALID'; readonly reason?: string } {
+  const enabled = switchOf(env.FLOFI_AUTOMATIONS, 'disabled');
+  if (enabled === null) return invalid('FLOFI_AUTOMATIONS');
+  if (!enabled) return { enabled: false, code: 'AUTOMATIONS_NOT_ENABLED' };
+  let tenantId: string;
+  try { tenantId = deploymentTenant(env); } catch { return invalid('TENANT'); }
+  const origin = publicOrigin(env);
+  if (!origin) return invalid('FLOFI_PUBLIC_ORIGIN');
+  const price = readPriceSourceConfig(env, isHostedDeployment(env));
+  if ('reason' in price) return invalid(price.reason);
+  return Object.freeze({ enabled: true, tenantId, origin, price });
 }
 
 /** The configured price source (one per call site; the Chainlink feed verification is cached per source instance). */

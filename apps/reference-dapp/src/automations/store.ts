@@ -85,7 +85,8 @@ export interface AutomationStore {
   readonly history: (owner: Owner, ruleId: string, limit: number) => Promise<readonly EvaluationRecord[]>;
   readonly notifications: (owner: Owner, occurrenceIds: readonly string[]) => Promise<readonly NotificationRecord[]>;
   /** The owner ends an open occurrence: DISMISSED (or COMPLETED for a watch report the owner acted on). */
-  readonly decide: (owner: Owner, occurrenceId: string, state: 'DISMISSED' | 'COMPLETED', outcome: string, now: Date) => Promise<OccurrenceRecord>;
+  /** Ends an open occurrence; with `expectedHandoffId`, only if its handoff is still that one (AUTOMATION_OCCURRENCE_CHANGED otherwise). */
+  readonly decide: (owner: Owner, occurrenceId: string, state: 'DISMISSED' | 'COMPLETED', outcome: string, now: Date, expectedHandoffId?: string | null) => Promise<OccurrenceRecord>;
   /**
    * The owner's handoff for an open occurrence: compare-and-set from the handoff it had (`expectedHandoffId`) to `handoffId`, while the
    * rule is ACTIVE with `expectedRuleVersion` and the occurrence open and unexpired; `check` re-validates the limits with reads inside the

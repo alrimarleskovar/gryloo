@@ -29,8 +29,8 @@ export const portugueseAutomations: Readonly<Record<string, string>> = {
   'Proposal from {0}': 'Proposta de {0}', 'Scheduled for': 'Agendada para', 'met': 'atingida', 'not observed': 'sem observação', '{0} since the last round': '{0} desde a última ronda',
   'fixture': 'dados de teste', 'Buy': 'Comprar', 'Sell': 'Vender', 'No BTC swap route in FloFi yet': 'O FloFi ainda não tem rota de troca para BTC',
   'Not executable on this deployment': 'Não executável neste ambiente', 'REAL FUNDS': 'FUNDOS REAIS', 'Amount ({0})': 'Montante ({0})', 'Prepare in Build': 'Preparar em Criar',
-  'This prepares an ordinary FloFi proposal in Build. Nothing is signed: apply it, simulate and review the Strategy Manifest first.':
-    'Isto prepara uma proposta normal do FloFi em Criar. Nada é assinado: aplique-a, simule e reveja primeiro o Strategy Manifest.',
+  'This is your own new trade, not part of this automation: it goes to your Build draft as an ordinary proposal, exactly as if you had composed it there. The automation adds no authority and no limits to it. Nothing is signed: apply it, simulate and review the Strategy Manifest first.':
+    'Esta é uma nova operação sua, que não faz parte desta automação: vai para o seu rascunho em Criar como uma proposta normal, tal como se a tivesse composto lá. A automação não lhe acrescenta autoridade nem limites. Nada é assinado: aplique-a, simule e reveja primeiro o Strategy Manifest.',
   'Waiting until': 'À espera até', 'sent to your chat': 'enviada para a sua conversa', 'not delivered': 'não entregue', 'Review in FloFi': 'Rever no FloFi',
   'Ignore': 'Ignorar', 'Acknowledge': 'Tomar conhecimento',
   'Nothing is authorized yet. Review opens FloFi’s approval: prove your wallet, run a fresh simulation, review the Strategy Manifest and sign with your own wallet.':
@@ -79,15 +79,15 @@ export const portugueseAutomations: Readonly<Record<string, string>> = {
   'Condition still met — no new proposal': 'Condição ainda atingida — sem nova proposta', 'Condition cleared — watching again': 'Condição desfeita — a observar de novo',
   'Crossing during the cooldown — no proposal': 'Cruzamento durante o intervalo de espera — sem proposta', 'Blocked by a limit — no proposal': 'Bloqueada por um limite — sem proposta',
   'Missed while FloFi was unavailable': 'Perdida enquanto o FloFi esteve indisponível', 'Saved workflow changed — rebind required': 'Fluxo guardado alterado — é preciso voltar a associar',
-  'No longer reproducible — rebind required': 'Já não reproduzível — é preciso voltar a associar', 'Buy prepared in Build': 'Compra preparada em Criar',
-  'Sell prepared in Build': 'Venda preparada em Criar', 'Duplicate trigger ignored': 'Gatilho duplicado ignorado', 'Price observation too old — ignored': 'Observação de preço demasiado antiga — ignorada',
+  'No longer reproducible — rebind required': 'Já não reproduzível — é preciso voltar a associar', 'You started your own buy in Build': 'Iniciou uma compra sua em Criar',
+  'You started your own sell in Build': 'Iniciou uma venda sua em Criar', 'Duplicate trigger ignored': 'Gatilho duplicado ignorado', 'Price observation too old — ignored': 'Observação de preço demasiado antiga — ignorada',
   'No price source on this deployment': 'Sem fonte de preços neste ambiente', 'Price source timed out — ignored': 'A fonte de preços excedeu o tempo — ignorada',
   'Price source unreachable — ignored': 'Fonte de preços inacessível — ignorada', 'Price source error — ignored': 'Erro da fonte de preços — ignorado',
   'Price feed failed verification — ignored': 'O feed de preços falhou a verificação — ignorado', 'Withdrawn by a rebind': 'Retirada por uma nova associação',
   // Notices and errors
   'Automation created. FloFi will ask you before every execution.': 'Automação criada. O FloFi pergunta-lhe antes de cada execução.', 'Automation paused.': 'Automação em pausa.',
   'Automation resumed.': 'Automação retomada.', 'Automation archived.': 'Automação arquivada.', 'Automation rebound.': 'Automação associada de novo.', 'Proposal dismissed.': 'Proposta recusada.',
-  'Proposal prepared in Build. Apply it, simulate and review before signing.': 'Proposta preparada em Criar. Aplique-a, simule e reveja antes de assinar.', 'Telegram unlinked.': 'Telegram desligado.',
+  'Your own trade is in Build. Apply it, simulate and review before signing.': 'A sua operação está em Criar. Aplique-a, simule e reveja antes de assinar.', 'Telegram unlinked.': 'Telegram desligado.',
   'FloFi could not complete this ({0}).': 'O FloFi não conseguiu concluir isto ({0}).', 'Automations are unavailable on this deployment right now.': 'As automações estão indisponíveis neste ambiente de momento.',
   'This automation changed in another session. Refresh and try again.': 'Esta automação mudou noutra sessão. Atualize e tente novamente.',
   'You have reached the maximum number of automations.': 'Atingiu o número máximo de automações.',
@@ -102,6 +102,7 @@ export const portugueseAutomations: Readonly<Record<string, string>> = {
   'Only a saved workflow with exactly one Base Sepolia or Ethereum Sepolia swap can be automated.': 'Só um fluxo guardado com exatamente uma troca na Base Sepolia ou na Ethereum Sepolia pode ser automatizado.',
   'The saved workflow changed. Rebind the automation before reviewing.': 'O fluxo guardado mudou. Volte a associar a automação antes de rever.', 'Resume the automation first.': 'Retome primeiro a automação.',
   'This proposal has expired.': 'Esta proposta expirou.', 'This proposal was dismissed.': 'Esta proposta foi recusada.', 'This proposal is no longer reproducible.': 'Esta proposta já não é reproduzível.',
+  'You already added this proposal to your workflow.': 'Já adicionou esta proposta ao seu fluxo.', 'This proposal changed. Refresh and try again.': 'Esta proposta mudou. Atualize e tente novamente.',
   'The action must trade the asset the condition watches.': 'A ação tem de negociar o ativo que a condição observa.', 'Too many reviews opened recently. Try again later.': 'Demasiadas revisões abertas recentemente. Tente mais tarde.',
   'Too many open reviews for this automation. Finish or dismiss one first.': 'Demasiadas revisões abertas para esta automação. Conclua ou recuse uma primeiro.',
   'This network needs a wallet of another kind than the one you proved. Only your own wallet can approve its proposals.':

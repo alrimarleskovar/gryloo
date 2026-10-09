@@ -179,11 +179,12 @@ export function createPgAutomationStore(db: Database, tenantId: string): Automat
       [tenantId, owner.namespace, owner.address, [...occurrenceIds]])).rows.map(row => ({ occurrenceId: String(row.occurrence_id), channel: String(row.channel),
         status: row.status as 'QUEUED', code: row.code === null ? null : String(row.code), updatedAt: date(row.updated_at) }));
     },
-    decide: (owner, occurrenceId, state, outcome, now) => db.transaction(async tx => {
+    decide: (owner, occurrenceId, state, outcome, now, expectedHandoffId) => db.transaction(async tx => {
       const found = await ownerOccurrence(tx, owner, occurrenceId, false) ?? refuse('AUTOMATION_OCCURRENCE_NOT_FOUND');
       await tx.query(`SELECT 1 FROM automation_rules WHERE tenant_id = $1 AND rule_id = $2 FOR UPDATE`, [tenantId, found.ruleId]);
       const o = await ownerOccurrence(tx, owner, occurrenceId, true) ?? refuse('AUTOMATION_OCCURRENCE_NOT_FOUND');
       if (!OPEN_OCCURRENCE.includes(o.state)) refuse(`AUTOMATION_OCCURRENCE_${o.state}`);
+      if (expectedHandoffId !== undefined && o.handoffId !== expectedHandoffId) refuse('AUTOMATION_OCCURRENCE_CHANGED');
       if (o.expiresAt <= now) {
         await tx.query(`UPDATE automation_occurrences SET state = 'EXPIRED', decided_at = $3, outcome = 'OCCURRENCE_EXPIRED' WHERE tenant_id = $1 AND occurrence_id = $2`,
           [tenantId, occurrenceId, now]);
@@ -256,9 +257,14 @@ export function createPgAutomationStore(db: Database, tenantId: string): Automat
           o.spend?.amount ?? null, json(o.observation), o.dueAt, o.expiresAt, now])).rows[0];
         if (inserted) {
           occurrence = occurrenceOf(inserted);
-          await tx.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at) VALUES ($1, $2, $3, NULL, $4::jsonb, 'READY', now())
+          // A chat notification item only for an owner with a live linked chat: the in-app proposal needs none, and an item nobody can
+          // deliver is never left in the queue.
+          await tx.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at)
+            SELECT $1, $2, $3, NULL, $4::jsonb, 'READY', now() WHERE EXISTS (SELECT 1 FROM automation_notification_targets t
+              JOIN channel_conversations c ON c.tenant_id = t.tenant_id AND c.conversation_id = t.conversation_id
+              WHERE t.tenant_id = $1 AND t.owner_namespace = $5 AND t.owner_account = $6 AND t.expires_at > $7 AND c.status = 'ACTIVE')
             ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`,
-          [tenantId, NOTIFY_KIND, occurrence.occurrenceId, JSON.stringify({ occurrenceId: occurrence.occurrenceId })]);
+          [tenantId, NOTIFY_KIND, occurrence.occurrenceId, JSON.stringify({ occurrenceId: occurrence.occurrenceId }), rule.owner.namespace, rule.owner.address, now]);
         } else duplicate = true;
       }
       for (const e of commit.evaluations) await tx.query(`INSERT INTO automation_evaluations (tenant_id, rule_id, at, outcome, trigger_key, occurrence_id, observation, detail)

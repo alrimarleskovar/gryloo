@@ -20,7 +20,7 @@ import { newAutomationId } from './runtime.ts';
 let t: TestDatabase;
 beforeAll(async () => { t = await createTestDatabase(); });
 afterAll(async () => { await t?.drop(); });
-beforeEach(async () => { await t.db.query('TRUNCATE automation_notifications, automation_evaluations, automation_occurrences, automation_rules, automation_link_codes, work_items, saved_workflows, mcp_handoffs, mcp_rate_limits CASCADE'); });
+beforeEach(async () => { await t.db.query('TRUNCATE automation_notifications, automation_evaluations, automation_occurrences, automation_rules, automation_link_codes, automation_notification_targets, channel_conversations, work_items, saved_workflows, mcp_handoffs, mcp_rate_limits CASCADE'); });
 
 const silent = createLogger({ service: 'test', sink: () => undefined });
 const count = async (sql: string, values: unknown[] = []) => (await t.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${sql}`, values)).rows[0]!.n;
@@ -30,6 +30,14 @@ const outcomes = (ruleId: string) => t.db.query<{ outcome: string }>('SELECT out
   .then(r => r.rows.map(row => row.outcome));
 const evaluator = (h: Harness, db: Database = t.db) => { const rt = h.rt(db); return { store: rt.store, price: rt.price, log: rt.log, now: rt.now, newId: newAutomationId }; };
 const dispatch = (h: Harness, db: Database = t.db, worker = 'w1') => dispatchAutomations(h.rt(db), createPostgresWorkQueue({ db, ownerId: worker, tenantId: 'default' }), silent, worker);
+/** A linked chat of `owner` (an ACTIVE channel conversation and its notification target) until `expiresAt`. */
+async function linkChat(owner: { namespace: string; address: string }, expiresAt: Date) {
+  const conversation = newAutomationId('occ').replace(/^occ_/, 'chc_');
+  await t.db.query(`INSERT INTO channel_conversations (tenant_id, conversation_id, channel, business_id, subject_digest) VALUES ('default', $1, 'TELEGRAM', '7000000001', $2)`,
+    [conversation, Buffer.alloc(32, owner.address.slice(2, 4))]);
+  await t.db.query(`INSERT INTO automation_notification_targets (tenant_id, owner_namespace, owner_account, channel, conversation_id, linked_at, expires_at)
+    VALUES ('default', $1, $2, 'TELEGRAM', $3, '2026-10-01T00:00:00Z', $4)`, [owner.namespace, owner.address, conversation, expiresAt]);
+}
 /** Monday 2026-10-12 09:00 Europe/Lisbon (WEST) = 08:00Z. */
 const MONDAY = '2026-10-12T08:00:00Z';
 
@@ -100,8 +108,9 @@ describe('BUILD-AUTOMATION-001 rules: owner isolation and optimistic concurrency
 });
 
 describe('BUILD-AUTOMATION-001 scheduler: at most one occurrence per trigger event', () => {
-  it('competing evaluators of a due slot create exactly one occurrence and one notification item', async () => {
+  it('competing evaluators of a due slot create exactly one occurrence and, for an owner with a linked chat, one notification item', async () => {
     const h = automationHarness(t.db), rule = await h.service().create(OWNER_A, weeklyDca());
+    await linkChat(OWNER_A, new Date('2026-12-31T00:00:00Z'));
     h.set('2026-10-12T08:00:30Z');
     const results = await Promise.all(Array.from({ length: 8 }, () => evaluateRule(evaluator(h, t.open(2)), rule.ruleId)));
     expect(results.filter(r => r.kind === 'COMMITTED' && r.occurrence)).toHaveLength(1);
@@ -111,13 +120,23 @@ describe('BUILD-AUTOMATION-001 scheduler: at most one occurrence per trigger eve
     expect((await h.store.ruleById(rule.ruleId))?.nextEvaluationAt?.toISOString()).toBe('2026-10-19T08:00:00.000Z');
   });
 
+  it('queues no chat notification for an owner without a live linked chat (the proposal is in the app either way)', async () => {
+    const h = automationHarness(t.db), a = await h.service().create(OWNER_A, weeklyDca()), b = await h.service().create(OWNER_B, weeklyDca());
+    await linkChat(OWNER_B, new Date('2026-10-10T00:00:00Z')); // expired before the slot
+    h.set('2026-10-12T08:00:30Z');
+    for (const rule of [a, b]) expect((await evaluateRule(evaluator(h), rule.ruleId)).kind).toBe('COMMITTED');
+    expect((await occurrences(a.ruleId)).map(o => o.state)).toEqual(['PENDING_OWNER']);
+    expect((await occurrences(b.ruleId)).map(o => o.state)).toEqual(['PENDING_OWNER']);
+    expect(await count(`work_items WHERE kind = 'automation.notify'`)).toBe(0);
+  });
+
   it('duplicate scheduler calls enqueue one evaluation and still produce one occurrence', async () => {
     const h = automationHarness(t.db), rule = await h.service().create(OWNER_A, weeklyDca());
     h.set('2026-10-12T08:01:00Z');
     const enqueued = await Promise.all(Array.from({ length: 5 }, () => h.rt(t.open(2)).store.enqueueDue(h.now(), 100)));
     expect(enqueued.reduce((a, b) => a + b, 0)).toBe(1);
     const passes = await Promise.all([dispatch(h, t.open(3), 'w1'), dispatch(h, t.open(3), 'w2'), dispatch(h, t.open(3), 'w3')]);
-    expect(passes.reduce((a, p) => a + p.processed, 0)).toBeGreaterThanOrEqual(2); // the evaluation and its notification
+    expect(passes.reduce((a, p) => a + p.processed, 0)).toBe(1); // the one evaluation (no chat is linked, so no notification item)
     await dispatch(h);
     expect(await occurrences(rule.ruleId)).toHaveLength(1);
     expect(await count(`work_items WHERE kind = 'automation.evaluate' AND state <> 'DONE'`)).toBe(0);

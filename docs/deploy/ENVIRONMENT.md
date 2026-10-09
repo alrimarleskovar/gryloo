@@ -250,6 +250,20 @@ Guide: [AUTOMATIONS.md](AUTOMATIONS.md).
 
 Telegram notifications need no extra variable: they use the Channels configuration (§5e) when Telegram is enabled on the same tenant.
 
+**Railway worker as the automation heartbeat (optional).** When the web runtime is embedded and the worker shares its `DATABASE_URL`
+and `TENANT_ID`, the worker can evaluate automations (its 60 s sweep discovers due rules; its claim loop runs them) instead of, or
+alongside, an external scheduler calling the dispatch. Off unless set on the worker; nothing about the worker changes otherwise.
+
+| Variable (worker) | Purpose | Secret | Default |
+| --- | --- | --- | --- |
+| `FLOFI_AUTOMATIONS` | `enabled` loads the automation handlers and adds their sweep | no | off |
+| `FLOFI_PUBLIC_ORIGIN` | the web deployment's origin (notification links) | no | invalid → automations disabled on the worker only (`automation.worker_disabled`) |
+| `FLOFI_AUTOMATION_PRICE_SOURCE`, `FLOFI_AUTOMATION_CHAINLINK_FEEDS`, `FLOFI_AUTOMATION_CHAINLINK_RPC_URL`, `FLOFI_AUTOMATION_PRICE_MAX_AGE_SECONDS` | the same values as the web deployment (`fixture` is refused on Railway) | RPC URL if keyed | `off` |
+| Channels Telegram variables (§5e) | only if the worker should deliver Telegram notifications; without them it leaves notification items to the web dispatch | as §5e | not delivered by the worker |
+
+The worker never needs `FLOFI_AUTOMATION_SECRET`, `FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256` or the handoff policy variables: it mints
+no approval, links no chat and serves no automation route.
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),

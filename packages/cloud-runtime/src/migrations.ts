@@ -31,7 +31,7 @@ export const SHIPPED_MIGRATIONS: readonly MigrationIdentity[] = Object.freeze([
   { version: 7, name: 'developer_platform', sha256: 'b70b6a4ab0e0d82414ba3363eb5b6909cf652fc41a768652c6ce0237de6e26be' },
   { version: 8, name: 'saved_workflows', sha256: '608eac6117a6d12f8c5f1bbe1deb4e9b783d8172ba70a1e35ba017e6fcab700d' },
   { version: 9, name: 'channel_conversations', sha256: '4bd8e0659f7465bc67ede38621770959f43b6e2b20ddf113fbc01c21b9f0b8f1' },
-  { version: 10, name: 'automations', sha256: '50e520c320a751c87fe09df6ce47af955b13610b9eff868964951ae0e9b8a9e8' },
+  { version: 10, name: 'automations', sha256: '33eabd57e662b422243305c7fb64580f37a86c314c34990a370a214837d1fa12' },
 ].map(migration => Object.freeze(migration)));
 const FILE = /^(\d{4})_([a-z0-9_]+)\.sql$/;
 const LOCK_ID = 7_340_032_001; // Constant advisory lock key for migration runners.

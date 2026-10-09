@@ -32,7 +32,7 @@ const OUTCOME_LABEL: Readonly<Record<string, string>> = {
   CONDITION_STILL_MET: 'Condition still met — no new proposal', REARMED: 'Condition cleared — watching again', COOLDOWN: 'Crossing during the cooldown — no proposal',
   LIMIT_BLOCKED: 'Blocked by a limit — no proposal', MISSED: 'Missed while FloFi was unavailable', WORKFLOW_CHANGED: 'Saved workflow changed — rebind required',
   STRATEGY_STALE: 'No longer reproducible — rebind required', APPROVAL_REQUESTED: 'Opened for review', APPROVAL_APPLIED: 'Loaded into your workflow',
-  OWNER_DISMISSED: 'Dismissed', OWNER_PREPARED_BUY: 'Buy prepared in Build', OWNER_PREPARED_SELL: 'Sell prepared in Build', DUPLICATE_TRIGGER: 'Duplicate trigger ignored',
+  OWNER_DISMISSED: 'Dismissed', OWNER_PREPARED_BUY: 'You started your own buy in Build', OWNER_PREPARED_SELL: 'You started your own sell in Build', DUPLICATE_TRIGGER: 'Duplicate trigger ignored',
   PRICE_STALE: 'Price observation too old — ignored', PRICE_SOURCE_OFF: 'No price source on this deployment', PRICE_SOURCE_TIMEOUT: 'Price source timed out — ignored',
   PRICE_SOURCE_UNREACHABLE: 'Price source unreachable — ignored', PRICE_SOURCE_ERROR: 'Price source error — ignored', PRICE_FEED_MISMATCH: 'Price feed failed verification — ignored',
   OCCURRENCE_EXPIRED: 'Expired', AUTOMATION_REBOUND_WITHDRAWN: 'Withdrawn by a rebind' };
@@ -51,6 +51,7 @@ const ERROR_TEXT: Readonly<Record<string, string>> = {
   AUTOMATION_WORKFLOW_NOT_REPRESENTABLE: 'Only a saved workflow with exactly one Base Sepolia or Ethereum Sepolia swap can be automated.',
   AUTOMATION_WORKFLOW_CHANGED: 'The saved workflow changed. Rebind the automation before reviewing.', AUTOMATION_PAUSED: 'Resume the automation first.',
   AUTOMATION_OCCURRENCE_EXPIRED: 'This proposal has expired.', AUTOMATION_OCCURRENCE_DISMISSED: 'This proposal was dismissed.', STRATEGY_STALE: 'This proposal is no longer reproducible.',
+  AUTOMATION_OCCURRENCE_COMPLETED: 'You already added this proposal to your workflow.', AUTOMATION_OCCURRENCE_CHANGED: 'This proposal changed. Refresh and try again.',
   AUTOMATION_ACTION_ASSET_MISMATCH: 'The action must trade the asset the condition watches.', HANDOFF_RATE_LIMITED: 'Too many reviews opened recently. Try again later.',
   HANDOFF_PENDING_LIMIT: 'Too many open reviews for this automation. Finish or dismiss one first.', AUTOMATION_LINK_RATE_LIMITED: 'Too many codes requested. Try again later.',
   AUTOMATION_CHAT_NOTIFICATIONS_UNAVAILABLE: 'Telegram notifications are not available on this deployment.',
@@ -125,7 +126,7 @@ function PendingCard({ o, rule, highlighted, capabilities, busy, run, onPropose,
       const prepared = await prepareWatchProposal(owner, o.occurrenceId, { ...trade, slippageBps: 50 });
       if (prepared.ok) onPropose(prepared.value.command);
       return prepared;
-    }, 'Proposal prepared in Build. Apply it, simulate and review before signing.');
+    }, 'Your own trade is in Build. Apply it, simulate and review before signing.');
   }
   const routes = (asset: string) => capabilities.routes.filter(r => r.asset === asset && r.executable);
   return <article className="automation-card automation-pending" id={`occurrence-${o.occurrenceId}`} data-highlighted={highlighted ? 'true' : undefined}
@@ -147,7 +148,7 @@ function PendingCard({ o, rule, highlighted, capabilities, busy, run, onPropose,
         <input inputMode="decimal" aria-label={t('Amount')} value={trade.amount} onChange={e => setTrade({ ...trade, amount: e.currentTarget.value.trim() })} required/></label>
       <div className="automation-row-actions"><button type="submit" className="workspace-action" disabled={busy}>{t('Prepare in Build')}</button>
         <button type="button" className="workspace-action" onClick={() => setTrade(null)}>{t('Cancel')}</button></div>
-      <p className="muted">{t('This prepares an ordinary FloFi proposal in Build. Nothing is signed: apply it, simulate and review the Strategy Manifest first.')}</p>
+      <p className="muted">{t('This is your own new trade, not part of this automation: it goes to your Build draft as an ordinary proposal, exactly as if you had composed it there. The automation adds no authority and no limits to it. Nothing is signed: apply it, simulate and review the Strategy Manifest first.')}</p>
     </form>}
     <p className="muted">{t('Waiting until')} <When iso={o.expiresAt} zone={zone}/>{o.notifications.map(n => <span key={n.channel}> · {t('Telegram')}: {t(n.status === 'QUEUED' ? 'sent to your chat' : 'not delivered')}</span>)}</p>
     <div className="automation-row-actions">

@@ -59,13 +59,20 @@ CREATE TABLE automation_rules (
 CREATE INDEX automation_rules_owner ON automation_rules (tenant_id, owner_namespace, owner_account, created_at DESC);
 CREATE INDEX automation_rules_due ON automation_rules (tenant_id, next_evaluation_at) WHERE state = 'ACTIVE';
 
--- Who and what a rule is never changes; its state moves only along ACTIVE ⇄ PAUSED → EXPIRED → ARCHIVED (ARCHIVED is terminal).
+-- Who and what a rule is never changes — its owner, kind, mode, definition (schedule, condition, limits) and expiry; its state moves
+-- only along ACTIVE ⇄ PAUSED → EXPIRED → ARCHIVED (ARCHIVED is terminal); its bound action changes only with a new version (rebind).
 CREATE FUNCTION automation_rule_transition() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.rule_id IS DISTINCT FROM OLD.rule_id OR NEW.owner_namespace IS DISTINCT FROM OLD.owner_namespace
      OR NEW.owner_account IS DISTINCT FROM OLD.owner_account OR NEW.kind IS DISTINCT FROM OLD.kind OR NEW.execution_mode IS DISTINCT FROM OLD.execution_mode
-     OR NEW.timezone IS DISTINCT FROM OLD.timezone OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+     OR NEW.timezone IS DISTINCT FROM OLD.timezone OR NEW.created_at IS DISTINCT FROM OLD.created_at OR NEW.definition IS DISTINCT FROM OLD.definition
+     OR NEW.expires_at IS DISTINCT FROM OLD.expires_at THEN
     RAISE EXCEPTION 'AUTOMATION_RULE_IMMUTABLE' USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  IF (NEW.action_strategy, NEW.action_workflow_hash, NEW.engine_version, NEW.source_workflow_id, NEW.source_workflow_hash, NEW.source_workflow_version)
+       IS DISTINCT FROM (OLD.action_strategy, OLD.action_workflow_hash, OLD.engine_version, OLD.source_workflow_id, OLD.source_workflow_hash, OLD.source_workflow_version)
+     AND NEW.version <= OLD.version THEN
+    RAISE EXCEPTION 'AUTOMATION_RULE_VERSION_INVALID' USING ERRCODE = 'integrity_constraint_violation';
   END IF;
   IF OLD.state = 'ARCHIVED' THEN
     RAISE EXCEPTION 'AUTOMATION_RULE_ARCHIVED' USING ERRCODE = 'integrity_constraint_violation';

@@ -18,7 +18,9 @@ Automations workspace (EN/PT). Execution mode is only `CONFIRM_EACH_TIME`: an oc
 proven wallet; FloFi's unchanged flow follows (fresh simulation, Strategy Manifest Review, the owner's signature). Actions are bound by value
 to a canonical StrategySpec and hash; a saved-workflow edit stops proposals until an explicit, limit-checked rebind. Enforced limits per
 execution, per day/week/month, cooldown, slippage, expiry. Evaluation runs as durable work items behind the bearer-only
-`/api/automations/dispatch` (no new service). Prices: read-only Chainlink feeds on Base mainnet (configured, verified on-chain) or a test
+`/api/automations/dispatch` and, when enabled on it, in the existing Railway worker (its 60 s sweep is the heartbeat for an embedded
+deployment sharing its database and tenant; no new service, no cron needed there). Production stays on the remote runtime, where
+automations fail closed like MCP/Channels/Developer. Daily-watch Buy/Sell is the owner's own new Build trade, not automation execution. Prices: read-only Chainlink feeds on Base mainnet (configured, verified on-chain) or a test
 fixture. Notifications: in-app, and Telegram through the existing Channel Core after a one-time link code (no secret in any message;
 WhatsApp unchanged). BTC can be watched but has no swap route (`BTC_EXECUTION_ROUTE_UNAVAILABLE`); Base mainnet swaps are not
 owner-executable on main. See the [plan](builds/BUILD-AUTOMATION-001-PLAN.md), [report](builds/BUILD-AUTOMATION-001-REPORT.md) and

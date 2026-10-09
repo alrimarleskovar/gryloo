@@ -4,7 +4,8 @@
  * reaches the current schema with the normal runner; 0010 is additive — every earlier table keeps its columns, constraints, indexes and
  * triggers except the two intended changes (the handoff requester-kind CHECK gains AUTOMATION_RULE; channel conversations gain
  * `retain_until`); existing rows survive; a second run applies nothing; an edited 0010 is refused. The database itself enforces the
- * automation invariants: CONFIRM_EACH_TIME only, forward-only states, immutable occurrences, one occurrence per trigger key.
+ * automation invariants: CONFIRM_EACH_TIME only, immutable rule definitions, versioned rebinds, forward-only states, immutable occurrences, one
+ * occurrence per trigger key.
  */
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -87,6 +88,11 @@ describe('BUILD-AUTOMATION-001 migration 0010 (shipped)', () => {
         VALUES ('default', $1, 'eip155', $2, 'x', 'SCHEDULED_DCA', 'ACTIVE', '{}', 'UTC', now())`, [id('aut'), OWNER])).rejects.toThrow();
       await expect(t.db.query(`UPDATE automation_rules SET owner_account = $2 WHERE rule_id = $1`, [rule, '0x' + 'e'.repeat(40)])).rejects.toThrow(/AUTOMATION_RULE_IMMUTABLE/);
       await expect(t.db.query(`UPDATE automation_rules SET version = 0 WHERE rule_id = $1`, [rule])).rejects.toThrow();
+      // The definition (schedule, condition, limits) and the expiry never change; the bound action changes only with a new version.
+      await expect(t.db.query(`UPDATE automation_rules SET definition = '{"limits":{"maxAmountPerExecution":"5000"}}' WHERE rule_id = $1`, [rule])).rejects.toThrow(/AUTOMATION_RULE_IMMUTABLE/);
+      await expect(t.db.query(`UPDATE automation_rules SET expires_at = now() + interval '9 years' WHERE rule_id = $1`, [rule])).rejects.toThrow(/AUTOMATION_RULE_IMMUTABLE/);
+      await expect(t.db.query(`UPDATE automation_rules SET action_strategy = '{"action":"swap","amount":"5000"}' WHERE rule_id = $1`, [rule])).rejects.toThrow(/AUTOMATION_RULE_VERSION_INVALID/);
+      await t.db.query(`UPDATE automation_rules SET action_strategy = '{"action":"swap","amount":"40"}', version = version + 1 WHERE rule_id = $1`, [rule]);
       // One occurrence per trigger key; the owner must be the rule's owner.
       const occurrence = (key: string, owner = OWNER) => t.db.query(`INSERT INTO automation_occurrences (tenant_id, occurrence_id, rule_id, owner_namespace, owner_account, trigger_key,
         kind, state, due_at, expires_at) VALUES ('default', $1, $2, 'eip155', $3, $4, 'SCHEDULE', 'PENDING_OWNER', now(), now() + interval '1 day')`, [id('occ'), rule, owner, key]);

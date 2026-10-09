@@ -51,17 +51,27 @@ export function channelNotifier(env: Env, host: AutomationHost, now: () => Date,
     handoffs, log: channelLogger(seams.channelLog ?? null), now, fallbackLanguage: core.language }, conversationId, dedupeKey, reply) };
 }
 
-export type AutomationRuntime = { readonly config: AutomationConfig; readonly host: AutomationHost; readonly store: AutomationStore; readonly handoffs: HandoffStore;
-  readonly allow: WindowLimit; readonly engine: EngineRuntime; readonly price: PriceSource; readonly notifier: ChannelNotifier | null; readonly log: AutomationLogger;
-  readonly now: () => Date };
+/**
+ * What the work handlers and the sweep use: the store, the shared handoff store (approval sync), the price source, the notifier and
+ * the origin of notification links. No engine runtime (nothing here runs a flow) and no key material (nothing here mints approvals).
+ */
+export type AutomationWorkRuntime = { readonly origin: string; readonly host: AutomationHost; readonly store: AutomationStore; readonly handoffs: HandoffStore;
+  readonly price: PriceSource; readonly notifier: ChannelNotifier | null; readonly log: AutomationLogger; readonly now: () => Date };
+/** The web deployment's runtime: the work runtime plus what the owner's operations need (configuration, abuse limiter, engine gates). */
+export type AutomationRuntime = AutomationWorkRuntime & { readonly config: AutomationConfig; readonly allow: WindowLimit; readonly engine: EngineRuntime };
+export function automationWorkRuntime(env: Env, settings: Pick<AutomationConfig, 'origin' | 'price'>, host: AutomationHost, log: AutomationLogger, now: () => Date,
+  seams: AutomationSeams = {}): AutomationWorkRuntime {
+  return { origin: settings.origin, host, store: createPgAutomationStore(host.db, host.tenantId), handoffs: createPgHandoffStore(host.db, host.tenantId),
+    price: seams.price ?? priceSourceOf(settings.price, seams.fetch), notifier: channelNotifier(env, host, now, seams), log, now };
+}
 export function automationRuntime(env: Env, config: AutomationConfig, host: AutomationHost, log: AutomationLogger, now: () => Date, seams: AutomationSeams = {}): AutomationRuntime {
-  return { config, host, store: createPgAutomationStore(host.db, host.tenantId), handoffs: createPgHandoffStore(host.db, host.tenantId), allow: fixedWindow(host.db, host.tenantId).allow,
-    engine: seams.runtime ?? deploymentEngineRuntime(env), price: seams.price ?? priceSourceOf(config.price, seams.fetch), notifier: channelNotifier(env, host, now, seams), log, now };
+  return { ...automationWorkRuntime(env, config, host, log, now, seams), config, allow: fixedWindow(host.db, host.tenantId).allow,
+    engine: seams.runtime ?? deploymentEngineRuntime(env) };
 }
 
 export const newAutomationId = (prefix: 'aut' | 'occ') => typedId(prefix);
 /** The work handlers of automations (the same in the scheduler endpoint's drain and in the Railway worker). */
-export function automationHandlers(rt: AutomationRuntime): Record<(typeof AUTOMATION_WORK_KINDS)[number], WorkHandler> {
+export function automationHandlers(rt: AutomationWorkRuntime): Record<(typeof AUTOMATION_WORK_KINDS)[number], WorkHandler> {
   const evaluator: EvaluatorDeps = { store: rt.store, price: rt.price, log: rt.log, now: rt.now, newId: newAutomationId };
   return {
     'automation.evaluate': async (item, settle) => {
@@ -73,7 +83,7 @@ export function automationHandlers(rt: AutomationRuntime): Record<(typeof AUTOMA
     'automation.notify': async (item, settle) => {
       const occurrenceId = item.payload.occurrenceId;
       if (typeof occurrenceId !== 'string' || !/^occ_[a-z2-7]{26}$/.test(occurrenceId)) { await settle({ outcome: 'DEAD', reason: 'WORK_PAYLOAD_INVALID' }); return; }
-      await notifyOccurrence({ store: rt.store, db: rt.host.db, tenantId: rt.host.tenantId, origin: rt.config.origin, log: rt.log, now: rt.now, notifier: rt.notifier }, occurrenceId);
+      await notifyOccurrence({ store: rt.store, db: rt.host.db, tenantId: rt.host.tenantId, origin: rt.origin, log: rt.log, now: rt.now, notifier: rt.notifier }, occurrenceId);
       await settle({ outcome: 'DONE' });
     },
   };

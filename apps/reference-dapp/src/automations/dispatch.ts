@@ -14,7 +14,7 @@
  */
 import { createWorker, type Logger, type WorkQueue } from '@defi-workflow-engine/cloud-runtime';
 import { ruleScope } from './approval.ts';
-import { AUTOMATION_WORK_KINDS, automationHandlers, type AutomationRuntime } from './runtime.ts';
+import { AUTOMATION_WORK_KINDS, automationHandlers, type AutomationRuntime, type AutomationWorkRuntime } from './runtime.ts';
 
 export type DispatchLimits = { readonly enqueue: number; readonly expire: number; readonly approvals: number; readonly budgetMs: number; readonly batch: number };
 export const DISPATCH_LIMITS: DispatchLimits = Object.freeze({ enqueue: 100, expire: 200, approvals: 50, budgetMs: 45_000, batch: 4 });
@@ -24,8 +24,8 @@ export type DispatchSummary = { readonly expiredOccurrences: number; readonly ex
 /** The work queue limited to automation work: a scheduler pass never runs another service's items. */
 export const automationQueue = (queue: WorkQueue): WorkQueue => ({ ...queue, claim: limit => queue.claim(limit, AUTOMATION_WORK_KINDS) });
 
-/** Steps 1, 2, 4 and 5 (no draining): the Railway worker's sweep, whose own loop then processes the work items. */
-export async function sweepAutomations(rt: AutomationRuntime, limits: DispatchLimits = DISPATCH_LIMITS, deadline = Date.now() + limits.budgetMs) {
+/** Steps 1, 2, 4 and 5 (no draining): also the Railway worker's sweep (`worker.ts`), whose own loop then processes the work items. */
+export async function sweepAutomations(rt: AutomationWorkRuntime, limits: DispatchLimits = DISPATCH_LIMITS, deadline = Date.now() + limits.budgetMs) {
   const now = rt.now();
   const expired = await rt.store.expireLapsed(now, limits.expire);
   const enqueued = await rt.store.enqueueDue(now, limits.enqueue);
