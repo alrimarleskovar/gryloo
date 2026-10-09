@@ -1,0 +1,50 @@
+[
+  {
+    "width": 390,
+    "idleFrames": {
+      "samples": 181,
+      "median": 16.699999999999818,
+      "p95": 16.799999999999955,
+      "max": 16.800000000000182,
+      "active": "true",
+      "playState": "running",
+      "pending": false
+    }
+  },
+  {
+    "width": 768,
+    "idleFrames": {
+      "samples": 92,
+      "median": 33.30000000000018,
+      "p95": 33.40000000000009,
+      "max": 33.5,
+      "active": "true",
+      "playState": "running",
+      "pending": false
+    }
+  },
+  {
+    "width": 1440,
+    "idleFrames": {
+      "samples": 60,
+      "median": 50,
+      "p95": 83.29999999999973,
+      "max": 83.39999999999964,
+      "active": "true",
+      "playState": "running",
+      "pending": false
+    }
+  },
+  {
+    "width": 1920,
+    "idleFrames": {
+      "samples": 44,
+      "median": 66.69999999999982,
+      "p95": 133.30000000000018,
+      "max": 150,
+      "active": "true",
+      "playState": "running",
+      "pending": false
+    }
+  }
+]

@@ -38,7 +38,7 @@ for (const width of [320, 375, 390, 430, 768, 900, 901, 1024, 1440, 1920]) {
     }
     for (const locale of ['en', 'pt']) {
       await page.getByRole('button', { name: locale.toUpperCase(), exact: true }).click();
-      for (const [variant, destinations, section] of [['light', 2, '#developers']] as const) {
+      for (const [variant, destinations, section] of [['light', 2, '#developers'], ['dark', 1, '#about']] as const) {
         const diagram = page.locator(`[data-flow-diagram="${variant}"]`);
         await diagram.scrollIntoViewIfNeeded();
         await expect.poll(async () => {
@@ -74,14 +74,16 @@ for (const width of [320, 375, 390, 430, 768, 900, 901, 1024, 1440, 1920]) {
 }
 
 test('geometry follows live resizing, changing card dimensions and transformed SVG coordinates', async ({ page }) => {
-  const light = page.locator('[data-flow-diagram="light"]');
-  await light.scrollIntoViewIfNeeded();
-  await light.evaluate(element => { element.style.transform = 'translate(7px, 3px) scale(.94)'; });
-  await light.locator('[data-flow-source="wallet"]').evaluate(element => { element.style.paddingBlock = '28px'; });
-  await expect.poll(async () => { try { await assertConnectedFlow(light); return true; } catch { return false; } }).toBe(true);
-  for (const width of [900, 901, 390, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    await expect.poll(async () => { try { await assertConnectedFlow(light); return true; } catch { return false; } }).toBe(true);
+  for (const [variant, destinations] of [['light', 2], ['dark', 1]] as const) {
+    const light = page.locator(`[data-flow-diagram="${variant}"]`);
+    await light.scrollIntoViewIfNeeded();
+    await light.evaluate(element => { element.style.transform = 'translate(7px, 3px) scale(.94)'; });
+    await light.locator('[data-flow-source="wallet"]').evaluate(element => { element.style.paddingBlock = '28px'; });
+    await expect.poll(async () => { try { await assertConnectedFlow(light, destinations); return true; } catch { return false; } }).toBe(true);
+    for (const width of [760, 761, 900, 901, 390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(async () => { try { await assertConnectedFlow(light, destinations); return true; } catch { return false; } }).toBe(true);
+    }
   }
 });
 

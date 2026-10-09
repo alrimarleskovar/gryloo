@@ -289,10 +289,10 @@
 .documentation a { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; color: #2343D9; font-size: 12px; font-weight: 600; }
 
 
-.closingSection { position: relative; padding: 250px 0 120px; color: #fff; background: linear-gradient(180deg, #fff 0%, #E9EDFD 8%, #2343D9 26%, #06172b 43%, #06172b 100%); overflow: hidden; }
+.closingSection { position: relative; isolation: isolate; padding: 250px 0 120px; color: #fff; background: linear-gradient(180deg, var(--pale) 0%, #E9EDFD 8%, #2343D9 26%, #06172b 43%, #06172b 100%); overflow: hidden; }
 .closingSection > .container { position: relative; z-index: 1; }
 .horizon { position: absolute; inset: 30% 0 0; opacity: .68; overflow: hidden; mask-image: linear-gradient(180deg, transparent 0%, #000 27%); pointer-events: none; isolation: isolate; }
-.horizon::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(6,23,43,.78), rgba(6,23,43,.36) 57%, rgba(6,23,43,.08)); }
+.horizon::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, #06172b, transparent 20%), linear-gradient(90deg, rgba(6,23,43,.78), rgba(6,23,43,.36) 57%, rgba(6,23,43,.08)); }
 .earthArtwork { position: absolute; width: 100%; height: 100%; inset: 0; }
 .earthSurface { opacity: 0; transform-box: view-box; mix-blend-mode: screen; }
 .earthLighting { opacity: .35; transform-box: view-box; }
@@ -317,9 +317,7 @@
 .visionCore strong { font-size: 25px; letter-spacing: -.05em; }
 .visionCore small { color: #93A6FF; font-size: 11px; }
 .visionDestination { position: relative; z-index: 1; padding: 16px 12px; border: 1px solid rgba(147,166,255,.25); border-radius: 12px; background: #0B2241; color: #E9EDFD; font-size: 13px; text-align: center; }
-.footer { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: clamp(460px, 36vw, 600px); overflow: hidden; background: linear-gradient(180deg, var(--pale) 0%, #E9EDFD 8%, #2343D9 28%, #06172b 58%, #06172b 100%); color: #fff; }
-.footer .horizon { inset: 0; opacity: .95; mask-image: linear-gradient(180deg, transparent 14%, #000 45%); }
-.footer .horizon::after { background: linear-gradient(180deg, transparent 45%, rgba(6,23,43,.4) 72%, #06172b 100%); }
+.footer { position: relative; background: #06172b; color: #fff; }
 .footer > .container { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 25px; min-height: 110px; padding-block: 32px; }
 .footer .brandLight { font-size: 20px; }
 .footer .brandLight img { width: 36px; height: 36px; }
@@ -341,6 +339,7 @@
   .diagramDestination { padding-inline: 12px; gap: 8px; font-size: 12px; }
   .diagramCore { padding-inline: 16px; }
   .closingGrid { grid-template-columns: 1fr; }
+  .closingSection { background: linear-gradient(180deg, var(--pale) 0, #E9EDFD 64px, #2343D9 160px, #06172b 340px); }
   .visionVisual { width: min(100%, 650px); margin: 28px auto 0; }
 }
 
@@ -428,6 +427,7 @@
   .earthSurfaceSecond { animation-delay: -30s; }
   .earthLighting { animation: earthLightRotation 60s ease-in-out infinite; animation-play-state: paused; }
   .earthAtmosphere { animation: atmosphereOrbit 60s ease-in-out infinite; animation-play-state: paused; }
+  .horizon[data-earth-active="false"] :is(.earthSurface, .earthLighting, .earthAtmosphere) { visibility: hidden; }
   .horizon[data-earth-active="true"] :is(.earthSurface, .earthLighting, .earthAtmosphere) { animation-play-state: running; }
   .root[data-mascot-motion="true"] [data-flow-visible="true"][data-flow-ready="true"] .flowSignal { animation: routeSignal 2.4s 1 ease-in-out both; }
   .root[data-mascot-motion="true"] [data-flow-visible="true"][data-flow-ready="true"] .flowSignal[data-flow-signal="output"] { animation-delay: 2.6s; }
@@ -507,7 +507,6 @@
   .reviewCard { padding: 14px; }
   .reviewCardTitle { flex-wrap: wrap; }
   .reviewAllocation { grid-template-columns: minmax(0,1fr); gap: 4px; }
-  .footer { min-height: 520px; }
   .footer > .container { padding-bottom: max(24px,env(safe-area-inset-bottom)); }
 }
 @media (max-width: 389px) {

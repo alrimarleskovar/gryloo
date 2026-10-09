@@ -13,15 +13,33 @@ export function EarthAtmosphere() {
     if (!element) return;
     const region = element.closest('footer, section') ?? element;
     let inView = false;
-    const update = () => { element.dataset.earthActive = String(inView && !document.hidden); };
+    let scrolling = false;
+    let idleTimer: ReturnType<typeof setTimeout>;
+    const update = () => {
+      const active = String(inView && !document.hidden && !scrolling);
+      if (element.dataset.earthActive !== active) element.dataset.earthActive = active;
+    };
+    // Keep masked surface painting out of native scroll frames; preserve the animation clock.
+    const onScroll = () => {
+      scrolling = true;
+      update();
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { scrolling = false; update(); }, 180);
+    };
+    const cleanup = () => {
+      document.removeEventListener('visibilitychange', update);
+      window.removeEventListener('scroll', onScroll);
+      clearTimeout(idleTimer);
+    };
     document.addEventListener('visibilitychange', update);
-    if (!('IntersectionObserver' in window)) { inView = true; update(); return () => document.removeEventListener('visibilitychange', update); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!('IntersectionObserver' in window)) { inView = true; update(); return cleanup; }
     const observer = new IntersectionObserver(entries => {
       inView = entries.some(entry => entry.isIntersecting);
       update();
     });
     observer.observe(region);
-    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); };
+    return () => { observer.disconnect(); cleanup(); };
   }, []);
   return <div ref={ref} className={styles.horizon} data-earth data-earth-active="false" aria-hidden="true">
     <svg className={styles.earthArtwork} viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" focusable="false">

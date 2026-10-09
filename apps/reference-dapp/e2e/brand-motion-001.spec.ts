@@ -69,7 +69,7 @@ for (const width of widths) {
     if (process.env.FLOFI_MOTION_EVIDENCE && [390,1440].includes(width)) await page.screenshot({ path: `${evidence}/intro-${width}.png` });
     await clearIntro(page);
     await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-intro', 'complete');
-    for (const scene of ['hero', 'networks', 'infrastructure']) {
+    for (const scene of ['hero', 'networks', 'infrastructure', 'cta']) {
       const dock = await activeScene(page, scene);
       // A character is actually painted at the dock, not only a state flag on an empty illustration.
       const character = width <= 760 ? dock.locator('[data-mascot-character]') : page.locator('[data-mascot-traveler] [data-mascot-character]');
@@ -80,12 +80,12 @@ for (const width of widths) {
         return Math.hypot(actual.x - target.x, actual.y - target.y);
       }).toBeLessThan(12);
       await overflow(page);
-      if (process.env.FLOFI_MOTION_EVIDENCE && ['hero', 'networks', 'infrastructure'].includes(scene) && [390,768,1440].includes(width)) {
+      if (process.env.FLOFI_MOTION_EVIDENCE && ['hero', 'networks', 'infrastructure', 'cta'].includes(scene) && [390,768,1440].includes(width)) {
         await page.screenshot({ path: `${evidence}/${scene}-${width}.png`, animations: 'disabled' });
       }
     }
-    await expect(page.locator(width <= 760 ? '[data-mascot-dock="infrastructure"] [data-mascot-character]' : '[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-variant', 'blue');
-    const cta = page.locator('[data-mascot-cta]');
+    await expect(page.locator(width <= 760 ? '[data-mascot-dock="cta"] [data-mascot-character]' : '[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-variant', 'white');
+    const cta = page.locator('#about [data-mascot-cta]');
     await cta.scrollIntoViewIfNeeded();
     await cta.focus();
     await expect(cta).toBeFocused();

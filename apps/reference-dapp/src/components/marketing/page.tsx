@@ -65,6 +65,25 @@ function FlowDiagram({ t }: { t: LandingCopy }) {
   </ConnectedFlow>;
 }
 
+function VisionVisual({ t }: { t: LandingCopy }) {
+  const sources = [{ source: 'agent', label: t.diagramAgent }, { source: 'wallet', label: t.diagramWallet }, { source: 'app', label: t.diagramApp }] as const;
+  return <ConnectedFlow className={styles.visionVisual} label={t.visionEyebrow} variant="dark">
+    <div className={styles.visionSources} data-flow-nodes>{sources.map(({ source, label }) => <div className={styles.visionSource} data-flow-source={source} key={source}>
+      <span className={styles.diagramSourceIcon}><SourceIcon source={source}/></span><span>{label}</span>
+      <span className={`${styles.diagramPort} ${styles.diagramSourcePort}`} data-flow-port aria-hidden="true"/>
+    </div>)}</div>
+    <div className={styles.visionCore} data-flow-core>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreInput}`} data-flow-port="input" aria-hidden="true"/>
+      <Image src="/brand/flofi-symbol-dark.svg" alt="" width={55} height={55}/><strong>FloFi</strong><small>{t.executionLayer}</small>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreOutput}`} data-flow-port="output" aria-hidden="true"/>
+    </div>
+    <div className={styles.visionDestination} data-flow-destination="onchain">
+      <span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/>
+      {t.onchainFinance}
+    </div>
+  </ConnectedFlow>;
+}
+
 export default function LandingPage() {
   const [locale, setLocale] = useState<LandingLocale>('en');
   const t = landingText[locale];
@@ -111,7 +130,11 @@ export default function LandingPage() {
         <div id="documentation" className={styles.documentation}><strong><a href="/docs">{t.developerDocs} <Arrow /></a></strong><span>{t.developerDocsBody}</span><a href="/app">{t.openBuilder} <Arrow /></a></div>
       </div></section>
 
+      <section className={styles.closingSection} id="about" aria-labelledby="vision-title" data-landing-reveal><EarthAtmosphere/><div className={styles.container}><div className={styles.closingGrid}>
+        <div><SectionKicker>{t.visionEyebrow}</SectionKicker><h2 id="vision-title">{t.visionTitleFirst}<br /><span>{t.visionTitleSecond}</span></h2><p>{t.visionBody}</p><MascotDock scene="cta" white/><div className={styles.heroActions}><a className={styles.primaryButton} href="/app" data-mascot-cta>{t.launch} <Arrow /></a><a className={styles.darkSecondaryButton} href="/docs/developer-api">{t.buildWith}</a></div><p className={styles.closingFootnote}>{t.visionFootnote}</p></div>
+        <VisionVisual t={t} />
+      </div></div></section>
     </main>
-    <footer className={styles.footer}><EarthAtmosphere/><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#workflow">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="https://github.com/alrimarleskovar/gryloo">{t.sourceCode}</a><a href="https://github.com/alrimarleskovar/gryloo/blob/main/LICENSE">{t.license}</a></nav><span>{t.footerLine}</span></div></footer>
+    <footer className={styles.footer}><div className={styles.container}><a href="/" className={styles.brandLink} aria-label={t.brandHome}><Brand light /></a><nav aria-label={t.footerNavigation}><a href="#workflow">{t.navProduct}</a><a href="#developers">{t.navDevelopers}</a><a href="/docs">{t.navDocs}</a><a href="#networks">{t.navNetworks}</a><a href="https://github.com/alrimarleskovar/gryloo">{t.sourceCode}</a><a href="https://github.com/alrimarleskovar/gryloo/blob/main/LICENSE">{t.license}</a></nav><span>{t.footerLine}</span></div></footer>
   </div>;
 }

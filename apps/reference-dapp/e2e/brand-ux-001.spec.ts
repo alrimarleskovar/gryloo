@@ -25,8 +25,8 @@ for (const width of widths) {
     await expect(page.locator('[data-story-phase="Review"]')).toContainText('Your explicit approval');
     await expect(page.locator('[data-story-phase="Execute"]')).toContainText('Your wallet signature');
     await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toHaveCount(0);
-    expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers']);
-    await expect(page.locator('#product, #scenarios, #review, #about')).toHaveCount(0);
+    expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers', 'about']);
+    await expect(page.locator('#product, #scenarios, #review')).toHaveCount(0);
     for (const channel of ['Chat', 'Canvas', 'GPT', 'Claude', 'WhatsApp', 'Telegram']) await expect(page.locator('#workflow')).toContainText(channel);
     await expect(page.locator('#evidence')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText(/devnet|testnet|sepolia|mock|sandbox|synthetic|simulated.only|test.funds/i);

@@ -4,7 +4,7 @@ import { assertConnectedFlow } from './connected-flow-assertions';
 
 const evidence = 'e2e/visual-evidence/final-landing';
 for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
-  test(`three-section landing, anchors and conversion at ${width}px in EN/PT`, async ({ page, context, baseURL }) => {
+  test(`landing sections, closing composition, anchors and conversion at ${width}px in EN/PT`, async ({ page, context, baseURL }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', event => { if (event.type() === 'error' || /hydration|did not match/i.test(event.text())) errors.push(event.text()); });
@@ -20,10 +20,10 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
       const headline = page.getByRole('heading', { level: 1 });
       await expect(headline).toHaveCount(1);
       await expect(headline).toContainText(locale === 'en' ? 'Many ways in.' : 'Várias entradas.');
-      expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers']);
+      expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers', 'about']);
       expect(await page.locator('main').evaluate(element => element.nextElementSibling?.tagName)).toBe('FOOTER');
-      await expect(page.locator('#product, #scenarios, #review, #about, [data-story-stage]')).toHaveCount(0);
-      await expect(page.locator('footer [data-earth]')).toHaveCount(1);
+      await expect(page.locator('#product, #scenarios, #review, [data-story-stage]')).toHaveCount(0);
+      await expect(page.locator('#about [data-earth]')).toHaveCount(1);
       const launch = hero.getByRole('link', { name: locale === 'en' ? /Launch FloFi/ : /Abrir FloFi/ });
       const docs = hero.getByRole('link', { name: locale === 'en' ? /Explore Docs/ : /Explorar Docs/ });
       await expect(launch).toHaveAttribute('href', '/app');
@@ -84,7 +84,7 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
       await page.locator('footer').scrollIntoViewIfNeeded();
       await expect(page.locator('footer')).toBeInViewport();
       if (process.env.FLOFI_LANDING_EVIDENCE) {
-        for (const id of ['workflow', 'networks', 'developers']) {
+        for (const id of ['workflow', 'networks', 'developers', 'about']) {
           const section = page.locator(`#${id}`); await section.scrollIntoViewIfNeeded();
           await section.screenshot({ path: `${evidence}/${id}-${locale}-${width}.png`, animations: 'disabled' });
         }
@@ -103,11 +103,12 @@ for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
   });
 }
 
-test('original Earth artwork closes the footer without a fourth marketing section', async ({ request, page }) => {
+test('original Earth artwork backs the complete closing section immediately before the footer', async ({ request, page }) => {
   const asset = await request.get('/flofi/closing-horizon-v2.png');
   expect(asset.ok()).toBe(true); expect(asset.headers()['content-type']).toContain('image/png');
   await page.goto('/');
-  await expect(page.locator('main > section')).toHaveCount(3);
-  await expect(page.locator('main [data-earth]')).toHaveCount(0);
-  await expect(page.locator('footer [data-earth-original]')).toHaveAttribute('href', '/flofi/closing-horizon-v2.png');
+  await expect(page.locator('main > section')).toHaveCount(4);
+  await expect(page.locator('main > section:last-child')).toHaveAttribute('id', 'about');
+  await expect(page.locator('footer [data-earth]')).toHaveCount(0);
+  await expect(page.locator('#about [data-earth-original]')).toHaveAttribute('href', '/flofi/closing-horizon-v2.png');
 });

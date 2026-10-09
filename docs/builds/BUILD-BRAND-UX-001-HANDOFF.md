@@ -1,5 +1,13 @@
 # BUILD-BRAND-UX-001 handoff
 
+Latest closing-section checkpoint (2026-10-09): the complete cinematic Earth
+closing composition is restored and its affected browser checks are complete.
+See [closing restoration and final validation](FLOFI-CINEMATIC-CLOSING-RESTORATION.md)
+for the recovered preview configuration, pending-pause test diagnosis, current
+evidence and remaining external CI status. Continue only on existing PR #73;
+leave it unmerged for the separate merge-monitoring process. Earlier checkpoints
+below remain historical context.
+
 Updated: 2026-10-09. Current worktree: `/home/asus/projects/flofi-brand-ux`; branch: `codex/build-brand-ux-001`; starting HEAD: `fefda242e4abea5b8be5db57a9b8a09adbd2b65a`. Preserve all existing work. Do not restart, explore the full repository, run the complete browser suite repeatedly, merge, or touch unrelated branches/PRs.
 
 Original validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR: [#73](https://github.com/alrimarleskovar/gryloo/pull/73), opened against `main` after validation and left unmerged. Follow-up implementation and validation are recorded below and in subsequent commits on this same branch.
