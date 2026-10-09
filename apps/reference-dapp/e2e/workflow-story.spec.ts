@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { test, expect } from '@playwright/test';
 
-for (const width of [320, 375, 390, 430, 768, 1440]) {
+for (const width of [320, 375, 390, 430, 768, 1024, 1440, 1920]) {
   test(`three-phase story scrolls freely in EN/PT at ${width}px`, async ({ page, context, baseURL }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -48,14 +48,14 @@ for (const width of [320, 375, 390, 430, 768, 1440]) {
           await expect.poll(() => card.locator('[data-mascot-body]').evaluate(element => element.getAnimations().every(animation => animation.playState === 'finished'))).toBe(true);
         }
       }
-      const entranceTimes = enabled ? await story.locator('[data-mascot-body]').evaluateAll(items => items.flatMap(item => item.getAnimations().map(animation => animation.startTime))) : [];
+      const entranceTimes = enabled ? await story.locator('[data-mascot-local] [data-mascot-body]').evaluateAll(items => items.flatMap(item => item.getAnimations().map(animation => animation.startTime))) : [];
       await story.evaluate(element => scrollTo({ top: scrollY + element.getBoundingClientRect().top, behavior: 'instant' }));
       await page.mouse.move(width / 2, 450);
       const before = await page.evaluate(() => scrollY);
       await page.mouse.wheel(0, 600);
       await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before + 550);
-      await page.locator('#review').scrollIntoViewIfNeeded(); await expect(page.locator('#review')).toBeInViewport();
-      if (enabled) expect(await story.locator('[data-mascot-body]').evaluateAll(items => items.flatMap(item => item.getAnimations().map(animation => animation.startTime)))).toEqual(entranceTimes);
+      await page.locator('#networks').scrollIntoViewIfNeeded(); await expect(page.locator('#networks')).toBeInViewport();
+      if (enabled) expect(await story.locator('[data-mascot-local] [data-mascot-body]').evaluateAll(items => items.flatMap(item => item.getAnimations().map(animation => animation.startTime)))).toEqual(entranceTimes);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (process.env.FLOFI_STORY_EVIDENCE) {
         await story.scrollIntoViewIfNeeded();

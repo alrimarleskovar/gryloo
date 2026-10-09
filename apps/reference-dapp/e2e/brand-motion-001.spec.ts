@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 const enabled = process.env.FLOFI_MOTION_EXPECT_ENABLED !== 'false';
-const widths = [320, 375, 390, 430, 768, 1024, 1440];
+const widths = [320, 375, 390, 430, 768, 1024, 1440, 1920];
 const errors = new WeakMap<Page, string[]>();
 const evidence = 'e2e/visual-evidence/build-brand-motion-001';
 
@@ -35,7 +35,6 @@ async function activeScene(page: Page, scene: string, index = 0) {
   for (const item of dock) if (await item.isVisible()) visible.push(item);
   const destination = visible[index]!;
   await destination.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  if ((page.viewportSize()?.width ?? 1440) > 760 && await destination.evaluate(element => !!element.closest('#scenarios'))) await destination.hover();
   await expect(destination).toHaveAttribute('data-active', 'true');
   await expect(page.locator('[data-mascot-journey]')).toHaveAttribute('data-scene', scene);
   return destination;
@@ -45,7 +44,7 @@ for (const width of widths) {
   test(`official mascot journey and usable landing at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Financial intent');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Many ways in.');
     await expect(page.getByRole('link', { name: 'Launch FloFi', exact: true }).first()).toBeVisible();
     if (!enabled) {
       await expect(page.locator('[data-mascot-dock], [data-mascot-journey]')).toHaveCount(0);
@@ -57,6 +56,11 @@ for (const width of widths) {
     await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-intro', 'playing');
     const duration = await page.locator('[data-mascot-body]').evaluateAll(elements => elements.flatMap(element => element.getAnimations().filter(animation => animation.effect?.getTiming().duration === (innerWidth <= 760 ? 1800 : 2600)).map(animation => animation.effect!.getTiming().duration)));
     expect(duration).toContain(width <= 760 ? 1800 : 2600);
+    const introBody = page.locator(width <= 760 ? '[data-mascot-dock="hero"] [data-mascot-body]' : '[data-mascot-traveler] [data-mascot-body]');
+    const firstPose = await introBody.evaluate(element => getComputedStyle(element).transform);
+    const headlineBox = await page.getByRole('heading', { level: 1 }).boundingBox();
+    await expect.poll(() => introBody.evaluate(element => getComputedStyle(element).transform)).not.toBe(firstPose);
+    expect(await page.getByRole('heading', { level: 1 }).boundingBox()).toEqual(headlineBox);
     // Navigation and CTAs remain available during the intro; no dialog or loading screen.
     const launch = page.getByRole('link', { name: 'Launch FloFi', exact: true }).first();
     await launch.focus();
@@ -65,7 +69,7 @@ for (const width of widths) {
     if (process.env.FLOFI_MOTION_EVIDENCE && [390,1440].includes(width)) await page.screenshot({ path: `${evidence}/intro-${width}.png` });
     await clearIntro(page);
     await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-intro', 'complete');
-    for (const scene of ['swap', 'bridge', 'lending', 'automate', 'multichain', 'networks', 'infrastructure', 'cta']) {
+    for (const scene of ['hero', 'networks', 'infrastructure']) {
       const dock = await activeScene(page, scene);
       // A character is actually painted at the dock, not only a state flag on an empty illustration.
       const character = width <= 760 ? dock.locator('[data-mascot-character]') : page.locator('[data-mascot-traveler] [data-mascot-character]');
@@ -76,12 +80,13 @@ for (const width of widths) {
         return Math.hypot(actual.x - target.x, actual.y - target.y);
       }).toBeLessThan(12);
       await overflow(page);
-      if (process.env.FLOFI_MOTION_EVIDENCE && ['bridge', 'networks', 'infrastructure', 'cta'].includes(scene) && [390,768,1440].includes(width)) {
+      if (process.env.FLOFI_MOTION_EVIDENCE && ['hero', 'networks', 'infrastructure'].includes(scene) && [390,768,1440].includes(width)) {
         await page.screenshot({ path: `${evidence}/${scene}-${width}.png`, animations: 'disabled' });
       }
     }
-    await expect(page.locator(width <= 760 ? '[data-mascot-dock="cta"] [data-mascot-character]' : '[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-variant', 'white');
+    await expect(page.locator(width <= 760 ? '[data-mascot-dock="infrastructure"] [data-mascot-character]' : '[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-variant', 'blue');
     const cta = page.locator('[data-mascot-cta]');
+    await cta.scrollIntoViewIfNeeded();
     await cta.focus();
     await expect(cta).toBeFocused();
     const reachable = await cta.evaluate(element => {
@@ -90,10 +95,12 @@ for (const width of widths) {
     });
     expect(reachable).toBe(true);
     await expect(cta).toHaveAttribute('href', '/app');
-    await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-story-phase="Review"]')).toContainText('Your explicit approval');
+    await expect(page.locator('[data-story-phase="Execute"]')).toContainText('Your wallet signature');
     await expect(page.locator('main')).not.toContainText(/devnet|testnet|mock|sandbox|synthetic/i);
-    await expect(page.locator('#networks')).toContainText('Next supported network');
-    // Exact official assets are used by every character, including the white CTA variant.
+    await expect(page.locator('#networks')).toContainText('Upcoming');
+    // Both original official mascot assets remain available to every character.
     const images = await page.locator('[data-mascot-body] img').evaluateAll(items => [...new Set(items.map(item => item.getAttribute('src')))].sort());
     expect(images).toEqual(['/brand/flofi-symbol-dark.svg', '/brand/flofi-symbol-light.svg']);
   });
@@ -117,11 +124,11 @@ test('pointer reactions, explicit workflow authorization without a pause control
   test.skip(!enabled, 'Flag-off has no character interactions.');
   await page.goto('/');
   await clearIntro(page);
-  const swap = await activeScene(page, 'swap');
+  const hero = await activeScene(page, 'hero');
   await expect(page.locator('[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-state', 'idle');
   await page.mouse.move(0, 0); // Leave the card after activeScene's initial hover.
   await page.waitForTimeout(1600); // Deliberate interaction cooldown, not an animation-completion assertion.
-  await swap.hover();
+  await hero.hover();
   await expect(page.locator('[data-mascot-traveler] [data-mascot-character]')).toHaveAttribute('data-state', 'look');
   const story = page.locator('#workflow');
   await story.scrollIntoViewIfNeeded();
@@ -132,7 +139,7 @@ test('pointer reactions, explicit workflow authorization without a pause control
   }
   await expect(story).toContainText('Your explicit approval');
   await expect(story).toContainText('Your wallet signature');
-  await expect.poll(() => story.locator('[data-mascot-body]').evaluateAll(items => items.every(item => item.getAnimations().every(animation => animation.playState === 'finished')))).toBe(true);
+  await expect.poll(() => story.locator('[data-mascot-local] [data-mascot-body]').evaluateAll(items => items.every(item => item.getAnimations().every(animation => animation.playState === 'finished')))).toBe(true);
   await page.evaluate(() => scrollTo(0, 0));
   await expect(page.getByRole('button', { name: /pause motion|resume motion|pausar animações|retomar animações/i })).toHaveCount(0);
   await expect(page.locator('[data-mascot-motion]')).toHaveAttribute('data-alive', 'running');
@@ -188,5 +195,7 @@ test('scroll skips intro, keyboard controls and mobile workflow stay usable', as
     await expect(dock.locator('[data-mascot-character]')).toBeVisible();
     await overflow(page);
   }
-  await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toBeDisabled();
+  await expect(page.locator('[data-story-phase="Review"]')).toContainText('Your explicit approval');
+  await expect(page.locator('[data-story-phase="Execute"]')).toContainText('Your wallet signature');
+  await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toHaveCount(0);
 });

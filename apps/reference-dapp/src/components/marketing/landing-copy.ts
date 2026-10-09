@@ -2,7 +2,7 @@
 export type LandingLocale = 'pt' | 'en';
 
 const en = {
-  pageTitle: 'FloFi | Financial intent, made executable',
+  pageTitle: 'FloFi | Many ways in. One clear path.',
   pageDescription: "Bring swaps, bridges and lending into one clear crypto workflow. Compose with FloFi, review the details, and stay in control with your own wallet.",
   language: 'Language',
   mainNavigation: 'Main navigation',
@@ -15,13 +15,16 @@ const en = {
   networksTitle: 'Supported networks',
   networksBody: 'Compose across EVM and Solana ecosystems, with your assets and permissions in view.',
   networksNote: 'Network support varies by action. FloFi checks workflow availability and authorization requirements before you proceed.',
-  tempoStatus: 'Next supported network',
+  tempoStatus: 'Upcoming',
   navSolutions: 'Solutions',
   navDevelopers: 'Developers',
   navDocs: 'Docs',
   navAbout: 'About',
   launch: 'Launch FloFi',
   buildWith: 'Build with FloFi',
+  exploreDocs: 'Explore Docs',
+  sourceCode: 'Source code',
+  license: 'License',
   heroEyebrow: 'NON-CUSTODIAL · MULTICHAIN DEFI',
   heroTitleFirst: 'Financial intent,',
   heroTitleSecond: 'made',
@@ -164,7 +167,7 @@ const en = {
 };
 
 const pt: Record<keyof typeof en, string> = {
-  pageTitle: 'FloFi | Intenção financeira, agora executável',
+  pageTitle: 'FloFi | Várias entradas. Um caminho claro.',
   pageDescription: "Reúna swaps, bridges e empréstimos em um fluxo cripto claro. Crie com FloFi, revise os detalhes e mantenha o controle com sua carteira.",
   language: 'Idioma',
   mainNavigation: 'Navegação principal',
@@ -177,13 +180,16 @@ const pt: Record<keyof typeof en, string> = {
   networksTitle: 'Redes compatíveis',
   networksBody: 'Crie fluxos em ecossistemas EVM e Solana, com seus ativos e permissões à vista.',
   networksNote: 'O suporte de rede varia por ação. O FloFi verifica a disponibilidade do fluxo e os requisitos de autorização antes de você prosseguir.',
-  tempoStatus: 'Próxima rede compatível',
+  tempoStatus: 'Em breve',
   navSolutions: 'Soluções',
   navDevelopers: 'Desenvolvedores',
   navDocs: 'Docs',
   navAbout: 'Sobre',
   launch: 'Abrir FloFi',
   buildWith: 'Construir com FloFi',
+  exploreDocs: 'Explorar Docs',
+  sourceCode: 'Código-fonte',
+  license: 'Licença',
   heroEyebrow: 'DEFI MULTICHAIN · NÃO CUSTODIAL',
   heroTitleFirst: 'Intenção financeira,',
   heroTitleSecond: 'agora',

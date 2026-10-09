@@ -123,11 +123,15 @@
 .stageActive .stageDot { color: #fff; background: #2343D9; }
 .stageComplete .stageDot { color: #2343D9; background: #E9EDFD; }
 
-.workflowStory { position: relative; padding: 112px 0; background: linear-gradient(180deg, #F5F8FB, #fff 35%, #F5F8FB); }
-.workflowHeading { max-width: 780px; margin-bottom: 48px; }
-.workflowHeading h2 { margin: 20px 0; font-size: clamp(42px, 4.7vw, 68px); letter-spacing: -.055em; line-height: 1.08; }
-.workflowHeading h2 span { color: #2343D9; }
-.workflowHeading > p:last-child { color: var(--muted); font-size: 19px; line-height: 1.55; }
+.workflowStory { position: relative; padding: 72px 0 88px; background: radial-gradient(ellipse at 90% 12%, #E9EDFD, transparent 42%), linear-gradient(180deg, #fff, #F5F8FB); }
+.workflowHeading { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 48px; margin-bottom: 56px; }
+.workflowLead { max-width: 780px; }
+.workflowHeading h1 { margin: 20px 0; font-size: clamp(52px, 6vw, 86px); letter-spacing: -.055em; line-height: 1.04; }
+.workflowHeading h1 span { color: #2343D9; }
+.workflowLead > p:not(.kicker) { max-width: 620px; color: var(--muted); font-size: 20px; line-height: 1.55; }
+.workflowHeroMascot > [data-mascot-dock] { min-height: 200px; margin: 0; }
+.workflowHeroMascot [data-mascot-dock] [data-mascot-perch] { width: 160px; height: 160px; }
+.workflowHeroMascot [data-mascot-perch] + span { width: 220px; left: calc(50% - 110px); }
 .workflowCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 0; margin: 0; list-style: none; }
 .workflowCard { display: flex; flex-direction: column; min-width: 0; padding: 26px; border: 1px solid #D9E2EC; border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(4,27,61,.035); }
 .workflowCardTop { display: flex; align-items: center; justify-content: space-between; min-height: 54px; gap: 12px; margin-bottom: 18px; }
@@ -135,7 +139,7 @@
 .workflowStep small { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #D9E2EC; border-radius: 9px; font: inherit; color: #4B5B73; }
 .workflowIntro h3 { margin: 0 0 12px; font-size: clamp(24px, 2.05vw, 30px); letter-spacing: -.04em; line-height: 1.15; }
 .workflowIntro > p { margin: 0; color: #4B5B73; font-size: 16px; line-height: 1.5; }
-.workflowVisual { display: flex; flex-direction: column; justify-content: center; min-height: 224px; margin-top: 26px; padding: 18px; border: 1px solid #E9EDFD; border-radius: 16px; background: #F5F8FB; }
+.workflowVisual { container-type: inline-size; display: flex; flex-direction: column; justify-content: center; min-height: 224px; margin-top: 26px; padding: 18px; border: 1px solid #E9EDFD; border-radius: 16px; background: #F5F8FB; }
 .workflowInputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .workflowInputs > span { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; padding: 10px 3px; border: 1px solid #D9E2EC; border-radius: 8px; background: #fff; font-size: 10px; font-weight: 500; }
 .workflowInputs > span:hover { border-color: #93A6FF; background: #F7F9FF; }
@@ -143,7 +147,7 @@
 .workflowChannelIcon img { display: block; max-width: none; width: 20px; height: 20px; object-fit: contain; }
 /* The supplied OpenAI canvas includes clear space: retain it, with a 20px visible mark. */
 .workflowChannelIcon[data-channel-icon="GPT"] img { width: 40px; height: 40px; position: absolute; }
-@media (max-width: 389px) { .workflowInputs > span { flex-direction: column; gap: 4px; padding: 6px 3px; line-height: 1.4; } }
+@container (max-width: 260px) { .workflowInputs > span { flex-direction: column; gap: 4px; padding: 6px 3px; line-height: 1.4; } }
 .workflowMerge { height: 30px; color: #93A6FF; }
 .workflowMerge svg { display: block; width: 100%; height: 100%; }
 .workflowModel { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; padding: 8px; border: 1px solid #C9D2F8; border-radius: 10px; background: #fff; font-size: 12px; }
@@ -161,6 +165,9 @@
 .workflowFootnote { margin: auto 0 0; padding-top: 22px; color: #4B5B73; font-size: 12px; line-height: 1.5; }
 @media (min-width: 1024px) { .workflowIntro { min-height: 164px; } }
 @media (max-width: 1023px) {
+  .workflowHeading { grid-template-columns: minmax(0, 1fr) 160px; gap: 24px; }
+  .workflowHeroMascot [data-mascot-dock] [data-mascot-perch] { width: 128px; height: 128px; }
+  .workflowHeroMascot [data-mascot-perch] + span { width: 148px; left: calc(50% - 74px); }
   .workflowCards { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .workflowCard { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); grid-template-areas: 'intro visual' 'foot visual'; column-gap: 28px; }
   .workflowIntro { grid-area: intro; }
@@ -168,9 +175,15 @@
   .workflowFootnote { grid-area: foot; }
 }
 @media (max-width: 599px) {
-  .workflowStory { padding: 76px 0; }
-  .workflowHeading { margin-bottom: 32px; }
-  .workflowHeading > p:last-child { font-size: 17px; }
+  .workflowStory { padding: 40px 0 56px; }
+  .workflowHeading { display: block; position: relative; margin-bottom: 32px; }
+  .workflowHeading h1 { font-size: clamp(44px, 10.8vw, 64px); margin-top: 26px; }
+  .workflowLead > .kicker { max-width: calc(100% - 64px); font-size: 10px; line-height: 1.7; letter-spacing: .1em; }
+  .workflowLead > p:not(.kicker) { font-size: 17px; }
+  .workflowHeroMascot { position: absolute; right: 0; top: -20px; width: 58px; }
+  .workflowHeroMascot > [data-mascot-dock] { min-height: 64px; padding: 0; }
+  .workflowHeroMascot [data-mascot-dock] [data-mascot-perch] { width: 56px; height: 56px; }
+  .workflowHeroMascot [data-mascot-perch] + span { width: 64px; height: 18px; left: calc(50% - 32px); bottom: 2px; }
   .workflowCard { display: flex; padding: 22px; border-radius: 18px; }
   .workflowCardTop { margin-bottom: 12px; }
   .workflowVisual { min-height: 0; margin-top: 24px; padding: 16px; }
@@ -315,6 +328,8 @@
   .container, .headerInner { width: min(100% - 48px, 1280px); }
   .headerInner { gap: 15px; }
   .headerActions { gap: 9px; }
+  .footer > .container { flex-wrap: wrap; padding-block: 24px; }
+  .footer nav { order: 3; flex-wrap: wrap; width: 100%; gap: 5px 24px; }
   .siteHeader nav { gap: 15px; font-size: 12px; }
   .splitGrid, .reviewSection .splitGrid { gap: 42px; }
   .diagramSource { padding-left: 10px; gap: 9px; font-size: 13px; }
@@ -489,6 +504,18 @@
   .reviewCardTitle { flex-wrap: wrap; }
   .reviewAllocation { grid-template-columns: minmax(0,1fr); gap: 4px; }
   .footer > .container { padding-bottom: max(24px,env(safe-area-inset-bottom)); }
+}
+@media (max-width: 389px) {
+  .headerInner { column-gap: 6px; }
+  .headerActions { gap: 4px; }
+  .headerCta { padding-inline: 8px; font-size: 10px; }
+  .workflowStory { padding-block: 32px 48px; }
+  .workflowHeading h1 { font-size: clamp(40px, 11vw, 44px); }
+  .workflowCards { gap: 14px; }
+  .workflowCard { padding: 20px; }
+  .workflowCardTop { min-height: 48px; margin-bottom: 10px; }
+  .workflowVisual { margin-top: 18px; padding: 12px; }
+  .workflowFootnote { padding-top: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }

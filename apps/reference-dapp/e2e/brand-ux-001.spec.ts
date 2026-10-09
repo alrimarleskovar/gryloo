@@ -11,7 +11,6 @@ async function connectedInfrastructure(page: import('@playwright/test').Page) {
   const diagram = page.locator('[data-flow-diagram="light"]');
   await diagram.scrollIntoViewIfNeeded();
   await assertConnectedFlow(diagram);
-  await assertConnectedFlow(page.locator('[data-flow-diagram="dark"]'), 1);
 }
 
 for (const width of widths) {
@@ -20,27 +19,22 @@ for (const width of widths) {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Financial intent');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Many ways in.');
     await expect(page.locator('main')).toContainText('Strategy Manifest');
     await expect(page.locator('.app-shell')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toBeDisabled();
-    await expect(page.locator('#product')).toContainText('ETH');
-    await expect(page.locator('#product')).toContainText('USDC');
-    await expect(page.locator('#product')).toContainText('BTC');
-    await expect(page.locator('#product')).toContainText('WBTC');
-    await expect(page.locator('#product')).toContainText('SOL');
-    await expect(page.locator('#product')).not.toContainText(/Devnet|Sepolia|devUSDC/);
-    const scenarios = page.locator('#scenarios');
-    await expect(scenarios.locator('article')).toHaveCount(5);
-    await expect(scenarios).toContainText('Coming next · workflow example');
-    await expect(scenarios).not.toContainText(/Reconciled|APY|\d+%/);
+    await expect(page.locator('[data-story-phase="Review"]')).toContainText('Your explicit approval');
+    await expect(page.locator('[data-story-phase="Execute"]')).toContainText('Your wallet signature');
+    await expect(page.getByRole('button', { name: 'Authorize workflow', exact: true })).toHaveCount(0);
+    expect(await page.locator('main > section').evaluateAll(items => items.map(item => item.id))).toEqual(['workflow', 'networks', 'developers']);
+    await expect(page.locator('#product, #scenarios, #review, #about')).toHaveCount(0);
+    for (const channel of ['Chat', 'Canvas', 'GPT', 'Claude', 'WhatsApp', 'Telegram']) await expect(page.locator('#workflow')).toContainText(channel);
     await expect(page.locator('#evidence')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText(/devnet|testnet|sepolia|mock|sandbox|synthetic|simulated.only|test.funds/i);
     await expect(page.locator('a[href*="cluster=devnet"]')).toHaveCount(0);
     const networks = page.getByRole('region', { name: 'Supported networks', exact: true });
     for (const network of ['Ethereum', 'Base', 'Arbitrum', 'Solana', 'Robinhood Chain']) await expect(networks).toContainText(network);
     await expect(networks).toContainText('Tempo');
-    await expect(networks).toContainText('Next supported network');
+    await expect(networks).toContainText('Upcoming');
     await expect(networks).not.toContainText(/live|launched|rolling out/i);
     await expect(networks.getByRole('listitem')).toHaveCount(6);
     await page.locator('main img').evaluateAll(images => images.forEach(img => { (img as HTMLImageElement).loading = 'eager'; }));
@@ -58,17 +52,15 @@ for (const width of widths) {
     if (process.env.FLOFI_BRAND_EVIDENCE && [320,390,768,1024,1440].includes(width)) await page.locator('[data-flow-diagram="light"]').screenshot({ path: `e2e/visual-evidence/build-brand-ux-001/after-infrastructure-${width}.png` });
     if (process.env.FLOFI_BRAND_EVIDENCE && [390,1440].includes(width)) await page.screenshot({ path: `e2e/visual-evidence/build-brand-ux-001/after-landing-${width}.png`, fullPage: true });
     if (process.env.FLOFI_BRAND_EVIDENCE && width === 1440) {
-      await page.locator('#product').screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-landing-hero-1440.png' });
-      await scenarios.screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-crypto-scenarios-1440.png' });
+      await page.locator('#workflow').screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-landing-hero-1440.png' });
       await networks.screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-networks-1440.png' });
-      await page.locator('#review').screenshot({ path: 'e2e/visual-evidence/build-brand-ux-001/after-review-1440.png' });
     }
     await page.getByRole('button', { name: 'PT', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR');
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Intenção financeira');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Várias entradas.');
     await expect(page.locator('main')).not.toContainText(/devnet|testnet|sepolia|mock|sandbox|synthetic|fundos de teste/i);
-    await expect(page.getByRole('region', { name: 'Redes compatíveis', exact: true })).toContainText('Próxima rede compatível');
+    await expect(page.getByRole('region', { name: 'Redes compatíveis', exact: true })).toContainText('Em breve');
     await connectedInfrastructure(page);
     await expect(page.locator('[data-flow-diagram="light"]')).toContainText('Protocolos onchain');
     await page.getByRole('button', { name: 'EN', exact: true }).click();
@@ -179,8 +171,8 @@ test('desktop three-step story is readable together and scrolls naturally', asyn
   expect(await cards.evaluateAll(items => items.map(item => item.getAttribute('data-story-phase')))).toEqual(['Build', 'Review', 'Execute']);
   for (const card of await cards.all()) await expect(card).toBeVisible();
   expect((await story.boundingBox())!.height).toBeLessThan(1100);
-  await page.locator('#review').scrollIntoViewIfNeeded();
-  await expect(page.locator('#review')).toBeInViewport();
+  await page.locator('#networks').scrollIntoViewIfNeeded();
+  await expect(page.locator('#networks')).toBeInViewport();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await connectedInfrastructure(page);
@@ -197,7 +189,7 @@ test('all migrated product routes remain accessible and sensitive routes retain 
     expect(response?.status()).toBe(200);
     await expect(page.locator('.app-shell')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Workflow stages' })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: /Financial intent/ })).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: /Many ways in/ })).toHaveCount(0);
   }
   for (const path of ['/approve', '/connections']) {
     const response = (await page.goto(path))!;

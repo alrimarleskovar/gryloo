@@ -36,7 +36,18 @@ export function WorkflowStory({ t, locale = 'en' }: { t: LandingCopy; locale?: L
   ];
   return <section id="workflow" ref={sectionRef} className={styles.workflowStory} aria-labelledby="workflow-title">
     <div className={styles.container}>
-      <div className={styles.workflowHeading}><p className={styles.kicker}>{t.storyEyebrow}</p><h2 id="workflow-title">{t.storyTitleFirst}<br/><span>{t.storyTitleSecond}</span></h2><p>{t.storyBody}</p></div>
+      <div className={styles.workflowHeading}>
+        <div className={styles.workflowLead}>
+          <p className={styles.kicker}>{t.heroEyebrow}</p>
+          <h1 id="workflow-title" data-mascot-headline>{t.storyTitleFirst}<br/><span>{t.storyTitleSecond}</span></h1>
+          <p>{t.storyBody}</p>
+          <div className={styles.heroActions}>
+            <a className={styles.primaryButton} href="/app" data-mascot-cta>{t.launch} <span aria-hidden="true">→</span></a>
+            <a className={styles.secondaryButton} href="/docs">{t.exploreDocs} <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+        <div className={styles.workflowHeroMascot}><MascotDock scene="hero"/></div>
+      </div>
       <ol className={styles.workflowCards} aria-label={t.storyEyebrow}>
         {phases.map((phase, index) => <li key={phase.id} className={styles.workflowCard} data-story-phase={phase.id}>
           <div className={styles.workflowIntro}>
@@ -46,7 +57,7 @@ export function WorkflowStory({ t, locale = 'en' }: { t: LandingCopy; locale?: L
           <div className={styles.workflowVisual}>
             {index === 0 ? <>
               <div className={styles.workflowInputs}>{workflowChannels.map(source => <span key={source}><WorkflowChannelIcon channel={source}/>{source}</span>)}</div>
-              <div className={styles.workflowMerge} aria-hidden="true"><svg viewBox="0 0 240 30" fill="none"><path d="M40 0C40 18 120 6 120 23M120 0V30M200 0C200 18 120 6 120 23" stroke="currentColor" strokeWidth="1.2"/></svg></div>
+              <div className={styles.workflowMerge} aria-hidden="true"><svg viewBox="0 0 240 30" preserveAspectRatio="none" fill="none"><path d="M40 0C40 18 120 6 120 23M120 0V30M200 0C200 18 120 6 120 23" stroke="currentColor" strokeWidth="1.2"/></svg></div>
               <div className={styles.workflowModel}><Image src="/brand/flofi-symbol-light.svg" alt="" width={28} height={28}/><strong>{t.storyBuildModel}</strong></div>
             </> : index === 1 ? <div className={styles.workflowManifest}>
               <div className={styles.workflowVisualTitle}><FlowIcon kind="review"/><strong>Strategy Manifest</strong></div>
