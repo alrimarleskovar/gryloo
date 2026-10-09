@@ -118,6 +118,37 @@ if (profile === 'uniswap') test('MOCKED Uniswap liquidity retains exact approval
   await assertSimulationReviewBlocked(page, walletSends);
 });
 
+if (profile === 'uniswap') test('liquidity proposal waits for price-derived bounds, including keyboard submission', async ({ page }) => {
+  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/');
+  await page.getByText('Advanced action setup', { exact: true }).click();
+  await page.locator('#liquidity-network').selectOption('BASE_SEPOLIA');
+  const form = page.getByRole('form', { name: 'Create Base Sepolia liquidity position' });
+  await form.getByLabel('Maximum USDC').fill('10'); await form.getByLabel('Maximum WETH').fill('0.005');
+  let release!: () => void, requested!: () => void;
+  const priceGate = new Promise<void>(resolve => { release = resolve; });
+  const priceRequested = new Promise<void>(resolve => { requested = resolve; });
+  await page.route('**/*', async route => {
+    if (route.request().method() === 'POST' && route.request().headers()['next-action'] && route.request().postData() === '["eip155:84532"]') {
+      requested(); await priceGate;
+    }
+    await route.fallback(); // Retain the existing same-origin network guard.
+  });
+  try {
+    await form.getByRole('button', { name: 'Use ±10% around the current Base Sepolia price' }).click();
+    await priceRequested;
+    await expect(form.getByRole('button', { name: 'Review position proposal' })).toBeDisabled();
+    await form.evaluate(element => (element as HTMLFormElement).requestSubmit());
+    await expect(form.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Review proposed change:/ })).toHaveCount(0);
+  } finally { release(); }
+  await expect(form.getByLabel('Lower bound')).toHaveValue('224640');
+  await expect(form.getByLabel('Upper bound')).toHaveValue('226660');
+  await form.getByRole('button', { name: 'Review position proposal' }).click();
+  await applyPendingProposal(page);
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
+  expect(await walletSends()).toBe(0);
+});
+
 if (profile === 'router' || profile === 'journey') test(`${profile} preserves read-only route truth and never promotes a MOCKED bridge into financial authority`, async ({ page }) => {
   if (profile === 'journey') {
     const wallet = createTestWallet(); await resetJourneyHarness([wallet]); await installJourneyWallet(page, [wallet]);
