@@ -25,7 +25,7 @@ export function McpRouteState({ title, description, label, loading = false }: { 
         <path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/>
       </svg></span>
       <h1 id="mcp-route-title">{tr(title)}</h1><p role={loading ? 'status' : undefined}>{tr(description)}</p>
-      {!loading && <Link href="/" className="workspace-action">{tr("Go to FloFi")}</Link>}
+      {!loading && <Link href="/app" className="workspace-action">{tr("Go to FloFi")}</Link>}
     </section>
   </McpRoutePage>;
 }
