@@ -129,7 +129,7 @@ per-render owner object reset the workspace; a channel-variable-like error code 
 
 ## 7. Files
 
-76 files changed against `8f91a01` (≈ 5,200 insertions, 45 deletions; no dependency change).
+79 files changed against `8f91a01` (≈ 5,500 insertions, 45 deletions; no dependency change).
 
 - **New — automations:** `apps/reference-dapp/src/automations/` (`schedule`, `trigger`, `limits`, `definition`, `assets`, `binding`,
   `decimal`, `labels`, `store`, `pg-store`, `price-source`, `config`, `evaluator`, `runtime`, `dispatch`, `http`, `approval`,
