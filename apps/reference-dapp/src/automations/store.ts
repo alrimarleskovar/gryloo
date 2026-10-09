@@ -13,7 +13,8 @@
  *
  * Nothing stored here is authority: no key, signature, quote, transaction or approval secret.
  */
-import type { StrategySpec } from '../engine/strategy-spec';
+import type { Queryable } from '@defi-workflow-engine/cloud-runtime';
+import type { StrategyInput } from '../engine/strategy-spec';
 import type { Binding, WorkflowSource } from './binding.ts';
 import type { AutomationKind, Definition } from './definition.ts';
 import type { Spend, Usage } from './limits.ts';
@@ -23,22 +24,29 @@ import type { TriggerState } from './trigger.ts';
 export type Owner = { readonly namespace: 'eip155' | 'solana'; readonly address: string };
 export type RuleState = 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'ARCHIVED';
 export type Attention = 'WORKFLOW_CHANGED' | 'STRATEGY_STALE';
+/**
+ * BUILD-AUTOMATION-002: `DELEGATED_WITH_LIMITS` rules name their authorization lineage (`authorizationId`); both are immutable, and a delegated
+ * rule's occurrences are handed to the delegated executor (`DELEGATED`) instead of waiting for the owner. CONFIRM_EACH_TIME is unchanged.
+ */
+export type ExecutionMode = 'CONFIRM_EACH_TIME' | 'DELEGATED_WITH_LIMITS';
 export type RuleRecord = {
   readonly ruleId: string; readonly owner: Owner; readonly name: string; readonly kind: AutomationKind; readonly state: RuleState;
-  readonly executionMode: 'CONFIRM_EACH_TIME'; readonly definition: Definition; readonly binding: Binding | null; readonly timezone: string;
+  readonly executionMode: ExecutionMode; readonly authorizationId: string | null; readonly definition: Definition; readonly binding: Binding | null; readonly timezone: string;
   readonly nextEvaluationAt: Date | null; readonly scheduleCursor: Date | null; readonly lastEvaluationAt: Date | null; readonly lastOutcome: string | null;
   readonly lastObservation: Readonly<Record<string, unknown>> | null; readonly triggerState: TriggerState; readonly attention: Attention | null;
   readonly expiresAt: Date | null; readonly version: number; readonly createdAt: Date; readonly updatedAt: Date;
 };
 export type NewRule = Pick<RuleRecord, 'ruleId' | 'owner' | 'name' | 'kind' | 'definition' | 'binding' | 'timezone' | 'expiresAt'> & {
-  readonly nextEvaluationAt: Date; readonly scheduleCursor: Date | null };
+  readonly nextEvaluationAt: Date; readonly scheduleCursor: Date | null;
+  /** Delegated rules only: created PAUSED, bound to their authorization lineage; they become ACTIVE when the owner signs it. */
+  readonly delegated?: { readonly authorizationId: string } };
 
-export type OccurrenceState = 'PENDING_OWNER' | 'APPROVAL_CREATED' | 'COMPLETED' | 'DISMISSED' | 'EXPIRED';
+export type OccurrenceState = 'PENDING_OWNER' | 'APPROVAL_CREATED' | 'COMPLETED' | 'DISMISSED' | 'EXPIRED' | 'DELEGATED';
 export type OccurrenceKind = 'SCHEDULE' | 'PRICE' | 'WATCH';
 export const OPEN_OCCURRENCE: readonly OccurrenceState[] = Object.freeze(['PENDING_OWNER', 'APPROVAL_CREATED']);
 export type OccurrenceRecord = {
   readonly occurrenceId: string; readonly ruleId: string; readonly owner: Owner; readonly triggerKey: string; readonly kind: OccurrenceKind;
-  readonly state: OccurrenceState; readonly strategy: StrategySpec | null; readonly workflowHash: string | null; readonly spend: Spend | null;
+  readonly state: OccurrenceState; readonly strategy: StrategyInput | null; readonly workflowHash: string | null; readonly spend: Spend | null;
   readonly observation: Readonly<Record<string, unknown>> | null; readonly dueAt: Date; readonly expiresAt: Date; readonly handoffId: string | null;
   readonly outcome: string | null; readonly decidedAt: Date | null; readonly createdAt: Date; readonly updatedAt: Date;
 };
@@ -69,7 +77,7 @@ export type EvaluationResult =
 export interface AutomationStore {
   // ── Owner operations ─────────────────────────────────────────────────────────────────────────────────────────────────────
   /** A new ACTIVE rule; `AUTOMATION_RULE_LIMIT` past `maxRules` non-archived rules for the owner. */
-  readonly createRule: (rule: NewRule, now: Date, maxRules: number) => Promise<RuleRecord>;
+  readonly createRule: (rule: NewRule, now: Date, maxRules: number, within?: (tx: Queryable, rule: RuleRecord) => Promise<void>) => Promise<RuleRecord>;
   readonly listRules: (owner: Owner) => Promise<readonly RuleRecord[]>;
   readonly getRule: (owner: Owner, ruleId: string) => Promise<RuleRecord | null>;
   /**

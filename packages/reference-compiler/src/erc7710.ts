@@ -223,7 +223,7 @@ export const terms = Object.freeze({
 export const logicalOrArgs = (groupIndex: number, caveatCount: number): string =>
   hexOf(abiEncode([{ tuple: ['uint256', { array: 'bytes' }] }], [[BigInt(groupIndex), Array.from({ length: caveatCount }, () => '0x')]]));
 export function decodeLogicalOrTerms(termsHex: string): Caveat[][] {
-  const [groups] = abiDecode([{ array: { tuple: [{ array: CAVEAT_TUPLE }] } }], bytesOf(termsHex)) as [[[[string, string, string][]]][]];
+  const [groups] = abiDecode([{ array: { tuple: [{ array: CAVEAT_TUPLE }] } }], bytesOf(termsHex)) as [[[string, string, string][]][]];
   return groups.map(([caveats]) => caveats.map(([enforcer, t, args]) => ({ enforcer, terms: t, args })));
 }
 export function decodeLogicalOrArgs(argsHex: string): { readonly groupIndex: number; readonly caveatArgs: readonly string[] } {

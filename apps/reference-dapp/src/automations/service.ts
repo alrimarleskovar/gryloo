@@ -24,7 +24,7 @@ import { evaluateWorkflowGates, requestApproval, sharedRuns, type EngineRuntime,
 import { createSavedWorkflowStore } from '../server/saved-workflow-store.ts';
 import { automationApprovalScheme, automationRequester, AUTOMATION_HANDOFF_RULES, ruleScope, sameOwner } from './approval.ts';
 import { EXECUTION_ROUTES, observedAssetOf, routeStrategy, sideOf, type Side } from './assets.ts';
-import { bindStrategy, sourceDrift, strategyOfSavedWorkflow, verifyBinding, type Binding } from './binding.ts';
+import { bindStrategy, singleStrategy, sourceDrift, strategyOfSavedWorkflow, verifyBinding, type Binding } from './binding.ts';
 import type { AutomationConfig } from './config.ts';
 import { validateAutomationInput, type ActionRequest } from './definition.ts';
 import { formatScaled, PRICE_SCALE } from './decimal.ts';
@@ -44,6 +44,11 @@ export type ServiceDeps = {
   readonly runtime: EngineRuntime; readonly price: PriceSource; readonly log: AutomationLogger; readonly now: () => Date; readonly newId: (prefix: 'aut' | 'occ') => string;
   /** Whether a channel that can carry automation notifications (Telegram) is enabled on this deployment. */
   readonly telegramAvailable: boolean;
+  /**
+   * BUILD-AUTOMATION-002: a delegated rule may resume only while its authorization is ACTIVE (the delegation module answers; null = allowed).
+   * Without it, resuming a delegated rule is refused (fail closed).
+   */
+  readonly delegatedResumeGuard?: (rule: RuleRecord) => Promise<string | null>;
 };
 const refuse = (code: string): never => { throw new Error(code); };
 
@@ -60,11 +65,12 @@ function observations(raw: Readonly<Record<string, unknown>> | null): Observatio
 }
 export function ruleView(rule: RuleRecord, pending = 0): RuleView {
   const d = rule.definition, c = d.condition;
-  return { ruleId: rule.ruleId, name: rule.name, kind: rule.kind, state: rule.state, executionMode: rule.executionMode, version: rule.version, timezone: rule.timezone,
+  return { ruleId: rule.ruleId, name: rule.name, kind: rule.kind, state: rule.state, executionMode: rule.executionMode, authorizationId: rule.authorizationId,
+    version: rule.version, timezone: rule.timezone,
     schedule: d.schedule ? { frequency: d.schedule.frequency, weekday: d.schedule.weekday, time: d.schedule.time } : null,
     condition: c ? { type: c.type, asset: c.asset, threshold: 'threshold' in c ? c.threshold : null, reference: 'reference' in c ? c.reference : null,
       percent: 'percent' in c ? c.percent : null, effectiveThreshold: formatScaled(conditionThreshold(c), PRICE_SCALE), checkEveryMinutes: c.checkEveryMinutes } : null,
-    watch: d.watch ? { assets: [...d.watch.assets] } : null, limits: d.limits, action: actionView(rule.binding?.strategy ?? null),
+    watch: d.watch ? { assets: [...d.watch.assets] } : null, limits: d.limits, action: actionView(singleStrategy(rule.binding?.strategy ?? null)),
     source: rule.binding?.source ? { workflowId: rule.binding.source.workflowId, version: rule.binding.source.version } : null,
     nextEvaluationAt: rule.state === 'ACTIVE' ? rule.nextEvaluationAt?.toISOString() ?? null : null, lastEvaluationAt: rule.lastEvaluationAt?.toISOString() ?? null,
     lastOutcome: rule.lastOutcome, lastObservation: rule.kind === 'PRICE_TRIGGER' ? observations(rule.lastObservation)[0] ?? null : null,
@@ -100,7 +106,7 @@ export function createAutomationService(deps: ServiceDeps) {
     return bound.ok ? bound.binding : refuse(bound.code);
   }
   async function bindingAllowed(rule: Pick<RuleRecord, 'definition'>, binding: Binding) {
-    const strategy = binding.strategy;
+    const strategy = singleStrategy(binding.strategy) ?? refuse('AUTOMATION_ACTION_UNSUPPORTED');
     const limit = bindingViolation(rule.definition.limits, strategy.action === 'swap' ? { asset: strategy.inputAsset, amount: strategy.amount } : null,
       strategy.action === 'swap' ? strategy.slippageBps ?? null : null);
     if (limit) refuse(limit);
@@ -143,7 +149,7 @@ export function createAutomationService(deps: ServiceDeps) {
     }
     const state = approval?.status === 'APPLIED' && o.state === 'APPROVAL_CREATED' ? 'COMPLETED' : o.state;
     return { occurrenceId: o.occurrenceId, ruleId: o.ruleId, ruleName: names.get(o.ruleId) ?? '', kind: o.kind, state, dueAt: o.dueAt.toISOString(), expiresAt: o.expiresAt.toISOString(),
-      action: actionView(o.strategy), observations: observations(o.observation), outcome: o.outcome, decidedAt: o.decidedAt?.toISOString() ?? null, approval,
+      action: actionView(singleStrategy(o.strategy)), observations: observations(o.observation), outcome: o.outcome, decidedAt: o.decidedAt?.toISOString() ?? null, approval,
       notifications: notified.get(o.occurrenceId) ?? [] };
   }
   /**
@@ -187,12 +193,13 @@ export function createAutomationService(deps: ServiceDeps) {
       const v = validated.ok ? validated.value : refuse('AUTOMATION_INPUT_INVALID');
       const binding = v.action ? await bind(owner, v.action) : null;
       // Only the owner's own wallet can claim a proposal: its namespace must be the action's.
-      if (binding && namespaceOf(binding.strategy) !== owner.namespace) refuse('AUTOMATION_WALLET_NAMESPACE_MISMATCH');
+      const single = binding ? singleStrategy(binding.strategy) ?? refuse('AUTOMATION_ACTION_UNSUPPORTED') : null;
+      if (single && namespaceOf(single) !== owner.namespace) refuse('AUTOMATION_WALLET_NAMESPACE_MISMATCH');
       if (binding) await bindingAllowed({ definition: v.definition }, binding);
       const condition = v.definition.condition;
       if (condition && binding) {
         // An action must trade the observed asset (an ETH condition never proposes a SOL swap, whatever the saved workflow holds).
-        if (observedAssetOf(binding.strategy) !== condition.asset) refuse('AUTOMATION_ACTION_ASSET_MISMATCH');
+        if (observedAssetOf(single!) !== condition.asset) refuse('AUTOMATION_ACTION_ASSET_MISMATCH');
       }
       for (const asset of condition ? [condition.asset] : v.definition.watch?.assets ?? []) if (!deps.price.assets.includes(asset)) refuse('PRICE_ASSET_NOT_OBSERVABLE');
       const schedule = v.definition.schedule;
@@ -206,6 +213,10 @@ export function createAutomationService(deps: ServiceDeps) {
 
     async setState(owner: Owner, ruleId: string, expectedVersion: number, action: 'PAUSE' | 'RESUME' | 'ARCHIVE'): Promise<RuleView> {
       const now = deps.now(), current = await store.getRule(owner, ruleId) ?? refuse('AUTOMATION_NOT_FOUND');
+      if (action === 'RESUME' && current.executionMode === 'DELEGATED_WITH_LIMITS') {
+        const blocked = deps.delegatedResumeGuard ? await deps.delegatedResumeGuard(current) : 'DELEGATED_AUTHORIZATION_REQUIRED';
+        if (blocked) refuse(blocked);
+      }
       const schedule = current.definition.schedule;
       const resume = action === 'RESUME' ? { nextEvaluationAt: schedule ? new Date(nextSlotAfter(schedule, now.getTime()).at) : now, scheduleCursor: schedule ? now : null } : undefined;
       const rule = await store.setState(owner, ruleId, expectedVersion, action === 'PAUSE' ? 'PAUSED' : action === 'RESUME' ? 'ACTIVE' : 'ARCHIVED', now, resume);
@@ -217,6 +228,8 @@ export function createAutomationService(deps: ServiceDeps) {
 
     async rebind(owner: Owner, ruleId: string, expectedVersion: number): Promise<RuleView> {
       const now = deps.now(), rule = await store.getRule(owner, ruleId) ?? refuse('AUTOMATION_NOT_FOUND');
+      // A delegated rule's action changes only through a new authorization revision the owner signs (Automations → Re-authorize).
+      if (rule.executionMode === 'DELEGATED_WITH_LIMITS') refuse('DELEGATED_REAUTHORIZATION_REQUIRED');
       if (!rule.binding) refuse('AUTOMATION_ACTION_UNSUPPORTED');
       const binding = rule.binding!.source ? await bind(owner, { kind: 'SAVED_WORKFLOW', workflowId: rule.binding!.source.workflowId })
         : (() => { const b = bindStrategy(rule.binding!.strategy); return b.ok ? b.binding : refuse(b.code); })();

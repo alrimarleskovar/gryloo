@@ -71,7 +71,7 @@ export function buildManifest(input: ManifestInput): DelegatedAuthorizationManif
     const step = r.steps[b.stepIndex]!, k = `${step.chain}|${step.adapterId}`;
     const entry = protocols.get(k) ?? protocols.set(k, { chain: step.chain, adapterId: step.adapterId ?? 'unknown', targets: new Set() }).get(k)!;
     if (b.need.kind === 'EVM_UNISWAP_V3_EXACT_INPUT_SINGLE') { entry.targets.add(b.need.router); entry.targets.add(b.need.tokenIn); }
-    else entry.targets.add(b.need.mint);
+    else { entry.targets.add(b.need.mint); for (const program of b.need.programs) entry.targets.add(program); }
   }
   const mechanisms = [...new Set(input.bindings.map(b => b.mechanism))].sort();
   const enforcement: Record<string, string[]> = {};

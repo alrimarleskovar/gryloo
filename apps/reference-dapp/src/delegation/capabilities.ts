@@ -7,7 +7,9 @@
  * deployments) additionally lets the fixture step driver execute a Solana token-input swap against the loopback chain double, so the
  * whole cross-domain architecture can be exercised; it never turns a refusal into production support.
  */
+import { splDelegation } from '@defi-workflow-engine/reference-compiler';
 import { publicSwapProfile } from '../domain/public-testnet-swap.ts';
+import { MOCKED_SWAP_PROGRAM } from './harness/solana-double.ts';
 import type { StepRequirement } from './steps.ts';
 
 export const MECHANISMS = ['EVM_ERC7710_METAMASK_V1_3', 'SOLANA_SPL_DELEGATE_V1'] as const;
@@ -16,7 +18,7 @@ export type CapabilityMode = 'PRODUCTION' | 'MOCKED_HARNESS';
 /** The on-chain call class a step needs from its grant (what the grant's caveats/approvals must cover). */
 export type TemplateNeed =
   | { readonly kind: 'EVM_UNISWAP_V3_EXACT_INPUT_SINGLE'; readonly router: string; readonly tokenIn: string; readonly tokenOut: string; readonly amountIn: bigint }
-  | { readonly kind: 'SOLANA_SPL_SPEND'; readonly mint: string; readonly decimals: number; readonly amount: bigint };
+  | { readonly kind: 'SOLANA_SPL_SPEND'; readonly mint: string; readonly decimals: number; readonly amount: bigint; readonly programs: readonly string[] };
 export type StepCapability = { readonly ok: true; readonly mechanism: Mechanism; readonly need: TemplateNeed; readonly evidence: 'MOCKED' | 'IMPLEMENTED' }
   | { readonly ok: false; readonly code: string; readonly mechanism: Mechanism | null };
 
@@ -47,7 +49,9 @@ export function stepCapability(step: StepRequirement, mode: CapabilityMode): Ste
   // Solana: an SPL delegate can spend a token account; native SOL cannot be delegated at all.
   if (input.address === WSOL || input.symbol === 'SOL') return refuse('NATIVE_SOL_NOT_DELEGABLE');
   if (mode !== 'MOCKED_HARNESS') return refuse('SOLANA_DELEGATED_BUILDER_NOT_IMPLEMENTED');
-  return { ok: true, mechanism: 'SOLANA_SPL_DELEGATE_V1', evidence: 'MOCKED', need: { kind: 'SOLANA_SPL_SPEND', mint: input.address, decimals: input.decimals, amount: input.amount } };
+  // MOCKED harness only: the delegated debit is real SPL Token semantics; the swap itself is the harness's fixture program, never Orca.
+  return { ok: true, mechanism: 'SOLANA_SPL_DELEGATE_V1', evidence: 'MOCKED', need: { kind: 'SOLANA_SPL_SPEND', mint: input.address, decimals: input.decimals, amount: input.amount,
+    programs: [splDelegation.TOKEN_PROGRAM, MOCKED_SWAP_PROGRAM] } };
 }
 
 /** The capability matrix shown to owners and in docs: one row per supported action × network × protocol, as `stepCapability` decides. */

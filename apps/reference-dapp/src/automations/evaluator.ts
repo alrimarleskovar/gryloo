@@ -16,7 +16,7 @@
  */
 import { routeStrategyLabel } from './labels.ts';
 import { spendOf } from './assets.ts';
-import { sourceDrift, verifyBinding } from './binding.ts';
+import { singleStrategy, sourceDrift, verifyBinding } from './binding.ts';
 import { limitPeriods, occurrenceViolation } from './limits.ts';
 import type { AutomationLogger } from './log.ts';
 import { observationFresh, type PriceObservation, type PriceResult, type PriceSource } from './price-source.ts';
@@ -36,7 +36,7 @@ export const observationView = (o: PriceObservation) => ({ asset: o.asset, price
 /** Binding and source checks; null when the rule may propose. */
 async function attentionOf(rule: RuleRecord, reads: EvaluationReads): Promise<Attention | null> {
   if (!rule.binding) return null;
-  if (!verifyBinding(rule.binding).ok) return 'STRATEGY_STALE';
+  if (!verifyBinding(rule.binding, { multiStep: rule.executionMode === 'DELEGATED_WITH_LIMITS' }).ok) return 'STRATEGY_STALE';
   if (rule.binding.source && sourceDrift(rule.binding.source, await reads.source(rule.owner, rule.binding.source))) return 'WORKFLOW_CHANGED';
   return null;
 }
@@ -45,15 +45,16 @@ export async function limitViolation(rule: RuleRecord, reads: EvaluationReads, n
   const limits = rule.definition.limits, periods = limitPeriods(limits), tz = rule.timezone;
   const usage = await reads.usage({ amount: periods.amount ? new Date(periodStart(periods.amount, now.getTime(), tz)) : null,
     count: periods.count ? new Date(periodStart(periods.count, now.getTime(), tz)) : null }, except);
-  const strategy = rule.binding?.strategy ?? null;
+  const strategy = singleStrategy(rule.binding?.strategy ?? null);
   return occurrenceViolation(limits, strategy ? spendOf(strategy) : null, strategy && strategy.action === 'swap' ? strategy.slippageBps ?? null : null, usage, now.getTime());
 }
 
 function occurrenceOf(deps: EvaluatorDeps, rule: RuleRecord, kind: NewOccurrence['kind'], triggerKey: string, dueAtMs: number, expiresAtMs: number,
   observation: Readonly<Record<string, unknown>> | null): NewOccurrence {
   const strategy = kind === 'WATCH' ? null : rule.binding?.strategy ?? null;
+  const single = singleStrategy(strategy);
   return { occurrenceId: deps.newId('occ'), triggerKey, kind, strategy, workflowHash: strategy ? rule.binding!.workflowHash : null,
-    spend: strategy ? spendOf(strategy) : null, observation, dueAt: new Date(dueAtMs), expiresAt: new Date(expiresAtMs) };
+    spend: single ? spendOf(single) : null, observation, dueAt: new Date(dueAtMs), expiresAt: new Date(expiresAtMs) };
 }
 
 /** Scheduled DCA and daily watch: the missed-run policy, then (when due) one proposal or report for the latest slot. */
@@ -94,7 +95,7 @@ async function scheduled(deps: EvaluatorDeps, rule: RuleRecord, reads: Evaluatio
     return { nextEvaluationAt: next, scheduleCursor: cursor, lastOutcome: 'LIMIT_BLOCKED', evaluations };
   }
   const occurrence = occurrenceOf(deps, rule, 'SCHEDULE', triggerKey, slot.at, expires, null);
-  evaluations.push({ at: now, outcome: 'TRIGGERED', triggerKey, occurrenceId: occurrence.occurrenceId, observation: null, detail: { action: routeStrategyLabel(occurrence.strategy) } });
+  evaluations.push({ at: now, outcome: 'TRIGGERED', triggerKey, occurrenceId: occurrence.occurrenceId, observation: null, detail: { action: routeStrategyLabel(singleStrategy(occurrence.strategy)) } });
   return { nextEvaluationAt: next, scheduleCursor: cursor, lastOutcome: 'TRIGGERED', occurrence, evaluations };
 }
 
@@ -126,7 +127,7 @@ async function priced(deps: EvaluatorDeps, rule: RuleRecord, reads: EvaluationRe
   }
   const occurrence = occurrenceOf(deps, rule, 'PRICE', triggerKey, now.getTime(), now.getTime() + OCCURRENCE_TTL.priceMs, view);
   evaluations.push({ at: now, outcome: 'TRIGGERED', triggerKey, occurrenceId: occurrence.occurrenceId, observation: view,
-    detail: { action: routeStrategyLabel(occurrence.strategy) } });
+    detail: { action: routeStrategyLabel(singleStrategy(occurrence.strategy)) } });
   return { ...base, lastOutcome: 'TRIGGERED', occurrence, evaluations };
 }
 

@@ -7,7 +7,7 @@
  * state move. Every query names the tenant; every owner query names the owner too.
  */
 import type { Database, Queryable, Row } from '@defi-workflow-engine/cloud-runtime';
-import type { StrategySpec } from '../engine/strategy-spec';
+import type { StrategyInput } from '../engine/strategy-spec';
 import type { Binding, WorkflowSource } from './binding.ts';
 import type { Definition } from './definition.ts';
 import { formatScaled, parseScaled, AMOUNT_SCALE } from './decimal.ts';
@@ -25,11 +25,12 @@ const decimalOf = (value: unknown) => {
 };
 
 function ruleOf(row: Row): RuleRecord {
-  const binding: Binding | null = row.action_strategy ? { strategy: row.action_strategy as StrategySpec, workflowHash: String(row.action_workflow_hash),
+  const binding: Binding | null = row.action_strategy ? { strategy: row.action_strategy as StrategyInput, workflowHash: String(row.action_workflow_hash),
     engineVersion: String(row.engine_version), source: row.source_workflow_id ? { workflowId: String(row.source_workflow_id), workflowHash: String(row.source_workflow_hash),
       version: Number(row.source_workflow_version) } : null } : null;
   return { ruleId: String(row.rule_id), owner: { namespace: row.owner_namespace as Owner['namespace'], address: String(row.owner_account) }, name: String(row.display_name),
-    kind: row.kind as RuleRecord['kind'], state: row.state as RuleRecord['state'], executionMode: 'CONFIRM_EACH_TIME', definition: row.definition as Definition, binding,
+    kind: row.kind as RuleRecord['kind'], state: row.state as RuleRecord['state'], executionMode: row.execution_mode === 'DELEGATED_WITH_LIMITS' ? 'DELEGATED_WITH_LIMITS' : 'CONFIRM_EACH_TIME',
+    authorizationId: row.authorization_id ? String(row.authorization_id) : null, definition: row.definition as Definition, binding,
     timezone: String(row.timezone), nextEvaluationAt: maybeDate(row.next_evaluation_at), scheduleCursor: maybeDate(row.schedule_cursor),
     lastEvaluationAt: maybeDate(row.last_evaluation_at), lastOutcome: row.last_outcome === null ? null : String(row.last_outcome),
     lastObservation: (row.last_observation ?? null) as RuleRecord['lastObservation'], triggerState: row.trigger_state as TriggerState,
@@ -39,7 +40,7 @@ function ruleOf(row: Row): RuleRecord {
 function occurrenceOf(row: Row): OccurrenceRecord {
   return { occurrenceId: String(row.occurrence_id), ruleId: String(row.rule_id), owner: { namespace: row.owner_namespace as Owner['namespace'], address: String(row.owner_account) },
     triggerKey: String(row.trigger_key), kind: row.kind as OccurrenceRecord['kind'], state: row.state as OccurrenceRecord['state'],
-    strategy: (row.strategy ?? null) as StrategySpec | null, workflowHash: row.workflow_hash === null ? null : String(row.workflow_hash),
+    strategy: (row.strategy ?? null) as StrategyInput | null, workflowHash: row.workflow_hash === null ? null : String(row.workflow_hash),
     spend: row.spend_asset === null ? null : { asset: String(row.spend_asset), amount: decimalOf(row.spend_amount)! },
     observation: (row.observation ?? null) as OccurrenceRecord['observation'], dueAt: date(row.due_at), expiresAt: date(row.expires_at),
     handoffId: row.handoff_id === null ? null : String(row.handoff_id), outcome: row.outcome === null ? null : String(row.outcome), decidedAt: maybeDate(row.decided_at),
@@ -53,8 +54,10 @@ const lapsed = (o: OccurrenceRecord, now: Date): OccurrenceRecord => OPEN_OCCURR
   ? { ...o, state: 'EXPIRED', outcome: 'OCCURRENCE_EXPIRED', decidedAt: o.expiresAt } : o;
 const OPEN = `state IN ('PENDING_OWNER', 'APPROVAL_CREATED')`;
 /** Occurrences a limit counts: open, taken up, or opened by the owner before they expired (their approval may still have been used). */
-const COUNTED = `(state IN ('PENDING_OWNER', 'APPROVAL_CREATED', 'COMPLETED') OR (state = 'EXPIRED' AND handoff_id IS NOT NULL))`;
+const COUNTED = `(state IN ('PENDING_OWNER', 'APPROVAL_CREATED', 'COMPLETED', 'DELEGATED') OR (state = 'EXPIRED' AND handoff_id IS NOT NULL))`;
 const NOTIFY_KIND = 'automation.notify', EVALUATE_KIND = 'automation.evaluate';
+/** BUILD-AUTOMATION-002: the delegated executor's work kind (`delegation/executor.ts`); queued with a delegated occurrence, atomically. */
+export const DELEGATION_EXECUTE_KIND = 'delegation.execute';
 const json = (value: unknown) => value === null || value === undefined ? null : JSON.stringify(value);
 
 export function createPgAutomationStore(db: Database, tenantId: string): AutomationStore {
@@ -103,22 +106,26 @@ export function createPgAutomationStore(db: Database, tenantId: string): Automat
     async schemaInstalled() {
       return (await db.query<{ ok: boolean }>(`SELECT to_regclass('automation_rules') IS NOT NULL AND to_regclass('automation_occurrences') IS NOT NULL AS ok`)).rows[0]?.ok === true;
     },
-    createRule: (rule, now, maxRules) => db.transaction(async tx => {
+    createRule: (rule, now, maxRules, within) => db.transaction(async tx => {
       // One owner's creations serialize, so the cap is exact.
       await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`flofi.automation/${tenantId}/${rule.owner.namespace}/${rule.owner.address}`]);
       const live = (await tx.query<{ n: number }>(`SELECT count(*)::int AS n FROM automation_rules WHERE tenant_id = $1 AND owner_namespace = $2 AND owner_account = $3
         AND state <> 'ARCHIVED'`, [tenantId, rule.owner.namespace, rule.owner.address])).rows[0]!.n;
       if (live >= maxRules) refuse('AUTOMATION_RULE_LIMIT');
       const b = rule.binding;
+      // A delegated rule starts PAUSED: nothing evaluates until its owner signs the authorization (BUILD-AUTOMATION-002).
       const row = (await tx.query(`INSERT INTO automation_rules (tenant_id, rule_id, owner_namespace, owner_account, display_name, kind, state, definition, action_strategy,
           action_workflow_hash, engine_version, source_workflow_id, source_workflow_hash, source_workflow_version, timezone, next_evaluation_at, schedule_cursor, expires_at,
-          created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7::jsonb, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18) RETURNING *`,
+          created_at, updated_at, execution_mode, authorization_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $19, $7::jsonb, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $18, $20, $21) RETURNING *`,
       [tenantId, rule.ruleId, rule.owner.namespace, rule.owner.address, rule.name, rule.kind, JSON.stringify(rule.definition), json(b?.strategy), b?.workflowHash ?? null,
         b?.engineVersion ?? null, b?.source?.workflowId ?? null, b?.source?.workflowHash ?? null, b?.source?.version ?? null, rule.timezone, rule.nextEvaluationAt,
-        rule.scheduleCursor, rule.expiresAt, now])).rows[0]!;
+        rule.scheduleCursor, rule.expiresAt, now, rule.delegated ? 'PAUSED' : 'ACTIVE', rule.delegated ? 'DELEGATED_WITH_LIMITS' : 'CONFIRM_EACH_TIME',
+        rule.delegated?.authorizationId ?? null])).rows[0]!;
       await tx.query(`INSERT INTO automation_evaluations (tenant_id, rule_id, at, outcome) VALUES ($1, $2, $3, 'AUTOMATION_CREATED')`, [tenantId, rule.ruleId, now]);
-      return ruleOf(row);
+      const created = ruleOf(row);
+      if (within) await within(tx, created);
+      return created;
     }),
     async listRules(owner) {
       return (await db.query(`SELECT * FROM automation_rules WHERE tenant_id = $1 AND owner_namespace = $2 AND owner_account = $3 ORDER BY created_at DESC, rule_id LIMIT 200`,
@@ -248,14 +255,21 @@ export function createPgAutomationStore(db: Database, tenantId: string): Automat
       const commit = await decide(rule, reads(tx, rule));
       let occurrence: OccurrenceRecord | null = null, duplicate = false;
       if (commit.occurrence) {
-        const o = commit.occurrence;
+        const o = commit.occurrence, delegated = rule.executionMode === 'DELEGATED_WITH_LIMITS';
+        // A delegated rule's occurrence goes to the delegated executor in the same transaction (never to the owner, never silently both).
         const inserted = (await tx.query(`INSERT INTO automation_occurrences (tenant_id, occurrence_id, rule_id, owner_namespace, owner_account, trigger_key, kind, state, strategy,
-            workflow_hash, spend_asset, spend_amount, observation, due_at, expires_at, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING_OWNER', $8::jsonb, $9, $10, $11::numeric, $12::jsonb, $13, $14, $15, $15)
+            workflow_hash, spend_asset, spend_amount, observation, due_at, expires_at, created_at, updated_at, decided_at, outcome)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $16, $8::jsonb, $9, $10, $11::numeric, $12::jsonb, $13, $14, $15, $15, $17, $18)
           ON CONFLICT (tenant_id, rule_id, trigger_key) DO NOTHING RETURNING *`,
         [tenantId, o.occurrenceId, ruleId, rule.owner.namespace, rule.owner.address, o.triggerKey, o.kind, json(o.strategy), o.workflowHash, o.spend?.asset ?? null,
-          o.spend?.amount ?? null, json(o.observation), o.dueAt, o.expiresAt, now])).rows[0];
-        if (inserted) {
+          o.spend?.amount ?? null, json(o.observation), o.dueAt, o.expiresAt, now, delegated ? 'DELEGATED' : 'PENDING_OWNER', delegated ? now : null,
+          delegated ? 'DELEGATED_EXECUTION_QUEUED' : null])).rows[0];
+        if (inserted && delegated) {
+          occurrence = occurrenceOf(inserted);
+          await tx.query(`INSERT INTO work_items (tenant_id, kind, dedupe_key, run_id, payload, state, available_at) VALUES ($1, $2, $3, NULL, $4::jsonb, 'READY', now())
+            ON CONFLICT (tenant_id, kind, dedupe_key) WHERE state IN ('READY', 'LEASED') DO NOTHING`,
+          [tenantId, DELEGATION_EXECUTE_KIND, occurrence.occurrenceId, JSON.stringify({ occurrenceId: occurrence.occurrenceId, authorizationId: rule.authorizationId })]);
+        } else if (inserted) {
           occurrence = occurrenceOf(inserted);
           // A chat notification item only for an owner with a live linked chat: the in-app proposal needs none, and an item nobody can
           // deliver is never left in the queue.

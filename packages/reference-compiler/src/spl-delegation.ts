@@ -59,7 +59,7 @@ export function decodeTokenAccountState(data: Uint8Array): TokenAccountState {
   const nativeTag = view.getUint32(109, true);
   if (state === undefined || state > 2 || nativeTag > 1) fail('SPL_TOKEN_ACCOUNT_INVALID');
   return { mint: base58Encode(data.slice(0, 32)), owner: base58Encode(data.slice(32, 64)), amount: readU64(data, 64), delegate: option(72),
-    state: (['UNINITIALIZED', 'INITIALIZED', 'FROZEN'] as const)[state]!, native: nativeTag === 1, delegatedAmount: readU64(data, 121), closeAuthority: option(129) };
+    state: (['UNINITIALIZED', 'INITIALIZED', 'FROZEN'] as const)[state as 0 | 1 | 2], native: nativeTag === 1, delegatedAmount: readU64(data, 121), closeAuthority: option(129) };
 }
 /** Encodes a token account (tests and loopback chain doubles only). */
 export function encodeTokenAccountState(s: TokenAccountState): Uint8Array {
