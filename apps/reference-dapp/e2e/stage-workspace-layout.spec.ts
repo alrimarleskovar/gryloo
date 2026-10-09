@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator } from '@playwright/test';
 import { installSupplyWallet } from './supply-fixtures';
@@ -9,7 +9,7 @@ type Box = { x: number; y: number; width: number; height: number };
 const right = (box: Box) => box.x + box.width;
 const bottom = (box: Box) => box.y + box.height;
 function sameBox(actual: Box, reference: Box) {
-  for (const key of ['x', 'y', 'width', 'height'] as const) expect(actual[key]).toBeCloseTo(reference[key], 1);
+  for (const key of ['x', 'y', 'width', 'height'] as const) expect(actual[key], JSON.stringify({ key, actual, reference })).toBeCloseTo(reference[key], 1);
 }
 async function geometry(canvas: Locator) {
   return canvas.evaluate(element => {
@@ -33,7 +33,7 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
   test(`${theme} ${layout} workspace keeps Build geometry, CTA anchors and controls through lifecycle stages`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     const settings = page.getByRole('button', { name: 'Settings', exact: true });
     await settings.click();
@@ -42,7 +42,7 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.toLowerCase());
     if (layout === 'lending') {
       await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-      await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+      await applyPendingProposal(page);
     } else {
       await page.getByRole('button', { name: 'Add supply', exact: true }).click();
       await configureCanvasAction(page, '1');
@@ -63,10 +63,11 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
       await page.setViewportSize({ width, height: 900 });
       await nav.getByRole('button', { name: 'Build', exact: true }).click();
       await expect(canvas).toBeVisible();
-      await expect(canvas).toHaveCSS('height', `${layout === 'lending' ? 820 : layout === 'floating' ? 760 : 590}px`);
+      const expectedHeight = layout === 'floating' ? 760 : layout === 'lending' || width <= 800 ? 820 : 590;
+      await expect(canvas).toHaveCSS('height', `${expectedHeight}px`);
       await page.evaluate(() => window.scrollTo(0, 0));
       const reference = await geometry(canvas);
-      expect(reference.canvas.height).toBe(layout === 'lending' ? 820 : layout === 'floating' ? 760 : 590);
+      expect(reference.canvas.height).toBe(expectedHeight);
       await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
       const buildAmounts = await graph.locator('.composer-card input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
       for (const stage of ['Build', 'Simulate', 'Execute'] as const) {

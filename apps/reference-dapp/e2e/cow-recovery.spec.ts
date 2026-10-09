@@ -5,7 +5,7 @@ import { openProposalReview } from './fixtures';
 test.skip(process.env.GRYLOO_COW !== 'loopback', 'CoW browser acceptance requires the isolated loopback orderbook');
 
 test('ambiguous post survives browser restart and lookup never posts a second order', async ({ page, cowWallet }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await prepareCow(page, 'ambiguous');
   await stage(page, 'Execute');
   let execution = cowPanel(page, 'execution');
@@ -29,7 +29,7 @@ test('ambiguous post survives browser restart and lookup never posts a second or
 
 test('expiry is explicit and never shown as settlement', async ({ page, cowWallet }) => {
   expect(cowWallet.owner).toMatch(/^0x[0-9a-f]{40}$/);
-  await page.goto('/');
+  await page.goto('/app');
   await prepareCow(page, 'expire');
   await stage(page, 'Execute');
   const execution = cowPanel(page, 'execution');
@@ -41,7 +41,7 @@ test('expiry is explicit and never shown as settlement', async ({ page, cowWalle
 
 test('failed post with no order remains unknown and cannot be retried by the UI', async ({ page, cowWallet }) => {
   expect(cowWallet.owner).toMatch(/^0x[0-9a-f]{40}$/);
-  await page.goto('/');
+  await page.goto('/app');
   await prepareCow(page, 'failure');
   await stage(page, 'Execute');
   const execution = cowPanel(page, 'execution');
@@ -54,7 +54,7 @@ test('failed post with no order remains unknown and cannot be retried by the UI'
 });
 
 test('semantic edit invalidates a prepared order before wallet signing', async ({ page, cowWallet }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await prepareCow(page, 'hold');
   await stage(page, 'Build');
   await page.getByLabel('Describe your flow').fill('set node-002 slippage 50 bps');

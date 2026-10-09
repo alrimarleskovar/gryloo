@@ -55,7 +55,7 @@ test.beforeEach(async () => { A = createTestWallet(); B = createTestWallet(); aw
 
 test('a fresh external wallet: connect → sign in → create → simulate → review + Manifest → sign → execute → reload → reconcile → evidence', async ({ page, networkGuard }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await installJourneyWallet(page, [A]); await page.goto('/');
+  await installJourneyWallet(page, [A]); await page.goto('/app');
   await expect(card(page)).toContainText('Bridge test USDC from Base Sepolia to Arbitrum Sepolia with your own wallet');
   // The injected wallet answers eth_accounts passively (like a previously connected extension); nothing else is done yet.
   await expect(card(page).getByRole('list', { name: 'Journey steps' }).locator('li[data-done="true"]')).toHaveText(['✓ Connect your wallet']);
@@ -100,7 +100,7 @@ test('a fresh external wallet: connect → sign in → create → simulate → r
 });
 
 test('wallet B in another browser cannot see or resume wallet A’s run, even with its id; wallet A recovers it from any browser', async ({ page, browser }) => {
-  await installJourneyWallet(page, [A]); await page.goto('/');
+  await installJourneyWallet(page, [A]); await page.goto('/app');
   await signIn(card(page));
   await author(page); await simulateAndAccept(page);
   await execute(page, /^Execute: Approve exactly 1 USDC/);
@@ -112,7 +112,7 @@ test('wallet B in another browser cannot see or resume wallet A’s run, even wi
   // Another person, another browser, holding A's run id in a forged pointer: the server refuses everything.
   const other = await guardedContext(browser), pageB = await other.context.newPage();
   await pageB.addInitScript(([key, value]) => window.localStorage.setItem(key!, value!), [POINTER, JSON.stringify({ id, owner: B.address })]);
-  await installJourneyWallet(pageB, [B]); await pageB.goto('/');
+  await installJourneyWallet(pageB, [B]); await pageB.goto('/app');
   await signIn(card(pageB));
   await expect(card(pageB).getByRole('region', { name: 'Your runs' })).toContainText('No runs yet for this wallet.');
   await expect(pageB.locator('body')).not.toContainText(id);
@@ -123,7 +123,7 @@ test('wallet B in another browser cannot see or resume wallet A’s run, even wi
 
   // Wallet A reconnects in a fresh browser with no local state: its run is listed by the server and resumes there.
   const fresh = await guardedContext(browser), pageA = await fresh.context.newPage();
-  await installJourneyWallet(pageA, [A]); await pageA.goto('/');
+  await installJourneyWallet(pageA, [A]); await pageA.goto('/app');
   await signIn(card(pageA));
   const runs = card(pageA).getByRole('region', { name: 'Your runs' });
   await expect(runs).toContainText(id);
@@ -138,7 +138,7 @@ test('wallet B in another browser cannot see or resume wallet A’s run, even wi
 });
 
 test('a chain switch blocks execution until the user switches back; an account switch after Review clears the authorization and signs the old account out', async ({ page }) => {
-  await installJourneyWallet(page, [A, B]); await page.goto('/');
+  await installJourneyWallet(page, [A, B]); await page.goto('/app');
   await signIn(card(page));
   await author(page); await simulateAndAccept(page);
   await expect(region(page).getByRole('button', { name: /^Execute: Approve/ })).toBeVisible();

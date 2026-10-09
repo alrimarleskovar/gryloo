@@ -17,7 +17,7 @@ const tab = async (page: Page, name: 'Build' | 'Simulate' | 'Execute') => {
 
 async function open(page: Page) {
   await page.clock.install({ time: T0 });
-  await page.goto('/');
+  await page.goto('/app');
   await page.clock.pauseAt(T1);
 }
 async function apply(page: Page, text: string) {
@@ -88,7 +88,7 @@ test('chat-created and canvas-created swaps yield identical mocked artifacts', a
   const artifacts: { ir: { workflowId: string; revision: number }; values: string[] }[] = [];
   for (const surface of ['chat', 'canvas'] as const) {
     await page.clock.setFixedTime(T1);
-    await page.goto('/');
+    await page.goto('/app');
     if (surface === 'chat') await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
     else {
       await page.getByText('Advanced action setup', { exact: true }).click();
@@ -214,7 +214,7 @@ test('expiry is detected on tab resume and on access without any timer firing (R
 
 test('a failed hashing self-check prevents generation and shows an explicit error (R-3)', async ({ page }) => {
   await page.addInitScript(() => { SubtleCrypto.prototype.digest = async () => new ArrayBuffer(32); });
-  await page.goto('/');
+  await page.goto('/app');
   await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
   await tab(page, 'Simulate');
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();

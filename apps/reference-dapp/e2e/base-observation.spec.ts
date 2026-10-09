@@ -6,7 +6,7 @@ import { digestRawResponse } from '@defi-workflow-engine/reference-linter';
 const observation = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Base read-only observation' });
 
 test('replay fails closed for an unrecorded swap and preserves the authority boundary', async ({ page, networkGuard }) => {
-  const response = await page.goto('/');
+  const response = await page.goto('/app');
   expect(response?.headers()['content-security-policy']).toContain("connect-src 'self'");
   await page.getByLabel('Describe your flow').fill('swap 3 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
@@ -34,7 +34,7 @@ test('replay fails closed for an unrecorded swap and preserves the authority bou
 });
 
 test('observation controls are keyboard reachable and fit mobile, tablet and desktop widths', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send' }).click();
   await openProposalReview(page);
@@ -60,7 +60,7 @@ for (const [from, to, amount, at] of [
 ] as const) {
   test(`${from} to ${to}: recorded quote is verified, visible and never authorizes action`, async ({ page, networkGuard }) => {
     await page.clock.install({ time: new Date(Date.parse(at) - 1000) });
-    await page.goto('/');
+    await page.goto('/app');
     // Keep the recorded wall time fixed while ResizeObserver and animation frames fit the graph.
     await page.clock.setFixedTime(new Date(at));
     await page.getByLabel('Describe your flow').fill(`swap ${amount} ${from} to ${to} on Base slippage 50 bps`);
@@ -117,7 +117,7 @@ for (const [from, to, amount, at] of [
 test('a semantic edit retires a recorded quote without touching the mocked chain', async ({ page, networkGuard }) => {
   const at = new Date('2026-09-24T14:51:42.000Z');
   await page.clock.install({ time: new Date(at.getTime() - 1000) });
-  await page.goto('/');
+  await page.goto('/app');
   // Navigation can exceed one second; keep replay time fixed without rewinding timers.
   await page.clock.setFixedTime(at);
   await page.getByLabel('Describe your flow').fill('swap 1 WETH to USDC on Base slippage 50 bps');

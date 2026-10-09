@@ -26,7 +26,7 @@ async function noPageOverflow(page: Page) {
 
 for (const value of ['Light', 'Dark'] as const) for (const action of ['pool', 'swap', 'bridge'] as const) {
   test(`${value} ${action} keeps semantic asset grouping, contained pickers and unchanged authoring`, async ({ page }) => {
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     await theme(page, value);
     await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
@@ -87,7 +87,7 @@ for (const value of ['Light', 'Dark'] as const) for (const action of ['pool', 's
 }
 
 for (const value of ['Light', 'Dark'] as const) test(`${value} global stage flow preserves wallet, environment, focus and workspace entry at common widths`, async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await theme(page, value);
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
@@ -131,7 +131,7 @@ for (const value of ['Light', 'Dark'] as const) test(`${value} global stage flow
 for (const value of ['Light', 'Dark'] as const) test(`${value} keyboard selection keeps linked Borrow and Advanced Settings synchronized`, async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await theme(page, value);
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();

@@ -2,7 +2,7 @@
 import { test, expect } from './fixtures';
 
 test('Simulate anchors its CTAs inside the canvas beside the zoom controls', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const stages = page.getByRole('navigation', { name: 'Workflow stages' });
   await page.getByRole('button', { name: 'Rename workflow', exact: true }).click();
   await page.getByRole('textbox', { name: 'Workflow name', exact: true }).fill('ESPARTACUS');

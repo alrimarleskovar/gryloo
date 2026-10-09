@@ -1,0 +1,44 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+.mascot { --intro: 1.75s; --travel: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; min-width: 0; }
+.scene { width: 168px; height: 168px; position: relative; isolation: isolate; }
+.halo { position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 70%); border: 1px solid color-mix(in srgb, var(--blue) 15%, transparent); box-shadow: 0 0 0 20px color-mix(in srgb, var(--blue) 3%, transparent), 0 0 0 40px color-mix(in srgb, var(--blue) 2%, transparent); }
+.orbit { position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--blue) 12%, transparent); border-radius: 50%; }
+.orbit i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--blue); opacity: .5; left: calc(50% - 2px); top: -2px; }
+.orbit i + i { top: auto; bottom: -2px; width: 3px; height: 3px; opacity: .3; }
+.frame { position: absolute; inset: 7px; display: grid; place-items: center; border-radius: 50%; overflow: hidden; }
+.float { width: 114px; height: 116px; }
+.mascot small { margin-top: 20px; font-size: 6px; letter-spacing: .1em; color: var(--blue); }
+.mascot :global([data-mascot-body]) { transform-origin: 50% 90%; }
+:global([data-docs-theme="dark"]) .mascot img[src$="flofi-symbol-light.svg"] { visibility: hidden; }
+:global([data-docs-theme="dark"]) .mascot img[src$="flofi-symbol-dark.svg"] { visibility: visible; }
+@media (prefers-color-scheme: dark) {
+  :global([data-docs-theme="system"]) .mascot img[src$="flofi-symbol-light.svg"] { visibility: hidden; }
+  :global([data-docs-theme="system"]) .mascot img[src$="flofi-symbol-dark.svg"] { visibility: visible; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mascot[data-docs-mascot-started="true"] :global([data-mascot-body]) { animation: arrive var(--intro) cubic-bezier(.22,.7,.25,1) both; }
+  .mascot[data-docs-mascot-started="true"] .float { animation: idle 24s ease-in-out var(--intro) infinite; }
+  .mascot[data-docs-mascot-started="true"] :global([data-mascot-shadow]) { animation: shadow 24s ease-in-out var(--intro) infinite; }
+  .mascot[data-docs-mascot-started="true"] .halo { animation: welcome var(--intro) ease-out both; }
+  .mascot[data-docs-mascot-started="true"] .orbit { animation: orbit 48s linear infinite; }
+  .mascot[data-docs-mascot-active="false"] *, .mascot[data-docs-mascot-active="false"] :global([data-mascot-body]) { animation-play-state: paused !important; }
+}
+@keyframes arrive {
+  0% { transform: translateY(calc(var(--travel) * 2)) rotate(-14deg) scale(.9,1.08); opacity: 0; }
+  18% { opacity: 1; }
+  38% { transform: translateY(calc(var(--travel) * -1)) rotate(9deg) scale(.95,1.04); }
+  58% { transform: translateY(4px) rotate(-4deg) scale(1.1,.88); }
+  76% { transform: translateY(-7px) rotate(2deg) scale(.98,1.02); }
+  100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+}
+@keyframes welcome { 0%, 100% { transform: scale(1); opacity: .8; } 60% { transform: scale(1.05); opacity: 1; } }
+@keyframes idle { 0%, 25%, 50%, 75%, 100% { transform: translateY(0) rotate(0); } 12%, 62% { transform: translateY(-3px) rotate(-1.5deg); } 37% { transform: translateY(-2px) rotate(2deg); } 87% { transform: translateY(1px) scale(1.02,.98); } 90% { transform: translateY(-7px) rotate(2deg); } 94% { transform: translateY(0) scale(1.02,.98); } }
+@keyframes shadow { 0%, 25%, 50%, 75%, 100% { transform: scaleX(1); opacity: .18; } 12%, 37%, 62% { transform: scaleX(.94); opacity: .12; } 90% { transform: scaleX(.82); opacity: .09; } 94% { transform: scaleX(1.02); opacity: .2; } }
+@keyframes orbit { to { transform: rotate(360deg); } }
+@media (max-width: 600px) {
+  .mascot { --intro: 1.5s; --travel: 22px; margin-top: 25px; }
+  .scene { width: 106px; height: 106px; }
+  .float { width: 70px; height: 72px; }
+  .halo { box-shadow: 0 0 0 12px color-mix(in srgb, var(--blue) 3%, transparent); }
+  .mascot small { margin-top: 12px; }
+}

@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }, testInfo) => {
       }, on() {}, removeListener() {},
     } });
   }, testInfo.title.includes('mocked diagnostics') ? '0x2105' : '0x14a34');
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
 });
 test.afterEach(async ({ page }) => {

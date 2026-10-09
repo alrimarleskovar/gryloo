@@ -4,7 +4,7 @@ import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction } from './composer-authoring-fixtures';
 
 test('Settings switches toggle from either segment, the middle and edges with one keyboard stop each', async ({ page }) => {
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   const settings = page.getByRole('button', { name: 'Settings', exact: true });
   await settings.click();
   const language = page.getByRole('switch', { name: 'Language', exact: true });
@@ -46,7 +46,7 @@ test('Settings switches toggle from either segment, the middle and edges with on
 });
 
 test('pill and page colors transition smoothly, rapid theme toggles settle and reduced motion is respected', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/');
+  await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/app');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const theme = page.getByRole('switch', { name: 'Theme', exact: true });
   const language = page.getByRole('switch', { name: 'Language', exact: true });
@@ -97,7 +97,7 @@ test('pill and page colors transition smoothly, rapid theme toggles settle and r
 for (const theme of ['light', 'dark'] as const) {
   test(`${theme} ambient light follows the pointer, stays clipped below controls and fits responsive canvases`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/');
+    await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/app');
     const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
     const light = graph.locator('.dark-spotlight');
     await expect(light).toHaveAttribute('aria-hidden', 'true');
@@ -129,7 +129,7 @@ for (const theme of ['light', 'dark'] as const) {
 
   test(`${theme} spotlight preserves canvas cursors, editing, dragging and lifecycle geometry`, async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await page.getByRole('button', { name: 'Add supply', exact: true }).click(); await configureCanvasAction(page, '1');
     const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
     const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });

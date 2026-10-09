@@ -292,6 +292,8 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
   }, [workflow]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Dialogs own their keyboard interaction while the persistent canvas stays mounted.
+      if (event.defaultPrevented || event.target instanceof Element && event.target.closest('dialog[open], [role="dialog"], [role="menu"]')) return;
       if (event.isComposing || event.key === 'Process' || event.keyCode === 229 || event.altKey || event.metaKey) return;
       const textEntry = isTextEntry(event.target);
       if (event.key === 'Escape' && (selectedIdsRef.current.length || selectedEdge)) { event.preventDefault(); selectNodes([], null); return; }
@@ -618,7 +620,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
     {tr(toolboxMode === 'top' && dockButton)}
     </div>
   </div>;
-  return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} aria-label={tr("Workflow canvas")}>
+  return <section className={`canvas panel ${isLendingComposition(workflow)?'lending-canvas':''}`} tabIndex={-1} aria-label={tr("Workflow canvas")}>
     <div className="canvas-head build-canvas-head"><WorkflowName name={workflowName} rename={renameWorkflow}
       onSave={onSave}/><div className={toolboxMode === 'top' ? 'canvas-toolbar-row' : 'canvas-toolbar-utilities'}>{tr(toolboxMode === 'top' && toolbox)}{tr(toolboxMode === 'floating' && dockButton)}<span className="revision">{tr(projectedNodes.length)} {tr(projectedNodes.length === 1 ? 'action' : 'actions')}</span></div></div>
     {feedback && <p className="canvas-feedback" role="status">{tr(feedback)}</p>}

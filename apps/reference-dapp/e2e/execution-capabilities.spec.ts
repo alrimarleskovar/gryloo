@@ -2,7 +2,7 @@
 import { test, expect, applyPendingProposal } from './fixtures';
 
 test('normal Build keeps capability details internal and authoring wallet-free', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByLabel('Execution environment')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Workflow readiness' })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Workflow stages' })).toBeVisible();
@@ -19,7 +19,7 @@ test('normal Build keeps capability details internal and authoring wallet-free',
 });
 
 test('an unprepared liquidity workflow cannot authorize or execute', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Add pool', exact: true }).click();
   await expect(page.locator('.build-flow-surface .composer-card')).toHaveCount(1);
   await expect(page.getByRole('region', { name: 'Workflow readiness' })).toHaveCount(0);

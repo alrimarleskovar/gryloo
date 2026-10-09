@@ -20,7 +20,7 @@ async function reset(nonce: number) {
   return async () => Number(BigInt(await transferHarnessRpc('eth_getTransactionCount', [owner, 'latest']) as string)) - nonce;
 }
 async function authorAndReview(page: Page, options: TransferWalletOptions = {}) {
-  await installTransferWallet(page, options); await page.goto('/');
+  await installTransferWallet(page, options); await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
   await form.getByLabel('Transfer amount (test ETH)').fill('0.000001');

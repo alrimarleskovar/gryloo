@@ -5,9 +5,15 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: { unoptimized: true },
+  // Optional isolated preview output: keep the owner's existing .next/dev server running.
+  distDir: process.env.FLOFI_DOCS_PREVIEW === 'true' ? '.next-docs' : process.env.FLOFI_MOTION_PREVIEW === 'true' ? '.next-motion' : '.next',
+  ...(process.env.FLOFI_DOCS_PREVIEW === 'true' ? { typescript: { tsconfigPath: 'tsconfig.docs-preview.json' } } : {}),
   // BUILD-CLOUD-PARITY-001: committed, read-only replay fixtures read at runtime (`FLOFI_COPILOT=replay`, recorded Base observation
   // replay) ship with the serverless functions, so those modes behave on a Vercel deployment as they do locally.
-  outputFileTracingIncludes: { '/': ['./e2e/copilot/replay.json', './e2e/copilot/replay-v2.json', './e2e/observations/base-recorded-observations.json'] },
+  outputFileTracingIncludes: {
+    '/app{,/**}': ['./e2e/copilot/replay.json', './e2e/copilot/replay-v2.json', './e2e/observations/base-recorded-observations.json'],
+    '/approve': ['./e2e/copilot/replay.json', './e2e/copilot/replay-v2.json', './e2e/observations/base-recorded-observations.json'],
+  },
   // The browser may connect only to its own origin (read-only Base reads run on the local server) and, for Credentials → Add card,
   // to the three Mercado Pago origins its official Secure Fields SDK needs: its API, its static secure-fields host and the
   // secure-fields iframe origin. Card data is typed only inside those cross-origin iframes.

@@ -15,7 +15,7 @@ const requests = (page: Page) => page.evaluate(() => (window as unknown as { sup
 const region = (page: Page) => page.getByRole('region', { name: 'Aave Supply' });
 
 async function authorWbtcSupply(page: Page) {
-  await page.goto('/'); await page.getByRole('button', { name: 'Add supply', exact: true }).click();
+  await page.goto('/app'); await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const form = page.getByRole('form', { name: 'Create Supply' });
   await form.getByLabel('Supply network').selectOption('Ethereum Sepolia');
   await form.getByLabel('Supply amount (WBTC)').fill('0.001'); await form.getByLabel('Supply beneficiary').fill(SUPPLY_OWNER);

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 // Visual component fixtures exercise the real projection and CSS without RPC, signing, or execution.
 // The live Build -> Simulate integration is covered by simulate-product-workspace.spec.ts.
 for (const theme of ['light', 'dark']) test(`ready embedded Review component fixture wraps long authorization values in ${theme}`, async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
   const fontClasses = await page.locator('html').getAttribute('class');

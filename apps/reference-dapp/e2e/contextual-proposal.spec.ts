@@ -32,7 +32,7 @@ async function fitReview(page: Page) {
 }
 async function boot(page: Page, theme: string) {
   await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await expect(page.locator('.fork-badge')).toHaveCount(1);
   await page.evaluate(() => document.fonts.ready);

@@ -25,7 +25,7 @@ for (const theme of ['light', 'dark'] as const) {
   test(`${theme} drawer reuses real Dashboard and Build, selects one route, and Logout uses Disconnect semantics`, async ({ page }) => {
     const errors = captureErrors(page);
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     await page.getByRole('button', { name: 'Add supply', exact: true }).click();
     await configureCanvasAction(page, '1');
@@ -37,14 +37,14 @@ for (const theme of ['light', 'dark'] as const) {
       await trigger.click();
       await expect(drawer.locator('[aria-current=page]')).toHaveCount(0);
       await drawer.getByRole('link', { name: 'Build Workflow', exact: true }).press('Enter');
-      await expect(page).toHaveURL('/');
+      await expect(page).toHaveURL('/app');
       await expect(stages.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
       await expect(drawer).toBeHidden();
       await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revision!);
     }
     for (const [label, path] of [
       ['Dashboard', '/app/dashboard'], ['Credentials', '/app/credentials'], ['Agents', '/app/agents'],
-      ['Passkeys', '/app/passkeys'], ['Build Workflow', '/'],
+      ['Passkeys', '/app/passkeys'], ['Build Workflow', '/app'],
     ] as const) {
       await trigger.click();
       expect(await drawer.getByRole('link').allTextContents()).toEqual(['Dashboard', 'Build Workflow', 'Credentials', 'Agents', 'Passkeys']);
@@ -160,7 +160,7 @@ for (const theme of ['light', 'dark'] as const) {
   test(`${theme} Settings Support is safely inert and preserves switches, keyboard, Disconnect, and responsive placement`, async ({ page }, testInfo) => {
     const errors = captureErrors(page);
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     const settings = page.getByRole('button', { name: 'Settings', exact: true });
     const menu = page.getByRole('group', { name: 'Settings options', exact: true });
@@ -181,7 +181,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(support).toBeFocused(); await expect(support).toHaveCSS('outline-style', 'solid');
       await support.press('Space'); await expect(menu).toHaveCount(0); await expect(settings).toBeFocused();
       expect(await publicSessionSnapshot(page)).toEqual(before);
-      await expect(page.locator('.build009-wallet-info')).toBeVisible(); await expect(page).toHaveURL('/');
+      await expect(page.locator('.build009-wallet-info')).toBeVisible(); await expect(page).toHaveURL('/app');
     }
     await settings.press('Enter'); await settings.press('Tab');
     const language = page.getByRole('switch', { name: 'Language', exact: true });

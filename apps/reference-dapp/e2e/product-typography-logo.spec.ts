@@ -7,7 +7,7 @@ import { configureCanvasAction } from './composer-authoring-fixtures';
 for (const theme of ['Light', 'Dark'] as const) test(`${theme} approved fonts and identity preserve the shell at product widths`, async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await installSupplyWallet(page); await page.goto('/');
+  await installSupplyWallet(page); await page.goto('/app');
   await expect(page.locator('.wallet-address')).toBeVisible();
   const settings = page.getByRole('button', { name: 'Settings', exact: true });
   await settings.click(); await selectSettingsTheme(page, theme);

@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 import { installLendingWallet,lendingRpc,lendingSends,resetLending,LENDING_OWNER } from './lending-fixtures';
 const panel=(page:Page)=>page.getByRole('region',{name:'Lending composition'});
 async function author(page:Page,options:Parameters<typeof installLendingWallet>[1]={},chat=false){
-  await installLendingWallet(page,options);await page.goto('/');
+  await installLendingWallet(page,options);await page.goto('/app');
   if(chat){await page.locator('#mock-prompt').fill(`compose supply 0.1 USDC to Aave then borrow 0.01 USDC then swap borrowed USDC to WETH on Base Sepolia slippage 50 bps owner ${LENDING_OWNER}`);await page.getByRole('button',{name:'Send',exact:true}).click();}
   else {await expect(page.locator('.build009-wallet-info')).toContainText(LENDING_OWNER.slice(0,6));await page.getByRole('button',{name:'Add Supply → Borrow → Swap',exact:true}).click();}
   await openProposalReview(page);

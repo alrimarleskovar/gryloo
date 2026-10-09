@@ -4,7 +4,7 @@ const recipient = '0x1111111111111111111111111111111111111111';
 
 test('cross-chain canvas and chat author the same graph while MOCKED simulation cannot authorize Execute', async ({ page }) => {
   await installPassiveWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → Uniswap v3 position', { exact: true }).click();
   const inspector = page.getByRole('form', { name: 'Compose cross-chain liquidity' });

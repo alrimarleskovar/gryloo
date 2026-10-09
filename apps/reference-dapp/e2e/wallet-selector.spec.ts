@@ -16,7 +16,7 @@ for (const theme of ['light', 'dark'] as const) {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installMultichainWallets(page); await page.goto('/');
+    await installMultichainWallets(page); await page.goto('/app');
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await open(page);
     const dialog = selector(page);
@@ -44,7 +44,7 @@ for (const theme of ['light', 'dark'] as const) {
 }
 
 test('keyboard choice connects exactly the chosen EVM wallet and the header names it', async ({ page }) => {
-  await installMultichainWallets(page); await page.goto('/');
+  await installMultichainWallets(page); await page.goto('/app');
   await open(page);
   const options = selector(page).locator('[data-wallet-option]');
   await expect(options.first()).toBeFocused();
@@ -60,7 +60,7 @@ test('keyboard choice connects exactly the chosen EVM wallet and the header name
 });
 
 test('Phantom on Solana and Phantom on Ethereum are separate choices with separate identities', async ({ page }) => {
-  await installMultichainWallets(page); await page.goto('/');
+  await installMultichainWallets(page); await page.goto('/app');
   await open(page);
   await chooseWallet(page, 'Phantom', 'Solana');
   // Only the Solana provider was asked; the header shows the Solana account on Devnet (testnet first).
@@ -80,7 +80,7 @@ test('Phantom on Solana and Phantom on Ethereum are separate choices with separa
 });
 
 test('a remembered wallet is highlighted first but never opened by Connect Wallet', async ({ page }) => {
-  await installMultichainWallets(page); await page.goto('/');
+  await installMultichainWallets(page); await page.goto('/app');
   await open(page); await chooseWallet(page, 'Rabby Wallet');
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -100,7 +100,7 @@ test('a remembered wallet is highlighted first but never opened by Connect Walle
 
 for (const width of [320, 768]) test(`selector fits and stays usable at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 720 });
-  await installMultichainWallets(page); await page.goto('/');
+  await installMultichainWallets(page); await page.goto('/app');
   await open(page);
   const box = (await selector(page).boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(8); expect(box.x + box.width).toBeLessThanOrEqual(width - 8);

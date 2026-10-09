@@ -5,7 +5,7 @@ import { test, expect, applyPendingProposal, openSimulationDetails, installPassi
 // exercised by cross-chain-liquidity-action.test.ts and executor/reconciler suites.
 test('a MOCKED destination failure scenario cannot manufacture production completion, recovery or Evidence', async ({ page }) => {
   await installPassiveWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → Uniswap v3 position', { exact: true }).click();
   const inspector = page.getByRole('form', { name: 'Compose cross-chain liquidity' });

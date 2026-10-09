@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 
 test('Build opens directly into the workspace with a standalone logo and neutral Dashboard item', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const main = page.getByRole('main', { name: 'Workflow workspace' });
   await expect(main.locator(':scope > .build-grid').first()).toBeVisible();
   expect(await main.evaluate(el => el.firstElementChild?.className)).toBe('build-grid');
@@ -19,7 +19,7 @@ test('Build opens directly into the workspace with a standalone logo and neutral
 });
 
 test('Dashboard has an intentionally blank content area', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   const dashboard = page.getByRole('button', { name: 'Dashboard', exact: true });
   await dashboard.click();
   await expect(dashboard).toHaveAttribute('aria-current', 'page');
@@ -31,7 +31,7 @@ test('Dashboard has an intentionally blank content area', async ({ page }) => {
 
 test('switching through Dashboard preserves the canonical draft and supported Build editing', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const form = page.getByRole('form', { name: 'Edit Supply' });
   await form.getByLabel('Supply amount (USDC)').fill('2');

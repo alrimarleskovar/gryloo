@@ -64,7 +64,7 @@ export async function authorComposition(page: Page) {
   const tickBits = Number(BigInt('0x' + slot.slice(66, 130)) & 0xffffffn);
   const tick = tickBits >= 0x800000 ? tickBits - 0x1000000 : tickBits;
   const center = Math.floor(tick / 10) * 10;
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Review swap → position composition' })).toBeVisible();
   await page.getByLabel('Describe your flow').fill(`compose swap 400 USDC to WETH slippage 100 bps then mint maximum 0.1 WETH and 200 USDC minimum 0.000001 WETH and 0.001 USDC ticks ${center - 100} to ${center + 100} safe ${p.safe}`);

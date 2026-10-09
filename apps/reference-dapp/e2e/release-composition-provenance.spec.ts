@@ -23,7 +23,7 @@ test('Pinned local composition requires shared Review without automatically inst
       const w = window as unknown as { ethereum: unknown; releaseCompositionWallet(method: string): Promise<unknown> };
       w.ethereum = { request: ({ method }: { method: string }) => w.releaseCompositionWallet(method) };
     });
-    await page.goto('/');
+    await page.goto('/app');
     await page.getByLabel('Describe your flow').fill(`compose swap 400 USDC to WETH slippage 100 bps then mint maximum 0.1 WETH and 200 USDC minimum 0.000001 WETH and 0.001 USDC ticks ${center - 100} to ${center + 100} safe ${p.safe}`);
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await applyPendingProposal(page);

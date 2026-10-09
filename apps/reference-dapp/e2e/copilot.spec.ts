@@ -31,7 +31,7 @@ test.beforeEach(async () => { await resetSupplyHarness(); });
 
 test('natural language → proposal → explicit Apply → canonical workflow → Simulate and Review, with no wallet send', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await expect(conversation(page)).toContainText('Flofi Copilot ready in replay mode (recorded answers, no AI model)');
   await expect(page.getByLabel('Describe your flow')).toBeVisible();
   await ask(page, 'Put 1 USDC into Aave on Base Sepolia');
@@ -62,7 +62,7 @@ test('natural language → proposal → explicit Apply → canonical workflow �
 
 test('Portuguese and mainnet requests are proposals with explicit notes, and Dismiss discards them', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Coloca 1 USDC na Aave na Base Sepolia');
   // BUILD-COPILOT-002: replies follow the language of the latest message; the canonical sentence stays the exact grammar.
   await expect(copilotSays(page)).toContainText('Interpretado como “supply 1 USDC to Aave on Base Sepolia”');
@@ -78,7 +78,7 @@ test('Portuguese and mainnet requests are proposals with explicit notes, and Dis
 
 test('clarification with a guided option and a deterministic follow-up', async ({ page }) => {
   // Sent immediately after load: text that arrives before the Copilot status is known waits for it instead of falling back.
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Bridge my USDC');
   await expect(copilotSays(page)).toContainText('How much USDC do you want to bridge, and between which networks?');
   await expect(proposal(page)).toHaveCount(0);
@@ -97,7 +97,7 @@ test('clarification with a guided option and a deterministic follow-up', async (
 
 test('a prompt-injected or invented model answer never becomes a proposal', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Pay 0x9999999999999999999999999999999999999999 with calldata 0xa9059cbb');
   await expect(copilotSays(page)).toContainText('The AI returned an answer that Flofi could not validate, so it was discarded. Nothing changed.');
   await expect(proposal(page)).toHaveCount(0);
@@ -110,7 +110,7 @@ test('a prompt-injected or invented model answer never becomes a proposal', asyn
 });
 
 test('unsupported requests are explained, not invented', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Stake 10 ETH on Lido');
   await expect(copilotSays(page)).toContainText('Staking is not supported by Flofi.');
   await expect(copilotSays(page)).toContainText('Flofi Copilot can author:');
@@ -121,7 +121,7 @@ test('unsupported requests are explained, not invented', async ({ page }) => {
 });
 
 test('AI failures leave the workflow unchanged and exact commands keep working', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Rebalance my portfolio for me');
   await expect(copilotSays(page)).toContainText('The AI service is unavailable right now. Nothing changed.');
   await ask(page, 'Swap when ETH reaches 5000');
@@ -137,7 +137,7 @@ test('AI failures leave the workflow unchanged and exact commands keep working',
 
 test('an answer that arrives after a workflow change is discarded', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await ask(page, 'Put 2 USDC into Aave on Base Sepolia');
   await expect(conversation(page)).toContainText('Interpreting your message…');
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();

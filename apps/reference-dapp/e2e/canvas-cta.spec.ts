@@ -5,7 +5,7 @@ import { configureCanvasAction } from './composer-authoring-fixtures';
 
 test('Build CTA floats inside the wider canvas without colliding with existing controls', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
@@ -64,7 +64,7 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
 
 test('Simulate fees keeps the same navigation-only action and guarded Supply review', async ({ page }) => {
   await installSupplyWallet(page);
-  await page.goto('/');
+  await page.goto('/app');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
   await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simulate fees', exact: true }).click();

@@ -63,7 +63,7 @@ test.beforeEach(async ({ page }) => {
   });
   const errors: string[] = []; browserErrors.set(page, errors);
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/app');
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const styles = await page.locator('head link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.outerHTML).join(''));
   const fontClasses = await page.locator('html').getAttribute('class');
@@ -213,7 +213,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
       }, on() {}, removeListener() {},
     } });
   });
-  await page.goto('/');
+  await page.goto('/app');
   // This provider already exposes an account. Wait for the shared wallet's passive reuse;
   // the transient Connect button disappears during hydration.
   await expect(page.locator('.build009-wallet-info')).toBeVisible();

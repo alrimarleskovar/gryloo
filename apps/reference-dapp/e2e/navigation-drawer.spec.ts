@@ -22,7 +22,7 @@ for (const theme of ['light', 'dark'] as const) {
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     const trigger = page.locator('.navigation-trigger'), drawer = page.locator('.navigation-drawer'), layer = page.locator('.navigation-layer');
     await expect(trigger).toHaveAccessibleName('Open navigation');
@@ -69,7 +69,7 @@ for (const theme of ['light', 'dark'] as const) {
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
     await page.addInitScript(value => localStorage.setItem('flofi.theme', value), theme);
-    await installSupplyWallet(page); await page.goto('/');
+    await installSupplyWallet(page); await page.goto('/app');
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('.build009-wallet-info')).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
@@ -123,7 +123,7 @@ test('drawer opens and closes with a restrained reversible slide and respects re
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/');
+  await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.goto('/app');
   const trigger = page.locator('.navigation-trigger');
   const drawer = page.locator('.navigation-drawer');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
