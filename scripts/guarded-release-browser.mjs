@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 
 // The same explicit profiles run locally and in CI. Financial diagnostic specs
 // remain available independently; none of their results are counted as passes.

@@ -184,5 +184,138 @@
   "full_ci_cold": "NOT MEASURED",
   "full_ci_warm": "NOT MEASURED",
   "full_ci_invalidation": "NOT MEASURED",
-  "full_ci_improvement_percent": "NOT MEASURED"
+  "full_ci_improvement_percent": "NOT MEASURED",
+  "updated_main_successful_run": 37932954417,
+  "updated_main_job": {
+    "started_at": "2026-10-09T12:52:53Z",
+    "completed_at": "2026-10-09T13:14:42Z",
+    "wall_seconds": 1309,
+    "conclusion": "success",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:52:53Z",
+        "completed_at": "2026-10-09T12:52:56Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:52:56Z",
+        "completed_at": "2026-10-09T12:53:07Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:07Z",
+        "completed_at": "2026-10-09T12:53:07Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:07Z",
+        "completed_at": "2026-10-09T12:53:15Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:15Z",
+        "completed_at": "2026-10-09T12:53:35Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:35Z",
+        "completed_at": "2026-10-09T12:53:36Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:36Z",
+        "completed_at": "2026-10-09T12:53:38Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:38Z",
+        "completed_at": "2026-10-09T12:54:47Z"
+      },
+      {
+        "name": "Typecheck, lint, build, schema drift and contract tests",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:54:47Z",
+        "completed_at": "2026-10-09T12:59:58Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:59:58Z",
+        "completed_at": "2026-10-09T13:01:31Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil and run the offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:01:31Z",
+        "completed_at": "2026-10-09T13:02:31Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell and run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:02:31Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:29Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:29Z",
+        "completed_at": "2026-10-09T13:14:29Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:30Z",
+        "completed_at": "2026-10-09T13:14:32Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:32Z",
+        "completed_at": "2026-10-09T13:14:32Z"
+      }
+    ]
+  },
+  "failed_attempts": [
+    {
+      "run": 37935180748,
+      "outcome": "workflow configuration failure before job start; job-env runner context corrected"
+    },
+    {
+      "run": 37935472723,
+      "outcome": "lint failure in added profile timer; explicit node:perf_hooks import added"
+    }
+  ],
+  "superseded_same_pr_governance_run": {
+    "run": 37935206135,
+    "outcome": "cancelled",
+    "main_certification_outcome": "success",
+    "old_push_governance_outcome": "success"
+  }
 }
