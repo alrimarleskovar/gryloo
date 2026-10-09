@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-AUTOMATION-001: one bounded scheduler pass over the deployment's automations — triggered by a scheduler (Vercel Cron or any
- * other) through `/api/automations/dispatch`, and by the Railway worker's sweep when it runs automations. Every step is idempotent and
+ * BUILD-AUTOMATION-001: one bounded scheduler pass over the deployment's automations — in production by the Railway worker's sweep
+ * (`sweepAutomations`, every 60 s; its own claim loop drains), and optionally by any scheduler through the embedded web runtime's
+ * `/api/automations/dispatch` (Previews, no worker, recovery). Every step is idempotent and
  * safe to run concurrently with another pass, another replica, the Railway worker and the owner's own actions:
  *
  *   1. expire     open occurrences past their expiry, rules past their `expires_at` (SKIP LOCKED batches)

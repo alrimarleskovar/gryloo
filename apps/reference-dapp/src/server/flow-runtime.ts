@@ -66,9 +66,16 @@ export async function createEmbeddedRuntime(env: Env, seams: EmbeddedSeams = {})
   const instance = (env.VERCEL_DEPLOYMENT_ID ?? 'local').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'local';
   const backend = createBackend({ db, env, logger: runtime.createLogger({ service: 'flofi-web' }), tenantId, holderId: `web-${instance}-${randomBytes(4).toString('hex')}`,
     evidenceStore: env.OBJECT_STORE_ENDPOINT || env.OBJECT_STORE_BUCKET ? runtime.readEvidenceStore(env) : null, ...seams });
-  const queries = runtime.createRunQueries(db, tenantId);
-  const owned = async (runId: string, owner: string) => { const run = await queries.getRun(runId); return run && run.ownerAccount === owner ? run : null; };
   return { backend, tenantId, schemaVersion, db, ping: async () => { await db.query('SELECT 1'); }, close: () => db.close(),
+    ...ownerRunReaders(runtime.createRunQueries(db, tenantId)) };
+}
+/**
+ * The owner-scoped run readers of one tenant: a run (or its journal) is returned only to its owner. Shared by this embedded runtime and
+ * by the Railway API's automation routes (BUILD-AUTOMATION-001), which build the same engine runtime from the API's own backend.
+ */
+export function ownerRunReaders(queries: ReturnType<typeof import('@defi-workflow-engine/cloud-runtime').createRunQueries>): Pick<EmbeddedRuntime, 'runs' | 'run' | 'journal'> {
+  const owned = async (runId: string, owner: string) => { const run = await queries.getRun(runId); return run && run.ownerAccount === owner ? run : null; };
+  return {
     runs: async (flow, owner) => (await queries.listRuns(null, 25, { owner, flow })).items.map(r => ({ runId: r.runId, flow: r.flow, status: r.status,
       ownerAccount: r.ownerAccount, hasEvidence: r.hasEvidence, updatedAt: r.updatedAt })),
     run: owned,

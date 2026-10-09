@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-AUTOMATION-001: the operator endpoints of automations, for a scheduler and for readiness checks. Both exist only while
+ * BUILD-AUTOMATION-001: the operator endpoints of automations on a web deployment running the EMBEDDED runtime — an OPTIONAL trigger
+ * (Previews, a deployment without a worker, recovery, a manual pass) and readiness checks. Standard production needs neither: the
+ * Railway worker's sweep is the scheduler (`worker.ts`), and the Railway API serves the workspace (`api.ts`). Both exist only while
  * automations are enabled AND FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256 is set (404 otherwise), and require `Authorization: Bearer <token>`
  * whose SHA-256 equals it (constant-time; Vercel Cron sends `Bearer $CRON_SECRET`, so the digest of CRON_SECRET is configured).
  *

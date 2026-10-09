@@ -86,7 +86,15 @@ async function main(): Promise<void> {
   stage = command;
 
   if (command === 'api') {
-    const server = createHttpServer({ routes: backend.routes, logger, authToken: config.apiAuthToken,
+    // BUILD-AUTOMATION-001: with FLOFI_AUTOMATIONS=enabled the API also serves the Automations workspace and automation approval links
+    // (owner CRUD/state, no-authority handoffs). Off by default; a load failure leaves every existing route serving.
+    let routes = backend.routes;
+    if (process.env.FLOFI_AUTOMATIONS === 'enabled') {
+      const extra = await import('./automation-api.ts').then(m => m.loadAutomationApi(process.env, { db, tenantId: config.tenantId, backend, logger })).catch(() => null);
+      if (extra) { routes = [...routes, ...extra]; logger.info('automation.api_enabled', { routes: extra.map(r => r.name).join(',') }); }
+      else logger.error('automation.api_disabled', { error_code: 'AUTOMATION_API_LOAD_FAILED' });
+    }
+    const server = createHttpServer({ routes, logger, authToken: config.apiAuthToken,
       ready: async () => { await db.query('SELECT 1'); return true; } });
     server.keepAliveTimeout = 65_000;
     server.listen(config.port, config.host, () => logger.info('api.listening', { port: config.port }));

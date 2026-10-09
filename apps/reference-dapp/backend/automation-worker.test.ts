@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-AUTOMATION-001: the Railway worker evaluates automations by loading the SAME shared modules the web deployment runs, on plain
- * Node, through one scoped resolution rule (`source-resolution.ts`). This proves the rule's scope, that the worker's automation module
+ * BUILD-AUTOMATION-001: the Railway worker evaluates automations — and the Railway API serves the Automations workspace — by loading the
+ * SAME shared modules the web deployment runs, on plain Node, through one scoped resolution rule (`source-resolution.ts`). This proves the rule's scope, that the worker's automation module
  * loads only with it, that plain Node computes the same workflow hash as the bundled code (no second engine), and that the worker's
  * entry points stay unchanged when automations are not enabled.
  */
@@ -61,6 +61,16 @@ describe('BUILD-AUTOMATION-001 worker-side source resolution', () => {
     expect(result.code).toBe(0);
     expect(JSON.parse(result.stdout.trim())).toEqual({ exports: ['automationWorkerParts'], hash: expected.binding.workflowHash, verified: true,
       disabled: { disabled: 'AUTOMATIONS_NOT_ENABLED', reason: null } });
+  });
+
+  it('the Railway API loads its automation routes on plain Node through the same rule: two POST routes, no flow route', async () => {
+    const result = await run(`
+      const { loadAutomationApi } = await import('./backend/automation-api.ts');
+      const routes = await loadAutomationApi({ FLOFI_AUTOMATIONS: 'enabled' }, { db: {}, tenantId: 'default', backend: {}, logger: { info() {}, warn() {}, error() {} } });
+      console.log(JSON.stringify(routes.map(r => [r.method, r.name, r.pattern.source])));`);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout.trim())).toEqual([['POST', 'automations', '^\\/v1\\/automations\\/([A-Za-z]{1,40})$'],
+      ['POST', 'approvals', '^\\/v1\\/approvals\\/(view|claim|apply|share)$']]);
   });
 
   it('a misconfigured or foreign-tenant worker disables automations only, with a closed code and no secret required', async () => {

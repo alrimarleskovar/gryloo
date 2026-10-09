@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
- * BUILD-AUTOMATION-001: the wiring shared by every automation entry point (the owner's server actions, the scheduler endpoint, the
- * Railway worker): the deployment's embedded PostgreSQL host (never memory, files or /tmp), the store, the shared platform's handoff
+ * BUILD-AUTOMATION-001: the wiring shared by every automation entry point (the owner's server actions on the embedded runtime, the
+ * Railway API's automation routes, the optional scheduler endpoint, the Railway worker): the deployment's PostgreSQL host (never memory,
+ * files or /tmp), the store, the shared platform's handoff
  * store / abuse limiter / runtime, the configured price source, and — when Telegram runs here — the Channel Core notifier.
  * Nothing wired here can sign or submit: the price transport is read-only and no execution flow is reachable from the handlers.
  */

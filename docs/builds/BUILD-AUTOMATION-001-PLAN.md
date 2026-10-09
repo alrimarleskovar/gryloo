@@ -74,9 +74,11 @@ states). `DUE` is not persisted: an occurrence is created, limit-checked and que
 
 ## 6. Scheduler semantics
 
-- **Discovery**: `/api/automations/dispatch` (an external scheduler or Vercel Cron, bearer) and, when `FLOFI_AUTOMATIONS=enabled` is set
-  on it, the Railway worker's 60 s sweep insert `automation.evaluate` work items for ACTIVE rules whose `next_evaluation_at <= now`,
-  deduplicated by `<rule>:<next_evaluation_at>`.
+- **Discovery**: in production the Railway worker's 60 s sweep (`FLOFI_AUTOMATIONS=enabled` on the worker), and optionally
+  `/api/automations/dispatch` on an embedded web runtime (an external scheduler, bearer), insert `automation.evaluate` work items for
+  ACTIVE rules whose `next_evaluation_at <= now`, deduplicated by `<rule>:<next_evaluation_at>`. (Final production integration,
+  2026-10-09: the owner's operations and automation approval links reach the Railway API through the BFF — `/v1/automations/*`,
+  `/v1/approvals/*` — so the remote production topology serves automations end to end; see the report §11.)
 - **Processing**: the dispatch claims only `automation.*` items (fenced leases) and runs their handlers; the Railway worker runs the
   same handlers in its own claim loop, claiming only the kinds it has handlers for. Any number of concurrent calls, replicas and
   workers is safe. (Final review, 2026-10-09: the worker could not load these modules at first because `backend/main.ts` runs under

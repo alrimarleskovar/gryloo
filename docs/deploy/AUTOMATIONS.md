@@ -11,56 +11,64 @@ notification carry zero financial authority. See [the plan](../builds/BUILD-AUTO
 
 ## 1. What runs where
 
-| Piece | Where | Notes |
-| --- | --- | --- |
-| Workspace `/app/automations` and its server actions | Vercel (embedded runtime) | every action re-verifies the owner's HttpOnly wallet session |
-| `/api/automations/dispatch` | Vercel (embedded runtime) | bearer-only scheduler pass: expire, discover due rules, evaluate them as durable work items, sync approvals, retention |
-| `/api/automations/health` | Vercel | bearer-only readiness (store, price source, observable assets, policy, notifier) |
-| Railway worker (`main.ts worker`) | Railway, **only with `FLOFI_AUTOMATIONS=enabled` on the worker** | its sweep (every 60 s) runs the same discovery/expiry/approval-sync/retention steps and its claim loop runs `automation.evaluate` — the same handlers as the dispatch, the same work items and leases; off by default (the worker is then unchanged) |
-| State | Neon/PostgreSQL, migration `0010_automations` | rules, occurrences, history, Telegram links; approvals in the shared `mcp_handoffs` |
-| Telegram notifications | the existing Channel Core and Telegram adapter | only when Telegram runs on the same tenant (Channels §5e); delivered by a process that has the Telegram configuration (§2, step 4) |
+**Standard production — FloFi's existing topology, unchanged:** Vercel frontend/BFF → Railway API → Neon PostgreSQL, plus the Railway
+worker. Automations need no embedded web runtime, no cron, no Vercel Pro and no new service.
 
-No new always-on service. Evaluation only ever writes proposals for the owner: neither the dispatch nor the worker can sign, submit,
-mint an approval or run a flow (the worker's flow services stay observe-only, `WORKER_SUBMISSION_FORBIDDEN`).
+| Piece | Where (production) | Notes |
+| --- | --- | --- |
+| Workspace `/app/automations` and its server actions | Vercel (BFF) | every action re-verifies the owner's HttpOnly wallet session, then forwards the operation to the API with the API bearer and the verified owner in the server-to-server `x-flofi-workflow-owner` header — the saved-workflow convention |
+| Automation CRUD/state: `POST /v1/automations/:method` | Railway API (`main.ts api`) | overview, create, pause/resume/archive, rebind, history, open, dismiss, watch Buy/Sell, Telegram link/unlink — every query scoped to the owner header; another owner's id answers NOT FOUND; `create` is idempotency-keyed |
+| `/approve` for automation links: `POST /v1/approvals/:method` | Vercel `/approve` → Railway API | view / claim / apply / share on the SHARED approval model (same platform functions, same handoff store), with the wallets the browser proved in `x-flofi-wallet-principals`; other link kinds are unchanged |
+| Scheduler | Railway worker (`main.ts worker`) | its sweep (every 60 s) discovers due rules, expires, syncs approvals and applies retention; its claim loop runs `automation.evaluate` (the same handlers, work items and leases as the dispatch) |
+| State | Neon/PostgreSQL, migration `0010_automations` | rules, occurrences, history, Telegram links; approvals in the shared `mcp_handoffs` |
+| Telegram notifications | Channel Core | not in this topology today: Channel Core needs the embedded runtime (Channels §5e), so no chat can be linked and no notification item is queued; owners see proposals in the app (§5) |
+
+Authority does not move: the API does CRUD/state and mints no-authority approval links on the shared model; the worker only
+evaluates; neither can sign, submit, run a flow or skip the owner's fresh simulation, Strategy Manifest Review or wallet signature
+(the worker's flow services stay observe-only, `WORKER_SUBMISSION_FORBIDDEN`). The routes and the worker's automation handlers load
+only where `FLOFI_AUTOMATIONS=enabled` is set; otherwise the API and the worker are unchanged.
 
 ### Scheduler topology (choose by deployment)
 
-| Deployment | Heartbeat | Needs |
+| Deployment | Scheduler | Needs |
 | --- | --- | --- |
-| **Production today** (Vercel on the remote runtime, `API_BASE_URL` → Railway API) | none | nothing: automations need the embedded runtime and answer `AUTOMATION_STORE_UNAVAILABLE`, like MCP, Developer and Channels. Enabling them in production is the owner's runtime decision, not part of this build. |
-| **Embedded web runtime + the Railway worker on the same `DATABASE_URL` and `TENANT_ID`** (recommended once automations run in production) | the worker's 60 s sweep | `FLOFI_AUTOMATIONS=enabled`, `FLOFI_PUBLIC_ORIGIN` and the price variables **on the worker** too (§2, step 2); no cron, no Vercel Pro, no extra service |
-| **Embedded web runtime without a worker** (every Preview — no worker serves a Preview's `pv-…` tenant, and Vercel Cron never runs for Previews) | an external scheduler calling `GET /api/automations/dispatch` every minute with the bearer | `FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256`; Vercel Cron works only on Production and needs Pro for a per-minute schedule (Hobby: daily) |
+| **Standard production** (Vercel BFF → Railway API → Neon + Railway worker) | the worker's 60 s sweep | `FLOFI_AUTOMATIONS=enabled` on the API and the worker (§2); **no cron, no Vercel Pro, no external scheduler** |
+| An embedded web runtime with a Railway worker on the same `DATABASE_URL` and `TENANT_ID` | the worker's 60 s sweep | as above, with the web deployment holding the automation configuration instead of the API |
+| An embedded web runtime without a worker (every Preview — no worker serves a Preview's `pv-…` tenant, and Vercel Cron never runs for Previews) | optional: an external scheduler calling `GET /api/automations/dispatch` each minute with the bearer | `FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256` on the web deployment |
 
-Both heartbeats may run at once (every step is idempotent; one occurrence per trigger event either way). Without any heartbeat nothing
-is evaluated and nothing is proposed — the fail-closed outcome.
+`/api/automations/dispatch` (embedded web runtime only) stays an **optional alternative trigger** — Previews, a deployment without a
+worker, recovery or a manual pass — never the production scheduler. The worker and the dispatch may run at once: every step is
+idempotent and they still produce exactly one occurrence per trigger event. Without any scheduler nothing is evaluated or proposed (fail
+closed).
 
-## 2. Setup
+## 2. Setup (standard production)
 
-1. Migrate: the deploy step (`node apps/reference-dapp/backend/main.ts migrate`, or `FLOFI_MIGRATE_ON_BUILD=preview` on a Preview)
-   applies `0010_automations`. The app refuses to serve automations until it is applied.
-2. Variables (all server-only; see [ENVIRONMENT.md §5f](ENVIRONMENT.md)):
-   - `FLOFI_AUTOMATIONS=enabled`, `FLOFI_AUTOMATION_SECRET` (`openssl rand -hex 32`, dedicated), `FLOFI_PUBLIC_ORIGIN`.
-   - `FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256` = `sha256(CRON_SECRET)` (`printf %s "$CRON_SECRET" | sha256sum`).
+1. Migrate: the deploy step (`node apps/reference-dapp/backend/main.ts migrate`) applies `0010_automations`. Nothing serves
+   automations until it is applied (`AUTOMATION_SCHEMA_NOT_INSTALLED`).
+2. **Railway API** (all server-only; see [ENVIRONMENT.md §5f](ENVIRONMENT.md)):
+   - `FLOFI_AUTOMATIONS=enabled`, `FLOFI_AUTOMATION_SECRET` (`openssl rand -hex 32`, dedicated; keys the approval links and Telegram
+     link codes), `FLOFI_PUBLIC_ORIGIN` = the Vercel origin (approval and notification links point there).
    - Prices (optional): `FLOFI_AUTOMATION_PRICE_SOURCE=chainlink`, `FLOFI_AUTOMATION_CHAINLINK_FEEDS=ETH=0x…,BTC=0x…,SOL=0x…` with the
      **Base mainnet** USD proxy addresses copied from [data.chain.link](https://data.chain.link) (FloFi verifies chain 8453, the
      feed's `description()` and `decimals()` before trusting any answer, so a wrong address fails closed with `PRICE_FEED_MISMATCH`),
-     and a keyed `FLOFI_AUTOMATION_CHAINLINK_RPC_URL` (or `GRYLOO_BASE_RPC_URL`). Without a price source, price triggers and daily
-     watches cannot be created (`PRICE_ASSET_NOT_OBSERVABLE`); scheduled DCAs still work.
-   - Keep `FLOFI_AUTOMATION_HANDOFF_MAINNET_NETWORKS` empty (mainnet refused by policy).
-3. Scheduler (see the topology above), either or both:
-   - **Railway worker** (same `DATABASE_URL` and `TENANT_ID` as the web deployment): set `FLOFI_AUTOMATIONS=enabled`,
-     `FLOFI_PUBLIC_ORIGIN` and the same price variables on the worker. It needs **no** `FLOFI_AUTOMATION_SECRET` and no dispatch token
-     (it mints no approval and serves no route). Its log says `automation.worker_enabled` (kinds, `telegram`) at start; an invalid
-     value logs `automation.worker_disabled` with a closed code and leaves the rest of the worker running. Resolution: about a minute.
-   - **External scheduler / Vercel Cron**: `GET /api/automations/dispatch` every minute with `Authorization: Bearer $CRON_SECRET`
-     (Vercel Cron sends exactly that header, on Production only; Hobby allows only daily crons — use Pro, or any external scheduler
-     with the same bearer).
-   The scheduling resolution is the heartbeat interval; a missed beat is harmless (§4).
-4. Telegram with the worker as heartbeat: a chat notification is queued only for an owner with a live linked chat, and it is delivered
-   by a process that has the Telegram configuration. The worker claims notification items only when the Channels Telegram variables
-   (§5e) are also set on it; otherwise they wait for the web deployment's dispatch (an external scheduler). In-app proposals are never
-   affected.
-5. Check: `GET /api/automations/health` with the bearer answers `{ ok: true, store: "READY", priceSource, observable, … }`.
+     and a keyed `FLOFI_AUTOMATION_CHAINLINK_RPC_URL` (or `GRYLOO_BASE_RPC_URL`). The API only reads which assets are observable (it
+     never queries a price); without a price source, price triggers and daily watches cannot be created (`PRICE_ASSET_NOT_OBSERVABLE`)
+     and scheduled DCAs still work.
+   - Keep `FLOFI_AUTOMATION_HANDOFF_MAINNET_NETWORKS` empty (mainnet refused by policy). The swap flows an automation proposes must be
+     enabled on the API as for any proposal (e.g. `GRYLOO_PUBLIC_TESTNET=record` for Base Sepolia).
+   - Its log says `automation.api_enabled` at start; a load failure logs `automation.api_disabled` and every other route keeps serving.
+3. **Railway worker** (same `DATABASE_URL` and `TENANT_ID` as the API): `FLOFI_AUTOMATIONS=enabled`, `FLOFI_PUBLIC_ORIGIN` and the
+   same price variables. It needs **no** `FLOFI_AUTOMATION_SECRET` and no dispatch token (it mints no approval and serves no route).
+   Its log says `automation.worker_enabled` (kinds, `telegram`); an invalid value logs `automation.worker_disabled` with a closed code
+   and leaves reconciliation running. Resolution: about a minute.
+4. **Vercel**: nothing new — the existing `API_BASE_URL` and `API_AUTH_TOKEN` carry the workspace and automation approval links to the
+   API. No automation variable, database URL or cron is needed on Vercel in this topology.
+5. Check: the workspace shows the Automations form for a proven wallet (`/v1/automations/availability` answers `enabled: true`), and
+   the worker logs `automation.evaluated` as rules come due.
+
+(For an embedded web runtime, the web deployment holds the API's variables above and, if it has no worker, the optional dispatch:
+`FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256` = `sha256(CRON_SECRET)` and a scheduler calling `GET /api/automations/dispatch` with
+`Authorization: Bearer $CRON_SECRET`; `GET /api/automations/health` with the bearer answers its readiness.)
 
 ## 3. What an owner can create
 
@@ -108,6 +116,13 @@ test-pool prices, not at the observed market price.
   FloFi bot (the sender must be on the Telegram allowlist, §5e). The chat then receives one message per occurrence with a button to
   `/app/automations?occurrence=…` — never an approval secret; the owner's FloFi session is still required. STOP in the chat or *Unlink*
   in FloFi ends it; a link lasts 90 days. A failed delivery changes nothing about the proposal. WhatsApp is never used (policy, D1).
+- **Who delivers, by topology.** Telegram runs only through the existing Channel Core (webhook, link codes, outbox, retries) — there is
+  no second bot stack. Channel Core needs the embedded runtime (Channels §5e), so in **standard production** (remote runtime) Telegram
+  is not available for automations: the API reports it unavailable, no chat can be linked, no notification item is ever queued, and
+  owners see every proposal in the app. Where Channel Core does run (an embedded web runtime with Telegram), the occurrence's
+  notification item is queued only for an owner with a live linked chat and is delivered by a process that has the Channels Telegram
+  configuration: the web deployment's optional dispatch, or the worker if that configuration is also set on it. In every topology the
+  occurrence is created first, in its own transaction; delivery can never block or change it.
 
 ## 6. Logs and codes
 

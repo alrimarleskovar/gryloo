@@ -14,7 +14,7 @@ PR #66 and BUILD-016 / Mode C were not used as a baseline: nothing was cherry-pi
 
 | Evidence level | Result |
 | --- | --- |
-| Implemented | **yes**: domain, migration `0010`, store, evaluator, scheduler endpoint, optional evaluation in the existing Railway worker, shared-approval integration, Telegram notifications through Channel Core, Automations workspace (EN/PT), docs |
+| Implemented | **yes**: domain, migration `0010`, store, evaluator, evaluation in the existing Railway worker, the workspace and automation approval links on the existing Railway API (remote production runtime), optional scheduler endpoint, shared-approval integration, Telegram notifications through Channel Core, Automations workspace (EN/PT), docs |
 | MOCKED / fixture / loopback tested | **yes**: unit, PostgreSQL (concurrency, crash/retry, isolation, approvals, Telegram double), browser journeys (§6) |
 | Live price provider tested | **NOT DONE** (no Chainlink/RPC call was made by the build; the adapter is tested against a JSON-RPC double) |
 | Real Telegram message | **NOT DONE** (Bot API double only) |
@@ -31,7 +31,8 @@ PR #66 and BUILD-016 / Mode C were not used as a baseline: nothing was cherry-pi
 | Approval | `approval.ts`, `service.ts`; `src/platform` requester kind `AUTOMATION_RULE` | owner opens → `requestApproval` on the shared model (`flofi_auhs_`) → attach under the rule lock with limits re-checked; owner-only claim policy in the `/approve` contributor |
 | Notifications | `notify.ts`, `copy.ts`, `subscriptions.ts`; Channel Core `subscriber.ts` + the `automations <CODE>` command | in-app always; Telegram via the existing Channel Core outbox (no second bot stack) |
 | UI | `components/automations-workspace.tsx`, `/app/automations`, nav entry, in-app inbox, `/approve` wording, `i18n/pt-automations.ts` | create (DCA, price trigger, daily watch), pending decisions, rules, history, Telegram linking |
-| Owner API | `app/automation-action.ts` | server actions; each re-verifies the HttpOnly wallet session of the named owner |
+| Owner API | `app/automation-action.ts`, `server/automation-operation.ts`, `operations.ts` | server actions; each re-verifies the HttpOnly wallet session of the named owner, then runs the closed operation in process (embedded) or forwards it to the API (remote) |
+| Remote runtime | `api.ts`, `api-headers.ts`, `backend/automation-api.ts`; `/approve` forwarding in `app/approve-action.ts` | Railway API routes `POST /v1/automations/:method` (owner header, saved-workflow convention) and `POST /v1/approvals/:method` (automation links on the shared approval model) |
 
 **Reused, unchanged in behaviour:** StrategySpec / `composeWorkflowBound` / workflow hash; `requestApproval`, the handoff store,
 `/approve` claim/apply, `verifyHandoff`, `sharedRuns`; `evaluateWorkflowGates` with a dedicated automation policy; `work_items`,
@@ -93,11 +94,13 @@ that the module fails without the rule, loads with it, and computes the **same w
 
 | Deployment | Heartbeat | Notes |
 | --- | --- | --- |
-| Production today: Vercel on the remote runtime (`API_BASE_URL` → Railway API) | none | automations need the embedded runtime and fail closed (`AUTOMATION_STORE_UNAVAILABLE`), as MCP, Developer and Channels do; changing production's runtime is the owner's decision and not part of this build |
-| Embedded web runtime + the Railway worker on the same `DATABASE_URL` and `TENANT_ID` | the worker's 60 s sweep | the simplest production-capable topology: no cron, no Vercel Pro, no new service; `FLOFI_AUTOMATIONS`, `FLOFI_PUBLIC_ORIGIN` and the price variables also on the worker |
-| Embedded web runtime without a worker (every Preview) | an external scheduler calling the bearer dispatch each minute | no worker serves a Preview tenant and Vercel Cron never runs for Previews; Vercel Cron (Production only) needs Pro for per-minute |
+| **Standard production**: Vercel BFF → Railway API → Neon + Railway worker (§11) | the worker's 60 s sweep | automations work end to end on the existing remote topology: the API serves the workspace and automation approval links, the worker evaluates; no cron, no Vercel Pro, no external scheduler, no new service |
+| Embedded web runtime + the Railway worker on the same `DATABASE_URL` and `TENANT_ID` | the worker's 60 s sweep | the web deployment holds the automation configuration instead of the API |
+| Embedded web runtime without a worker (every Preview) | optional: an external scheduler calling the bearer dispatch each minute | no worker serves a Preview tenant and Vercel Cron never runs for Previews |
 
-Both heartbeats may coexist. With none, nothing is evaluated or proposed (fail closed). Deployment architecture was not changed.
+`/api/automations/dispatch` is an optional alternative trigger (Previews, no worker, recovery, a manual pass), never the production
+scheduler. Worker and dispatch may coexist (one occurrence per trigger event). With none, nothing is evaluated or proposed (fail closed).
+Deployment architecture was not changed.
 
 ## 4. Assets, networks and limits (honest)
 
@@ -116,16 +119,16 @@ authoritatively during the build, so no address is committed; each configured fe
 
 | # | Property | Evidence |
 | --- | --- | --- |
-| 1 | The scheduler cannot sign | `boundaries.test.ts`: no key custody or signing primitive anywhere in the import closure of the dispatch **or the worker entry** (`backend/automation-worker.ts`, `worker.ts`); no wallet, state or component module reachable |
-| 2 | The scheduler cannot submit | same tests (no flow calls, no submission methods; the worker entry builds no engine runtime, no automation keys, no owner service); `price-source.test.ts`: every non-read JSON-RPC method refused before sending; `WORKER_SUBMISSION_FORBIDDEN` unchanged |
+| 1 | The scheduler cannot sign | `boundaries.test.ts`: no key custody or signing primitive anywhere in the import closure of the dispatch, **the worker entry** (`backend/automation-worker.ts`, `worker.ts`) **or the API routes and BFF boundary** (`backend/automation-api.ts`, `api.ts`, `operations.ts`, `server/automation-operation.ts`); no wallet, state or component module reachable |
+| 2 | The scheduler cannot submit | same tests (no flow calls, no submission methods; the worker entry builds no engine runtime, no automation keys, no owner service); `remote.pg.test.ts` records every flow call the API's automation routes make over a full journey: only the read-only `mode`/`info` gates; `price-source.test.ts`: every non-read JSON-RPC method refused before sending; `WORKER_SUBMISSION_FORBIDDEN` unchanged |
 | 3 | A price source cannot authorize spending | observations only feed `stepTrigger`; an occurrence is a proposal (`scheduler.pg.test.ts`, `approval.pg.test.ts`) |
 | 4 | A notification cannot authorize spending | output guard admits only the workspace link; no `flofi_*hs_` secret in any message (`telegram.pg.test.ts`, `config.test.ts`) |
 | 5 | No bypass of fresh simulation | the approval re-composes to the same hash, then FloFi's own Simulate runs (browser journey) |
 | 6 | No bypass of Manifest Review | the browser journey reaches FloFi's Review; nothing is approved by the system |
-| 7 | No bypass of the owner wallet | owner-only claim policy (`AUTOMATION_OWNER_MISMATCH` for wallet B; proof required) |
+| 7 | No bypass of the owner wallet | owner-only claim policy (`AUTOMATION_OWNER_MISMATCH` for wallet B; proof required) — embedded and through the API (`remote.pg.test.ts`) |
 | 8 | Duplicate work cannot duplicate occurrences | competing evaluators, duplicate schedulers, crash before/after commit, expired lease, pause while queued (`scheduler.pg.test.ts`); the Railway worker racing the dispatch (`worker.pg.test.ts`); one applied proposal per occurrence (`approval.pg.test.ts`) |
 | 9 | An edited workflow cannot silently mutate an automation | `WORKFLOW_CHANGED`, no proposal; rebind re-checks limits (500 refused against a 50 limit) |
-| 10 | Wallet A ↔ Wallet B isolation | id guessing refused for every read and write (`scheduler.pg.test.ts`, `approval.pg.test.ts`) |
+| 10 | Wallet A ↔ Wallet B isolation | id guessing refused for every read and write (`scheduler.pg.test.ts`, `approval.pg.test.ts`); across the remote boundary B cannot find, change, open, dismiss or claim A's automation, and the API refuses any call without a well-formed owner on its own (`remote.pg.test.ts`) |
 
 ## 6. Validation (local)
 
@@ -178,6 +181,11 @@ per-render owner object reset the workspace; a channel-variable-like error code 
   `price-source`, `config`, `boundaries`, and PostgreSQL `scheduler`, `approval`, `telegram`, `migration`) and test harness.
 - **New — Railway worker hosting (final review):** `src/automations/worker.ts`, `backend/automation-worker.ts`,
   `backend/source-resolution.ts`; tests `backend/automation-worker.test.ts`, `src/automations/worker.pg.test.ts`.
+- **New — remote production runtime (§11):** `src/automations/{operations,api,api-headers}.ts`, `backend/automation-api.ts`,
+  `src/server/automation-operation.ts`; tests `src/automations/remote.pg.test.ts`, `backend/automation-production.pg.test.ts`,
+  `src/server/automation-operation.test.ts`. Modified: `backend/main.ts` (API loads the routes when enabled), `app/automation-action.ts`,
+  `app/approve-action.ts` (automation links forwarded on the remote runtime), `server/flow-runtime.ts` (`ownerRunReaders` shared with the
+  API), `automations/{http,runtime,dispatch}.ts` (comments).
 - **New — routes and UI:** `src/app/api/automations/{dispatch,health}/route.ts`, `src/app/app/automations/page.tsx`,
   `src/app/automation-action.ts`, `src/components/automations-workspace.tsx`, `src/i18n/pt-automations.ts`.
 - **New — persistence:** `packages/cloud-runtime/migrations/0010_automations.sql`; pinned in `src/migrations.ts`.
@@ -200,10 +208,11 @@ per-render owner object reset the workspace; a channel-variable-like error code 
 
 - No live price provider, real Telegram message or public transaction was exercised; the owner's deployment needs real feed addresses
   and a keyed Base RPC for price rules.
-- Automations need the embedded runtime; production remains on the remote runtime, where they fail closed (§3b). The worker heartbeat
-  was exercised against PostgreSQL in-process and in a plain-Node child process; the Docker image itself was not rebuilt locally.
-- With the worker as the only heartbeat, Telegram notifications need the Channels Telegram configuration on the worker too;
-  otherwise they wait for the web dispatch (in-app proposals are unaffected).
+- The production topology was exercised with the real entry points (`node backend/main.ts api` and `… worker`, plain Node) on a loopback
+  PostgreSQL and the BFF in remote mode (§11); the Docker image itself was not rebuilt locally, and no browser journey ran against a
+  remote-mode Next.js server (the browser journeys cover the embedded runtime; the remote path is covered at the BFF/API level).
+- Telegram for automations needs Channel Core, which runs only on the embedded runtime (Channels §5e): in standard production owners
+  are notified in the app only (the API reports Telegram unavailable; no chat can be linked; no notification item is queued).
 - Execution routes are the existing testnet swaps; BTC and Base-mainnet purchases are refused honestly.
 - Daily-watch Buy/Sell is the owner's own new trade, not automation execution: a watch has no action and no limits; Buy/Sell puts
   FloFi's ordinary authoring proposal in the owner's Build draft (as if composed there), creates no automation approval and is not
@@ -226,8 +235,8 @@ Variables: [ENVIRONMENT.md §5f](../deploy/ENVIRONMENT.md); setup and scheduler:
 **Worker architecture: changed** (§3, §3a). The Railway worker can now host automation evaluation, opt-in, without a second engine,
 a new service, a new secret on the worker or any widening of financial authority. Reason it could not before: plain-Node ESM
 resolution versus the bundler-style extensionless imports of the shared modules — fixed by one scoped resolution rule loaded only in
-that case. **Scheduler topology** (§3b): worker sweep for an embedded deployment sharing the worker's database and tenant; an external
-scheduler for Previews; production unchanged (remote runtime, automations fail closed). No deployment architecture was changed.
+that case. **Scheduler topology** (§3b): the worker's sweep; an optional external scheduler for Previews. (Superseded for production
+by §11: the remote production topology now serves automations end to end.) No deployment architecture was changed.
 
 **Defects found and fixed** (the tests for #1, #2 were run against the previous `service.ts` and fail there; #4 and #5 fail against
 the previous trigger / enqueue by construction; #3's tests pin the new ordering — the race window itself is not deterministic):
@@ -252,3 +261,73 @@ catch-up and DST (unchanged, tested); provider outage (failed observations chang
 
 **Evidence maturity unchanged:** no live price provider call, no real Telegram message, no transaction, BTC watch-only, no delegated
 execution, `CONFIRM_EACH_TIME` only.
+
+## 11. Production integration on the remote runtime (2026-10-09)
+
+**Current remote production now supports Automations**, on FloFi's existing topology and without changing it:
+
+```
+Vercel BFF
+  → Railway API
+  → Neon/PostgreSQL
+
+Railway Worker
+  → 60-second automation sweep
+  → deterministic evaluation
+  → occurrence
+  → shared approval
+  → fresh simulation
+  → Strategy Manifest Review
+  → owner wallet signature
+```
+
+(The worker's part ends at the occurrence; the shared approval is minted by the API when the owner opens the proposal, and fresh
+simulation, Strategy Manifest Review and the signature happen in FloFi's existing owner flow in the browser.)
+
+```
+browser ──(server actions, same origin)──▶ Vercel BFF ──(API bearer + x-flofi-workflow-owner)──▶ Railway API ──▶ Neon PostgreSQL
+                                                                                                    ▲
+                                                Railway worker ── 60 s sweep → automation.evaluate ─┘
+```
+
+- Standard production requires **no Vercel Cron**, **no Vercel Pro** and **no external scheduler**.
+- `/api/automations/dispatch` is optional / recovery / Preview infrastructure only.
+- Telegram is unavailable in the standard remote topology unless Channel Core becomes available there; in-app occurrences remain
+  fully functional without it.
+- No signing or submission authority was added to the API or the worker.
+
+- **Automation CRUD path:** `app/automation-action.ts` → `server/automation-operation.ts` verifies that the browser PROVED the named
+  wallet (HttpOnly EIP-4361 / SIWS cookies) → on the remote runtime, `POST {API_BASE_URL}/v1/automations/:method` with the API bearer and
+  the verified owner in `x-flofi-workflow-owner` (exactly the saved-workflow convention; `create` carries an idempotency key) → the API
+  (`src/automations/api.ts`) requires a well-formed owner header itself (401 otherwise), runs the closed operation list of
+  `operations.ts` against the same service the embedded runtime uses, every query scoped to that owner → JSON views identical to the
+  embedded ones. Methods: overview, create, setState (pause/resume/archive), rebind, history, open, dismiss, prepareWatch,
+  telegramLinkCode, telegramUnlink, plus `availability` (names nobody).
+- **Approval path:** "Review in FloFi" → `open` on the API mints a no-authority `flofi_auhs_` link on the shared approval model →
+  `/approve` → `app/approve-action.ts` forwards **automation links only** (other kinds are unchanged) to `POST /v1/approvals/:method`
+  (view / claim / apply / share) with the proven wallets in `x-flofi-wallet-principals` → the same platform functions, the automation
+  contributor and the shared handoff store, on the API → the owner's own Simulate, Strategy Manifest Review and signature in FloFi →
+  the worker's sweep marks the occurrence COMPLETED.
+- **Scheduler path:** the Railway worker's 60 s sweep (`sweepAutomations`) discovers due rules and its claim loop runs
+  `automation.evaluate` → one occurrence per trigger event. **No cron, Vercel Cron, Vercel Pro or external scheduler is required for
+  standard production.** `/api/automations/dispatch` remains an optional trigger on an embedded web runtime (Previews, no worker,
+  recovery, a manual pass); it and the worker may race and still produce exactly one occurrence.
+- **Telegram:** delivered only through the existing Channel Core, which needs the embedded runtime; in standard production the API
+  reports Telegram unavailable, no chat can be linked and no notification item is queued — owners are notified in the app. The occurrence
+  is always created first and never depends on a delivery. No Telegram infrastructure was duplicated.
+- **Variables:** API — `FLOFI_AUTOMATIONS`, `FLOFI_AUTOMATION_SECRET`, `FLOFI_PUBLIC_ORIGIN` (the Vercel origin), the price variables;
+  worker — `FLOFI_AUTOMATIONS`, `FLOFI_PUBLIC_ORIGIN`, the price variables; Vercel — nothing new.
+- **Authority:** the API does CRUD/state and mints no-authority approval links only where the shared model already permits it; the
+  worker only evaluates; neither signs, submits, runs or previews a flow, or bypasses fresh simulation, Manifest Review or the owner's
+  wallet. `WORKER_SUBMISSION_FORBIDDEN` is unchanged. Both load the shared modules through the scoped resolution rule only when
+  `FLOFI_AUTOMATIONS=enabled` is set on them; a load failure leaves every other route and the reconciliation running.
+
+**Tests added for this integration:**
+
+| Test | Proves |
+| --- | --- |
+| `src/automations/remote.pg.test.ts` (5) | the REAL API HTTP server (existing + automation routes, bearer) driven by the REAL BFF functions in remote mode: create / pause / resume / overview / history with views equal to the embedded ones and only the bearer, owner and (create) idempotency headers crossing; an unproven owner never reaches the API and the API refuses missing/malformed owners, a missing idempotency key, unknown operations and ambiguous principals on its own; wallet A/B isolation for every read, write, open, dismiss and claim; a remotely created automation → the worker's sweep (no cron) racing the dispatch → one occurrence; occurrence → `/approve` view / claim (wallet B refused, proof required) / apply (edited workflow refused) on the API → worker completes it; the API made no flow call beyond `mode`/`info` |
+| `backend/automation-production.pg.test.ts` (1) | production's own entry points as plain Node processes — `main.ts api` and `main.ts worker` — on PostgreSQL with the BFF in remote mode: create through the API; the worker's startup sweep arms the price trigger; after the price falls, a worker sweep proposes once (`price:1`); the owner opens it through the API on the shared approval model (authority NONE); both processes logged `automation.*_enabled` |
+| `src/server/automation-operation.test.ts` (7) | BFF boundary without a database (runs in `pnpm check`): unproven owners never forwarded; exact headers; only automation links forwarded; fail-closed answers |
+| `backend/automation-worker.test.ts` (+1) | the API loads its automation routes on plain Node through the same rule: exactly two POST routes |
+| `src/automations/boundaries.test.ts` (+1) | the API routes, operations and BFF boundary reach no signing, key custody, flow call, preview, run or journal; the route patterns and the closed operation list are fixed |
