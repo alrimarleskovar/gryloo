@@ -11,7 +11,30 @@ The shared Git metadata belongs to the existing worktree arrangement.
 
 ## Updated main integration
 
-### Latest owner priorities (2026-10-09)
+### Final integration instruction (2026-10-09)
+
+The owner resumed integration after PR #73 merged at `fd0f9a3`. Preserve local
+commit `938575b`, fetch and merge latest `origin/main` on the existing branch,
+resolve compatibility issues, and run only safe focused local checks. Do not
+pursue performance targets or additional benchmarks. When the runner is
+available, push the final integrated branch once and let ordinary mandatory
+Contracts/Governance CI run. Keep PR #74 Draft and report
+`READY_FOR_OWNER_REVIEW` only after exact-head checks pass, otherwise `BLOCKED`.
+Record final CI closeout in the existing PR description so no follow-up report
+push changes the certified head. No new branch, other-worktree edits, runner
+modification or automatic PR merge.
+
+Integration merge `656c2d2` preserves parents `938575b` and `fd0f9a3`. The
+browser release gate matches updated main's full spec/profile inventory,
+including the new mandatory brand spec. The 41 focused tests, governance
+scanner, syntax/command preservation and offline failure-propagation checks
+passed. Main Contracts `37980271679` and Governance `37980271678` both passed
+on `fd0f9a3`. Finalization independently reconfirmed source/command preservation
+without running heavy tests. The matching runner was online and idle with no
+queued/in-progress runs, and CI ports 5432, 3100 and 8545–8559 were clear at
+19:47 UTC. Main certification and final branch CI are ordinary workflows.
+
+### Earlier owner priorities and stopping snapshot (2026-10-09)
 
 The CI optimizations are implemented. Do not expand scope, pursue the 20%
 target, or initiate repeated benchmarks/unnecessary heavy validation. Integrate

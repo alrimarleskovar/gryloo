@@ -1,7 +1,7 @@
 {
   "build": "BUILD-CI-OPTIMIZATION-001",
   "starting_commit": "fefda242e4abea5b8be5db57a9b8a09adbd2b65a",
-  "integrated_main": "68249fad76f515dee9c953cb42df115492f191dd",
+  "integrated_main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
   "historical_successful_run": 37850860794,
   "historical_job": {
     "started_at": "2026-10-08T22:21:26Z",
@@ -1158,10 +1158,9 @@
   },
   "full_ci_pr_warm": "NOT MEASURED",
   "final_acceptance": {
-    "status": "STOPPED_FOR_OWNER_REVIEW_WITH_UPSTREAM_AND_RUNNER_PREREQUISITES_UNAVAILABLE",
+    "status": "INTEGRATED_LOCAL_CHECKS_PASS_FINAL_HEAD_CI_PENDING",
     "outstanding": [
-      "PR73 owner merge and main certification, then safe integration into existing PR74 when work is resumed.",
-      "Necessary compatibility and final-head CI validation once runner is available."
+      "One ordinary branch push followed by passing final-head Contracts/Governance checks and PR description closeout."
     ],
     "application_or_gate_changes_in_this_followup": false,
     "shared_runner_modified": false,
@@ -1171,7 +1170,8 @@
     "performance_target_requirement": "Not pursued under latest owner priorities; historical unmeasured results preserved.",
     "new_ci_checks_requested": false,
     "remote_pr74_modified": false,
-    "changes_preserved_locally": true
+    "changes_preserved_locally": true,
+    "integration_complete": true
   },
   "diagnostic_warm_push_attempt": {
     "run": 37939441073,
@@ -1228,7 +1228,7 @@
     "warning": "Successful partial cache restoration is diagnostic evidence only; the failed full job receives no performance acceptance credit."
   },
   "pr73_integration": {
-    "status": "STOPPED_PENDING_PR73_MERGE_AND_MAIN_CERTIFICATION",
+    "status": "INTEGRATED_FINAL_HEAD_CI_PENDING",
     "observed_at": "2026-10-09T19:02:26Z",
     "pr": 73,
     "head": "692964ca19c3f5e667e6a3abc04578a6174c3a93",
@@ -1273,7 +1273,7 @@
     "runs_cancelled": 0,
     "runner_modified": false,
     "other_pr_modified": false,
-    "optimization_decision": "Preserve implemented optimizations; no scope expansion or further performance-target work under latest owner priorities.",
+    "optimization_decision": "Preserve implemented optimizations; no performance benchmarking or scope expansion in final integration.",
     "stopping_snapshot_at": "2026-10-09T19:04:26Z",
     "preliminary_browser_case_executions": 211,
     "preliminary_browser_invocations": 25,
@@ -1283,7 +1283,13 @@
       "simulate-review-acceptance.spec.ts": 4
     },
     "preliminary_brand_case_duration_sum_seconds": 16.835,
-    "preliminary_brand_duration_definition": "Sum of rounded case-reporter durations; excludes fixture/server startup and is not isolated incremental wall-clock impact."
+    "preliminary_brand_duration_definition": "Sum of rounded case-reporter durations; excludes fixture/server startup and is not isolated incremental wall-clock impact.",
+    "merged_at": "2026-10-09T19:26:44Z",
+    "main_merge_commit": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+    "branch_integration_commit": "656c2d20d5a74b77058c0aa1b163b2b686a6995d",
+    "checkpoint_preserved": "938575b5971209105b99f18359bdba2e8f2bdea0",
+    "conflicts": false,
+    "mandatory_browser_inventory_preserved": true
   },
   "owner_priority_update": {
     "observed_at": "2026-10-09T19:04:26Z",
@@ -1357,5 +1363,95 @@
     "runner_modified": false,
     "other_pr_modified": false,
     "pushes": 0
+  },
+  "historical_pr72_integrated_main": "68249fad76f515dee9c953cb42df115492f191dd",
+  "final_integration": {
+    "status": "INTEGRATED_AWAITING_FINAL_HEAD_CI",
+    "worktree": "/home/asus/projects/gryloo-ci-optimization",
+    "branch": "codex/build-ci-optimization-001",
+    "main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+    "merge": "656c2d20d5a74b77058c0aa1b163b2b686a6995d",
+    "preserved_checkpoint": "938575b5971209105b99f18359bdba2e8f2bdea0",
+    "conflicts": false,
+    "local_checks": {
+      "main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+      "checkpoint_938575b_preserved": true,
+      "optimization_implementation_preserved": true,
+      "all_product_tests_assets_dependencies_and_governance_sources_equal_main": true,
+      "upstream_workflow_command_counts_preserved": {
+        "contracts": 216,
+        "governance": 14
+      },
+      "release_profile_counts": {
+        "product": 19,
+        "composition": 1
+      },
+      "release_child_invocations_and_fixture_settings_match_main": true,
+      "brand_spec_in_mandatory_default_product": true,
+      "first_failure_propagates_exit_17_without_later_profiles": true,
+      "yaml_bash_node_and_whitespace_checks": "PASS",
+      "real_browsers_databases_forks_or_network_calls_started": false
+    },
+    "existing_governance_tests": {
+      "passed": 19
+    },
+    "existing_ci_tests": {
+      "passed": 22
+    },
+    "governance_scanner": "PASS",
+    "screenshot_summary_self_test": "PASS",
+    "main_governance": {
+      "run": 37980271678,
+      "conclusion": "success",
+      "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37980271678"
+    },
+    "main_contracts": {
+      "run": 37980271679,
+      "conclusion": "success",
+      "completed_at": "2026-10-09T19:46:23Z",
+      "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37980271679",
+      "all_mandatory_gates_passed": true
+    },
+    "push_policy": "One normal fast-forward push after existing runner is available; normal push/PR checks; no manual dispatch or benchmark.",
+    "ci_closeout_location": "https://github.com/alrimarleskovar/gryloo/pull/74",
+    "ci_closeout_method": "Update existing PR description after exact-head CI; keep certified source head unchanged.",
+    "additional_benchmarks": 0,
+    "scope_expansion": false,
+    "runner_modified": false,
+    "other_worktrees_modified": false,
+    "new_branches_created": 0,
+    "pr74_remains_draft": true,
+    "performance_target": "Not pursued per owner instruction.",
+    "pre_push_availability": {
+      "observed_at": "2026-10-09T19:47:29Z",
+      "runner": "flofi-wsl",
+      "status": "online",
+      "busy": false,
+      "queued_runs": 0,
+      "in_progress_runs": 0,
+      "runner_worker_present": false,
+      "required_ports_clear": [
+        5432,
+        3100,
+        8545,
+        8546,
+        8547,
+        8548,
+        8549,
+        8550,
+        8551,
+        8552,
+        8553,
+        8554,
+        8555,
+        8556,
+        8557,
+        8558,
+        8559
+      ],
+      "unrelated_listeners_untouched": true
+    },
+    "finalization_offline_preservation_check": "PASS",
+    "local_final_ci_report": ".cache/build-ci-optimization-001/final-integration/final-ci-report.md"
   }
 }
