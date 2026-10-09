@@ -21,10 +21,20 @@ evidence. Updated-main certification measured **1,309s / 21m49s**, with the full
 suite passing. The optimized implementation's complete cold run passed in
 **1,182s / 19m42s**, including cache saving: **127s / 9.70%** shorter in this
 single shared-host observation. Browser variation contributes to that difference;
-it does not isolate the optimization's causal effect. Full warm-cache percentage,
-cache-key-invalidation CI and the 20% warm target are **NOT MEASURED**.
-Status: **BLOCKED on remaining benchmarks and final PR checks; green
-implementation available for owner review**. Another PR now owns the runner.
+it does not isolate the optimization's causal effect. Final-head PR Contracts
+and both Governance event checks also passed. That PR Contracts cache miss took
+**1,342s / 22m22s** by job API timestamps, including a **204s** cache save.
+Its first-to-last step span is **1,334s / 22m14s**; these are different timing
+boundaries. The two successful cold observations do not establish a reliable
+full-job improvement. Full warm-cache percentage, cache-key-invalidation CI and
+the 20% warm target are **NOT MEASURED**.
+Status: **STOPPED with PR #74 Draft for owner review**. PR #73 is still open;
+its main certification is unavailable and the runner is busy with its existing
+validation. The owner's latest priorities stop further performance-target work
+and repeated benchmarks. The report preserves measured cache evidence and its
+limitations; no cache or implementation change was made during this follow-up.
+Integration and updated-head CI validation remain outstanding, as detailed in
+section 16.
 
 ## 2. Baseline CI timing table
 
@@ -141,6 +151,7 @@ step timestamps. Owned local artifacts are in the existing worktree's ignored
 | Headless-shell verified bootstrap, only `--version` executed | 19.50s | 2.28s | 17.22s / 88.31% |
 | Node hit + deliberately corrupted pnpm cache | — | 11.71s | Rejected corrupt entry; verified fresh download; PASS |
 | Successful full cold-cache optimized CI | 1,309s updated main | 1,182s | 127s / 9.70%, single shared-host observation |
+| Successful final-head PR cold-cache CI | 1,309s updated main | 1,342s | 33s / 2.52% longer, single shared-host observation |
 | Successful full warm-cache optimized CI | — | **NOT MEASURED** | Pending |
 | Full cache-key-invalidation CI | — | **NOT MEASURED** | Pending |
 | Full warm-CI absolute / percentage improvement | — | **NOT MEASURED** | 20% target not established |
@@ -164,10 +175,54 @@ job saved a 273,086,692-byte cache. Restore lookup took 1s and cache saving took
 | Cache lookup / save | None | 1s / 105s |
 | Whole job, including initialization and cleanup | **1,309s** | **1,182s** |
 
-This is one successful full observation per implementation on the same shared
-runner, not a controlled experiment. Browser duration changed without browser
-behavior changes; shared load and network variation cannot be separated from
-the implemented setup changes. No failed workflow is included in this comparison.
+Final-head [PR run 37939446349, job 113849771200](https://github.com/alrimarleskovar/gryloo/actions/runs/37939446349/job/113849771200)
+passed on head `d15d79ffd3b648ce9f7e6f22f985ecf0841991f5`, testing merge revision
+`ef1c1cb879b4924303efff6a2a076dea0267d531` against the same updated main. Its job
+API interval is 14:18:24–14:40:46 UTC: **1,342s**, including finalization.
+Queue/dispatch is **1,819s / 30m19s**, separate. The native steps span
+14:18:23–14:40:37 UTC (**1,334s**), explaining the approximately 22m14s
+displayed duration. All comparisons here use job API intervals consistently.
+The push implementation and final PR head differ only in the report and
+measurements. PR logs confirm an exact-key miss, four verified downloads,
+and a successful 273,086,689-byte cache save.
+
+| Native stage | Updated main | Push cold | PR cold |
+| --- | ---: | ---: | ---: |
+| Node/pnpm bootstrap | 20s | 9s | 9s |
+| Fresh dependency verification | 69s | 16s | 15s |
+| Typecheck | Combined below | 65s | 65s |
+| Lint | Combined below | 16s | 18s |
+| Production build | Combined below | 41s | 44s |
+| Schema drift | Combined below | 1s | 1s |
+| Units/contracts/export checks | Combined below | 173s | 152s |
+| Static/build/schema/units combined | 311s | 296s | 280s |
+| PostgreSQL | 93s | 93s | 88s |
+| Anvil bootstrap | Combined with forks | 19s | 17s |
+| Offline compatibility/forks | 60s with bootstrap | 38s | 41s |
+| Browser bootstrap | Combined with suites | 19s | 17s |
+| Guarded browser suites | 717s with bootstrap | 554s | 637s |
+| Dependency audit | 1s | 1s | 1s |
+| SBOM | <1s at API precision | 1s | <1s at API precision |
+| Cache miss lookup / save | None | 1s / 105s | 2s / 204s |
+| Whole job API wall clock | **1,309s** | **1,182s** | **1,342s** |
+
+The PR job is 160s longer than the push job. Its cache-save step adds 99s and
+its guarded browser step adds 83s, while other stages partly offset those
+increases. These are observed differences, not evidence of causal effects.
+This is one updated-main observation and two optimized cold observations on the
+same shared runner, not a controlled experiment. Browser duration changed
+without browser behavior changes; shared load and network variation cannot be
+separated from the implemented setup changes. No failed workflow is included.
+
+Existing logs do not time download, hashing and extraction independently. The
+PR's four `MISS/REJECTED` → `DOWNLOAD` intervals are 3.453s (Node), 1.270s
+(pnpm), 15.498s (Foundry) and 15.021s (browser), totaling **35.242s**. These
+intervals include downloading, digest/size verification and copying the raw
+archive into cache storage; they must not be labeled pure download times.
+Monotonic bootstrap observations are 9.64s (Node/pnpm), 17.40s (Anvil) and
+16.58s (browser), including acquisition, verification, safe extraction and
+identity checks. Independent hashing/extraction timings and actual warm
+download/restore timings remain **NOT MEASURED**.
 
 Each setup case has one sample; this is not a statistical or controlled full
 benchmark. The original verifier was read from `fefda242` into owned scratch and
@@ -182,7 +237,7 @@ must be included in eventual remote comparisons.
 
 ## 6. Cache security assessment
 
-**Locally verified; remote cold/save verified; warm restore pending.** Contents are exactly the
+**Locally verified; two remote cold/save observations verified; warm restore pending.** Contents are exactly the
 Node 24.21.0 x64 tar.xz, pnpm 11.22.0 tgz, Foundry 1.8.3 tar.gz and approved
 headless-shell revision 1243 zip. No extracted executable, build/test result,
 node_modules, database, journal, key, signed manifest or session is exported.
@@ -194,6 +249,25 @@ invalidates the bundle. An exact Actions cache hit is not approval of its bytes.
 GitHub's [cache access rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
 separate PR merge-ref caches from protected-branch caches; independently, every
 consumed raw archive is cryptographically checked against reviewed source pins.
+
+Read-only cache API inspection confirms the push entry `8731870286` is scoped
+to `refs/heads/codex/build-ci-optimization-001`; the PR entry `8734365070` is
+scoped to `refs/pull/74/merge`. Both have key
+`flofi-archives-v1-Linux-X64-node24.21.0-pnpm11.22.0-anvil1.8.3-browser1243-ccf952a87a95f18a17ebf65597817a15acfac59dfd4f35361a051c5b9d8b5095`
+and cache version
+`9297aa8ae7198baa091bf47252bd6638629aae6fc6c887562d911341d7971839`.
+The push entry was created at 13:42:30 UTC, before the PR restore attempt at
+14:18:42 UTC, yet the PR did not reuse it. The PR entry was created at
+14:40:38 UTC, after its successful save. Equal keys alone therefore did not
+provide cross-ref reuse in these observed runs; this was not key invalidation.
+
+GitHub documents branch/default/base cache access restrictions and that a
+`pull_request` save belongs to its merge ref, available to reruns of that PR
+and unavailable to its base branch or other PRs. This is ref scope, rather than
+an event-name component of this implementation's key. An unchanged rerun of
+run `37939446349` should be eligible for the saved PR entry while it remains
+available, but eligibility is **not an observed HIT**. No ref/permission
+override or cache deletion was performed to manufacture reuse.
 
 Cached files must be regular, non-symlink files; FIFO reads cannot hang the job.
 Size checks reject oversized entries. A private disk copy is hashed before
@@ -210,14 +284,40 @@ bump the cache epoch or revert the cache action if transfer/storage costs are
 unhelpful. Removing cache configuration restores mandatory verified-download
 behavior. No shared runner/global cleanup is needed.
 
-The observed 105s initial upload is material. Keep cache acceptance pending
-until a full warm job measures restore overhead and net value. The local setup
-hit measurements do not establish that remote cache transfer is beneficial.
+The observed 105s push save and 204s PR save are material: the latter alone
+exceeds the PR's 35.242s combined archive-acquisition intervals. These cold
+costs do not measure warm restoration or establish net benefit over repeated
+runs. Retention/removal remains pending until a real HIT measures transfer,
+restoration, re-verification and fresh extraction, with save/cleanup costs
+included in full wall time. Separate phase timers are absent from the existing
+revision, so exact hashing/extraction values must not be inferred from total
+bootstrap time. Local setup hits do not establish remote transfer benefit.
 
 Rejected: new pnpm cache (2s install; negligible measured opportunity), Turbo
 outputs/cached typechecks, Next build cache and TypeScript incremental files
 (unverified executable/state reuse across trust boundaries). Existing ephemeral
 within-job Turbo reuse remains intact.
+
+
+### Diagnostic branch-cache HIT after runner reconnection
+
+Existing queued push [run 37939441073, job 113849748852](https://github.com/alrimarleskovar/gryloo/actions/runs/37939441073/job/113849748852)
+restored the 273,086,692-byte branch cache with an exact Actions HIT. The native
+restore step took **40s**. The `Cache hit for` → 100% received log interval
+is **36.859s**, including download initiation. Bundle tar extraction to
+`Cache restored successfully` is **0.769s**. These are bounded log intervals,
+not independently instrumented transfer/extraction timers. Node, pnpm and
+Foundry each logged a verified archive HIT; their successful bootstrap
+observations were 5.52s (Node/pnpm) and 2.10s (Anvil). Separate tool hashing
+and fresh extraction durations are not available. Browser bootstrap did not run.
+
+The fork gate failed with 19 failed / 12 passed / 29 pre-existing skipped tests
+and `EADDRINUSE: address already in use 127.0.0.1:8546`. A read-only host check
+confirmed listeners on 8545 and 8546. Their origin is not established by these
+logs; no listener was terminated or modified. The job stopped before browsers
+and SBOM, so its 575s API wall interval is **not a successful performance
+baseline**. This diagnostic HIT does not satisfy the requested complete warm
+PR benchmark. Wait for the runner and shared test ports to be free.
 
 ## 7. Concurrency safety assessment
 
@@ -313,8 +413,12 @@ main certification completed successfully, demonstrating the intended isolation.
 On implementation `90e05331`, full typecheck, lint, production build, schema drift, units/contracts, PostgreSQL,
 offline compatibility/forks, guarded browser profiles (including PR #72 channel
 signing), audit and SBOM: **PASS in remote cold run 37936422351**.
-Governance on the same SHA: **PASS in run 37936422425**. Final documentation-only
-delivery checks and PR-event certification remain pending in the shared queue.
+Governance on the same SHA: **PASS in run 37936422425**. Final head `d15d79f`
+also has **PASS** PR Contracts (`37939446349`), PR Governance (`37939446317`)
+and push Governance (`37939441218`). The final-head push Contracts run
+`37939441073` completed with failure after runner reconnection; its fork
+gate encountered occupied port 8546. Its skipped browser/SBOM stages receive
+no acceptance credit.
 The pre-change live dependency gate and all four optimized live tool bootstraps
 passed. Financial and replay/network restrictions remain unchanged.
 
@@ -324,7 +428,7 @@ tests passed with ten pre-existing skips, and 31 ordinary fork tests passed with
 29 pre-existing skips. The separately initialized composition fork gate passes
 three additional tests. Existing owner-material/profile-dependent skips are not
 passes; this build introduces no new skip, retry or optional mandatory suite.
-The optimized cold log has the identical unit/PostgreSQL/fork counts. Main and
+Both optimized cold logs have the identical unit/PostgreSQL/fork counts. Main and
 optimized logs each record 188 passing browser case executions across 25
 invocations; repeated specs under distinct profiles are included in this count.
 All six separate channel-signing cases pass.
@@ -333,8 +437,8 @@ All six separate channel-signing cases pass.
 
 Serial browser execution/profile startup, broad units and PostgreSQL suites
 remain the majority of work. Push/PR duplication remains under current governance.
-Archive cache transfer may offset download savings; the measured cold save cost
-is 105s, and warm restore/net value remain unmeasured.
+Archive cache transfer may offset download savings; measured cold save costs
+are 105s (push) and 204s (PR), and warm restore/net value remain unmeasured.
 Endpoint diagnostics do not provide process-tree peak memory or per-test CPU.
 The known failed historical browser run is not evidence of current-main failure.
 
@@ -365,7 +469,7 @@ resources or edit the runner. Old raw caches need no deletion: reverted workflow
 ignore them. For cache-only rollback, remove the cache action and
 `FLOFI_CI_ARCHIVE_CACHE`; verified fresh downloads remain mandatory.
 
-## 14. Final readiness status
+## 14. Readiness before the PR #73 integration request
 
 - **Implemented:** focused CI changes, reporting, tests and documentation;
   delivered as draft [PR #74](https://github.com/alrimarleskovar/gryloo/pull/74),
@@ -373,14 +477,113 @@ ignore them. For cache-only rollback, remove the cache action and
 - **Locally verified:** 41 focused tests, scanner/static/whitespace checks,
   updated-main command preservation, live setup and invalid-cache recovery.
 - **CI verified:** complete Contracts and Governance PASS on implementation
-  `90e05331`, with the updated-main PR #72 suites intact.
-- **Benchmark verified:** setup samples and one complete cold run, 21m49s →
-  19m42s (2m07s / 9.70% observed). Full warm/invalidation runs and the 20% warm
-  target remain **NOT MEASURED**.
-- **Pending:** final PR/head checks, warm restore/net cache value, invalidation
-  benchmark and owner review. Another PR's Contracts run `37937740488` is active,
-  with additional work queued; no jobs were cancelled to obtain benchmark time.
+  `90e05331`, and final-head PR Contracts plus push/PR Governance PASS on
+  `d15d79f`, with the updated-main PR #72 suites intact. The final-head push
+  Contracts check failed at the fork gate because port 8546 was occupied.
+- **Benchmark verified:** setup samples and two complete cold jobs. Relative
+  to 21m49s main, push is 19m42s (127s / 9.70% shorter) and PR is 22m22s
+  (33s / 2.52% longer), using job API intervals. Full warm/invalidation runs
+  and the 20% warm target remain **NOT MEASURED**.
+- **Scope verified:** identical key/version entries exist separately for the
+  branch and PR #74 merge ref; PR cache save succeeded. A partial failed push
+  job restored the branch cache, but no actual warm PR HIT is yet observed.
+- **Earlier status: BLOCKED pending remaining acceptance.** Runner `flofi-wsl` (ID 22)
+  was initially offline. After owner notification it is online and processing
+  the existing queue. No duplicate run was dispatched while monitoring it.
+- **Outstanding:** the authorized existing-PR warm rerun after owner
+  notification and safe runner availability; an actual PR HIT; download,
+  restoration, verification and extraction measurements with honest phase
+  boundaries; full/stage comparisons; the net-benefit keep/simplify/remove
+  decision; revalidation of any resulting implementation change; completion
+  of a successful final-head push Contracts certification and final owner review.
+  The historical full invalidation benchmark remains unmeasured; it is not
+  supplied by the observed cross-ref miss.
+- **This follow-up:** local report/measurement updates only. Application,
+  workflow, bootstrap, gate and runner code remain unchanged. No commit was
+  pushed, no CI job triggered or cancelled, and no other PR was modified.
 
 Do not interpret implementation reviewability as full CI acceptance. No merge,
 automatic merging, production changes or public blockchain actions are authorized
 or performed by this build.
+
+## 15. PR #73 integration — evidence and prerequisites
+
+At 19:02 UTC on 2026-10-09, PR #73 is open at
+`692964ca19c3f5e667e6a3abc04578a6174c3a93`, with 434 changed files. Its push
+Contracts run `37975476152` is active in browsers; PR Contracts and both
+Governance jobs are queued. Main integration awaits the owner merge and
+successful main-branch Contracts/Governance certification. No run was dispatched
+or cancelled, and the runner was not restarted or modified.
+
+An independent recovery snapshot contains all 13 optimization/report files,
+SHA-256 digests and the uncommitted diff in the ignored
+`.cache/build-ci-optimization-001/pre-pr73-checkpoint/`. Any future integration can use a
+normal merge on the existing PR #74 branch, preserving published history and
+both parents. Product and visual assets remain owned by PR #73.
+
+PR #73 adds `brand-ux-001.spec.ts` directly to the guarded `default-product`
+profile. The unconditional `node scripts/guarded-release-browser.mjs product`
+gate continues to run it. Existing successful PR #73 PR-event evidence
+[37952153687](https://github.com/alrimarleskovar/gryloo/actions/runs/37952153687)
+is on earlier head `b67adaf41787cbea09f46baabf49a92821629312`: **1,106s** job
+wall time, **591s** browser/bootstrap step, **265s** static/build/unit step,
+**65s** fresh registry verification, and **86s** PostgreSQL. Its 15 new brand
+cases passed. This is preliminary historical evidence, not certification or a
+performance baseline for the final PR #73 head or merged main.
+
+The earlier successful PR #73 push `37952145106` took **1,127s**, with **600s**
+browser/bootstrap and **284s** static/build/unit steps. These observations show
+that file count alone does not establish a new duration bottleneck. Browser
+validation remains the largest stage. Complete new-head/main evidence is
+needed to compare the added cases, route changes and asset-fetch costs.
+
+The earlier PR-event log reports 7.7 GiB total / 5.1 GiB available RAM and
+2.0 GiB swap used at job setup. This is a single endpoint observation; full-job
+peak memory is unmeasured. Existing optimized summaries will be compared with
+certified updated main without changing worker counts or runner configuration.
+The branch and PR caches still have the original exact key/version; PR #73's
+guarded-list change is outside the key inputs. An eligible key is not an
+observed warm HIT or proof of net value.
+
+The preliminary log contains **211 browser case executions across 25
+invocations**, compared with 188 in the existing PR #72 main/optimized logs:
+15 brand cases plus four new execution-workspace and four new
+simulation-review cases. The 15 brand cases total approximately **16.835s** in
+rounded case-reporter durations, excluding fixtures and startup; this is not an
+isolated wall-clock impact measurement. The lending-composition unit file remains
+the largest logged unit file at **142.820s**. No safe additional optimization is
+established by these observations.
+
+## 16. Owner-priority update and stopping state
+
+The owner subsequently directed this build to stop pursuing the 20% target,
+avoid scope expansion and repeated benchmarks, preserve completed work, and
+stop when integration/validation is blocked by runner availability. At the
+read-only stopping snapshot **2026-10-09 19:04 UTC**:
+
+- PR #73 remains **OPEN**, unmerged at `692964ca`; push Contracts is active,
+  PR Contracts and both Governance jobs are queued. There is no PR #73
+  main-branch certification. The latest certified main remains PR #72 at
+  `68249fad`, so no updated main was fetched or integrated.
+- The sole matching runner, `flofi-wsl` (ID 22), is **online/busy**. Its existing
+  PR #73 work was left undisturbed. Integration is gated by the unmerged
+  upstream PR; validation availability is separately constrained by the busy
+  runner.
+- PR #74 remains **OPEN/Draft** at remote head `d15d79f`. Its existing PR
+  Contracts and both Governance checks passed; its push Contracts check failed
+  at the previously documented occupied-port fork gate. No new passing
+  final-head certification is claimed.
+- Completed optimization code, mandatory commands, governance, tool pins,
+  worker counts, cache configuration and product tests are unchanged. The
+  pre-existing report/measurement edits and this follow-up's evidence are
+  preserved in this worktree and the independent recovery snapshot.
+- No branch was created, no workflow dispatched/rerun/cancelled, no push or
+  external PR edit performed, no runner/process modification made, and neither
+  PR was merged. Only report, measurement and plan documents changed locally.
+
+Further warm-cache/invalidation measurements and the 20% target are historical
+unmeasured items, not requirements being pursued under the latest priorities.
+Outstanding work is PR #73 integration and necessary compatibility/final-head
+validation once the prerequisites are available and work is resumed. This turn
+stops after preserving the documents and running lightweight document/safety
+checks; it does not wait for or compete with the existing queue.

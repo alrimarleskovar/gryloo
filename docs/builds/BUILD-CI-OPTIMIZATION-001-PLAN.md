@@ -11,6 +11,24 @@ The shared Git metadata belongs to the existing worktree arrangement.
 
 ## Updated main integration
 
+### Latest owner priorities (2026-10-09)
+
+The CI optimizations are implemented. Do not expand scope, pursue the 20%
+target, or initiate repeated benchmarks/unnecessary heavy validation. Integrate
+PR #73 into this existing branch only after it merges and main certification is
+available; preserve all optimization work and every mandatory CI/governance
+gate. Resolve compatibility issues within that scope. Finish safe operations,
+preserve completed work, and leave PR #74 Draft for owner review. If runner
+availability blocks integration/validation, document the blocker and stop.
+Never restart/modify the runner, interfere with other PRs, create another branch,
+or merge PR #74. The historical benchmark strategy below is not authorization
+to continue performance-target work after this priority update.
+
+At the stopping snapshot (19:04 UTC), PR #73 is still open and runner
+`flofi-wsl` is online/busy with its existing validation. There is no PR #73 main
+certification to integrate. Evidence is preserved locally; no new run or push
+was initiated.
+
 The owner's later instruction explicitly authorizes incorporating PR #72 from
 `origin/main` at `68249fad76f515dee9c953cb42df115492f191dd`. Fetch the remote,
 save independent copies of all optimization files under the existing ignored
