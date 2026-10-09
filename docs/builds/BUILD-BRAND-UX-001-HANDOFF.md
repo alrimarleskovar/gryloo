@@ -4,6 +4,8 @@ Updated: 2026-10-09. Current worktree: `/home/asus/projects/flofi-brand-ux`; bra
 
 Original validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR: [#73](https://github.com/alrimarleskovar/gryloo/pull/73), opened against `main` after validation and left unmerged. Follow-up implementation and validation are recorded below and in subsequent commits on this same branch.
 
+Validated diagram refinement commit: `5974e7e86fb2e695f79fae089dcdcc87b8fc7bde`, pushed to the existing branch. PR #73's description is updated. At this checkpoint, GitHub governance/contracts jobs are queued and Vercel is pending; these external statuses may change.
+
 ## Completed work
 
 - Caio's bilingual landing is integrated at `/`, with approved FloFi identity assets, palette, typography, isolated marketing styles, motion/reduced-motion presentation and developer links. See `BUILD-BRAND-UX-001-DESIGN.md` and `BUILD-BRAND-UX-001-RECOVERY.md` for the completed audit.
@@ -29,6 +31,7 @@ The original implementation and the requested diagram refinement are complete an
 - Earlier 42/8 and 47/5 browser checkpoints are superseded only for the subsequently rerun cases; do not report those complete runs as passing. Mobile input, Review sizing, wallet-dialog and route assertion corrections are already present.
 - The build report is complete. Desktop/mobile screenshots are refreshed and visually reviewed; the prior recovery report's missing-mobile-screenshot statement is superseded. No remaining implementation issue is known. PR #73 is open; CI/review status is external and may change after this checkpoint.
 - Mainnet execution, live integrations, financial broadcasts and audited production readiness are outside this build's evidence.
+- Installed `gh pr edit` fails on GitHub's deprecated `repository.pullRequest.projectCards` GraphQL field. PR #73's description was successfully updated using `gh api --method PATCH repos/alrimarleskovar/gryloo/pulls/73 --input /tmp/flofi-brand-diagram-pr-body.json --silent` (JSON contains only `body`). Use explicit JSON fields for read-only PR queries; no CLI upgrade or unrelated PR change is needed.
 
 ## Tests completed and results
 
@@ -71,7 +74,7 @@ Initial session audit inspected only changed files, build reports and relevant d
 
 ## Next exact actions
 
-1. Check only this PR's CI/review state: `gh pr checks 73 --repo alrimarleskovar/gryloo` and `gh pr view 73 --repo alrimarleskovar/gryloo`. Address actual failures or review requests with the smallest relevant check. Leave merge and financial acceptance to the owner.
+1. Check only this PR's CI/review state: `gh pr checks 73 --repo alrimarleskovar/gryloo` and `gh pr view 73 --repo alrimarleskovar/gryloo --json state,url,headRefOid,statusCheckRollup`. Address actual failures or review requests with the smallest relevant check. Leave merge and financial acceptance to the owner.
 2. If the diagram is changed again, rebuild the app and run `pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test brand-ux-001.spec.ts --grep 'landing, keyboard|desktop scroll story'`; `FLOFI_BRAND_EVIDENCE=1` refreshes the affected captures. This is eight focused cases, not the complete E2E suite.
 3. Required browser environment: `NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 BUILD002_BROWSER_CACHE=/home/asus/.cache/ms-playwright/chromium_headless_shell-1243 GRYLOO_ANVIL_BIN=/tmp/claude-1000/auto001/foundry-v1.8.3/anvil GRYLOO_MODE_A_RUNTIME=/tmp/flofi-brand-handoff-fork`; normal runner port 3108. Keep localhost 3000 on `next dev`, whose output is `.next/dev`.
 4. Preserve this branch, all earlier evidence and the updated same PR. No further implementation or local test run is required for the completed request.
