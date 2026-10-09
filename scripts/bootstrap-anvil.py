@@ -18,6 +18,8 @@ import tempfile
 import urllib.parse
 import urllib.request
 
+from ci_archive_cache import verified_archive
+
 FOUNDRY_VERSION = "v1.8.3"
 ARCHIVE = "foundry_v1.8.3_linux_amd64.tar.gz"
 SIZE = 113058051
@@ -78,62 +80,55 @@ def bootstrap(destination):
     redirect = ApprovedRedirect()
     # Ignore environment proxies; they cannot supply alternate destinations.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), redirect)
-    archive_path = None
     staging = None
+    def download(output):
+        count = 0
+        with opener.open(SOURCE, timeout=90) as response:
+            final = urllib.parse.urlsplit(response.url)
+            if (response.status != 200 or redirect.redirects != 1
+                    or final.hostname != FINAL_HOST or final.path != FINAL_PATH):
+                raise RuntimeError("STOP: unapproved anvil response")
+            while chunk := response.read(1024 * 1024):
+                count += len(chunk)
+                if count > SIZE:
+                    raise RuntimeError("STOP: anvil archive exceeds approved size")
+                output.write(chunk)
     try:
-        with tempfile.NamedTemporaryFile(prefix="foundry-", suffix=".tar.gz", dir=parent, delete=False) as output:
-            archive_path = Path(output.name)
-            digest = hashlib.sha256()
-            count = 0
-            with opener.open(SOURCE, timeout=90) as response:
-                final = urllib.parse.urlsplit(response.url)
-                if (response.status != 200 or redirect.redirects != 1
-                        or final.hostname != FINAL_HOST or final.path != FINAL_PATH):
-                    raise RuntimeError("STOP: unapproved anvil response")
-                while chunk := response.read(1024 * 1024):
-                    count += len(chunk)
-                    if count > SIZE:
-                        raise RuntimeError("STOP: anvil archive exceeds approved size")
-                    digest.update(chunk)
-                    output.write(chunk)
-        if count != SIZE or digest.hexdigest() != SHA256:
-            raise RuntimeError("STOP: anvil archive size or SHA-256 mismatch")
-        # Never open the archive before its exact bytes have been verified.
-        with tarfile.open(archive_path, "r:gz") as archive:
-            member = validate_entries(archive)
-            staging = Path(tempfile.mkdtemp(prefix="anvil-staging-", dir=parent))
-            target = staging / "anvil"
-            source = archive.extractfile(member)
-            if source is None:
-                raise RuntimeError("STOP: anvil entry is not readable")
-            anvil_digest = hashlib.sha256()
-            written = 0
-            with source, target.open("xb") as output:
-                while chunk := source.read(1024 * 1024):
-                    written += len(chunk)
-                    anvil_digest.update(chunk)
-                    output.write(chunk)
-        if written != ANVIL_SIZE or anvil_digest.hexdigest() != ANVIL_SHA256:
-            raise RuntimeError("STOP: anvil binary size or SHA-256 mismatch")
-        target.chmod(0o755)
-        version = subprocess.check_output([str(target), "--version"], text=True, timeout=30).strip()
-        if version != ANVIL_VERSION:
-            raise RuntimeError("STOP: anvil version mismatch")
-        if destination.exists():
-            raise RuntimeError("STOP: destination appeared during validation")
-        staging.rename(destination)
-        staging = None
-        print("Foundry:", FOUNDRY_VERSION)
-        print("Source:", SOURCE)
-        print("Final host and path:", FINAL_HOST + FINAL_PATH)
-        print("Archive:", ARCHIVE, "bytes:", count, "SHA-256:", digest.hexdigest())
-        print("anvil bytes:", written, "SHA-256:", anvil_digest.hexdigest())
-        print("anvil version:", version.splitlines()[0])
-        print("Executable:", destination / "anvil")
-        print("Integrity classification:", CLASSIFICATION)
+        with verified_archive(ARCHIVE, parent, download, SHA256, size=SIZE) as archive_path:
+            # Never open the archive before its exact bytes have been verified.
+            with tarfile.open(archive_path, "r:gz") as archive:
+                member = validate_entries(archive)
+                staging = Path(tempfile.mkdtemp(prefix="anvil-staging-", dir=parent))
+                target = staging / "anvil"
+                source = archive.extractfile(member)
+                if source is None:
+                    raise RuntimeError("STOP: anvil entry is not readable")
+                anvil_digest = hashlib.sha256()
+                written = 0
+                with source, target.open("xb") as output:
+                    while chunk := source.read(1024 * 1024):
+                        written += len(chunk)
+                        anvil_digest.update(chunk)
+                        output.write(chunk)
+            if written != ANVIL_SIZE or anvil_digest.hexdigest() != ANVIL_SHA256:
+                raise RuntimeError("STOP: anvil binary size or SHA-256 mismatch")
+            target.chmod(0o755)
+            version = subprocess.check_output([str(target), "--version"], text=True, timeout=30).strip()
+            if version != ANVIL_VERSION:
+                raise RuntimeError("STOP: anvil version mismatch")
+            if destination.exists():
+                raise RuntimeError("STOP: destination appeared during validation")
+            staging.rename(destination)
+            staging = None
+            print("Foundry:", FOUNDRY_VERSION)
+            print("Source:", SOURCE)
+            print("Final host and path:", FINAL_HOST + FINAL_PATH)
+            print("Archive:", ARCHIVE, "bytes:", SIZE, "SHA-256:", SHA256)
+            print("anvil bytes:", written, "SHA-256:", anvil_digest.hexdigest())
+            print("anvil version:", version.splitlines()[0])
+            print("Executable:", destination / "anvil")
+            print("Integrity classification:", CLASSIFICATION)
     finally:
-        if archive_path is not None:
-            archive_path.unlink(missing_ok=True)
         if staging is not None:
             shutil.rmtree(staging)
 

@@ -1,0 +1,1457 @@
+{
+  "build": "BUILD-CI-OPTIMIZATION-001",
+  "starting_commit": "fefda242e4abea5b8be5db57a9b8a09adbd2b65a",
+  "integrated_main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+  "historical_successful_run": 37850860794,
+  "historical_job": {
+    "started_at": "2026-10-08T22:21:26Z",
+    "completed_at": "2026-10-08T22:41:36Z",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:23Z",
+        "completed_at": "2026-10-08T22:21:26Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:26Z",
+        "completed_at": "2026-10-08T22:21:35Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:35Z",
+        "completed_at": "2026-10-08T22:21:35Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:35Z",
+        "completed_at": "2026-10-08T22:21:39Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:39Z",
+        "completed_at": "2026-10-08T22:21:50Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:50Z",
+        "completed_at": "2026-10-08T22:21:51Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:51Z",
+        "completed_at": "2026-10-08T22:21:53Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:21:53Z",
+        "completed_at": "2026-10-08T22:23:53Z"
+      },
+      {
+        "name": "Typecheck, lint, build, schema drift and contract tests",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:23:53Z",
+        "completed_at": "2026-10-08T22:28:56Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:28:56Z",
+        "completed_at": "2026-10-08T22:30:30Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil and run the offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:30:30Z",
+        "completed_at": "2026-10-08T22:31:30Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell and run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:31:30Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:19Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:19Z",
+        "completed_at": "2026-10-08T22:41:20Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:20Z",
+        "completed_at": "2026-10-08T22:41:20Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:20Z",
+        "completed_at": "2026-10-08T22:41:22Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-08T22:41:23Z",
+        "completed_at": "2026-10-08T22:41:23Z"
+      }
+    ]
+  },
+  "setup_only_measurements": {
+    "anvil-cold": {
+      "wall_seconds": 44.7,
+      "max_rss_kib": 32756,
+      "user_seconds": 2.82,
+      "system_seconds": 1.5,
+      "completed_at_utc": "2026-10-09T12:54:58.675025+00:00"
+    },
+    "anvil-warm": {
+      "wall_seconds": 3.81,
+      "max_rss_kib": 30504,
+      "user_seconds": 2.02,
+      "system_seconds": 1.21,
+      "completed_at_utc": "2026-10-09T12:55:32.129382+00:00"
+    },
+    "browser-cold": {
+      "wall_seconds": 19.5,
+      "max_rss_kib": 31104,
+      "user_seconds": 2.2,
+      "system_seconds": 1.63,
+      "completed_at_utc": "2026-10-09T12:55:51.374412+00:00"
+    },
+    "browser-warm": {
+      "wall_seconds": 2.28,
+      "max_rss_kib": 30848,
+      "user_seconds": 1.31,
+      "system_seconds": 0.89,
+      "completed_at_utc": "2026-10-09T12:56:22.986403+00:00"
+    },
+    "dependencies-after": {
+      "wall_seconds": 20.96,
+      "max_rss_kib": 680272,
+      "user_seconds": 5.47,
+      "system_seconds": 2.42,
+      "completed_at_utc": "2026-10-09T12:53:06.907825+00:00"
+    },
+    "dependencies-before": {
+      "wall_seconds": 71.09,
+      "max_rss_kib": 670392,
+      "completed_at_utc": "2026-10-09T12:52:09.512889+00:00"
+    },
+    "toolchain-cold": {
+      "wall_seconds": 11.57,
+      "max_rss_kib": 148076,
+      "completed_at_utc": "2026-10-09T12:49:49.326276+00:00"
+    },
+    "toolchain-invalidation": {
+      "wall_seconds": 11.71,
+      "max_rss_kib": 145284,
+      "user_seconds": 2.81,
+      "system_seconds": 2.7,
+      "completed_at_utc": "2026-10-09T12:53:36.319574+00:00"
+    },
+    "toolchain-warm": {
+      "wall_seconds": 5.18,
+      "max_rss_kib": 149612,
+      "user_seconds": 2.77,
+      "system_seconds": 2.22,
+      "completed_at_utc": "2026-10-09T12:52:34.666214+00:00"
+    }
+  },
+  "dependency_evidence_sha256": "fd91062750e250f43799556490d09c96b550eae2624532ddbb93f753d501584f",
+  "optimized_dependency_evidence_identical": true,
+  "method": "One sequential setup-only sample per case on the shared WSL host; GNU time wall and max RSS. No local build, DB, fork or browser suite. This excludes Actions cache transfer and post-job costs and is not a controlled full-CI benchmark. Main CI began at 12:52:50 UTC during setup measurements.",
+  "full_ci_cold": {
+    "run": 37936422351,
+    "job": 113839501921,
+    "sha": "90e05331ad79c45e1c5cf8d6c4675ea9c72473ea",
+    "event": "push",
+    "conclusion": "success",
+    "created_at": "2026-10-09T13:22:52Z",
+    "started_at": "2026-10-09T13:22:55Z",
+    "completed_at": "2026-10-09T13:42:37Z",
+    "wall_seconds": 1182.0,
+    "queue_dispatch_seconds": 3.0,
+    "actions_cache_hit": false,
+    "verified_downloads": 4,
+    "cache_size_bytes": 273086692,
+    "cache_restore_seconds": 1,
+    "cache_save_seconds": 105,
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:22:53Z",
+        "completed_at": "2026-10-09T13:22:58Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:22:58Z",
+        "completed_at": "2026-10-09T13:23:07Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:07Z",
+        "completed_at": "2026-10-09T13:23:07Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:07Z",
+        "completed_at": "2026-10-09T13:23:11Z"
+      },
+      {
+        "name": "Start CI resource observations",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:11Z",
+        "completed_at": "2026-10-09T13:23:11Z"
+      },
+      {
+        "name": "Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:11Z",
+        "completed_at": "2026-10-09T13:23:12Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:12Z",
+        "completed_at": "2026-10-09T13:23:21Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:21Z",
+        "completed_at": "2026-10-09T13:23:22Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:22Z",
+        "completed_at": "2026-10-09T13:23:25Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:25Z",
+        "completed_at": "2026-10-09T13:23:41Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:41Z",
+        "completed_at": "2026-10-09T13:23:42Z"
+      },
+      {
+        "name": "Typecheck",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:42Z",
+        "completed_at": "2026-10-09T13:24:47Z"
+      },
+      {
+        "name": "Lint",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:24:47Z",
+        "completed_at": "2026-10-09T13:25:03Z"
+      },
+      {
+        "name": "Production build",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:03Z",
+        "completed_at": "2026-10-09T13:25:44Z"
+      },
+      {
+        "name": "Schema drift",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:44Z",
+        "completed_at": "2026-10-09T13:25:45Z"
+      },
+      {
+        "name": "Unit and contract tests and exported API checks",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:45Z",
+        "completed_at": "2026-10-09T13:28:38Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:28:38Z",
+        "completed_at": "2026-10-09T13:30:11Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:30:11Z",
+        "completed_at": "2026-10-09T13:30:30Z"
+      },
+      {
+        "name": "Offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:30:30Z",
+        "completed_at": "2026-10-09T13:31:08Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:31:08Z",
+        "completed_at": "2026-10-09T13:31:27Z"
+      },
+      {
+        "name": "Run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:31:27Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "CI timing summary after failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "CI timing summary after success",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "Post Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:42:27Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:42:27Z",
+        "completed_at": "2026-10-09T13:42:29Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:42:29Z",
+        "completed_at": "2026-10-09T13:42:29Z"
+      }
+    ],
+    "archive_acquisition_log_intervals": [
+      {
+        "archive": "node-v24.21.0-linux-x64.tar.xz",
+        "started_at": "2026-10-09T13:23:12.3874048Z",
+        "completed_at": "2026-10-09T13:23:16.1594825Z",
+        "seconds": 3.772078
+      },
+      {
+        "archive": "pnpm-11.22.0.tgz",
+        "started_at": "2026-10-09T13:23:16.2096076Z",
+        "completed_at": "2026-10-09T13:23:17.6860394Z",
+        "seconds": 1.476432
+      },
+      {
+        "archive": "foundry_v1.8.3_linux_amd64.tar.gz",
+        "started_at": "2026-10-09T13:30:11.9266212Z",
+        "completed_at": "2026-10-09T13:30:28.6365107Z",
+        "seconds": 16.709889
+      },
+      {
+        "archive": "chrome-headless-shell-linux64.zip",
+        "started_at": "2026-10-09T13:31:08.2419388Z",
+        "completed_at": "2026-10-09T13:31:26.2674460Z",
+        "seconds": 18.025508
+      }
+    ],
+    "cache_restore_seconds_definition": "Miss lookup only; no cached archive was restored.",
+    "cache_save_seconds_definition": "Entire post-cache step, including archive packaging and upload."
+  },
+  "full_ci_warm": "NOT MEASURED",
+  "full_ci_invalidation": "NOT MEASURED",
+  "full_ci_improvement_percent": {
+    "cold_single_observation": 9.7,
+    "warm": "NOT MEASURED"
+  },
+  "updated_main_successful_run": 37932954417,
+  "updated_main_job": {
+    "started_at": "2026-10-09T12:52:53Z",
+    "completed_at": "2026-10-09T13:14:42Z",
+    "wall_seconds": 1309,
+    "conclusion": "success",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:52:53Z",
+        "completed_at": "2026-10-09T12:52:56Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:52:56Z",
+        "completed_at": "2026-10-09T12:53:07Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:07Z",
+        "completed_at": "2026-10-09T12:53:07Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:07Z",
+        "completed_at": "2026-10-09T12:53:15Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:15Z",
+        "completed_at": "2026-10-09T12:53:35Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:35Z",
+        "completed_at": "2026-10-09T12:53:36Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:36Z",
+        "completed_at": "2026-10-09T12:53:38Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:53:38Z",
+        "completed_at": "2026-10-09T12:54:47Z"
+      },
+      {
+        "name": "Typecheck, lint, build, schema drift and contract tests",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:54:47Z",
+        "completed_at": "2026-10-09T12:59:58Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-09T12:59:58Z",
+        "completed_at": "2026-10-09T13:01:31Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil and run the offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:01:31Z",
+        "completed_at": "2026-10-09T13:02:31Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell and run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:02:31Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:28Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:28Z",
+        "completed_at": "2026-10-09T13:14:29Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:29Z",
+        "completed_at": "2026-10-09T13:14:29Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:30Z",
+        "completed_at": "2026-10-09T13:14:32Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:14:32Z",
+        "completed_at": "2026-10-09T13:14:32Z"
+      }
+    ]
+  },
+  "failed_attempts": [
+    {
+      "run": 37935180748,
+      "outcome": "workflow configuration failure before job start; job-env runner context corrected"
+    },
+    {
+      "run": 37935472723,
+      "outcome": "lint failure in added profile timer; explicit node:perf_hooks import added"
+    }
+  ],
+  "superseded_same_pr_governance_run": {
+    "run": 37935206135,
+    "outcome": "cancelled",
+    "main_certification_outcome": "success",
+    "old_push_governance_outcome": "success"
+  },
+  "updated_main_slow_tests": [
+    {
+      "path": "apps/reference-dapp/src/server/lending-composition-service.test.ts",
+      "kind": "unit file",
+      "tests": 61,
+      "seconds": 135.961
+    },
+    {
+      "path": "apps/reference-dapp/src/channels/whatsapp/journey.pg.test.ts",
+      "kind": "PostgreSQL file",
+      "tests": 2,
+      "seconds": 16.31
+    },
+    {
+      "path": "apps/reference-dapp/e2e/acceptance-swap-read.spec.ts",
+      "kind": "single browser case",
+      "seconds": 14.0
+    },
+    {
+      "path": "apps/reference-dapp/e2e/build009.spec.ts",
+      "kind": "single browser case",
+      "seconds": 12.1
+    },
+    {
+      "path": "apps/reference-dapp/e2e/channel-signing.spec.ts",
+      "kind": "ChatGPT single browser case",
+      "seconds": 8.9
+    }
+  ],
+  "updated_main_test_counts": {
+    "unit": {
+      "passed": 2965,
+      "preexisting_skipped": 2
+    },
+    "postgres": {
+      "passed": 252
+    },
+    "offline_compatibility": {
+      "passed": 4,
+      "preexisting_skipped": 10
+    },
+    "fork": {
+      "passed": 31,
+      "preexisting_skipped": 29
+    },
+    "separately_initialized_composition_fork": {
+      "passed": 3
+    },
+    "browser": {
+      "passed_case_executions": 188,
+      "invocations": 25,
+      "note": "Counts include intentional repeated spec execution under distinct profiles; not unique case count."
+    }
+  },
+  "cold_observed_improvement": {
+    "comparison_run": 37932954417,
+    "baseline_seconds": 1309,
+    "optimized_seconds": 1182.0,
+    "saved_seconds": 127.0,
+    "percentage": 9.7,
+    "caveat": "Single successful full-job comparison on shared host. Different browser duration contributes; this does not isolate optimization causality or establish warm-cache performance."
+  },
+  "optimized_resource_endpoints": {
+    "minimum_available_ram_gib": 4.04,
+    "maximum_swap_used_gib": 2.0,
+    "system_swap_pages_in": 2123,
+    "system_swap_pages_out": 1925,
+    "full_job_peak_ram": "NOT MEASURED",
+    "observed_elapsed_after_checkout_seconds": 1051.01,
+    "system_disk_input_mib": 4082.5,
+    "system_disk_output_mib": 5481.1
+  },
+  "same_sha_governance": {
+    "run": 37936422425,
+    "conclusion": "success"
+  },
+  "remaining_benchmark_blocker": {
+    "initial_runner_snapshot": {
+      "total_count": 1,
+      "runners": [
+        {
+          "id": 22,
+          "name": "flofi-wsl",
+          "os": "Linux",
+          "status": "offline",
+          "busy": false,
+          "version": "2.337.0",
+          "labels": [
+            {
+              "id": 0,
+              "name": "self-hosted",
+              "type": "read-only"
+            },
+            {
+              "id": 0,
+              "name": "Linux",
+              "type": "read-only"
+            },
+            {
+              "id": 0,
+              "name": "X64",
+              "type": "read-only"
+            },
+            {
+              "id": 0,
+              "name": "flofi-wsl",
+              "type": "custom"
+            }
+          ]
+        }
+      ]
+    },
+    "initial_snapshot_recorded_at": "2026-10-09T15:34:38.276974+00:00",
+    "owner_update": "Runner online; monitor existing jobs without duplicate runs or heavy local validation; perform one existing-PR warm rerun when idle.",
+    "existing_head_push_contracts_run": 37939441073,
+    "warm_pr_rerun_requested": false,
+    "action": "Monitoring the existing queue; no workflow manually cancelled and no benchmark dispatched yet.",
+    "existing_head_push_contracts_conclusion": "failure",
+    "shared_test_ports_observed_occupied": [
+      8545,
+      8546
+    ]
+  },
+  "optimized_test_counts": {
+    "unit": {
+      "passed": 2965,
+      "preexisting_skipped": 2
+    },
+    "postgres": {
+      "passed": 252
+    },
+    "offline_compatibility": {
+      "passed": 4,
+      "preexisting_skipped": 10
+    },
+    "fork": {
+      "passed": 31,
+      "preexisting_skipped": 29
+    },
+    "separately_initialized_composition_fork": {
+      "passed": 3
+    },
+    "browser": {
+      "passed_case_executions": 188,
+      "invocations": 25,
+      "note": "Counts include intentional repeated spec execution under distinct profiles; not unique case count."
+    }
+  },
+  "full_ci_pr_cold": {
+    "run": 37939446349,
+    "attempt": 1,
+    "job": 113849771200,
+    "sha": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+    "checkout_revision": "ef1c1cb879b4924303efff6a2a076dea0267d531",
+    "event": "pull_request",
+    "conclusion": "success",
+    "runner": "flofi-wsl",
+    "created_at": "2026-10-09T13:48:05Z",
+    "started_at": "2026-10-09T14:18:24Z",
+    "completed_at": "2026-10-09T14:40:46Z",
+    "wall_seconds": 1342.0,
+    "queue_dispatch_seconds": 1819.0,
+    "native_steps_span_seconds": 1334.0,
+    "job_api_url": "https://api.github.com/repos/alrimarleskovar/gryloo/actions/jobs/113849771200",
+    "run_api_url": "https://api.github.com/repos/alrimarleskovar/gryloo/actions/runs/37939446349",
+    "logs_api_url": "https://api.github.com/repos/alrimarleskovar/gryloo/actions/jobs/113849771200/logs",
+    "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37939446349/job/113849771200",
+    "log_sha256": "d26ebd92875277843983a3acaaa58e9a72d35eb76e6d974cd046eeef6fcb6da5",
+    "actions_cache_hit": false,
+    "verified_downloads": 4,
+    "verified_archive_hits": 0,
+    "verified_archives": [
+      "node-v24.21.0-linux-x64.tar.xz",
+      "pnpm-11.22.0.tgz",
+      "foundry_v1.8.3_linux_amd64.tar.gz",
+      "chrome-headless-shell-linux64.zip"
+    ],
+    "cache_lookup_or_restore_seconds": 2.0,
+    "cache_lookup_or_restore_kind": "miss lookup; no archive restored",
+    "cache_save_step_seconds": 204.0,
+    "cache_save_step_definition": "Entire native post-cache step, including archive packaging and upload; not pure upload time.",
+    "archive_acquisition_log_intervals": [
+      {
+        "archive": "node-v24.21.0-linux-x64.tar.xz",
+        "started_at": "2026-10-09T14:18:42.6413130Z",
+        "completed_at": "2026-10-09T14:18:46.0942166Z",
+        "seconds": 3.452903
+      },
+      {
+        "archive": "pnpm-11.22.0.tgz",
+        "started_at": "2026-10-09T14:18:46.1473454Z",
+        "completed_at": "2026-10-09T14:18:47.4175796Z",
+        "seconds": 1.270234
+      },
+      {
+        "archive": "foundry_v1.8.3_linux_amd64.tar.gz",
+        "started_at": "2026-10-09T14:25:19.4786267Z",
+        "completed_at": "2026-10-09T14:25:34.9763298Z",
+        "seconds": 15.497703
+      },
+      {
+        "archive": "chrome-headless-shell-linux64.zip",
+        "started_at": "2026-10-09T14:26:17.5292783Z",
+        "completed_at": "2026-10-09T14:26:32.5501369Z",
+        "seconds": 15.020858
+      }
+    ],
+    "archive_acquisition_interval_total_seconds": 35.241698,
+    "archive_acquisition_interval_definition": "MISS/REJECTED to DOWNLOAD log timestamps: download, digest/size verification, and copying raw archive into cache storage combined; not pure download time.",
+    "separate_download_seconds": "NOT MEASURED",
+    "separate_verification_seconds": "NOT MEASURED",
+    "separate_extraction_seconds": "NOT MEASURED",
+    "observer_stages": [
+      {
+        "name": "After checkout",
+        "seconds": 0.05,
+        "outcome": "success"
+      },
+      {
+        "name": "Toolchain bootstrap",
+        "seconds": 9.64,
+        "outcome": "success"
+      },
+      {
+        "name": "Toolchain identity",
+        "seconds": 1.05,
+        "outcome": "success"
+      },
+      {
+        "name": "Frozen dependency install",
+        "seconds": 1.96,
+        "outcome": "success"
+      },
+      {
+        "name": "Dependency integrity license and age",
+        "seconds": 15.23,
+        "outcome": "success"
+      },
+      {
+        "name": "Dependency audit",
+        "seconds": 0.96,
+        "outcome": "success"
+      },
+      {
+        "name": "Typecheck",
+        "seconds": 64.86,
+        "outcome": "success"
+      },
+      {
+        "name": "Lint",
+        "seconds": 18.29,
+        "outcome": "success"
+      },
+      {
+        "name": "Production build",
+        "seconds": 43.66,
+        "outcome": "success"
+      },
+      {
+        "name": "Schema drift",
+        "seconds": 0.99,
+        "outcome": "success"
+      },
+      {
+        "name": "Unit and contract tests",
+        "seconds": 152.03,
+        "outcome": "success"
+      },
+      {
+        "name": "PostgreSQL",
+        "seconds": 87.68,
+        "outcome": "success"
+      },
+      {
+        "name": "Anvil bootstrap",
+        "seconds": 17.4,
+        "outcome": "success"
+      },
+      {
+        "name": "Anvil and offline forks",
+        "seconds": 40.53,
+        "outcome": "success"
+      },
+      {
+        "name": "Browser bootstrap",
+        "seconds": 16.58,
+        "outcome": "success"
+      },
+      {
+        "name": "Guarded browser suites",
+        "seconds": 636.94,
+        "outcome": "success"
+      },
+      {
+        "name": "SBOM",
+        "seconds": 0.71,
+        "outcome": "success"
+      }
+    ],
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:23Z",
+        "completed_at": "2026-10-09T14:18:27Z",
+        "seconds": 4.0
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:27Z",
+        "completed_at": "2026-10-09T14:18:36Z",
+        "seconds": 9.0
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:36Z",
+        "completed_at": "2026-10-09T14:18:36Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:36Z",
+        "completed_at": "2026-10-09T14:18:40Z",
+        "seconds": 4.0
+      },
+      {
+        "name": "Start CI resource observations",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:40Z",
+        "completed_at": "2026-10-09T14:18:40Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:40Z",
+        "completed_at": "2026-10-09T14:18:42Z",
+        "seconds": 2.0
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:42Z",
+        "completed_at": "2026-10-09T14:18:51Z",
+        "seconds": 9.0
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:51Z",
+        "completed_at": "2026-10-09T14:18:53Z",
+        "seconds": 2.0
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:53Z",
+        "completed_at": "2026-10-09T14:18:55Z",
+        "seconds": 2.0
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:55Z",
+        "completed_at": "2026-10-09T14:19:10Z",
+        "seconds": 15.0
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:19:10Z",
+        "completed_at": "2026-10-09T14:19:11Z",
+        "seconds": 1.0
+      },
+      {
+        "name": "Typecheck",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:19:11Z",
+        "completed_at": "2026-10-09T14:20:16Z",
+        "seconds": 65.0
+      },
+      {
+        "name": "Lint",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:20:16Z",
+        "completed_at": "2026-10-09T14:20:34Z",
+        "seconds": 18.0
+      },
+      {
+        "name": "Production build",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:20:34Z",
+        "completed_at": "2026-10-09T14:21:18Z",
+        "seconds": 44.0
+      },
+      {
+        "name": "Schema drift",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:21:18Z",
+        "completed_at": "2026-10-09T14:21:19Z",
+        "seconds": 1.0
+      },
+      {
+        "name": "Unit and contract tests and exported API checks",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:21:19Z",
+        "completed_at": "2026-10-09T14:23:51Z",
+        "seconds": 152.0
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:23:51Z",
+        "completed_at": "2026-10-09T14:25:19Z",
+        "seconds": 88.0
+      },
+      {
+        "name": "Bootstrap exact approved anvil",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:25:19Z",
+        "completed_at": "2026-10-09T14:25:36Z",
+        "seconds": 17.0
+      },
+      {
+        "name": "Offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:25:36Z",
+        "completed_at": "2026-10-09T14:26:17Z",
+        "seconds": 41.0
+      },
+      {
+        "name": "Bootstrap exact approved headless shell",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:26:17Z",
+        "completed_at": "2026-10-09T14:26:34Z",
+        "seconds": 17.0
+      },
+      {
+        "name": "Run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:26:34Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 637.0
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "CI timing summary after failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "CI timing summary after success",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:37:11Z",
+        "seconds": 0.0
+      },
+      {
+        "name": "Post Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:37:11Z",
+        "completed_at": "2026-10-09T14:40:35Z",
+        "seconds": 204.0
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:40:35Z",
+        "completed_at": "2026-10-09T14:40:37Z",
+        "seconds": 2.0
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:40:37Z",
+        "completed_at": "2026-10-09T14:40:37Z",
+        "seconds": 0.0
+      }
+    ],
+    "test_counts": {
+      "unit": {
+        "passed": 2965,
+        "preexisting_skipped": 2
+      },
+      "postgres": {
+        "passed": 252
+      },
+      "offline_compatibility": {
+        "passed": 4,
+        "preexisting_skipped": 10
+      },
+      "fork": {
+        "passed": 31,
+        "preexisting_skipped": 29
+      },
+      "separately_initialized_composition_fork": {
+        "passed": 3
+      },
+      "browser": {
+        "passed_case_executions": 188,
+        "invocations": 25
+      }
+    }
+  },
+  "pr_cold_observed_difference": {
+    "comparison_run": 37932954417,
+    "baseline_seconds": 1309,
+    "optimized_seconds": 1342.0,
+    "longer_seconds": 33.0,
+    "percentage_longer": 2.52,
+    "caveat": "Single successful job comparison on shared host; includes cache-save and browser variation, not a causal performance estimate."
+  },
+  "cache_scope_investigation": {
+    "source": "https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching",
+    "cache_api_url": "https://api.github.com/repos/alrimarleskovar/gryloo/actions/caches",
+    "entries": [
+      {
+        "id": 8734365070,
+        "ref": "refs/pull/74/merge",
+        "key": "flofi-archives-v1-Linux-X64-node24.21.0-pnpm11.22.0-anvil1.8.3-browser1243-ccf952a87a95f18a17ebf65597817a15acfac59dfd4f35361a051c5b9d8b5095",
+        "version": "9297aa8ae7198baa091bf47252bd6638629aae6fc6c887562d911341d7971839",
+        "last_accessed_at": "2026-10-09T14:40:38.168475Z",
+        "created_at": "2026-10-09T14:40:38.168475Z",
+        "size_in_bytes": 273086689
+      },
+      {
+        "id": 8731870286,
+        "ref": "refs/heads/codex/build-ci-optimization-001",
+        "key": "flofi-archives-v1-Linux-X64-node24.21.0-pnpm11.22.0-anvil1.8.3-browser1243-ccf952a87a95f18a17ebf65597817a15acfac59dfd4f35361a051c5b9d8b5095",
+        "version": "9297aa8ae7198baa091bf47252bd6638629aae6fc6c887562d911341d7971839",
+        "last_accessed_at": "2026-10-09T13:42:30.280502Z",
+        "created_at": "2026-10-09T13:42:30.280502Z",
+        "size_in_bytes": 273086692
+      }
+    ],
+    "same_key": true,
+    "same_cache_version": true,
+    "observed_first_pr_result": "MISS despite existing head-branch push cache; PR saved a separate refs/pull/74/merge entry.",
+    "interpretation": "Cache eligibility depends on ref scope, key and version. Event name is absent from this cache key. The saved PR merge-ref cache is eligible for a rerun of that PR, but eligibility is not proof of a HIT.",
+    "warm_pr_result": "NOT MEASURED",
+    "key_invalidation_demonstrated_by_cross_ref_miss": false
+  },
+  "final_head_certifications": {
+    "sha": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+    "pr_contracts": {
+      "run": 37939446349,
+      "job": 113849771200,
+      "conclusion": "success"
+    },
+    "governance": [
+      {
+        "run": 37939446317,
+        "id": 113849770992,
+        "head_sha": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:18:09Z",
+        "completed_at": "2026-10-09T14:18:22Z",
+        "html_url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37939446317/job/113849770992"
+      },
+      {
+        "run": 37939441218,
+        "id": 113849749127,
+        "head_sha": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+        "status": "completed",
+        "conclusion": "success",
+        "started_at": "2026-10-09T14:17:54Z",
+        "completed_at": "2026-10-09T14:18:07Z",
+        "html_url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37939441218/job/113849749127"
+      }
+    ],
+    "push_contracts": {
+      "run": 37939441073,
+      "job": 113849748852,
+      "conclusion": "failure",
+      "reason": "Fork test port 8546 occupied."
+    }
+  },
+  "cache_net_benefit_assessment": {
+    "status": "PENDING REAL PR HIT",
+    "cold_cache_save_step_seconds": {
+      "push": 105,
+      "pull_request": 204
+    },
+    "pr_archive_acquisition_intervals_seconds": 35.241698,
+    "interpretation": "Cold packaging/upload costs are material and exceed measured PR acquisition intervals. Warm transfer/restoration and amortized reuse are not established; no net benefit claimed.",
+    "decision": "PENDING; cache implementation unchanged until warm evidence is available.",
+    "diagnostic_warm_restore_seconds": 40,
+    "diagnostic_warm_restore_qualification": "Observed in a failed push job; not a full performance benchmark or PR HIT."
+  },
+  "full_ci_pr_warm": "NOT MEASURED",
+  "final_acceptance": {
+    "status": "INTEGRATED_LOCAL_CHECKS_PASS_FINAL_HEAD_CI_PENDING",
+    "outstanding": [
+      "One ordinary branch push followed by passing final-head Contracts/Governance checks and PR description closeout."
+    ],
+    "application_or_gate_changes_in_this_followup": false,
+    "shared_runner_modified": false,
+    "other_pr_modified": false,
+    "merged": false,
+    "auto_merge_enabled": false,
+    "performance_target_requirement": "Not pursued under latest owner priorities; historical unmeasured results preserved.",
+    "new_ci_checks_requested": false,
+    "remote_pr74_modified": false,
+    "changes_preserved_locally": true,
+    "integration_complete": true
+  },
+  "diagnostic_warm_push_attempt": {
+    "run": 37939441073,
+    "attempt": 1,
+    "job": 113849748852,
+    "sha": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+    "event": "push",
+    "conclusion": "failure",
+    "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37939441073/job/113849748852",
+    "started_at": "2026-10-09T15:38:06Z",
+    "completed_at": "2026-10-09T15:47:41Z",
+    "wall_seconds": 575.0,
+    "performance_baseline": false,
+    "reason": "Offline fork gate failed: EADDRINUSE 127.0.0.1:8546 and expected listening ports to be free. Existing listeners were not modified.",
+    "fork_test_counts": {
+      "passed": 12,
+      "failed": 19,
+      "preexisting_skipped": 29
+    },
+    "actions_cache_hit": true,
+    "cache_scope": "refs/heads/codex/build-ci-optimization-001",
+    "cache_size_bytes": 273086692,
+    "consumed_verified_archive_hits": [
+      "node-v24.21.0-linux-x64.tar.xz",
+      "pnpm-11.22.0.tgz",
+      "foundry_v1.8.3_linux_amd64.tar.gz"
+    ],
+    "browser_archive_consumption": "NOT RUN; browser bootstrap skipped after fork failure.",
+    "cache_restore_step_seconds": 40,
+    "cache_download_log_interval": {
+      "start": "2026-10-09T15:38:27.3577159Z",
+      "end": "2026-10-09T15:39:04.2166367Z",
+      "seconds": 36.858921,
+      "definition": "Key-hit log to 100% transfer log; includes download initiation latency, not an isolated network timer."
+    },
+    "cache_bundle_extraction_log_interval": {
+      "start": "2026-10-09T15:39:04.2782161Z",
+      "end": "2026-10-09T15:39:05.0473192Z",
+      "seconds": 0.769103,
+      "definition": "Bundle tar extraction command to restoration-success log; excludes fresh tool archive extraction."
+    },
+    "bootstrap_monotonic_seconds": {
+      "node_pnpm": 5.52,
+      "anvil": 2.1
+    },
+    "separate_tool_verification_seconds": "NOT MEASURED",
+    "separate_tool_extraction_seconds": "NOT MEASURED",
+    "log_sha256": "a57cc78431e8b9bb9532c4cafb32b1a929b16db2bede6864f2411beba3320950",
+    "skipped_required_stages": [
+      "Browser bootstrap",
+      "Guarded browser suites",
+      "SBOM"
+    ],
+    "warning": "Successful partial cache restoration is diagnostic evidence only; the failed full job receives no performance acceptance credit."
+  },
+  "pr73_integration": {
+    "status": "INTEGRATED_FINAL_HEAD_CI_PENDING",
+    "observed_at": "2026-10-09T19:02:26Z",
+    "pr": 73,
+    "head": "692964ca19c3f5e667e6a3abc04578a6174c3a93",
+    "changed_files": 434,
+    "active_existing_push_contracts_run": 37975476152,
+    "queued_existing_pr_contracts_run": 37975483012,
+    "pr74_draft": true,
+    "recovery_snapshot": ".cache/build-ci-optimization-001/pre-pr73-checkpoint/manifest.json",
+    "integration_method": "Normal merge on existing PR74 branch after certified main; preserve history and all optimization files.",
+    "new_mandatory_browser_spec": "brand-ux-001.spec.ts",
+    "new_spec_profile": "default-product",
+    "preliminary_earlier_head": "b67adaf41787cbea09f46baabf49a92821629312",
+    "preliminary_pr_contracts": {
+      "run": 37952153687,
+      "job": 113893419820,
+      "conclusion": "success",
+      "wall_seconds": 1106,
+      "browser_and_bootstrap_seconds": 591,
+      "static_build_units_seconds": 265,
+      "fresh_registry_seconds": 65,
+      "postgres_seconds": 86,
+      "brand_case_passes": 15,
+      "performance_baseline_for_final_main": false
+    },
+    "preliminary_push_contracts": {
+      "run": 37952145106,
+      "job": 113893389492,
+      "conclusion": "success",
+      "wall_seconds": 1127,
+      "browser_and_bootstrap_seconds": 600,
+      "static_build_units_seconds": 284,
+      "performance_baseline_for_final_main": false
+    },
+    "preliminary_memory": {
+      "source": "Earlier PR73 job setup log",
+      "total_ram_gib": 7.7,
+      "available_ram_gib": 5.1,
+      "swap_used_gib": 2.0,
+      "full_job_peak_ram": "NOT MEASURED"
+    },
+    "manual_runs_dispatched": 0,
+    "runs_cancelled": 0,
+    "runner_modified": false,
+    "other_pr_modified": false,
+    "optimization_decision": "Preserve implemented optimizations; no performance benchmarking or scope expansion in final integration.",
+    "stopping_snapshot_at": "2026-10-09T19:04:26Z",
+    "preliminary_browser_case_executions": 211,
+    "preliminary_browser_invocations": 25,
+    "preliminary_added_browser_case_executions": {
+      "brand-ux-001.spec.ts": 15,
+      "execute-product-workspace.spec.ts": 4,
+      "simulate-review-acceptance.spec.ts": 4
+    },
+    "preliminary_brand_case_duration_sum_seconds": 16.835,
+    "preliminary_brand_duration_definition": "Sum of rounded case-reporter durations; excludes fixture/server startup and is not isolated incremental wall-clock impact.",
+    "merged_at": "2026-10-09T19:26:44Z",
+    "main_merge_commit": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+    "branch_integration_commit": "656c2d20d5a74b77058c0aa1b163b2b686a6995d",
+    "checkpoint_preserved": "938575b5971209105b99f18359bdba2e8f2bdea0",
+    "conflicts": false,
+    "mandatory_browser_inventory_preserved": true
+  },
+  "owner_priority_update": {
+    "observed_at": "2026-10-09T19:04:26Z",
+    "performance_target_pursuit_stopped": true,
+    "repeated_benchmarks_authorized": false,
+    "scope_expansion_authorized": false,
+    "stop_if_runner_blocks_validation": true,
+    "pr74_remains_draft_for_owner_review": true
+  },
+  "stopping_snapshot": {
+    "observed_at": "2026-10-09T19:04:26Z",
+    "pr73": {
+      "headRefOid": "692964ca19c3f5e667e6a3abc04578a6174c3a93",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "state": "OPEN"
+    },
+    "pr74": {
+      "headRefName": "codex/build-ci-optimization-001",
+      "headRefOid": "d15d79ffd3b648ce9f7e6f22f985ecf0841991f5",
+      "isDraft": true,
+      "state": "OPEN"
+    },
+    "runner": [
+      {
+        "id": 22,
+        "name": "flofi-wsl",
+        "status": "online",
+        "busy": true
+      }
+    ],
+    "latest_main_runs": [
+      {
+        "conclusion": "success",
+        "databaseId": 37932954417,
+        "event": "push",
+        "headSha": "68249fad76f515dee9c953cb42df115492f191dd",
+        "name": "Repository contracts and reference app",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37932954413,
+        "event": "push",
+        "headSha": "68249fad76f515dee9c953cb42df115492f191dd",
+        "name": "Governance",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37855183051,
+        "event": "push",
+        "headSha": "fefda242e4abea5b8be5db57a9b8a09adbd2b65a",
+        "name": "Governance",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37855182919,
+        "event": "push",
+        "headSha": "fefda242e4abea5b8be5db57a9b8a09adbd2b65a",
+        "name": "Repository contracts and reference app",
+        "status": "completed"
+      }
+    ],
+    "integration_blocker": "PR73 remains unmerged; no PR73 main certification exists.",
+    "validation_availability": "Sole matching runner is busy on existing PR73 certification.",
+    "new_branches_created": 0,
+    "runs_dispatched_or_rerun": 0,
+    "runs_cancelled": 0,
+    "runner_modified": false,
+    "other_pr_modified": false,
+    "pushes": 0
+  },
+  "historical_pr72_integrated_main": "68249fad76f515dee9c953cb42df115492f191dd",
+  "final_integration": {
+    "status": "INTEGRATED_AWAITING_FINAL_HEAD_CI",
+    "worktree": "/home/asus/projects/gryloo-ci-optimization",
+    "branch": "codex/build-ci-optimization-001",
+    "main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+    "merge": "656c2d20d5a74b77058c0aa1b163b2b686a6995d",
+    "preserved_checkpoint": "938575b5971209105b99f18359bdba2e8f2bdea0",
+    "conflicts": false,
+    "local_checks": {
+      "main": "fd0f9a3be453bca6314addf3643bbebbd3308f53",
+      "checkpoint_938575b_preserved": true,
+      "optimization_implementation_preserved": true,
+      "all_product_tests_assets_dependencies_and_governance_sources_equal_main": true,
+      "upstream_workflow_command_counts_preserved": {
+        "contracts": 216,
+        "governance": 14
+      },
+      "release_profile_counts": {
+        "product": 19,
+        "composition": 1
+      },
+      "release_child_invocations_and_fixture_settings_match_main": true,
+      "brand_spec_in_mandatory_default_product": true,
+      "first_failure_propagates_exit_17_without_later_profiles": true,
+      "yaml_bash_node_and_whitespace_checks": "PASS",
+      "real_browsers_databases_forks_or_network_calls_started": false
+    },
+    "existing_governance_tests": {
+      "passed": 19
+    },
+    "existing_ci_tests": {
+      "passed": 22
+    },
+    "governance_scanner": "PASS",
+    "screenshot_summary_self_test": "PASS",
+    "main_governance": {
+      "run": 37980271678,
+      "conclusion": "success",
+      "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37980271678"
+    },
+    "main_contracts": {
+      "run": 37980271679,
+      "conclusion": "success",
+      "completed_at": "2026-10-09T19:46:23Z",
+      "url": "https://github.com/alrimarleskovar/gryloo/actions/runs/37980271679",
+      "all_mandatory_gates_passed": true
+    },
+    "push_policy": "One normal fast-forward push after existing runner is available; normal push/PR checks; no manual dispatch or benchmark.",
+    "ci_closeout_location": "https://github.com/alrimarleskovar/gryloo/pull/74",
+    "ci_closeout_method": "Update existing PR description after exact-head CI; keep certified source head unchanged.",
+    "additional_benchmarks": 0,
+    "scope_expansion": false,
+    "runner_modified": false,
+    "other_worktrees_modified": false,
+    "new_branches_created": 0,
+    "pr74_remains_draft": true,
+    "performance_target": "Not pursued per owner instruction.",
+    "pre_push_availability": {
+      "observed_at": "2026-10-09T19:47:29Z",
+      "runner": "flofi-wsl",
+      "status": "online",
+      "busy": false,
+      "queued_runs": 0,
+      "in_progress_runs": 0,
+      "runner_worker_present": false,
+      "required_ports_clear": [
+        5432,
+        3100,
+        8545,
+        8546,
+        8547,
+        8548,
+        8549,
+        8550,
+        8551,
+        8552,
+        8553,
+        8554,
+        8555,
+        8556,
+        8557,
+        8558,
+        8559
+      ],
+      "unrelated_listeners_untouched": true
+    },
+    "finalization_offline_preservation_check": "PASS",
+    "local_final_ci_report": ".cache/build-ci-optimization-001/final-integration/final-ci-report.md"
+  }
+}
