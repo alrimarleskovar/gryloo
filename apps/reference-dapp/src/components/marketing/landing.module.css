@@ -237,34 +237,40 @@
 .centerHeading { max-width: 900px; margin: auto; }
 .centerHeading h2 { font-size: clamp(40px, 4vw, 60px); }
 .centerHeading > p:not(.kicker) { max-width: 750px; margin: auto; }
-.diagram { display: grid; grid-template-columns: minmax(140px, 1fr) 80px minmax(300px, 1.5fr) 80px minmax(190px, 1fr); align-items: center; gap: 0; width: 100%; margin: 56px 0 44px; }
-.diagramInputs { display: grid; gap: 14px; }
-.diagramInputs > span { display: flex; align-items: center; min-height: 58px; padding: 0 10px 0 0; border-bottom: 1px solid #E9EDFD; font-size: 14px; font-weight: 600; transition: opacity .3s ease, color .3s ease; }
-.diagramInputs > span::before { content: ''; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; margin-right: 11px; background: linear-gradient(135deg, #E9EDFD, #E9EDFD); box-shadow: inset 0 0 0 8px #E9EDFD; }
-.diagramInputs > span:nth-child(2)::before { border-radius: 6px; box-shadow: inset 0 0 0 7px #E9EDFD; }
-.diagramInputs > span:nth-child(3)::before { border-radius: 50%; box-shadow: inset 0 0 0 8px #E9EDFD; }
-.diagramConnector { display: block; width: 100%; height: 300px; overflow: visible; }
-.diagramConnector path { fill: none; stroke: #93A6FF; stroke-width: 1.25; vector-effect: non-scaling-stroke; stroke-linecap: round; transition: opacity .3s ease, stroke .3s ease; }
-.diagramConnector circle { fill: #2343D9; stroke: #fff; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.diagramCore { position: relative; z-index: 1; padding: 38px 24px; border: 1px solid #E9EDFD; border-radius: 23px; background: linear-gradient(150deg, rgba(255,255,255,.97), #F5F8FB); box-shadow: 0 25px 60px rgba(16,130,142,.1), 0 0 65px rgba(35,67,217,.07), inset 0 1px 0 #fff; transform: perspective(1200px) rotateX(2deg); transition: box-shadow .5s ease; }
+/* Shared row geometry keeps the source ports, SVG endpoints and card edges joined. */
+.diagram { display: grid; grid-template-columns: minmax(180px, 1fr) 96px minmax(300px, 1.4fr) 96px minmax(210px, 1fr); align-items: center; gap: 0; width: 100%; margin: 56px 0 44px; }
+.diagramInputs { display: grid; grid-template-rows: repeat(3, 72px); gap: 24px; height: 264px; }
+.diagramSource { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding-left: 14px; border: 1px solid #D9E2EC; border-radius: 14px; background: #fff; color: #041B3D; font-size: 14px; font-weight: 600; box-shadow: 0 6px 18px rgba(4,27,61,.03); }
+.diagramSourceIcon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border: 1px solid #DDE4FC; border-radius: 11px; background: #F0F3FF; color: #2343D9; }
+.diagramSourceIcon svg { width: 23px; height: 23px; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.diagramSourceLine { flex: 1; height: 1.5px; background: #93A6FF; }
+.diagramPort, .diagramJunction { position: absolute; z-index: 2; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #2343D9; }
+.diagramSourcePort { right: -5px; top: 50%; transform: translateY(-50%); }
+.diagramConnector { position: relative; width: 100%; height: 264px; }
+.diagramConnector svg { width: 100%; height: 100%; overflow: visible; }
+.diagramConnector .diagramVertical { display: none; }
+.diagramConnector path { fill: none; stroke: #93A6FF; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.diagramJunction { top: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 4px #E9EDFD; }
+.diagramMerge .diagramJunction { left: 66.6667%; }
+.diagramBranch .diagramJunction { left: 33.3333%; }
+.diagramArrow { position: absolute; right: 10px; top: 50%; width: 7px; height: 7px; border-right: 1.5px solid #2343D9; border-bottom: 1.5px solid #2343D9; transform: translateY(-50%) rotate(-45deg); }
+.diagramBranch .diagramArrow { top: 31.8182%; }
+.diagramBranch .diagramArrow + .diagramArrow { top: 68.1818%; }
+.diagramCore { position: relative; z-index: 1; padding: 34px 24px; border: 1px solid #D9E2EC; border-radius: 23px; background: linear-gradient(150deg, #fff, #F5F8FB); box-shadow: 0 25px 60px rgba(4,27,61,.07), 0 0 65px rgba(35,67,217,.05), inset 0 1px 0 #fff; }
 .diagramCore > .brand, .diagramCore > .brandLight { font-size: 32px; }
-.diagramCore > span:not(.brand):not(.brandLight) { display: block; margin: 9px 0 22px; color: var(--muted); font-size: 14px; }
-.diagramCore > div:last-child { display: flex; justify-content: center; gap: 13px; flex-wrap: wrap; padding: 11px 8px; border: 1px solid var(--line); border-radius: 99px; background: #fff; font-size: 11px; font-weight: 600; }
-.diagramCore > div:last-child span + span::before { content: '·'; color: var(--aqua-dark); margin-right: 13px; }
-.diagramOutputs { display: grid; gap: 6px; align-content: center; }
-.diagramOutputs > div { display: flex; align-items: center; gap: 12px; min-height: 70px; padding: 10px 0 11px 17px; border-bottom: 1px solid #E9EDFD; text-align: left; font-size: 13px; }
-.diagramOutputs > div > span:last-child { display: grid; align-content: center; }
-.diagramProtocolMark { display: grid; place-items: center; width: 33px; height: 33px; flex: none; border-radius: 50%; background: radial-gradient(circle at 30% 20%, #25334f, #0a1426 78%); box-shadow: 0 4px 11px rgba(7,32,54,.14); color: #E9EDFD; font-size: 12px; font-weight: 600; }
-.diagramProtocolMarkBase { display: grid; place-items: center; width: 33px; height: 33px; flex: none; border-radius: 50%; background: #eef2ff; color: #3452ca; font-size: 8px; font-weight: 600; }
-.diagramOutputs small { color: var(--muted); margin-top: 5px; font-size: 11px; font-weight: 400; }
-.diagramOutputs p { margin: 11px 0 0 17px; color: #688094; font-size: 11px; text-align: left; }
-.diagramOutputs p small { display: block; margin-top: 2px; font-size: 10px; }
-.diagram:has(.diagramInputs > span:hover) .diagramInputs > span:not(:hover) { opacity: .42; }
-.diagram:has(.diagramInputs > span:hover) .diagramInputs + .diagramConnector path { opacity: .22; }
-.diagram:has(.diagramInputs > span:nth-child(1):hover) .diagramInputs + .diagramConnector path:nth-child(1),
-.diagram:has(.diagramInputs > span:nth-child(2):hover) .diagramInputs + .diagramConnector path:nth-child(2),
-.diagram:has(.diagramInputs > span:nth-child(3):hover) .diagramInputs + .diagramConnector path:nth-child(3) { opacity: 1; stroke: #2343D9; }
-.diagram:has(.diagramInputs > span:hover) .diagramCore { box-shadow: 0 28px 65px rgba(16,130,142,.16), 0 0 70px rgba(35,67,217,.1); }
+.diagramCoreLabel { display: block; margin: 9px 0 22px; color: var(--muted); font-size: 14px; }
+.diagramCore > div { display: flex; justify-content: center; gap: 8px 12px; flex-wrap: wrap; padding: 11px 8px; border: 1px solid var(--line); border-radius: 18px; background: #fff; font-size: 11px; font-weight: 600; }
+.diagramCoreInput { left: -5px; top: 50%; transform: translateY(-50%); }
+.diagramCoreOutput { right: -5px; top: 50%; transform: translateY(-50%); }
+.diagramOutputs { position: relative; display: grid; grid-template-rows: repeat(2, 72px); gap: 24px; align-content: center; height: 264px; }
+.diagramDestination { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px 10px 18px; border: 1px solid #D9E2EC; border-radius: 14px; background: #fff; box-shadow: 0 6px 18px rgba(4,27,61,.03); text-align: left; font-size: 13px; }
+.diagramDestination::before { content: ''; position: absolute; left: 0; top: 50%; width: 12px; height: 1.5px; background: #93A6FF; transform: translateY(-50%); }
+.diagramDestination > span:last-child { display: grid; align-content: center; }
+.diagramDestinationPort { left: -5px; top: 50%; transform: translateY(-50%); }
+.diagramOutputs small { color: var(--muted); margin-top: 4px; font-size: 11px; font-weight: 400; }
+.diagramOutputLabel { position: absolute; top: 7px; left: 0; margin: 0; color: #4B5B73; font-size: 11px; font-weight: 500; }
+.diagramMore { position: absolute; bottom: 0; left: 0; margin: 0; color: #4B5B73; font-size: 11px; text-align: left; }
+.diagramMore small { display: block; margin-top: 2px; font-size: 10px; }
 .developerValues { display: grid; grid-template-columns: repeat(3, 1fr); text-align: left; border-top: 1px solid var(--line); margin: 0 0 42px; }
 .developerValues > div { display: grid; gap: 5px; padding: 22px 35px; }
 .developerValues > div + div { border-left: 1px solid var(--line); }
@@ -315,7 +321,11 @@
   .storyFrame { padding-inline: 16px; }
   .storyFrameBody { grid-template-columns: 90px 1fr; gap: 10px; }
   .splitGrid, .reviewSection .splitGrid { gap: 42px; }
-  .diagram { grid-template-columns: minmax(105px, 1fr) 36px minmax(235px, 1.5fr) 36px minmax(135px, 1fr); }
+  .diagram { grid-template-columns: minmax(150px, 1fr) 56px minmax(240px, 1.4fr) 56px minmax(170px, 1fr); }
+  .diagramSource { padding-left: 10px; gap: 9px; font-size: 13px; }
+  .diagramSourceIcon { width: 34px; height: 34px; }
+  .diagramDestination { padding-inline: 16px 8px; gap: 8px; font-size: 12px; }
+  .diagramCore { padding-inline: 16px; }
   .closingGrid { grid-template-columns: 1fr; }
   .visionVisual { width: min(100%, 650px); margin: 28px auto 0; }
 }
@@ -353,11 +363,6 @@
   .reviewGhost { display: none; }
   .reviewPreview { transform: none; }
   .sectionCopy h2, .centerHeading h2, .closingGrid h2 { font-size: clamp(40px, 8vw, 58px); }
-  .diagram { grid-template-columns: 1fr; gap: 16px; margin: 45px 0; }
-  .diagramConnector { display: none; }
-  .diagramInputs { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .diagramInputs > span { min-height: 52px; padding: 0 8px; font-size: 12px; }
-  .diagramInputs > span::before { width: 24px; height: 24px; margin-right: 6px; }
   .developerValues { grid-template-columns: 1fr; }
   .developerValues > div { padding: 16px 0; }
   .developerValues > div + div { border-left: 0; border-top: 1px solid var(--line); }
@@ -370,6 +375,32 @@
   .visionCore { padding: 6px; }
   .footer > .container { flex-wrap: wrap; padding: 24px 0; }
   .footer nav { order: 3; flex-wrap: wrap; gap: 5px 18px; width: 100%; }
+}
+
+@media (max-width: 900px) {
+  .diagram { grid-template-columns: minmax(0, 1fr); gap: 0; max-width: 600px; margin: 45px auto; }
+  .diagramInputs { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: 104px; gap: 0; height: 104px; }
+  .diagramSource { flex-direction: column; gap: 8px; margin-inline: 6px; padding: 12px 6px 0; font-size: 12px; }
+  .diagramSourceLine { flex: 1; width: 1.5px; height: auto; }
+  .diagramSourcePort { right: auto; left: 50%; top: auto; bottom: -5px; transform: translateX(-50%); }
+  .diagramConnector .diagramHorizontal { display: none; }
+  .diagramConnector .diagramVertical { display: block; }
+  .diagramMerge { height: 80px; }
+  .diagramMerge .diagramJunction { left: 50%; top: 65%; }
+  .diagramArrow { right: auto; top: auto; bottom: 10px; left: 50%; transform: translateX(-50%) rotate(45deg); }
+  .diagramCore { padding: 28px 20px; }
+  .diagramCoreInput { left: 50%; top: -5px; transform: translateX(-50%); }
+  .diagramCoreOutput { right: auto; left: 50%; top: auto; bottom: -5px; transform: translateX(-50%); }
+  .diagramBranch { height: 64px; }
+  .diagramBranch .diagramJunction { left: 50%; top: 31.25%; }
+  .diagramBranch .diagramArrow { top: auto; left: 25%; }
+  .diagramBranch .diagramArrow + .diagramArrow { top: auto; left: 75%; }
+  .diagramOutputs { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 104px; gap: 0; height: auto; padding-bottom: 74px; }
+  .diagramDestination { flex-direction: column; justify-content: center; gap: 7px; margin-inline: 6px; padding: 12px 6px; text-align: center; }
+  .diagramDestination::before { display: none; }
+  .diagramDestinationPort { left: 50%; top: -5px; transform: translateX(-50%); }
+  .diagramOutputLabel { top: auto; bottom: 48px; left: 0; width: 100%; }
+  .diagramMore { left: 0; width: 100%; text-align: center; }
 }
 
 @media (max-width: 480px) {
@@ -407,10 +438,7 @@
   .reviewSection[data-visible="true"] .rangeLine { stroke-dasharray: 500; stroke-dashoffset: 500; animation: drawConnection 1.2s .45s cubic-bezier(.22,1,.36,1) both; }
   .reviewSection[data-visible="true"] .reviewRisks { animation: landingSoftEnter .6s .62s both; }
   .reviewSection[data-visible="true"] .reviewAuthorization { animation: landingSoftEnter .6s .76s both; }
-  .developerSection[data-visible="true"] .diagramInputs { animation: landingSoftEnter .6s .08s both; }
-  .developerSection[data-visible="true"] .diagramConnector path { stroke-dasharray: 430; stroke-dashoffset: 430; animation: drawConnection 1.5s .25s cubic-bezier(.22,1,.36,1) both; }
-  .developerSection[data-visible="true"] .diagramCore { animation: landingSoftFade .7s .7s both; }
-  .developerSection[data-visible="true"] .diagramOutputs { animation: landingSoftEnter .6s .9s both; }
+  .developerSection[data-visible="true"] .diagram { animation: landingSoftFade .7s .08s both; }
   .closingSection[data-visible="true"] .visionVisual svg path { stroke-dasharray: 340; stroke-dashoffset: 340; animation: drawConnection 1.7s .5s cubic-bezier(.22,1,.36,1) both; }
 }
 @keyframes landingSoftEnter { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }

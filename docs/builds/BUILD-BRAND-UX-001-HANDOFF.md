@@ -2,7 +2,7 @@
 
 Updated: 2026-10-09. Current worktree: `/home/asus/projects/flofi-brand-ux`; branch: `codex/build-brand-ux-001`; starting HEAD: `fefda242e4abea5b8be5db57a9b8a09adbd2b65a`. Preserve all existing work. Do not restart, explore the full repository, run the complete browser suite repeatedly, merge, or touch unrelated branches/PRs.
 
-Validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR: [#73](https://github.com/alrimarleskovar/gryloo/pull/73), opened against `main` after validation and left unmerged. The following documentation commit records this final checkpoint.
+Original validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR: [#73](https://github.com/alrimarleskovar/gryloo/pull/73), opened against `main` after validation and left unmerged. Follow-up implementation and validation are recorded below and in subsequent commits on this same branch.
 
 ## Completed work
 
@@ -13,10 +13,11 @@ Validated implementation commit: `8c4bf71bd153f77895f1026074cf1314c426d359`. PR:
 - Product-oriented README and original engineering README preservation are implemented. Attribution, crypto source register and license map are updated.
 - Desktop/mobile landing and builder screenshots already exist in `apps/reference-dapp/e2e/visual-evidence/build-brand-ux-001/`; reuse them.
 - Product/approval replay-fixture tracing follows the migrated routes. Local development still uses `next dev` and Fast Refresh.
+- Owner-requested execution-infrastructure refinement is complete: recognizable Wallet/App/Agent icons, connected merge/branch junctions, explicit ports/arrows, EN/PT onchain-protocol labels and a connected vertical layout through mobile/tablet widths. See the follow-up checkpoint below for exact changes and evidence.
 
 ## Remaining tasks
 
-Implementation, focused validation, commit/push and PR creation are complete. Only normal CI and owner review remain. No further repository investigation or complete local E2E run is needed. Do not merge.
+The original implementation and the requested diagram refinement are complete and validated. This checkpoint updates existing PR #73. Only CI and owner review remain. No full repository investigation or complete local E2E run is needed. Do not merge.
 
 ## Known issues
 
@@ -59,17 +60,33 @@ Prior-session artifacts and current focused results are distinguished below. Suc
 | Router financial provenance | **1/1 passed**, quotes do not grant financial authority | `/tmp/flofi-brand-handoff-provenance-router.log` |
 | Solana financial provenance | **1/1 passed**, no signature/broadcast from fixture quote | `/tmp/flofi-brand-handoff-provenance-solana.log` |
 | Route source/production tracing audit | Six page files byte-identical; approval comment only; connections relative import only; all replay files bundled | Scripted comparison and final trace inspection |
+| Diagram follow-up app build/typecheck/affected ESLint | Passed | `/tmp/flofi-brand-diagram-{build,lint}.log`; successful app typecheck command |
+| Diagram follow-up localhost geometry/visual audit | **11/11 passed**, EN/PT including 900/901px transition; zero overflow/errors/external requests | `/tmp/flofi-brand-diagram-{audit.json,dev.log}` |
+| Diagram follow-up production landing + normal motion | **8/8 passed**, EN/PT at seven widths and actual rendered connections | `/tmp/flofi-brand-diagram-browser.log` |
+| Diagram follow-up governance + whitespace | Passed | `/tmp/flofi-brand-diagram-governance.log`; `git diff --check` |
 
-Current distinct focused browser cases: **39 passed across checkpoints** (32 brand/layout/routes/keyboard/isolation + 5 workflow acceptance + 2 provenance). Current focused unit tests: **70 passed** (17 navigation + 53 workspace). Final Fast Refresh recheck passed after the stage-aware shortcuts were finalized. Marketing, network, review and mobile builder captures were visually inspected. No financial broadcast, live provider use or complete E2E rerun was performed.
+Original integration focused browser cases: **39 passed across checkpoints** (32 brand/layout/routes/keyboard/isolation + 5 workflow acceptance + 2 provenance). The diagram follow-up passes eight overlapping/new cases, adding one new 1024px case for **40 distinct passing browser cases across all checkpoints**. Current focused unit tests: **70 passed** (17 navigation + 53 workspace). Final Fast Refresh recheck passed after the stage-aware shortcuts were finalized. Marketing, network, review, infrastructure and mobile builder captures were visually inspected. No financial broadcast, live provider use or complete E2E rerun was performed.
 
 Initial session audit inspected only changed files, build reports and relevant dependencies. No existing implementation was discarded.
 
 ## Next exact actions
 
-1. Check only this PR's current CI/review state: `gh pr checks 73 --repo alrimarleskovar/gryloo` and `gh pr view 73 --repo alrimarleskovar/gryloo`. Address an actual reported failure or owner review request; do not repeat completed implementation or all tests by default.
-2. Required browser environment: `NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 BUILD002_BROWSER_CACHE=/home/asus/.cache/ms-playwright/chromium_headless_shell-1243 GRYLOO_ANVIL_BIN=/tmp/claude-1000/auto001/foundry-v1.8.3/anvil GRYLOO_MODE_A_RUNTIME=/tmp/flofi-brand-handoff-fork`; normal runner port 3108. Keep localhost 3000 on `next dev`, whose output is `.next/dev`.
-3. For a new failure, use its existing log and the smallest relevant test/profile; all recorded validation commands and fixture paths remain above.
-4. Leave merge and any real financial acceptance to the owner. Preserve this branch and all prior evidence.
+1. Check only this PR's CI/review state: `gh pr checks 73 --repo alrimarleskovar/gryloo` and `gh pr view 73 --repo alrimarleskovar/gryloo`. Address actual failures or review requests with the smallest relevant check. Leave merge and financial acceptance to the owner.
+2. If the diagram is changed again, rebuild the app and run `pnpm --filter @defi-workflow-engine/reference-dapp exec playwright test brand-ux-001.spec.ts --grep 'landing, keyboard|desktop scroll story'`; `FLOFI_BRAND_EVIDENCE=1` refreshes the affected captures. This is eight focused cases, not the complete E2E suite.
+3. Required browser environment: `NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 BUILD002_BROWSER_CACHE=/home/asus/.cache/ms-playwright/chromium_headless_shell-1243 GRYLOO_ANVIL_BIN=/tmp/claude-1000/auto001/foundry-v1.8.3/anvil GRYLOO_MODE_A_RUNTIME=/tmp/flofi-brand-handoff-fork`; normal runner port 3108. Keep localhost 3000 on `next dev`, whose output is `.next/dev`.
+4. Preserve this branch, all earlier evidence and the updated same PR. No further implementation or local test run is required for the completed request.
+
+## Execution-infrastructure diagram follow-up (complete)
+
+- Scoped audit: only the existing diagram markup/styles, landing EN/PT copy, focused landing test, app instructions and current build reports were read. Worktree was clean at follow-up start (`12dd68937ddb5a2211518e41f26c74ac2e15f3ea`).
+- Replaced the three empty pseudo-elements with native wallet, app/window/grid and automation/spark SVG icons in matching source cards. Each desktop card has a label, horizontal line and visible endpoint.
+- Rebuilt inbound SVG paths around the source row centers, one explicit merge junction and a straight arrowed connection into FloFi. Rebuilt the outbound junction and branches to Orca/Solana and Aave/Ethereum; terminal straight segments keep arrows attached to the lines. Added EN/PT “Onchain protocols” labels. Existing workflow-example/roadmap qualifiers remain.
+- Removed the core perspective transform and separate entrance/path-drawing animations that could temporarily detach endpoints. The entire connected illustration now fades together. At 900px and below, the illustration stacks vertically with three connected sources above FloFi and two connected protocol cards below; connectors are no longer hidden on mobile.
+- Added actual rendered-endpoint/port comparisons and merge/branch junction checks to the existing landing cases, including a new 1024px tablet case. Normal-motion checks cover desktop and mobile. No application route, financial gate, dependency or runtime configuration changed.
+- Completed: app typecheck and affected ESLint passed; localhost visual/geometry audit **11/11 passed** (EN: 320/390/768/900/901/1024/1440; PT: 320/768/1024/1440), with at most ~1px port-border offset, zero overflow, browser errors or external requests. Visual review covered desktop, tablet and narrow mobile in both languages. Artifacts: `/tmp/flofi-brand-diagram-{audit.json,dev.log}` and `/tmp/flofi-brand-diagram-{en,pt}-*.png`.
+- Final production build, app typecheck, affected lint, governance and whitespace checks passed. The focused production runner passed **8/8**: landing/keyboard/product-entry cases at 320/375/390/430/768/1024/1440px (EN/PT and geometric connectivity checks), plus the existing normal-motion case extended to check the diagram at 1440/390px. Exact log: `/tmp/flofi-brand-diagram-browser.log`.
+- Final visual evidence: `after-infrastructure-{320,390,768,1024,1440}.png` added under `apps/reference-dapp/e2e/visual-evidence/build-brand-ux-001/`; full landing captures at 390/1440px refreshed. Desktop, tablet and narrow mobile captures were inspected. Existing before/history evidence is retained.
+- Known new issues: none found. The unchanged localhost development server served the updated components/styles; no Fast Refresh configuration or application functionality changed. This validated follow-up updates existing PR #73 and remains unmerged. No remaining implementation task for this request.
 
 ## Latest public landing correction (owner request during this session)
 

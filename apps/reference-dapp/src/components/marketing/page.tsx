@@ -87,13 +87,54 @@ function ReviewPreview({ t }: { t: LandingCopy }) {
   </div>;
 }
 
+function SourceIcon({ source }: { source: 'wallet' | 'app' | 'agent' }) {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+    {source === 'wallet' && <><path d="M19 8V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 6.5"/><path d="M21 12h-5a2 2 0 0 0 0 4h5"/><circle cx="16.5" cy="14" r=".8" fill="currentColor" stroke="none"/></>}
+    {source === 'app' && <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01M8 13h3v3H8zM15 13h1M15 16h1"/></>}
+    {source === 'agent' && <><path d="m12 4 2.2 5.8L20 12l-5.8 2.2L12 20l-2.2-5.8L4 12l5.8-2.2L12 4Z"/><path d="M20 3v4M18 5h4M4 17v4M2 19h4"/></>}
+  </svg>;
+}
+
 function FlowDiagram({ t }: { t: LandingCopy }) {
-  return <div className={styles.diagram} aria-label={t.executionInfrastructure}>
-    <div className={styles.diagramInputs}><span>{t.diagramWallet}</span><span>{t.diagramApp}</span><span>{t.diagramAgent}</span></div>
-    <svg className={styles.diagramConnector} aria-hidden="true" viewBox="0 0 80 300" preserveAspectRatio="none"><path d="M0 52 C48 52 32 150 80 150" /><path d="M0 150 C42 150 38 150 80 150" /><path d="M0 248 C48 248 32 150 80 150" /><circle cx="0" cy="52" r="3" /><circle cx="0" cy="150" r="3" /><circle cx="0" cy="248" r="3" /><circle cx="80" cy="150" r="4" /></svg>
-    <div className={styles.diagramCore}><Brand /><span>{t.executionInfrastructure}</span><div><span>{t.stageStrategy}</span><span>{t.stageReview}</span><span>{t.diagramAuthorization}</span><span>{t.diagramVerification}</span></div></div>
-    <svg className={styles.diagramConnector} aria-hidden="true" viewBox="0 0 80 300" preserveAspectRatio="none"><path d="M0 150 C48 150 32 92 80 92" /><path d="M0 150 C48 150 32 208 80 208" /><circle cx="0" cy="150" r="4" /><circle cx="80" cy="92" r="3" /><circle cx="80" cy="208" r="3" /></svg>
-    <div className={styles.diagramOutputs}><div><CryptoMark name="SOL"/><span><strong>Orca · Solana</strong><small>{t.illustrativeScenario}</small></span></div><div><CryptoMark name="ETH"/><span><strong>Aave · Ethereum</strong><small>{t.illustrativeScenario}</small></span></div><p>{t.more} <small>{t.ecosystemDirection}</small></p></div>
+  const sources = [{ source: 'wallet', label: t.diagramWallet }, { source: 'app', label: t.diagramApp }, { source: 'agent', label: t.diagramAgent }] as const;
+  return <div className={styles.diagram} role="group" aria-label={t.executionInfrastructure} data-flow-diagram>
+    <div className={styles.diagramInputs}>
+      {sources.map(({ source, label }) => <div className={styles.diagramSource} data-flow-source={source} key={source}>
+        <span className={styles.diagramSourceIcon}><SourceIcon source={source}/></span>
+        <span>{label}</span><span className={styles.diagramSourceLine} aria-hidden="true"/>
+        <span className={`${styles.diagramPort} ${styles.diagramSourcePort}`} data-flow-port aria-hidden="true"/>
+      </div>)}
+    </div>
+    <div className={`${styles.diagramConnector} ${styles.diagramMerge}`} aria-hidden="true">
+      <svg className={styles.diagramHorizontal} viewBox="0 0 96 264" preserveAspectRatio="none">
+        <path d="M0 36 C40 36 24 132 64 132"/><path d="M0 132 H64"/><path d="M0 228 C40 228 24 132 64 132"/><path d="M64 132 H96"/>
+      </svg>
+      <svg className={styles.diagramVertical} viewBox="0 0 300 80" preserveAspectRatio="none">
+        <path d="M50 0 V12 C50 40 150 24 150 52"/><path d="M150 0 V52"/><path d="M250 0 V12 C250 40 150 24 150 52"/><path d="M150 52 V80"/>
+      </svg>
+      <span className={styles.diagramJunction} data-flow-junction/><span className={styles.diagramArrow}/>
+    </div>
+    <div className={styles.diagramCore} data-flow-core>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreInput}`} data-flow-port="input" aria-hidden="true"/>
+      <Brand /><span className={styles.diagramCoreLabel}>{t.executionInfrastructure}</span>
+      <div><span>{t.stageStrategy}</span><span>{t.stageReview}</span><span>{t.diagramAuthorization}</span><span>{t.diagramVerification}</span></div>
+      <span className={`${styles.diagramPort} ${styles.diagramCoreOutput}`} data-flow-port="output" aria-hidden="true"/>
+    </div>
+    <div className={`${styles.diagramConnector} ${styles.diagramBranch}`} aria-hidden="true">
+      <svg className={styles.diagramHorizontal} viewBox="0 0 96 264" preserveAspectRatio="none">
+        <path d="M0 132 H32"/><path d="M32 132 C56 132 56 84 80 84 H96"/><path d="M32 132 C56 132 56 180 80 180 H96"/>
+      </svg>
+      <svg className={styles.diagramVertical} viewBox="0 0 300 64" preserveAspectRatio="none">
+        <path d="M150 0 V20"/><path d="M150 20 C150 40 75 40 75 48 V64"/><path d="M150 20 C150 40 225 40 225 48 V64"/>
+      </svg>
+      <span className={styles.diagramJunction} data-flow-junction/><span className={styles.diagramArrow}/><span className={styles.diagramArrow}/>
+    </div>
+    <div className={styles.diagramOutputs}>
+      <p className={styles.diagramOutputLabel}>{t.diagramProtocols}</p>
+      <div className={styles.diagramDestination} data-flow-destination="orca"><span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/><CryptoMark name="SOL"/><span><strong>Orca · Solana</strong><small>{t.illustrativeScenario}</small></span></div>
+      <div className={styles.diagramDestination} data-flow-destination="aave"><span className={`${styles.diagramPort} ${styles.diagramDestinationPort}`} data-flow-port aria-hidden="true"/><CryptoMark name="ETH"/><span><strong>Aave · Ethereum</strong><small>{t.illustrativeScenario}</small></span></div>
+      <p className={styles.diagramMore}>{t.more} <small>{t.ecosystemDirection}</small></p>
+    </div>
   </div>;
 }
 
