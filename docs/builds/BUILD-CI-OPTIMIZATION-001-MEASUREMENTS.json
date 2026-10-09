@@ -181,10 +181,205 @@
   "dependency_evidence_sha256": "fd91062750e250f43799556490d09c96b550eae2624532ddbb93f753d501584f",
   "optimized_dependency_evidence_identical": true,
   "method": "One sequential setup-only sample per case on the shared WSL host; GNU time wall and max RSS. No local build, DB, fork or browser suite. This excludes Actions cache transfer and post-job costs and is not a controlled full-CI benchmark. Main CI began at 12:52:50 UTC during setup measurements.",
-  "full_ci_cold": "NOT MEASURED",
+  "full_ci_cold": {
+    "run": 37936422351,
+    "job": 113839501921,
+    "sha": "90e05331ad79c45e1c5cf8d6c4675ea9c72473ea",
+    "event": "push",
+    "conclusion": "success",
+    "created_at": "2026-10-09T13:22:52Z",
+    "started_at": "2026-10-09T13:22:55Z",
+    "completed_at": "2026-10-09T13:42:37Z",
+    "wall_seconds": 1182.0,
+    "queue_dispatch_seconds": 3.0,
+    "actions_cache_hit": false,
+    "verified_downloads": 4,
+    "cache_size_bytes": 273086692,
+    "cache_restore_seconds": 1,
+    "cache_save_seconds": 105,
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:22:53Z",
+        "completed_at": "2026-10-09T13:22:58Z"
+      },
+      {
+        "name": "Initialize containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:22:58Z",
+        "completed_at": "2026-10-09T13:23:07Z"
+      },
+      {
+        "name": "Configure self-hosted temp storage",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:07Z",
+        "completed_at": "2026-10-09T13:23:07Z"
+      },
+      {
+        "name": "Fetch reviewed revision with runner-provided Git",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:07Z",
+        "completed_at": "2026-10-09T13:23:11Z"
+      },
+      {
+        "name": "Start CI resource observations",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:11Z",
+        "completed_at": "2026-10-09T13:23:11Z"
+      },
+      {
+        "name": "Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:11Z",
+        "completed_at": "2026-10-09T13:23:12Z"
+      },
+      {
+        "name": "Verify and bootstrap exact official Node and pnpm archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:12Z",
+        "completed_at": "2026-10-09T13:23:21Z"
+      },
+      {
+        "name": "Print exact verified toolchain before installation",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:21Z",
+        "completed_at": "2026-10-09T13:23:22Z"
+      },
+      {
+        "name": "Frozen install without lifecycle scripts",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:22Z",
+        "completed_at": "2026-10-09T13:23:25Z"
+      },
+      {
+        "name": "Verify every registry integrity, license and release age",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:25Z",
+        "completed_at": "2026-10-09T13:23:41Z"
+      },
+      {
+        "name": "Dependency audit",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:41Z",
+        "completed_at": "2026-10-09T13:23:42Z"
+      },
+      {
+        "name": "Typecheck",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:23:42Z",
+        "completed_at": "2026-10-09T13:24:47Z"
+      },
+      {
+        "name": "Lint",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:24:47Z",
+        "completed_at": "2026-10-09T13:25:03Z"
+      },
+      {
+        "name": "Production build",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:03Z",
+        "completed_at": "2026-10-09T13:25:44Z"
+      },
+      {
+        "name": "Schema drift",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:44Z",
+        "completed_at": "2026-10-09T13:25:45Z"
+      },
+      {
+        "name": "Unit and contract tests and exported API checks",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:25:45Z",
+        "completed_at": "2026-10-09T13:28:38Z"
+      },
+      {
+        "name": "PostgreSQL durability, concurrency, recovery and tenant-isolation suites (disposable loopback database)",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:28:38Z",
+        "completed_at": "2026-10-09T13:30:11Z"
+      },
+      {
+        "name": "Bootstrap exact approved anvil",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:30:11Z",
+        "completed_at": "2026-10-09T13:30:30Z"
+      },
+      {
+        "name": "Offline compatibility gate and fork suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:30:30Z",
+        "completed_at": "2026-10-09T13:31:08Z"
+      },
+      {
+        "name": "Bootstrap exact approved headless shell",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:31:08Z",
+        "completed_at": "2026-10-09T13:31:27Z"
+      },
+      {
+        "name": "Run guarded browser suite",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:31:27Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Summarize screenshot differences after a browser failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Upload browser screenshot mismatch images",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:41Z"
+      },
+      {
+        "name": "Validate and remove ephemeral CycloneDX 1.6 SBOM",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:41Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "CI timing summary after failure",
+        "conclusion": "skipped",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "CI timing summary after success",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:40:42Z"
+      },
+      {
+        "name": "Post Cache only untrusted raw approved tool archives",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:40:42Z",
+        "completed_at": "2026-10-09T13:42:27Z"
+      },
+      {
+        "name": "Stop containers",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:42:27Z",
+        "completed_at": "2026-10-09T13:42:29Z"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success",
+        "started_at": "2026-10-09T13:42:29Z",
+        "completed_at": "2026-10-09T13:42:29Z"
+      }
+    ]
+  },
   "full_ci_warm": "NOT MEASURED",
   "full_ci_invalidation": "NOT MEASURED",
-  "full_ci_improvement_percent": "NOT MEASURED",
+  "full_ci_improvement_percent": {
+    "cold_single_observation": 9.7,
+    "warm": "NOT MEASURED"
+  },
   "updated_main_successful_run": 37932954417,
   "updated_main_job": {
     "started_at": "2026-10-09T12:52:53Z",
@@ -317,5 +512,113 @@
     "outcome": "cancelled",
     "main_certification_outcome": "success",
     "old_push_governance_outcome": "success"
+  },
+  "updated_main_slow_tests": [
+    {
+      "path": "apps/reference-dapp/src/server/lending-composition-service.test.ts",
+      "kind": "unit file",
+      "tests": 61,
+      "seconds": 135.961
+    },
+    {
+      "path": "apps/reference-dapp/src/channels/whatsapp/journey.pg.test.ts",
+      "kind": "PostgreSQL file",
+      "tests": 2,
+      "seconds": 16.31
+    },
+    {
+      "path": "apps/reference-dapp/e2e/acceptance-swap-read.spec.ts",
+      "kind": "single browser case",
+      "seconds": 14.0
+    },
+    {
+      "path": "apps/reference-dapp/e2e/build009.spec.ts",
+      "kind": "single browser case",
+      "seconds": 12.1
+    },
+    {
+      "path": "apps/reference-dapp/e2e/channel-signing.spec.ts",
+      "kind": "ChatGPT single browser case",
+      "seconds": 8.9
+    }
+  ],
+  "updated_main_test_counts": {
+    "unit": {
+      "passed": 2965,
+      "preexisting_skipped": 2
+    },
+    "postgres": {
+      "passed": 252
+    },
+    "offline_compatibility": {
+      "passed": 4,
+      "preexisting_skipped": 10
+    },
+    "fork": {
+      "passed": 31,
+      "preexisting_skipped": 29
+    },
+    "separately_initialized_composition_fork": {
+      "passed": 3
+    },
+    "browser": {
+      "passed_case_executions": 188,
+      "invocations": 25,
+      "note": "Counts include intentional repeated spec execution under distinct profiles; not unique case count."
+    }
+  },
+  "cold_observed_improvement": {
+    "comparison_run": 37932954417,
+    "baseline_seconds": 1309,
+    "optimized_seconds": 1182.0,
+    "saved_seconds": 127.0,
+    "percentage": 9.7,
+    "caveat": "Single successful full-job comparison on shared host. Different browser duration contributes; this does not isolate optimization causality or establish warm-cache performance."
+  },
+  "optimized_resource_endpoints": {
+    "minimum_available_ram_gib": 4.04,
+    "maximum_swap_used_gib": 2.0,
+    "system_swap_pages_in": 2123,
+    "system_swap_pages_out": 1925,
+    "full_job_peak_ram": "NOT MEASURED",
+    "observed_elapsed_after_checkout_seconds": 1051.01,
+    "system_disk_input_mib": 4082.5,
+    "system_disk_output_mib": 5481.1
+  },
+  "same_sha_governance": {
+    "run": 37936422425,
+    "conclusion": "success"
+  },
+  "remaining_benchmark_blocker": {
+    "other_branch": "codex/build-brand-ux-001",
+    "active_run_observed": 37937740488,
+    "own_pr_contracts_run": 37936428008,
+    "own_pr_contracts_state_observed": "queued",
+    "action": "No other workflow was cancelled; no additional benchmark run was requested."
+  },
+  "optimized_test_counts": {
+    "unit": {
+      "passed": 2965,
+      "preexisting_skipped": 2
+    },
+    "postgres": {
+      "passed": 252
+    },
+    "offline_compatibility": {
+      "passed": 4,
+      "preexisting_skipped": 10
+    },
+    "fork": {
+      "passed": 31,
+      "preexisting_skipped": 29
+    },
+    "separately_initialized_composition_fork": {
+      "passed": 3
+    },
+    "browser": {
+      "passed_case_executions": 188,
+      "invocations": 25,
+      "note": "Counts include intentional repeated spec execution under distinct profiles; not unique case count."
+    }
   }
 }
