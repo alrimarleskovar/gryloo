@@ -1,8 +1,9 @@
 # BUILD-AUTOMATION-001 — Report: FloFi Automations (automated evaluation, owner-confirmed execution)
 
-Date: 2026-10-09. Branch `claude/build-automation-001-production` (worktree `~/projects/gryloo-automation-001`), **restacked onto main
-`68249fad76f515dee9c953cb42df115492f191dd`** (the PR #72 merge, BUILD-CHANNEL-SIGNING-001; it includes PR #71, BUILD-PLATFORM-STATE-001)
-— first built on `8f91a010`; see §12. Developed and validated locally; **not pushed, no PR** (one owner push, one CI cycle).
+Date: 2026-10-09. Branch `claude/build-automation-001-production` (worktree `~/projects/gryloo-automation-001`), **final canonical base:
+main `7175cd02428ea0c9d6f51b295fe5e270457c342a`** (the PR #74 merge, BUILD-CI-OPTIMIZATION-001; it includes PR #73, BUILD-BRAND-UX-001,
+and the earlier PR #71 and PR #72). First built on `8f91a010`, restacked onto `68249fa` (§12), then finally onto `7175cd0` (§13).
+Developed and validated locally; **not pushed, no PR** (one owner push, one CI cycle).
 PR #66 and BUILD-016 / Mode C were not used as a baseline: nothing was cherry-picked, merged, rebased or copied.
 
 **Final status: `READY_FOR_OWNER_PUSH`.**
@@ -118,6 +119,10 @@ authoritatively during the build, so no address is committed; each configured fe
 
 ## 5. Security acceptance (proved by)
 
+All ten properties were re-verified on the final tree (main `7175cd0` + this branch): every test named below ran green in the final
+gates of §6 (`pnpm check`, `pnpm test:postgres`, the guarded `automations` profile and the three Automation browser runs). PR #72's
+signing/recovery flow and PR #73/#74 introduced no alternate path around them (§12, §13).
+
 | # | Property | Evidence |
 | --- | --- | --- |
 | 1 | The scheduler cannot sign | `boundaries.test.ts`: no key custody or signing primitive anywhere in the import closure of the dispatch, **the worker entry** (`backend/automation-worker.ts`, `worker.ts`) **or the API routes and BFF boundary** (`backend/automation-api.ts`, `api.ts`, `operations.ts`, `server/automation-operation.ts`); no wallet, state or component module reachable |
@@ -126,33 +131,61 @@ authoritatively during the build, so no address is committed; each configured fe
 | 4 | A notification cannot authorize spending | output guard admits only the workspace link; no `flofi_*hs_` secret in any message (`telegram.pg.test.ts`, `config.test.ts`) |
 | 5 | No bypass of fresh simulation | the approval re-composes to the same hash, then FloFi's own Simulate runs (browser journey) |
 | 6 | No bypass of Manifest Review | the browser journey reaches FloFi's Review; nothing is approved by the system |
-| 7 | No bypass of the owner wallet | owner-only claim policy (`AUTOMATION_OWNER_MISMATCH` for wallet B; proof required) — embedded and through the API (`remote.pg.test.ts`); PR #72's recovery restores an APPLIED automation proposal only for the wallet that claimed it (wallet B, no wallet or a non-id refused), embedded (`approval.pg.test.ts`) and through the API (`remote.pg.test.ts`), and the browser journey reloads into it with no new signature |
+| 7 | No bypass of the owner wallet | owner-only claim policy (`AUTOMATION_OWNER_MISMATCH` for wallet B; proof required) — embedded and through the API (`remote.pg.test.ts`); PR #72's recovery restores an APPLIED automation proposal only for the wallet that claimed it (wallet B, no wallet or a non-id refused), embedded (`approval.pg.test.ts`) and through the API (`remote.pg.test.ts`), and the browser journey restores it by its `apr_` reference with no new signature |
 | 8 | Duplicate work cannot duplicate occurrences | competing evaluators, duplicate schedulers, crash before/after commit, expired lease, pause while queued (`scheduler.pg.test.ts`); the Railway worker racing the dispatch (`worker.pg.test.ts`); one applied proposal per occurrence (`approval.pg.test.ts`); recovery reissues nothing — handoff and occurrence counts and the handoff status are unchanged (`approval.pg.test.ts`, `remote.pg.test.ts`, browser journey) |
 | 9 | An edited workflow cannot silently mutate an automation | `WORKFLOW_CHANGED`, no proposal; rebind re-checks limits (500 refused against a 50 limit) |
 | 10 | Wallet A ↔ Wallet B isolation | id guessing refused for every read and write (`scheduler.pg.test.ts`, `approval.pg.test.ts`); across the remote boundary B cannot find, change, open, dismiss or claim A's automation, and the API refuses any call without a well-formed owner on its own (`remote.pg.test.ts`) |
 
-## 6. Validation (local)
+## 6. Validation (local, final tree)
 
-All on 2026-10-09 against the final tree of the final review, on loopback infrastructure (disposable PostgreSQL 18.6 container, the
-CI-pinned Anvil 1.8.3 and headless shell 1243). The self-hosted CI runner on the same machine was running another branch's job and
-holds the default e2e ports, so browser and fork gates ran in a private network namespace (own loopback, PostgreSQL relayed through a
-Unix socket, no outbound network) — except `default-product`, whose `build009.spec.ts` makes the one real LI.FI read CI itself makes;
-it ran on the host with network on configurable non-default ports (`FLOFI_E2E_APP_PORT=3290`, `FLOFI_E2E_FORK_PORT=18545`). No price
-provider, chat or chain was contacted; the dependency audit and BUILD-007 pinned inputs are the CI-equivalent network uses.
+**Final evidence comes only from the final tree** (main `7175cd0` + this branch; the final local commit is the one that adds this report revision), run on 2026-10-09 between
+21:09Z and 21:39Z. This machine also hosts the owner's self-hosted CI runner (7.8 GB RAM), so every gate ran **alone and sequentially**
+behind a pre-flight: the runner idle for ≥ 2 continuous minutes, ≥ 5 GB available, no leftover test/browser process of this worktree
+(other worktrees' processes were never touched). Each gate was wrapped in PR #74's `scripts/ci-observe.py` begin/finish (observability
+only; each gate's own exit code is its result). Infrastructure: a disposable PostgreSQL 18.6 container on loopback, the CI-pinned Anvil
+1.8.3 and headless shell 1243. `default-product` ran on the host on non-default ports (`FLOFI_E2E_APP_PORT=3290`,
+`FLOFI_E2E_FORK_PORT=18545`; its `build009.spec.ts` makes the one real LI.FI read CI itself makes; two orphaned CI Anvil processes held
+8545/8546 and were left alone); every other browser gate ran in a private network namespace (own loopback, PostgreSQL relayed through a
+Unix socket, no outbound network). No price provider, chat or chain was contacted; no transaction was signed or submitted.
 
-| Gate | Result |
+| Gate (final tree) | Result |
 | --- | --- |
-| `pnpm check` (typecheck, lint, build, schema drift, unit tests) | **PASS** — 291 test files passed, 2 skipped; 2,990 tests passed, 2 skipped (new: `backend/automation-worker.test.ts`) |
-| `pnpm test:postgres` | **PASS** — 42 files, 285 tests (7 automation files, including the new `worker.pg.test.ts`) |
-| Governance-lite self-tests (`python3 -m unittest discover -s scripts -p 'test_governance_lite.py'`) | **PASS** — 19 tests |
-| `python3 scripts/governance_lite.py` | **PASS** (working tree and a clean history-free export of the final commit) |
-| `git diff --check` | **PASS** |
-| `node scripts/guarded-release-browser.mjs product` — 20 profiles | **PASS** — `default-product` 60/60 (host, see above); the other 19 profiles (`automations` 2, review/execute/recovery 31, workflow acceptance 5, swap-read 2, copilot 13, provenance and loopback profiles) all passed in the namespace. Not hidden: in the namespace `default-product` failed only its 2 `build009` tests (no DNS for `li.quest`), and a first host run flaked once in `canvas-ux.spec.ts` while the CI job loaded the machine; that spec then passed 36/36 (`--repeat-each=3`) and the whole profile 60/60 |
-| `playwright test automations.spec.ts --repeat-each=3` | **PASS** — 6/6 |
-| CI's extra browser suites: `mcp-route-presentation` (11), `developer-journey` (1), `mcp-in-chat` + `mcp-route-presentation` (21), `whatsapp-approve` + `telegram-approve` (2) | **PASS** |
-| `pnpm test:anvil`, `pnpm test:fork`, F1 offline rehearsal | **PASS** — 4 passed / 10 skipped; 31 passed / 29 skipped; five-pass `PASS` |
-| BUILD-007 composition phase (pinned inputs, composition fork suites, `guarded-release-browser.mjs composition`) | **PASS** — 3/3 fork tests, 1 profile |
-| `bootstrap-ci.py --verify-dependencies`, `pnpm audit --audit-level low`, CycloneDX SBOM validation | **PASS** — no dependency or lockfile change; no known vulnerabilities; 265 components |
+| `TURBO_FORCE=true pnpm check` (typecheck, lint, build, schema drift, unit tests; no turbo cache replay: 0/16 and 0/9 cached) | **PASS** — 295 test files passed, 2 skipped; **3,022 tests passed, 2 skipped**; 11 schema exports verified (193.6 s) |
+| `pnpm test:postgres` | **PASS** — **46 files, 302 tests** (98.3 s) |
+| Governance Lite: `python3 scripts/governance_lite.py`; self-tests (`test_governance_lite.py`); PR #74's `test_ci_optimization.py` | **PASS** — 1,622 text files; 19 tests; 22 tests (mocked downloads) |
+| Guarded browser product profiles (PR #74's `guarded-release-browser.mjs`, 20 profiles) | **PASS** — `default-product` **76/76** (host, 126 s); the other **19 profiles 95/95** in the namespace: review/execute/recovery 39, workflow acceptance 5, swap-read 2, **automations 2**, supply 5, unsafe lending 2, copilot 13, lending/jupiter/devnet/orca 1 each, transfer 2, uniswap 2, router/journey/cloud 1 each, synthetic fork 2, CoW 9, card provider 5 — **171 tests**, no flake |
+| CI's extra browser suites (`contracts.yml` order) | **PASS** — `mcp-route-presentation` 11; `developer-journey` 1; `mcp-in-chat` + `mcp-route-presentation` 21; **`channel-signing` 6** (PR #72); `whatsapp-approve` + `telegram-approve` 2 — **41 tests** |
+| `automations.spec.ts`, three separate complete runs (fresh server and harness each) | **PASS** — 2/2, 2/2, 2/2 (**6/6**) |
+| `git diff --check`; working tree | **PASS**; clean |
+
+`ci-observe` summary over the seven final gates: every stage `success`; no CI runner job overlapped any of them (0 busy samples);
+minimum available RAM at stage boundaries 5.38 GiB (10 s sampling: never below 3.68 GiB during a gate); swap pages in/out 1,211/0; I/O
+wait ≤ 3.0%.
+
+Focused compatibility (before the final gates, same tree): typecheck; 104 unit files / 1,239 tests (Automation, BFF, worker, shared
+platform and recovery, Channel Core, components/navigation/app shell, i18n, domain; 1 file skipped — `telegram.live.test.ts`, live-only);
+32 PostgreSQL files / 201 tests (all Automation PostgreSQL suites including remote, API/worker production, shared approval/handoff/resume,
+approval surface, channels, MCP handoff); `automations.spec.ts` 2/2.
+
+**Not rerun on the final tree (unaffected, results from `d847fd0`):** `pnpm test:anvil`, `pnpm test:fork`, the F1 offline rehearsal,
+the BUILD-007 composition phase and the dependency gates (`bootstrap-ci.py --verify-dependencies`, `pnpm audit`, SBOM) — this branch
+changes no fork, composition, contract or dependency input (no lockfile or `package.json` change), and the restacks only brought in
+main's own changes, which main's CI covers.
+
+**Attempts superseded and not counted as evidence:**
+
+- `pnpm check` at 13:47Z on the `68249fa` base — **`INFRASTRUCTURE_CONTENTION` — not accepted as final evidence.** It overlapped a CI
+  job on the same machine; available memory fell below 0.5 GB and the machine stalled for about 6 minutes (the 10 s memory sampler
+  recorded nothing for that time; Vitest reported `Failed to start forks worker`), and two unrelated suites this branch does not touch
+  (`workflow-edits`, `lending-composition-service`) hit their 30 s timeout during the stall. Its passing tests are not counted. Another
+  branch's self-hosted CI job ("Contracts, reference app, dependencies and SBOM") also failed during the same machine-wide stall (its
+  failing step ended within a second of this run); that is a temporal and resource correlation only — its step logs had already
+  rotated, and no cause was established. That job was neither touched nor rerun.
+- All gates run on the `8f91a01` and `68249fa` bases: superseded by the final tree. On the `68249fa` base, on an idle machine, the
+  guarded `automations` profile failed once: the journey (rewritten for PR #72) expected a reload to go through PR #72's recovery, but an
+  automation approval link — like every primary approval link — is not consumed when applied (only MCP's short-lived session link is),
+  so the same wallet re-opens it idempotently. A wrong test assumption, not a product defect: the journey now asserts both real paths
+  (reload re-open by the same wallet; recovery by the `apr_` reference, claimant only) and passed in every final run.
 
 **Skipped, and why (all pre-existing, unchanged by this build):** the 2 unit skips are `composition-service.test.ts` and
 `mode-b-service.test.ts`, which need BUILD-007 pinned inputs (CI provides them only to its composition phase, which passed above); the
@@ -174,7 +207,8 @@ per-render owner object reset the workspace; a channel-variable-like error code 
 
 ## 7. Files
 
-85 files changed against `8f91a01` (≈ 6,100 insertions, 47 deletions; no dependency change).
+95 files changed against main `7175cd0` (62 added, 33 modified; ≈ 7,100 insertions, 60 deletions; no dependency, lockfile or
+workflow change — the only CI script touched is the `automations` profile entry in PR #74's `guarded-release-browser.mjs`).
 
 - **New — automations:** `apps/reference-dapp/src/automations/` (`schedule`, `trigger`, `limits`, `definition`, `assets`, `binding`,
   `decimal`, `labels`, `store`, `pg-store`, `price-source`, `config`, `evaluator`, `runtime`, `dispatch`, `http`, `approval`,
@@ -282,6 +316,7 @@ Railway Worker
   → fresh simulation
   → Strategy Manifest Review
   → owner wallet signature
+  → reconciliation/evidence
 ```
 
 (The worker's part ends at the occurrence; the shared approval is minted by the API when the owner opens the proposal, and fresh
@@ -392,7 +427,52 @@ the only execution mode the schema admits.
 | Authority in the API or the worker | none: the API gains only `resume` (read-only, claimant-only; the boundary tests still pass with the route pin extended by that one method); the worker is unchanged; `WORKER_SUBMISSION_FORBIDDEN` unchanged |
 
 **Changed existing tests in the restack (explained):** `e2e/automations.spec.ts` — #72 removed *Add to my workflow*; the journey now
-loads the proposal, reloads into #72's recovery (asserting no new handoff or occurrence and the same APPLIED handoff), then *Continue to
-simulation*; `boundaries.test.ts` and `backend/automation-worker.test.ts` pin the API's route pattern, now with `resume`.
+loads the proposal, re-opens it after a reload and restores it through #72's recovery by reference (asserting no new handoff or occurrence
+and the same APPLIED handoff; see §13), then *Continue to simulation*; `boundaries.test.ts` and `backend/automation-worker.test.ts` pin the API's route pattern, now with `resume`.
 `remote.pg.test.ts` and `automation-operation.test.ts` gain recovery assertions; `approval.pg.test.ts` gains one recovery test. Nothing
 was deleted, skipped or weakened.
+
+## 13. Final restack onto main `7175cd0` (PR #73 brand UX, PR #74 CI optimization)
+
+**Procedure.** The working tree was clean except for this report and the journey fix below, which were committed locally first
+(checkpoint, kept as the local ref `claude/build-automation-001-pre-restack-2`; the earlier ref `claude/build-automation-001-pre-restack`
+is kept too); `git fetch origin --prune`; `origin/main` = `7175cd02428ea0c9d6f51b295fe5e270457c342a`; `git rebase origin/main`
+replayed the 13 Automation commits; one adaptation commit followed. Nothing was cherry-picked, reset or re-applied from #73/#74.
+
+**What #73/#74 changed that Automation touches.** #73 (BUILD-BRAND-UX-001): landing and docs at `/`, product pages moved into the
+`(product)` route group whose layout mounts the persistent `ProductWorkspace` and the product stylesheet, responsive/mobile shell, the
+app shell and navigation drawer, EN/PT, many specs and visual evidence. #74 (BUILD-CI-OPTIMIZATION-001): CI bootstrap and archive cache,
+`ci-observe` stage timings and system counters, per-profile durations in `guarded-release-browser.mjs` and `brand-ux-001.spec.ts` in
+`default-product`. Neither touched any server, platform, approval, channel, worker, API, migration or Automation module.
+
+**Conflicts (3 files, all in the workspace commit) — #73 kept canonical, Automation added on top:**
+
+| File | Resolution |
+| --- | --- |
+| `src/app/globals.css` | #73's brand/responsive block kept as is; the Automation block follows it |
+| `src/components/navigation-drawer.test.tsx` | #73's `/app` home link kept; the Automations entry added to the expected labels |
+| `src/i18n/pt.ts` | #73's new entries kept; the Automation catalog spread stays first, so product translations keep precedence |
+
+Auto-merged and reviewed by hand: `app-shell.tsx` (the Automation workspace prop and the in-app notice on #73's shell; the notice stays
+outside #73's absolutely-positioned mobile navigation and renders only for a proven owner with pending proposals, so #73's visual
+baselines are unaffected), `navigation-drawer.tsx` (the Automations entry and icon), and `scripts/guarded-release-browser.mjs` (#74's
+script kept; the branch adds only its `automations` profile and its environment-scrub key). The branch changes no workflow and no
+bootstrap, archive or observability script.
+
+**Adaptation required by #73: yes, one.** The new `/app/automations` page stayed outside the `(product)` route group, where the route
+would render without the product shell; it moved to `src/app/(product)/app/automations/page.tsx` (URL unchanged). #74 required no
+code adaptation; its `ci-observe` wrapped the final gates (§6), and its guarded script is the source of truth (local filtered copies, used
+only to run `default-product` on the host and the other profiles in the namespace, lived in a temporary directory and are not in the
+repository). Three e2e specs that list drawer entries (`navigation-drawer`, `secondary-workspaces`, `shell-navigation-refinement`) were
+already stale on main (they omit "Your workflows") and are in no CI profile; they were left untouched.
+
+**Journey fix carried into this restack (from the `68249fa` validation, §6):** `automations.spec.ts` asserts the reload re-open by the
+same wallet and PR #72's recovery by the `apr_` reference separately; both reissue nothing.
+
+**Architecture re-checked on the final tree — unchanged.** Vercel BFF → Railway API → Neon/PostgreSQL; Railway worker → ~60-second
+sweep → deterministic evaluation → occurrence → shared approval → fresh simulation → Strategy Manifest Review → owner wallet signature
+→ reconciliation/evidence. Standard production needs no Vercel Cron, no Vercel Pro and no external scheduler; `/api/automations/dispatch`
+stays optional (recovery/Preview); `CONFIRM_EACH_TIME` is the only mode the schema admits; the API and the worker hold no signing or
+submission authority (`backend/app.ts` and its `WORKER_SUBMISSION_FORBIDDEN` guard are untouched by this branch). #73's `/approve` move
+changed only a comment and the "Go to FloFi" link target; no approval logic changed. Telegram for automations remains unavailable in the
+standard remote topology (§8, §11); in-app occurrences are fully functional.

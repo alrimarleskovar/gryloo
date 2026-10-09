@@ -11,7 +11,8 @@ This separate branding build does not resume its execution work. BUILD-CLOUD-001
 
 **Status: READY_FOR_OWNER_PUSH — implementation and every local gate on MOCKED/fixture/loopback evidence; NO LIVE PRICE PROVIDER CALL,
 NO REAL TELEGRAM MESSAGE AND NO TRANSACTION; NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.** Branch `claude/build-automation-001-production`
-restacked onto main `68249fa` (PR #71 platform state, PR #72 conversational signing and recovery). Owners create scheduled DCAs (DAILY/WEEKLY in IANA zones, DST-correct, `LATEST_WITHIN_GRACE` missed-run policy),
+restacked onto main `7175cd0` (PR #71 platform state, PR #72 conversational signing and recovery, PR #73 brand UX, PR #74 CI
+optimization). Owners create scheduled DCAs (DAILY/WEEKLY in IANA zones, DST-correct, `LATEST_WITHIN_GRACE` missed-run policy),
 deterministic price triggers (below/above/percentage, fire once per crossing, re-arm on clear, cooldown) and daily market watches in a new
 Automations workspace (EN/PT). Execution mode is only `CONFIRM_EACH_TIME`: an occurrence (unique per trigger event, migration
 `0010_automations`) becomes an `AUTOMATION_RULE` handoff on the shared approval model when the owner opens it, claimable only by the owner's
