@@ -197,7 +197,8 @@ function ExecutionCredentialsPanel({ access }: { access: DelegationAccess }) {
           <label className="automation-field"><span>{t('Number of calls')}</span><input inputMode="numeric" aria-label={t('Number of calls')} value={calls} onChange={e => setCalls(e.currentTarget.value.trim())}/></label>
         </>}
         <label className="automation-field"><span>{t('Expires on')}</span><input type="date" aria-label={t('Credential expires on')} value={expires} onChange={e => setExpires(e.currentTarget.value)}/></label>
-        <button type="submit" className="workspace-action primary-action" disabled={busy || !passkey}>{t('Enroll with my wallet')}</button>
+        {/* A Solana Credential needs that wallet proven first: the button waits for the proof, so a click can never race it. */}
+        <button type="submit" className="workspace-action primary-action" disabled={busy || !passkey || (network === 'solana-devnet' && (!solanaProof.proven || solanaProof.busy))}>{t('Enroll with my wallet')}</button>
       </form>
     </>}
   </section>;

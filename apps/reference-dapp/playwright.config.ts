@@ -175,6 +175,21 @@ const automationServerEnv = automationHarness ? { FLOFI_AUTOMATIONS: 'enabled', 
   FLOFI_AUTOMATION_PRICE_FIXTURE: process.env.FLOFI_E2E_AUTOMATION_PRICES!,
   FLOFI_AUTOMATION_DISPATCH_TOKEN_SHA256: createHash('sha256').update(process.env.FLOFI_E2E_AUTOMATION_DISPATCH_TOKEN!).digest('hex') } : {};
 
+// BUILD-AUTOMATION-002: delegated execution on the automation harness, against the MOCKED loopback chain doubles (127.0.0.1:8560), a WebAuthn
+// virtual authenticator and disposable session signers in a per-run directory under /tmp (mode-0600 keys, never committed). WebAuthn refuses
+// IP-address RP ids, so passkeys are bound to http://localhost:<app port>, the same server. No public chain or provider is contacted.
+const delegationHarness = process.env.GRYLOO_DELEGATION_E2E === 'MOCKED_LOOPBACK_ONLY';
+if (process.env.GRYLOO_DELEGATION_E2E && !delegationHarness) throw new Error('Delegation E2E permits only the MOCKED loopback chains');
+if (delegationHarness && !automationHarness) throw new Error('Delegation E2E runs on the automation harness');
+if (delegationHarness) {
+  process.env.FLOFI_E2E_DELEGATION_DISPATCH_TOKEN ??= randomBytes(24).toString('base64url');
+  process.env.FLOFI_E2E_DELEGATED_SIGNER_DIR ??= mkdtempSync('/tmp/flofi-delegation-e2e-');
+}
+const delegationServerEnv = delegationHarness ? { FLOFI_DELEGATION: 'enabled', FLOFI_DELEGATION_HARNESS: 'MOCKED_LOOPBACK_ONLY',
+  FLOFI_DELEGATION_HARNESS_URL: 'http://127.0.0.1:8560', FLOFI_PASSKEY_ORIGIN: `http://localhost:${E2E_APP_PORT}`, FLOFI_DELEGATED_SIGNER: 'local-disposable',
+  FLOFI_DELEGATED_SIGNER_DIR: process.env.FLOFI_E2E_DELEGATED_SIGNER_DIR!, FLOFI_DELEGATED_EXECUTION: 'enabled',
+  FLOFI_DELEGATION_DISPATCH_TOKEN_SHA256: createHash('sha256').update(process.env.FLOFI_E2E_DELEGATION_DISPATCH_TOKEN!).digest('hex') } : {};
+
 // BUILD-COPILOT-001: the Copilot runs in browser tests only on committed replay answers; a live model is never called from tests.
 const copilot = process.env.FLOFI_COPILOT;
 if (copilot !== undefined && copilot !== 'off' && copilot !== 'replay') throw new Error('Copilot E2E permits only FLOFI_COPILOT=replay');
@@ -210,7 +225,8 @@ export default defineConfig({
     ...(uniswapHarness ? [{ command: 'node e2e/uniswap-liquidity-serve.ts', url: 'http://127.0.0.1:8556', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(routerHarness || routerTestnetHarness || mcpHarness ? [{ command: 'node e2e/router-serve.ts', url: 'http://127.0.0.1:8557', reuseExistingServer: false, timeout: 30_000 }] : []),
     ...(cardHarness ? [{ command: 'node e2e/card-provider-harness.mjs --serve', url: 'http://127.0.0.1:8555/__harness/health', reuseExistingServer: false, timeout: 30_000 }] : []),
-    ...(channelHarness ? [{ command: 'node e2e/telegram-bot-serve.ts', url: 'http://127.0.0.1:8559/__flofi/calls', reuseExistingServer: false, timeout: 30_000 }] : []), {
+    ...(channelHarness ? [{ command: 'node e2e/telegram-bot-serve.ts', url: 'http://127.0.0.1:8559/__flofi/calls', reuseExistingServer: false, timeout: 30_000 }] : []),
+    ...(delegationHarness ? [{ command: 'node e2e/delegation-chain-serve.ts', url: 'http://127.0.0.1:8560', reuseExistingServer: false, timeout: 30_000 }] : []), {
     command: modeA === 'synthetic' ? 'node e2e/fork/offline-rehearsal.mjs --serve-synthetic' : 'node e2e/fork/owner-recording.mjs serve-replay',
     url: `http://127.0.0.1:${E2E_PORTS.health}`,
     reuseExistingServer: false,
@@ -238,7 +254,7 @@ export default defineConfig({
       ...(cardHarness ? { GRYLOO_CARD_HARNESS: 'MOCKED_LOOPBACK_ONLY', WOOVI_APP_ID: SERVER_ONLY_WOOVI_APP_ID, WOOVI_ENVIRONMENT: 'sandbox' } : {}),
       ...(cloudRuntime ? { FLOFI_RUNTIME: 'embedded', DATABASE_URL: process.env.FLOFI_E2E_DATABASE_URL!, GRYLOO_ROBINHOOD_HARNESS: 'MOCKED_LOOPBACK_ONLY' } : {}),
       ...mcpServerEnv, ...swapReadEnv,
-      ...channelServerEnv, ...automationServerEnv,
+      ...channelServerEnv, ...automationServerEnv, ...delegationServerEnv,
       GRYLOO_MODE_A: 'fork', GRYLOO_MODE_A_PROFILE: join(runtime, 'profile.json'), GRYLOO_MODE_A_JOURNAL: join(runtime, 'journal') },
   }],
 });
