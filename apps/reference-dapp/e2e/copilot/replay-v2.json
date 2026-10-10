@@ -817,6 +817,32 @@
      }
     }
    }
+  },
+  {
+   "user": [
+    "If ETH drops 5% from $3000, buy 50 USDC of ETH on Base Sepolia automatically, max 200 USDC/week."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "PRICE_TRIGGER",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": "BASE_SEPOLIA",
+       "amount": "50",
+       "spendAsset": "USDC",
+       "time": null,
+       "condition": "PERCENT_DROP",
+       "threshold": "3000",
+       "percent": "5"
+      }
+     }
+    }
+   }
   }
  ]
 }

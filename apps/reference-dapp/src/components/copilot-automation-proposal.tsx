@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { automationOverview, createAutomation } from '../app/automation-action';
 import type { AutomationInput } from '../automations/definition';
 import type { CapabilityView } from '../automations/views';
 import { automationCapabilityIssue } from '../domain/copilot-automation';
 import type { WorkflowOwner } from '../domain/saved-workflow';
 import { useLocale } from '../i18n/locale';
-import { DelegatedLimitsFlow, useDelegationEnabled, useDelegationRunner } from './delegated-automations';
+import { DELEGATION_ERROR_TEXT, DelegatedLimitsFlow, useDelegation, useDelegationEnabled, useDelegationRunner } from './delegated-automations';
 import { WalletProof, type useWalletProof } from './wallet-proof';
 
 /**
@@ -23,13 +23,18 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
   const [capabilities, setCapabilities] = useState<CapabilityView | null>(null);
   const [busy, setBusy] = useState(false), [created, setCreated] = useState(false), [error, setError] = useState<string | null>(null);
   const lock = useRef(false), generation = useRef(0);
-  const delegation = useDelegationEnabled(), delegated = useDelegationRunner();
-  const [mode, setMode] = useState<'CONFIRM' | 'DELEGATED'>('CONFIRM'), modeGroup = useId();
+  const [mode, setMode] = useState<'CONFIRM' | 'DELEGATED'>('CONFIRM'), [activated, setActivated] = useState(false), modeGroup = useId();
   const ownerKey = owner ? `${owner.namespace}:${owner.address}` : null;
   const proven = Boolean(owner && proof?.proven === owner.address);
+  // The same availability the Automations workspace uses, for the proven owner only: a deployment without a delegated executor shows
+  // "Automatic within limits" unavailable with its reason, never as a choice that would fail later.
+  // The shell builds a new owner object on every render: key on the owner's identity, never on the object.
+  const stableOwner = useMemo(() => owner ? { namespace: owner.namespace, address: owner.address } : null, [ownerKey]);
+  const enabled = useDelegationEnabled(), delegation = useDelegation(enabled === true && proven ? stableOwner : null, proven), delegated = useDelegationRunner();
+  const delegationReady = delegation.overview?.availability.enabled === true, delegationBlocked = delegation.overview?.availability.executor ?? null;
   useEffect(() => {
     const current = ++generation.current;
-    setCapabilities(null); setCreated(false); setError(null); setBusy(false); setMode('CONFIRM');
+    setCapabilities(null); setCreated(false); setError(null); setBusy(false); setMode('CONFIRM'); setActivated(false);
     if (owner && proven) void automationOverview(owner).then(result => {
       if (current !== generation.current) return;
       if (result.ok) setCapabilities(result.value.capabilities); else setError('Automations are unavailable on this deployment right now.');
@@ -52,7 +57,7 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
   const route = action?.kind === 'ROUTE' ? capabilities?.routes.find(r => r.network === action.network && r.asset === action.asset) : null;
   const kind = input.kind === 'SCHEDULED_DCA' ? 'Scheduled DCA' : input.kind === 'PRICE_TRIGGER' ? 'Price trigger' : 'Daily watch';
   // Only a draft that executes a route can run automatically; a watch or a notify-only trigger has nothing to delegate.
-  const canDelegate = delegation === true && action?.kind === 'ROUTE';
+  const canDelegate = delegationReady && action?.kind === 'ROUTE';
   const condition = input.kind === 'PRICE_TRIGGER' ? input.condition : null;
   return <section className="automation-card copilot-automation-proposal" aria-label={t('Automation proposal')}>
     <h3>{t(kind)}</h3>
@@ -70,9 +75,10 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
     </dl>
     {action?.kind === 'ROUTE' && action.asset === 'ETH' && <p>{t('ETH trades use WETH on this route.')}</p>}
     {route?.fundsClass === 'REAL_FUNDS' && <p role="alert">{t('REAL FUNDS')}</p>}
-    {canDelegate && !created && <div className="delegation-mode" role="radiogroup" aria-label={t('Execution')}>
+    {canDelegate && !created && !activated && <div className="delegation-mode" role="radiogroup" aria-label={t('Execution')}>
       <label><input type="radio" name={modeGroup} checked={mode === 'CONFIRM'} disabled={delegated.busy} onChange={() => setMode('CONFIRM')}/> {t('Ask every time')}</label>
-      <label><input type="radio" name={modeGroup} checked={mode === 'DELEGATED'} disabled={delegated.busy} onChange={() => setMode('DELEGATED')}/> {t('Automatic within limits')}</label>
+      <label><input type="radio" name={modeGroup} checked={mode === 'DELEGATED'} disabled={delegated.busy || Boolean(delegationBlocked)} onChange={() => setMode('DELEGATED')}/> {t('Automatic within limits')}</label>
+      {delegationBlocked && <p className="muted">{t(DELEGATION_ERROR_TEXT[delegationBlocked] ?? delegationBlocked)}</p>}
     </div>}
     {mode === 'CONFIRM' || !canDelegate ? <>
       <p>{t('Execution')}: {t('Ask me before every execution')}</p>
@@ -80,10 +86,10 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
     </> : <p>{t('Execution: Automatic within limits — FloFi executes each occurrence without asking you again, inside the limits you sign once.')} {t('Set every limit and the expiry yourself: the assistant never chooses them.')}</p>}
     {!owner ? <p>{t('Connect a wallet from the header to use automations.')}</p> : !proven && proof ? <WalletProof namespace={owner.namespace} proof={proof}/> : null}
     {(issue ?? error) && <p role="alert">{t(issue ?? error)}</p>}
-    {mode === 'DELEGATED' && canDelegate && owner && proven && action?.kind === 'ROUTE' ? <>
+    {mode === 'DELEGATED' && canDelegate && !delegationBlocked && owner && proven && action?.kind === 'ROUTE' ? <>
       {delegated.messages}
       <DelegatedLimitsFlow owner={owner} busy={delegated.busy} run={delegated.run} prefill={false} slippageBps={action.slippageBps} disabled={!capabilities || Boolean(issue)}
-        source={terms => ({ version: 1, source: 'AUTOMATION_INPUT', automation: input, terms })}/>
+        source={terms => ({ version: 1, source: 'AUTOMATION_INPUT', automation: input, terms })} onAuthorized={() => setActivated(true)}/>
       <div className="automation-row-actions"><button type="button" disabled={delegated.busy} onClick={dismiss}>{t('Dismiss proposal')}</button></div>
     </> : created ? <p role="status">{t('Automation created. FloFi will ask you before every execution.')}</p> : <div className="automation-row-actions">
       <button type="button" className="primary" disabled={busy || !proven || !capabilities || Boolean(issue)} onClick={() => void confirm()}>{t(busy ? 'Creating automation…' : 'Create automation')}</button>

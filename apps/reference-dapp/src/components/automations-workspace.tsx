@@ -445,6 +445,7 @@ export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose, canva
               <section className="workspace-section" aria-labelledby="automation-create">
                 <div className="workspace-section-heading"><div><h2 id="automation-create">{t('Create an automation')}</h2></div></div>
                 {canvas ? <CanvasAutomation canvas={canvas} owner={owner} delegationReady={delegationReady} delegationBlocked={delegationBlocked ?? null}
+                  onAuthorized={() => { void refresh(); void refreshDelegation(); }}
                   confirm={route => <CreateForm key={JSON.stringify(route)} capabilities={overview.capabilities} owner={owner} busy={busy} run={run}
                     initial={{ name: canvas.name.slice(0, 80), source: 'ROUTE', asset: route.asset, side: route.side, network: route.network, amount: route.amount, slippageBps: String(route.slippageBps) }}/>}/> : <>
                 <div className="delegation-mode" role="radiogroup" aria-label={t('Execution')}>
