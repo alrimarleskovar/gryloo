@@ -20,7 +20,7 @@ import type { StepBinding } from './authority.ts';
 import type { CapabilityMode } from './capabilities.ts';
 import { domainDigest } from './canonical.ts';
 import type { ChainTransport } from './chains.ts';
-import { MOCKED_SWAP_PROGRAM, MOCKED_SWAP_VAULT } from './harness/solana-double.ts';
+import { MOCKED_SOLANA_LAMPORTS_PER_UNIT, MOCKED_SWAP_PROGRAM, MOCKED_SWAP_VAULT } from './harness/constants.ts';
 import type { GrantRecord } from './pg-store.ts';
 import type { StepPlan } from './policy.ts';
 import type { StepRequirement } from './steps.ts';
@@ -161,8 +161,6 @@ export const evmSwapDriver: StepDriver = {
 };
 
 // ── Solana (MOCKED harness only): delegated SPL debit into the fixture swap program ─────────────────────────────────────────────
-/** The harness's fixed price, lamports per whole input token unit (the double uses the same). */
-export const MOCKED_SOLANA_LAMPORTS_PER_UNIT = 2_000_000n;
 async function tokenAmount(t: ChainTransport, account: string): Promise<{ amount: bigint; delegate: string | null; delegatedAmount: bigint }> {
   const info = await t.rpc('getAccountInfo', [account, { encoding: 'base64' }]) as { value?: { data?: [string, string] } | null } | null;
   const data = info?.value?.data?.[0] ?? fail('SOLANA_ACCOUNT_MISSING');

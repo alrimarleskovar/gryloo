@@ -18,7 +18,8 @@ import { fromB64url } from '../passkeys/webauthn.ts';
 import type { DelegationConfig } from './config.ts';
 import { createEvmDouble } from './harness/evm-double.ts';
 import { createSolanaDouble, DEVNET_GENESIS } from './harness/solana-double.ts';
-import { delegationHandlers, delegationRuntime, executorDeps, signerAdmin, transportFor } from './runtime.ts';
+import { delegationRuntime, signerAdmin, transportFor } from './runtime.ts';
+import { delegationHandlers, executorDeps } from './executor-runtime.ts';
 import { createDelegationService } from './service.ts';
 import type { Owner } from './pg-store.ts';
 

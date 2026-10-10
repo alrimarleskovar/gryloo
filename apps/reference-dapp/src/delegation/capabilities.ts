@@ -9,7 +9,7 @@
  */
 import { splDelegation } from '@defi-workflow-engine/reference-compiler';
 import { publicSwapProfile } from '../domain/public-testnet-swap.ts';
-import { MOCKED_SWAP_PROGRAM } from './harness/solana-double.ts';
+import { MOCKED_SWAP_PROGRAM } from './harness/constants.ts';
 import type { StepRequirement } from './steps.ts';
 
 export const MECHANISMS = ['EVM_ERC7710_METAMASK_V1_3', 'SOLANA_SPL_DELEGATE_V1'] as const;

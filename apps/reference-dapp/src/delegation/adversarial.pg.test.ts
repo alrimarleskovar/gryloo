@@ -138,7 +138,7 @@ describe('BUILD-AUTOMATION-002 passkey binding and replay (PostgreSQL)', () => {
         publicKeySpki: passkey.publicKeySpki });
       expect(delegationOf(grant.grantPayload!.delegation).salt).toBe(BigInt(anchor));
       // Another passkey (an attacker-controlled authenticator registered for the owner) yields another anchor: it cannot inherit the grant.
-      const forged = Uint8Array.from(passkey.publicKeySpki); forged[90] ^= 1;
+      const forged = Uint8Array.from(passkey.publicKeySpki); forged[90] = forged[90]! ^ 1;
       expect(passkeyAnchor({ owner: `eip155:${h.owner.address}`, grantId: grant.grantId, chain: grant.chain, walletAddress: grant.walletAddress, passkeyId, publicKeySpki: forged })).not.toBe(anchor);
       const created = await h.service.automationCreate(h.owner, h.multichainInput({}, false));
       const review = await h.service.authorizationReview(h.owner, created.authorizationId);

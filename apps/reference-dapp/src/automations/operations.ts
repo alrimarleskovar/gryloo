@@ -19,6 +19,7 @@ import type { AutomationConfig } from './config.ts';
 import type { AutomationLogger } from './log.ts';
 import { automationRuntime, newAutomationId, type AutomationHost, type AutomationSeams } from './runtime.ts';
 import { createAutomationService } from './service.ts';
+import { createPgDelegationStore } from '../delegation/pg-store.ts';
 import type { Owner } from './store.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -36,7 +37,13 @@ export function ownerAutomationService(env: Env, config: AutomationConfig, host:
   const rt = automationRuntime(env, config, host, log, now, seams), channels = readChannelDeployment(env);
   return createAutomationService({ config, db: host.db, store: rt.store, handoffs: rt.handoffs, allow: rt.allow, runtime: rt.engine,
     price: rt.price, log, now, newId: newAutomationId,
-    telegramAvailable: channels.ok && channels.deployment.telegram !== null && channels.deployment.core.tenantId === host.tenantId });
+    telegramAvailable: channels.ok && channels.deployment.telegram !== null && channels.deployment.core.tenantId === host.tenantId,
+    // BUILD-AUTOMATION-002: a delegated rule resumes only while its authorization is ACTIVE (a read; no delegation capability is needed here).
+    delegatedResumeGuard: async rule => {
+      if (!rule.authorizationId) return 'DELEGATED_AUTHORIZATION_REQUIRED';
+      const authorization = await createPgDelegationStore(host.db, host.tenantId).authorization(rule.owner, rule.authorizationId).catch(() => null);
+      return authorization?.state === 'ACTIVE' ? null : 'DELEGATED_AUTHORIZATION_REQUIRED';
+    } });
 }
 
 const invalid = (): never => { throw new Error('AUTOMATION_INPUT_INVALID'); };

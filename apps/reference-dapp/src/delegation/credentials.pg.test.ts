@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { erc7710 } from '@defi-workflow-engine/reference-compiler';
 import { createTestDatabase } from '../../../../packages/cloud-runtime/test/pg-harness.ts';
 import { delegationHarness } from './delegation.test-harness.ts';
-import { sweepDelegation } from './runtime.ts';
+import { sweepDelegation } from './executor-runtime.ts';
 
 const D = erc7710;
 

@@ -7,16 +7,13 @@
  * amount, which decreases), and a FIXTURE swap program (`MOCKED_SWAP_PROGRAM`) that pays native SOL to a recipient at a fixed price when the
  * same transaction moved the input into its vault. The fixture program is not Orca: evidence from it is MOCKED and says so.
  */
-import { createHash } from 'node:crypto';
 import { base58Encode, decompileMessageV0, parseMessageV0, parseTransaction, readU64, splDelegation, verifyEd25519 } from '@defi-workflow-engine/reference-compiler';
+import { MOCKED_BLOCKHASH, MOCKED_SOLANA_LAMPORTS_PER_UNIT, MOCKED_SWAP_PROGRAM, MOCKED_SWAP_VAULT } from './constants.ts';
 
 const S = splDelegation;
-const derive = (label: string) => base58Encode(createHash('sha256').update(label).digest());
-/** Fictional, deterministic program and vault identities of the MOCKED harness (no key exists for them). */
-export const MOCKED_SWAP_PROGRAM = derive('flofi.automation-002.mocked-swap-program');
-export const MOCKED_SWAP_VAULT = derive('flofi.automation-002.mocked-swap-vault');
+export { MOCKED_SWAP_PROGRAM, MOCKED_SWAP_VAULT };
 export const DEVNET_GENESIS = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
-const BLOCKHASH = derive('flofi.automation-002.blockhash');
+const BLOCKHASH = MOCKED_BLOCKHASH;
 export class SolanaDoubleError extends Error {}
 const fail = (code: string): never => { throw new SolanaDoubleError(code); };
 
@@ -24,7 +21,7 @@ export type SolanaDouble = ReturnType<typeof createSolanaDouble>;
 export function createSolanaDouble() {
   const accounts = new Map<string, splDelegation.TokenAccountState>(), lamports = new Map<string, bigint>(), mints = new Map<string, number>();
   const signatures = new Map<string, { slot: number; err: string | null }>();
-  let slot = 1000, lamportsPerUnit = 2_000_000n, sends = 0; // 1 devUSDC (6 decimals) → 0.002 SOL
+  let slot = 1000, lamportsPerUnit = MOCKED_SOLANA_LAMPORTS_PER_UNIT, sends = 0; // 1 devUSDC (6 decimals) → 0.002 SOL
   const cloneAll = () => ({ accounts: new Map(accounts), lamports: new Map(lamports) });
   function apply(ix: ReturnType<typeof decompileMessageV0>[number], signers: ReadonlySet<string>, ctx: { vaultCredit: Map<string, bigint> }): void {
     const signed = (k: string) => signers.has(k);
