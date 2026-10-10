@@ -17,10 +17,12 @@ import type { ChannelInterpreter } from './core/conversation.ts';
 import { channelInterpreter } from './core/interpreter.ts';
 import { channelLogger, type ChannelLogSink } from './core/log.ts';
 import { createChannelService } from './core/service.ts';
+import type { ChannelVisualRenderer } from './core/types.ts';
 import { channelSubscriptions } from './subscriptions.ts';
 import { channelProviders, type ProviderSeams } from './providers.ts';
 import { readChannelDeployment, type ChannelRoute } from './registry.ts';
 import { channelHost, channelRuntime, type ChannelHost } from './runtime.ts';
+import { channelVisualRenderer } from './visuals.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type ChannelWebhookOptions = {
@@ -38,6 +40,8 @@ export type ChannelWebhookOptions = {
   readonly sleep?: (ms: number) => Promise<void>;
   /** The retry jitter's source (tests pin it; production uses Math.random). */
   readonly random?: () => number;
+  /** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the workflow renderer (default: FloFi's shared one; null sends proposals as text only). */
+  readonly visuals?: ChannelVisualRenderer | null;
 };
 const HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
 const answer = (status: number, code: string) => Response.json({ ok: status < 300, code }, { status, headers: HEADERS });
@@ -85,6 +89,7 @@ export async function handleChannelWebhook(route: ChannelRoute, request: Request
   const { store, platform } = channelRuntime(env, core, host, options.runtime);
   const service = createChannelService({ core, store, log, now, platform, previewTimeoutMs: options.previewTimeoutMs ?? 60_000, adapter: provider.adapter,
     interpreter: options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot }), subscriptions: channelSubscriptions(env, host),
+    visuals: options.visuals !== undefined ? options.visuals : channelVisualRenderer,
     ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} });
   let ingested;
   try { ingested = await service.ingest(parsed.messages, parsed.deliveries); }

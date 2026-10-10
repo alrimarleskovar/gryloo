@@ -15,6 +15,11 @@
  * Then it polls the app-only `get_execution_progress` and, when a run is reconciled, puts its status and evidence summary into the
  * model's context (`ui/update-model-context`). The panel has no network access of its own (empty CSP domains): every call goes
  * through the host to FloFi's MCP server with the user's OAuth token. It never sees a key, never signs and never sends.
+ *
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the proposal is shown as FloFi's workflow visual — the shared layout the server sends in the
+ * tool result's `_meta['flofi/visual']`, painted as DOM (text through textContent, only the layout's own style properties, no URL, no
+ * markup), scaled to the frame, with its text alternative. The panel computes no layout of its own; the same tree is the PNG that MCP
+ * image content, Telegram and WhatsApp show.
  */
 export const PANEL_URI = 'ui://flofi/approval-panel.html';
 export const PANEL_MIME = 'text/html;profile=mcp-app';
@@ -30,8 +35,9 @@ export function panelMain(settings: PanelSettings): void {
   type Approval = { approvalId: string; approvalUrl?: string; workflowHash: string; expiresAt: string; status: string; networkEnvironment: string; fundsClass: string;
     steps: Step[]; authority: string; requires?: string[]; summary?: string; walletNamespace?: string };
   const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> }>();
-  const view: { approval: Approval | null; progress: Json | null; error: string | null; host: string; opened: string | null; probe: Json | null; reported: string } =
-    { approval: null, progress: null, error: null, host: '', opened: null, probe: null, reported: '' };
+  type Visual = { tree: Json; width: number; height: number; alt: string };
+  const view: { approval: Approval | null; progress: Json | null; error: string | null; host: string; opened: string | null; probe: Json | null; reported: string;
+    visual: Visual | null } = { approval: null, progress: null, error: null, host: '', opened: null, probe: null, reported: '', visual: null };
   let nextId = 1, timer: ReturnType<typeof setTimeout> | null = null, polls = 0;
   let opening = false, disposed = false;
   const post = (message: Json) => window.parent.postMessage({ jsonrpc: '2.0', ...message }, '*');
@@ -60,6 +66,40 @@ export function panelMain(settings: PanelSettings): void {
     node.disabled = opening;
     return node;
   };
+  // The workflow visual: only the style properties the shared layout uses, only plain values (no url(), no var(), no expressions).
+  const STYLE_KEYS = new Set(['display', 'flexDirection', 'alignItems', 'justifyContent', 'height', 'width', 'lineHeight', 'fontSize', 'color', 'whiteSpace', 'overflow',
+    'textOverflow', 'flexShrink', 'flexGrow', 'minWidth', 'marginLeft', 'marginRight', 'marginTop', 'marginBottom', 'padding', 'backgroundColor', 'border',
+    'borderRadius', 'letterSpacing', 'fontFamily']);
+  const styleValue = (value: unknown) => {
+    const text = typeof value === 'number' && Number.isFinite(value) ? String(value) : typeof value === 'string' ? value : null;
+    return text !== null && /^[#a-zA-Z0-9 .,%-]{0,80}$/.test(text) ? text : null;
+  };
+  const paint = (node: unknown, depth = 0): HTMLElement | null => {
+    const n = node as { type?: unknown; props?: { style?: unknown; children?: unknown } } | null;
+    if (depth > 12 || !n || n.type !== 'div') return null;
+    const out = document.createElement('div');
+    for (const [key, value] of Object.entries(n.props?.style && typeof n.props.style === 'object' ? n.props.style as Json : {})) {
+      const text = styleValue(value);
+      if (STYLE_KEYS.has(key) && text !== null) out.style.setProperty(key.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`), text);
+    }
+    const children = n.props?.children;
+    if (typeof children === 'string') out.textContent = children;
+    else if (Array.isArray(children)) for (const child of children.slice(0, 400)) { const painted = paint(child, depth + 1); if (painted) out.append(painted); }
+    return out;
+  };
+  const isVisual = (value: unknown): value is Visual => !!value && typeof value === 'object' && typeof (value as Json).alt === 'string'
+    && typeof (value as Json).width === 'number' && typeof (value as Json).height === 'number' && !!(value as Json).tree;
+  /** The visual in a frame of the panel's width: scaled down (never up), labelled with its text alternative. */
+  function figure(visual: Visual, root: HTMLElement) {
+    const frame = el('div', undefined, 'visual'), painted = paint(visual.tree);
+    if (!painted) return;
+    frame.setAttribute('role', 'img'); frame.setAttribute('aria-label', visual.alt);
+    painted.setAttribute('aria-hidden', 'true'); painted.style.transformOrigin = 'top left';
+    frame.append(painted); root.append(frame);
+    const scale = Math.min(1, (frame.clientWidth || visual.width) / visual.width);
+    painted.style.transform = `scale(${scale})`;
+    frame.style.height = `${Math.ceil(visual.height * scale)}px`;
+  }
   const isApproval = (value: unknown): value is Approval => !!value && typeof value === 'object' && typeof (value as Json).approvalId === 'string' &&
     /^apr_[a-z2-7]{26}$/.test(String((value as Json).approvalId)) && Array.isArray((value as Json).steps);
   const terminal = (status: unknown) => ['EXPIRED', 'SUPERSEDED', 'REVOKED', 'STALE'].includes(String(status));
@@ -164,11 +204,13 @@ export function panelMain(settings: PanelSettings): void {
     root.append(head, el('h1', a.summary ?? 'Strategy ready for your approval'));
     root.append(el('p', 'Nothing is authorized yet. Only your own wallet can sign, after a fresh simulation and the Strategy Manifest Review in FloFi.', 'notice'));
     if (a.fundsClass === 'REAL_FUNDS') root.append(el('p', 'Real funds: this strategy uses a mainnet.', 'warning'));
+    if (view.visual) figure(view.visual, root);
     const facts = el('dl');
     const fact = (label: string, value: string) => { facts.append(el('dt', label), el('dd', value)); };
     fact('Network', `${a.networkEnvironment === 'MAINNET' ? 'Mainnet' : 'Public testnet'} · ${[...new Set(a.steps.flatMap(s => [s.network, s.destinationNetwork].filter(Boolean) as string[]))].join(' → ')}`);
     fact('Funds', a.fundsClass === 'REAL_FUNDS' ? 'Real funds' : 'Test funds');
-    fact('Steps', a.steps.map(s => `${s.index + 1}. ${s.action} (${s.protocol || s.kind})`).join('  '));
+    // The picture shows the steps; the plain list remains for a result without one.
+    if (!view.visual) fact('Steps', a.steps.map(s => `${s.index + 1}. ${s.action} (${s.protocol || s.kind})`).join('  '));
     fact('Workflow hash', a.workflowHash);
     fact('Authority', a.authority);
     root.append(facts);
@@ -219,7 +261,9 @@ export function panelMain(settings: PanelSettings): void {
       const content = (message.params as { structuredContent?: unknown } | undefined)?.structuredContent;
       if (isApproval(content)) {
         const privateLinks = (message.params?._meta as Json | undefined)?.['flofi/approval'] as Json | undefined;
+        const visual = (message.params?._meta as Json | undefined)?.['flofi/visual'];
         view.approval = { ...content, ...(typeof privateLinks?.approvalUrl === 'string' ? { approvalUrl: privateLinks.approvalUrl } : {}) };
+        view.visual = isVisual(visual) ? visual : null;
         view.error = null; view.progress = null; view.reported = ''; polls = 0; schedule(10_000);
       }
       else view.error = typeof (content as Json | undefined)?.code === 'string' ? String((content as Json).code) : 'NO_APPROVAL';
@@ -235,6 +279,7 @@ export function panelMain(settings: PanelSettings): void {
       post({ id: message.id, error: { code: -32601, message: 'Method not found' } });
     }
   });
+  window.addEventListener('resize', () => { if (view.visual) render(); });
   render();
   void request('ui/initialize', { appInfo: { name: 'flofi-approval', version: '1.0.0' }, appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
     protocolVersion: '2026-01-26' }).then(result => {
@@ -257,7 +302,8 @@ dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0}dt{c
 .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{min-height:40px;border-radius:8px;padding:0 14px;font:inherit;font-weight:700;cursor:pointer}
 button.primary{background:var(--blue);color:#fff;border:0}button.secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
 .muted{color:var(--muted);font-size:12px;margin:0}code{font-size:11px;overflow-wrap:anywhere}pre{font-size:11px;background:var(--soft);padding:8px;border-radius:8px;overflow:auto}
-.error{color:var(--red);margin:0;font-weight:700}.runs{margin:0;padding-left:18px}`;
+.error{color:var(--red);margin:0;font-weight:700}.runs{margin:0;padding-left:18px}
+.visual{width:100%;max-width:482px;overflow:hidden;border-radius:12px;border:1px solid var(--line)}`;
 
 /** The panel document: one HTML file with inline style and script, no external resource. */
 export function panelHtml(settings: PanelSettings): string {

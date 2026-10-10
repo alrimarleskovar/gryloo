@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest';
 import { readChannelDeployment } from '../registry.ts';
 import { createTelegramProvider } from './adapter.ts';
 import { readTelegramConfig, telegramUserDigest, type TelegramConfig } from './config.ts';
-import { blockedUpdate, BOT_ID, botApi, callbackUpdate, TELEGRAM_OTHER_USER, TELEGRAM_USER, telegramEnv, textUpdate } from './fixtures.test-harness.ts';
-import { choicesFitKeyboard, renderSendMessage } from './render.ts';
+import type { ChannelImage, SendContext } from '../core/types.ts';
+import { blockedUpdate, BOT_ID, botApi, botError, callbackUpdate, TELEGRAM_OTHER_USER, TELEGRAM_USER, telegramEnv, textUpdate, type BotFile, type BotScript }
+  from './fixtures.test-harness.ts';
+import { choicesFitKeyboard, renderSendMessage, renderSendPhoto } from './render.ts';
 import { classifySend } from './transport.ts';
 import { parseUpdate, secretTokenValid } from './webhook.ts';
 
@@ -140,5 +142,64 @@ describe('BUILD-CHANNELS-001 Telegram outbound', () => {
     expect(api.calls.at(-1)).toMatchObject({ method: 'answerCallbackQuery', params: { callback_query_id: '4000000001' } });
     // An acknowledgement failure changes nothing.
     await createTelegramProvider(readTelegramConfig(f.env) as TelegramConfig, botApi(() => 'TIMEOUT').fetch).acknowledge(['1']);
+  });
+});
+
+describe('BUILD-WORKFLOW-VISUAL-PRESENTATION-001 Telegram workflow photo', () => {
+  const to = { kind: 'chat', value: String(TELEGRAM_USER) };
+  const image: ChannelImage = { mimeType: 'image/png', bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array.from({ length: 120 }, (_, i) => i)]),
+    alt: 'FloFi workflow: Bridge.' };
+  const reply = { text: 'Strategy ready:\n1. Bridge 5 USDC · Base Sepolia → Arbitrum Sepolia\nNothing is authorized yet.', choices: [], link: { label: 'Open FloFi', url: LINK } };
+  const approval: SendContext = { kind: 'APPROVAL', windowOpen: true, image };
+  const adapter = (script?: BotScript) => {
+    const f = telegramEnv(), api = botApi(script);
+    return { f, api, adapter: createTelegramProvider(readTelegramConfig(f.env) as TelegramConfig, api.fetch).adapter };
+  };
+
+  it('sends a proposal as one photo message: the PNG uploaded as bytes, the whole text as caption, the same Open FloFi button', async () => {
+    const { f, api, adapter: telegram } = adapter();
+    expect(await telegram.send(to, reply, 'cho_x', approval)).toEqual({ ok: true, providerMessageId: `${TELEGRAM_USER}:101` });
+    expect(api.calls.map(c => c.method)).toEqual(['sendPhoto']);
+    const call = api.calls[0]!, photo = call.params.photo as BotFile;
+    expect(call.url).toBe(`https://api.telegram.org/bot${f.token}/sendPhoto`);
+    expect(call.params).toMatchObject({ chat_id: String(TELEGRAM_USER), caption: reply.text, reply_markup: { inline_keyboard: [[{ text: 'Open FloFi', url: LINK }]] } });
+    expect(call.params.parse_mode).toBeUndefined();
+    expect([photo.filename, photo.mimeType, Buffer.compare(photo.bytes, Buffer.from(image.bytes))]).toEqual(['flofi-workflow.png', 'image/png', 0]);
+    expect(JSON.stringify({ ...call.params, photo: null })).not.toContain(f.token);
+    // Rendering: multipart fields and one file; choices keep their callback buttons.
+    expect(renderSendPhoto(to, { text: 'Which?', choices: [{ id: 'c1', label: 'Base' }], link: null }, image).fields)
+      .toEqual({ chat_id: String(TELEGRAM_USER), caption: 'Which?', reply_markup: JSON.stringify({ inline_keyboard: [[{ text: 'Base', callback_data: 'c1' }]] }) });
+  });
+
+  it('falls back to the text message: no picture, a caption that would be cut, or a photo Telegram itself rejects', async () => {
+    const plain = adapter();
+    await plain.adapter.send(to, reply, 'cho_x', { kind: 'APPROVAL', windowOpen: true });
+    expect(plain.api.calls.map(c => c.method)).toEqual(['sendMessage']);
+    const long = adapter();
+    await long.adapter.send(to, { ...reply, text: 'x'.repeat(1_025) }, 'cho_x', approval);
+    expect(long.api.calls.map(c => c.method)).toEqual(['sendMessage']);
+    for (const rejection of [botError(400, 'Bad Request: IMAGE_PROCESS_FAILED'), botError(413, 'Request Entity Too Large')]) {
+      const rejected = adapter(call => call.method === 'sendPhoto' ? rejection : null);
+      expect(await rejected.adapter.send(to, reply, 'cho_x', approval)).toEqual({ ok: true, providerMessageId: `${TELEGRAM_USER}:101` });
+      expect(rejected.api.calls.map(c => [c.method, c.ok])).toEqual([['sendPhoto', false], ['sendMessage', true]]);
+      expect(rejected.api.texts()).toEqual([reply.text]);
+      expect(rejected.api.linkOf(rejected.api.delivered()[0]!)).toBe(LINK);
+    }
+  });
+
+  it('keeps every other outcome\'s class: throttled, unavailable, blocked, unknown chat and uncertain are never resent as text', async () => {
+    const cases: [BotScript, Record<string, unknown>][] = [
+      [() => botError(429, 'Too Many Requests: retry after 9', { retry_after: 9 }), { failure: 'RATE_LIMITED', code: 'PROVIDER_THROTTLED', retryAfterMs: 9_000 }],
+      [() => botError(500, 'Internal Server Error'), { failure: 'TRANSIENT', code: 'PROVIDER_UNAVAILABLE' }],
+      [() => botError(403, 'Forbidden: bot was blocked by the user'), { failure: 'PERMANENT', code: 'PROVIDER_RECIPIENT_BLOCKED' }],
+      [() => botError(400, 'Bad Request: chat not found'), { failure: 'PERMANENT', code: 'PROVIDER_UNDELIVERABLE' }],
+      [() => 'TIMEOUT', { failure: 'UNCERTAIN', code: 'PROVIDER_TIMEOUT' }],
+      [() => 'REFUSED', { failure: 'TRANSIENT', code: 'PROVIDER_UNREACHABLE' }],
+    ];
+    for (const [script, expected] of cases) {
+      const d = adapter(call => call.method === 'sendPhoto' ? script(call) : null);
+      expect(await d.adapter.send(to, reply, 'cho_x', approval)).toMatchObject({ ok: false, ...expected });
+      expect(d.api.calls.map(c => c.method)).toEqual(['sendPhoto']);
+    }
   });
 });

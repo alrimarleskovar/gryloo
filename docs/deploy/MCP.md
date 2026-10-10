@@ -104,7 +104,10 @@ the existing lending composition. Any other sequence is composed and reviewed pe
 1. The assistant composes (and optionally simulates), then calls `request_user_approval`. FloFi refuses a hash mismatch, a
    genuine review blocker, a path no existing flow executes with the owner's wallet, a flow the deployment has not enabled, or
    funds the policy does not allow — with the four facts in the refusal.
-2. The user sees the FloFi panel in the chat (hosts with MCP Apps) or the approval link (every host).
+2. The user sees the FloFi panel in the chat (hosts with MCP Apps) or the approval link (every host). The panel shows the proposal
+   as FloFi's workflow visual (BUILD-WORKFLOW-VISUAL-PRESENTATION-001); the result also carries the same picture as standard MCP
+   image content and a readable summary with the public Open in FloFi link, after the unchanged JSON text block. `compose_strategy`
+   adds the summary (no picture). `structuredContent.visual` is the presentation model; it never replaces `workflowHash`.
 3. **Review with your wallet in FloFi** opens a fresh, five-minute FloFi approval link (`ui/open-link`) in the browser: the
    signing window. MetaMask's mobile link carries the private capability in the fragment. Phantom opens the public FloFi
    landing page; the owner pastes the private approval link into its browser. The model-visible fallback (`/approve#apr_…`)

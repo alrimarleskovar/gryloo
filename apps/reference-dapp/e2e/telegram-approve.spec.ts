@@ -26,13 +26,15 @@ import { assertExecutionBlocked } from './release-safety-fixtures';
 import { routerControl } from './router-fixtures';
 
 const ROUTE = `${APP_ORIGIN}/api/channels/telegram`, BRIDGE = 'bridge 1 USDC from Base Sepolia to Arbitrum Sepolia via auto slippage 50 bps';
-type BotCall = { method: string; params: { chat_id?: string; text?: string; reply_markup?: { inline_keyboard: { text: string; url?: string }[][] } } };
+type BotCall = { method: string; params: { chat_id?: string; text?: string; caption?: string; photo?: { mimeType: string; size: number; png: boolean };
+  reply_markup?: { inline_keyboard: { text: string; url?: string }[][] } } };
 /** This test's own Telegram user (fresh per run and repetition), so /start is always the first exchange of a new conversation. */
 const user = () => channelE2eUsers(test.info().repeatEachIndex).telegram;
 /** The double's calls to this test's chat only (the dispatch may also deliver what another test's conversation left pending). */
 const calls = async (): Promise<BotCall[]> => ((await (await fetch(`${TELEGRAM_DOUBLE}/__flofi/calls`)).json()) as BotCall[])
   .filter(c => String(c.params.chat_id) === String(user()));
-const texts = async () => (await calls()).filter(c => c.method === 'sendMessage').map(c => c.params.text ?? '');
+/** What the user reads: text messages, and photo captions (BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a proposal is a photo with its text). */
+const texts = async () => (await calls()).filter(c => c.method === 'sendMessage' || c.method === 'sendPhoto').map(c => c.params.text ?? c.params.caption ?? '');
 let updateId = Math.floor(Date.now() / 1000);
 const update = (text: string, from = user()) => ({ update_id: ++updateId, message: { message_id: updateId, date: Math.floor(Date.now() / 1000), text,
   from: { id: from, is_bot: false, first_name: 'Owner' }, chat: { id: from, type: 'private', first_name: 'Owner' } } });
@@ -64,7 +66,10 @@ test.describe('BUILD-CHANNELS-001 Telegram → /approve (loopback Bot API double
     const linkCall = (await calls()).find(c => c.params.reply_markup?.inline_keyboard[0]?.[0]?.url)!;
     const url = linkCall.params.reply_markup!.inline_keyboard[0]![0]!.url!;
     expect(url).toMatch(new RegExp(`^${APP_ORIGIN.replace(/[.]/g, '\\.')}/approve#flofi_chs_[A-Za-z0-9_-]{43}$`));
-    expect(linkCall.params.text).toMatch(/^Strategy ready:[\s\S]*Nothing is authorized yet/);
+    // BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the proposal is one photo — the workflow PNG, its text as caption, the same Open FloFi button.
+    expect(linkCall.method).toBe('sendPhoto');
+    expect(linkCall.params.photo).toMatchObject({ mimeType: 'image/png', png: true });
+    expect(linkCall.params.caption).toMatch(/^Strategy ready:[\s\S]*Nothing is authorized yet/);
     // The handoff is the one this link belongs to (never "the latest Telegram one": other specs and runs share the database).
     const handoff = await handoffOfLink(url);
     expect(handoff).toMatchObject({ requester_kind: 'CHANNEL_CONVERSATION', account_id: null, grant_id: null, client_name: 'Telegram', status: 'PENDING' });

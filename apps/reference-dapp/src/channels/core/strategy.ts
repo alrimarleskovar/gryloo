@@ -15,6 +15,7 @@ import type { Command } from '../../domain/commands';
 import type { WorkflowStep } from '../../domain/workflow-steps';
 import type { NetworkId, StrategySpec } from '../../engine/strategy-spec';
 import { composeWorkflowOrRefuse, PlatformRefusal, type WalletRef } from '../../platform/index.ts';
+import { workflowVisualModel, type WorkflowVisualModel } from '../../platform/workflow-visual.ts';
 
 const LENDING_NETWORK: Readonly<Record<string, NetworkId>> = { 'Base Sepolia': 'base-sepolia', 'Ethereum Sepolia': 'ethereum-sepolia' };
 const SWAP_NETWORK: Readonly<Record<string, NetworkId>> = { ADD_SWAP: 'base', ADD_TESTNET_SWAP: 'base-sepolia', ADD_ETHEREUM_SEPOLIA_SWAP: 'ethereum-sepolia' };
@@ -88,7 +89,9 @@ export function intendedWalletOf(spec: StrategySpec): WalletRef | null {
 export type ChannelStrategy = { readonly ok: true; readonly spec: StrategySpec; readonly workflowHash: string; readonly command: Command; readonly summary: string;
   readonly fundsClass: 'TEST_FUNDS' | 'REAL_FUNDS'; readonly notes: readonly string[]; readonly intendedWallet: WalletRef | null;
   /** The financial steps of the canonical IR (the editor's authoring-only template is not a step). */
-  readonly steps: readonly WorkflowStep[] };
+  readonly steps: readonly WorkflowStep[];
+  /** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the presentation model of the same canonical workflow (its `workflowHash` is this one). */
+  readonly visual: WorkflowVisualModel };
 /** The canonical strategy of a pending authoring command, composed by the shared platform and checked for parity; or a closed code. */
 export function canonicalStrategy(command: Command): ChannelStrategy | { readonly ok: false; readonly code: string } {
   const spec = strategyOfCommand(command);
@@ -100,5 +103,5 @@ export function canonicalStrategy(command: Command): ChannelStrategy | { readonl
   if (!step || !sameCommand(step.command, command)) return { ok: false, code: 'CHANNEL_STRATEGY_PARITY_FAILED' };
   return { ok: true, spec: workflow.strategy as StrategySpec, workflowHash: workflow.workflowHash, command: step.command, summary: step.summary,
     fundsClass: workflow.fundsClass, notes: workflow.notes, intendedWallet: intendedWalletOf(workflow.strategy as StrategySpec),
-    steps: step.steps.filter(s => s.kind !== 'TEMPLATE') };
+    steps: step.steps.filter(s => s.kind !== 'TEMPLATE'), visual: workflowVisualModel(workflow) };
 }

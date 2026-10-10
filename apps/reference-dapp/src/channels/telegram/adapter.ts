@@ -6,17 +6,30 @@
  * What the Bot API offers, and nothing more: no messaging window (a bot may write to a user who started it, until the user blocks it),
  * no delivery or read receipts (a message is SENT when the API accepted it), no idempotency key (an UNCERTAIN send is never confirmed,
  * so it is never resent), throughput limits answered with 429 and `retry_after`, and callback queries that must be answered.
+ *
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a reply with a rendered workflow picture is sent as one photo message (picture, the whole text as
+ * caption, the same buttons). If Telegram rejects the photo itself (a 400 other than an unknown chat, or a too-large request), the same
+ * attempt sends the text message instead; throttling, unavailability and uncertain outcomes keep their classes, so retries, deduplication
+ * and "never resend an uncertain send" are unchanged.
  */
-import type { ChannelAdapter, ChannelProvider } from '../core/types.ts';
+import type { ChannelAdapter, ChannelProvider, SendResult } from '../core/types.ts';
 import { telegramSecrets, type TelegramConfig } from './config.ts';
-import { choicesFitKeyboard, renderSendMessage } from './render.ts';
+import { captionFits, choicesFitKeyboard, renderSendMessage, renderSendPhoto } from './render.ts';
 import { classifySend, telegramApi, type TelegramApi } from './transport.ts';
 import { MAX_UPDATE_BYTES, parseUpdate, secretTokenValid, TELEGRAM_CHANNEL } from './webhook.ts';
 
+/** Telegram refused the photo itself (not the chat, the token or the rate): the text message can still go out in the same attempt. */
+const photoRejected = (result: SendResult) => !result.ok && result.failure === 'PERMANENT' && result.code === 'PROVIDER_REJECTED';
 export function createTelegramAdapter(botId: string, api: TelegramApi): ChannelAdapter {
   const adapter: ChannelAdapter = { channel: TELEGRAM_CHANNEL, clientId: `telegram:${botId}`, displayName: 'Telegram', windowHours: null,
     outsideWindow: ['REPLY', 'APPROVAL', 'NOTIFICATION'], deliveryReports: [], confirmsUncertainSends: false, choicesFit: choicesFitKeyboard,
-    send: async (to, reply) => classifySend(await api('sendMessage', renderSendMessage(to, reply)), to.value) };
+    send: async (to, reply, _correlationId, context) => {
+      if (context?.image && captionFits(reply)) {
+        const photo = classifySend(await api('sendPhoto', renderSendPhoto(to, reply, context.image), 20_000), to.value);
+        if (!photoRejected(photo)) return photo;
+      }
+      return classifySend(await api('sendMessage', renderSendMessage(to, reply)), to.value);
+    } };
   return Object.freeze(adapter);
 }
 

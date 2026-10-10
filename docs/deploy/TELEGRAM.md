@@ -56,6 +56,7 @@ $CLI dispatch-token --token-file ~/.flofi-cron-secret   # scheduler token in a n
 | Identity | the numeric user id (private chat id = user id), stored only as a keyed digest plus an encrypted chat id |
 | Deduplication | `update_id` (keyed digest): Telegram's redeliveries never repeat a turn |
 | Outbound | `sendMessage`, plain text (no `parse_mode`), link previews off; the approval link as one URL button; up to 4 short choices as callback buttons |
+| Workflow picture | a proposal is one `sendPhoto` (BUILD-WORKFLOW-VISUAL-PRESENTATION-001): FloFi's workflow PNG uploaded as bytes (multipart, never a URL), the whole proposal text as caption (≤ 1024 characters, else text only), the same URL button. A photo Telegram itself rejects (400 other than an unknown chat, 413) is replaced by the text message in the same attempt; every other answer keeps its class below. The picture is presentation only; the link is the handoff |
 | Window | none: a bot may write to a user who started it, until the user blocks it; the user must send `/start` first (Telegram's rule) |
 | Delivery status | the Bot API reports nothing after accepting a message: SENT means accepted; there are no delivered/read receipts |
 | Failures | 429 → retried after `retry_after`; 403 (blocked/deactivated) → final; 401/404 (bad token) → final; 400 (chat not found, invalid button) → final; 5xx with the API's error body → retried; a timeout, lost connection or 5xx without body → **never resent** (Telegram cannot confirm it), an approval link then withdrawn with "send LINK" |
