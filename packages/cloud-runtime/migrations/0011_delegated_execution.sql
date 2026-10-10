@@ -101,7 +101,7 @@ CREATE TABLE passkey_credentials (
   owner_account text NOT NULL CHECK (
     (owner_namespace = 'eip155' AND owner_account ~ '^0x[0-9a-f]{40}$') OR
     (owner_namespace = 'solana' AND owner_account ~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$')),
-  credential_id text NOT NULL CHECK (credential_id ~ '^[A-Za-z0-9_-]{22,1400}$'),
+  credential_id text NOT NULL CHECK (credential_id ~ '^[A-Za-z0-9_-]+$' AND length(credential_id) BETWEEN 22 AND 1400),
   public_key_spki bytea NOT NULL CHECK (octet_length(public_key_spki) = 91),
   algorithm integer NOT NULL CHECK (algorithm = -7),
   rp_id text NOT NULL CHECK (length(rp_id) BETWEEN 1 AND 253),

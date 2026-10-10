@@ -55,7 +55,7 @@ export type StepRecord = { readonly executionId: string; readonly stepIndex: num
   readonly submission: Readonly<Record<string, unknown>> | null; readonly reconciliation: Readonly<Record<string, unknown>> | null; readonly code: string | null;
   readonly attempts: number; readonly updatedAt: Date };
 export type BudgetEntry = { readonly executionId: string; readonly stepIndex: number; readonly asset: string; readonly reserved: bigint; readonly spent: bigint | null;
-  readonly state: 'RESERVED' | 'SPENT' | 'RELEASED'; readonly weekStart: Date };
+  readonly state: 'RESERVED' | 'SPENT' | 'RELEASED'; readonly starts: Readonly<Record<Period, Date>> };
 
 const ownerOf = (r: Row): Owner => ({ namespace: r.owner_namespace as Namespace, address: String(r.owner_account) });
 const passkeyOf = (r: Row): PasskeyRecord => ({ passkeyId: String(r.passkey_id), owner: ownerOf(r), credentialId: String(r.credential_id),
@@ -421,7 +421,7 @@ export function createPgDelegationStore(db: Database, tenantId: string) {
       return (await db.query(`SELECT * FROM delegated_budget_entries WHERE tenant_id = $1 AND authorization_id = $2 AND ($3::text IS NULL OR execution_id = $3)
           ORDER BY entry_id`, [tenantId, authorizationId, executionId ?? null])).rows.map(r => ({ executionId: String(r.execution_id), stepIndex: Number(r.step_index),
         asset: String(r.asset), reserved: BigInt(String(r.reserved_amount)), spent: r.spent_amount === null ? null : BigInt(String(r.spent_amount)), state: r.state as BudgetEntry['state'],
-        weekStart: date(r.week_start) }));
+        starts: { DAY: date(r.day_start), WEEK: date(r.week_start), MONTH: date(r.month_start) } }));
     },
     usageOf: (authorizationId: string, periods: Readonly<Record<Period, Date>>) => usage(db, authorizationId, periods),
     /** A compare-and-set execution transition, with the authorization still ACTIVE at `revision` when `requireActive` (locked, shared). */
