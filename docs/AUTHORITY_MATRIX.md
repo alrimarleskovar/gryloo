@@ -148,3 +148,13 @@ The owner authorizes one Base Sepolia (84532) Uniswap v3 exact-input swap throug
 ## BUILD-012A authority
 
 DEC-0056 authorizes only the exact 64 paths in BUILD-012A-PLAN §8 from baseline 64a0a46f45532d667e226193f29529d8938acf15. Canonical Supply / aave-v3 on the verified Base Sepolia Pool and Aave USDC reserve, existing injected wallet, read-only simulation, finite approval, persistence/recovery and independent reconciliation/evidence are permitted. Owner financial acceptance requires Execute and wallet approval in Gryloo. No new path, dependency, unrelated protocol/profile, merge or later lending action is authorized.
+
+## BUILD-AUTOMATION-002 delegated authority (`DELEGATED_WITH_LIMITS`)
+
+| Actor | May | May not |
+| --- | --- | --- |
+| Owner's wallet | Sign one bounded grant per Credential and chain: an ERC-7710 delegation (EVM) or an SPL `ApproveChecked` with a passkey-anchoring memo (Solana); send its own revocation (`disableDelegation`, SPL `Revoke`) | — (never asked per workflow, step or occurrence) |
+| Owner's passkey | Sign one Universal Workflow Authorization per workflow revision: owner, workflow hash, Manifest hash, per-step grants, limits, expiry, nonce, environment | Move funds by itself; authorize anything outside the grants it is anchored to |
+| FloFi owner operations (API/BFF) | Prepare enrollments and revocations, verify signatures, create rules and authorizations, revoke locally | Sign or submit anything; reach a session signer's signing capability |
+| FloFi delegated executor | Use a grant's session signer for exactly the signed workflow, inside every on-chain caveat and every application limit, after re-verification, atomic reservation, a fresh simulation and a policy check | Exceed a grant; act after revocation, expiry or a workflow change; re-sign an uncertain submission; run where no custody provider exists (production: blocked) |
+| AI / Copilot | Draft an automation (untrusted input) | Select the execution mode, limits or expiry; authorize anything |
