@@ -1,7 +1,10 @@
 # BUILD-AUTOMATION-002 — Plan: Generic Delegated Execution
 
-Date: 2026-10-10. Branch `claude/build-automation-002-delegated-execution` (worktree `~/projects/gryloo-automation-002`), from main
-`7841d5657ec9a816140a180081178e2abbc27246` (PR #75: BUILD-AUTOMATION-001, `CONFIRM_EACH_TIME`; migrations end at `0010_automations`).
+Date: 2026-10-10. Branch `claude/build-automation-002-delegated-execution` (worktree `~/projects/gryloo-automation-002`). Started from
+main `7841d5657ec9a816140a180081178e2abbc27246` (PR #75: BUILD-AUTOMATION-001, `CONFIRM_EACH_TIME`; migrations end at `0010_automations`);
+**rebased on 2026-10-10 onto canonical main `974a7acad6b117662d986254b9bc9e9be6e2a356`** (PR #76: BUILD-EXECUTION-CONTINUITY-001).
+PR #77 (BUILD-CANVAS-AUTOMATION-UX-002, head `69b4447936744d1f0bfc57535d6c36386765bbf2`) is open, unmerged, and inspected read-only.
+§18 records how this build adopts PR #76's execution semantics and composes with PR #77's Canvas and chat authoring.
 One coherent build, developed and validated locally, pushed once by the owner. Nothing is pushed, no PR is opened and nothing is merged
 by the agent.
 
@@ -318,6 +321,11 @@ may create a `CONFIRM_EACH_TIME` rule instead).
   execute → evidence per step names credential and grant → budget updates → revoke → later trigger cannot execute.
 - **Boundaries**: only the executor/signer modules reach signing; API, BFF, evaluator, dispatch stay signing-free; `CONFIRM_EACH_TIME`
   suites unchanged.
+- **Composition (§18)**: a one-step delegated rule built from a canonical `AutomationInput` (the object PR #77's chat grounding emits)
+  and the same rule built from the workspace form yield the identical strategy and workflow hash; `DAILY_WATCH` is refused for delegation;
+  the AI draft cannot select a mode. In the browser, passive wallet synchronization keeps an in-flight enrollment, revocation request or
+  open Authorization Review. A genuine account, chain or provider change drops it, and changing back cannot revive it. No delegated code
+  writes a Review binding.
 - **Gates**: `pnpm check`, `pnpm test:postgres`, Governance Lite (+ self-tests), guarded browser profiles (+ a `delegation` profile),
   `git diff --check`.
 
@@ -335,3 +343,80 @@ may create a `CONFIRM_EACH_TIME` rule instead).
 Evidence ceiling of this build: domain implemented; fixture/MOCKED end to end (loopback chain doubles with real signatures and a JS model
 of the v1.3.0 enforcers); no local-fork run against the real Delegation Framework bytecode, no public testnet, no production delegated
 authority, no transaction sent by the agent.
+
+## 18. Composition with PR #76 (merged) and PR #77 (open)
+
+### 18.1 Base and restack record
+
+- Rebased from `7841d56` onto canonical main `974a7ac` (PR #76). PR #76 touches no file of this branch and adds no migration, so
+  `0011_delegated_execution` keeps its number and pin. The pre-restack head is kept locally as `backup/automation-002-pre-restack-6bd85de`.
+- PR #77 (`69b4447`) was fetched read-only as `refs/remotes/pr/77`. It is not merged, cherry-picked or copied. Its file overlap with this
+  branch is `src/app/globals.css` and `src/i18n/pt.ts`. Both sides only add to those files, so a restack conflict should be mechanical.
+- Restack rule: if PR #77 merges before step B of §18.4 starts, restack once onto the new main before continuing. If it has not merged
+  when this build is delivered, step B is reported as a follow-up and not claimed. Nothing in this build is written against PR #77's
+  unmerged files.
+
+### 18.2 PR #76 execution semantics: adopted as canonical, with no second identity model
+
+| PR #76 rule | Application in delegated execution |
+| --- | --- |
+| Passive wallet synchronization does not invalidate authority | The delegated UI uses the owner's EVM wallet only through the shared `useBuild009Wallet` store (provider, account, chain and semantic `revision`) and the shared Solana session. `delegation-browser.ts` currently reads `chosenEvmProvider() ?? injected()` directly; it changes to receive the shared wallet. These events never cancel an in-flight enrollment, a revocation request or an open Authorization Review: `eth_accounts` and `eth_chainId` re-reads, duplicate wallet events, and transaction-completion syncs. |
+| A genuine provider, account or chain change advances the epoch and permanently invalidates old authority | Browser-held authority that is not yet persisted captures `{account, chainId, revision}` (Solana: `{address, wallet}`) when the request starts. This covers a prepared enrollment awaiting its wallet signature, a revocation transaction request, and the open Authorization Review (whose owner is the shell's wallet principal). If the epoch has advanced when the result returns, the UI discards the result, says the wallet changed, and never submits it. Changing A → B → A does not revive it. The server still verifies the signer (`ENROLLMENT_SIGNER_MISMATCH`) and the HttpOnly owner session. |
+| Persisted authority is not browser authority | An active on-chain grant plus a passkey-signed Universal Workflow Authorization exist so that FloFi can act while the owner is offline. A MetaMask account switch must not stop a weekly DCA, so this authority is **not** tied to the browser epoch. It ends only through owner revocation, an observed on-chain revocation, expiry, exhausted scope, passkey revocation or a workflow change. Each of these is terminal. Re-authorizing creates a new authorization revision with a new passkey signature and never revives the old one. Prose calls the Manifest's `revision` the *authorization revision* so it is not confused with the wallet epoch. Delegated code never reads or writes `review-authorization.ts` bindings. |
+| Durable multi-step execution continues without false invalidation | Each occurrence gets exactly one `delegated_executions` row (unique), and each step is a durable row. Passive observations never change authorization validity: RPC re-reads, receipts and wallet sync. The run moves to the next unattempted step only after the previous step is `RECONCILED`. PR #76's explicit owner continuation is replaced here by the signed authorization, as the product invariant requires. Every step still re-verifies the authority graph, the reservation, a fresh simulation and policy. It re-checks the authorization and grant inside the `SUBMISSION_PREPARED` transaction. |
+| Recovery reuses the same run | A crash, lease expiry or restart resumes the same `executionId` and step rows (fenced leases, CAS). An occurrence never gets a second execution, and a confirmed step never runs again. The owner's Resume of a `HALTED`/`UNCERTAIN` execution reuses that run under the same authorization revision and re-checks everything. |
+| `UNKNOWN` submission never blindly retries | A step at `SUBMISSION_PREPARED`, `SUBMITTED` or `UNCERTAIN` never gets a new transaction or a new signature. Recovery only observes the recorded hash or signature, and may re-broadcast the byte-identical persisted bytes: same hash, same nonce or blockhash, so no second effect is possible. The reservation stays held, later steps do not continue, and the owner sees "Outcome being confirmed" with no retry action. This is implemented and covered by the crash-after-prepare and lost-submission tests. |
+
+### 18.3 PR #77 composition: one authoring model, one canonical object chain
+
+```
+Chat / Copilot (PR #77)       untrusted AutomationDraft → groundAutomationDraft → canonical AutomationInput → preview → explicit click
+Automations workspace         existing form (CONFIRM) │ delegated form
+Canvas (after PR #77)         the exact current workflow (hash-bound)
+        └──────────────► canonical Workflow IR   (routeStrategy / composeWorkflowBound, semanticWorkflowHash)
+                         ► canonical Automation Rule  (automation_rules, one persistence/scheduler/evaluator, execution_mode)
+                         ► [DELEGATED_WITH_LIMITS only] Delegated Authorization Manifest
+                         ► Credential authority graph (resolved completely, before any signature)
+                         ► Universal Workflow Authorization (one passkey signature)
+                         ► delegation.execute (durable run)
+```
+
+a. **No second chat authoring system.** The delegated path consumes the grounded `AutomationInput` that PR #77 emits. A pure
+   `delegatedSourceFromAutomation(input)` in `delegation/` depends only on `automations/definition.ts`, which is on main. It maps
+   `SCHEDULED_DCA` and `PRICE_TRIGGER` with a `ROUTE` action to `{ trigger, steps: [one step] }`. `DAILY_WATCH` is refused with
+   `DELEGATION_NOT_APPLICABLE`, since there is nothing to execute. The multi-step form compiles through the same `routeStrategy`, so a
+   one-step rule from chat and from the workspace has the same strategy and workflow hash. A test proves this.
+b. **Execution mode is the owner's choice and never an AI output.** `AutomationDraft` gets no mode field. Words such as "automatically"
+   or "sem perguntar" in the chat text do not preselect it. The proposal card keeps PR #77's preview and adds the same radiogroup: "Ask
+   every time" (default) or "Automatic within limits". Choosing automatic requires the owner to enter limits (cumulative budget,
+   executions per period, expiry), see the required Credentials resolved, review the Universal Authorization Review and sign it with a
+   passkey. The AI can prefill only the per-execution amount the owner stated; it never supplies a budget or an expiry. Delegated creation
+   stores a `PAUSED` rule and a `PENDING_SIGNATURE` authorization. Activation happens only after the passkey signature. Chat-created
+   rules stay `CONFIRM_EACH_TIME` unless the owner does all of this.
+c. **Saved workflows** ("execute my Base → Arbitrum workflow"). The source is the AUTOMATION-001 saved-workflow binding: exact version
+   and hash, with no new snapshot model. The requirement extractor resolves every step. A bridge step resolves to
+   `BRIDGE_ROUTE_UNAVAILABLE` or `DELEGATION_TEMPLATE_NOT_IMPLEMENTED`, and the preview refuses it before anything is created. Delegated
+   creation currently sets `source: null`. Saved-workflow sources are in scope only by reusing that binding.
+d. **Percent triggers** ("If ETH drops 5%"). The delegated trigger schema already accepts AUTOMATION-001's `PERCENT_DROP` and
+   `PERCENT_RISE`. PR #77's draft parses only `PRICE_BELOW` and `PRICE_ABOVE`, and extending it changes PR #77's files, so that waits
+   for the merge.
+e. **Canvas.** A delegated occurrence creates no `AUTOMATION_RULE` approval handoff, because no owner Review happens per occurrence. So
+   nothing enters the Canvas per occurrence, and PR #77's internal handoff stays exclusive to `CONFIRM_EACH_TIME`. A `HALTED` or
+   `UNCERTAIN` delegated run is never turned into a Canvas Execute; there is no silent downgrade to owner signing and no silent upgrade.
+   Attention and evidence are shown in Automations. After PR #77, "Automate this workflow" on the Canvas creates a canonical rule from
+   the exact current workflow and opens the same Authorization Review. That review reuses PR #77's compact, human-readable authorization
+   details (a list of limits) and shows no raw Manifest JSON in the normal product; engineering surfaces and evidence keep the Manifest.
+f. **Capabilities.** The chat card's `automationCapabilityIssue` check stays as it is for confirm mode. Delegated mode adds the
+   authority-graph preview (`automationPreview`). It fails closed and names the missing or under-scoped Credential before anything is
+   created.
+
+### 18.4 Sequencing
+
+A. **Now, on `974a7ac` and without PR #77:** this plan update; `delegatedSourceFromAutomation`, with the delegated create operation
+   accepting a canonical `AutomationInput` source and identity tests; PR #76 epoch binding for delegated browser requests through the
+   shared wallet stores; EN/PT copy and styles; the loopback browser journey through the Automations, Credentials and Passkeys
+   workspaces; documentation; gates.
+B. **After PR #77 merges, restacking once first:** the mode choice on the chat proposal card; the Canvas "Automate this workflow"
+   entry; reuse of PR #77's authorization details component in the Universal Authorization Review; a browser journey from chat to an
+   active delegated rule; percent triggers in the draft.
+   If PR #77 has not merged at delivery, step B is listed as not implemented.
