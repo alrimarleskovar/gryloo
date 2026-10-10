@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, openProposalReview, applyPendingProposal, installPassiveWallet, assertPassiveWallet } from './fixtures';
+import { test, expect, openProposalReview, applyPendingProposal, installPassiveWallet, assertPassiveWallet, assertNoFinancialCanvasAction } from './fixtures';
 
 test.beforeEach(async ({ page }) => { await installPassiveWallet(page, '0x14a34'); await page.goto('/app'); });
 test.afterEach(async ({ page }) => { await assertPassiveWallet(page); });
@@ -44,7 +44,7 @@ test('a three-step proposal applies atomically and grants no financial authoriza
   await expect(page.locator('.react-flow__edge')).toHaveCount(2);
   await expect(page.getByRole('button', { name: /^Review proposed change:/ })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Download Evidence Bundle' })).toHaveCount(0);
 });

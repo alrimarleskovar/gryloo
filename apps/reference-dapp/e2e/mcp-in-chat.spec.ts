@@ -40,18 +40,20 @@ async function latestRun(flow: string, owner: string): Promise<string> {
 const approval = (page: Page) => page.getByRole('region', { name: 'External proposal' });
 const bridge = (page: Page) => page.getByRole('region', { name: 'Cross-chain bridge' });
 async function simulateStage(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await openSimulationDetails(page);
 }
-async function assertHandoffReviewBlocked(page: Page, requests: () => Promise<number>) {
+async function assertHandoffReviewBlocked(page: Page, requests: () => Promise<number>, proposalUrl: string) {
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
-  await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+  await expect(page.locator('.review-authorization-details')).toContainText('A simulation that can authorize this workflow is required before approval.');
   await expect(page.getByRole('region', { name: 'Authorization technical details', exact: true })).toContainText('Strategy Manifest');
   await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
   expect(await requests()).toBe(0);
   await assertExecutionBlocked(page, requests);
   // The signing-session link stays consumed. Its proven claimant may restore the authoring proposal, with no prior Review authority.
-  await page.reload();
+  // Diagnostics explicitly enter engineering; restore the external approval URL
+  // for the same full-document owner restoration check.
+  await page.goto(proposalUrl);
   await expect(approval(page)).toContainText('Nothing is authorized yet.');
   await expect(approval(page).getByRole('button', { name: 'Load proposal' })).toBeVisible();
   await approval(page).getByRole('button', { name: 'Load proposal' }).click();
@@ -119,11 +121,10 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await proposalIntoWorkflow(signing, url, 'evm');
     // Use the authoritative product's simulation and Review; a MOCKED route cannot authorize execution.
     await simulateStage(signing);
-    await bridge(signing).getByRole('button', { name: 'Get route and simulate' }).click();
     await expect(bridge(signing)).toContainText('Strategy Manifest');
     await expect(bridge(signing)).toContainText(`Owner ${owner.address}`);
     expect(await walletRequests(signing)).toContain('personal_sign');
-    await assertHandoffReviewBlocked(signing, journeySends);
+    await assertHandoffReviewBlocked(signing, journeySends, url);
     expect(await walletRequests(signing)).not.toContain('eth_sendTransaction');
 
     // Status still reaches the chat, without claiming reconciliation or an evidence bundle.
@@ -152,7 +153,7 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await chooseSolanaWallet(devnetPanel(signing));
     await devnetPanel(signing).getByRole('button', { name: 'Simulate swap' }).click();
     await expect(devnetPanel(signing).getByRole('definition').filter({ hasText: '→ expected' })).toContainText('0.1 Devnet SOL → expected');
-    await assertHandoffReviewBlocked(signing, () => signRequests(signing));
+    await assertHandoffReviewBlocked(signing, () => signRequests(signing), url);
     expect(await devnetControl({ action: 'sent' })).toBe(0);
     await expect(panel.getByText(/solana-devnet-swap · SIMULATED/)).toBeVisible({ timeout: 45_000 });
     expect(unexpected).toEqual([]);
@@ -176,9 +177,8 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await proposalIntoWorkflow(signing, url, 'evm', LENDING_OWNER);
     const lending = signing.getByRole('region', { name: 'Lending composition' });
     await simulateStage(signing);
-    await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
     await expect(lending).toContainText('Expected output:');
-    await assertHandoffReviewBlocked(signing, () => lendingSends(signing));
+    await assertHandoffReviewBlocked(signing, () => lendingSends(signing), url);
     await expect(panel.getByText(/lending-composition · SIMULATED/)).toBeVisible({ timeout: 45_000 });
     expect(unexpected).toEqual([]);
     await context.close();
@@ -206,7 +206,6 @@ test.describe('BUILD-MCP-002 in-chat execution (mocked MCP Apps host)', () => {
     await expect(approval(stranger).getByRole('alert')).toContainText(/^(HANDOFF_ALREADY_CLAIMED|HANDOFF_NOT_FOUND)$/);
     // The owner's simulation creates a durable run owned by their wallet; the account cannot read it until the wallet is linked.
     await simulateStage(signing);
-    await bridge(signing).getByRole('button', { name: 'Get route and simulate' }).click();
     await expect(bridge(signing)).toContainText(`Owner ${owner.address}`);
     await expect.poll(() => latestRun('crosschain-router-testnet', owner.address).catch(() => null)).not.toBeNull();
     const runId = await latestRun('crosschain-router-testnet', owner.address);

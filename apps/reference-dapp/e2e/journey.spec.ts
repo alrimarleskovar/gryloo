@@ -33,7 +33,7 @@ async function author(page: Page, text = 'Bridge 1 USDC from Base Sepolia to Arb
   await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('button', { name: 'Configure destination asset', exact: true })).toHaveAttribute('title', 'USDC on Arbitrum Sepolia');
 }
 async function simulateAndAccept(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate workflow' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   await expect(region(page).getByRole('list', { name: 'Route steps' })).toBeVisible();
   await acceptProductReview(page);
@@ -64,7 +64,7 @@ test('a fresh external wallet: connect → sign in → create → simulate → r
   await expect(card(page).getByRole('region', { name: 'Your runs' })).toContainText('No runs yet for this wallet.');
   expect(await walletRequests(page)).toContain('personal_sign');
   await author(page);
-  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate workflow' }).click(); await openSimulationDetails(page);
   await region(page).getByRole('button', { name: 'Get route and simulate' }).click();
   for (const text of ['Test USDC on public testnets: Base Sepolia and Arbitrum Sepolia. No real funds.', 'LI.FI · underlying protocol across',
     'Across bridge Base Sepolia → Arbitrum Sepolia', 'Amount in1 USDC on Base Sepolia', `Exactly 1 USDC to ${DIAMOND} (never unlimited)`,

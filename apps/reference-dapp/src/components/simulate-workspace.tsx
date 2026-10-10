@@ -22,12 +22,12 @@ export function SimulateWorkspace({ workflowName, returnToBuild, reviewActionHos
       </div>}/>
       <aside className="simulation-summary panel" aria-label={tr("Simulation Summary")}>
         <div className="simulation-summary-content" role="region" aria-label={tr("Simulation result details")}><SimulationSummary workflow={state.workflow} context={context} source={simulationSource} invalidWorkflow={Boolean(reviewError)}/></div>
+        {tr(review)}
         <div className="simulation-workspace-actions">
           {reviewActionHost && <div className="simulation-review-action" ref={reviewActionHost}/>}
         </div>
       </aside>
     </div>
-    {tr(review)}
     {children}
   </section>;
 }

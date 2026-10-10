@@ -35,7 +35,7 @@ test('isolated position lifecycle uses one exact wallet signature per local oper
   test.setTimeout(180_000);
   const external: string[] = [];
   page.on('request', request => { if (!request.url().startsWith(E2E_APP_ORIGIN + '/')) external.push(request.url()); });
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorLiquidity(page, liquidity);
   await operation(page, 'APPROVE_WETH');
   await operation(page, 'APPROVE_USDC');

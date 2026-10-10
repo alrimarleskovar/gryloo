@@ -27,7 +27,7 @@ import { WalletMark } from './wallet-selector';
 
 export type Tab = WorkflowStage;
 export type ProductSection = Tab | 'Dashboard';
-export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab: (value: ProductSection) => void; pathname?: string | null }) {
+export function TopBar({ tab, setTab, pathname, engineering = false }: { tab: ProductSection; setTab: (value: ProductSection) => void; pathname?: string | null; engineering?: boolean }) {
   const { t: tr } = useLocale();
   const secondaryWorkspace = secondaryWorkspaceRoute(pathname);
   const { walletEnvironment, walletKind } = useExecutionEnvironment();
@@ -81,7 +81,7 @@ export function TopBar({ tab, setTab, pathname }: { tab: ProductSection; setTab:
       {requiredChain && <span className="build009-required">{tr("Workflow network: ")}{tr(shellChainLabel(requiredChain))}</span>}
       {!solanaActive && build009.account && switchTarget && build009.chainId !== switchTarget && <><span className="network-mismatch" role="status">{tr("Switch networks before execution")}</span><button type="button" onClick={() => void build009.switchTo(switchTarget)} disabled={build009.busy}>{tr("Switch to ")}{tr(chainName(switchTarget))}</button></>}
       {!solanaActive && !build009.account && build009.providerError && <span role="status">{tr(build009.providerError)}</span>}
-      {(fork || modeB.info?.available) && <details className="shell-technical"><summary>{tr("Technical connection details")}</summary><div>
+      {engineering && (fork || modeB.info?.available) && <details className="shell-technical"><summary>{tr("Technical connection details")}</summary><div>
         {fork && <span className="fork-badge"><StatusBadge label={`Local fork · ${fork.environment}`} tone="warning"/></span>}
         {modeB.info?.available && <StatusBadge label="Wallet permissions · local fork" tone="warning"/>}
         <span>{tr("EVM Default: ")}{tr(modeB.wallet ? `injected · ${modeB.wallet.account.slice(0, 6)}…${modeB.wallet.account.slice(-4)}` : wallet ? `injected · ${wallet.account.slice(0, 6)}…${wallet.account.slice(-4)}` : product.forkWallet)}</span>

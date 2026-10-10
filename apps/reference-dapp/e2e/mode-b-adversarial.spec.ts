@@ -8,7 +8,7 @@ const profilePath = process.env.GRYLOO_MODE_B_PROFILE;
 test.skip(!profilePath, 'The pinned local Mode B fork is required');
 const profile = () => JSON.parse(readFileSync(profilePath!, 'utf8')) as { owner: string; journalDir: string; rpcUrl: string };
 async function prepare(page: import('@playwright/test').Page) {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await page.locator('.simulation-technical > summary').click();

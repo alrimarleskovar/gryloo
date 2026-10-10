@@ -9,7 +9,7 @@ async function author(page:Page,options:Parameters<typeof installLendingWallet>[
   else {await expect(page.locator('.build009-wallet-info')).toContainText(LENDING_OWNER.slice(0,6));await page.getByRole('button',{name:'Add Supply → Borrow → Swap',exact:true}).click();}
   await openProposalReview(page);
   await page.getByRole('button',{name:'Apply proposal'}).click();await expect(page.locator('.react-flow__node[data-id="lending-borrow"]')).toContainText('Borrow');
-  await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);
+  await page.getByRole('button',{name:'Simulate workflow'}).click(); await openSimulationDetails(page);
 }
 async function review(page:Page){await page.getByRole('button',{name:'Simulate lending composition',exact:true}).click();await expect(panel(page)).toContainText('Expected output:');await acceptProductReview(page);}
 const execute=(page:Page,step:string)=>panel(page).getByRole('button',{name:`Execute ${step}`,exact:true}).click();
@@ -47,7 +47,7 @@ test('three separate Canvas editors preserve the typed Borrow input and approval
   await expect(page.getByRole('form',{name:'Edit Uniswap Swap'})).toContainText('exactly 0.02 borrowed USDC');
   await expect(page.getByRole('combobox',{name:'Swap output asset'})).toHaveValue('WETH');
   await expect(page.locator('.react-flow__edge')).toHaveCount(2);
-  await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);await review(page);
+  await page.getByRole('button',{name:'Simulate workflow'}).click(); await openSimulationDetails(page);await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.reviews[0].workflow.nodes[2].inputs[0]).toEqual({name:'amount-in',kind:'OUTPUT_REFERENCE',value:{nodeId:'lending-borrow',outputId:'borrowed-amount'}});
   expect(record.reviews[0].fields).toMatchObject({supplyAmount:'200000',borrowAmount:'20000',slippageBps:100});
@@ -61,7 +61,7 @@ test('cancelled preparation is historical, survives reload, and fresh Simulate/R
   expect(await lendingSends(page)).toBe(0);
   await page.reload();await expect(page.locator('.react-flow__node')).toHaveCount(3);
   await expect(page.locator('.react-flow__node[data-id="lending-supply"]')).toContainText('Aave Supply');
-  await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);
+  await page.getByRole('button',{name:'Simulate workflow'}).click(); await openSimulationDetails(page);
   await expect(page.getByRole('button',{name:'Simulate lending composition',exact:true})).toBeEnabled();await review(page);
   const record=await panel(page).locator('details pre').evaluate(pre=>JSON.parse(pre.textContent!).record);
   expect(record.id).toBe(prior);expect(record.attempts).toHaveLength(1);expect(record.attempts[0]).toMatchObject({state:'CANCELLED',notSubmitted:true});

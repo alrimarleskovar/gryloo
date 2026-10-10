@@ -9,7 +9,7 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   const canvas = page.getByRole('region', { name: 'Workflow canvas', exact: true });
   const graph = page.getByRole('region', { name: 'Workflow graph', exact: true });
-  const cta = graph.getByRole('button', { name: 'Simulate fees', exact: true });
+  const cta = graph.getByRole('button', { name: 'Simulate workflow', exact: true });
   await expect(page.getByRole('button', { name: 'Continue to Simulate', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar button')).toHaveCount(0);
   for (const floating of [false, true]) {
@@ -20,12 +20,15 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       const graphBox = (await graph.boundingBox())!;
       const ctaBox = (await cta.boundingBox())!;
       const controlsBox = (await graph.locator('.canvas-navigator').boundingBox())!;
-      expect(Math.abs(graphBox.y + graphBox.height - ctaBox.y - ctaBox.height - 24)).toBeLessThan(1);
+      await expect.poll(async () => {
+        const surface = (await graph.boundingBox())!, button = (await cta.boundingBox())!;
+        return Math.abs(surface.y + surface.height - button.y - button.height - 24);
+      }).toBeLessThan(1);
       expect(Math.abs(graphBox.x + graphBox.width - ctaBox.x - ctaBox.width - 12)).toBeLessThan(1);
       expect(ctaBox.x).toBeGreaterThanOrEqual(graphBox.x);
       expect(controlsBox.x + controlsBox.width <= ctaBox.x || controlsBox.y + controlsBox.height <= ctaBox.y).toBe(true);
       expect(controlsBox.y).toBeGreaterThan(graphBox.y);
-      expect((await canvas.boundingBox())!.height).toBe(floating ? 680 : 590);
+      await expect.poll(async () => (await canvas.boundingBox())!.height).toBe(floating ? 760 : width <= 800 ? 820 : 590);
       const nodeBox = (await graph.locator('.flow-card').boundingBox())!;
       expect(ctaBox.x >= nodeBox.x + nodeBox.width || ctaBox.y >= nodeBox.y + nodeBox.height ||
         ctaBox.x + ctaBox.width <= nodeBox.x || ctaBox.y + ctaBox.height <= nodeBox.y).toBe(true);
@@ -45,6 +48,7 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     }
   }
+  await configureCanvasAction(page, '1');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('build-cta-pulse');
   const pulse = await cta.evaluate(element => {
@@ -62,21 +66,23 @@ test('Build CTA floats inside the wider canvas without colliding with existing c
   await expect.poll(() => cta.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
 });
 
-test('Simulate fees keeps the same navigation-only action and guarded Supply review', async ({ page }) => {
+test('Canvas simulation runs the shared Supply lifecycle with one guarded Review action', async ({ page }) => {
   await installSupplyWallet(page);
   await page.goto('/app');
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('region', { name: 'Workflow graph', exact: true }).getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('button', { name: 'Simulate Supply', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Review Supply', exact: true })).toBeDisabled();
+  const primary = page.getByRole('region', { name: 'Simulation workflow graph', exact: true }).locator('.canvas-primary-action');
+  await expect(primary.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Simulate Supply', exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-bar button')).toHaveCount(0);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toHaveCount(0);
   await nav.getByRole('button', { name: 'Build', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeVisible();
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
   await expect(page.locator('.flow-card.active')).toHaveCount(1);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
 });

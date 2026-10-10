@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Page } from '@playwright/test';
 
@@ -50,17 +50,17 @@ test('Build, Simulate and Execute retain their current workflow through Dashboar
   await page.getByRole('button', { name: 'Build workflow', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(amount).toHaveValue('2.5');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await nav.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(page.getByRole('region', { name: 'Execution workflow graph', exact: true }).locator('.composer-amount')).toHaveText('2.5 USDC');
   await nav.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.goBack();
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   expect(await page.evaluate(() => (window as unknown as { dashboardWalletMethods: string[] }).dashboardWalletMethods.filter(method => /send|sign/i.test(method)))).toEqual([]);
 });
 

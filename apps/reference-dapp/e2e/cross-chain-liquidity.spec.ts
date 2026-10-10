@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal, openSimulationDetails, readWorkflowIr, installPassiveWallet, assertPassiveWallet } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails, readWorkflowIr, installPassiveWallet, assertPassiveWallet, assertNoFinancialCanvasAction } from './fixtures';
 const recipient = '0x1111111111111111111111111111111111111111';
 
 test('cross-chain canvas and chat author the same graph while MOCKED simulation cannot authorize Execute', async ({ page }) => {
   await installPassiveWallet(page);
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.getByText('Base → Arbitrum → Uniswap v3 position', { exact: true }).click();
   const inspector = page.getByRole('form', { name: 'Compose cross-chain liquidity' });
@@ -23,7 +23,7 @@ test('cross-chain canvas and chat author the same graph while MOCKED simulation 
   await expect(panel).toContainText('pool swap fee');
   await expect(panel).toContainText('Stage: SOURCE PREPARED');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(page.getByRole('button', { name: 'Submit MOCKED bridge' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Download Evidence Bundle' })).toHaveCount(0);
   await assertPassiveWallet(page);

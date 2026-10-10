@@ -61,7 +61,7 @@ function RetiredChain({ record, workflow, expired }: { record: ChainRecord; work
   </div>;
 }
 
-export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, simulationSource, review, simulateAction, children }: { workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode; review?: ReactNode; simulateAction?: ReactNode; simulationSource?: SimulationSource | undefined }) {
+export function SimulatePanel({ engineeringOnly = false, workflowName, returnToBuild, reviewActionHost, simulationSource, review, simulateAction, children }: { engineeringOnly?: boolean; workflowName: string; returnToBuild?: () => void; reviewActionHost?: Ref<HTMLDivElement>; children?: ReactNode; review?: ReactNode; simulateAction?: ReactNode; simulationSource?: SimulationSource | undefined }) {
   const { t: tr } = useLocale();
   const { state, context, chain, eligibility, generateArtifacts, refreshArtifacts, accessCheck } = useWorkflow();
   const workflow = state.workflow;
@@ -82,9 +82,7 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, s
   const jsonKeys = current ? [...current.chain.quotes.map(quote => [`quote:${quote.nodeId}`, `mocked quote · ${quote.nodeId}`] as const),
     ['artifact-set', 'Artifact Set'] as const, ['simulation-bundle', 'mocked simulation'] as const] : [];
 
-  return <SimulateWorkspace workflowName={workflowName} returnToBuild={returnToBuild} reviewActionHost={reviewActionHost} simulationSource={simulationSource} review={review} simulateAction={simulateAction}>
-    <details className="shell-details technical-workspace simulation-technical" data-technical-open={showTechnical} onToggle={event => setShowTechnical(event.currentTarget.open)}>
-      <summary>{tr("View technical details")}</summary>
+  const diagnostics = <>
     <div className="simulate-head">
       <div><p className="muted">{tr("Generates MOCKED Quote/State, Artifact Set and Simulation Bundle artifacts for the current revision from a synthetic fixture (")}{tr(MOCKED_CHAIN_PROFILE.rateLabel)}{tr("). Mocked artifacts cannot authorize execution.")}</p></div>
       <div className="simulate-controls">
@@ -144,6 +142,11 @@ export function SimulatePanel({ workflowName, returnToBuild, reviewActionHost, s
 
       {!current && !eligibility.eligible && <p className="simulate-note">{tr(eligibility.reason)}</p>}
       {children}
+    </>;
+  if (engineeringOnly) return <div className="engineering-artifacts">{diagnostics}</div>;
+  return <SimulateWorkspace workflowName={workflowName} returnToBuild={returnToBuild} reviewActionHost={reviewActionHost} simulationSource={simulationSource} review={review} simulateAction={simulateAction}>
+    <details className="shell-details technical-workspace simulation-technical" data-technical-open={showTechnical} onToggle={event => setShowTechnical(event.currentTarget.open)}>
+      <summary>{tr('View technical details')}</summary>{diagnostics}
     </details>
   </SimulateWorkspace>;
 }

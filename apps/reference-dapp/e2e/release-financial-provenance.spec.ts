@@ -20,13 +20,13 @@ const profiles = ['lending', 'jupiter', 'solana-devnet', 'solana-liquidity', 'tr
 if (!profiles.some(value => value === profile)) throw new Error('An exact FLOFI_RELEASE_PROVENANCE_PROFILE is required');
 
 async function chat(page: Page, text: string) {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await page.getByLabel('Describe your flow').fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);
 }
 async function simulate(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await openSimulationDetails(page);
 }
 
@@ -76,7 +76,7 @@ if (profile === 'transfer' || profile === 'cloud') for (const route of profile =
     else await resetTransferHarness({}, route);
     const broadcastsBefore = await chainBroadcasts(route);
     await installTransferWallet(page, { ...(route ? { chain: '0xaa36a7', route } : {}) });
-    await page.goto('/app');
+    await page.goto('/__engineering');
     await page.getByText('Advanced action setup', { exact: true }).click();
     const form = page.getByRole('form', { name: 'Create Robinhood transfer' });
     if (route) await form.getByLabel('Transfer network').selectOption('Ethereum Sepolia');
@@ -84,7 +84,7 @@ if (profile === 'transfer' || profile === 'cloud') for (const route of profile =
     await form.getByRole('button', { name: 'Review transfer proposal' }).click();
     await applyPendingProposal(page); await simulate(page);
     const panel = page.getByRole('region', { name: route ? 'Ethereum Sepolia transfer' : 'Robinhood Testnet transfer', exact: true });
-    await panel.getByRole('button', { name: 'Simulate transfer', exact: true }).click();
+    // Canvas already ran the simulation; inspecting it must not create another run.
     await expect(panel).toContainText(route ? '11155111' : '46630');
     await expect(panel).toContainText('0.000001');
     await assertSimulationReviewBlocked(page, async () => (await sendRequests(page)).length);
@@ -104,7 +104,7 @@ if (profile === 'transfer' || profile === 'cloud') for (const route of profile =
 }
 
 if (profile === 'uniswap') test('MOCKED Uniswap liquidity retains exact approval amounts, ticks and recipient while Review rejects execution', async ({ page }) => {
-  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/app');
+  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/__engineering');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.locator('#liquidity-network').selectOption('BASE_SEPOLIA');
   const form = page.getByRole('form', { name: 'Create Base Sepolia liquidity position' });
@@ -119,7 +119,7 @@ if (profile === 'uniswap') test('MOCKED Uniswap liquidity retains exact approval
 });
 
 if (profile === 'uniswap') test('liquidity proposal waits for price-derived bounds, including keyboard submission', async ({ page }) => {
-  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/app');
+  await resetUniswapHarness(); await installUniswapWallet(page); await page.goto('/__engineering');
   await page.getByText('Advanced action setup', { exact: true }).click();
   await page.locator('#liquidity-network').selectOption('BASE_SEPOLIA');
   const form = page.getByRole('form', { name: 'Create Base Sepolia liquidity position' });

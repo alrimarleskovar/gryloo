@@ -31,7 +31,7 @@ test('chat “Swap 10 USDC to SOL on Solana” authors the same swap and simulat
   const wallet = await resetJupiterHarness(); await installSolanaWallet(page, wallet);
   await authorSolanaSwap(page, 'chat');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('10 USDC · Solana · 50 bps');
-  await page.getByRole('button', { name: 'Simulate fees' }).click();
+  await page.getByRole('button', { name: 'Simulate workflow' }).click();
   await chooseSolanaWallet(panel(page));
   await panel(page).getByRole('button', { name: 'Simulate swap' }).click();
   const summary = page.getByRole('definition').filter({ hasText: '→ expected' });

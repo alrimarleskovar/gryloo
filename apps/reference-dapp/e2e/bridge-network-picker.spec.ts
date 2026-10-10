@@ -118,7 +118,7 @@ test('Bridge wallet network changes keep supported drafts aligned and require fr
   await setSupplyWalletChain(page, '0x2105');
   await expect(source).toHaveAttribute('title', 'USDC on Base'); await expect(destination).toHaveAttribute('title', 'USDC on Arbitrum');
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await assertOptions('source', 'Base'); await assertOptions('destination', 'Arbitrum');
   await expect(card.getByRole('textbox')).toHaveValue('2.5');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
@@ -156,7 +156,10 @@ test('Bridge wallet network changes keep supported drafts aligned and require fr
   await setSupplyWalletChain(page, '0x14a34');
   await expect(card.getByRole('button', { name: 'Apply amount', exact: true })).toBeDisabled();
   await card.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // The supply fixture has no Router provider. Canvas runs simulation rather
+  // than merely navigating, so cancelling a draft cannot enable that capability.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
   await expect(source).toHaveAttribute('title', 'USDC on Base Sepolia');
   await expect(destination).toHaveAttribute('title', 'USDC on Arbitrum Sepolia');
   await expect(card.getByRole('textbox')).toHaveValue('2.5');

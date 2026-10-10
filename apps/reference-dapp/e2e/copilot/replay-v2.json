@@ -609,6 +609,206 @@
      }
     }
    }
+  },
+  {
+   "user": [
+    "Buy 10 USDC of ETH every day at 9:00 on Base Sepolia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "SCHEDULED_DCA",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": "BASE_SEPOLIA",
+       "amount": "10",
+       "spendAsset": "USDC",
+       "time": "09:00",
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "Todo dia às 9:00 compre 10 USDC de ETH na Base Sepolia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "PT",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "SCHEDULED_DCA",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": "BASE_SEPOLIA",
+       "amount": "10",
+       "spendAsset": "USDC",
+       "time": "09:00",
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "If ETH falls below $3000, prepare a buy of 50 USDC on Base Sepolia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "PRICE_TRIGGER",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": "BASE_SEPOLIA",
+       "amount": "50",
+       "spendAsset": "USDC",
+       "time": null,
+       "condition": "PRICE_BELOW",
+       "threshold": "3000"
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "If ETH rises above $5000, prepare a sell of 0.1 ETH on Base Sepolia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "PRICE_TRIGGER",
+       "asset": "ETH",
+       "side": "SELL",
+       "network": "BASE_SEPOLIA",
+       "amount": "0.1",
+       "spendAsset": "ETH",
+       "time": null,
+       "condition": "PRICE_ABOVE",
+       "threshold": "5000"
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "Todos os dias às 8h verifica ETH para mim."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "PT",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "DAILY_WATCH",
+       "asset": "ETH",
+       "side": null,
+       "network": null,
+       "amount": null,
+       "spendAsset": null,
+       "time": "08:00",
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "Compre ETH todo dia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "PT",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "SCHEDULED_DCA",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": null,
+       "amount": null,
+       "spendAsset": null,
+       "time": null,
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "Buy 10 USDC of ETH every day at 9:00."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "SCHEDULED_DCA",
+       "asset": "ETH",
+       "side": "BUY",
+       "network": null,
+       "amount": "10",
+       "spendAsset": "USDC",
+       "time": "09:00",
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "user": [
+    "Buy 10 USDC of BTC every day at 9:00 on Base Sepolia."
+   ],
+   "answer": {
+    "output": {
+     "intent": {
+      "version": "2",
+      "language": "EN",
+      "kind": "AUTOMATION",
+      "draft": {
+       "kind": "SCHEDULED_DCA",
+       "asset": "BTC",
+       "side": "BUY",
+       "network": "BASE_SEPOLIA",
+       "amount": "10",
+       "spendAsset": "USDC",
+       "time": "09:00",
+       "condition": null,
+       "threshold": null
+      }
+     }
+    }
+   }
   }
  ]
 }

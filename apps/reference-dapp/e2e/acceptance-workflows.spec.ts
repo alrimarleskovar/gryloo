@@ -167,9 +167,12 @@ test('Save → Your workflows → exact Canvas restoration; grouped executions, 
   await expect.poll(() => savedCanonical(A.address)).toEqual(workflow);
   await expect(page.locator('.canvas-name h2')).toHaveText(name);
   await stage(page, 'Simulate');
-  const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
-  await expect(review).toContainText('Review unavailable until simulation is ready.');
-  await expect(review.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
+  const review = page.locator('.review-authorization-details');
+  await review.locator('summary').click();
+  await expect(review).toContainText(/Simulate.*again/);
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Simulate workflow', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toHaveCount(0);
   await expect(review).not.toContainText('Review approved');
   // Changing locale is presentation only; wallet identity and canonical IR remain unchanged.
   await stage(page, 'Build');

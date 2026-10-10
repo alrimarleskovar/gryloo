@@ -34,6 +34,14 @@ const props = (): ReviewWorkspaceProps => ({ ...reviewFixture(), workflowName: '
 const render = (p = props()) => renderToStaticMarkup(createElement(ReviewWorkspace, p));
 const primary = (html: string) => html.split('<details')[0]!;
 describe('product Review workspace', () => {
+  it('keeps authorization details without a competing approval when Canvas owns the action', () => {
+    const p = { ...props(), actionSurface: 'canvas' as const };
+    const html = primary(render(p));
+    for (const section of ['Execution limits', 'Permissions', 'Wallet authorization', 'Authorization preview']) expect(html).toContain(`aria-label="${section}"`);
+    expect(html).not.toContain('Approve &amp; Continue');
+    expect(html).not.toContain('class="primary"');
+    expect(html).toContain('No transaction is submitted');
+  });
   it('presents workflow, limits, permissions, current wallet and a derived authorization preview before collapsed technical data', () => {
     const p = props(), html = render(p), main = primary(html);
     for (const section of ['Execution limits', 'Permissions', 'Wallet authorization', 'Authorization preview', 'Final confirmation']) expect(main).toContain(`aria-label="${section}"`);

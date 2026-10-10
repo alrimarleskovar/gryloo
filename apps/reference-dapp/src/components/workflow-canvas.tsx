@@ -427,7 +427,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
         canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && pending?.valid && poolProposalTarget(pending.command) === node.nodeId && pending.command.baseRevision === workflow.revision),
         onApply: applyProposal,
       } } : {}),
-      ...(['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) ? { supplyProposal: {
+      ...(['supply', 'borrow', 'repay', 'withdraw', 'asset.transfer'].includes(node.actionType) ? { supplyProposal: {
         formId: supplyReviewFormId(node.nodeId), reviewLabel: `Review ${composerSummary(workflow, node, context).action} change`, canReview: selectedId === node.nodeId,
         hasProposal: Boolean(pending && proposalTarget === node.nodeId),
         canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && pending?.valid && proposalTarget === node.nodeId && pending.command.baseRevision === workflow.revision),
@@ -437,7 +437,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
         ? { ...composerNodeState(review, node.nodeId), status: 'Check amount', tone: 'warning' }
         : composerNodeState(review, node.nodeId),
       ...(canEditCanvasAmount(node, context, workflow) ? { amountEditor: {
-        ...(['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) ? { formId: supplyReviewFormId(node.nodeId) } : {}),
+        ...(['supply', 'borrow', 'repay', 'withdraw', 'asset.transfer'].includes(node.actionType) ? { formId: supplyReviewFormId(node.nodeId) } : {}),
         value: amountInputs[node.nodeId] ?? composerSummary(workflow, node, context).amount.split(' ')[0]!,
         changed: amountInputs[node.nodeId] !== undefined,
         canApply: Boolean((!cryptoSelectionOf(node) || actionSelection(node.nodeId, cryptoSelections[node.nodeId] ?? cryptoSelectionOf(node)!).valid) && (!routerDetails(node) || bridgeSelection(node.nodeId, bridgeNetworkInputs[node.nodeId] ?? routerDetails(node)!).valid) && pending?.valid && pending.authoringId === node.nodeId && pending.authoringAmount === actionReviewValue(null, node.nodeId, amountInputs[node.nodeId], bridgeNetworkInputs[node.nodeId], cryptoSelections[node.nodeId]) && pending.command.baseRevision === workflow.revision),
@@ -507,7 +507,7 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
       return;
     }
     if (actionSetup) { selectNodes([actionSetup.id], actionSetup.id); setFeedback('Configure this action before adding another.'); return; }
-    if (action === 'pool' || action === 'swap' || action === 'bridge' || action === 'supply' || action === 'borrow' || action === 'repay' || action === 'withdraw') {
+    if (action === 'pool' || action === 'swap' || action === 'bridge' || action === 'supply' || action === 'borrow' || action === 'repay' || action === 'withdraw' || action === 'transfer') {
       if (['supply', 'borrow', 'repay'].includes(action) && !wallet.account) { setFeedback('Connect your wallet to set the beneficiary before adding this action.'); return; }
       let slot = composerActions(workflow).length;
       let position = defaultCanvasPosition(slot);

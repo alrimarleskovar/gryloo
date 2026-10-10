@@ -74,7 +74,7 @@ export function useCopilotInterpreter() {
       capability: { environment: now.environment, executionSupported: now.capability.executionSupported, executionReady: now.capability.executionReady,
         evidenceCeiling: now.capability.evidenceCeiling, blockers: now.capability.blockers.filter(item => item.dimension === 'EXECUTE' || item.dimension === 'AUTHORIZE') },
       simulation, walletConnected: Boolean(now.wallet.account) });
-    return { workflow: current, context: store.context, wallet: now.wallet.account, walletChainId: now.wallet.chainId, pending: store.pending, facts };
+    return { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, workflow: current, context: store.context, wallet: now.wallet.account, walletChainId: now.wallet.chainId, pending: store.pending, facts };
   }, []);
   // Every proposal the user can see becomes a referent, including exact-grammar proposals ("make it 2" after one).
   const pendingCommand = workflow.pending?.command;

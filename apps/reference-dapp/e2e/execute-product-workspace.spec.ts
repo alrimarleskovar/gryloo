@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction } from './fixtures';
 import { build } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { configureCanvasAction } from './composer-authoring-fixtures';
@@ -76,7 +76,7 @@ test('Dark authorization attention follows real approval, invalidation and expir
   await expect(page.locator('.execution-authorization-attention')).toHaveCount(0);
   for (const change of ['unapproved', 'wallet'] as const) {
     await page.evaluate(value => window.flofiExecuteAcceptance.transition(value), change);
-    await expect(execute).toBeDisabled();
+    await assertNoFinancialCanvasAction(page);
     await expect(page.locator('.execution-authorization-attention')).toHaveCSS('background-color', 'rgb(51, 39, 15)');
     await expect(page.locator('.execution-authorization-attention')).toHaveCSS('color', 'rgb(245, 185, 74)');
     await expect(page.locator('.simulation-validity strong')).toHaveCSS('color', 'rgb(245, 185, 74)');
@@ -89,9 +89,9 @@ test('Dark authorization attention follows real approval, invalidation and expir
   await expect(page.locator('.execution-authorization-attention')).toHaveText('Expired');
   await expect(page.locator('.simulation-validity')).toHaveCSS('background-color', 'rgb(51, 39, 15)');
   await expect(page.locator('.simulation-validity strong')).toHaveCSS('color', 'rgb(245, 185, 74)');
-  await expect(execute).toHaveCSS('color', 'rgb(164, 171, 184)');
-  await expect(execute).toHaveCSS('opacity', '1');
-  await expect(execute).toBeDisabled();
+  await expect(page.locator('.canvas-primary-action button.primary')).toHaveCSS('color', 'rgb(164, 171, 184)');
+  await expect(page.locator('.canvas-primary-action button.primary')).toHaveCSS('opacity', '1');
+  await assertNoFinancialCanvasAction(page);
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
   await page.screenshot({ path: '.tmp/ux007-team3-authorization-dark.png', fullPage: true });
 });
@@ -100,7 +100,7 @@ test('execution starts only on an explicit native click and cannot be repeated',
   const execute = page.getByRole('button', { name: 'Execute workflow', exact: true });
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
   await execute.focus(); await execute.press('Enter');
-  await expect(execute).toBeDisabled(); await expect(page.getByRole('complementary', { name: 'Execution Summary' })).toContainText('Execution already started');
+  await assertNoFinancialCanvasAction(page); await expect(page.getByRole('complementary', { name: 'Execution Summary' })).toContainText('Execution already started');
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(1);
 });
 test('expiry updates readiness without navigation and is rechecked at the click boundary', async ({ page }) => {
@@ -108,8 +108,8 @@ test('expiry updates readiness without navigation and is rechecked at the click 
   await page.clock.setSystemTime(reviewNow + 120_001);
   await execute.click(); expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(execute).toBeDisabled(); await expect(page.getByRole('complementary', { name: 'Execution Summary' })).toContainText('Simulation expired');
-  await page.getByRole('button', { name: 'Simulate again', exact: true }).click();
+  await assertNoFinancialCanvasAction(page); await expect(page.getByRole('complementary', { name: 'Execution Summary' })).toContainText('Simulation expired');
+  await page.locator('.execute-actions').getByRole('button', { name: 'Simulate again', exact: true }).click();
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).simulated).toBe(1);
 });
 test('authorization, wallet, network and workflow transitions stay fail-closed', async ({ page }) => {
@@ -118,7 +118,7 @@ test('authorization, wallet, network and workflow transitions stay fail-closed',
     await page.evaluate(() => window.flofiExecuteAcceptance.transition('valid'));
     await expect(execute).toBeEnabled();
     await page.evaluate(value => window.flofiExecuteAcceptance.transition(value), change);
-    await expect(execute).toBeDisabled();
+    await assertNoFinancialCanvasAction(page);
     if (change === 'wallet') await expect(page.locator('.execution-summary')).toContainText('0x2222…2222');
     if (change === 'network') { await expect(page.locator('.execution-summary')).toContainText('Arbitrum'); await expect(page.locator('.execution-summary')).toContainText('Mainnet'); }
     if (change === 'unknown') { await expect(page.locator('.execution-summary')).toContainText('Unknown network'); await expect(page.locator('.execution-summary')).not.toContainText('Mainnet'); }
@@ -204,8 +204,15 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
   // This provider already exposes an account. Wait for the shared wallet's passive reuse;
   // the transient Connect button disappears during hydration.
   await expect(page.locator('.build009-wallet-info')).toBeVisible();
-  await page.getByRole('button', { name: 'Add swap', exact: true }).click(); await configureCanvasAction(page, '2.5');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await page.locator('.composer-card').getByRole('button', { name: 'Select source token', exact: true }).click();
+  const picker = page.getByRole('region', { name: 'Source asset picker', exact: true });
+  await picker.getByRole('button', { name: 'Base Sepolia', exact: true }).click();
+  await picker.getByRole('button', { name: 'Hide token picker', exact: true }).click();
+  await configureCanvasAction(page, '2.5');
+  // This idle-shell check has no RPC fixture. Navigation exposes the read-only
+  // summary; financial simulation is covered by the dedicated swap acceptance.
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.locator('#simulation-review')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
@@ -218,7 +225,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
   await expect(graph.locator('.composer-card input,.composer-card select')).toHaveCount(0);
   await expect(page.locator('.execution-summary')).toContainText('Base Sepolia');
   await expect(page.locator('.execution-summary')).toContainText('Testnet');
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(page.locator('#simulation-review')).toHaveCount(0);
   for (const theme of ['light', 'dark']) {
     await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
@@ -232,7 +239,7 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
       });
       expect(spacing.top).toBe(spacing.contentTop);
       await expectStageNavigationFits(page);
-      await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+      await assertNoFinancialCanvasAction(page);
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -249,7 +256,8 @@ test('the real shell preserves Build and embedded Review while Execute stays rea
 test('synchronous repeated clicks cannot duplicate a request before runtime state catches up', async ({ page }) => {
   await page.evaluate(() => { window.flofiExecuteAcceptance.holdStart(); const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'Execute workflow')!; button.click(); button.click(); });
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(1);
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
+  await expect(page.locator('.canvas-primary-action')).toContainText('Waiting for wallet…');
 });
 test('approval, submitted action and confirmation remain ordered with explicit continuation', async ({ page }) => {
   await page.evaluate(() => window.flofiExecuteAcceptance.lifecycle('approval-pending'));
@@ -396,11 +404,11 @@ test('wallet, network, workflow and expiry invalidate a next request without dis
 
 test('status checks are explicit, locked and can confirm the recorded run without resubmission', async ({ page }) => {
   await page.evaluate(() => window.flofiExecuteAcceptance.lifecycle('restored'));
-  const check = page.getByRole('button', { name: 'Check status', exact: true });
+  const check = page.getByRole('button', { name: 'Recover execution', exact: true });
   await expect(check).toBeEnabled();
-  await page.evaluate(() => { const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'Check status')!; button.click(); button.click(); });
+  await page.evaluate(() => { const button = [...document.querySelectorAll('button')].find(b => b.textContent === 'Recover execution')!; button.click(); button.click(); });
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).checked).toBe(1);
-  await expect(page.getByRole('button', { name: 'Checking status…', exact: true })).toBeDisabled();
+  await expect(page.locator('.canvas-primary-action [data-lifecycle-action="status"]')).toHaveText('Reconciling…');
   await expect(page.locator('.execution-summary')).toContainText('Checking execution status');
   await expect(page.locator('.execution-timeline')).toContainText('Checking status');
   await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toHaveCount(0);
@@ -417,7 +425,7 @@ test('status checks are explicit, locked and can confirm the recorded run withou
 test('an unresolved or unsuccessful check preserves uncertainty and never offers retry', async ({ page }) => {
   for (const outcome of ['uncertain', 'error'] as const) {
     await page.evaluate(value => { window.flofiExecuteAcceptance.transition('valid'); window.flofiExecuteAcceptance.lifecycle('restored'); window.flofiExecuteAcceptance.checkOutcome(value); }, outcome);
-    await page.getByRole('button', { name: 'Check status', exact: true }).click();
+    await page.getByRole('button', { name: 'Recover execution', exact: true }).click();
     await page.evaluate(() => window.flofiExecuteAcceptance.finishCheck());
     if (outcome === 'uncertain') await expect(page.locator('.execution-summary')).toContainText('Execution status unresolved');
     else { await expect(page.locator('.execution-summary')).toContainText('Unable to check execution status'); await expect(page.locator('.execution-timeline')).toContainText('Pending confirmation'); }
@@ -464,20 +472,24 @@ test('wallet interaction, submission and confirmation show only recorded lifecyc
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
 });
 
-test('safe status checks and continuation each have one primary action', async ({ page }) => {
+test('safe status checks and continuation each have one primary Canvas action', async ({ page }) => {
   await page.evaluate(() => window.flofiExecuteAcceptance.lifecycle('restored'));
-  const summary = page.locator('.execution-summary');
-  await expect(summary.locator('button.primary')).toHaveCount(1);
-  await expect(summary.getByRole('button', { name: 'Check status', exact: true })).toHaveClass('primary');
+  const summary = page.locator('.execution-summary'), primary = page.locator('.canvas-primary-action');
+  await expect(summary.locator('button.primary')).toHaveCount(0);
+  await expect(primary.getByRole('button', { name: 'Recover execution', exact: true })).toHaveClass('primary');
+  await expect(primary.locator('button.primary')).toHaveCount(1);
   await expect(summary).not.toContainText('Authorization');
-  await page.getByRole('button', { name: 'Check status', exact: true }).click();
-  await expect(summary.getByRole('button', { name: 'Checking status…', exact: true })).toBeDisabled();
-  await expect(summary.locator('button.primary')).toHaveCount(1);
+  await primary.getByRole('button', { name: 'Recover execution', exact: true }).click();
+  await expect(primary.locator('[data-lifecycle-action="status"]')).toHaveText('Reconciling…');
+  await expect(primary.locator('button.primary')).toHaveCount(0);
   await page.evaluate(() => window.flofiExecuteAcceptance.finishCheck());
-  await expect(summary.getByRole('button', { name: 'Return to Build', exact: true })).toHaveClass('primary');
+  await expect(primary.locator('[data-lifecycle-action="status"]')).toHaveText('Execution completed');
+  await expect(primary.locator('button.primary')).toHaveCount(0);
+  await expect(summary.getByRole('button', { name: 'Return to Build', exact: true })).toBeEnabled();
   await page.evaluate(() => { window.flofiExecuteAcceptance.transition('valid'); window.flofiExecuteAcceptance.lifecycle('approval-confirmed'); });
-  await expect(summary.locator('button.primary')).toHaveCount(1);
-  await expect(summary.getByRole('button', { name: 'Continue to swap', exact: true })).toHaveClass('primary');
+  await expect(primary.locator('button.primary')).toHaveCount(1);
+  await expect(primary.getByRole('button', { name: 'Continue to swap', exact: true })).toHaveClass('primary');
+  await expect(summary.locator('button.primary')).toHaveCount(0);
   expect((await page.evaluate(() => window.flofiExecuteAcceptance.counts())).executed).toBe(0);
 });
 

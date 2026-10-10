@@ -8,7 +8,7 @@ async function author(page:Page,options:Parameters<typeof installSupplyWallet>[1
   await installSupplyWallet(page,{account:REPAY_OWNER,...options});await page.goto('/app');await page.getByRole('button',{name:'Add repay',exact:true}).click();
   await configureCanvasAction(page,'0.005');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('1. Repay');
-  await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Simulate workflow'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toBeVisible();
 }
 async function review(page:Page){await acceptProductReview(page);}
 const region=(page:Page)=>page.getByRole('region',{name:'Aave Repay'});
@@ -47,5 +47,14 @@ test('semantic amount edit removes Repay authorization',async({page})=>{
   await author(page);await review(page);await page.getByRole('button',{name:'Build',exact:true}).click();await page.locator('.react-flow__node[data-id="node-002"] .flow-card').click();await openCanvasSettings(page);const form=page.getByRole('form',{name:'Edit Repay'});await form.getByLabel('Repay amount (USDC)').fill('0.004');await page.locator('.build-flow-surface .composer-card.active').getByRole('button',{name:'Review Repay change'}).click();await page.getByRole('button',{name:'Apply proposal'}).click();await page.getByRole('navigation',{name:'Workflow stages'}).getByRole('button',{name:'Execute',exact:true}).click();await expect(region(page)).toContainText('The workflow changed');await expect(region(page).getByRole('button',{name:'Approve exactly 5000 raw USDC'})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
 });
 test('insufficient debt blocks read-only simulation',async({page})=>{
-  await resetSupplyHarness({...repayOptions,scaledDebt:'4000'});await installSupplyWallet(page,{account:REPAY_OWNER});await page.goto('/app');await page.getByRole('button',{name:'Add repay',exact:true}).click();await configureCanvasAction(page,'0.005');await page.getByRole('button',{name:'Simulate fees'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();await expect(region(page)).toContainText('Current variable debt must exceed');await expect(page.getByRole('region',{name:'Review & Authorization',exact:true})).toContainText('Review unavailable until simulation is ready.');await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toHaveCount(0);expect(await supplySendCount(page)).toBe(0);
+  await resetSupplyHarness({...repayOptions,scaledDebt:'4000'});await installSupplyWallet(page,{account:REPAY_OWNER});await page.goto('/app');await page.getByRole('button',{name:'Add repay',exact:true}).click();await configureCanvasAction(page,'0.005');await page.getByRole('button',{name:'Simulate workflow'}).click(); await openSimulationDetails(page);await page.getByRole('button',{name:'Simulate Repay',exact:true}).click();
+  await expect(region(page)).toContainText('Current variable debt must exceed');
+  const details = page.locator('.review-authorization-details');
+  await details.locator('summary').click();
+  await expect(page.getByRole('region',{name:'Risk and attention',exact:true})).toContainText('Simulation could not be completed. Try again before continuing.');
+  await expect(details).toContainText('requires a fresh Review');
+  await expect(page.locator('.canvas-primary-action').getByRole('button',{name:'Simulate workflow',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Approve & Continue',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Execute workflow',exact:true})).toHaveCount(0);
+  expect(await supplySendCount(page)).toBe(0);
 });

@@ -124,7 +124,7 @@ function CanonicalArtifactInspector({ selectedId, select, expanded = false, onEx
   const orcaPosition = node ? solanaLiquidityDetails(node) : null;
   const uniPosition = node ? uniswapLiquidityDetails(node) : null;
   const routed = node ? routerDetails(node) : null;
-  const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
+  const label = node?.actionType === 'borrow' && !lending ? 'Borrow' : node?.actionType === 'repay' ? 'Repay' : node?.actionType === 'withdraw' ? 'Withdraw' : node?.actionType === 'asset.transfer' ? 'Transfer' : lending ? (node?.nodeId==='lending-supply'?'Aave Supply':node?.nodeId==='lending-borrow'?'Aave Borrow':'Uniswap Swap') : supply ? 'Supply' : solana ? 'Swap' : orcaPosition || uniPosition ? 'Liquidity position' : routed ? 'Cross-chain bridge' : cross && node ? 'Cross-chain liquidity' : swap ? 'Swap' : bridge ? 'Bridge' : liquidity ? 'Pool' : template && node ? node.actionType.slice(5).replace(/^./, letter => letter.toUpperCase()) : 'Action';
   const canonicalSummary = node ? composerSummary(state.workflow, node, context) : setup ? setupSummary(setup, context) : null;
   const networks = node ? bridgeNetworkInputs[node.nodeId] : undefined;
   const selectedSummary = canonicalSummary && node && cryptoSelections[node.nodeId] ? { ...canonicalSummary, chain: selection!.network, provider: cryptoProfile(selection!)!.provider } : canonicalSummary;
@@ -145,8 +145,10 @@ function CanonicalArtifactInspector({ selectedId, select, expanded = false, onEx
     </div>}
     {setup?.action === 'pool' && !setup.cryptoSelection && <UniswapLiquidityForm key={setup.id} nodeId={setup.id} reviewFormId={poolReviewFormId(setup.id)}/>}
     {(setup?.action === 'pool' && setup.cryptoSelection || node && cryptoSelections[node.nodeId]?.action === 'pool') && <CryptoPoolForm key={`${setup?.id ?? node!.nodeId}:${setup?.cryptoSelection?.network ?? cryptoSelections[node!.nodeId]?.network}`} nodeId={setup?.id ?? node!.nodeId}/>}
+    {node?.actionType === 'asset.transfer' && selection && <form id={supplyReviewFormId(node.nodeId)} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(node.nodeId) ?? ''); }}><p>{tr("Recipient: your connected owner wallet (a self-transfer), bound at Review. Only the network fee is spent. A chain execution proof, not a DeFi action.")}</p>{error && <p role="alert">{tr(error)}</p>}</form>}
+    {setup?.action === 'transfer' && <p>{tr("Recipient: your connected owner wallet (a self-transfer), bound at Review. Only the network fee is spent. A chain execution proof, not a DeFi action.")}</p>}
     {setup && setup.action !== 'pool' && <form id={setup.action !== 'swap' && setup.action !== 'bridge' ? supplyReviewFormId(setup.id) : undefined} className="inspector-form" aria-label={tr(`Configure ${setupSummary(setup, context).action}`)} onSubmit={event => { event.preventDefault(); setError(reviewCanvasAmount(setup.id) ?? ''); }}>
-      <label htmlFor="configure-action-amount">{tr("Source amount (")}{tr(setup.action === 'swap' ? setup.cryptoSelection?.from ?? inputSymbol(setup.direction ?? 'USDC_TO_WETH') : 'USDC')})</label>
+      <label htmlFor="configure-action-amount">{tr("Source amount (")}{tr(setup.cryptoSelection?.from ?? (setup.action === 'swap' ? inputSymbol(setup.direction ?? 'USDC_TO_WETH') : 'USDC'))})</label>
       <TokenAmountInput id="configure-action-amount" value={setup.amount} maxLength={80} onValueChange={value => { setError(''); editCanvasAmount(setup.id, value); }}/>
       <p className="muted">{tr("Enter an amount greater than 0 to configure this action.")}</p>
       {error && <p className="form-error" role="alert">{tr(error)}</p>}
@@ -154,7 +156,7 @@ function CanonicalArtifactInspector({ selectedId, select, expanded = false, onEx
       <button type="button" className="quiet" onClick={() => { removeActionSetup(); select(null); }}>{tr("Remove step")}</button>
     </form>}
     {node ? <>
-      {node.actionType==='asset.transfer'&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
+      {node.actionType==='asset.transfer'&&!selection&&<RobinhoodTransferAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId}/>}
       {node.actionType==='withdraw'&&<WithdrawAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
       {node.actionType==='repay'&&<RepayAuthoringForm key={node.nodeId+':'+state.workflow.revision} nodeId={node.nodeId} reviewFormId={supplyReviewFormId(node.nodeId)}/>}
       {lending&&<LendingNodeEditor key={`${node.nodeId}:${state.workflow.revision}`} nodeId={node.nodeId} {...(supply || node.actionType === 'borrow' ? { reviewFormId: supplyReviewFormId(node.nodeId) } : {})}/>}

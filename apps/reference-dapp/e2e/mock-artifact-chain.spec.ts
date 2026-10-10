@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal, openSimulationDetails, readWorkflowIr, openFirstActionSettings, openProposalReview } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails, readWorkflowIr, openFirstActionSettings, openProposalReview, assertNoFinancialCanvasAction } from './fixtures';
 import type { Page } from '@playwright/test';
 import { hashArtifactBytes, parseArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 
@@ -17,7 +17,7 @@ const tab = async (page: Page, name: 'Build' | 'Simulate' | 'Execute') => {
 
 async function open(page: Page) {
   await page.clock.install({ time: T0 });
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await page.clock.pauseAt(T1);
 }
 async function apply(page: Page, text: string) {
@@ -88,7 +88,7 @@ test('chat-created and canvas-created swaps yield identical mocked artifacts', a
   const artifacts: { ir: { workflowId: string; revision: number }; values: string[] }[] = [];
   for (const surface of ['chat', 'canvas'] as const) {
     await page.clock.setFixedTime(T1);
-    await page.goto('/app');
+    await page.goto('/__engineering');
     if (surface === 'chat') await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
     else {
       await page.getByText('Advanced action setup', { exact: true }).click();
@@ -214,7 +214,7 @@ test('expiry is detected on tab resume and on access without any timer firing (R
 
 test('a failed hashing self-check prevents generation and shows an explicit error (R-3)', async ({ page }) => {
   await page.addInitScript(() => { SubtleCrypto.prototype.digest = async () => new ArrayBuffer(32); });
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await apply(page, 'swap 2.25 USDC to WETH on Base slippage 50 bps');
   await tab(page, 'Simulate');
   await panel(page).getByRole('button', { name: 'Generate mocked artifacts for revision 1' }).click();
@@ -260,16 +260,16 @@ test('mocked numbers stay labelled and execution stays unavailable after generat
   expect(body).not.toMatch(/\$/);
   expect(body).not.toMatch(/\bUSD\s*\d|\d[\d,.]*\s*USD\b/);
   expect(body.replace(/not a live quote/gi, '')).not.toMatch(/\blive\b/i);
-  await expect(panel(page).locator(':scope > .simulate-head')).toContainText('Mocked artifacts cannot authorize execution.');
+  await expect(panel(page).locator('.engineering-artifacts > .simulate-head')).toContainText('Mocked artifacts cannot authorize execution.');
   for (const name of await page.locator('main button:enabled, footer button:enabled').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') ?? button.textContent ?? ''))) {
     expect(name).not.toMatch(/sign|approv|authori[sz]|submit|execut.*workflow/i);
   }
   await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true })).toContainText('Review unavailable until simulation is ready.');
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await tab(page, 'Execute');
-  await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(page.getByRole('region', { name: 'Workflow execution workspace' })).toContainText('Connect the wallet that will authorize this workflow.');
-  await expect(page.getByRole('button', { name: 'Back to Build' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to Simulate', exact: true })).toBeVisible();
   await expect(page.getByText('Simulation: CURRENT', { exact: true })).toHaveCount(0);
 });
 

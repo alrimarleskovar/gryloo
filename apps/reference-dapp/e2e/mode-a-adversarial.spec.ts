@@ -8,7 +8,7 @@ const sends = (calls: readonly { method: string }[]) => calls.filter(call => cal
 
 for (const [label, fault] of [['gas', { mutate: 'gas' }], ['recipient', { mutate: 'recipient' }]] as const) {
   test(`a wallet that changes the signed ${label} is DIVERGENT and can never reconcile`, async ({ page, testWallet }) => {
-    await page.goto('/app');
+    await page.goto('/__engineering');
     await authorSwap(page, 'WETH_TO_USDC', '1', '100');
     await simulateOnFork(page);
     await reviewAndConnect(page);
@@ -25,7 +25,7 @@ for (const [label, fault] of [['gas', { mutate: 'gas' }], ['recipient', { mutate
 }
 
 test('a wallet on the wrong chain or account is refused before any transaction request', async ({ page, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await page.getByRole('button', { name: 'Review swap' }).click();
@@ -42,7 +42,7 @@ test('a wallet on the wrong chain or account is refused before any transaction r
 });
 
 test('an expired fork quote blocks the first wallet request', async ({ page, fork, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await reviewAndConnect(page);
@@ -54,7 +54,7 @@ test('an expired fork quote blocks the first wallet request', async ({ page, for
 });
 
 test('slippage above the reviewed ceiling cannot be simulated or authorized', async ({ page, fork, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '301');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await openTechnicalDetails(page);
@@ -65,7 +65,7 @@ test('slippage above the reviewed ceiling cannot be simulated or authorized', as
 });
 
 test('manipulated calldata or an unknown spender in a server response is blocked in the browser', async ({ page, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await openTechnicalDetails(page);

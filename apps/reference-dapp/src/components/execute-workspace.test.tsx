@@ -36,7 +36,10 @@ describe('Execute product workspace', () => {
     if (state === 'unknown') { data.wallet.chain = null; data.wallet.environment = 'unknown'; }
     if (state === 'started') data.execution.started = true;
     if (state === 'loading') Object.assign(data.source.state, { busy: 'journal_request_id' });
-    const html = render(data); expect(html).toMatch(/disabled="">Execute workflow/); expect(data.execution.start).not.toHaveBeenCalled();
+    const html = render(data); expect(html).not.toMatch(/(?<!disabled="")>Execute workflow<\/button>/); expect(data.execution.start).not.toHaveBeenCalled();
+    const expected = state === 'pending' ? 'Approve &amp; Continue' : state === 'loading' ? 'Simulating workflow…' : ['expired', 'wallet', 'network', 'unknown'].includes(state) ? 'Simulate again' : 'Execute workflow';
+    expect(html).toContain(expected);
+    if (state === 'blocked' || state === 'started') expect(html).toMatch(/disabled="">Execute workflow/);
     if (['pending', 'expired', 'wallet', 'network'].includes(state)) expect(html).toContain('execution-authorization-attention');
     if (state === 'expired') expect(html).toContain('Simulate again');
     if (state === 'wallet') expect(html).toContain('0x2222…2222');
@@ -51,7 +54,7 @@ describe('Execute product workspace', () => {
   });
   it('counts composed actions from the shared workflow without adding transaction steps', () => {
     const data = fixture(); data.workflow = editorReducer(initialEditor(), canvasAddCommand('lending', 0, data.wallet.account!, '1'), data.context).workflow;
-    const html = render(data); expect(html).toContain('<dt>Actions</dt><dd>3</dd>'); expect(html).toMatch(/disabled="">Execute workflow/);
+    const html = render(data); expect(html).toContain('<dt>Actions</dt><dd>3</dd>'); expect(html).not.toMatch(/class="primary">Execute workflow/);
   });
 });
 
@@ -109,7 +112,7 @@ describe('live execution workspace', () => {
     const html = render(data);
     expect(html).toContain('Checking execution status…');
     expect(html).not.toContain('<dt>Authorization</dt>'); expect(html).not.toContain('Run a valid simulation before approving');
-    expect(html).toContain('class="primary" disabled="">Checking status…</button>');
+    expect(html).toContain('data-lifecycle-action="status">Reconciling…</span>');
     expect(html).not.toMatch(/>Execute workflow<|>Continue to|>Retry<|Ready to execute/);
     expect(data.recovery.check).not.toHaveBeenCalled();
   });
@@ -149,11 +152,11 @@ it('shows restored recovery in-place, with an explicit read-only check and no in
   data.execution.started = true;
   data.recovery = { action: 'observe', checking: false, recordOnly: false, operationId: 'swap', label: 'Current execution restored', message: 'The recorded execution is preserved.', contextIssue: 'Wallet changed. Connect the wallet used for this execution before continuing.', check: vi.fn() };
   const html = render(data);
-  expect(html).toContain('Current execution restored'); expect(html).toContain('Wallet changed'); expect(html).toContain('>Check status</button>');
+  expect(html).toContain('Current execution restored'); expect(html).toContain('Wallet changed'); expect(html).toContain('>Recover execution</button>');
   expect(html).not.toMatch(/>Execute workflow<|>Retry<|>Try again<|Ready to execute/);
   expect(data.recovery.check).not.toHaveBeenCalled(); expect(data.execution.start).not.toHaveBeenCalled();
   data.progress.planUnavailable = true;
   expect(render(data)).toContain('The original workflow details are unavailable in this saved run.');
   data.recovery.checking = true;
-  expect(render(data)).toContain('disabled="">Checking status…'); expect(render(data)).toContain('Checking execution status…');
+  expect(render(data)).toContain('data-lifecycle-action="status">Reconciling…'); expect(render(data)).toContain('Checking execution status…');
 });

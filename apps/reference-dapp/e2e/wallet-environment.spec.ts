@@ -154,9 +154,9 @@ for (const cluster of ['solana:devnet', 'solana:mainnet']) test(`${cluster} conn
   await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
   const environment = page.getByRole('combobox', { name: 'Environment', exact: true });
   await expect(environment).toHaveText('Network');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
-  await page.locator('details.simulation-technical > summary').click();
-  await page.getByRole('button', { name: 'Connect Solana wallet', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await expect(page.locator('details.simulation-technical')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Connect Wallet', exact: true }).click();
   await chooseWallet(page, 'Environment test wallet', 'Solana');
   const mainnet = cluster === 'solana:mainnet';
   await expect(environment).toHaveText(mainnet ? 'Mainnet' : 'Testnet');

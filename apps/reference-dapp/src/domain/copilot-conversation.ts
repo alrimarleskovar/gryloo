@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { groundAutomationDraft } from './copilot-automation';
+import type { AutomationInput } from './copilot-automation';
 import type { ReviewContext } from '@defi-workflow-engine/reference-linter';
 import { commandIsValid, type Command } from './commands';
 import { editorReducer } from './editor';
@@ -39,12 +41,12 @@ export type CopilotConversation = {
   readonly draft: Draft | null; readonly referents: readonly CopilotReferent[]; readonly language: CopilotLanguage;
 };
 export type CopilotEnvironment = {
-  readonly workflow: Workflow; readonly context: ReviewContext; readonly wallet: string | null; readonly walletChainId: string | null;
+  readonly timezone?: string; readonly workflow: Workflow; readonly context: ReviewContext; readonly wallet: string | null; readonly walletChainId: string | null;
   readonly pending: { readonly command: Command; readonly diff: readonly string[] } | null; readonly facts: CopilotFacts;
 };
 export type CopilotReply = {
-  readonly kind: 'PROPOSAL' | 'ANSWER' | 'CLARIFICATION' | 'UNSUPPORTED' | 'FAILED'; readonly text: string; readonly notes: readonly string[];
-  readonly options: readonly string[]; readonly command?: Command; readonly sentence?: string; readonly topic?: CopilotQuestionTopic;
+  readonly kind: 'PROPOSAL' | 'AUTOMATION_PROPOSAL' | 'ANSWER' | 'CLARIFICATION' | 'UNSUPPORTED' | 'FAILED'; readonly text: string; readonly notes: readonly string[];
+  readonly options: readonly string[]; readonly automation?: AutomationInput; readonly command?: Command; readonly sentence?: string; readonly topic?: CopilotQuestionTopic;
 };
 export type CopilotRequestV2 = { readonly version: '2'; readonly messages: readonly TranscriptEntry[] };
 export type CopilotResultV2 = { readonly ok: true; readonly intent: unknown } | { readonly ok: false; readonly code: string; readonly retryAfterSeconds?: number };
@@ -421,6 +423,13 @@ function resolveIntent(intent: CopilotIntentV2, state: CopilotConversation, env:
   const language = intent.language, m = copilotCopy(language);
   const target = (value: CopilotTarget, purpose: Purpose): Resolution => forced ? { ok: true, resolved: forced } : resolveTarget(value, purpose, intent, state, env);
   switch (intent.kind) {
+    case 'AUTOMATION': {
+      const automation = groundAutomationDraft(intent.draft, segmentText(state), env.timezone ?? 'UTC', Date.now(), language);
+      if (automation.kind === 'PROPOSAL') return terminal(state, reply('AUTOMATION_PROPOSAL', 'Review this automation proposal. Nothing is created until you choose Create automation.', { automation: automation.input }), COPILOT_TRANSCRIPT.proposed + automation.input.name);
+      if (automation.kind === 'CLARIFICATION') return question(state, m, automation.message, [], null);
+      return refused(state, m, automation.message);
+    }
+
     case 'UNSUPPORTED': {
       const message = safeCopilotProse(intent.reason) ?? m.cannotAuthor;
       return refused(state, m, message.includes(m.capabilities) ? message : `${message} ${m.capabilities}`);

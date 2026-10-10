@@ -86,6 +86,7 @@ export function editorHistoryReducer(state: EditorHistory, action: HistoryAction
     if (action.action === 'pool') actionSetup = { id, action: 'pool', amount: '0', input: {
       network: 'Base Sepolia', maxUsdc: '0', maxWeth: '0', rangeUnit: 'TICK', lower: '-887270', upper: '887270', slippage: '50',
     } };
+    else if (action.action === 'transfer') actionSetup = { id, action: 'transfer', amount: '0', cryptoSelection: { action: 'transfer', network: 'Robinhood Chain Testnet', from: 'ETH' } };
     else if (action.action === 'supply' || action.action === 'borrow' || action.action === 'repay')
       actionSetup = { id, action: action.action, amount: '0', beneficiary: action.beneficiary! };
     else actionSetup = { id, action: action.action, amount: '0' };

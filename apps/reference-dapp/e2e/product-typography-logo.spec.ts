@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction } from './composer-authoring-fixtures';
@@ -81,7 +81,7 @@ for (const theme of ['Light', 'Dark'] as const) test(`${theme} approved fonts an
       const unexpectedFonts = await page.locator('main button:visible').evaluateAll(buttons => buttons.map(button => ({ label: button.textContent, family: getComputedStyle(button).fontFamily }))
         .filter(button => !button.family.startsWith('Outfit')));
       expect(unexpectedFonts).toEqual([]);
-      if (stage === 'Execute') await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+      if (stage === 'Execute') await assertNoFinancialCanvasAction(page);
       if (stage === 'Dashboard') {
         await expect(page.getByRole('heading', { name: 'Your execution workspace', exact: true })).toHaveCSS('font-size', '28px');
         expect(await page.locator('.eyebrow').first().evaluate(element => getComputedStyle(element).fontFamily)).toContain('IBM Plex Mono');

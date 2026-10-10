@@ -13,7 +13,7 @@ import { NetworkBrandIcon, TokenBrandIcon } from './brand-icon';
 
 export type ReviewWorkspaceProps = {
   workflowName: string; workflow: Workflow; context: ReviewContext; source: SimulationSource;
-  authorization: ReviewAuthorization; wallet: ReviewWallet; invalidWorkflow?: boolean; showTechnicalDetails?: boolean;
+  authorization: ReviewAuthorization; wallet: ReviewWallet; invalidWorkflow?: boolean; showTechnicalDetails?: boolean; actionSurface?: 'canvas';
   backToBuild(): void; simulateAgain?: (() => void | Promise<void>) | undefined;
 };
 /** Recheck time at the click boundary. The only callable authorization capability is Review. */
@@ -24,6 +24,27 @@ export function confirmReview(props: ReviewWorkspaceProps, now = Date.now()) {
 export function ReviewTechnicalDetails({ authorization }: { authorization: ReviewAuthorization }) {
   const { t: tr } = useLocale();
   return <section className="review-technical" aria-label={tr("Authorization technical details")}><h3>{tr("Strategy Manifest")}</h3><pre>{JSON.stringify({ manifest: authorization.manifest, policy: authorization.policy, review: authorization.technical }, null, 2)}</pre></section>;
+}
+/** Normal product audit details: the same validated Review projection, without raw artifacts or another action workspace. */
+export function ReviewAuthorizationDetails(props: ReviewWorkspaceProps) {
+  const { t } = useLocale();
+  const review = projectReview(props.workflow, props.context, props.source, props.authorization, props.wallet, Date.now(), props.invalidWorkflow);
+  return <details id="simulation-review" className="review-authorization-details" aria-label={t('Review & Authorization')}>
+    <summary>{t('Review & Authorization')}</summary>
+    <p role="status">{t(review.message)}</p>
+    <dl className="simulation-summary-values">
+      <div><dt>{t('Wallet')}</dt><dd>{props.wallet.account ?? t('Connect your wallet')}</dd></div>
+      <div><dt>{t('Network')}</dt><dd>{t(props.wallet.chain ? shellChainLabel(props.wallet.chain) : 'Unknown network')}</dd></div>
+      {review.limits.map((line, index) => <div key={index}><dt>{t(line.label)}</dt><dd>{t(line.value)}{line.note && <small>{t(line.note)}</small>}</dd></div>)}
+      {review.expiresAt !== null && <div><dt>{t('Valid until')}</dt><dd><time dateTime={new Date(review.expiresAt).toISOString()}>{new Date(review.expiresAt).toLocaleString()}</time></dd></div>}
+    </dl>
+    {review.permissions.length > 0 && <div aria-label={t('Permissions')}><strong>{t('Permissions')}</strong><ul>{review.permissions.map(p => <li key={p}>{t(p)}</li>)}</ul></div>}
+    {review.approvals.map((approval, i) => <p key={i}>{t(approval.symbol)} · {t(approval.value)} · {t('Spender')}: {approval.address}
+      {approval.unlimited && <> · {t('This allowance has no spending cap. It remains available to the spender until changed or revoked.')}</>}</p>)}
+    <p>{t('Changing the workflow, wallet, network or authorization limits requires a fresh Review. An expired simulation must be run again.')}</p>
+    <p>{t('Confirms this Review. No transaction is submitted. Required wallet confirmations remain separate.')}</p>
+    {review.manifest?.enforcement === 'NOT_ENFORCED' && <p>{t('FloFi checks these limits before requesting execution. The chain enforces the signed transaction fields; the Manifest itself is not enforced by an on-chain contract.')}</p>}
+  </details>;
 }
 function ReviewTokenAmount({ value }: { value: string }) {
   const { t: tr } = useLocale();
@@ -77,7 +98,7 @@ export function ReviewWorkspace(props: ReviewWorkspaceProps) {
           {review.manifest?.enforcement === 'NOT_ENFORCED' && <p className="review-caption">{tr("FloFi checks these limits before requesting execution. The chain enforces the signed transaction fields; the Manifest itself is not enforced by an on-chain contract.")}</p>}
         </section>
         {review.status === 'expired' && <p className="review-caption" role="status">{tr("Review unavailable until simulation is refreshed.")}</p>}
-        <div className="review-final-actions">{!review.canApprove && review.status !== 'approved' && simulateAgain && <button type="button" className="simulation-back" disabled={Boolean(source.state.busy)} onClick={() => void simulateAgain()}>{tr("Simulate again")}</button>}<button type="button" className="primary" disabled={!review.canApprove} onClick={() => void confirmReview(props)}>{tr(review.status === 'approved' ? 'Review approved' : 'Approve & Continue')}</button></div>
+        {props.actionSurface !== 'canvas' && <div className="review-final-actions">{!review.canApprove && review.status !== 'approved' && simulateAgain && <button type="button" className="simulation-back" disabled={Boolean(source.state.busy)} onClick={() => void simulateAgain()}>{tr("Simulate again")}</button>}<button type="button" className="primary" disabled={!review.canApprove} onClick={() => void confirmReview(props)}>{tr(review.status === 'approved' ? 'Review approved' : 'Approve & Continue')}</button></div>}
         <p className="review-caption review-confirmation-note">{tr("Confirms this Review. No transaction is submitted. Required wallet confirmations remain separate.")}</p>
       </aside>
     </div>

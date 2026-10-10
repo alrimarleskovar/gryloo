@@ -28,6 +28,8 @@ export type CopilotOutcome =
   | { readonly kind: 'UNSUPPORTED'; readonly message: string }
   | { readonly kind: 'REJECTED'; readonly code: string; readonly message: string };
 export type CopilotConversion = { readonly userText: string; readonly workflow: Workflow; readonly context: ReviewContext; readonly wallet: string | null };
+export const COPILOT_AUTOMATION_AUTHORING_INTENT = 'AUTOMATION' as const;
+/** Automation authoring uses a separate typed draft, never a workflow/execution Command. */
 /** The only Command types an AI interpretation can produce: new authoring proposals, never edits, removals or execution. */
 export const COPILOT_AUTHORING_COMMANDS = Object.freeze(['ADD_SWAP', 'ADD_TESTNET_SWAP', 'ADD_ETHEREUM_SEPOLIA_SWAP', 'ADD_SOLANA_SWAP', 'ADD_ROUTER_BRIDGE', 'ADD_SUPPLY', 'ADD_BORROW',
   'ADD_REPAY', 'ADD_WITHDRAW', 'ADD_UNISWAP_LIQUIDITY', 'ADD_SOLANA_LIQUIDITY', 'AUTHOR_LENDING'] as const);

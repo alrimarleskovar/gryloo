@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal, openSimulationDetails } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails, assertNoFinancialCanvasAction } from './fixtures';
 import { profile, fork, snapshot } from './composition-fixtures';
 import { assertExecutionBlocked } from './release-safety-fixtures';
 
@@ -23,7 +23,7 @@ test('Pinned local composition requires shared Review without automatically inst
       const w = window as unknown as { ethereum: unknown; releaseCompositionWallet(method: string): Promise<unknown> };
       w.ethereum = { request: ({ method }: { method: string }) => w.releaseCompositionWallet(method) };
     });
-    await page.goto('/app');
+    await page.goto('/__engineering');
     await page.getByLabel('Describe your flow').fill(`compose swap 400 USDC to WETH slippage 100 bps then mint maximum 0.1 WETH and 200 USDC minimum 0.000001 WETH and 0.001 USDC ticks ${center - 100} to ${center + 100} safe ${p.safe}`);
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await applyPendingProposal(page);
@@ -39,12 +39,12 @@ test('Pinned local composition requires shared Review without automatically inst
     await assertExecutionBlocked(page, requests);
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
     await approve.click();
-    await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toBeDisabled();
+    await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
     expect(await requests()).toBe(0);
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
     // Shared Review must not silently connect the execution wallet or install
     // delegated authority. The passive global wallet is insufficient.
-    await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+    await assertNoFinancialCanvasAction(page);
     await expect(page.getByRole('button', { name: 'Connect execution wallet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Download.*Evidence Bundle/ })).toHaveCount(0);
     expect(await requests()).toBe(0);

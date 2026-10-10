@@ -71,6 +71,7 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
   const generation = useRef(0);
   const chain: SolanaWalletChain = view?.steps.some(s => s.network === 'solana') ? 'solana:mainnet' : 'solana:devnet';
   const proof = useWalletProof(view?.walletNamespace ?? null, chain), proven = proof.proven;
+  const internal = view?.requesterKind === 'AUTOMATION_RULE';
   const available = resolved && view !== null && !TERMINAL.includes(view.status) && !view.refusal;
 
   useEffect(() => {
@@ -116,9 +117,9 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
     return () => { request++; generation.current++; window.removeEventListener('hashchange', hashChanged); window.removeEventListener('popstate', hashChanged); };
   }, [onAvailabilityChange, reload]);
   useEffect(() => {
-    onAvailabilityChange?.(available);
+    onAvailabilityChange?.(available && (!internal || claimed && view?.status === 'APPLIED'));
     return () => onAvailabilityChange?.(false);
-  }, [available, onAvailabilityChange]);
+  }, [available, internal, claimed, view?.status, onAvailabilityChange]);
   useEffect(() => {
     if (!secret || !SECRET.test(secret) || claimed || !view || !['PENDING', 'CLAIMED'].includes(view.status)) return;
     let stopped = false;
@@ -160,6 +161,16 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
     // The owner explicitly chose this proposal; simulation, Manifest Review and transaction signatures remain separate actions.
     restoreWorkflow(result.workflow as SemanticWorkflow);
   });
+  // Review in FloFi is the owner's explicit load choice for an internal occurrence.
+  // The server still verifies the owner, open occurrence and exact canonical workflow.
+  const internalClaim = useRef<string | null>(null);
+  useEffect(() => {
+    if (!internal || !available || !proven || claimed || view?.claimedByAnotherWallet) return;
+    const key = `${generation.current}:${proven}`;
+    if (internalClaim.current === key) return;
+    internalClaim.current = key;
+    void claim();
+  }, [internal, available, proven, claimed, view?.claimedByAnotherWallet, reload]);
   const toggleShare = (next: boolean) => {
     setShare(next);
     const current = generation.current;
@@ -199,6 +210,17 @@ export function ApprovalHandoff({ onAvailabilityChange, onContinue }: { onAvaila
   const terminal = TERMINAL.includes(view.status), real = view.fundsClass === 'REAL_FUNDS', canClaim = !terminal && !view.refusal && !view.claimedByAnotherWallet;
   const fullLink = secret && SECRET.test(secret) ? `${window.location.origin}/approve#${secret}` : null;
   const links = fullLink ? walletDeepLinks(fullLink, window.location.origin) : null;
+  if (internal) return <section className="panel automation-workflow-entry" aria-label={tr('Automation workflow')}>
+    <p>{tr('Prepared by your FloFi automation. Simulate and review before executing.')}</p>
+    {!claimed && <WalletProof namespace={view.walletNamespace} proof={proof}/>}
+    {busy && <p role="status">{tr('Loading your exact automation workflow…')}</p>}
+    {(error ?? proof.error) && <p role="alert">{tr(error ?? proof.error)}</p>}
+    {error && <button type="button" disabled={busy || !proven} onClick={() => void claim()}>{tr('Retry loading proposal')}</button>}
+    <details><summary>{tr('Automation provenance')}</summary><dl className="approval-facts">
+      <div><dt>{tr('Approval status')}</dt><dd>{tr(STATUS_TEXT[view.status] ?? view.status)}</dd></div>
+      <div><dt>{tr('Workflow hash')}</dt><dd><code>{view.workflowHash}</code></dd></div>
+    </dl></details>
+  </section>;
   return <div className="approval-page"><section className="panel approval-handoff" aria-label={tr("External proposal")}>
     <div className="approval-head"><div><p className="eyebrow">{tr("EXTERNAL PROPOSAL · FROM ")}{tr(view.clientName.toUpperCase())}</p>
       <h2>{tr("A strategy proposed via ")}{tr(view.clientName)}</h2></div>

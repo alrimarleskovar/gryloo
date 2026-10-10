@@ -312,7 +312,7 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [tokenPanel, bridgePanel]);
   const poolValues = poolCard ? poolContributions.values ?? card.summary.liquidityValues : undefined;
-  const quietAmount = Boolean(card.stocks) || amountBox || (!card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (Boolean(card.amountEditor?.changed) || card.validation.status === 'Draft'));
+  const quietAmount = Boolean(card.stocks) || amountBox || (!card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw', 'Transfer'].includes(card.summary.action) && (Boolean(card.amountEditor?.changed) || card.validation.status === 'Draft'));
   const amountParts = card.summary.amount.match(/^(\d+(?:\.\d+)?) (\S+)$/);
   const pair = card.summary.detail ?? card.summary.bridgePair;
   const [pairSource, pairDestination] = pair?.split(' → ') ?? [];
@@ -375,7 +375,7 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
           picker={picker('source')} editor={card.poolProposal ? { value: poolValues[0]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(0, amount) } : undefined}/>
         <ValueBox label="Second liquidity asset amount" inputLabel={`Second liquidity amount (${poolValues[1]!.token})`} amount={poolValues[1]!.amount} token={poolValues[1]!.token} network={sourceNetwork} hint="Second liquidity contribution" fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst}
           picker={picker('destination')} editor={card.poolProposal ? { value: poolValues[1]!.amount, formId: card.poolProposal.formId, onChange: amount => poolContributions.edit(1, amount) } : undefined}/>
-      </ValuePair> : !card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action) && (amountParts || editor)
+      </ValuePair> : !card.inspection && ['Supply', 'Borrow', 'Repay', 'Withdraw', 'Transfer'].includes(card.summary.action) && (amountParts || editor)
         ? <ValueBox source fiatFirst={fiatFirst} onFiatFirstChange={setFiatFirst} amount={amountParts?.[1]} token={amountParts?.[2] ?? 'USDC'} network={sourceNetwork} picker={picker('source')} editor={editor} hint={editor ? 'Enter the source amount' : card.summary.amount}/>
         : <span className="numeric composer-amount">{tr(card.summary.amount)}</span>}
       {!card.inspection && card.supplyProposal && <div className="composer-amount-actions composer-supply-actions nodrag nopan" onClick={event => event.stopPropagation()}>
@@ -416,5 +416,5 @@ export function ComposerCard({ data: card }: { data: ComposerCardData }) {
       </button>
       <StockPicker equity={card.stocks.equity} onChange={card.stocks.onEquityChange}/>
     </section>}
-  </div> : !card.inspection && (amountBox || ['Supply', 'Borrow', 'Repay', 'Withdraw'].includes(card.summary.action)) ? <div ref={poolNodeRef} className="composer-token-node">{tr(content)}{tr(tokens)}{tr(bridge)}</div> : content;
+  </div> : !card.inspection && (amountBox || ['Supply', 'Borrow', 'Repay', 'Withdraw', 'Transfer'].includes(card.summary.action)) ? <div ref={poolNodeRef} className="composer-token-node">{tr(content)}{tr(tokens)}{tr(bridge)}</div> : content;
 }

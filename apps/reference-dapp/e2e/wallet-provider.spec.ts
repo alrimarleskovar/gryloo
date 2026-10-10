@@ -74,7 +74,7 @@ for (const mode of ['legacy', 'eip6963'] as const) {
     await install(page, mode); await page.goto('/app');
     await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact:true }).click();
-    await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate fees' }).click();
+    await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate workflow' }).click();
     await approveAndExecutePoolApproval(page);
     const requests = await controls(page);
     expect(requests.every(request => request.provider === 'MetaMask')).toBe(true);
@@ -164,7 +164,7 @@ test('Rabby: EIP-6963 io.rabby announcement drives the wallet, never its window.
   await chooseWallet(page, 'Rabby Wallet');
   await expect(page.getByText(walletLabel, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate fees' }).click();
+  await openProposalReview(page); await page.getByRole('button', { name: 'Apply proposal' }).click(); await page.getByRole('button', { name: 'Simulate workflow' }).click();
   await approveAndExecutePoolApproval(page);
   const requests = await controls(page);
   expect(requests.filter(request => request.provider === 'RabbyProxy')).toEqual([]);
