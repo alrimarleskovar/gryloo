@@ -57,11 +57,13 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} reviews and ap
   await expect(revision).toHaveAttribute('data-workflow-revision', '1');
   await expect(review).toHaveCount(0); await expect(apply).toHaveCount(0);
   await expect(settings).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // Stage inspection does not grant simulation capability in this supply-only fixture.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
   await openCanvasSettings(page);
   await expect(page.getByRole('region', { name: 'Action inspector' }).getByLabel(action === 'swap' ? 'Input amount (USDC)' : 'Cross-chain amount (USDC)', { exact: true })).toHaveValue('3');
   await settings.click();
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.locator('.simulate-flow-surface .composer-amount')).toHaveText('3 USDC');
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /sign|send/i.test(request.method)))).toEqual([]);
 });
@@ -84,9 +86,11 @@ test('amount acceptance is scoped to the reviewed card and stale reviews cannot 
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '3');
   await expect(amount(second)).toHaveValue('5'); await expect(apply(second)).toHaveCount(0);
   await expect(apply(first)).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await review(first).click(); await apply(first).click();
   await expect(amount(first)).toHaveValue('4'); await expect(amount(second)).toHaveValue('5');
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '4');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // Stage inspection does not grant simulation capability in this supply-only fixture.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
 });

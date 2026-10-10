@@ -112,7 +112,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} has quiet edit
   await expect(card.getByRole('alert')).toContainText('greater than 0');
   expect(await card.getByRole('alert').evaluate(element => getComputedStyle(element).clipPath)).toBe('inset(50%)');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await openCanvasSettings(page);
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const form = panel.getByRole('form', { name: `Configure ${action === 'swap' ? 'Swap' : 'Bridge'}`, exact: true });
@@ -213,7 +213,7 @@ for (const action of ['borrow', 'repay', 'withdraw'] as const) test(`${action} u
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   const revision = page.locator('.summary-bar');
-  const simulate = page.getByRole('button', { name: 'Simulate fees', exact: true });
+  const simulate = page.getByRole('button', { name: 'Simulate workflow', exact: true });
   const execute = page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true });
   await expect(simulate).toBeDisabled(); await expect(execute).toBeDisabled();
   await expect(revision).toHaveAttribute('data-workflow-revision', '0');
@@ -299,7 +299,7 @@ test('Supply edits inline with one shared editor value and validates through its
   }
   await inline.fill('3');
   await expect(applySupply).toHaveCount(0); await expect(lowerReview).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await reviewSupply.click(); await expect(applySupply).toBeEnabled();
   await lowerReview.getByRole('button', { name: 'Dismiss', exact: true }).click();
@@ -376,7 +376,7 @@ test('header environment follows wallet changes without rewriting action amounts
     await expect(environment).toHaveText(value === 'MAINNET' ? 'Mainnet' : 'Testnet'); await expect(source).toHaveValue('0');
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
     await expect(wallet).toContainText(value === 'MAINNET' ? 'Base (8453)' : 'Base Sepolia');
-    await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
     await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
   }
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /sign|send|switch|addEthereumChain/i.test(request.method)))).toEqual([]);
@@ -546,7 +546,7 @@ test('linked Borrow edits use the existing composition command and keep Supply a
   const review = borrow.getByRole('button', { name: 'Review Borrow change', exact: true });
   const apply = borrow.getByRole('button', { name: 'Apply proposal', exact: true });
   await amount.fill('0'); await review.click(); await expect(apply).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   await amount.fill('0.02'); await review.click(); await expect(apply).toBeEnabled(); await apply.click();
   await expect(supply.getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('0.1');
@@ -558,7 +558,7 @@ test('linked Borrow edits use the existing composition command and keep Supply a
   await settings.fill('0.03'); await expect(amount).toHaveValue('0.03');
   await settings.fill('0.02'); await review.click(); await expect(apply).toBeEnabled(); await apply.click();
   await expect(swap.locator('.composer-amount .composer-amount-value')).toHaveText('0.02');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => (window as unknown as { supplyWalletRequests: { method: string }[] }).supplyWalletRequests.filter(request => /send|sign/i.test(request.method)))).toEqual([]);
 });
 
@@ -659,7 +659,7 @@ test('Pool Tick/Price selector reveals attached right-side price tiles without c
     await expect(card).toHaveClass(/active/);
     await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
     await waitForPoolLayout(card);
-    const expanded = (await poolNode.boundingBox())!, canvas = (await page.locator('.build-flow-surface').boundingBox())!, cta = (await page.getByRole('button', { name: 'Simulate fees', exact: true }).boundingBox())!;
+    const expanded = (await poolNode.boundingBox())!, canvas = (await page.locator('.build-flow-surface').boundingBox())!, cta = (await page.getByRole('button', { name: 'Simulate workflow', exact: true }).boundingBox())!;
     expect(expanded.y).toBeGreaterThanOrEqual(canvas.y);
     expect(expanded.y + expanded.height).toBeLessThan(cta.y);
     expect(expanded.x).toBeGreaterThanOrEqual(canvas.x);

@@ -51,12 +51,12 @@ test('natural language → proposal → explicit Apply → canonical workflow �
   await revision(page, 1);
   await expect(page.locator('.react-flow__node[data-id="node-002"]').getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('1');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Base Sepolia');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate Supply', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Aave Supply', exact: true })).toContainText('Approval required: Yes');
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
-  await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+  await expect(page.locator('.review-authorization-details')).toContainText('A simulation that can authorize this workflow is required before approval.');
   expect(await supplySendCount(page)).toBe(0);
 });
 

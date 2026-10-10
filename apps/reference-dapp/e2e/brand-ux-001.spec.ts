@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction, applyPendingProposal } from './fixtures';
 import { assertConnectedFlow } from './connected-flow-assertions';
 
 const widths = [320, 375, 390, 430, 768, 1024, 1440];
@@ -137,7 +137,7 @@ for (const width of [320, 375, 390, 430]) {
     await expect(page.getByRole('main', { name: 'Execution workspace', exact: true })).toBeVisible();
     await page.getByRole('navigation', { name: 'Execution workspace navigation', exact: true }).getByRole('button', { name: 'Execution Summary', exact: true }).click();
     await expect(page.locator('.execution-summary')).toBeFocused();
-    await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+    await assertNoFinancialCanvasAction(page);
     await noOverflow(page);
   });
 }

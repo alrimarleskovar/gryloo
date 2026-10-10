@@ -16,7 +16,7 @@ async function author(page: Page, options: TransferWalletOptions = {}) {
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Transfer');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('Robinhood Chain Testnet (46630)');
   await expect(page.locator('.react-flow__node[data-id="node-002"]')).toContainText('0.000001 ETH');
-  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate workflow' }).click(); await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Simulate transfer', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeVisible();
 }

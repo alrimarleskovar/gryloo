@@ -23,25 +23,28 @@ import { AcrossPanel } from './across-panel';
 import { useAcross } from '../state/across-store';
 import { useBridgeSwap } from '../state/bridge-swap-store';
 import { useBridge } from '../state/bridge-store';
-import { ActionLibrary } from './action-library';
+import { EngineeringAuthoring } from '../test-utils/engineering-authoring';
+import { ReviewPanel } from './review-panel';
+import { ReviewWorkspace, ReviewTechnicalDetails } from './review-workspace';
+import { SimulatePanel } from './simulate-panel';
+import { ObservationPanel } from './observation-panel';
+import { ForkSimulationPanel } from './fork-simulation-panel';
+import { useExecutionControls } from '../state/execution-controls';
+import { CanvasLifecycleAction } from './canvas-lifecycle-action';
 import { ArtifactInspector } from './artifact-inspector';
 import { CopilotPanel } from './copilot-panel';
 import { MobileBuildNavigation } from './mobile-build-navigation';
 import { ExecutionPanel } from './execution-panel';
-import { ForkSimulationPanel } from './fork-simulation-panel';
 import { ModeBPanel } from './mode-b-panel';
 import { ExecuteWorkspace } from './execute-workspace';
 import { useExecutionLifecycle } from '../state/execution-lifecycle';
 import { useExecutionStart } from '../state/execution-start';
 import { restoredLocalExecutionKind } from '../domain/execution-recovery';
-import { ReviewWorkspace, ReviewTechnicalDetails } from './review-workspace';
+import { ReviewAuthorizationDetails } from './review-workspace';
 import { useReviewAuthorization } from '../state/review-authorization';
 import { SummaryBar } from './summary-bar';
-import { ReviewPanel } from './review-panel';
-import { SimulatePanel } from './simulate-panel';
 import type { SimulationSource } from '../domain/simulation-presentation';
 import { SimulateWorkspace } from './simulate-workspace';
-import { ObservationPanel } from './observation-panel';
 import { TopBar, type ProductSection } from './top-bar';
 import { WorkflowCanvas } from './workflow-canvas';
 import { PoolPriceRangeProvider } from './pool-price-range';
@@ -78,10 +81,10 @@ import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { useWalletProof } from './wallet-proof';
 import { WorkflowVerification } from './saved-workflows';
 
-type ProductNavigation = { pathname?: string | null; navigate?: (path: string) => void; simulationRequest?: number };
+type ProductNavigation = { engineering?: boolean; pathname?: string | null; navigate?: (path: string) => void; simulationRequest?: number };
 export function AppShell(props: ProductNavigation = {}) { return <ModeBProvider><CompositionProvider><CanvasCardInputsProvider><PoolPriceRangeProvider><AppShellContent {...props}/></PoolPriceRangeProvider></CanvasCardInputsProvider></CompositionProvider></ModeBProvider>; }
 
-function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductNavigation) {
+function AppShellContent({ engineering = false, pathname, navigate, simulationRequest = 0 }: ProductNavigation) {
   const { t: tr } = useLocale();
   // Server HTML is visible before handlers and initial canvas preferences are ready.
   const [interactive, setInteractive] = useState(false);
@@ -145,7 +148,6 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
     ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined;
 
   const [workspaceToolboxMode, setWorkspaceToolboxMode] = useState<ToolboxMode>('top');
-  const [simulationActionHost, setSimulationActionHost] = useState<HTMLDivElement | null>(null);
   const supply = useSupply();
   const transfer = useRobinhoodTransfer();
   // RH-DEMO-001: the transfer node, or a persisted run recovered after reload while the workflow is still the untouched template.
@@ -237,38 +239,38 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
     : simulationSource.kind === 'lending' ? lending.simulate
     : simulationSource.kind === 'supply' ? supply.simulate
     : simulationSource.kind === 'uniswap-pool' ? uniswapLiquidity.simulate
-    : simulationSource.kind === 'solana-pool' && solanaReview ? () => solanaLiquidity.simulate(solanaReview.operation, solanaReview.operation === 'OPEN' ? undefined : solanaReview.accounts.positionMint, solanaReview.partBps ?? undefined)
+    : simulationSource.kind === 'solana-pool' ? () => solanaLiquidity.simulate(solanaReview?.operation ?? 'OPEN', solanaReview?.operation === 'OPEN' ? undefined : solanaReview?.accounts.positionMint, solanaReview?.partBps ?? undefined)
     : simulationSource.kind === 'solana-swap' ? jupiter.simulate
     : simulationSource.kind === 'public' ? publicTestnet.simulate
     : simulationSource.kind === 'fork-swap' ? modeA.simulate
     : simulationSource.kind === 'delegated-swap' ? modeB.prepare
     : simulationSource.kind === 'composition' ? composition.prepare
     : openSimulationControls;
-  const embeddedReview = <ReviewWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} invalidWorkflow={Boolean(reviewError)} showTechnicalDetails={false} backToBuild={() => setTab('Build')} simulateAgain={simulateAgain}/>;
+  const embeddedReview = <ReviewAuthorizationDetails workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} invalidWorkflow={Boolean(reviewError)} backToBuild={() => setTab('Build')}/>;
   const simulationDisabled = authoringIncomplete || simulationSource.kind === 'unavailable' ||
     ('available' in simulationSource.state && simulationSource.state.available === false) ||
     ('info' in simulationSource.state && simulationSource.state.info?.available === false);
-  const simulateAction = <button type="button" className="primary" data-simulation-action="" disabled={simulationDisabled || Boolean(simulationSource.state.busy) || !state.workflow.nodes.some(node => !node.actionType.startsWith('mock-'))} onClick={() => void simulateAgain()}>{tr(simulationSource.state.busy ? 'Simulating workflow…' : reviewBinding.authorization.key ? 'Simulate again' : 'Simulate workflow')}</button>;
-  function focusReview() {
-    const section = document.getElementById('simulation-review');
-    section?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-    section?.focus({ preventScroll: true });
-  }
-  if (secondaryRoute) return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+  const lifecycleState = { workflow: state.workflow, context, source: simulationSource, authorization: reviewBinding.authorization,
+    wallet: reviewBinding.wallet, execution: executionStart, progress: executionProgress, recovery: executionProgress.recovery,
+    invalidWorkflow: Boolean(reviewError || authoringIncomplete) };
+  const lifecycleControls = useExecutionControls(lifecycleState);
+  const simulateAction = <CanvasLifecycleAction {...lifecycleState} controls={lifecycleControls} workflowName={workflowName}
+    simulationDisabled={simulationDisabled || !state.workflow.nodes.some(node => !node.actionType.startsWith('mock-'))}
+    simulate={() => { setTab('Simulate'); return simulateAgain(); }} onExecute={() => setTab('Execute')}/>;
+  if (secondaryRoute) return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null} engineering={engineering}/>
     <main id="workspace" className="main secondary-workspace" tabIndex={-1} aria-label={tr('{0} workspace', tr(secondaryRoute.label))}><SecondaryProductWorkspace workspace={secondaryRoute.id} workflows={{ ...workflows, loading: library.loading, connected: Boolean(owner), verification: owner && library.error === 'WALLET_SESSION_REQUIRED' ? <WorkflowVerification namespace={owner.namespace} account={owner.address} proof={proof}/> : undefined }}
       automations={{ owner, proof, onPropose: command => { propose(command); setTab('Build'); } }}/>
 </main>
   </div>;
-  if (tab === 'Dashboard') return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+  if (tab === 'Dashboard') return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null} engineering={engineering}/>
     <main id="workspace" className="main" tabIndex={-1} aria-label={tr("Dashboard")}><DashboardWorkspace workflowName={workflowName} progress={executionProgress} recovery={executionProgress.recovery} wallet={reviewBinding.wallet} context={context}
       runId={dashboardRoute?.runId ?? null}
       build={() => setTab('Build')} execute={() => setTab('Execute')} navigate={navigate ?? (() => undefined)}/></main>
   </div>;
-  const productExecutionPath = routerPath || transferPath || lendingPath || withdrawPath || repayPath || borrowPath || supplyPath || uniswapLiquidityPath || solanaLiquidityPath || solanaPath || publicPath;
-  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell" inert={!interactive}><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/><main className="main"><section className="panel stage-empty"><p>{tr("Configure the action amount in Build first.")}</p><button type="button" onClick={() => setTab('Build')}>{tr("Return to Build")}</button></section></main></div>;
-  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas estimateOwner={solanaSession?.account.address} environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} onSave={() => void saveCurrentWorkflow()} onToolboxModeChange={setWorkspaceToolboxMode} primaryAction={<button type="button" disabled={authoringIncomplete} title={tr(authoringIncomplete ? 'Configure the action amount first' : undefined)} onClick={() => setTab('Simulate')}>{tr("Simulate fees")}</button>}/><CopilotPanel interactive={interactive}/></div>{verification}{saveNotice?.owner === ownerKey && <p role="status">{tr(saveNotice.message)}</p>}{library.busy && <p role="status">{tr('Saving workflow…')}</p>}{library.error && library.error !== 'WALLET_SESSION_REQUIRED' && <p role="alert">{tr(library.error === 'WORKFLOW_VERSION_CONFLICT' ? 'This workflow was updated in another session. Reopen it before saving.' : 'Workflow saving is unavailable. Try again.')}</p>}<ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/>
-          <ActionLibrary selectedId={selectedId}>{!testnetWorkflow && !supplyPath && !borrowPath && !repayPath && !withdrawPath && !transferPath && !uniswapLiquidityPath && !solanaLiquidityPath && !solanaPath && !routerPath && <ReviewPanel/>}</ActionLibrary></>
-        : tab === 'Simulate' ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}><ReviewTechnicalDetails authorization={reviewBinding.authorization}/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
+  if (authoringIncomplete && tab !== 'Build') return <div className="app-shell" inert={!interactive}><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null} engineering={engineering}/><main className="main"><section className="panel stage-empty"><p>{tr("Configure the action amount in Build first.")}</p><button type="button" onClick={() => setTab('Build')}>{tr("Return to Build")}</button></section></main></div>;
+  const stageContent = tab === 'Build' ? <><div className="build-grid"><WorkflowCanvas estimateOwner={solanaSession?.account.address} environment={walletEnvironment} selectedId={selectedId} select={selectAction} openSettings={openActionSettings} workflowName={workflowName} renameWorkflow={setWorkflowName} onSave={() => void saveCurrentWorkflow()} onToolboxModeChange={setWorkspaceToolboxMode} primaryAction={simulateAction}/><CopilotPanel interactive={interactive} owner={owner} proof={proof}/></div>{verification}{saveNotice?.owner === ownerKey && <p role="status">{tr(saveNotice.message)}</p>}{library.busy && <p role="status">{tr('Saving workflow…')}</p>}{library.error && library.error !== 'WALLET_SESSION_REQUIRED' && <p role="alert">{tr(library.error === 'WORKFLOW_VERSION_CONFLICT' ? 'This workflow was updated in another session. Reopen it before saving.' : 'Workflow saving is unavailable. Try again.')}</p>}<ArtifactInspector selectedId={selectedId} select={selectAction} expanded={inspectorExpanded} onExpandedChange={setInspectorExpanded}/>
+          {engineering && <EngineeringAuthoring selectedId={selectedId}><ReviewPanel/></EngineeringAuthoring>}</>
+        : tab === 'Simulate' && engineering ? routerPath ? <RouterPanel view="simulate"/> : transferPath ? <RobinhoodTransferPanel view="simulate"/> : lendingPath ? <LendingPanel view="simulate"/> : withdrawPath ? <WithdrawPanel view="simulate"/> : repayPath ? <RepayPanel view="simulate"/> : borrowPath ? <BorrowPanel view="simulate"/> : supplyPath ? <SupplyPanel view="simulate"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="simulate"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="simulate"/> : solanaPath ? <JupiterPanel view="simulate"/> : publicPath ? <PublicTestnetPanel view="simulate"/> : crossChainWorkflow ? <CrossChainLiquidityPanel view="simulate"/> : acrossWorkflow || across.run ? <AcrossPanel view="simulate"/> : bridgeSwapWorkflow ? <BridgeSwapPanel view="simulate"/> : bridgeWorkflow ? <BridgePanel view="simulate"/> : <SimulatePanel engineeringOnly workflowName={workflowName}><ReviewWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} invalidWorkflow={Boolean(reviewError)} backToBuild={() => setTab('Build')} simulateAgain={simulateAgain} actionSurface="canvas" showTechnicalDetails={false}/><ObservationPanel/><ForkSimulationPanel/><ModeBPanel view="simulate"/><CompositionPanel view="simulate"/><CowPanel view="simulate"/><LiquidityPanel view="simulate"/></SimulatePanel>
         : executionSurface ? routerPath ? <RouterPanel view="execute"/> : transferPath ? <RobinhoodTransferPanel view="execute"/> : lendingPath ? <LendingPanel view="execute"/> : withdrawPath ? <WithdrawPanel view="execute"/> : repayPath ? <RepayPanel view="execute"/> : borrowPath ? <BorrowPanel view="execute"/> : supplyPath ? <SupplyPanel view="execute"/> : uniswapLiquidityPath ? <UniswapLiquidityPanel view="execute"/> : solanaLiquidityPath ? <SolanaLiquidityPanel view="execute"/> : solanaPath ? <JupiterPanel view="execute"/> : publicPath ? <PublicTestnetPanel view="execute"/> : persistedBuild009Recovery ? <BridgeSwapPanel view="execute"/> : across.recovered ? <AcrossPanel view="execute"/> :
           bridge.recoveryOnly ? <BridgePanel view="execute"/> : modeA.recoveryOnly || modeB.recoveryOnly ||
           composition.recoveryOnly || liquidity.recoveryOnly || cow.recoveryOnly ?
@@ -277,15 +279,15 @@ function AppShellContent({ pathname, navigate, simulationRequest = 0 }: ProductN
           bridgeSwap.run ? <BridgeSwapPanel view="execute"/> : bridge.execution ? <BridgePanel view="execute"/> :
           <><ExecutionPanel/><ModeBPanel view="execute"/><CompositionPanel view="execute"/><CowPanel view="execute"/><LiquidityPanel view="execute"/></>
         : null;
-  return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null}/>
+  return <div className="app-shell" inert={!interactive}><a className="skip-link" href="#workspace">{tr("Skip to workspace")}</a><TopBar tab={tab} setTab={setTab} pathname={pathname ?? null} engineering={engineering}/>
     <AutomationInbox owner={owner} proven={Boolean(owner && proof.proven === owner.address)} open={() => navigate?.('/app/automations')}/>
     <main id="workspace" className={`main workflow-workspace${tab === 'Build' ? ' build-workspace' : ''}`} data-workspace-toolbox={workspaceToolboxMode} tabIndex={-1} aria-label={tr(tab === 'Build' ? 'Workflow workspace' : tab === 'Simulate' ? 'Simulation workspace' : 'Execution workspace')}>
-      {tab === 'Execute' ? <ExecuteWorkspace workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath || localCowIntent ? stageContent : undefined}/> : tab === 'Simulate' && (productExecutionPath || crossChainWorkflow || acrossWorkflow || across.run || bridgeSwapWorkflow || bridgeWorkflow) ?
-        <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} reviewActionHost={setSimulationActionHost} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
-          <details className="shell-details technical-workspace simulation-technical"><summary>{tr("View technical details")}</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>
+      {tab === 'Execute' ? <ExecuteWorkspace controls={lifecycleControls} primaryAction={simulateAction} workflowName={workflowName} workflow={state.workflow} context={context} source={simulationSource} authorization={reviewBinding.authorization} wallet={reviewBinding.wallet} execution={executionStart} progress={executionProgress} recovery={executionProgress.recovery} invalidWorkflow={Boolean(reviewError || authoringIncomplete)} backToBuild={() => setTab('Build')} backToSimulate={() => setTab('Simulate')} technicalDetails={executionStart.started || executionProgress.started || recoveryPath || localCowIntent ? stageContent : undefined}/> : tab === 'Simulate' ?
+        <SimulateWorkspace workflowName={workflowName} returnToBuild={() => setTab('Build')} simulationSource={simulationSource} review={embeddedReview} simulateAction={simulateAction}>
+          {engineering && <details className="shell-details technical-workspace simulation-technical"><summary>{tr('View technical details')}</summary><ReviewTechnicalDetails authorization={reviewBinding.authorization}/>{stageContent}</details>}
         </SimulateWorkspace> : stageContent}
       <MobileBuildNavigation stage={tab === 'Build' ? 'Build' : tab === 'Simulate' ? 'Simulate' : 'Execute'}/>
       {state.error && <div className="error-banner" role="alert"><strong>{tr("Edit not applied")}</strong><span>{tr(tab !== 'Build' ? 'Review the workflow configuration in Build before simulating again.' : state.error)}</span></div>}
-    </main>{tab !== 'Execute' && <SummaryBar tab={tab} setTab={setTab} simulationActionHost={simulationActionHost} focusReview={focusReview} reviewAvailable={Boolean(reviewBinding.authorization.key && reviewBinding.authorization.ready)}/>}
+    </main>{tab !== 'Execute' && <SummaryBar tab={tab} setTab={setTab} canvasOwnsAction/>}
   </div>;
 }

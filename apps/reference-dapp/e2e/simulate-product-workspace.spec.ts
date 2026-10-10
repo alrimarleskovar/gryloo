@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, openSimulationDetails, assertNoFinancialCanvasAction, applyPendingProposal } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { configureCanvasAction } from './composer-authoring-fixtures';
+import { resetSupplyHarness } from './supply-fixtures';
 
 const graph = (page: Page) => page.getByRole('region', { name: 'Simulation workflow graph', exact: true });
 const summary = (page: Page) => page.getByRole('complementary', { name: 'Simulation Summary', exact: true });
@@ -50,13 +51,16 @@ test('current workflow, read-only cards, honest summary and Back to Build', asyn
   const style = await cardStyle(buildCard);
   const icons = await brandIcons(buildCard);
   const revision = await page.locator('.summary-bar').getAttribute('data-workflow-revision');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
   await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
-  const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
+  const review = page.locator('.review-authorization-details');
+  await review.locator('summary').click();
   await expect(page.getByRole('region', { name: 'Workflow simulation workspace', exact: true }).locator('#simulation-review')).toHaveCount(1);
   await expect(review.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
-  await expect(review.getByText(/Run a valid simulation/).first()).toBeVisible();
+  await expect(review.getByRole('status')).toContainText(/valid simulation|[Ss]imulat(?:e|ion)|review.*again/);
+  await expect(review).toContainText('Required wallet confirmations remain separate.');
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
 
   await expect(page.locator('.simulation-workflow-canvas h2')).toHaveText('Carry Strategy');
   const card = graph(page).locator('.composer-card');
@@ -99,17 +103,17 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
     await page.keyboard.press('Escape');
     const buildCard = page.locator('.build-flow-surface .composer-card');
     const style = await cardStyle(buildCard), icons = await brandIcons(buildCard);
-    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
     await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
     expect(await cardStyle(graph(page).locator('.composer-card'))).toEqual(style);
     expect(await brandIcons(graph(page))).toEqual(icons);
     expect(icons.every(icon => icon.filter === 'none')).toBe(true);
-    const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
+    const review = page.locator('.review-authorization-details');
     await expect(review).toBeVisible();
     await expect(review.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
     expect(await review.evaluate(element => getComputedStyle(element).color)).toBe(await summary(page).evaluate(element => getComputedStyle(element).color));
-    await expect(page.getByRole('main').locator('.simulate-workspace > details')).toHaveCount(1);
-    await expect(page.getByRole('main').getByText('View technical details', { exact: true })).toHaveCount(1);
+    await expect(page.getByRole('main').locator('.simulation-technical')).toHaveCount(0);
+    await expect(page.getByRole('main').getByText('View technical details', { exact: true })).toHaveCount(0);
     await expect(graph(page).getByRole('button', { name: 'Simulate workflow', exact: true })).toBeVisible();
     for (const width of [1280, 1024, 820]) {
       await page.setViewportSize({ width, height: 900 });
@@ -126,7 +130,7 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
       await expect(summary(page).getByRole('button', { name: 'Back to Build', exact: true })).toHaveCount(0);
       expect(actionsBox.x).toBeGreaterThan(canvasBox.x);
       expect(actionsBox.y).toBeGreaterThan(canvasBox.y);
-      expect(canvasBox.x + canvasBox.width - actionsBox.x - actionsBox.width).toBeGreaterThanOrEqual(60);
+      expect(canvasBox.x + canvasBox.width - actionsBox.x - actionsBox.width).toBeCloseTo(12, 1);
       expect(canvasBox.y + canvasBox.height - actionsBox.y - actionsBox.height).toBeGreaterThanOrEqual(16);
       expect(controlsBox.x + controlsBox.width <= actionsBox.x || controlsBox.y + controlsBox.height <= actionsBox.y).toBe(true);
       expect(cardBox.y + cardBox.height + 8).toBeLessThanOrEqual(actionsBox.y);
@@ -144,15 +148,13 @@ test('light/dark reuse Build surfaces and preserve token/network brand colors', 
 
 test('lending links, zoom in/out and fit remain usable on desktop and mobile', async ({ page }) => {
   await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+  await applyPendingProposal(page);
   const positions = await page.locator('.build-flow-surface .react-flow__node').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.transform));
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(graph(page).locator('.react-flow__edge')).toHaveCount(2);
   await expect(summary(page).getByRole('button', { name: 'Review lending composition', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Simulate lending composition', exact: true })).toBeHidden();
-  await page.locator('.simulation-technical > summary').click();
-  await expect(page.getByRole('button', { name: 'Simulate lending composition', exact: true })).toBeVisible();
-  await page.locator('.simulation-technical > summary').click();
+  await expect(page.getByRole('button', { name: 'Simulate lending composition', exact: true })).toHaveCount(0);
+  await expect(page.locator('.simulation-technical')).toHaveCount(0);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(graph(page)).toHaveAttribute('data-viewport', 'fitted');
@@ -177,8 +179,10 @@ test('empty workflow stays empty and mocked diagnostics never fill the primary s
   await graph(page).getByRole('button', { name: 'Back to Build', exact: true }).click();
   await page.getByRole('button', { name: 'Add swap', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
-  await page.locator('.simulation-technical > summary').click();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
+  await expect(page.locator('.simulation-technical')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true })).toHaveCount(0);
+  await openSimulationDetails(page);
   await page.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
   await expect(page.locator('.simulate-swap')).toBeVisible();
   await page.locator('.simulation-technical > summary').click();
@@ -191,11 +195,12 @@ test('empty workflow stays empty and mocked diagnostics never fill the primary s
 
 
 test('simulation failures remain blocking and readable in both themes', async ({ page }) => {
+  await resetSupplyHarness({ balance: '0' });
   await page.getByRole('button', { name: 'Add supply', exact: true }).click();
   await configureCanvasAction(page, '1');
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await graph(page).getByRole('button', { name: 'Simulate workflow', exact: true }).click();
-  await expect(summary(page).getByRole('status')).toContainText(/Simulation failed|Simulation unavailable|Cannot proceed/);
+  await expect(summary(page).getByRole('status')).toContainText(/Simulation failed|Simulation unavailable|Cannot proceed|Insufficient balance/);
   for (const theme of ['Dark', 'Light']) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await selectSettingsTheme(page, theme);
@@ -204,8 +209,11 @@ test('simulation failures remain blocking and readable in both themes', async ({
     await expect(attention).toContainText('Blocking');
     expect(await summary(page).innerText()).not.toMatch(/_[A-Z]+|stack|canonical|artifact|undefined|null|mock|not implemented|unsupported/i);
     await expect(summary(page).getByRole('button', { name: 'Review Supply', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Review & Authorization', exact: true }).getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
+    await expect(page.locator('.review-authorization-details button')).toHaveCount(0);
+    await expect(page.locator('button[data-lifecycle-action="approve"]:enabled')).toHaveCount(0);
+    await assertNoFinancialCanvasAction(page);
     await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
     expect(await summary(page).locator('img.brand-icon').evaluateAll(images => images.every(image => getComputedStyle(image).filter === 'none'))).toBe(true);
   }
+  await resetSupplyHarness();
 });

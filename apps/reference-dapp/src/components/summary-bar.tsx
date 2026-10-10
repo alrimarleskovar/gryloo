@@ -17,7 +17,7 @@ import { useRobinhoodTransfer } from '../state/robinhood-transfer-store';
 import { useJupiter } from '../state/jupiter-store';
 import { useSolanaLiquidity } from '../state/solana-liquidity-store';
 
-export function SummaryBar({ tab, setTab, simulationActionHost, reviewAvailable, focusReview }: { tab: Tab; setTab: (value: Tab) => void; simulationActionHost?: HTMLDivElement | null; reviewAvailable?: boolean; focusReview?: () => void }) {
+export function SummaryBar({ tab, setTab, simulationActionHost, reviewAvailable, focusReview, canvasOwnsAction }: { canvasOwnsAction?: boolean; tab: Tab; setTab: (value: Tab) => void; simulationActionHost?: HTMLDivElement | null; reviewAvailable?: boolean; focusReview?: () => void }) {
   const { t: tr } = useLocale();
   const { state, actionSetup } = useWorkflow();
   const { info, prepared, retired, verifyError, verified } = useModeA();
@@ -35,7 +35,7 @@ export function SummaryBar({ tab, setTab, simulationActionHost, reviewAvailable,
   const publicPath = testnetWorkflow || Boolean(publicTestnet.recoveryOnly && publicTestnet.run);
   const reviewable = Boolean(info?.available && prepared && !retired && !verifyError && verified['step-approve'] && verified['step-swap']);
   const actionCount = workflowShellContext(state.workflow).actionCount + (actionSetup ? 1 : 0);
-  const action = tab === 'Build' || tab === 'Simulate' && reviewAvailable === false ? null
+  const action = canvasOwnsAction ? null : tab === 'Build' || tab === 'Simulate' && reviewAvailable === false ? null
       : tab === 'Simulate' && transferPath ? <button type="button" className="primary" onClick={focusReview} aria-controls="simulation-review" disabled={reviewAvailable === false || !transfer.record || transfer.retired}>{tr("Review transfer")}</button>
       : tab === 'Simulate' && lendingPath ? <button type="button" className="primary" onClick={focusReview} aria-controls="simulation-review" disabled={reviewAvailable === false || !lending.record||lending.retired}>{tr("Review lending composition")}</button>
       : lendingPath ? <button type="button" onClick={()=>setTab('Simulate')}>{tr("Back to simulation")}</button>

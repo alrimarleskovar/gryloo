@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal } from './fixtures';
+import { test, expect } from './fixtures';
+import { configureCanvasAction } from './composer-authoring-fixtures';
 
 /** A passive injected wallet already on `chain`. It records every method and refuses anything but reads. */
 async function walletOn(page: import('@playwright/test').Page, chain: string) {
@@ -29,14 +30,17 @@ test('a wallet on Robinhood mainnet is recognized but never asked to switch, sig
   await walletOn(page, '0x1237');
   await page.goto('/app');
   await expect(page.getByText('EVM Default: 0x1111…1111 · Robinhood Chain (4663)')).toBeVisible();
-  // Authoring an unrelated Base Sepolia swap does not touch the wallet: no switch, signature or transaction request.
-  await page.getByText('Advanced action setup', { exact: true }).click();
-  const form = page.getByRole('form', { name: 'Create swap proposal' });
-  await form.getByLabel('Network').selectOption('BASE_SEPOLIA');
-  await form.getByLabel('Input amount (required)').fill('2');
-  await form.getByLabel('Slippage in bps (required)').fill('50');
-  await form.getByRole('button', { name: 'Review swap proposal' }).click();
-  await applyPendingProposal(page);
+  // Normal Canvas follows the existing mainnet/testnet environment policy.
+  // Authoring a Base swap must not switch the Robinhood wallet or request financial authority.
+  await expect(page.getByText('Advanced action setup', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  await page.locator('.build-flow-surface .composer-card').getByRole('button', { name: 'Select source token', exact: true }).click();
+  const networks = page.getByRole('region', { name: 'Action network picker', exact: true });
+  await expect(networks.getByRole('button', { name: 'Base Sepolia', exact: true })).toHaveCount(0);
+  await networks.getByRole('button', { name: 'Base', exact: true }).click();
+  await page.getByRole('button', { name: 'Hide token picker', exact: true }).click();
+  await configureCanvasAction(page, '2');
+  await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
   expect(new Set(await methods(page))).toEqual(new Set(['eth_accounts', 'eth_chainId']));
   networkGuard.assertClean();
 });

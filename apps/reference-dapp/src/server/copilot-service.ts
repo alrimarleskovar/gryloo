@@ -43,6 +43,7 @@ What Flofi supports (anything else is UNSUPPORTED):
 - BRIDGE (Cross-chain Router): USDC from Base to Arbitrum One, or from Base Sepolia to Arbitrum Sepolia; optional LI.FI or Across preference and recipient.
 - SUPPLY, BORROW, REPAY, WITHDRAW on Aave V3: USDC on Base Sepolia, or WBTC on Ethereum Sepolia; nothing else.
 - LIQUIDITY: Uniswap v3 USDC/WETH on Base Sepolia or Ethereum Sepolia (price range in USDC per WETH, or ticks); Orca SOL/devUSDC on Solana Devnet (price range in devUSDC per SOL, or ticks). Both maximum deposits and a range are required.
+- AUTOMATION: SCHEDULED_DCA, PRICE_TRIGGER (USD below/above), DAILY_WATCH using the existing owner-confirmed Automation domain.
 - COMPOSITION: only Supply USDC on Aave, then Borrow USDC, then Swap the borrowed USDC to WETH, on Base Sepolia.`;
 
 /** `FLOFI_COPILOT`: off (default) | live | replay. Live needs a key and an explicitly chosen model; there is no default model. */
@@ -248,9 +249,10 @@ Rules:
    - REPEAT: author the same step again with optional changes ("do the same thing but with 2 USDC" → REPEAT, target nulls, changes.amount "2").
    - REMOVE: remove a step ("remove the last step" → REMOVE, ordinal LAST). INSERT: add a new step before or after an existing one.
    - ACTION with reuse: when the user says "same network/token/amount" about an earlier step, leave that field null and list it in reuse.fields ("supply 2 USDC on the same network" → SUPPLY amount "2", asset USDC, network null, reuse {from: nulls, fields: ["network"]}).
+   - AUTOMATION: a request to prepare a daily recurring trade (SCHEDULED_DCA), a USD price-below/price-above trigger (PRICE_TRIGGER), or a daily read-only asset check (DAILY_WATCH). Report typed draft fields exactly from the active request and its clarification answers; never carry fields from a completed request. Never create a rule: FloFi grounds the draft and the owner must click Create automation. Execution always needs fresh simulation, Manifest Review, explicit approval and wallet signatures for each occurrence. For missing fields use null. Buy amounts spend USDC (devUSDC on Solana Devnet); sell amounts spend the base asset. Never infer amount, threshold, daily time or network. ETH, SOL, BTC can be observed; BTC execution has no route.
    - QUESTION: any read-only question about the workflow, a step, protocols, networks, approvals, the Manifest, the simulation, blockers, failures or the pending proposal. Pick the topic and the target if a step is named; never answer it yourself. Questions about prices, APY, balances, gas, bridge times or health factors are topic MARKET_DATA.
    - CLARIFICATION_REQUIRED: something material is missing and cannot be expressed with null. One short question in the user's language and up to 4 short options.
-   - UNSUPPORTED: anything else (sending or transferring funds to an address, staking, leverage loops, limit orders, price triggers, alerts, scheduling, automation, monitoring, portfolio or investment advice, news, other protocols). One short reason in the user's language.
+   - UNSUPPORTED: anything else (sending or transferring funds to an address, staking, leverage loops, limit orders, unsupported automations, portfolio or investment advice, news, other protocols). One short reason in the user's language.
 8. Networks: BASE, ARBITRUM and SOLANA are mainnets with real funds. BASE_SEPOLIA, ARBITRUM_SEPOLIA, ETHEREUM_SEPOLIA and SOLANA_DEVNET are test networks. Report exactly the network the user named; never turn a test network into a mainnet or the reverse. Use ETHEREUM when the user names Ethereum without Sepolia (including Ethereum Mainnet), ETHEREUM_SEPOLIA only if the user wrote Sepolia. Use OTHER for any other network and null when none is named.
 9. Tokens: report what the user named. Use ETH for ether, WETH only if the user wrote WETH, WBTC only if the user wrote WBTC, DEVUSDC for devUSDC or test USDC, OTHER for any other token.
 10. Addresses: only copy a 0x address the user typed; otherwise null, and Flofi uses the connected wallet.
@@ -261,6 +263,7 @@ What Flofi supports (anything else is UNSUPPORTED):
 - BRIDGE (Cross-chain Router): USDC from Base to Arbitrum One, or from Base Sepolia to Arbitrum Sepolia; optional LI.FI or Across preference and recipient.
 - SUPPLY, BORROW, REPAY, WITHDRAW on Aave V3: USDC on Base Sepolia, or WBTC on Ethereum Sepolia; nothing else.
 - LIQUIDITY: Uniswap v3 USDC/WETH on Base Sepolia or Ethereum Sepolia (price range in USDC per WETH, or ticks); Orca SOL/devUSDC on Solana Devnet (price range in devUSDC per SOL, or ticks).
+- AUTOMATION: SCHEDULED_DCA, PRICE_TRIGGER (USD below/above), DAILY_WATCH using the existing owner-confirmed Automation domain.
 - COMPOSITION: only Supply USDC on Aave, then Borrow USDC, then Swap the borrowed USDC to WETH, on Base Sepolia.`;
 
 export type CopilotReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';

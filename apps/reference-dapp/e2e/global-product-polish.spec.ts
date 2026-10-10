@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, openProposalReview } from './fixtures';
+import { test, expect, openProposalReview, assertNoFinancialCanvasAction } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { installSupplyWallet } from './supply-fixtures';
@@ -77,7 +77,7 @@ for (const value of ['Light', 'Dark'] as const) for (const action of ['pool', 's
       await card.getByRole('button', { name: 'Tick', exact: true }).click();
       await expect(card.locator('.composer-value-arrow')).toHaveCount(0);
     }
-    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     const inspection = page.locator('.simulate-flow-surface .composer-card');
     await expect(inspection.locator('.composer-value-arrow')).toHaveCount(action === 'pool' ? 0 : 1);
     await expect(inspection.locator('input, select, button')).toHaveCount(0);
@@ -111,7 +111,7 @@ for (const value of ['Light', 'Dark'] as const) test(`${value} global stage flow
       if (stage === 'Execute') {
         await expect(page.locator('.execute-heading')).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Execution Summary', exact: true })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+        await assertNoFinancialCanvasAction(page);
         const grid = page.locator('.execute-workspace-grid');
         const inset = await page.getByRole('main').evaluate(element => element.getBoundingClientRect().top + parseFloat(getComputedStyle(element).paddingTop));
         expect((await grid.boundingBox())!.y).toBeCloseTo(inset, 1);

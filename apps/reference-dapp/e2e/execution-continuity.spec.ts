@@ -97,12 +97,12 @@ test('production regression: same MetaMask/account/Base Sepolia → approval CON
   expect(await durable(id!)).toMatchObject({ runs: [{ status: 'CONFIRMED', has_evidence: false }], attempts: [{ step: 'APPROVAL', state: 'CONFIRMED', reconciled: true }], evidence: [] });
   await synchronizeWallet(page);
   await expect(summary(page)).not.toContainText(falseWalletChange);
-  const next = summary(page).getByRole('button', { name: 'Continue to swap', exact: true });
+  const next = page.locator('.canvas-primary-action').getByRole('button', { name: 'Continue to swap', exact: true });
   await expect(next).toBeEnabled();
   // A settled approval has no unresolved status check. Navigation/rerenders
   // must never repeat it or submit the still-unattempted swap.
-  await expect(summary(page).getByRole('button', { name: 'Check status', exact: true })).toHaveCount(0);
-  await stage(page, 'Simulate'); await expect(page.locator('.review-validity')).not.toContainText(falseWalletChange);
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Check status', exact: true })).toHaveCount(0);
+  await stage(page, 'Simulate'); await expect(page.locator('.review-authorization-details')).not.toContainText(falseWalletChange);
   await stage(page, 'Execute'); await expect(next).toBeEnabled();
   expect(await pointer(page)).toBe(id); expect(await owner.sends()).toBe(1); expect(owner.requested()).toBe(1);
   // Two clicks in one browser turn exercise the existing request lock.
@@ -132,16 +132,17 @@ test('production regression: same MetaMask/account/Base Sepolia → approval CON
 test('reload after confirmed approval recovers the same run and refreshes its quote without resending approval', async ({ page, request }) => {
   const owner = await setup(page, request), id = await pointer(page);
   await page.getByRole('button', { name: 'Execute workflow', exact: true }).click(); await owner.confirm();
-  await expect(summary(page).getByRole('button', { name: 'Continue to swap', exact: true })).toBeEnabled();
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Continue to swap', exact: true })).toBeEnabled();
   await page.reload(); await stage(page, 'Execute');
   await expect(summary(page)).toContainText('Current execution restored');
   expect(await pointer(page)).toBe(id); expect(await owner.sends()).toBe(1);
-  await expect(summary(page).getByRole('button', { name: 'Continue to swap', exact: true })).toHaveCount(0);
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Continue to swap', exact: true })).toHaveCount(0);
   await stage(page, 'Simulate');
   await page.getByRole('region', { name: 'Simulation workflow graph', exact: true }).getByRole('button', { name: 'Simulate again', exact: true }).click();
-  await acceptProductReview(page);
+  await page.locator('.canvas-primary-action').getByRole('button', { name: 'Approve & Continue', exact: true }).click();
+  await stage(page, 'Execute');
   expect(await pointer(page)).toBe(id); expect(await owner.sends()).toBe(1);
-  const next = summary(page).getByRole('button', { name: 'Continue to swap', exact: true });
+  const next = page.locator('.canvas-primary-action').getByRole('button', { name: 'Continue to swap', exact: true });
   await expect(next).toBeEnabled(); await next.click(); await owner.confirm();
   await expect(summary(page)).toContainText('Execution completed');
   expect(await owner.sends()).toBe(2); expect(owner.requested()).toBe(2);
@@ -150,15 +151,15 @@ test('reload after confirmed approval recovers the same run and refreshes its qu
 test('lost second wallet response stays uncertain across sync and reload and never blindly retries', async ({ page, request }) => {
   const owner = await setup(page, request, 2), id = await pointer(page);
   await page.getByRole('button', { name: 'Execute workflow', exact: true }).click(); await owner.confirm();
-  const next = summary(page).getByRole('button', { name: 'Continue to swap', exact: true });
+  const next = page.locator('.canvas-primary-action').getByRole('button', { name: 'Continue to swap', exact: true });
   await expect(next).toBeEnabled(); await next.click(); await owner.confirm();
   await expect(summary(page)).toContainText('Execution status unresolved');
   await synchronizeWallet(page);
-  await expect(summary(page).getByRole('button', { name: /Continue to|Execute workflow|Retry|Try again/ })).toHaveCount(0);
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: /Continue to|Execute workflow|Retry|Try again/ })).toHaveCount(0);
   expect((await durable(id!)).attempts).toMatchObject([{ step: 'APPROVAL', state: 'CONFIRMED' }, { step: 'SWAP', state: 'UNKNOWN' }]);
   expect(await owner.sends()).toBe(2); expect(owner.requested()).toBe(2);
   await page.reload(); await stage(page, 'Execute');
   await expect(summary(page)).toContainText('Execution status unresolved');
   expect(await pointer(page)).toBe(id); expect(await owner.sends()).toBe(2); expect(owner.requested()).toBe(2);
-  await expect(summary(page).getByRole('button', { name: /Continue to|Execute workflow|Retry|Try again/ })).toHaveCount(0);
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: /Continue to|Execute workflow|Retry|Try again/ })).toHaveCount(0);
 });

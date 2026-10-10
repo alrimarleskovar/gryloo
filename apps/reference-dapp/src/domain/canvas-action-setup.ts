@@ -11,12 +11,13 @@ import { shellChainLabel } from './product-shell';
 import { editorReducer, type EditorState } from './editor';
 import { createAuthoredSupply, createAuthoredBorrow, createAuthoredRepay, createAuthoredWithdraw, supplyDetails, borrowDetails, repayDetails, withdrawDetails } from './supply-authoring';
 import { lendingDetails, lendingNodeInput } from './lending-authoring';
+import { createAuthoredTransfer, transferDetails } from './robinhood-transfer-authoring';
 import { singleAmountProposalTarget } from './composer-presentation';
 import { createCryptoActionNode, cryptoInputOf, cryptoProfile, canSelectCryptoAssets, type CryptoSelection, type CryptoSelections, type CryptoActionInput } from './crypto-action-picker';
 
 /** Required-field authoring only, never an executable node or alternate workflow. */
 export type CanvasActionSetup = { readonly id: string; readonly amount: string; readonly cryptoSelection?: CryptoSelection; readonly cryptoBeneficiary?: string } &
-  ({ readonly action: 'pool'; readonly input: UniswapLiquidityInput } | { readonly action: 'swap'; readonly direction?: Direction } | { readonly action: 'bridge'; readonly networks?: CanvasBridgeNetworks } | { readonly action: 'withdraw' } | { readonly action: 'supply' | 'borrow' | 'repay'; readonly beneficiary: string });
+  ({ readonly action: 'pool'; readonly input: UniswapLiquidityInput } | { readonly action: 'swap'; readonly direction?: Direction } | { readonly action: 'bridge'; readonly networks?: CanvasBridgeNetworks } | { readonly action: 'withdraw' | 'transfer' } | { readonly action: 'supply' | 'borrow' | 'repay'; readonly beneficiary: string });
 export type CanvasBridgeNetworks = Pick<RouterBridgeInput, 'source' | 'destination'>;
 export type CanvasBridgeNetworkInputs = Readonly<Record<string, CanvasBridgeNetworks>>;
 export const CANVAS_BRIDGE_NETWORK_OPTIONS = {
@@ -46,7 +47,7 @@ export function amountCommandTarget(command: Command, workflow?: Workflow, prefe
   if (command.type === 'SET_CRYPTO_ACTION') return { id: command.nodeId, amount: command.input.amount };
   if (command.type === 'SET_SWAP_AMOUNT') return { id: command.nodeId, amount: command.amount };
   if (command.type === 'SET_ROUTER_BRIDGE' || command.type === 'SET_BRIDGE') return { id: command.nodeId, amount: command.input.amount };
-  if (command.type === 'SET_SUPPLY' || command.type === 'SET_BORROW' || command.type === 'SET_REPAY' || command.type === 'SET_WITHDRAW') return { id: command.nodeId, amount: command.input.amount };
+  if (command.type === 'SET_SUPPLY' || command.type === 'SET_BORROW' || command.type === 'SET_REPAY' || command.type === 'SET_WITHDRAW' || command.type === 'SET_RH_TRANSFER') return { id: command.nodeId, amount: command.input.amount };
   if (command.type === 'AUTHOR_LENDING' && workflow) {
     const id = singleAmountProposalTarget(workflow, command, preferredId);
     if (id) return { id, amount: id === 'lending-supply' ? command.input.supply : command.input.borrow };
@@ -88,9 +89,11 @@ export function canvasAmountCommand(state: EditorState, setup: CanvasActionSetup
     const base = { nodeId: id, source: 'CANVAS' as const, baseRevision: state.workflow.revision };
     const lending = lendingDetails(state.workflow);
     const router = routerDetails(node), bridge = bridgeDetails(node), supply = lending ? null : supplyDetails(node as Parameters<typeof supplyDetails>[0]), borrow = lending ? null : borrowDetails(node as Parameters<typeof borrowDetails>[0]), repay = repayDetails(node as Parameters<typeof repayDetails>[0]), withdraw = withdrawDetails(node as Parameters<typeof withdrawDetails>[0]);
+    const transfer = transferDetails(node as Parameters<typeof transferDetails>[0]);
     const cryptoInput = cryptoSelections[id] ? cryptoInputOf(node) : null;
     command = cryptoInput ? { ...base, type: 'SET_CRYPTO_ACTION', input: { ...cryptoInput, selection: cryptoSelections[id]!, amount,
       ...(cryptoInput.selection.action === 'pool' && cryptoInput.selection.network !== cryptoSelections[id]!.network ? { rangeUnit: 'TICK', lower: cryptoSelections[id]!.network === 'Solana Devnet' ? '-443584' : cryptoSelections[id]!.network === 'Ethereum Sepolia' ? '-887220' : '-887270', upper: cryptoSelections[id]!.network === 'Solana Devnet' ? '443584' : cryptoSelections[id]!.network === 'Ethereum Sepolia' ? '887220' : '887270' } : {}) } }
+      : transfer ? { ...base, type: 'SET_RH_TRANSFER', input: { ...transfer, amount } }
       : lending && (id === 'lending-supply' || id === 'lending-borrow')
       ? { type: 'AUTHOR_LENDING', input: lendingNodeInput(state.workflow, id, amount), source: 'CANVAS', baseRevision: state.workflow.revision }
       : borrow ? { ...base, type: 'SET_BORROW', input: { ...borrow, amount } }
@@ -109,6 +112,7 @@ export function canvasAmountCommand(state: EditorState, setup: CanvasActionSetup
   if (command.type === 'SET_BORROW' || command.type === 'ADD_BORROW') createAuthoredBorrow('node-preview', command.input);
   if (command.type === 'SET_REPAY' || command.type === 'ADD_REPAY') createAuthoredRepay('node-preview', command.input);
   if (command.type === 'SET_WITHDRAW' || command.type === 'ADD_WITHDRAW') createAuthoredWithdraw('node-preview', command.input);
+  if (command.type === 'SET_RH_TRANSFER' || command.type === 'ADD_RH_TRANSFER') createAuthoredTransfer('node-preview', command.input);
   const preview = editorReducer(state, command, context);
   if (preview.error) throw new Error(preview.error);
   // An unfinished new card must never silently replace already-authored actions on acceptance.

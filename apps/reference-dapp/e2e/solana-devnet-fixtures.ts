@@ -24,7 +24,7 @@ export const installDevnetWallet = (page: Page, wallet: ReturnType<typeof create
   installSolanaWallet(page, wallet, { chains: ['solana:mainnet', 'solana:devnet'], ...behavior });
 export const devnetPanel = (page: Page) => page.getByRole('region', { name: 'Solana Devnet swap' });
 export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   if (via === 'chat') {
     await page.locator('#mock-prompt').fill('Swap 10 test USDC to test SOL on Solana Devnet');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -40,7 +40,7 @@ export async function authorDevnetSwap(page: Page, via: 'canvas' | 'chat' = 'can
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewDevnetSwap(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate workflow' }).click(); await openSimulationDetails(page);
   await chooseSolanaWallet(devnetPanel(page));
   await devnetPanel(page).getByRole('button', { name: 'Simulate swap' }).click();
   await devnetPanel(page).getByRole('definition').filter({ hasText: '→ expected' }).waitFor();

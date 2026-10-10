@@ -62,7 +62,11 @@ function Harness() {
     review: { workflow: supplyWorkflow, account: fixture.authorization.owner, chain: fixture.authorization.chain }, attempts: [{ step: 'SUPPLY', state: 'SUBMITTING', transactionHash: null, reconciled: false }],
   } } } as unknown as ExecutionLifecycleSource;
   const observedSource = evidenceScenario ? evidenceFixture(evidenceScenario, fixture) : lifecycle === 'wallet' ? walletSource : progressSource;
-  const progress = lifecycle ? projectExecutionLifecycle(fixture.workflow, fixture.context, observedSource) : undefined;
+  // Evidence scenarios render the canonical workflow retained by that record,
+  // rather than presenting a different fixture as a newly edited Build.
+  const evidenceRecord = evidenceScenario ? (observedSource.state as { record?: { workflow?: typeof fixture.workflow; reviews?: { workflow: typeof fixture.workflow }[] } }).record : null;
+  const workflow = evidenceRecord?.workflow ?? evidenceRecord?.reviews?.at(-1)?.workflow ?? fixture.workflow;
+  const progress = lifecycle ? projectExecutionLifecycle(workflow, fixture.context, observedSource) : undefined;
   if (progress) { progress.stepEvidence = projectExecutionStepEvidence(observedSource, progress); progress.evidence = projectExecutionEvidence(observedSource, progress); }
   const recovery = progress ? { ...projectExecutionRecovery(observedSource, progress, fixture.wallet), check: () => {
     counts.current.checked += 1; setChecking(true);
@@ -73,7 +77,7 @@ function Harness() {
       sessionStorage.setItem('flofi:execute-acceptance-record', next); setLifecycle(next); resolve();
     }; });
   } } : undefined;
-  return <ExecuteAcceptanceWorkflowProvider workflow={fixture.workflow} context={fixture.context}><ExecuteWorkspace {...fixture} workflowName={workflowName} {...(progress && recovery ? { progress, recovery } : {})} authorization={fixture.authorization}
+  return <ExecuteAcceptanceWorkflowProvider workflow={workflow} context={fixture.context}><ExecuteWorkspace {...fixture} workflow={workflow} workflowName={workflowName} {...(progress && recovery ? { progress, recovery } : {})} authorization={fixture.authorization}
     execution={{ ready: true, started: started || Boolean(lifecycle), next: lifecycle === 'approval-confirmed' ? () => { counts.current.executed += 1; } : null, nextLabel: 'Continue to swap', check: () => {}, start: () => { counts.current.executed += 1; if (!holdStart.current) setStarted(true); }, prompt: 'Confirm the reviewed transaction in your wallet.', expiresAt: null, requiresMainnetAcknowledgement: false }}
     backToBuild={() => { counts.current.edited += 1; }} backToSimulate={() => { counts.current.simulated += 1; }}/></ExecuteAcceptanceWorkflowProvider>
 }

@@ -10,7 +10,7 @@ const unsignedFromRequest = (request: Record<string, string>) => encodeUnsignedP
   to: request.to!, value: 0n, data: fromHex(request.data!), accessList: [] });
 
 test('WETH to USDC: the wallet request equals the reviewed bytes and the outcome reconciles on the fork', async ({ page, fork, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await expect(forkPanel(page)).toContainText(fork.fixture.environment);
@@ -62,7 +62,7 @@ test('WETH to USDC: the wallet request equals the reviewed bytes and the outcome
 });
 
 test('USDC to WETH reconciles through two separate exact authorizations', async ({ page, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'USDC_TO_WETH', '2500', '100');
   await simulateOnFork(page);
   await reviewAndConnect(page);
@@ -76,7 +76,7 @@ test('USDC to WETH reconciles through two separate exact authorizations', async 
 });
 
 test('a semantic edit retires the reviewed fork action and no wallet request is possible', async ({ page, testWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await simulateOnFork(page);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
@@ -94,7 +94,7 @@ test('a semantic edit retires the reviewed fork action and no wallet request is 
 });
 
 test('mocked and observed artifacts can never open Mode A review or execution', async ({ page, testWallet, fork }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorSwap(page, 'WETH_TO_USDC', '1', '100');
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await openTechnicalDetails(page);

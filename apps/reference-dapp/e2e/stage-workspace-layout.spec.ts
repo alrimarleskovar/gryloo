@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal } from './fixtures';
+import { test, expect, applyPendingProposal, assertNoFinancialCanvasAction } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator } from '@playwright/test';
 import { installSupplyWallet } from './supply-fixtures';
@@ -18,12 +18,13 @@ async function geometry(canvas: Locator) {
       return { x, y, width, height };
     };
     const action = element.querySelector('.canvas-primary-action')!;
-    const buttons = [...action.querySelectorAll('button')];
+    const primary = action.querySelector('button[data-lifecycle-action]')!;
+    const secondary = action.querySelector('button.simulation-back');
     return {
       canvas: rect(element), header: rect(element.querySelector('.canvas-head')!),
       surface: rect(element.querySelector('.flow-surface')!), footer: rect(element.querySelector('.canvas-foot')!),
       controls: rect(element.querySelector('.canvas-navigator')!),
-      primary: rect(buttons.at(-1)!), secondary: buttons.length > 1 ? rect(buttons[0]!) : null,
+      primary: rect(primary), secondary: secondary ? rect(secondary) : null,
       radius: getComputedStyle(element).borderRadius,
     };
   });
@@ -71,8 +72,7 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
       await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
       const buildAmounts = await graph.locator('.composer-card input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
       for (const stage of ['Build', 'Simulate', 'Execute'] as const) {
-        if (stage === 'Simulate') await graph.getByRole('button', { name: 'Simulate fees', exact: true }).click();
-        if (stage === 'Execute') await nav.getByRole('button', { name: stage, exact: true }).click();
+        if (stage !== 'Build') await nav.getByRole('button', { name: stage, exact: true }).click();
         await expect(nav.getByRole('button', { name: stage, exact: true })).toHaveAttribute('aria-current', 'page');
         await expect(canvas).toBeVisible();
         if (stage !== 'Build') {
@@ -80,8 +80,13 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
           await expect(graph.locator('.composer-card input, .composer-card select, .composer-card button')).toHaveCount(0);
         }
         await page.evaluate(() => window.scrollTo(0, 0));
+        const controls = graph.locator('.canvas-navigator');
+        const graphBox = (await graph.boundingBox())!;
+        const compact = graphBox.width < (stage === 'Build' ? 800 : 1024);
+        await expect(controls).toHaveAttribute('data-compact', String(compact));
+        await expect(controls).toHaveAttribute('data-narrow', String(graphBox.width < 400));
         const actual = await geometry(canvas);
-        for (const part of ['canvas', 'header', 'surface', 'footer', 'controls'] as const) sameBox(actual[part], reference[part]);
+        for (const part of ['canvas', 'header', 'surface', 'footer'] as const) sameBox(actual[part], reference[part]);
         expect(actual.radius).toBe(reference.radius);
         expect(right(actual.primary)).toBeCloseTo(right(reference.primary), 1);
         expect(bottom(actual.primary)).toBeCloseTo(bottom(reference.primary), 1);
@@ -90,19 +95,20 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
         expect(bottom(actual.surface) - bottom(actual.primary)).toBeCloseTo(24, 1);
         expect(right(actual.controls) <= actual.primary.x || bottom(actual.controls) <= actual.primary.y).toBe(true);
         expect(actual.controls.x + actual.controls.width / 2).toBeCloseTo(actual.surface.x + actual.surface.width / 2, 1);
+        expect(actual.controls.width).toBe(graphBox.width < 400 ? 148 : compact ? 200 : 224);
+        expect(bottom(actual.surface) - bottom(actual.controls)).toBe(compact ? 82 : 24);
         expect(actual.controls.y).toBeGreaterThan(actual.surface.y);
         expect(actual.primary.x).toBeGreaterThanOrEqual(actual.surface.x);
-        if (stage !== 'Build') {
+        if (stage === 'Simulate') {
           expect(actual.secondary).not.toBeNull();
           expect(actual.primary.x - right(actual.secondary!)).toBeCloseTo(8, 1);
           expect(actual.secondary!.y).toBe(actual.primary.y);
-          await expect(graph.getByRole('button', { name: stage === 'Execute' ? 'Execute workflow' : 'Simulate workflow', exact: true })).toBeVisible();
-          if (stage === 'Execute') await expect(graph.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
         }
+        await expect(graph.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeVisible();
+        await assertNoFinancialCanvasAction(page);
         expect(await wallet.innerText()).toBe(walletText);
         await expect(environment).toHaveText(environmentValue);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        const controls = graph.locator('.canvas-navigator');
         const transform = () => graph.locator('.react-flow__viewport').getAttribute('style');
         const before = await transform();
         await controls.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
@@ -117,7 +123,7 @@ for (const theme of ['Light', 'Dark'] as const) for (const layout of ['standard'
           await canvas.screenshot({ path: `.tmp/ux007-team1-${stage.toLowerCase()}-${theme.toLowerCase()}-${width}.png` });
         }
       }
-      await graph.getByRole('button', { name: 'Back to Build', exact: true }).click();
+      await nav.getByRole('button', { name: 'Build', exact: true }).click();
       await expect(nav.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
       expect(await graph.locator('.composer-card input').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value))).toEqual(buildAmounts);
       await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');

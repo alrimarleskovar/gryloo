@@ -105,6 +105,14 @@ export async function openProposalReview(page: Page): Promise<void> {
 
 /** Inspect existing provider diagnostics through their visible native disclosure. */
 export async function openSimulationDetails(page: Page): Promise<void> {
+  if (new URL(page.url()).pathname !== '/__engineering') {
+    // An explicit diagnostic request enters the opted-in loopback harness without
+    // reloading the persistent workspace or exposing diagnostics on normal routes.
+    await page.evaluate(() => {
+      if (!(window as unknown as { __flofiEngineeringWorkflow?: string }).__flofiEngineeringWorkflow) throw Error('ENGINEERING_HARNESS_REQUIRED');
+      window.history.pushState(null, '', '/__engineering');
+    });
+  }
   const details = page.locator('.simulation-technical');
   await expect(details).toBeVisible();
   if (!(await details.evaluate(element => (element as HTMLDetailsElement).open))) await details.locator('> summary').click();
@@ -112,11 +120,19 @@ export async function openSimulationDetails(page: Page): Promise<void> {
 
 /** Use the shared product Review. MOCKED results must fail this authorization boundary. */
 export async function acceptProductReview(page: Page): Promise<void> {
-  const approve = page.getByRole('button', { name: 'Approve & Continue', exact: true });
-  await expect(approve, await page.locator('.review-validity').innerText()).toBeEnabled();
+  const approve = page.locator('.canvas-primary-action').getByRole('button', { name: 'Approve & Continue', exact: true });
+  await expect(approve).toBeEnabled();
   await approve.click();
-  await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toBeVisible();
+  await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Execute workflow', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
+}
+
+/** A blocked workflow may offer simulation, but never an enabled financial CTA. */
+export async function assertNoFinancialCanvasAction(page: Page): Promise<void> {
+  const primary = page.locator('.canvas-primary-action');
+  await expect(primary).toHaveCount(1);
+  await expect(primary.locator('button[data-lifecycle-action="execute"]:enabled, button[data-lifecycle-action="continue"]:enabled')).toHaveCount(0);
+  await expect(page.locator('.execution-summary button.primary')).toHaveCount(0);
 }
 
 /** Apply a reviewed authoring proposal through the visible contextual popover. This grants no financial authority. */
@@ -127,15 +143,10 @@ export async function applyPendingProposal(page: Page): Promise<void> {
   await apply.click();
 }
 
-/** Read the displayed canonical IR through its existing user-facing disclosures. */
+/** Inspect canonical IR using the explicitly enabled loopback-only read probe, with no product debug surface. */
 export async function readWorkflowIr(page: Page): Promise<string> {
-  await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Build', exact: true }).click();
-  const setup = page.getByText('Advanced action setup', { exact: true });
-  if (!(await setup.evaluate(element => (element.parentElement as HTMLDetailsElement).open))) await setup.click();
-  const ir = page.locator('.review-workflow-ir');
-  if (!(await ir.evaluate(element => (element as HTMLDetailsElement).open))) await ir.locator('> summary').click();
-  const raw = await page.locator('[data-workflow-ir]').textContent();
-  if (!raw) throw new Error('Displayed Semantic Workflow IR is missing');
+  const raw = await page.evaluate(() => (window as unknown as { __flofiEngineeringWorkflow?: string }).__flofiEngineeringWorkflow);
+  if (!raw) throw new Error('The guarded canonical workflow probe is not enabled');
   return raw;
 }
 

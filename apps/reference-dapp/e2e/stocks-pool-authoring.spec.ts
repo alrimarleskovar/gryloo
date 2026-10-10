@@ -114,7 +114,7 @@ test('both Pool contribution fields share the position form and require fresh Re
   const first = card.getByRole('textbox', { name: 'First liquidity amount (USDC)', exact: true });
   const second = card.getByRole('textbox', { name: 'Second liquidity amount (WETH)', exact: true });
   await expect(first).toHaveValue('0'); await expect(second).toHaveValue('0');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await card.getByRole('button', { name: 'Review', exact: true }).click();
   await expect(card.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
   await first.fill('2.5'); await second.fill('0.0002');

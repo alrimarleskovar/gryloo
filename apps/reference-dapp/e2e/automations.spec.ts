@@ -14,9 +14,10 @@
  * And a price trigger ("If ETH falls below $3,000, ask me to buy 100 USDC") fires once on the crossing, never again while the price stays
  * below; a BTC purchase shows FloFi's honest capability blocker.
  */
+import { hashArtifactBytes } from '@defi-workflow-engine/workflow-contracts';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { assertAutomationHarness, dispatch, occurrencesOf, query, ruleOf, setPrices } from './automation-fixtures';
-import { test, expect, chooseWallet } from './fixtures';
+import { test, expect, chooseWallet, readWorkflowIr } from './fixtures';
 import { installJourneyWallet, walletRequests } from './journey-fixtures';
 import type { Page } from '@playwright/test';
 
@@ -82,19 +83,20 @@ test.describe('BUILD-AUTOMATION-001 Automations (fixture prices, test clock, loo
 
     // 6–7. Review in FloFi enters the shared approval flow.
     await pending.getByRole('button', { name: 'Review in FloFi', exact: true }).click();
-    const approval = page.getByRole('region', { name: 'External proposal', exact: true });
-    await expect(approval).toContainText('EXTERNAL PROPOSAL · FROM FLOFI AUTOMATIONS');
+    await expect(page.getByRole('region', { name: 'External proposal', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Workflow canvas', exact: true })).toBeVisible();
+    await expect(page.locator('.canvas-primary-action button')).toHaveText('Simulate workflow');
     expect(new URL(page.url()).pathname).toBe('/approve');
-    await expect(approval).toContainText('Nothing is authorized yet.');
-    await expect(approval).toContainText('Prepared by your FloFi automation');
-    await expect(approval.getByRole('checkbox')).toHaveCount(0);
     expect(page.url()).not.toContain('flofi_auhs_');
-    await expect(approval).toContainText(`Signed in as ${owner.address.toLowerCase()}`);
-    await approval.getByRole('button', { name: 'Load proposal', exact: true }).click();
-    await expect(approval.getByRole('status')).toContainText('Ready for your review.');
     const handoffOf = () => query<{ handoff_id: string; status: string; requester_kind: string }>('SELECT handoff_id, status, requester_kind FROM mcp_handoffs WHERE handoff_id = (SELECT handoff_id FROM automation_occurrences WHERE occurrence_id = $1)',
       [occurrence!.occurrence_id]);
     const applied = (await handoffOf())[0]!;
+    await expect.poll(async () => (await handoffOf())[0]?.status).toBe('APPLIED');
+    const exactWorkflow = await readWorkflowIr(page);
+    const workflowHash = hashArtifactBytes('semantic-workflow', new TextEncoder().encode(exactWorkflow));
+    const provenance = page.getByRole('region', { name: 'Automation workflow', exact: true });
+    await provenance.locator('summary').click();
+    await expect(provenance).toContainText(workflowHash);
     expect(applied).toMatchObject({ status: 'APPLIED', requester_kind: 'AUTOMATION_RULE' });
 
     // A reload keeps the approval link (only MCP's short-lived session link is consumed on apply): the same proven wallet re-opens its
@@ -106,24 +108,21 @@ test.describe('BUILD-AUTOMATION-001 Automations (fixture prices, test clock, loo
       expect((await occurrencesOf(rule.rule_id)).map(o => o.occurrence_id)).toEqual([occurrence!.occurrence_id]);
     };
     await page.reload();
-    await expect(approval.getByLabel('Approval status', { exact: true })).toHaveText('In your FloFi workflow');
-    await approval.getByRole('button', { name: 'Load proposal', exact: true }).click();
-    await expect(approval.getByRole('status')).toContainText('Ready for your review.');
+    await expect(page.getByRole('region', { name: 'Workflow canvas', exact: true })).toBeVisible();
+    expect(hashArtifactBytes('semantic-workflow', new TextEncoder().encode(await readWorkflowIr(page)))).toBe(workflowHash);
     await unchanged();
     await page.goto(new URL(`/approve#${applied.handoff_id}`, page.url()).href);
-    await page.reload();
-    await approval.getByRole('button', { name: 'Load proposal', exact: true }).click();
-    await expect(approval).toContainText('Proposal restored for its proven owner.');
-    await expect(approval.getByRole('status')).toContainText('Ready for your review.');
+    await expect(page.getByRole('region', { name: 'Workflow canvas', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'External proposal', exact: true })).toHaveCount(0);
     await unchanged();
-
-    // FloFi's own fresh simulation and Strategy Manifest Review: reached, not approved by the test.
-    await approval.getByRole('button', { name: 'Continue to simulation', exact: true }).click();
-    await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
+    await page.locator('.canvas-primary-action').getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     const summary = page.getByRole('complementary', { name: 'Simulation Summary', exact: true });
     await expect(summary.getByRole('region', { name: 'Expected result' })).toContainText('0.025 WETH');
-    const review = page.getByRole('region', { name: 'Review & Authorization', exact: true });
-    await expect(review.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeVisible();
+    const approve = page.locator('.canvas-primary-action').getByRole('button', { name: 'Approve & Continue', exact: true });
+    await expect(approve).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(1);
+    await approve.click();
+    await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Execute workflow', exact: true })).toBeVisible();
 
     // 8. No automatic signature: on /approve, Simulate and Review nothing was signed or sent (the session was already proven).
     const requests = await walletRequests(page);

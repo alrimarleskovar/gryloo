@@ -9,7 +9,7 @@ import { HeaderSettings } from './header-settings';
 import { NavigationDrawer } from './navigation-drawer';
 import { WORKFLOW_STAGES } from '../domain/product-shell';
 
-const fixture = vi.hoisted(() => ({ workflow: null as unknown as Workflow }));
+const fixture = vi.hoisted(() => ({ workflow: null as unknown as Workflow, diagnosticsAvailable: false }));
 const wallet = vi.hoisted(() => ({ account: null as string | null, chainId: null as string | null,
   busy: false, providerError: null, error: null, connect: vi.fn(), switchTo: vi.fn(), reset: vi.fn() }));
 vi.mock('../state/workflow-store', () => ({ useWorkflow: () => ({ state: { workflow: fixture.workflow } }) }));
@@ -26,8 +26,8 @@ vi.mock('../state/build009-wallet-store', async () => {
   return { useBuild009Wallet: () => wallet, chainName: walletChainLabel,
     BASE_HEX: '0x2105', ARBITRUM_HEX: '0xa4b1', BASE_SEPOLIA_HEX: '0x14a34', ROBINHOOD_TESTNET_HEX: '0xb626' };
 });
-vi.mock('../state/mode-a-store', () => ({ useModeA: () => ({ info: null, wallet: null }) }));
-vi.mock('../state/mode-b-store', () => ({ useModeB: () => ({ info: null, wallet: null }) }));
+vi.mock('../state/mode-a-store', () => ({ useModeA: () => ({ info: fixture.diagnosticsAvailable ? { available: true, environment: 'MOCKED' } : null, wallet: null }) }));
+vi.mock('../state/mode-b-store', () => ({ useModeB: () => ({ info: fixture.diagnosticsAvailable ? { available: true } : null, wallet: null }) }));
 // The shared environment hook also reads these inactive execution providers.
 vi.mock('../state/liquidity-store', () => ({ useLiquidity: () => ({}) }));
 vi.mock('../state/composition-store', () => ({ useComposition: () => ({}) }));
@@ -40,6 +40,7 @@ vi.mock('../state/wallet-connection', () => ({ useWalletConnection: () => ({ con
 
 beforeEach(() => {
   fixture.workflow = initialWorkflow();
+  fixture.diagnosticsAvailable = false;
   wallet.account = null; wallet.chainId = null;
   wallet.busy = false;
   vi.clearAllMocks();
@@ -48,6 +49,17 @@ beforeEach(() => {
 const stageMarkup = (html: string) => html.match(/<nav aria-label="Workflow stages" class="tabs">([\s\S]*?)<\/nav>/)?.[1] ?? '';
 
 describe('product shell rendering', () => {
+  it.each(['Build', 'Simulate', 'Execute'] as const)('keeps available fork diagnostics out of normal %s and preserves the engineering disclosure', tab => {
+    fixture.diagnosticsAvailable = true;
+    const normal = renderToStaticMarkup(createElement(TopBar, { tab, setTab: vi.fn() }));
+    expect(normal).not.toMatch(/Technical connection details|Local fork|Chain 31337|Wallet permissions · local fork/);
+    const engineering = renderToStaticMarkup(createElement(TopBar, { tab, setTab: vi.fn(), engineering: true }));
+    expect(engineering).toContain('Technical connection details');
+    expect(engineering).toContain('Chain 31337');
+    expect(wallet.connect).not.toHaveBeenCalled();
+    expect(wallet.switchTo).not.toHaveBeenCalled();
+  });
+
   it('places the closed navigation trigger before the approved FloFi logo', () => {
     const html = renderToStaticMarkup(createElement(TopBar, { tab: 'Build', setTab: vi.fn() }));
     expect(html.indexOf('aria-label="Open navigation"')).toBeLessThan(html.indexOf('class="flofi-logo"'));

@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, readWorkflowIr } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction, openCanvasSettings } from './composer-authoring-fixtures';
 import type { Page } from '@playwright/test';
 
 const card = (page: Page) => page.locator('.build-flow-surface .composer-card');
 async function readWorkflow(page: Page) {
-  const advanced = page.locator('details.library[aria-label="Advanced action setup"]');
-  if (!(await advanced.evaluate(element => element.hasAttribute('open')))) await advanced.locator(':scope > summary').click();
-  if (!(await advanced.locator('[data-workflow-ir]').count())) return null;
-  if (!(await advanced.locator('[data-workflow-ir]').isVisible())) await advanced.getByText('Workflow IR', { exact: true }).click();
-  return JSON.parse(await advanced.locator('[data-workflow-ir]').innerText()) as { revision: number; nodes: { actionType: string; nodeId: string; inputs: { kind: string; value: { amount?: string } }[] }[] };
+  const workflow = JSON.parse(await readWorkflowIr(page)) as { revision: number; nodes: { actionType: string; nodeId: string; inputs: { kind: string; value: { amount?: string } }[] }[] };
+  return workflow.nodes.some(node => !node.actionType.startsWith('mock-')) ? workflow : null;
 }
 async function expectBlocked(page: Page) {
   const nav = page.getByRole('navigation', { name: 'Workflow stages' });
   await expect(nav.getByRole('button', { name: 'Simulate', exact: true })).toBeDisabled();
   await expect(nav.getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
   await nav.getByRole('button', { name: 'Simulate', exact: true }).dispatchEvent('click');
   await nav.getByRole('button', { name: 'Execute', exact: true }).dispatchEvent('click');
   await expect(nav.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -29,7 +26,7 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
   await page.getByRole('button', { name: `Add ${action}`, exact: true }).click();
   const source = card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true });
   await expect(source).toHaveValue('0');
-  await expect(card(page).locator('.composer-destination-box .composer-amount-value')).toHaveText('0');
+  await expect(card(page).locator('.composer-destination-box .composer-amount-value')).toHaveText('—');
   await expect(card(page).locator('.composer-fiat-value')).toHaveText(['USD value unavailable', 'USD value unavailable']);
   await expect(card(page).locator('.composer-network-badge')).toHaveCount(2);
   expect(await card(page).innerText()).not.toMatch(/pending|unapplied|canonical|committed|draft/i);
@@ -51,12 +48,12 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
   await destination.getByRole('button', { name: 'Show fiat amount first (estimate unavailable)', exact: true }).click();
   await expect(card(page).locator('.composer-primary-fiat')).toHaveText(['USD value unavailable', 'USD value unavailable']);
   await expect(destination.locator('.composer-primary-fiat')).toHaveText('USD value unavailable');
-  await expect(destination.locator('.composer-token-subline')).toHaveText(action === 'swap' ? '0 WETH' : '0 USDC');
+  await expect(destination.locator('.composer-token-subline')).toHaveText(action === 'swap' ? '— WETH' : '— USDC');
   await destination.getByRole('button', { name: 'Show token amount first', exact: true }).click();
   await expect(card(page).locator('.composer-primary-fiat')).toHaveCount(0);
-  await expect(destination.locator('.composer-amount-value')).toHaveText('0');
-  await expect(card(page).locator('.composer-network-badge').first()).toHaveAttribute('aria-label', action === 'swap' ? 'Base (8453) network' : 'Base Sepolia network');
-  await expect(card(page).locator('.composer-network-badge').last()).toHaveAttribute('aria-label', action === 'swap' ? 'Base (8453) network' : 'Arbitrum Sepolia network');
+  await expect(destination.locator('.composer-amount-value')).toHaveText('—');
+  await expect(card(page).locator('.composer-network-badge').first()).toHaveAttribute('aria-label', 'Base Sepolia network');
+  await expect(card(page).locator('.composer-network-badge').last()).toHaveAttribute('aria-label', action === 'swap' ? 'Base Sepolia network' : 'Arbitrum Sepolia network');
   await card(page).getByRole('button', { name: 'Review amount', exact: true }).click();
   await expect(card(page).getByRole('alert')).toContainText('greater than 0');
   expect(await readWorkflow(page)).toEqual(initial);
@@ -77,7 +74,9 @@ for (const action of ['swap', 'bridge'] as const) test(`${action} starts unconfi
     await expect(page.getByRole('form', { name: 'Edit cross-chain bridge', exact: true }).getByLabel('Cross-chain amount (USDC)', { exact: true })).toHaveValue('2.5');
   }
   await expect(source).toHaveValue('2.5');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // Authoring enables stage inspection; this supply-only harness cannot simulate Swap/Router.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
   await expect(card(page)).toHaveClass(/active/);
   await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(page.getByRole('main', { name: 'Simulation workspace', exact: true })).toBeVisible();
@@ -99,7 +98,9 @@ test('clearing an existing amount blocks both later stages without sending zero 
   await expect(card(page).getByRole('alert')).toContainText('greater than 0');
   await card(page).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(source).toHaveValue('2');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // Authoring enables stage inspection; this supply-only harness cannot simulate Swap/Router.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
   expect(await readWorkflow(page)).toEqual(original);
 });
 
@@ -145,6 +146,8 @@ test('a new isolated Bridge cannot replace an already-configured workflow throug
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(card(page)).toHaveCount(1);
   await expect(card(page).getByRole('textbox', { name: 'Source amount (USDC)', exact: true })).toHaveValue('2');
-  await expect(page.getByRole('button', { name: 'Simulate fees', exact: true })).toBeEnabled();
+  // Authoring enables stage inspection; this supply-only harness cannot simulate Swap/Router.
+  await expect(page.getByRole('button', { name: 'Simulate workflow', exact: true })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toBeEnabled();
   expect(await readWorkflow(page)).toEqual(original);
 });

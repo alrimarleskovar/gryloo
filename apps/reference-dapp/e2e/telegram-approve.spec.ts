@@ -92,12 +92,11 @@ test.describe('BUILD-CHANNELS-001 Telegram → /approve (loopback Bot API double
       .toEqual({ status: 'APPLIED', share_status: true });
 
     // 4. The product's own simulation and Strategy Manifest Review; MOCKED financial authority cannot be approved or executed.
-    await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+    await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     await openSimulationDetails(page);
-    await bridge(page).getByRole('button', { name: 'Get route and simulate' }).click();
     await expect(bridge(page)).toContainText('Strategy Manifest');
     await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
-    await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+    await expect(page.locator('.review-authorization-details')).toContainText('A simulation that can authorize this workflow is required before approval.');
     await assertExecutionBlocked(page, journeySends);
     expect(await walletRequests(page)).not.toContain('eth_sendTransaction');
     expect(await journeySends()).toBe(0);

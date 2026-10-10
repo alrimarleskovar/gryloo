@@ -2,6 +2,7 @@
 import { AAVE_V3_LENDING_PROFILES, UNISWAP_LIQUIDITY_PROFILES, baseAssetRegistry, SOLANA_SWAP_RUNTIMES, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY } from '@defi-workflow-engine/action-registry';
 import { createBaseSepoliaReviewContext, createEthereumSepoliaReviewContext, createReviewContext, liquidityDetails } from '@defi-workflow-engine/reference-linter';
 import type { SemanticWorkflow } from '@defi-workflow-engine/workflow-contracts';
+import { createAuthoredTransfer, transferDetails, TRANSFER_NETWORKS, type TransferNetwork } from './robinhood-transfer-authoring';
 import { classifyWalletEnvironment, type WalletEnvironment } from '../wallet/environment';
 import type { Workflow } from './initial-workflow';
 import { createSwapNode, swapDetails, formatHumanAmount } from './swap-authoring';
@@ -11,7 +12,7 @@ import { createSolanaLiquidityNode, solanaLiquidityDetails } from './solana-liqu
 import { createLiquidityNode } from './liquidity-authoring';
 import { createAuthoredSupply, createAuthoredBorrow, createAuthoredRepay, createAuthoredWithdraw, supplyDetails, borrowDetails, repayDetails, withdrawDetails, lendingProfileFor } from './supply-authoring';
 
-export type CryptoAction = 'swap' | 'pool' | 'supply' | 'borrow' | 'repay' | 'withdraw';
+export type CryptoAction = 'swap' | 'pool' | 'supply' | 'borrow' | 'repay' | 'withdraw' | 'transfer';
 /** One network for the entire action. Assets never carry separate network selections. */
 export type CryptoSelection = { action: CryptoAction; network: string; from: string; to?: string };
 export type CryptoSelections = Readonly<Record<string, CryptoSelection>>;
@@ -29,14 +30,15 @@ const pools: readonly CryptoPickerProfile[] = [
   { network: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.network, chain: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.chain, provider: ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.providerLabel,
     tokens: [ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token0.symbol, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token1.symbol], pair: [ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token0.symbol, ORCA_WHIRLPOOLS_DEVNET_LIQUIDITY.token1.symbol] },
 ];
+const transfers: readonly CryptoPickerProfile[] = Object.entries(TRANSFER_NETWORKS).map(([network, profile]) => ({ network, chain: profile.chain, provider: 'Native transfer', tokens: ['ETH'] }));
 const lending: readonly CryptoPickerProfile[] = AAVE_V3_LENDING_PROFILES.map(profile => ({ network: profile.network, chain: profile.chain, provider: 'Aave V3', tokens: [profile.symbol] }));
-export function cryptoProfiles(action: CryptoAction): readonly CryptoPickerProfile[] { return action === 'swap' ? swaps : action === 'pool' ? pools : lending; }
+export function cryptoProfiles(action: CryptoAction): readonly CryptoPickerProfile[] { return action === 'swap' ? swaps : action === 'pool' ? pools : action === 'transfer' ? transfers : lending; }
 export function cryptoNetworks(action: CryptoAction, environment: WalletEnvironment) {
   return cryptoProfiles(action).filter(profile => environment !== 'unknown' && classifyWalletEnvironment(profile.chain) === environment);
 }
 export function cryptoProfile(selection: CryptoSelection) { return cryptoProfiles(selection.action).find(profile => profile.network === selection.network); }
 export function validCryptoSelection(selection: CryptoSelection): boolean {
-  if (!selection || !['swap', 'pool', 'supply', 'borrow', 'repay', 'withdraw'].includes(selection.action) || Object.keys(selection).some(key => !['action', 'network', 'from', 'to'].includes(key))) return false;
+  if (!selection || !['swap', 'pool', 'supply', 'borrow', 'repay', 'withdraw', 'transfer'].includes(selection.action) || Object.keys(selection).some(key => !['action', 'network', 'from', 'to'].includes(key))) return false;
   const profile = cryptoProfile(selection);
   if (!profile?.tokens.includes(selection.from)) return false;
   if (selection.action === 'pool') return selection.from === profile.pair?.[0] && selection.to === profile.pair?.[1];
@@ -66,15 +68,16 @@ export function selectCryptoToken(selection: CryptoSelection, side: 'source' | '
 }
 type Node = Workflow['nodes'][number];
 export function cryptoSelectionOf(node: Node): CryptoSelection | null {
-  const network = [...swaps, ...pools, ...lending].find(profile => profile.chain === node.chainId)?.network;
+  const network = [...swaps, ...pools, ...lending, ...transfers].find(profile => profile.chain === node.chainId)?.network;
   if (!network) return null;
+  if (transferDetails(node as Parameters<typeof transferDetails>[0])) return selectCryptoNetwork('transfer', network);
   if (node.actionType === 'asset.swap.exact-input') {
     const solana = solanaSwapDetails(node);
     const evmSwap = node.chainId.startsWith('eip155:') ? swapDetails(node, cryptoReviewContext(network)) : null;
     return solana ? { action: 'swap', network, from: solana.from, to: solana.to } : evmSwap ? { action: 'swap', network, from: evmSwap.from, to: evmSwap.to } : null;
   }
   if (uniswapLiquidityDetails(node) || solanaLiquidityDetails(node) || node.actionType === 'asset.liquidity.uniswap-v3') return selectCryptoNetwork('pool', network);
-  if (['supply', 'borrow', 'repay', 'withdraw'].includes(node.actionType) && AAVE_V3_LENDING_PROFILES.some(profile => profile.chain === node.chainId)) return selectCryptoNetwork(node.actionType as CryptoAction, network);
+  if (['supply', 'borrow', 'repay', 'withdraw', 'transfer'].includes(node.actionType) && AAVE_V3_LENDING_PROFILES.some(profile => profile.chain === node.chainId)) return selectCryptoNetwork(node.actionType as CryptoAction, network);
   return null;
 }
 export function canSelectCryptoAssets(node: Node, workflow: Workflow) {
@@ -97,6 +100,7 @@ export function createCryptoActionNode(id: string, input: CryptoActionInput): Se
     if (range.rangeUnit !== 'TICK') throw new Error('LIQUIDITY_RANGE_INVALID');
     return createLiquidityNode(id, { weth: amount, usdc: input.secondAmount ?? '0', tickLower: range.lower, tickUpper: range.upper, recipient: input.beneficiary ?? '', minimumWeth: '0', minimumUsdc: '0' }, mainnetContext);
   }
+  if (selection.action === 'transfer') return createAuthoredTransfer(id, { network: selection.network as TransferNetwork, asset: 'ETH', amount, recipient: 'CONNECTED_OWNER' });
   const profile = lendingProfileFor(selection.network, selection.from);
   const lendingInput = { network: profile.network, asset: profile.symbol, amount, beneficiary: input.beneficiary ?? '' };
   return selection.action === 'supply' ? createAuthoredSupply(id, lendingInput) : selection.action === 'borrow' ? createAuthoredBorrow(id, lendingInput) : selection.action === 'repay' ? createAuthoredRepay(id, lendingInput) : createAuthoredWithdraw(id, { network: profile.network, asset: profile.symbol, amount, recipient: 'CONNECTED_OWNER' });
@@ -112,6 +116,8 @@ export function cryptoInputOf(node: Node): CryptoActionInput | null {
     const details = liquidityDetails(node, mainnetContext);
     return details ? { selection, amount: formatHumanAmount(details.amountWeth, 'WETH', mainnetContext), secondAmount: formatHumanAmount(details.amountUsdc, 'USDC', mainnetContext), rangeUnit: 'TICK', lower: String(details.tickLower), upper: String(details.tickUpper), beneficiary: details.recipient, slippage: '50' } : null;
   }
+  const transfer = transferDetails(node as Parameters<typeof transferDetails>[0]);
+  if (transfer) return { selection, amount: transfer.amount, slippage: '50' };
   const lending = supplyDetails(node as SemanticWorkflow['nodes'][number]) ?? borrowDetails(node as SemanticWorkflow['nodes'][number]) ?? repayDetails(node as SemanticWorkflow['nodes'][number]) ?? withdrawDetails(node as SemanticWorkflow['nodes'][number]);
   return lending ? { selection, amount: lending.amount, slippage: '50', ...('beneficiary' in lending ? { beneficiary: lending.beneficiary } : {}) } : null;
 }

@@ -119,12 +119,11 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
 
     // 5. The product's own simulation and Review of the lending composition; MOCKED financial authority cannot be approved or executed.
     const lending = signing.getByRole('region', { name: 'Lending composition' });
-    await signing.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+    await signing.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     await openSimulationDetails(signing);
-    await signing.getByRole('button', { name: 'Simulate lending composition', exact: true }).click();
     await expect(lending).toContainText('Expected output:');
     await expect(signing.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
-    await expect(signing.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+    await expect(signing.locator('.review-authorization-details')).toContainText('A simulation that can authorize this workflow is required before approval.');
     await expect(signing.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
     await assertExecutionBlocked(signing, () => lendingSends(signing));
     expect(await lendingSends(signing)).toBe(0);

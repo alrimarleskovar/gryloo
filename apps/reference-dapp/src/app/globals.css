@@ -552,7 +552,7 @@
 .composer-value-line .composer-token-value{flex:1;height:26px}
 .composer-value-column button{padding:0;border:0;background:transparent;color:inherit;font-family:inherit;text-align:left}
 .composer-value-column button.composer-fiat-value{color:var(--muted);text-decoration:none}
-.composer-primary-fiat{font-family:var(--font-ibm-plex-mono),monospace;font-size:20px;font-weight:500;letter-spacing:normal;line-height:1.15;white-space:nowrap}
+.composer-primary-fiat{min-width:0;font-family:var(--font-ibm-plex-mono),monospace;font-size:20px;font-weight:500;letter-spacing:normal;line-height:1.15;white-space:normal;overflow-wrap:anywhere}
 .composer-token-subline{display:flex;align-items:center;gap:3px;font-size:10px;line-height:1.3;color:var(--muted)}
 .composer-token-subline input{flex:none;max-width:calc(100% - 32px);height:14px;font-size:10px;text-align:left}
 .composer-network-badge{position:absolute;bottom:-3px;right:-3px;width:14px;height:14px;display:grid;place-items:center;border:1px solid var(--paper);border-radius:50%;background:transparent;font:9px var(--font-outfit),sans-serif}
@@ -1630,3 +1630,15 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 :root[data-theme="dark"] :is(.automation-card,.automation-form){background:var(--surface-raised)}
 @media(max-width:800px){.automation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.automation-facts{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:480px){.automation-grid{grid-template-columns:minmax(0,1fr)}.automation-card,.automation-form{padding:16px}}
+
+/* Shared lifecycle controls remain within the workflow surface at every viewport. */
+.canvas-lifecycle-control{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0;max-width:100%}
+.canvas-lifecycle-control [role="status"]{padding:10px 16px;overflow-wrap:anywhere}
+.canvas-lifecycle-control .execute-acknowledgement{max-width:320px;white-space:normal}
+.execution-plan .execution-lifecycle-actions{position:static;display:flex;justify-content:flex-end;margin-bottom:16px}
+.review-authorization-details{padding:16px;border:1px solid var(--line);border-radius:9px;margin-top:16px;min-width:0;overflow-wrap:anywhere}
+.review-authorization-details>summary{cursor:pointer;font-weight:600}
+.review-authorization-details dl{display:grid;gap:12px}
+.review-authorization-details dd{margin:4px 0 0;overflow-wrap:anywhere}
+.copilot-automation-proposal{min-width:0;overflow-wrap:anywhere}
+@media(max-width:480px){.canvas-lifecycle-control .execute-acknowledgement{max-width:240px}.canvas-lifecycle-control button{max-width:100%;white-space:normal}}

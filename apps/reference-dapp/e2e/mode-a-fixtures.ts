@@ -153,7 +153,11 @@ export { expect };
 /** Wait for the approved fixed viewport, loaded fonts and final graph layout before a visual baseline. */
 export async function readyForVisualCapture(page: Page): Promise<void> {
   expect(page.viewportSize()).toEqual({ width: 1440, height: 900 });
-  await expect(page.locator('.fork-badge')).toContainText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/);
+  if (new URL(page.url()).pathname === '/__engineering') {
+    await expect(page.locator('.fork-badge')).toContainText(/^Local fork · (MOCKED|FORK_REPRODUCED)$/);
+  } else {
+    await expect(page.locator('.shell-technical, .fork-badge')).toHaveCount(0);
+  }
   await page.evaluate(() => document.fonts.ready);
   const graph = page.getByRole('region', { name: 'Simulation workflow graph' });
   if (await graph.isVisible()) await expect(graph).toHaveAttribute('data-viewport', 'fitted');

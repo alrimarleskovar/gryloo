@@ -3,7 +3,7 @@
 import { useLocale } from '../i18n/locale';
 
 import type { ExecutionLifecycle, LifecycleOperation, LifecycleState } from '../domain/execution-lifecycle';
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import type { ExecutionResult } from '../domain/execution-result';
 import { executionStepEvidence, type ExecutionStepEvidence } from '../domain/execution-step-evidence';
 import { shellChainLabel } from '../domain/product-shell';
@@ -34,7 +34,7 @@ function StepEvidence({ evidence, action, values, facts }: { evidence: Execution
     </div>}
   </section>;
 }
-export function ExecutionTimeline({ progress, result, workflowName, backToBuild, checkingOperation, runContext = 'current' }: { progress: ExecutionLifecycle; result?: ExecutionResult | null; workflowName: string; backToBuild?: () => void; checkingOperation?: string | null; runContext?: 'current' | 'saved' }) {
+export function ExecutionTimeline({ progress, result, workflowName, backToBuild, checkingOperation, primaryAction, runContext = 'current' }: { primaryAction?: ReactNode; progress: ExecutionLifecycle; result?: ExecutionResult | null; workflowName: string; backToBuild?: () => void; checkingOperation?: string | null; runContext?: 'current' | 'saved' }) {
   const { t: tr } = useLocale();
   return <section className={`execution-plan panel${result ? ' execution-result-plan' : ''}`} aria-label={tr("Execution plan")}>
     <div className="execution-plan-heading"><div><p className="eyebrow">{tr(result ? runContext === 'saved' ? 'SAVED RUN RESULT' : 'CURRENT RUN RESULT' : runContext === 'saved' ? 'SAVED EXECUTION PLAN' : 'EXECUTION PLAN')}</p><h2 title={workflowName}>{workflowName}</h2></div>{backToBuild && <button type="button" className="simulation-back" onClick={backToBuild}>{tr("Back to Build")}</button>}</div>
@@ -42,6 +42,7 @@ export function ExecutionTimeline({ progress, result, workflowName, backToBuild,
     {progress.local && <p className="execution-context">{tr("Local execution · no public-chain transactions")}</p>}
     {progress.restored && <p className="execution-context" role="status">{tr("Resuming display of the recorded execution. No new request has been sent.")}</p>}
     {progress.planUnavailable && <p className="execution-context">{tr("The original workflow details are unavailable in this saved run. Recorded requests and their status are shown below.")}</p>}
+    {primaryAction && <div className="canvas-primary-action execution-lifecycle-actions">{primaryAction}</div>}
     <ol className="execution-timeline" aria-label={tr("Workflow step progression")}>{progress.steps.map(step => {
       const recorded = progress.stepEvidence?.[step.id] ?? executionStepEvidence(step, progress.restored);
       const facts = step.operations.flatMap(operation => progress.evidence?.operations[operation.id] ? [progress.evidence.operations[operation.id]!] : []);

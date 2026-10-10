@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction } from './fixtures';
 import { selectSettingsTheme } from './settings-fixtures';
 import type { Locator } from '@playwright/test';
 import { installSupplyWallet } from './supply-fixtures';
@@ -101,14 +101,14 @@ for (const theme of ['Light', 'Dark'] as const) {
     await expect(graph.locator('.canvas-empty-mascot')).toBeVisible();
     await page.getByRole('button', { name: 'Add supply', exact: true }).click(); await configureCanvasAction(page, '1');
     await expect(graph.locator('.canvas-empty')).toHaveCount(0); await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-    await graph.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+    await graph.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Simulate', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.canvas-empty-mascot,img[src*="flofi-droplet-wave"]')).toHaveCount(0);
     await expect(page.locator('.simulate-flow-surface')).toHaveAttribute('data-viewport', 'fitted');
     await page.getByRole('navigation', { name: 'Workflow stages' }).getByRole('button', { name: 'Execute', exact: true }).click();
     await expect(page.locator('.execute-workspace-grid')).toBeVisible();
     await expect(page.locator('.canvas-empty-mascot,img[src*="flofi-droplet-wave"]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+    await assertNoFinancialCanvasAction(page);
     await page.getByRole('button', { name: 'Back to Build', exact: true }).click();
     await expect(page.locator('.build-flow-surface .composer-card input').first()).toHaveValue('1');
     await expect(page.locator('.canvas-empty')).toHaveCount(0);

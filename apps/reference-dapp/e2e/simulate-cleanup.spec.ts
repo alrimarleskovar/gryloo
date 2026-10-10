@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal, openSimulationDetails } from './fixtures';
 
 test('Simulate anchors its CTAs inside the canvas beside the zoom controls', async ({ page }) => {
   await page.goto('/app');
@@ -29,11 +29,9 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   await expect(page.getByRole('button', { name: 'Show technical details', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Hide technical details', exact: true })).toHaveCount(0);
   await expect(page.getByText('Add a Base swap in Build before generating mocked artifacts.', { exact: true })).toBeHidden();
-  await technical.locator(':scope > summary').click();
-  await expect(panel.getByRole('button', { name: 'Generate mocked artifacts for revision 0', exact: true })).toBeDisabled();
-  await technical.locator(':scope > summary').click();
-  await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
-  await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toBeHidden();
+  await expect(technical).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Base read-only observation' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toHaveCount(0);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(graph).toHaveAttribute('data-viewport', 'fitted');
@@ -47,7 +45,6 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
     else expect(summaryBox.y).toBeGreaterThanOrEqual(graphBox.y + graphBox.height);
     expect(controlsBox.x).toBeGreaterThan(graphBox.x);
     expect(controlsBox.y).toBeGreaterThan(graphBox.y);
-    expect((await technical.boundingBox())!.y).toBeGreaterThanOrEqual(Math.max(graphBox.y + graphBox.height, summaryBox.y + summaryBox.height));
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
   await returnToBuild.click();
@@ -61,11 +58,11 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '0');
   await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await applyPendingProposal(page);
+  await stages.getByRole('button', { name: 'Simulate', exact: true }).click();
   await expect(panel.locator('.canvas-head').getByRole('heading', { name: 'ETH Carry Strategy', exact: true })).toBeVisible();
   await expect(graph).toHaveAttribute('data-viewport', 'fitted');
-  await expect(graph.locator('.flow-card')).toBeInViewport();
+  await expect(graph.locator('.composer-card')).toBeInViewport();
   const viewport = graph.locator('.react-flow__viewport');
   const beforeZoom = await viewport.getAttribute('style');
   await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowLeft');
@@ -74,14 +71,15 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   await graph.getByRole('slider', { name: 'Canvas zoom' }).press('ArrowRight');
   await expect(viewport).not.toHaveAttribute('style', afterZoom!);
   await graph.getByRole('button', { name: 'Fit workflow', exact: true }).click();
-  await expect(graph.locator('.flow-card')).toBeInViewport();
-  await technical.locator(':scope > summary').click();
+  await expect(graph.locator('.composer-card')).toBeInViewport();
+  await expect(technical).toHaveCount(0);
+  await openSimulationDetails(page);
   await panel.getByRole('button', { name: 'Generate mocked artifacts for revision 1', exact: true }).click();
   await expect(panel.locator('.simulate-swap')).toBeVisible();
   await expect(panel.locator('.simulate-swap')).toContainText('2.25 USDC');
   await expect(panel.locator('.chain-strip')).toBeVisible();
   await expect(reviewSwap).toHaveCount(0);
-  await expect(technical).toHaveAttribute('data-technical-open', 'true');
+  await expect(technical).toHaveAttribute('open', '');
   await expect(panel.locator('.chain-strip')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Local fork Mode A simulation' })).toBeVisible();
@@ -90,11 +88,11 @@ test('Simulate anchors its CTAs inside the canvas beside the zoom controls', asy
   const proof = await panel.locator('[data-artifact-json="artifact-set"]').innerText();
   expect(JSON.parse(proof)).toBeTruthy();
   await technical.locator(':scope > summary').click();
-  await expect(technical).toHaveAttribute('data-technical-open', 'false');
+  await expect(technical).not.toHaveAttribute('open');
   await expect(page.getByRole('region', { name: 'Base read-only observation' })).toBeHidden();
   await returnToBuild.click();
   await expect(page.getByRole('heading', { name: 'ETH Carry Strategy', exact: true })).toBeVisible();
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', '1');
-  await expect(page.locator('.flow-card')).toHaveCount(1);
+  await expect(page.locator('.composer-card')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Review swap', exact: true })).toHaveCount(0);
 });

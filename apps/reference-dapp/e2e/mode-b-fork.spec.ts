@@ -65,7 +65,7 @@ test('review, install, restart worker, reconcile, and revoke through a guarded b
         request: ({ method, params }: { method: string; params?: unknown[] }) => bridge(method, params ?? []),
       }) });
     });
-    await page.goto('/app');
+    await page.goto('/__engineering');
     if (evidenceDir) {
       mkdirSync(evidenceDir, { recursive: true });
       await page.getByText('Technical connection details', { exact: true }).click();

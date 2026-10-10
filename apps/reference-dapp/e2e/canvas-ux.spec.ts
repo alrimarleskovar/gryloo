@@ -40,7 +40,7 @@ test('toolbox creates typed actions, selects them, and keeps setup below the can
   for (const action of ['swap', 'bridge', 'pool']) {
     await page.goto('/app');
     await expect(page.getByRole('region', { name: 'Workflow graph' })).toBeVisible();
-    await expect(page.getByText('Advanced action setup', { exact: true })).toBeVisible();
+    await expect(page.getByText('Advanced action setup', { exact: true })).toHaveCount(0);
     await expect(page.locator('.build-grid .library')).toHaveCount(0);
     const node = await addFromToolbox(page, action);
     await expect(node.locator('.composer-card')).toHaveClass(/active/);
@@ -66,7 +66,7 @@ test('dragging updates stored layout, survives editor changes and Build navigati
   const after = await node.boundingBox();
   expect(after!.x).toBeGreaterThan(before.x + 80);
   await expect(page.locator('.summary-bar')).toHaveAttribute('data-workflow-revision', revisionBeforeDrag!);
-  const workflowId = JSON.parse((await page.locator('[data-workflow-ir]').textContent())!).workflowId as string;
+  const workflowId = JSON.parse(await readWorkflowIr(page)).workflowId as string;
   const saved = await page.evaluate(({ id, workflowId }) => JSON.parse(localStorage.getItem(`gryloo:canvas:${workflowId}`) ?? '{}')[id], { id, workflowId });
   expect(saved.x).toBeGreaterThan(100);
   await addFromToolbox(page, 'swap');
@@ -308,7 +308,8 @@ test('floating toolbox stays inside a narrow editor without page overflow', asyn
   await page.getByRole('button', { name: 'Undock toolbar' }).click();
   const graph = page.getByRole('region', { name: 'Workflow graph' });
   await expect(graph.locator('.floating-toolbox')).toBeVisible();
-  await expect(graph.locator('.floating-toolbox button')).toHaveCount(14);
+  await expect(graph.locator('.floating-toolbox button')).toHaveCount(15);
+  await expect(graph.getByRole('button', { name: 'Add transfer', exact: true })).toBeVisible();
   await expect(graph.getByRole('button', { name: 'Privacy', exact: true })).toBeDisabled();
   await expect(graph.getByRole('button', { name: 'Add repay', exact: true })).toBeVisible();
   await expect(graph.getByRole('button', { name: 'Add withdraw', exact: true })).toBeVisible();

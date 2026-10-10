@@ -59,7 +59,7 @@ export async function installSolanaWallet(page: Page, wallet: ReturnType<typeof 
     signMessage: Boolean(behavior.signMessage) } });
 }
 export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'canvas') {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   if (via === 'chat') {
     await page.locator('#mock-prompt').fill('Swap 10 USDC to SOL on Solana');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -75,7 +75,7 @@ export async function authorSolanaSwap(page: Page, via: 'canvas' | 'chat' = 'can
   await page.getByRole('button', { name: 'Apply proposal' }).click();
 }
 export async function reviewSolanaSwap(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees' }).click(); await openSimulationDetails(page);
+  await page.getByRole('button', { name: 'Simulate workflow' }).click(); await openSimulationDetails(page);
   const panel = page.getByRole('region', { name: 'Jupiter swap' });
   await chooseSolanaWallet(panel);
   await panel.getByRole('button', { name: 'Simulate swap' }).click();

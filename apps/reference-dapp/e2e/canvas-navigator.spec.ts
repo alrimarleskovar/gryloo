@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect } from './fixtures';
+import { test, expect, applyPendingProposal } from './fixtures';
 import { installSupplyWallet } from './supply-fixtures';
 import { configureCanvasAction } from './composer-authoring-fixtures';
 import type { Page, Locator } from '@playwright/test';
@@ -104,7 +104,7 @@ for (const theme of ['light', 'dark'] as const) {
     expect(errors).toEqual([]);
   });
 
-  test(`${theme} navigator stays centered with identical stage geometry and clear CTA spacing at every width`, async ({ page }, testInfo) => {
+  test(`${theme} navigator stays centered and clears the canonical stage actions at every width`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
@@ -116,7 +116,6 @@ for (const theme of ['light', 'dark'] as const) {
     const measurements: Record<string, Awaited<ReturnType<typeof geometry>>> = {};
     for (const width of [320, 375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      let reference: Awaited<ReturnType<Locator['boundingBox']>> = null;
       for (const stage of ['Build', 'Simulate', 'Execute'] as const) {
         await stages.getByRole('button', { name: stage, exact: true }).click();
         await expect(stages.getByRole('button', { name: stage, exact: true })).toHaveAttribute('aria-current', 'page');
@@ -124,15 +123,19 @@ for (const theme of ['light', 'dark'] as const) {
         measurements[`${width}-${stage}`] = await geometry(page);
         const graphBox = (await graph.boundingBox())!;
         const navigator = graph.locator('.canvas-navigator');
+        // React Flow observes resizes asynchronously; measure the settled mode.
+        const compact = graphBox.width < (stage === 'Build' ? 800 : 1024);
+        await expect(navigator).toHaveAttribute('data-compact', String(compact));
+        await expect(navigator).toHaveAttribute('data-narrow', String(graphBox.width < 400));
         const box = (await navigator.boundingBox())!;
-        if (stage === 'Build') reference = box; else expect(box).toEqual(reference);
+        expect(box.width).toBe(graphBox.width < 400 ? 148 : compact ? 200 : 224);
         expect(box.x + box.width / 2).toBeCloseTo(graphBox.x + graphBox.width / 2, 1);
         expect(box.height).toBe(38);
-        expect(graphBox.y + graphBox.height - box.y - box.height).toBe(graphBox.width < 800 ? 82 : 24);
+        expect(graphBox.y + graphBox.height - box.y - box.height).toBe(compact ? 82 : 24);
         expect(box.x).toBeGreaterThan(graphBox.x); expect(box.x + box.width).toBeLessThan(graphBox.x + graphBox.width);
         const cta = (await graph.locator('.canvas-primary-action').boundingBox())!;
         expect(box.x + box.width <= cta.x || box.y + box.height <= cta.y || box.x >= cta.x + cta.width || box.y >= cta.y + cta.height).toBe(true);
-        if (graphBox.width < 800) expect(cta.y - box.y - box.height).toBeGreaterThanOrEqual(14);
+        if (compact) expect(cta.y - box.y - box.height).toBeGreaterThanOrEqual(14);
         await expect(navigator.getByRole('button', { name: 'Fit workflow', exact: true })).toBeVisible();
         await expect(navigator.locator('.canvas-navigator-percentage')).toBeVisible();
         await expect(navigator).toHaveCSS('background-color', theme === 'dark' ? 'rgb(28, 32, 41)' : 'rgb(255, 255, 255)');
@@ -165,7 +168,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('button', { name: 'Dock toolbar', exact: true }).click();
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole('button', { name: 'Add Supply → Borrow → Swap', exact: true }).click();
-    await page.getByRole('button', { name: 'Apply proposal', exact: true }).click();
+    await applyPendingProposal(page);
     await expect(graph.locator('.canvas-empty-mascot')).toHaveCount(0);
     await expect(graph.locator('.composer-card')).toHaveCount(3);
     await graph.getByRole('slider', { name: 'Canvas zoom' }).press('Home');

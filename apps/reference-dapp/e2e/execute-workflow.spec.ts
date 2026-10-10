@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { test, expect, applyPendingProposal } from './fixtures';
+import { test, expect, assertNoFinancialCanvasAction, applyPendingProposal } from './fixtures';
 
 test('Execute shows the shared authored workflow without authorizing or inventing execution', async ({ page }) => {
   await page.goto('/app');
@@ -10,7 +10,7 @@ test('Execute shows the shared authored workflow without authorizing or inventin
   await page.getByLabel('Describe your flow').fill('swap 2.25 USDC to WETH on Base slippage 50 bps');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await applyPendingProposal(page);
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await expect(page.locator('.simulate-canvas').getByRole('heading', { name: 'ESPARTACUS', exact: true })).toBeVisible();
   await nav.getByRole('button', { name: 'Execute', exact: true }).click();
   const execution = page.getByRole('main', { name: 'Execution workspace', exact: true });
@@ -25,7 +25,7 @@ test('Execute shows the shared authored workflow without authorizing or inventin
   await expect(graph.locator('.composer-card')).toContainText('Base');
   await expect(execution.locator('form, input:not([type=range]), [data-mocked-value]')).toHaveCount(0);
   await expect(execution.getByRole('button', { name: /^(Return to Build|Execute|Execute swap|Authorize|Accept review)$/ })).toHaveCount(0);
-  await expect(execution.getByRole('button', { name: 'Execute workflow', exact: true })).toBeDisabled();
+  await assertNoFinancialCanvasAction(page);
   await expect(execution.getByRole('link', { name: /Download.*Evidence Bundle/ })).toHaveCount(0);
   expect(await execution.innerText()).not.toMatch(/EXECUTE \/ UNAVAILABLE|Prepare for execution|Mocked|Running|Confirmed|Completed/);
   for (const width of [1440, 390]) {

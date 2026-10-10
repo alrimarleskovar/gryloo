@@ -2,6 +2,7 @@
 import { COPILOT_ASSETS, COPILOT_LIMITS, COPILOT_MISSING_FIELDS, COPILOT_NETWORKS, COPILOT_RANGE_UNITS, COPILOT_ROUTING, COPILOT_V1_PARTS,
   CopilotIntentError, type CopilotAction, type CopilotAsset, type CopilotDeposit, type CopilotMissingField, type CopilotNetwork,
   type CopilotRouting } from './copilot-intent';
+import { parseAutomationDraft, AUTOMATION_DRAFT_SCHEMA, type AutomationDraft } from './copilot-automation';
 import { COPILOT_LANGUAGES, type CopilotLanguage } from './copilot-messages';
 
 /**
@@ -40,6 +41,7 @@ export type CopilotChanges = {
 export type CopilotReuse = { readonly from: CopilotTarget; readonly fields: readonly CopilotReuseField[] };
 type Common = { readonly version: '2'; readonly language: CopilotLanguage };
 export type CopilotIntentV2 = Common & (
+  | { readonly kind: 'AUTOMATION'; readonly draft: AutomationDraft }
   | { readonly kind: 'ACTION'; readonly action: CopilotAction; readonly reuse: CopilotReuse | null }
   | { readonly kind: 'COMPOSITION'; readonly actions: readonly CopilotAction[] }
   | { readonly kind: 'EDIT'; readonly target: CopilotTarget; readonly changes: CopilotChanges }
@@ -84,6 +86,7 @@ export function parseCopilotIntentV2(value: unknown): CopilotIntentV2 {
   const kind = value && typeof value === 'object' ? (value as Record<string, unknown>).kind : undefined;
   const keys = (rest: readonly string[]) => exact(value, ['version', 'language', 'kind', ...rest]);
   switch (kind) {
+    case 'AUTOMATION': { const v = keys(['draft']); return { ...common(v), kind, draft: parseAutomationDraft(v.draft) }; }
     case 'ACTION': {
       const v = keys(['action', 'reuse']);
       let reuse: CopilotReuse | null = null;
@@ -160,6 +163,7 @@ const head = (kind: string) => ({ version: constant(COPILOT_INTENT_V2_VERSION),
   language: choice(COPILOT_LANGUAGES, 'Language of the latest user message: PT for Portuguese (also mixed Portuguese and English), EN otherwise.'), kind: constant(kind) });
 const ACTION = { anyOf: actionSchemas };
 export const COPILOT_OUTPUT_SCHEMA_V2 = Object.freeze(object({ intent: { anyOf: [
+  object({ ...head('AUTOMATION'), draft: AUTOMATION_DRAFT_SCHEMA }),
   object({ ...head('ACTION'), action: ACTION, reuse: { anyOf: [object({ from: TARGET, fields: { type: 'array', items: choice(COPILOT_REUSE_FIELDS,
     'A value the user explicitly asked to reuse from an earlier step ("the same network", "a mesma rede").') } }), { type: 'null' }],
     description: 'Only when the user said "same …" about an earlier step; null otherwise.' } }),

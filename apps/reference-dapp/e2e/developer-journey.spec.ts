@@ -47,7 +47,7 @@ async function operatorKey(): Promise<{ key: string; cleanup: () => Promise<void
 }
 /** The authoritative product's simulation stage (as the MCP browser journey uses it). */
 async function simulateStage(page: Page) {
-  await page.getByRole('button', { name: 'Simulate fees', exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate workflow', exact: true }).click();
   await openSimulationDetails(page);
 }
 
@@ -101,12 +101,11 @@ test.describe('BUILD-DEVELOPER-001 third-party integration (SDK → FloFi /appro
       await expect(region.getByRole('status')).toContainText('Ready for your review.');
       // The authoritative product's simulation and Review; a MOCKED route cannot authorize execution.
       await simulateStage(page);
-      await bridge(page).getByRole('button', { name: 'Get route and simulate' }).click();
       await expect(bridge(page)).toContainText('Strategy Manifest');
       await expect(bridge(page)).toContainText(`Owner ${owner.address}`);
       expect(await walletRequests(page)).toContain('personal_sign');
       await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toBeDisabled();
-      await expect(page.locator('.review-validity')).toContainText('A simulation that can authorize this workflow is required before approval.');
+      await expect(page.locator('.review-authorization-details')).toContainText('A simulation that can authorize this workflow is required before approval.');
       await expect(page.getByRole('region', { name: 'Authorization technical details', exact: true })).toContainText('Strategy Manifest');
       await expect(page.getByRole('button', { name: 'Review approved', exact: true })).toHaveCount(0);
       await assertExecutionBlocked(page, journeySends);

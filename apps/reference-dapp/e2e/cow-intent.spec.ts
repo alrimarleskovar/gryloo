@@ -4,7 +4,7 @@ import { authorCowSwap, cowPanel, expect, openTechnicalDetails, prepareCow, stag
 test.skip(process.env.GRYLOO_COW !== 'loopback', 'CoW browser acceptance requires the isolated loopback orderbook');
 
 test('user reviews exact CoW order, signs with a disposable injected wallet and reconciles MOCKED settlement', async ({ page, cowWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await prepareCow(page, 'fill');
   const simulation = cowPanel(page, 'simulation');
   await expect(simulation).toContainText('Gnosis Protocol v2 · chain 8453');
@@ -30,7 +30,7 @@ test('user reviews exact CoW order, signs with a disposable injected wallet and 
 });
 
 test('user signs a separate cancellation and sees confirmation after orderbook lookup', async ({ page, cowWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await prepareCow(page, 'hold');
   await stage(page, 'Execute');
   const execution = cowPanel(page, 'execution');
@@ -46,7 +46,7 @@ test('user signs a separate cancellation and sees confirmation after orderbook l
 
 test('wrong-chain disposable wallet is refused before quote or signing', async ({ page, cowWallet }) => {
   cowWallet.chain = '0x7a69';
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await authorCowSwap(page);
   await stage(page, 'Simulate');
   await openTechnicalDetails(page);
@@ -59,7 +59,7 @@ test('wrong-chain disposable wallet is refused before quote or signing', async (
 
 test('CoW option is keyboard reachable and review fits a narrow viewport', async ({ page, cowWallet }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await page.getByText('Advanced action setup', { exact: true }).click();
   const choice = page.getByLabel('Enable CoW signed intent for this swap');
   await expect(choice).toBeVisible();
@@ -78,7 +78,7 @@ test('CoW option is keyboard reachable and review fits a narrow viewport', async
 });
 
 test('account change after review blocks the signature request', async ({ page, cowWallet }) => {
-  await page.goto('/app');
+  await page.goto('/__engineering');
   await prepareCow(page, 'hold');
   cowWallet.account = '0x' + '9'.repeat(40);
   await stage(page, 'Execute');

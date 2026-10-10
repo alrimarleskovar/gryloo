@@ -17,12 +17,24 @@ const selectSwap = openFirstActionSettings;
 const workflow = async (page: Page) => JSON.parse(await readWorkflowIr(page)) as SemanticWorkflow;
 const hash = (value: unknown) => hashArtifactBytes('semantic-workflow', new TextEncoder().encode(JSON.stringify(value)));
 const createCanvas = async (page: Page, direction: 'USDC_TO_WETH' | 'WETH_TO_USDC', amount: string, slippage: string) => {
-  await page.getByText('Advanced action setup', { exact: true }).click();
-  await page.getByLabel('Direction').selectOption(direction);
-  await page.getByLabel('Input amount (required)').fill(amount);
-  await page.getByLabel('Slippage in bps (required)').fill(slippage);
-  await page.getByRole('button', { name: 'Review swap proposal' }).click();
-  await apply(page);
+  await expect(page.getByText('Advanced action setup', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add swap', exact: true }).click();
+  const card = page.locator('.build-flow-surface .composer-card');
+  if (direction === 'WETH_TO_USDC') {
+    await card.getByRole('button', { name: 'Select source token', exact: true }).click();
+    const picker = page.getByRole('region', { name: 'Source token picker', exact: true });
+    await picker.locator('label', { has: page.getByRole('radio', { name: 'WETH', exact: true }) }).click();
+    await page.getByRole('button', { name: 'Hide token picker', exact: true }).click();
+  }
+  await card.getByRole('textbox', { name: `Source amount (${direction === 'USDC_TO_WETH' ? 'USDC' : 'WETH'})`, exact: true }).fill(amount);
+  await card.getByRole('button', { name: 'Review amount', exact: true }).click();
+  await card.getByRole('button', { name: 'Apply amount', exact: true }).click();
+  if (slippage !== '50') {
+    await selectSwap(page);
+    await page.locator('.inspector').getByLabel('Slippage (bps)', { exact: true }).fill(slippage);
+    await page.getByRole('button', { name: 'Review Swap settings' }).click();
+    await card.getByRole('button', { name: 'Apply amount', exact: true }).click();
+  }
 };
 
 for (const [direction, from, to, amount] of [
@@ -39,7 +51,8 @@ for (const [direction, from, to, amount] of [
     await apply(page);
     const chat = await workflow(page);
     expect(chat.revision).toBe(1);
-    await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('EXECUTION_UNAVAILABLE');
+    await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Execute workflow', exact: true })).toHaveCount(0);
     await page.reload();
     await createCanvas(page, direction, amount, '50');
     const canvas = await workflow(page);
@@ -112,7 +125,8 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   await selectSwap(page);
   // The displayed IR carries this visit's own draft identity, so it is checked as text and masked in the screenshot below.
   expect((JSON.parse(await readWorkflowIr(page)) as SemanticWorkflow).workflowId).toMatch(/^workflow-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-  await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toContainText('BLOCK');
+  await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Approve & Continue', exact: true })).toHaveCount(0);
   await page.locator('.build-flow-surface .composer-card').first().scrollIntoViewIfNeeded();
   // IntersectionObserver rounds a fully visible transformed card to 0.99999994.
   // Check its actual CSS bounds instead of comparing that floating-point ratio to 1.
@@ -122,7 +136,7 @@ test('proposal and blocked review snapshots show unquoted unavailable state', as
   expect(bounds!.y).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
-  await expect(page.getByRole('button', { name: 'Simulate fees' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Simulate workflow' })).toBeEnabled();
   await readyForVisualCapture(page);
   await expect(page).toHaveScreenshot('review-blocked.png', { fullPage: true, maxDiffPixels: 0, mask: [page.locator('[data-workflow-ir]')] });
 });
@@ -134,7 +148,9 @@ test('Base authoring and review fit mobile, tablet and desktop widths', async ({
   await readWorkflowIr(page);
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Deterministic review findings' })).toHaveCount(0);
+    await expect(page.locator('.build-flow-surface .composer-card')).toBeVisible();
+    await expect(page.locator('.canvas-primary-action').getByRole('button', { name: 'Simulate workflow', exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow, `horizontal overflow at ${width}px`).toBe(false);
   }
