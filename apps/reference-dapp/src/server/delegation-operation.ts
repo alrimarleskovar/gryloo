@@ -69,3 +69,19 @@ export async function delegationOperation<T>(method: DelegationOperation, args: 
     return { ok: true, value: await runDelegationOperation(service, owner, proven, method, args) as T };
   } catch (cause) { return failure(cause); }
 }
+
+/** Whether this deployment serves delegated execution's owner operations (it names nobody). Remote: the API, which holds the configuration, answers. */
+export async function delegationAvailability(seams: Pick<Seams, 'transport' | 'env'> = {}): Promise<{ readonly enabled: boolean }> {
+  const env = seams.env ?? process.env;
+  try {
+    if (flowRuntimeKind(env) === 'remote') {
+      const base = cloudApiBaseUrl(env)!;
+      const response = await (seams.transport ?? fetch)(new URL('v1/delegation/availability', base.href.endsWith('/') ? base : new URL(base.href + '/')), { method: 'POST',
+        cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10_000), headers: { 'content-type': 'application/json',
+          ...env.API_AUTH_TOKEN ? { authorization: `Bearer ${env.API_AUTH_TOKEN}` } : {} }, body: JSON.stringify({ args: [] }) });
+      const body = await response.json().catch(() => null) as { ok?: unknown; value?: { enabled?: unknown } } | null;
+      return { enabled: response.ok && body?.ok === true && body.value?.enabled === true };
+    }
+    return { enabled: readAutomationConfig(env).enabled && readDelegationConfig(env).enabled };
+  } catch { return { enabled: false }; }
+}

@@ -167,9 +167,12 @@ export function universalAuthorization(m: DelegatedAuthorizationManifest, input:
   if (!/^[0-9a-f]{32}$/.test(input.nonce)) fail('AUTHORIZATION_NONCE_INVALID');
   return { type: 'flofi.universal-workflow-authorization', version: 1, environment: { origin: input.origin, rpId: input.rpId, tenant: input.tenant },
     owner: m.owner, authorizationId: m.authorizationId, revision: m.revision, nonce: input.nonce, workflowHash: m.workflow.workflowHash,
-    manifestHash: manifestHash(m), credentials: m.credentials.map(({ walletAddress: _w, ...c }) => c), chains: m.chains, actions: m.actions,
+    manifestHash: manifestHash(m), credentials: credentialCommitments(m), chains: m.chains, actions: m.actions,
     validFrom: m.validFrom, expiresAt: m.expiresAt, passkeyId: input.passkeyId };
 }
+/** The per-step grant commitments the envelope signs (the wallet address is already bound by each grant's own commitment). */
+export const credentialCommitments = (m: Pick<DelegatedAuthorizationManifest, 'credentials'>): UniversalWorkflowAuthorization['credentials'] =>
+  m.credentials.map(c => ({ stepIndex: c.stepIndex, credentialId: c.credentialId, grantId: c.grantId, chain: c.chain, mechanism: c.mechanism, grantCommitment: c.grantCommitment }));
 export const authorizationDigest = (a: UniversalWorkflowAuthorization): string => domainDigest('flofi.universal-workflow-authorization.v1', a);
 /** Stable comparison of two plain artifacts (stored JSONB comes back with keys reordered). */
 export const sameArtifact = (a: unknown, b: unknown): boolean => canonicalJson(a) === canonicalJson(b);

@@ -27,7 +27,7 @@ import { digestBytes } from './canonical.ts';
 import type { ChainTransport } from './chains.ts';
 import type { DelegationConfig } from './config.ts';
 import { driverFor, type SignerUser, type StepContext, type StepDriver } from './drivers.ts';
-import { authorizationDigest, executionSpend, manifestHash, manifestProblem, sameArtifact, type DelegatedAuthorizationManifest } from './manifest.ts';
+import { authorizationDigest, credentialCommitments, executionSpend, manifestHash, manifestProblem, sameArtifact, type DelegatedAuthorizationManifest } from './manifest.ts';
 import type { DelegationStore, ExecutionRecord, GrantRecord, RevisionRecord, StepRecord } from './pg-store.ts';
 import { periodStarts, reservationViolation, stepPolicyViolation, type StepPlan } from './policy.ts';
 import type { ExecutionState } from './state-machine.ts';
@@ -70,7 +70,7 @@ async function verifyAuthorityChain(deps: ExecutorDeps, rule: RuleRecord, occurr
   const envelope = revision.envelope, digest = authorizationDigest(envelope);
   if (digest !== revision.envelopeDigest || envelope.manifestHash !== revision.manifestHash || envelope.workflowHash !== revision.workflowHash
     || envelope.environment.tenant !== deps.config.tenantId || envelope.environment.origin !== deps.config.passkeyOrigin || envelope.passkeyId !== revision.passkeyId
-    || envelope.owner !== m.owner || !sameArtifact(envelope.credentials, m.credentials.map(({ walletAddress: _w, ...c }) => c))) return { ok: false, code: 'AUTHORIZATION_ENVELOPE_MISMATCH' };
+    || envelope.owner !== m.owner || !sameArtifact(envelope.credentials, credentialCommitments(m))) return { ok: false, code: 'AUTHORIZATION_ENVELOPE_MISMATCH' };
   const passkey = await deps.store.passkey(rule.owner, revision.passkeyId);
   if (!passkey || passkey.revokedAt) return { ok: false, code: 'PASSKEY_REVOKED' };
   try {
@@ -225,12 +225,15 @@ async function run(deps: ExecutorDeps, start: ExecutionRecord, verified: Awaited
     const driver = recoveryCtx ? driverFor(recoveryCtx, deps.config.mode) : null;
     if (!recoveryCtx || !driver) { await deps.store.stepTransition(e.executionId, k, ['SUBMISSION_PREPARED', 'SUBMITTED'], 'UNCERTAIN', { code: 'RECOVERY_CONTEXT_UNAVAILABLE' }); await enterUncertain(); return outcome(PENDING_RETRY_MS); }
     if (step.state === 'SUBMISSION_PREPARED') {
-      try { await driver.broadcast(recoveryCtx, step.submission!); step = (await deps.store.stepTransition(e.executionId, k, ['SUBMISSION_PREPARED'], 'SUBMITTED', {}))!; }
-      catch (cause) {
-        step = (await deps.store.stepTransition(e.executionId, k, ['SUBMISSION_PREPARED'], 'UNCERTAIN', { code: codeOf(cause, 'SUBMISSION_BROADCAST_FAILED') }))!;
+      let broadcastFailure: unknown = null;
+      try { await driver.broadcast(recoveryCtx, step.submission!); } catch (cause) { broadcastFailure = cause; }
+      if (broadcastFailure !== null) {
+        await deps.store.stepTransition(e.executionId, k, ['SUBMISSION_PREPARED'], 'UNCERTAIN', { code: codeOf(broadcastFailure, 'SUBMISSION_BROADCAST_FAILED') });
         await enterUncertain(); return outcome(PENDING_RETRY_MS);
       }
-      if (!step) return outcome(PENDING_RETRY_MS);
+      const submitted = await deps.store.stepTransition(e.executionId, k, ['SUBMISSION_PREPARED'], 'SUBMITTED', {});
+      if (!submitted) return outcome(PENDING_RETRY_MS);
+      step = submitted;
     }
     if (step.state === 'SUBMITTED' || step.state === 'UNCERTAIN') {
       const plan = (step.plan?.prepared ?? {}) as Record<string, unknown>;
@@ -303,7 +306,7 @@ function recoveryContext(step: StepRecord, grant: GrantRecord, transport: ChainT
   if (!stored || !plan) return null;
   const prepared = stored.prepared as Record<string, unknown> | undefined;
   const scope = grant.scope;
-  let need: StepBinding['need'] | null = null;
+  let need: StepBinding['need'];
   if (scope.mechanism === 'EVM_ERC7710_METAMASK_V1_3') {
     const calls = (prepared?.calls ?? []) as { target: string; data: string }[];
     const swap = calls.find(c => c.data.startsWith(erc7710.EXACT_INPUT_SINGLE_METHOD));

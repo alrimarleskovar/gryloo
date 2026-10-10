@@ -126,7 +126,7 @@ export const evmSwapDriver: StepDriver = {
       catch (cause) {
         // Already known (a re-broadcast) is fine; anything else is decided by reconciliation, never by a second, different transaction.
         if (await ctx.transport.rpc('eth_getTransactionByHash', [tx.hash]).catch(() => null)) continue;
-        throw new Error(cause instanceof Error && /nonce/i.test(cause.message) ? 'SUBMISSION_NONCE_CONFLICT' : 'SUBMISSION_BROADCAST_FAILED');
+        throw new Error(cause instanceof Error && /nonce/i.test(cause.message) ? 'SUBMISSION_NONCE_CONFLICT' : 'SUBMISSION_BROADCAST_FAILED', { cause });
       }
     }
   },

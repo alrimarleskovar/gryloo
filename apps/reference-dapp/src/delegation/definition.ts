@@ -38,7 +38,7 @@ export const DelegatedAutomationInputSchema = Type.Object({
   trigger: Type.Union([Type.Object({ kind: Type.Literal('SCHEDULE'), schedule: Schedule }, strict),
     Type.Object({ kind: Type.Literal('PRICE'), timezone: Type.String({ minLength: 1, maxLength: 64 }), condition: Condition }, strict)]),
   steps: Type.Array(Step, { minItems: 1, maxItems: 4 }),
-  limits: Type.Object({ assets: Type.Array(AssetLimit, { minItems: 1, maxItems: 8 }),
+  limits: Type.Object({ assets: Type.Array(AssetLimit, { minItems: 0, maxItems: 8 }),
     maxExecutionsPerPeriod: Type.Union([Type.Object({ count: Type.Integer({ minimum: 1, maximum: 1000 }), period: Period }, strict), Type.Null()]),
     cooldownMinutes: Type.Integer({ minimum: 0, maximum: 44_640 }), maxSlippageBps: Type.Integer({ minimum: 0, maximum: 1_000 }) }, strict),
   expiresAt: Iso,

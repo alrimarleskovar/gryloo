@@ -30,6 +30,10 @@ export function delegationApiRoutes(env: Env, deps: DelegationApiDeps): Route[] 
   const now = deps.now ?? (() => new Date()), idempotency = createIdempotencyStore({ db: deps.db, tenantId: deps.tenantId });
   return [{ method: 'POST', name: 'delegation', pattern: /^\/v1\/delegation\/([A-Za-z]{1,40})$/, handler: async (request, match) => {
     const method = match[1]!;
+    if (method === 'availability') {
+      argsOf(request);
+      return { status: 200, body: { ok: true, value: { enabled: readAutomationConfig(env).enabled && readDelegationConfig(env).enabled } } };
+    }
     if (!isDelegationOperation(method)) throw new HttpError(404, 'DELEGATION_OPERATION_UNKNOWN');
     const owner = workflowOwner(request.headers[WORKFLOW_OWNER_HEADER]);
     if (!owner) throw new HttpError(401, 'WALLET_SESSION_REQUIRED');

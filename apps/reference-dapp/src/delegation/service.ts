@@ -62,7 +62,8 @@ function nativeUnits(value: string, decimals: number, code: string): bigint {
   const scaled = parseScaled(value, decimals);
   return scaled === null || scaled <= 0n ? refuse(code) : scaled;
 }
-const stepLabel = (s: StrategySpec) => s.action === 'swap' ? `${s.amount} ${s.inputAsset} → ${s.outputAsset} on ${NETWORKS[s.network].label}` : s.action;
+/** Language-neutral (symbols and network names only), so the browser can show it in any locale. */
+const stepLabel = (s: StrategySpec) => s.action === 'swap' ? `${s.amount} ${s.inputAsset} → ${s.outputAsset} · ${NETWORKS[s.network].label}` : s.action;
 
 export function createDelegationService(deps: DelegationServiceDeps) {
   const { store, config } = deps;

@@ -8,9 +8,11 @@
  */
 import type { WorkflowOwner } from '../domain/saved-workflow';
 import type { CreatedView, DelegationOverviewView, ExecutionView, GrantView, PasskeyOptionsView, PasskeyView, PreviewView, ReviewView, AuthorizationView } from '../delegation/views';
-import { delegationOperation } from '../server/delegation-operation';
+import { delegationAvailability, delegationOperation } from '../server/delegation-operation';
 
 type Result<T> = { ok: true; value: T } | { ok: false; code: string };
+/** Whether this deployment serves delegated execution at all (names nobody, reveals nothing about anyone). */
+export async function delegationEnabled(): Promise<{ readonly enabled: boolean }> { return delegationAvailability(); }
 export async function delegationOverview(owner: WorkflowOwner): Promise<Result<DelegationOverviewView>> { return delegationOperation('overview', [], owner); }
 export async function passkeyOptions(owner: WorkflowOwner): Promise<Result<PasskeyOptionsView>> { return delegationOperation('passkeyOptions', [], owner); }
 export async function passkeyRegister(owner: WorkflowOwner, response: unknown): Promise<Result<PasskeyView>> { return delegationOperation('passkeyRegister', [response], owner); }

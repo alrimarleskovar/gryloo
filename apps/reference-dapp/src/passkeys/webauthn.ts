@@ -123,9 +123,10 @@ export function verifyAssertion(input: AssertionInput, expected: { readonly chal
   // A counter that does not grow (when either side uses one) means a cloned or replayed authenticator response.
   if ((auth.signCount !== 0 || expected.signCount !== 0) && auth.signCount <= expected.signCount) fail('PASSKEY_COUNTER_REPLAY');
   const signed = Buffer.concat([authBytes, sha256(clientData)]);
-  let ok = false;
-  try { ok = verify('sha256', signed, { key: Buffer.from(expected.publicKeySpki), format: 'der', type: 'spki', dsaEncoding: 'der' }, Buffer.from(fromB64url(input.signature, 200))); }
-  catch { ok = false; }
+  const ok = (() => {
+    try { return verify('sha256', signed, { key: Buffer.from(expected.publicKeySpki), format: 'der', type: 'spki', dsaEncoding: 'der' }, Buffer.from(fromB64url(input.signature, 200))); }
+    catch { return false; }
+  })();
   if (!ok) fail('PASSKEY_SIGNATURE_INVALID');
   return { signCount: auth.signCount };
 }
