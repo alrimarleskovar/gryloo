@@ -258,6 +258,28 @@ The worker never needs `FLOFI_AUTOMATION_SECRET`, the dispatch digest or the han
 chat and serves no route. Startup logs: `automation.api_enabled` / `automation.api_disabled` (API), `automation.worker_enabled` /
 `automation.worker_disabled` (worker); a disabled or failed load leaves every other route and the reconciliation running.
 
+## 5g. Delegated execution (BUILD-AUTOMATION-002, Passkeys, Credentials → Automatic execution, `/v1/delegation/*`, `/api/delegation/dispatch`)
+
+Off by default and fully opt-in on top of §5f. **Standard production sets none of these**, and if it did, nothing would execute:
+no production custody provider (KMS/HSM) exists, so a hosted deployment refuses every session-signer provider and reports
+`DELEGATED_SIGNER_UNAVAILABLE`. "Automatic within limits" is then shown as unavailable. `CONFIRM_EACH_TIME` is unchanged. Any malformed
+value disables the feature (`DELEGATION_CONFIGURATION_INVALID`); nothing falls back to another mode, transport or signer.
+
+| Variable | Purpose | Secret | Railway API (prod) | Railway worker (prod) | Embedded web / local rehearsal | Default |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FLOFI_DELEGATION` | `enabled` serves the owner operations: passkeys, execution Credentials, delegated automations and their one authorization. These authorize nothing without an executor | no | leave unset | leave unset | as chosen | off |
+| `FLOFI_PASSKEY_ORIGIN` | origin passkeys are registered for and assert; its host is the WebAuthn RP id (must be a domain, not an IP; `https://` when hosted) | no | — | — | with delegation | `FLOFI_PUBLIC_ORIGIN` |
+| `FLOFI_DELEGATION_RPC_<chainId>` | per-EVM-chain read/submit JSON-RPC in production mode (`https://`, no userinfo), e.g. `FLOFI_DELEGATION_RPC_84532` | if keyed | — | — | with delegation | unset: that chain is unavailable |
+| `FLOFI_DELEGATED_SIGNER` | the session-signer provider: `none`, `local-disposable` or `memory`. The last two are refused on hosted deployments (not production custody) | no | **never** | **never** | rehearsal only | `none` |
+| `FLOFI_DELEGATED_SIGNER_DIR` | `local-disposable` only: an absolute directory under `/tmp/` (keys in mode-0600 files, outside Git) | no | **never** | **never** | rehearsal only | — |
+| `FLOFI_DELEGATED_EXECUTION` | `enabled` runs the delegated executor in this process (requires a signer provider) | no | **never** | **never** (blocked: no custody) | rehearsal only | off |
+| `FLOFI_DELEGATION_DISPATCH_TOKEN_SHA256` | SHA-256 hex of the bearer of the optional `/api/delegation/dispatch` (embedded executor without a worker) | digest only | — | — | optional | unset: `404` |
+| `FLOFI_DELEGATION_HARNESS` / `_URL` | `MOCKED_LOOPBACK_ONLY` and a `http://127.0.0.1:<port>` URL: every chain is the loopback chain double (tests and rehearsals; refused when hosted) | no | **never** | **never** | tests only | off |
+
+The executor is a separate durable work kind (`delegation.execute`). It never shares the AUTOMATION-001 dispatch or the existing
+flows' worker, which keep `WORKER_SUBMISSION_FORBIDDEN`. Startup logs: `delegation.api_enabled` / `delegation.api_disabled` and
+`delegation.worker_enabled` / `delegation.worker_disabled`.
+
 ## 6. Platform-provided (read, never set by hand)
 
 `VERCEL` (`1`: hosted), `VERCEL_ENV` (`production`/`preview`/`development`), `VERCEL_GIT_COMMIT_REF` (Preview tenant derivation),

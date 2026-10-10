@@ -21,11 +21,14 @@ import { reviewContextForChain } from '@defi-workflow-engine/reference-linter';
 import { savedWorkflowHash } from '../domain/saved-workflow.ts';
 import { SWAP_ACTION, swapDetails } from '../domain/swap-authoring';
 import { composeWorkflowBound, dappReviewContext } from '../engine/strategy-engine';
-import type { StrategySpec } from '../engine/strategy-spec';
+import { isStrategyWorkflow, type StrategyInput, type StrategySpec } from '../engine/strategy-spec';
 import { ENGINE_VERSION } from '../platform/index.ts';
 
 export type WorkflowSource = { readonly workflowId: string; readonly workflowHash: string; readonly version: number };
-export type Binding = { readonly strategy: StrategySpec; readonly workflowHash: string; readonly engineVersion: string; readonly source: WorkflowSource | null };
+/** `strategy` is a v1 single action, or (delegated rules only, BUILD-AUTOMATION-002) a v2 step list. */
+export type Binding = { readonly strategy: StrategyInput; readonly workflowHash: string; readonly engineVersion: string; readonly source: WorkflowSource | null };
+/** The single-action strategy of a binding, or null for a step list. */
+export const singleStrategy = (strategy: StrategyInput | null): StrategySpec | null => strategy && !isStrategyWorkflow(strategy) ? strategy : null;
 type Refused = { readonly ok: false; readonly code: string };
 
 /** The canonical form and hash of an automatable action (one swap step), or a closed refusal. */
@@ -37,10 +40,10 @@ export function bindStrategy(input: unknown, source: WorkflowSource | null = nul
   if (step.strategy.action !== 'swap') return { ok: false, code: 'AUTOMATION_ACTION_UNSUPPORTED' };
   return { ok: true, binding: { strategy: step.strategy, workflowHash: step.workflowHash, engineVersion: ENGINE_VERSION, source } };
 }
-/** The binding still reproduces with the current engine (same hash), or STRATEGY_STALE. */
-export function verifyBinding(binding: Pick<Binding, 'strategy' | 'workflowHash'>): { readonly ok: true } | Refused {
+/** The binding still reproduces with the current engine (same hash), or STRATEGY_STALE. Only a delegated rule may bind several steps. */
+export function verifyBinding(binding: Pick<Binding, 'strategy' | 'workflowHash'>, options: { readonly multiStep?: boolean } = {}): { readonly ok: true } | Refused {
   const composed = composeWorkflowBound(binding.strategy, binding.workflowHash);
-  return composed.ok && composed.steps.length === 1 ? { ok: true } : { ok: false, code: 'STRATEGY_STALE' };
+  return composed.ok && (composed.steps.length === 1 || options.multiStep === true) ? { ok: true } : { ok: false, code: 'STRATEGY_STALE' };
 }
 /** WORKFLOW_CHANGED when the source saved workflow is gone or no longer the exact document the automation was bound to. */
 export function sourceDrift(source: WorkflowSource | null, current: { readonly workflowHash: string; readonly version: number } | null): string | null {
@@ -55,6 +58,8 @@ const canonical = (value: unknown): string => JSON.stringify(value, (_key, v: un
 const semantics = (node: Readonly<SemanticWorkflow['nodes'][number]> | Parameters<typeof swapDetails>[0]) => canonical({ actionType: node.actionType, chainId: node.chainId, inputs: node.inputs,
   userConstraints: node.userConstraints, adapterConstraints: node.adapterConstraints, requiredCapabilities: node.requiredCapabilities,
   failurePolicy: node.failurePolicy, requiredAuthorizationClass: node.requiredAuthorizationClass });
+/** BUILD-AUTOMATION-002: the same node comparison, for the exact Canvas workflow (`workflow-steps.ts`). */
+export const nodeSemantics = (node: { readonly [K in keyof SemanticWorkflow['nodes'][number]]: unknown }): string => semantics(node as Readonly<SemanticWorkflow['nodes'][number]>);
 /**
  * The StrategySpec a saved workflow expresses, when it is exactly one EVM swap and FloFi's engine reproduces that node exactly
  * (asset identities, amount, slippage, protocols, failure policy and authorization class), plus the document's own hash.

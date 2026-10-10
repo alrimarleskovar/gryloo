@@ -10,7 +10,7 @@ export type ObservationView = { readonly asset: string; readonly priceUsd: strin
   readonly previousPriceUsd?: string | null; readonly previousObservedAt?: string | null } | { readonly asset: string; readonly code: string };
 export type RuleView = {
   readonly ruleId: string; readonly name: string; readonly kind: 'SCHEDULED_DCA' | 'PRICE_TRIGGER' | 'DAILY_WATCH'; readonly state: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'ARCHIVED';
-  readonly executionMode: 'CONFIRM_EACH_TIME'; readonly version: number; readonly timezone: string;
+  readonly executionMode: 'CONFIRM_EACH_TIME' | 'DELEGATED_WITH_LIMITS'; readonly authorizationId: string | null; readonly version: number; readonly timezone: string;
   readonly schedule: { readonly frequency: 'DAILY' | 'WEEKLY'; readonly weekday: number | null; readonly time: string } | null;
   readonly condition: { readonly type: string; readonly asset: string; readonly threshold: string | null; readonly reference: string | null; readonly percent: string | null;
     readonly effectiveThreshold: string; readonly checkEveryMinutes: number } | null;
@@ -26,7 +26,7 @@ export type RunView = { readonly executionId: string; readonly status: string; r
   readonly evidenceEnvironment: string | null; readonly evidenceOutcome: string | null; readonly evidenceBundleHash: string | null };
 export type OccurrenceView = {
   readonly occurrenceId: string; readonly ruleId: string; readonly ruleName: string; readonly kind: 'SCHEDULE' | 'PRICE' | 'WATCH';
-  readonly state: 'PENDING_OWNER' | 'APPROVAL_CREATED' | 'COMPLETED' | 'DISMISSED' | 'EXPIRED'; readonly dueAt: string; readonly expiresAt: string;
+  readonly state: 'PENDING_OWNER' | 'APPROVAL_CREATED' | 'COMPLETED' | 'DISMISSED' | 'EXPIRED' | 'DELEGATED'; readonly dueAt: string; readonly expiresAt: string;
   readonly action: ActionView; readonly observations: readonly ObservationView[]; readonly outcome: string | null; readonly decidedAt: string | null;
   readonly approval: { readonly status: string; readonly runs: readonly RunView[] } | null;
   readonly notifications: readonly { readonly channel: string; readonly status: string; readonly code: string | null }[];

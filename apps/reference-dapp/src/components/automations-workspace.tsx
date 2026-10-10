@@ -15,8 +15,13 @@ import type { Command } from '../domain/commands';
 import type { OwnerWorkflow, WorkflowOwner } from '../domain/saved-workflow';
 import { useLocale } from '../i18n/locale';
 import { WalletProof, type useWalletProof } from './wallet-proof';
+import type { ReviewView } from '../delegation/views';
+import { AuthorizationReview, DelegatedAuthorizations, DelegatedCreate, DELEGATION_ERROR_TEXT, useDelegation } from './delegated-automations';
+import { CanvasAutomation, type CanvasAutomationDraft } from './canvas-automation';
 
-export type AutomationNavigation = { readonly owner: WorkflowOwner | null; readonly proof: ReturnType<typeof useWalletProof>; readonly onPropose: (command: Command) => void };
+export type AutomationNavigation = { readonly owner: WorkflowOwner | null; readonly proof: ReturnType<typeof useWalletProof>; readonly onPropose: (command: Command) => void;
+  /** BUILD-AUTOMATION-002: "Automate this workflow" — the exact Canvas workflow, when the owner came from the Canvas. */
+  readonly canvas?: CanvasAutomationDraft | null };
 type Kind = RuleView['kind'];
 type Asset = 'ETH' | 'BTC' | 'SOL';
 
@@ -101,7 +106,7 @@ function useAutomationText() {
       l.cooldownMinutes ? t('Cooldown {0} min', String(l.cooldownMinutes)) : null,
       l.maxSlippageBps !== null ? t('Max slippage {0} bps', String(l.maxSlippageBps)) : null,
     ].filter((v): v is string => Boolean(v)),
-    error: (code: string) => ERROR_TEXT[code] ? t(ERROR_TEXT[code]) : t('FloFi could not complete this ({0}).', code),
+    error: (code: string) => ERROR_TEXT[code] ? t(ERROR_TEXT[code]) : DELEGATION_ERROR_TEXT[code] ? t(DELEGATION_ERROR_TEXT[code]) : t('FloFi could not complete this ({0}).', code),
   }), [t]);
 }
 
@@ -166,13 +171,13 @@ function RuleCard({ rule, busy, run, owner, onHistory }: { rule: RuleView; busy:
   const { t } = useLocale(), text = useAutomationText();
   const state = (action: 'PAUSE' | 'RESUME' | 'ARCHIVE', done: string) => void run(() => changeAutomationState(owner, rule.ruleId, rule.version, action), done);
   return <article className="automation-card" aria-label={t('Automation {0}', rule.name)}>
-    <header className="automation-card-head"><div><h3>{rule.name}</h3><p>{t(KIND_LABEL[rule.kind])} · {t('Ask me before every execution')}</p></div>
+    <header className="automation-card-head"><div><h3>{rule.name}</h3><p>{t(KIND_LABEL[rule.kind])} · {t(rule.executionMode === 'DELEGATED_WITH_LIMITS' ? 'Automatic within limits' : 'Ask me before every execution')}</p></div>
       <span className="automation-badge" data-state={rule.state}>{t(STATE_LABEL[rule.state] ?? rule.state)}</span></header>
     <dl className="automation-facts">
       {rule.schedule && <div><dt>{t('When')}</dt><dd>{text.schedule(rule)}</dd></div>}
       {rule.condition && <div><dt>{t('Condition')}</dt><dd>{text.condition(rule.condition)} · {t('checked every {0} min', String(rule.condition.checkEveryMinutes))}</dd></div>}
       {rule.watch && <div><dt>{t('Assets')}</dt><dd>{rule.watch.assets.join(' / ')} · {t('Notify me')}</dd></div>}
-      {rule.kind !== 'DAILY_WATCH' && <div><dt>{t('Action')}</dt><dd>{text.action(rule.action)}{rule.source && <> · {t('from saved workflow (version {0})', String(rule.source.version))}</>}</dd></div>}
+      {rule.kind !== 'DAILY_WATCH' && <div><dt>{t('Action')}</dt><dd>{rule.executionMode === 'DELEGATED_WITH_LIMITS' && !rule.action ? t('Multi-step workflow (see Automatic within limits)') : text.action(rule.action)}{rule.source && <> · {t('from saved workflow (version {0})', String(rule.source.version))}</>}</dd></div>}
       {rule.kind !== 'DAILY_WATCH' && text.limits(rule.limits).length > 0 && <div><dt>{t('Limits')}</dt><dd>{text.limits(rule.limits).join(' · ')}</dd></div>}
       <div><dt>{t('Next evaluation')}</dt><dd><When iso={rule.nextEvaluationAt} zone={rule.timezone}/></dd></div>
       {rule.lastObservation && <div><dt>{t('Last observation')}</dt><dd><Observation o={rule.lastObservation}/></dd></div>}
@@ -182,7 +187,8 @@ function RuleCard({ rule, busy, run, owner, onHistory }: { rule: RuleView; busy:
     </dl>
     {rule.attention && <p className="automation-attention" role="status">{t(rule.attention === 'WORKFLOW_CHANGED' ? 'The saved workflow changed after this automation was created. FloFi proposes nothing until you rebind it to the current version.'
       : 'This action no longer reproduces with FloFi’s current engine. FloFi proposes nothing until you rebind it.')}
-      <button type="button" className="workspace-action" disabled={busy} onClick={() => void run(() => rebindAutomation(owner, rule.ruleId, rule.version), 'Automation rebound.')}>{t('Rebind')}</button></p>}
+      {rule.executionMode === 'DELEGATED_WITH_LIMITS' ? <> {t('Re-authorize it under Automatic within limits.')}</>
+        : <button type="button" className="workspace-action" disabled={busy} onClick={() => void run(() => rebindAutomation(owner, rule.ruleId, rule.version), 'Automation rebound.')}>{t('Rebind')}</button>}</p>}
     <div className="automation-row-actions">
       {rule.state === 'ACTIVE' && <button type="button" className="workspace-action" disabled={busy} onClick={() => state('PAUSE', 'Automation paused.')}>{t('Pause')}</button>}
       {rule.state === 'PAUSED' && <button type="button" className="workspace-action" disabled={busy} onClick={() => state('RESUME', 'Automation resumed.')}>{t('Resume')}</button>}
@@ -236,10 +242,11 @@ function inputOf(d: Draft): unknown {
   return { version: 1, kind: d.kind, name: d.name, timezone: d.timezone, condition, action, limits, expiresAt };
 }
 
-function CreateForm({ capabilities, owner, busy, run }: { capabilities: CapabilityView; owner: WorkflowOwner; busy: boolean;
-  run: (work: () => Promise<{ ok: boolean; code?: string }>, done?: string) => Promise<boolean> }) {
+function CreateForm({ capabilities, owner, busy, run, initial }: { capabilities: CapabilityView; owner: WorkflowOwner; busy: boolean;
+  run: (work: () => Promise<{ ok: boolean; code?: string }>, done?: string) => Promise<boolean>; initial?: Partial<Draft> }) {
   const { t } = useLocale();
-  const [d, setD] = useState<Draft>(initialDraft);
+  // BUILD-AUTOMATION-002: "Automate this workflow" (Ask every time) prefills the Canvas's exact step; everything else is AUTOMATION-001's form.
+  const [d, setD] = useState<Draft>(() => ({ ...initialDraft(), ...initial }));
   const [saved, setSaved] = useState<readonly OwnerWorkflow[]>([]);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setD(prev => ({ ...prev, [key]: value }));
   useEffect(() => { let live = true; void listWorkflows(owner).then(r => { if (live && r.ok) setSaved(r.value.items.filter(i => i.saved)); }).catch(() => undefined); return () => { live = false; }; }, [owner]);
@@ -355,7 +362,7 @@ function useStableOwner(owner: WorkflowOwner | null | undefined): WorkflowOwner 
   return useMemo(() => owner ? { namespace: owner.namespace, address: owner.address } : null, [key]);
 }
 
-export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Partial<AutomationNavigation>) {
+export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose, canvas = null }: Partial<AutomationNavigation>) {
   const { t } = useLocale(), text = useAutomationText();
   const owner = useStableOwner(ownerProp);
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -365,7 +372,11 @@ export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Par
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<RuleHistoryView | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
+  const [mode, setMode] = useState<'CONFIRM' | 'DELEGATED'>('CONFIRM');
+  const [review, setReview] = useState<ReviewView | null>(null);
   const proven = Boolean(owner && proof?.proven === owner.address);
+  const delegation = useDelegation(enabled ? owner : null, proven);
+  const refreshDelegation = delegation.refresh;
   const ownerKey = owner ? `${owner.namespace}:${owner.address}` : null;
   useEffect(() => { void automationsAvailability().then(a => setEnabled(a.enabled)).catch(() => setEnabled(false)); }, []);
   useEffect(() => { try { setHighlight(new URLSearchParams(window.location.search).get('occurrence')); } catch { /* no query */ } }, []);
@@ -389,9 +400,12 @@ export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Par
       if (!result.ok) { setError(result.code ?? 'AUTOMATION_UNAVAILABLE'); return false; }
       if (done) setNotice(done);
       await refresh();
+      await refreshDelegation();
       return true;
     } catch { setError('AUTOMATION_UNAVAILABLE'); return false; } finally { setBusy(false); }
-  }, [busy, refresh]);
+  }, [busy, refresh, refreshDelegation]);
+  const delegationReady = delegation.overview?.availability.enabled === true;
+  const delegationBlocked = delegation.overview?.availability.executor ?? delegation.code;
   const rules = overview?.rules ?? [], byId = new Map(rules.map(r => [r.ruleId, r]));
   const live = rules.filter(r => r.state !== 'ARCHIVED'), archived = rules.filter(r => r.state === 'ARCHIVED');
   return <section className="automations" aria-label={t('Automations')}>
@@ -421,9 +435,26 @@ export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Par
                     onHistory={() => void automationHistory(owner, rule.ruleId).then(r => { if (r.ok) setHistory(r.value); else setError(r.code); })}/>)}</div></details>}
               </section>
               {history && <HistoryPanel history={history} onClose={() => setHistory(null)}/>}
+              {delegationReady && <section className="workspace-section" aria-labelledby="automation-delegated">
+                <div className="workspace-section-heading"><div><h2 id="automation-delegated">{t('Automatic within limits')}</h2>
+                  <span className="workspace-count">{delegation.overview!.authorizations.length}</span></div>
+                  <button type="button" className="workspace-action" disabled={busy} onClick={() => void refreshDelegation()}>{t('Refresh')}</button></div>
+                {review && <AuthorizationReview key={review.challenge} review={review} owner={owner} busy={busy} run={run} onDone={() => setReview(null)}/>}
+                <DelegatedAuthorizations overview={delegation.overview!} owner={owner} busy={busy} run={run} onReview={setReview}/>
+              </section>}
               <section className="workspace-section" aria-labelledby="automation-create">
                 <div className="workspace-section-heading"><div><h2 id="automation-create">{t('Create an automation')}</h2></div></div>
-                <CreateForm capabilities={overview.capabilities} owner={owner} busy={busy} run={run}/>
+                {canvas ? <CanvasAutomation canvas={canvas} owner={owner} delegationReady={delegationReady} delegationBlocked={delegationBlocked ?? null}
+                  onAuthorized={() => { void refresh(); void refreshDelegation(); }}
+                  confirm={route => <CreateForm key={JSON.stringify(route)} capabilities={overview.capabilities} owner={owner} busy={busy} run={run}
+                    initial={{ name: canvas.name.slice(0, 80), source: 'ROUTE', asset: route.asset, side: route.side, network: route.network, amount: route.amount, slippageBps: String(route.slippageBps) }}/>}/> : <>
+                <div className="delegation-mode" role="radiogroup" aria-label={t('Execution')}>
+                  <label><input type="radio" name="automation-mode" checked={mode === 'CONFIRM'} onChange={() => setMode('CONFIRM')}/> {t('Ask every time')}</label>
+                  <label><input type="radio" name="automation-mode" checked={mode === 'DELEGATED'} disabled={!delegationReady || Boolean(delegationBlocked)} onChange={() => setMode('DELEGATED')}/> {t('Automatic within limits')}</label>
+                  {delegationReady && delegationBlocked && <p className="muted">{t(DELEGATION_ERROR_TEXT[delegationBlocked] ?? delegationBlocked)}</p>}
+                </div>
+                {mode === 'DELEGATED' && delegationReady && !delegationBlocked ? <DelegatedCreate owner={owner} busy={busy} run={run} onReview={setReview}/>
+                  : <CreateForm capabilities={overview.capabilities} owner={owner} busy={busy} run={run}/>}</>}
                 <p className="muted">{t('Prices: {0}.', overview.capabilities.priceSource === 'chainlink' ? t('Chainlink feeds on Base (read-only)')
                   : overview.capabilities.priceSource === 'fixture' ? t('test fixture (MOCKED)') : t('no price source on this deployment'))}</p>
               </section>

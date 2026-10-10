@@ -4,6 +4,7 @@
  * It states what FloFi observed and what it would prepare, and that nothing is authorized; its only link opens the owner's own
  * Automations workspace (an opaque occurrence id, never an approval secret).
  */
+import { singleStrategy } from './binding.ts';
 import { NETWORKS } from '../engine/strategy-engine';
 import type { StrategySpec } from '../engine/strategy-spec';
 import type { OccurrenceRecord, RuleRecord } from './store.ts';
@@ -32,7 +33,7 @@ const conditionText = (rule: RuleRecord, pt: boolean) => {
 const provenance = (o: Observed, pt: boolean) => `${o.source === 'CHAINLINK' ? 'Chainlink' : o.source === 'FIXTURE' ? (pt ? 'fixture' : 'fixture') : o.source ?? ''}${o.evidence === 'MOCKED' ? ', MOCKED' : ''}`;
 
 export function notificationText(language: Language, rule: RuleRecord, occurrence: OccurrenceRecord): string {
-  const pt = language === 'PT', name = shorten(rule.name), act = action(occurrence.strategy, pt);
+  const pt = language === 'PT', name = shorten(rule.name), act = action(singleStrategy(occurrence.strategy), pt);
   const footer = pt ? 'Nada está autorizado: abra o FloFi, rode uma nova simulação, revise o Strategy Manifest e assine com a sua própria carteira.'
     : 'Nothing is authorized: open FloFi, run a fresh simulation, review the Strategy Manifest and sign with your own wallet.';
   if (occurrence.kind === 'WATCH') {

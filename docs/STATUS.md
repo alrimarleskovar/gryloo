@@ -7,6 +7,22 @@ BUILD-013 remains OPEN on `codex/build-013-lending-composition` at
 `6cd675e41c0838fa8ac9cf3ec8e90de9442da3b9`; PR #48 remains open and unmerged.
 This separate branding build does not resume its execution work. BUILD-CLOUD-001 (below) does not touch BUILD-013 either.
 
+## BUILD-AUTOMATION-002 — Generic delegated execution ("Automatic within limits")
+
+**Status: READY_FOR_OWNER_PUSH — implementation and the local gates pass on MOCKED/loopback evidence only; NO PUBLIC-CHAIN TRANSACTION, NO
+PRODUCTION DELEGATED AUTHORITY; NOT PUSHED; NO PR UNTIL THE OWNER SAYS SO.** Branch `claude/build-automation-002-delegated-execution`, rebased onto main `974a7ac`
+(PR #76, whose wallet and run-continuity semantics it adopts). It composes with the open PR #77 (Canvas lifecycle and chat automation authoring)
+by design, without depending on it. It adds a second, explicit execution mode, `DELEGATED_WITH_LIMITS`, beside the unchanged default
+`CONFIRM_EACH_TIME`. Owners enroll each wallet once in Credentials, with one wallet signature per chain: an ERC-7710 MetaMask Delegation
+Framework v1.3.0 grant for EVM, an SPL token delegation for Solana. Each grant goes to a session signer dedicated to it and is anchored to
+the owner's passkey. Owners then authorize a complete workflow once with that passkey: a chain-neutral Universal Workflow Authorization over
+the Delegated Authorization Manifest, after FloFi has resolved every step's Credential. Each occurrence is then executed without a new
+owner signature, strictly inside the signed limits. Every step re-verifies the authority graph, atomically reserves the budget in PostgreSQL,
+runs a fresh simulation, checks policy, submits by its grant's session signer, reconciles, settles, and records evidence naming its
+Credential and grant. Revocation is local, on-chain and verified. Migration `0011_delegated_execution` is additive. Production delegated
+signing is **blocked**: no production custody provider (KMS/HSM) exists, and hosted deployments refuse disposable signers
+(`DELEGATED_SIGNER_UNAVAILABLE`). See the [plan](builds/BUILD-AUTOMATION-002-PLAN.md), [report](builds/BUILD-AUTOMATION-002-REPORT.md) and [operator guide](deploy/AUTOMATIONS.md#8-automatic-within-limits-build-automation-002-opt-in-not-in-standard-production).
+
 ## BUILD-AUTOMATION-001 — FloFi Automations (automated evaluation, owner-confirmed execution)
 
 **Status: READY_FOR_OWNER_PUSH — implementation and every local gate on MOCKED/fixture/loopback evidence; NO LIVE PRICE PROVIDER CALL,

@@ -6,7 +6,7 @@ import { assertAutomationHarness, query } from './automation-fixtures';
 import { groundAutomationDraft, type AutomationDraft } from '../src/domain/copilot-automation';
 import { validateAutomationInput } from '../src/automations/definition';
 
-const draft: AutomationDraft = { kind: 'SCHEDULED_DCA', asset: 'ETH', side: 'BUY', network: 'BASE_SEPOLIA', amount: '10', spendAsset: 'USDC', time: '09:00', condition: null, threshold: null };
+const draft: AutomationDraft = { kind: 'SCHEDULED_DCA', asset: 'ETH', side: 'BUY', network: 'BASE_SEPOLIA', amount: '10', spendAsset: 'USDC', time: '09:00', condition: null, threshold: null, percent: null };
 const cases = [
   ['Buy 10 USDC of ETH every day at 9:00 on Base Sepolia.', draft, 'EN'],
   ['Todo dia às 9:00 compre 10 USDC de ETH na Base Sepolia.', draft, 'PT'],

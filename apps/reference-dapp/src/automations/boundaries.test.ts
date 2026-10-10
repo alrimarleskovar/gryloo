@@ -8,7 +8,8 @@
  *      workflow store (read). The price transport is the only network access, and it is read-only by construction.
  *   3. The automation approval contributor and the owner's server actions never execute anything either.
  *   4. No automation module writes the generic handoff table: approvals go through the platform's handoff store.
- *   5. Nothing exposes an execution mode other than CONFIRM_EACH_TIME, and no automation variable is public.
+ *   5. No automation module grants an execution mode (BUILD-AUTOMATION-002's DELEGATED_WITH_LIMITS is created only by the delegation service,
+ *      with its signed authorization), and no automation variable is public.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -118,14 +119,24 @@ describe('BUILD-AUTOMATION-001 authority boundary', () => {
     }
   });
 
-  it('never writes the generic handoff table and never offers another execution mode', () => {
+  it('never writes the generic handoff table and never creates delegated authority (BUILD-AUTOMATION-002: the mode is named, never granted, here)', () => {
     for (const file of SOURCES) {
       expect(code(file), file).not.toMatch(/\b(?:INSERT INTO|UPDATE|DELETE FROM) mcp_handoffs\b/);
-      expect(code(file), file).not.toMatch(/AUTOMATIC_EXECUTION|DELEGATED|SESSION_KEY|executionMode:\s*'(?!CONFIRM_EACH_TIME)/);
+      // Automation modules may carry an explicitly created DELEGATED_WITH_LIMITS rule through (its occurrences go to the delegated executor),
+      // but nothing here creates delegated authority, a session key, a signer or an automatic mode of its own.
+      expect(code(file), file).not.toMatch(/AUTOMATIC_EXECUTION|SESSION_KEY|signerProvider|SignerAdmin|executionMode:\s*'(?!CONFIRM_EACH_TIME|DELEGATED_WITH_LIMITS)/);
       expect(code(file), file).not.toMatch(/NEXT_PUBLIC_/);
     }
+    // The owner's automation input still has no execution-mode field: CONFIRM_EACH_TIME rules cannot be turned into delegated ones by input,
+    // and the automation service never creates a delegated rule (only the delegation service does, together with its authorization).
+    expect(code('src/automations/definition.ts')).not.toMatch(/executionMode|DELEGATED/);
+    expect(code('src/automations/service.ts')).not.toMatch(/delegated:\s*\{/);
     const migration = readFileSync(join(app, '..', '..', 'packages/cloud-runtime/migrations/0010_automations.sql'), 'utf8');
     expect(migration).toMatch(/execution_mode text NOT NULL DEFAULT 'CONFIRM_EACH_TIME' CHECK \(execution_mode = 'CONFIRM_EACH_TIME'\)/);
     expect(migration.replace(/--.*$/gm, '')).not.toMatch(/\b(?:private_key|signature|seed|mnemonic|calldata)\b/i);
+    // 0011 widens the CHECK to exactly the two explicit modes; it stores no key material either.
+    const delegated = readFileSync(join(app, '..', '..', 'packages/cloud-runtime/migrations/0011_delegated_execution.sql'), 'utf8');
+    expect(delegated).toMatch(/CHECK \(execution_mode IN \('CONFIRM_EACH_TIME', 'DELEGATED_WITH_LIMITS'\)\)/);
+    expect(delegated.replace(/--.*$/gm, '')).not.toMatch(/\b(?:private_key|secret_key|seed|mnemonic)\b/i);
   });
 });

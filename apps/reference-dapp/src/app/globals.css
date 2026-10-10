@@ -1642,3 +1642,48 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 .review-authorization-details dd{margin:4px 0 0;overflow-wrap:anywhere}
 .copilot-automation-proposal{min-width:0;overflow-wrap:anywhere}
 @media(max-width:480px){.canvas-lifecycle-control .execute-acknowledgement{max-width:240px}.canvas-lifecycle-control button{max-width:100%;white-space:normal}}
+/* BUILD-AUTOMATION-002: delegated execution ("Automatic within limits"), Passkeys and execution Credentials */
+.delegation-mode{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+.delegation-mode label{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:13px;cursor:pointer}
+.delegation-mode label:has(input:checked){border-color:var(--blue);color:var(--blue)}
+.delegation-mode label:has(input:disabled){cursor:not-allowed;color:var(--muted)}
+.delegation-mode p{flex-basis:100%;margin:0;font-size:12px}
+.delegation-review{display:grid;gap:4px;margin-bottom:16px;border-color:var(--blue)}
+.delegation-review h3{font-size:16px;margin:0 0 6px}
+.delegation-review details{font-size:13px;margin:8px 0}
+.delegation-review summary{cursor:pointer;color:var(--muted)}
+.delegation-review details ul{margin:6px 0 10px;padding-left:20px;line-height:1.5}
+.delegation-promise{padding:10px 12px;border-left:3px solid var(--blue);border-radius:6px;background:var(--blue-soft);font-weight:500}
+.delegation-steps,.delegation-limits{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px;font-size:13px;line-height:1.45}
+.delegation-steps li{overflow-wrap:anywhere}
+.delegation-steps li[data-ok=false]{color:var(--red)}
+.delegation-limits{display:flex;flex-wrap:wrap;gap:6px}
+.delegation-limits li{padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font-size:12px}
+.delegation-form .automation-pair{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end}
+.delegation-steps-editor{display:grid;gap:10px}
+.delegation-steps-editor :is(input,select),.delegation-preview :is(input,select){min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+.delegation-steps-editor>.workspace-action{justify-self:start}
+.delegation-preview{display:grid;gap:12px;padding:14px;border:1px dashed var(--line);border-radius:8px}
+.delegation-preview fieldset{display:grid;gap:10px}
+.delegation-budget{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.delegation-budget caption{text-align:left;font-size:12px;color:var(--muted);margin-bottom:4px}
+.delegation-budget :is(th,td){padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+.delegation-budget :is(th,td):first-child,.delegation-budget :is(th,td):nth-child(2){text-align:left}
+.delegation-budget th{font-size:12px;font-weight:500;color:var(--muted)}
+.delegation-executions{list-style:none;padding:0;margin:8px 0;display:grid;gap:10px;font-size:13px}
+.delegation-execution{display:grid;gap:4px;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.delegation-execution ul{margin:0;padding-left:18px;line-height:1.5;color:var(--muted)}
+.delegation-card details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:12px}
+.delegation-passkeys,.delegation-credentials{display:grid;gap:16px}
+.delegation-passkey-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.delegation-passkey-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-size:13px}
+.delegation-passkey-list li .workspace-action{margin-left:auto}
+.delegation-credentials .automation-list{list-style:none;padding:0;margin:0}
+.delegation-grant[data-state=REVOKED],.delegation-grant[data-state=EXPIRED]{opacity:.75}
+:root[data-theme="dark"] :is(.delegation-passkey-list li){background:var(--surface-raised)}
+.canvas-automate-action{position:absolute;z-index:5;left:12px;bottom:24px}
+.canvas-automate-action .workspace-action{min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font-weight:500}
+.canvas-automation{display:grid;gap:10px;margin-bottom:16px;border-color:var(--blue)}
+.delegation-flow{display:grid;gap:12px}
+.copilot-automation-proposal .delegation-flow .automation-pair{grid-template-columns:minmax(0,1fr)}
+@media(max-width:480px){.delegation-budget{font-size:12px}.delegation-budget :is(th,td){padding:5px 4px}.delegation-preview{padding:10px}}

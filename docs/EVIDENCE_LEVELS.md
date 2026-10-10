@@ -147,3 +147,12 @@ Offline fixtures and the synthetic dry run are `MOCKED`; read-only Base state is
 ## BUILD-012A exact public evidence gate
 
 DEC-0056 permits TESTNET_EXECUTED only after a real owner-triggered Gryloo Supply on the verified official Aave V3 Base Sepolia deployment has exact transaction/event checks, successful canonical receipt and index-aware aToken principal delta. The downloadable canonical Evidence Bundle includes hashed observations and linked workflow, simulation, policy, Manifest, plan and journal. Deterministic harness observations remain MOCKED, and forks remain development evidence. No other Aave profile or network is promoted.
+
+## BUILD-AUTOMATION-002 delegated-execution evidence boundary
+
+Delegated executions record evidence per step, naming the Credential, grant, mechanism, submissions and reconciliation. The level is never
+above the weakest transport an execution used. Everything this build produced is `MOCKED`: loopback chain doubles in which the EVM
+side models the MetaMask Delegation Framework v1.3.0 enforcers in JavaScript (not the deployed bytecode) and the Solana side uses a fixture
+swap program. The codec is checked against one real Base Sepolia MetaMask redemption (decode, signer recovery, byte-identical re-encode),
+which is a read of public data and not an execution by FloFi. No `FORK_REPRODUCED`, `TESTNET_EXECUTED` or production delegated evidence
+exists. Production delegated signing is blocked until a custody provider exists.

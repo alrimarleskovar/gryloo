@@ -33,21 +33,22 @@ const OWNER = '0x' + 'c3'.repeat(20);
 
 describe('BUILD-AUTOMATION-001 migration 0010 (shipped)', () => {
   it('follows 0009 in the gapless shipped sequence and is pinned', async () => {
-    const all = await loadMigrations();
+    // Bounded to the first ten migrations: 0011 (BUILD-AUTOMATION-002) has its own suite, as 0010 bounded the 0009 suite.
+    const all = (await loadMigrations()).slice(0, 10);
     expect(all.map(m => [m.version, m.name]).slice(-2)).toEqual([[9, 'channel_conversations'], [10, 'automations']]);
-    expect(SHIPPED_MIGRATIONS.at(-1)).toEqual({ version: 10, name: 'automations', sha256: all.at(-1)!.sha256 });
+    expect(SHIPPED_MIGRATIONS[9]).toEqual({ version: 10, name: 'automations', sha256: all.at(-1)!.sha256 });
   });
 
   it('upgrades a populated 0009 database additively and keeps its rows', async () => {
     const t = await createTestDatabase({ migrated: false });
     try {
-      const all = await loadMigrations();
+      const all = (await loadMigrations()).slice(0, 10);
       await migrate(t.db, all.slice(0, 9));
       await t.db.query(`INSERT INTO channel_conversations (tenant_id, conversation_id, channel, business_id, subject_digest) VALUES ('default', $1, 'TELEGRAM', '7000000001', $2)`,
         ['chc_' + 'a'.repeat(26), randomBytes(32)]);
       const before = await shape(t.db);
       expect(await migrate(t.db, all)).toEqual([10]);
-      expect(await assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS)).toBe(10);
+      expect(await assertSchemaCurrent(t.db, SHIPPED_MIGRATIONS.slice(0, 10))).toBe(10);
       expect(await migrate(t.db, all)).toEqual([]);
       const after = await shape(t.db);
       expect(Object.keys(after).filter(name => !(name in before)).sort()).toEqual(AUTOMATION_TABLES);
@@ -82,7 +83,7 @@ describe('BUILD-AUTOMATION-001 migration 0010 (shipped)', () => {
         VALUES ('default', $1, 'eip155', $2, 'DCA', 'SCHEDULED_DCA', 'ACTIVE', '{}', '{"action":"swap"}', $3, 'flofi-engine-2', 'Europe/Lisbon', now()${values.length ? ', $4' : ''})`,
       [values[0] ?? rule, OWNER, '0x' + 'd'.repeat(64), ...values.slice(1)]);
       await insertRule();
-      // Only CONFIRM_EACH_TIME exists; a DCA must have an action; identity is immutable.
+      // Only the two explicit modes exist (BUILD-AUTOMATION-002 adds DELEGATED_WITH_LIMITS); a DCA must have an action; identity is immutable.
       await expect(insertRule('execution_mode', [id('aut'), 'AUTOMATIC'])).rejects.toThrow();
       await expect(t.db.query(`INSERT INTO automation_rules (tenant_id, rule_id, owner_namespace, owner_account, display_name, kind, state, definition, timezone, next_evaluation_at)
         VALUES ('default', $1, 'eip155', $2, 'x', 'SCHEDULED_DCA', 'ACTIVE', '{}', 'UTC', now())`, [id('aut'), OWNER])).rejects.toThrow();

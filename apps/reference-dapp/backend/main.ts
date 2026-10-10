@@ -93,6 +93,13 @@ async function main(): Promise<void> {
       const extra = await import('./automation-api.ts').then(m => m.loadAutomationApi(process.env, { db, tenantId: config.tenantId, backend, logger })).catch(() => null);
       if (extra) { routes = [...routes, ...extra]; logger.info('automation.api_enabled', { routes: extra.map(r => r.name).join(',') }); }
       else logger.error('automation.api_disabled', { error_code: 'AUTOMATION_API_LOAD_FAILED' });
+      // BUILD-AUTOMATION-002: owner operations of delegated execution (passkeys, Credentials, authorizations). Off by default; they never
+      // sign or submit (no executor on the API).
+      if (process.env.FLOFI_DELEGATION === 'enabled') {
+        const delegation = await import('./delegation-api.ts').then(m => m.loadDelegationApi(process.env, { db, tenantId: config.tenantId, logger })).catch(() => null);
+        if (delegation) { routes = [...routes, ...delegation]; logger.info('delegation.api_enabled', { routes: delegation.map(r => r.name).join(',') }); }
+        else logger.error('delegation.api_disabled', { error_code: 'DELEGATION_API_LOAD_FAILED' });
+      }
     }
     const server = createHttpServer({ routes, logger, authToken: config.apiAuthToken,
       ready: async () => { await db.query('SELECT 1'); return true; } });
@@ -113,14 +120,23 @@ async function main(): Promise<void> {
     if ('disabled' in parts) logger.error('automation.worker_disabled', { error_code: parts.disabled, reason: parts.reason ?? undefined });
     else { automations = parts; logger.info('automation.worker_enabled', { kinds: Object.keys(parts.handlers).join(','), telegram: parts.telegram }); }
   }
-  const handlers = { ...automations?.handlers, ...backend.handlers };
+  // BUILD-AUTOMATION-002: the delegated executor, opt-in (FLOFI_DELEGATED_EXECUTION=enabled) and only with a signer provider — which a hosted
+  // deployment cannot configure, so in standard production it stays disabled (logged) and nothing below changes.
+  let delegation: { readonly handlers: Readonly<Record<string, WorkHandler>>; readonly sweep: () => Promise<unknown> } | null = null;
+  if (process.env.FLOFI_DELEGATED_EXECUTION === 'enabled') {
+    const parts = await import('./delegation-worker.ts').then(m => m.loadDelegationWorker(process.env, db, config.tenantId, logger))
+      .catch(() => ({ disabled: 'DELEGATION_WORKER_LOAD_FAILED', reason: null }));
+    if ('disabled' in parts) logger.error('delegation.worker_disabled', { error_code: parts.disabled, reason: parts.reason ?? undefined });
+    else { delegation = parts; logger.info('delegation.worker_enabled', { kinds: Object.keys(parts.handlers).join(',') }); }
+  }
+  const handlers = { ...automations?.handlers, ...delegation?.handlers, ...backend.handlers };
   // BUILD-CLOUD-PARITY-001: a worker serves only its deployment's tenant, so a shared database never mixes deployments' runs.
   // BUILD-AUTOMATION-001: and it claims only the work kinds it has handlers for: another service's items are left to that service
   // instead of being dead-lettered here.
   const tenantQueue = createPostgresWorkQueue({ db, ownerId: config.workerId, tenantId: config.tenantId });
   const queue = { ...tenantQueue, claim: (limit: number) => tenantQueue.claim(limit, Object.keys(handlers)) };
   const worker = createWorker({ queue, handlers, logger, workerId: config.workerId, concurrency: config.workerConcurrency,
-    sweep: async () => { try { await sweep(db, { tenantId: config.tenantId }); } finally { await automations?.sweep(); } } });
+    sweep: async () => { try { await sweep(db, { tenantId: config.tenantId }); } finally { await automations?.sweep(); await delegation?.sweep().catch(() => undefined); } } });
   const shutdown = () => { logger.info('worker.stopping'); worker.stop().finally(() => db.close().finally(() => process.exit(0))); setTimeout(() => process.exit(1), 120_000).unref(); };
   process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
   await worker.start();

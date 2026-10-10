@@ -12,18 +12,23 @@ export type AutomationDraft = {
   kind: 'SCHEDULED_DCA' | 'PRICE_TRIGGER' | 'DAILY_WATCH'; asset: 'ETH' | 'SOL' | 'BTC' | 'OTHER' | null;
   side: 'BUY' | 'SELL' | null; network: (typeof COPILOT_NETWORKS)[number] | null;
   amount: string | null; spendAsset: 'USDC' | 'DEVUSDC' | 'ETH' | 'WETH' | 'SOL' | 'OTHER' | null;
-  time: string | null; condition: 'PRICE_BELOW' | 'PRICE_ABOVE' | null; threshold: string | null;
+  time: string | null; condition: 'PRICE_BELOW' | 'PRICE_ABOVE' | 'PERCENT_DROP' | 'PERCENT_RISE' | null; threshold: string | null;
+  /** BUILD-AUTOMATION-002: a percentage move ("5%" → "5"), measured from the stated reference price in `threshold`. */
+  percent: string | null;
 };
-const KEYS = ['kind', 'asset', 'side', 'network', 'amount', 'spendAsset', 'time', 'condition', 'threshold'];
+const KEYS = ['kind', 'asset', 'side', 'network', 'amount', 'spendAsset', 'time', 'condition', 'threshold', 'percent'];
+const PERCENT = /^(0|[1-9][0-9]{0,3})(\.[0-9]{1,2})?$/;
 export function parseAutomationDraft(raw: unknown): AutomationDraft {
   const p = COPILOT_V1_PARTS, v = p.exact(raw, KEYS);
   const time = v.time === null ? null : p.text(v.time, 5);
   if (time !== null && !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(time)) return p.fail();
+  const percent = v.percent === null ? null : p.text(v.percent, 8);
+  if (percent !== null && !PERCENT.test(percent)) return p.fail();
   return { kind: p.oneOf(['SCHEDULED_DCA', 'PRICE_TRIGGER', 'DAILY_WATCH'] as const, v.kind),
     asset: p.nullableOneOf(['ETH', 'SOL', 'BTC', 'OTHER'] as const, v.asset), side: p.nullableOneOf(['BUY', 'SELL'] as const, v.side),
     network: p.nullableOneOf(COPILOT_NETWORKS, v.network), amount: p.amount(v.amount),
     spendAsset: p.nullableOneOf(['USDC', 'DEVUSDC', 'ETH', 'WETH', 'SOL', 'OTHER'] as const, v.spendAsset),
-    time, condition: p.nullableOneOf(['PRICE_BELOW', 'PRICE_ABOVE'] as const, v.condition), threshold: p.amount(v.threshold) };
+    time, condition: p.nullableOneOf(['PRICE_BELOW', 'PRICE_ABOVE', 'PERCENT_DROP', 'PERCENT_RISE'] as const, v.condition), threshold: p.amount(v.threshold), percent };
 }
 const s = COPILOT_V1_PARTS.schema;
 export const AUTOMATION_DRAFT_SCHEMA = s.object({
@@ -34,14 +39,16 @@ export const AUTOMATION_DRAFT_SCHEMA = s.object({
   amount: s.nullableString('Exact input amount stated, decimal digits; null if missing.'),
   spendAsset: s.nullableChoice(['USDC', 'DEVUSDC', 'ETH', 'WETH', 'SOL', 'OTHER'], 'Token the amount spends; null if missing.'),
   time: s.nullableString('Explicit daily time in HH:mm (9h = 09:00); null if absent.'),
-  condition: s.nullableChoice(['PRICE_BELOW', 'PRICE_ABOVE'], 'Explicit price direction; null otherwise.'),
-  threshold: s.nullableString('Explicit USD threshold, normalized decimal; null if absent.'),
+  condition: s.nullableChoice(['PRICE_BELOW', 'PRICE_ABOVE', 'PERCENT_DROP', 'PERCENT_RISE'], 'Explicit price direction, or a percentage fall/rise; null otherwise.'),
+  threshold: s.nullableString('Explicit USD threshold, or for a percentage move the USD reference price the user stated ("from $3000"); normalized decimal; null if absent. Never the current price.'),
+  percent: s.nullableString('Percentage of a stated price move ("drops 5%" = "5"); null otherwise.'),
 });
 export type AutomationGrounding = { kind: 'PROPOSAL'; input: AutomationInput } | { kind: 'CLARIFICATION' | 'UNSUPPORTED'; message: string };
 const NETWORK = { BASE: 'base', BASE_SEPOLIA: 'base-sepolia', ETHEREUM_SEPOLIA: 'ethereum-sepolia', SOLANA: 'solana', SOLANA_DEVNET: 'solana-devnet' } as const;
 const DAILY = /\b(?:daily|every day|each day|todos os dias|todo dia|diariamente)\b/i;
 const BUY = /\b(?:buy|purchase|compr\w*)\b/i, SELL = /\b(?:sell|vend\w*)\b/i;
 const BELOW = /\b(?:below|under|abaixo|menos de)\b/i, ABOVE = /\b(?:above|over|acima|mais de)\b/i;
+const DROP = /\b(?:drops?|dropped|falls?|fell|declines?|cai|cair|caiu|desce|descer|desceu)\b/i, RISE = /\b(?:rises?|rose|climbs?|gains?|sobe|subir|subiu)\b/i;
 
 /** Untrusted interpretation → grounded input of the existing Automation domain. No IO or authority. */
 export function groundAutomationDraft(raw: AutomationDraft, text: string, timezone: string, now = Date.now(), language: CopilotLanguage = 'EN'): AutomationGrounding {
@@ -70,7 +77,16 @@ export function groundAutomationDraft(raw: AutomationDraft, text: string, timezo
     const times = [...text.matchAll(/(?:\bat\s*|às?\s*|as\s*)(\d{1,2})(?::([0-5]\d)|h(?:([0-5]\d))?)?/gi)];
     if (!raw.time || !times.some(m => `${m[1]!.padStart(2, '0')}:${m[2] ?? m[3] ?? '00'}` === raw.time)) return ask('At what time should FloFi check this every day?');
   }
-  if (raw.kind === 'PRICE_TRIGGER') {
+  const percentMove = raw.kind === 'PRICE_TRIGGER' && (raw.condition === 'PERCENT_DROP' || raw.condition === 'PERCENT_RISE');
+  if (percentMove) {
+    // Both the percentage and the reference price must be in the user's words; FloFi never infers a reference from the current price.
+    const percents = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*%/g)];
+    if (!raw.percent || !percents.some(m => groundedAmount(m[1]!, raw.percent!)) || !(raw.condition === 'PERCENT_DROP' ? DROP : RISE).test(text))
+      return ask('By what percentage, and in which direction, should the price move?');
+    const references = [...text.matchAll(/\b(?:from|de|a partir de)\s*(\$|USD\s*)?\s*(\d+(?:[.,]\d+)*)(?:\s*(USD|dollars?|d[oó]lares?))?/gi)];
+    if (!raw.threshold || !references.some(m => (m[1] || m[3]) && groundedAmount(m[2]!, raw.threshold!)))
+      return ask('From which USD reference price should the percentage be measured?');
+  } else if (raw.kind === 'PRICE_TRIGGER') {
     const thresholds = [...text.matchAll(/\b(ETH|SOL|BTC)\b[^,;\n]*?\b(below|under|abaixo(?: de)?|menos de|above|over|acima(?: de)?|mais de)\s*(\$|USD\s*)?\s*(\d+(?:[.,]\d+)*)(?:\s*(USD|dollars?|d[oó]lares?))?/gi)];
     if (!raw.condition || !raw.threshold || !thresholds.some(match => match[1]!.toUpperCase() === raw.asset &&
       (raw.condition === 'PRICE_BELOW' ? BELOW : ABOVE).test(match[2]!) && (match[3] || match[5]) && groundedAmount(match[4]!, raw.threshold!)))
@@ -83,7 +99,9 @@ export function groundAutomationDraft(raw: AutomationDraft, text: string, timezo
   const name = `${raw.asset} ${language === 'PT' ? portugueseAutomations[label] ?? label : label}`;
   const input: AutomationInput = raw.kind === 'DAILY_WATCH' ? { version: 1, kind: raw.kind, name, schedule, watch: { assets: [raw.asset] }, expiresAt: null }
     : raw.kind === 'SCHEDULED_DCA' ? { version: 1, kind: raw.kind, name, schedule, action: action!, limits, expiresAt: null }
-    : { version: 1, kind: raw.kind, name, timezone, condition: { type: raw.condition!, asset: raw.asset, threshold: raw.threshold!, checkEveryMinutes: 15 }, action, limits, expiresAt: null };
+    : { version: 1, kind: raw.kind, name, timezone, condition: percentMove
+      ? { type: raw.condition as 'PERCENT_DROP' | 'PERCENT_RISE', asset: raw.asset, reference: raw.threshold!, percent: raw.percent!, checkEveryMinutes: 15 }
+      : { type: raw.condition as 'PRICE_BELOW' | 'PRICE_ABOVE', asset: raw.asset, threshold: raw.threshold!, checkEveryMinutes: 15 }, action, limits, expiresAt: null };
   const validated = validateAutomationInput(input, now);
   return validated.ok ? { kind: 'PROPOSAL', input } : ask('Check the automation amount, schedule and threshold.');
 }

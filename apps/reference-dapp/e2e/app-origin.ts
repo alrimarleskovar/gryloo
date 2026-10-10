@@ -9,7 +9,7 @@
  */
 export const E2E_DEFAULT_APP_PORT = 3000;
 /** Loopback ports the browser suites already bind (MOCKED harnesses, synthetic and replayed forks). */
-export const E2E_RESERVED_PORTS: readonly number[] = Object.freeze([8545, 8546, 8547, 8549, 8551, 8552, 8553, 8554, 8555, 8556, 8557]);
+export const E2E_RESERVED_PORTS: readonly number[] = Object.freeze([8545, 8546, 8547, 8549, 8551, 8552, 8553, 8554, 8555, 8556, 8557, 8560]);
 
 export function e2eAppPort(value: string | undefined): number {
   if (value === undefined) return E2E_DEFAULT_APP_PORT;

@@ -143,3 +143,27 @@ closed codes and counts only — never an owner address, a channel address, a li
 - Never set `FLOFI_AUTOMATION_PRICE_SOURCE=fixture` or `FLOFI_AUTOMATION_TEST_CLOCK=enabled` on a hosted deployment (both are refused).
 - Never list mainnet networks for automations without the owner's explicit decision and the legal review Channels and MCP require.
 - There is no "run this automation now" endpoint and none should be added: evaluation only ever produces proposals for the owner.
+
+## 8. "Automatic within limits" (BUILD-AUTOMATION-002, opt-in, not in standard production)
+
+`DELEGATED_WITH_LIMITS` is a second, explicit execution mode alongside the default `CONFIRM_EACH_TIME`. Rules of both modes live in the
+same `automation_rules` table and use the same scheduler and evaluator; Chat, the Automations form and (later) the Canvas all produce the
+same canonical rule. The owner:
+
+1. registers a passkey (Passkeys) after a fresh wallet sign-in;
+2. enrolls each wallet once in Credentials → Automatic execution. Each enrollment is one wallet signature per chain, granting a bounded
+   on-chain delegation to a session signer dedicated to that grant: an ERC-7710 delegation for EVM, an SPL token delegation for Solana;
+3. creates a workflow in "Automatic within limits". FloFi resolves every step's Credential **before** anything is created and names any
+   missing or under-scoped Credential;
+4. reviews the human-readable authorization (steps, limits, expiry, what is enforced on-chain versus by FloFi) and signs it **once** with
+   the passkey. That is not a blockchain signature.
+
+Each occurrence then runs without asking the owner again. In order, FloFi re-verifies the authority graph, atomically reserves the budget,
+runs a fresh simulation, checks the step against the signed limits, has the session signer submit it, reconciles and settles, and records
+evidence that names the Credential and grant of each step. An uncertain outcome never releases its reservation and is never re-signed.
+"Revoke authorization" stops the workflow at once. Revoking a Credential also needs the owner's wallet to disable the on-chain grant.
+
+Operationally: see [ENVIRONMENT.md §5g](ENVIRONMENT.md). The executor needs a production custody provider for its session signers, and none
+exists yet, so **production delegated signing is blocked** (`DELEGATED_SIGNER_UNAVAILABLE`). Only local rehearsals with disposable keys
+under `/tmp` and the loopback chain doubles can run it. Logs use the same content-free conventions (`delegation.*`): ids, closed codes and
+counts only, never a key, a signature or an address.

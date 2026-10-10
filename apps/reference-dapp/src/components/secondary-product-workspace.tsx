@@ -7,6 +7,7 @@ import type { SecondaryWorkspace } from '../domain/secondary-workspaces';
 import { useBuild009Wallet } from '../state/build009-wallet-store';
 import { YourWorkflows, type WorkflowNavigation } from './saved-workflows';
 import { AutomationsWorkspace, type AutomationNavigation } from './automations-workspace';
+import { ExecutionCredentials, PasskeysPanel, type DelegationAccess } from './delegation-credentials';
 import { useJupiter } from '../state/jupiter-store';
 import { brandLabel, LABEL_MAX, networkLabel, type SavedCard, type SavedWallet } from '../domain/credentials';
 import { removeSavedCredential, renameSavedCredential, saveCardReference, saveWalletReference, useCredentials } from '../state/credentials-store';
@@ -257,7 +258,7 @@ function CardEntryDialog({ onClose, onAdded }: { onClose(): void; onAdded(label:
   </dialog>;
 }
 
-function CredentialsWorkspace() {
+function CredentialsWorkspace({ access }: { access?: DelegationAccess | undefined }) {
   const { t: tr } = useLocale();
   const evm = useBuild009Wallet();
   const solana = useJupiter();
@@ -327,6 +328,8 @@ function CredentialsWorkspace() {
       <div className="workspace-section-heading"><div><WorkspaceIcon name="key"/><h2 id="credentials-payments">{tr("Payment connections")}</h2><span className="workspace-count">0</span></div></div>
       <div className="workspace-empty"><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><h3>{tr("No payment provider connected")}</h3><p>{tr("Pix and boleto payments need a connected payment provider. None is connected yet.")}</p></div>
     </section>
+    {/* BUILD-AUTOMATION-002: execution Credentials (only where delegated execution is enabled; otherwise nothing renders). */}
+    <ExecutionCredentials access={access}/>
     <div className="workspace-secondary-actions"><FutureAction><WorkspaceIcon name="plus" size={16}/><WorkspaceIcon name="secret" size={18}/>{tr("Add secret")}</FutureAction></div>
     {cardEntry && <CardEntryDialog onClose={() => setCardEntry(false)} onAdded={label => { setCardEntry(false); setStatus(`${label} added to Credentials.`); }}/>}
   </>;
@@ -351,19 +354,21 @@ function AgentsWorkspace() {
   </>;
 }
 
-function PasskeysWorkspace() {
+function PasskeysWorkspace({ access }: { access?: DelegationAccess | undefined }) {
   const { t: tr } = useLocale();
-  return <>
+  // BUILD-AUTOMATION-002: the passkey manager where delegated execution is enabled; this placeholder everywhere else.
+  return <PasskeysPanel access={access} placeholder={<>
     <header className="secondary-workspace-heading"><h1>{tr("Passkeys")}</h1><p>{tr("Manage device passkeys associated with your FloFi account or session.")}</p></header>
     <section className="workspace-passkey-control" aria-labelledby="passkey-unlock"><button type="button" role="switch" className="workspace-passkey-switch" aria-checked="false" aria-labelledby="passkey-unlock" aria-describedby="passkey-help" disabled title={tr("Coming soon")}><span/></button>
       <div><h2 id="passkey-unlock">{tr("Unlock with a passkey")}</h2><p id="passkey-help">{tr("Turn on to add a passkey.")}</p></div>
     </section>
     <section className="workspace-empty workspace-passkey-empty" aria-label={tr("Passkeys")}><span className="workspace-empty-icon"><WorkspaceIcon name="key" size={28}/></span><p>{tr("No passkeys yet. Add one to get started.")}</p></section>
-  </>;
+  </>}/>;
 }
 
 export function SecondaryProductWorkspace({ workspace, workflows, automations }: { workspace: SecondaryWorkspace['id']; workflows?: WorkflowNavigation | undefined;
   automations?: AutomationNavigation | undefined }) {
+  const access: DelegationAccess | undefined = automations?.proof ? { owner: automations.owner ?? null, proof: automations.proof } : undefined;
   return workspace === 'workflows' ? <YourWorkflows {...workflows}/> : workspace === 'automations' ? <AutomationsWorkspace {...automations}/>
-    : workspace === 'credentials' ? <CredentialsWorkspace/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace/>;
+    : workspace === 'credentials' ? <CredentialsWorkspace access={access}/> : workspace === 'agents' ? <AgentsWorkspace/> : <PasskeysWorkspace access={access}/>;
 }
