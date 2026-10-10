@@ -40,14 +40,14 @@ export async function guardedContext(browser: Browser): Promise<{ context: Brows
 }
 
 /** Installs the injected wallet with `accounts` (the first is selected) on the given chain. */
-export async function installJourneyWallet(page: Page, accounts: readonly TestWallet[], options: { chain?: string } = {}) {
+export async function installJourneyWallet(page: Page, accounts: readonly TestWallet[], options: { chain?: string; transactionControl?: (method: string, params: unknown[]) => Promise<unknown> } = {}) {
   const signers = new Map(accounts.map(a => [a.address, a]));
   await page.exposeFunction('flofiJourneySign', (address: string, message: unknown) => {
     const signer = signers.get(address);
     if (!signer) throw new Error('MOCK_WALLET_ACCOUNT_UNKNOWN');
     return signer.signMessage(personalSignText(message));
   });
-  await page.exposeFunction('flofiJourneyControl', (method: string, params: unknown[]) => routerControl(method, [...params, TESTNET]));
+  await page.exposeFunction('flofiJourneyControl', options.transactionControl ?? ((method: string, params: unknown[]) => routerControl(method, [...params, TESTNET])));
   await page.addInitScript(({ accounts, chain }) => {
     type Listener = (...args: unknown[]) => void;
     const listeners = new Map<string, Set<Listener>>();
@@ -59,6 +59,7 @@ export async function installJourneyWallet(page: Page, accounts: readonly TestWa
       state,
       switchAccount(address: string) { state.account = address; emit('accountsChanged', [address]); },
       setChain(next: string) { state.chain = next; emit('chainChanged', next); },
+      synchronize() { emit('connect'); emit('accountsChanged', [state.account]); emit('chainChanged', state.chain); },
     };
     w.ethereum = {
       on(event: string, listener: Listener) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event)!.add(listener); },
@@ -90,3 +91,5 @@ export const switchAccount = (page: Page, address: string) => page.evaluate(next
   (window as unknown as { flofiJourneyWallet: { switchAccount(a: string): void } }).flofiJourneyWallet.switchAccount(next), address);
 export const setWalletChain = (page: Page, chain: string) => page.evaluate(next =>
   (window as unknown as { flofiJourneyWallet: { setChain(c: string): void } }).flofiJourneyWallet.setChain(next), chain);
+export const synchronizeWallet = (page: Page) => page.evaluate(() =>
+  (window as unknown as { flofiJourneyWallet: { synchronize(): void } }).flofiJourneyWallet.synchronize());

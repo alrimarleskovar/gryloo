@@ -42,7 +42,7 @@ async function calldataDigest(data: string): Promise<string> {
   return '0x' + Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 export function PublicTestnetProvider({ children }: { children: ReactNode }) {
-  const { state } = useWorkflow();
+  const { state, restoreWorkflow } = useWorkflow();
   const wallet = useBuild009Wallet();
   const [available, setAvailable] = useState(false);
   const [run, setRun] = useState<PublicRun | null>(null);
@@ -53,6 +53,8 @@ export function PublicTestnetProvider({ children }: { children: ReactNode }) {
   const busyRef = useRef(false);
   const workflowRef = useRef(state.workflow);
   workflowRef.current = state.workflow;
+  const initialWorkflow = useRef(state.workflow);
+  const restoreRef = useRef(restoreWorkflow); restoreRef.current = restoreWorkflow;
   const retired = Boolean(run && (recoveryOnly || source !== state.workflow));
   const guarded = useCallback((label: string, action: () => Promise<void>) => {
     if (busyRef.current) return;
@@ -74,7 +76,13 @@ export function PublicTestnetProvider({ children }: { children: ReactNode }) {
           if (reported.ok) recovered = reported.value;
         }
       }
-      if (!cancelled) { setRun(recovered); setRecoveryOnly(true); }
+      if (!cancelled) {
+        // Recover the canonical workflow only over the untouched initial template.
+        // Recovery remains observation-only until fresh simulation and owner Review.
+        if (workflowRef.current === initialWorkflow.current && initialWorkflow.current.revision === 0 &&
+            initialWorkflow.current.nodes.every(node => node.actionType.startsWith('mock-'))) restoreRef.current(recovered.workflow);
+        setRun(recovered); setRecoveryOnly(true);
+      }
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);

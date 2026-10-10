@@ -43,6 +43,25 @@ function supply() {
   return fixture;
 }
 describe('shared wallet and existing Review capability', () => {
+  it('allows Review of a refreshed public quote after a confirmed approval, without reviving the old quote binding', () => {
+    const fixture = reviewFixture();
+    if (fixture.source.kind !== 'public' || !fixture.source.state.run) throw Error('fixture');
+    const saved = structuredClone(fixture.source.state.run);
+    const run = { ...saved, reviewedManifestHash: saved.quote.manifestHash };
+    f.stores.public = { run, available: true, busy: false, retired: false, recoveryOnly: false, review: vi.fn() };
+    expect(useReviewAuthorization('public').authorization.accepted).toBe(true);
+    f.stores.wallet!.revision = 1;
+    expect(useReviewAuthorization('public').wallet.changed).toBe(true);
+    Object.assign(run, { attempts: [{ step: 'approval', state: 'CONFIRMED' }], reviewedManifestHash: null,
+      quote: { ...run.quote, manifestHash: '0x' + 'b'.repeat(64) } });
+    const fresh = useReviewAuthorization('public');
+    expect(fresh.wallet.changed).toBe(false);
+    expect(fresh.authorization).toMatchObject({ accepted: false, ready: true });
+    Object.assign(run, { attempts: [{ step: 'approval', state: 'UNKNOWN' }] });
+    expect(useReviewAuthorization('public').authorization.ready).toBe(false);
+    Object.assign(run, { attempts: [{ step: 'approval', state: 'CONFIRMED' }, { step: 'swap', state: 'CONFIRMED' }] });
+    expect(useReviewAuthorization('public').authorization.ready).toBe(false);
+  });
   it('uses the existing store Review callback, actual wallet and shared environment without exposing Execute', () => {
     supply(); const result = useReviewAuthorization('supply');
     expect(result.authorization.approve).toBe(f.stores.supply!.review);
@@ -63,8 +82,10 @@ describe('shared wallet and existing Review capability', () => {
     f.stores.wallet!.provider = { key: 'io.metamask', name: 'MetaMask', icon: null };
     supply(); expect(useReviewAuthorization('supply').wallet.changed).toBe(false);
     f.stores.wallet!.provider = { key: 'io.rabby', name: 'Rabby Wallet', icon: null };
+    f.stores.wallet!.revision = 1;
     expect(useReviewAuthorization('supply').wallet).toMatchObject({ account: reviewOwner, chain: 'eip155:84532', changed: true });
     f.stores.wallet!.provider = { key: 'io.metamask', name: 'MetaMask', icon: null };
+    f.stores.wallet!.revision = 2;
     expect(useReviewAuthorization('supply').wallet.changed).toBe(true);
   });
   it('retires old approval after restoring the identical workflow and requires a fresh simulation', () => {
@@ -76,7 +97,7 @@ describe('shared wallet and existing Review capability', () => {
     expect(useReviewAuthorization('supply').wallet.changed).toBe(false);
     expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
   });
-  it('invalidates the old Manifest on a wallet event even when account and network return to the same identity', () => {
+  it('invalidates the old Manifest on a semantic authority transition even when account and network return to the same identity', () => {
     supply(); expect(useReviewAuthorization('supply').authorization.ready).toBe(true);
     f.stores.wallet!.revision = 1;
     expect(useReviewAuthorization('supply').wallet.changed).toBe(true);

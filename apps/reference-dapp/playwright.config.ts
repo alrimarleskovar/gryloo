@@ -103,6 +103,7 @@ if (cloudRuntime && !process.env.FLOFI_E2E_DATABASE_URL) {
 // The real estimate API and public-swap service read only a synthetic HTTPS loopback provider in acceptance.
 const swapReadHarness = process.env.FLOFI_SWAP_READ_E2E === 'MOCKED_LOOPBACK_ONLY';
 if (process.env.FLOFI_SWAP_READ_E2E && !swapReadHarness) throw Error('Swap read E2E permits only the MOCKED loopback harness');
+if (process.env.FLOFI_SWAP_EXECUTION_E2E && (!swapReadHarness || process.env.FLOFI_SWAP_EXECUTION_E2E !== 'MOCKED_LOOPBACK_ONLY')) throw Error('Swap execution E2E requires the MOCKED loopback read harness');
 let swapReadEnv: Record<string, string> = {};
 if (swapReadHarness) {
   if (!cloudRuntime) throw Error('Swap read E2E requires disposable PostgreSQL');
