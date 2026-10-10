@@ -5,6 +5,8 @@ main `7841d5657ec9a816140a180081178e2abbc27246` (PR #75: BUILD-AUTOMATION-001, `
 **rebased on 2026-10-10 onto canonical main `974a7acad6b117662d986254b9bc9e9be6e2a356`** (PR #76: BUILD-EXECUTION-CONTINUITY-001).
 PR #77 (BUILD-CANVAS-AUTOMATION-UX-002, head `69b4447936744d1f0bfc57535d6c36386765bbf2`) is open, unmerged, and inspected read-only.
 §18 records how this build adopts PR #76's execution semantics and composes with PR #77's Canvas and chat authoring.
+**Update, later on 2026-10-10:** PR #77 merged as `c9f48d35aa251701f1082ba76174502686a62ba0`; the branch was restacked onto it once and
+step B of §18.4 was completed, partly after a session takeover. §18.5 records that; the text above it is kept as written.
 One coherent build, developed and validated locally, pushed once by the owner. Nothing is pushed, no PR is opened and nothing is merged
 by the agent.
 
@@ -420,3 +422,34 @@ B. **After PR #77 merges, restacking once first:** the mode choice on the chat p
    entry; reuse of PR #77's authorization details component in the Universal Authorization Review; a browser journey from chat to an
    active delegated rule; percent triggers in the draft.
    If PR #77 has not merged at delivery, step B is listed as not implemented.
+
+### 18.5 PR #77 merged: restack, session takeover and step B (2026-10-10)
+
+**Restack.** PR #77 merged as `c9f48d35aa251701f1082ba76174502686a62ba0`. The branch was rebased onto it once (from `695f419`, kept locally
+as `backup/automation-002-pre-pr77-restack-695f419`). PR #77 adds no migration, so `0011_delegated_execution` keeps its number and pin.
+Three conflicts were mechanical and kept both sides: `src/app/globals.css` and `src/i18n/pt.ts` (both sides appended), and
+`scripts/guarded-release-browser.mjs`. In the last one, PR #77's new `canvas-automation-ux` and `chat-automations` profiles stay, and the
+`delegated-execution` filter follows PR #77's `e2e/…` path form (PR #77 made the `automations` filter `e2e/automations.spec.ts` so that it
+no longer also matches `copilot-automations.spec.ts`).
+
+**Takeover.** A second session took over the worktree after the restack and the step-B commit `f8019e7`. It found the restack done, and one
+uncommitted change: a replay entry for the chat journey. It kept both, did not rebase again, and completed what was left: the browser
+journeys from chat and from the Canvas, and the small fixes listed below. The report (§22) records the takeover in detail.
+
+**Step B as implemented.** It reuses PR #77's surfaces and the one canonical object chain of §18.3. It adds no second chat system, no
+second Canvas lifecycle and no second IR.
+
+| §18.4 B item | Implementation |
+| --- | --- |
+| Mode choice on the chat proposal card | PR #77's card keeps its preview and gets the radiogroup "Ask every time" (default, `CONFIRM_EACH_TIME`) / "Automatic within limits" (`DELEGATED_WITH_LIMITS`). It is offered only for a draft that executes a route, and only when the proven owner's deployment serves delegated execution. When the executor is blocked (`DELEGATED_SIGNER_UNAVAILABLE`), the option is shown disabled with that reason, as in Automations. The draft has no mode field: words such as "automatically" preselect nothing. Delegated mode prefills no limit, budget or expiry: the owner types them. The source sent is `{ source: 'AUTOMATION_INPUT', automation, terms }`, which the server compiles through `delegation/automation-source.ts`. |
+| Percent triggers in the draft | `AutomationDraft` gains `PERCENT_DROP` / `PERCENT_RISE` and a `percent` field. Grounding requires the percentage, its direction and the reference price to be in the user's own words ("from $3000"). Without a stated reference it asks; it never uses the current price as the reference. |
+| Canvas "Automate this workflow" | The button appears on the Build Canvas only where automations are enabled. It opens Automations with the exact Canvas workflow (shared shell state). `automations/automation-steps.ts` re-derives the steps from the document by exact node reproduction: FloFi's engine composes each candidate canonical route step, and the result must be semantically identical to the Canvas node (action, chain, inputs, constraints, protocols, failure policy and authorization class, the same comparison AUTOMATION-001 uses for saved workflows). Anything else is refused with a precise code, before anything is created. The steps keep the Canvas order. "Ask every time" opens AUTOMATION-001's own create form prefilled with the step, for one-step workflows only, because AUTOMATION-001 executes one step. "Automatic within limits" sends `{ source: 'CANVAS_WORKFLOW', workflow, trigger, name, terms }`. The server re-derives the steps from the document and never trusts steps, a hash or a mode from the browser. |
+| Shared Authorization Review | There is one delegated flow for all three surfaces (`DelegatedLimitsFlow`): limits → the authority check over the complete workflow → an explicit "Create and review authorization" → the Universal Authorization Review → one passkey signature. **Deviation from §18.3 e:** PR #77's `ReviewAuthorizationDetails` component is not reused. It renders the per-transaction browser Review projection (`projectReview`: Strategy Manifest, wallet, network, approvals), which a delegated authorization does not have. The delegated Review follows the same rule instead: a compact list of steps and limits, the enforcement split under a disclosure, and no raw Manifest JSON in the normal product. |
+| Browser journey from chat to an active delegated rule | `e2e/delegated-execution.spec.ts` now holds three journeys (Automations form, Chat, Canvas), each ending in one passkey signature and a MOCKED execution with no owner signature. The `delegated-execution` profile sets `FLOFI_COPILOT=replay` for the chat journey. |
+
+**Canvas composition limits (main, unchanged).** The Canvas itself refuses a Solana swap beside any other step
+(`SOLANA_SWAP_ISOLATED_ONLY`). Every EVM swap must be on the workflow's one trusted chain, so a second swap on another chain is refused
+(`INVALID_SWAP_DECLARATION`, `reference-linter`). Its cross-chain workflows are bridge
+compositions, and bridges are not delegable (§13). So "Automate this workflow" covers one swap on Base Sepolia, Ethereum Sepolia or Solana
+Devnet, or several Base Sepolia swaps in order. A Base → Arbitrum composition is refused (`AUTOMATION_WORKFLOW_NOT_REPRESENTABLE`) before
+anything is created. Multi-domain delegated workflows (EVM + Solana under one authorization) are authored in the Automations form.
