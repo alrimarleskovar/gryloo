@@ -47,4 +47,3 @@ export type DelegationRuntime = { readonly config: DelegationConfig; readonly ho
 export function delegationRuntime(config: DelegationConfig, host: DelegationHost, seams: DelegationSeams = {}): DelegationRuntime {
   return { config, host, store: createPgDelegationStore(host.db, host.tenantId), now: seams.now ?? (() => new Date()), seams };
 }
-

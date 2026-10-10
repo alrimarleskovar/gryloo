@@ -26,4 +26,3 @@ describe('ERC-7710 codec against a real Base Sepolia MetaMask redemption', () =>
       .toBe(vector.transaction.input);
   });
 });
-
