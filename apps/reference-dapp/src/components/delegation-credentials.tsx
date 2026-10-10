@@ -59,12 +59,15 @@ function useRunner(refresh: () => Promise<void>) {
 
 /** The Passkeys workspace: the placeholder of main until delegated execution is enabled and the owner proved a wallet. */
 export function PasskeysPanel({ access, placeholder }: { access: DelegationAccess | undefined; placeholder: ReactNode }) {
-  const { t } = useLocale(), owner = access?.owner ?? null, proven = Boolean(owner && access?.proof.proven === owner.address);
+  return access ? <PasskeysManager access={access} placeholder={placeholder}/> : <>{placeholder}</>;
+}
+function PasskeysManager({ access, placeholder }: { access: DelegationAccess; placeholder: ReactNode }) {
+  const { t } = useLocale(), owner = access.owner, proven = Boolean(owner && access.proof.proven === owner.address);
   const { overview, code, refresh } = useOverview(owner, proven), { busy, run, messages } = useRunner(refresh);
   const [label, setLabel] = useState('This device');
   const enabled = useEnabled();
   // Without delegated execution on this deployment (or without a connected wallet) the workspace stays exactly as before.
-  if (!enabled || !owner || !access || code === 'DELEGATION_NOT_ENABLED') return <>{placeholder}</>;
+  if (!enabled || !owner || code === 'DELEGATION_NOT_ENABLED') return <>{placeholder}</>;
   if (!proven) return <><header className="secondary-workspace-heading"><h1>{t('Passkeys')}</h1><p>{t('A passkey is how you authorize automatic workflows: once per workflow, on this device.')}</p></header>
     <div className="workspace-empty"><p>{t('Verify wallet ownership to manage passkeys.')}</p><WalletProof namespace={owner.namespace} proof={{ ...access.proof, proven: null }}/></div></>;
   async function add(event: FormEvent) {
@@ -82,7 +85,7 @@ export function PasskeysPanel({ access, placeholder }: { access: DelegationAcces
     {messages}
     <form className="automation-inline-form" aria-label={t('Add a passkey')} onSubmit={event => void add(event)}>
       <label>{t('Name')}<input aria-label={t('Passkey name')} value={label} maxLength={40} onChange={e => setLabel(e.currentTarget.value)}/></label>
-      <button type="submit" className="primary" disabled={busy || !passkeysSupported()}>{t('Add a passkey')}</button>
+      <button type="submit" className="workspace-action primary-action" disabled={busy || !passkeysSupported()}>{t('Add a passkey')}</button>
     </form>
     {passkeys.length ? <ul className="delegation-passkey-list">{passkeys.map(p => <li key={p.passkeyId} aria-label={t('Passkey {0}', p.label)}>
       <strong>{p.label}</strong> · {t(p.revoked ? 'Revoked' : 'Active')} · {t('added {0}', new Date(p.createdAt).toLocaleDateString())}
@@ -113,16 +116,20 @@ function GrantCard({ g, owner, busy, run }: { g: GrantView; owner: WorkflowOwner
     <p className="muted">{t('Expires {0}', new Date(g.expiresAt).toLocaleDateString())}{g.verifiedAt ? ` · ${t('verified {0}', new Date(g.verifiedAt).toLocaleString())}` : ''}</p>
     <div className="automation-row-actions">
       {(g.state === 'ACTIVE' || g.state === 'UNCERTAIN') && <button type="button" className="workspace-action" disabled={busy} onClick={() => void run(() => credentialReverify(owner, g.grantId), 'Verified on-chain.')}>{t('Verify again')}</button>}
-      {['ACTIVE', 'UNCERTAIN', 'EXPIRED'].includes(g.state) && <button type="button" className="danger" disabled={busy} onClick={() => void run(() => credentialRevoke(owner, g.grantId),
+      {['ACTIVE', 'UNCERTAIN', 'EXPIRED'].includes(g.state) && <button type="button" className="workspace-action workspace-action-danger" disabled={busy} onClick={() => void run(() => credentialRevoke(owner, g.grantId),
         'FloFi stopped using this Credential. Now confirm the on-chain revocation in your wallet.')}>{t('Revoke credential')}</button>}
-      {g.state === 'REVOCATION_REQUESTED' && <button type="button" className="primary" disabled={busy} onClick={() => void finishRevocation()}>{t('Revoke on-chain with your wallet')}</button>}
+      {g.state === 'REVOCATION_REQUESTED' && <button type="button" className="workspace-action primary-action" disabled={busy} onClick={() => void finishRevocation()}>{t('Revoke on-chain with your wallet')}</button>}
     </div>
   </li>;
 }
 
-/** Credentials → "Automatic execution": the owner's execution Credentials and their enrollment. */
+/** Credentials → "Automatic execution": the owner's execution Credentials and their enrollment. Nothing renders (and no wallet hook runs) without the
+ * shell's wallet access, so the Credentials workspace of a deployment without delegated execution stays exactly as before. */
 export function ExecutionCredentials({ access }: { access: DelegationAccess | undefined }) {
-  const { t } = useLocale(), owner = access?.owner ?? null, proven = Boolean(owner && access?.proof.proven === owner.address);
+  return access ? <ExecutionCredentialsPanel access={access}/> : null;
+}
+function ExecutionCredentialsPanel({ access }: { access: DelegationAccess }) {
+  const { t } = useLocale(), owner = access.owner, proven = Boolean(owner && access.proof.proven === owner.address);
   const { overview, code, refresh } = useOverview(owner, proven), { busy, run, messages } = useRunner(refresh);
   const solanaProof = useWalletProof(owner ? 'solana' : null);
   const [network, setNetwork] = useState<'base-sepolia' | 'ethereum-sepolia' | 'solana-devnet'>('base-sepolia'), [cap, setCap] = useState('100'), [calls, setCalls] = useState('40');
@@ -156,7 +163,7 @@ export function ExecutionCredentials({ access }: { access: DelegationAccess | un
       <span className="workspace-count">{overview?.credentials.reduce((n, c) => n + c.grants.filter(g => g.state === 'ACTIVE').length, 0) ?? 0}</span></div></div>
     <p className="muted">{t('Enroll a wallet once to let FloFi execute workflows you authorize, inside the limits it signs here. Each enrollment is one wallet signature per network; workflows never ask the wallet again.')}</p>
     {messages}
-    {!proven ? <div className="workspace-empty"><p>{t('Verify wallet ownership to manage automatic execution.')}</p>{access && <WalletProof namespace={owner.namespace} proof={{ ...access.proof, proven: null }}/>}</div> : <>
+    {!proven ? <div className="workspace-empty"><p>{t('Verify wallet ownership to manage automatic execution.')}</p><WalletProof namespace={owner.namespace} proof={{ ...access.proof, proven: null }}/></div> : <>
       {overview?.availability.enrollment && <p className="muted">{t(ERROR_TEXT[overview.availability.enrollment] ?? overview.availability.enrollment)}</p>}
       {!passkey && <p className="error-banner" role="note">{t('Register a passkey first (Passkeys). Every Credential is bound to the passkey that will authorize your workflows.')}</p>}
       <ul className="automation-list">{(overview?.credentials ?? []).flatMap(c => c.grants).map(g => <GrantCard key={g.grantId} g={g} owner={owner} busy={busy} run={run}/>)}</ul>
@@ -173,7 +180,7 @@ export function ExecutionCredentials({ access }: { access: DelegationAccess | un
           <label className="automation-field"><span>{t('Number of calls')}</span><input inputMode="numeric" aria-label={t('Number of calls')} value={calls} onChange={e => setCalls(e.currentTarget.value.trim())}/></label>
         </>}
         <label className="automation-field"><span>{t('Expires on')}</span><input type="date" aria-label={t('Credential expires on')} value={expires} onChange={e => setExpires(e.currentTarget.value)}/></label>
-        <button type="submit" className="primary" disabled={busy || !passkey}>{t('Enroll with my wallet')}</button>
+        <button type="submit" className="workspace-action primary-action" disabled={busy || !passkey}>{t('Enroll with my wallet')}</button>
       </form>
     </>}
   </section>;

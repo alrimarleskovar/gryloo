@@ -96,7 +96,7 @@ export function AuthorizationReview({ review, owner, busy, run, onDone }: { revi
       <p>{t('By FloFi before every execution:')}</p><ul>{application.map(r => <li key={r}>{t(r)}</li>)}</ul></details>
     <p>{t('Wallet setup: {0} Credential(s) already enrolled — no new wallet signature is needed. You sign this authorization once, with your passkey.', String(m.setupSignatures))}</p>
     <p className="muted">{t('Revoke it at any time with “Revoke authorization”: FloFi stops at once.')}</p>
-    <div className="approval-actions"><button type="button" className="primary" disabled={busy || !passkeysSupported()} onClick={() => void sign()}>{t('Authorize with passkey')}</button></div>
+    <div className="approval-actions"><button type="button" className="workspace-action primary-action" disabled={busy || !passkeysSupported()} onClick={() => void sign()}>{t('Authorize with passkey')}</button></div>
   </section>;
 }
 
@@ -186,7 +186,7 @@ export function DelegatedCreate({ owner, busy, run, onReview }: { owner: Workflo
           onChange={e => setLimits({ ...limits, [a.asset]: { max: e.currentTarget.value.trim(), weekly: limits[a.asset]?.weekly ?? '' } })}/>)}
         {field(t('{0} budget per week', a.symbol), <input inputMode="decimal" aria-label={t('{0} budget per week', a.symbol)} value={limits[a.asset]?.weekly ?? ''}
           onChange={e => setLimits({ ...limits, [a.asset]: { max: limits[a.asset]?.max ?? '', weekly: e.currentTarget.value.trim() } })}/>)}</div>)}</fieldset>}
-      {preview.requiredEnrollments.length === 0 && <div className="approval-actions"><button type="button" className="primary" disabled={busy} onClick={() => void create()}>{t('Create and review authorization')}</button></div>}
+      {preview.requiredEnrollments.length === 0 && <div className="approval-actions"><button type="button" className="workspace-action primary-action" disabled={busy} onClick={() => void create()}>{t('Create and review authorization')}</button></div>}
     </section>}
   </form>;
 }
@@ -219,9 +219,9 @@ export function DelegatedAuthorizations({ overview, owner, busy, run, onReview }
         <td>{p.reserved}</td><td>{p.remaining}</td></tr>))}</tbody></table>
     <p className="muted">{t('{0} executions', String(a.executions))}{a.signedAt ? ` · ${t('signed {0}', new Date(a.signedAt).toLocaleString())}` : ''}{a.revokedAt ? ` · ${t('revoked {0}', new Date(a.revokedAt).toLocaleString())}` : ''}</p>
     <div className="automation-row-actions">
-      {a.state === 'PENDING_SIGNATURE' && <button type="button" className="primary" disabled={busy} onClick={() => void run(async () => {
+      {a.state === 'PENDING_SIGNATURE' && <button type="button" className="workspace-action primary-action" disabled={busy} onClick={() => void run(async () => {
         const r = await authorizationReview(owner, a.authorizationId); if (r.ok) onReview(r.value); return r; })}>{t('Review and sign')}</button>}
-      {(a.state === 'ACTIVE' || a.state === 'PENDING_SIGNATURE') && <button type="button" className="danger" disabled={busy}
+      {(a.state === 'ACTIVE' || a.state === 'PENDING_SIGNATURE') && <button type="button" className="workspace-action workspace-action-danger" disabled={busy}
         onClick={() => void run(() => authorizationRevoke(owner, a.authorizationId), 'Authorization revoked. FloFi will not execute this workflow again.')}>{t('Revoke authorization')}</button>}
       {a.state === 'ACTIVE' && <button type="button" className="workspace-action" disabled={busy} onClick={() => void run(async () => {
         const r = await authorizationReauthorize(owner, a.authorizationId); if (r.ok) onReview(r.value); return r; })}>{t('Re-authorize')}</button>}

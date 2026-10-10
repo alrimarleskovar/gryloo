@@ -14,9 +14,11 @@ import { productPortuguese } from './pt-product';
 import { domainPortuguese } from './pt-domain';
 import { portugueseWallets } from './pt-wallets';
 import { portugueseAutomations } from './pt-automations';
+import { portugueseDelegation } from './pt-delegation';
 /** English source messages are stable presentation keys. Technical identifiers never enter this catalog. */
 export const portuguese: Readonly<Record<string, string>> = {
-  // BUILD-AUTOMATION-001: first, so an existing product translation of a shared word keeps precedence.
+  // BUILD-AUTOMATION-001/002: first, so an existing product translation of a shared word keeps precedence.
+  ...portugueseDelegation,
   ...portugueseAutomations,
   'Automation workflow': 'Fluxo da automação',
   'Prepared by your FloFi automation. Simulate and review before executing.': 'Preparado pela sua automação FloFi. Simule e revise antes de executar.',
