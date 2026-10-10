@@ -53,7 +53,7 @@ test('keyboard choice connects exactly the chosen EVM wallet and the header name
   await page.keyboard.press('ArrowUp'); await expect(selector(page).getByRole('button', { name: 'Rabby Wallet on Ethereum' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(selector(page)).toHaveCount(0);
-  await expect(page.getByText(`Wallet: ${short(WALLET_ACCOUNTS.rabby)} · Base Sepolia`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`EVM Default: ${short(WALLET_ACCOUNTS.rabby)} · Base Sepolia`, { exact: true })).toBeVisible();
   await expect(page.locator('.header-wallet-provider')).toHaveAttribute('title', 'Rabby Wallet');
   expect(await promptingCalls(page)).toEqual([{ wallet: 'Rabby Wallet', method: 'eth_requestAccounts' }]);
   await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveText('Testnet');
@@ -65,7 +65,7 @@ test('Phantom on Solana and Phantom on Ethereum are separate choices with separa
   await chooseWallet(page, 'Phantom', 'Solana');
   // Only the Solana provider was asked; the header shows the Solana account on Devnet (testnet first).
   expect(await promptingCalls(page)).toEqual([{ wallet: 'Phantom Solana', method: 'standard:connect' }]);
-  await expect(page.locator('.header-wallet')).toContainText(`Solana wallet: ${WALLET_ACCOUNTS.phantomSolana.slice(0, 6)}…${WALLET_ACCOUNTS.phantomSolana.slice(-4)} · Testnet`);
+  await expect(page.locator('.header-wallet')).toContainText(`Solana Default: ${WALLET_ACCOUNTS.phantomSolana.slice(0, 6)}…${WALLET_ACCOUNTS.phantomSolana.slice(-4)} · Solana Devnet`);
   await expect(page.locator('.header-wallet-provider')).toHaveAttribute('title', 'Phantom');
   // Disconnecting the Solana session ends it in FloFi and in the wallet; then Phantom on Ethereum is a different identity.
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -73,7 +73,7 @@ test('Phantom on Solana and Phantom on Ethereum are separate choices with separa
   await expect(page.getByRole('button', { name: 'Connect Wallet', exact: true })).toBeVisible();
   await open(page);
   await chooseWallet(page, 'Phantom', 'Ethereum');
-  await expect(page.getByText(`Wallet: ${short(WALLET_ACCOUNTS.phantomEvm)} · Base Sepolia`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`EVM Default: ${short(WALLET_ACCOUNTS.phantomEvm)} · Base Sepolia`, { exact: true })).toBeVisible();
   expect(await promptingCalls(page)).toEqual([{ wallet: 'Phantom Solana', method: 'standard:connect' }, { wallet: 'Phantom Solana', method: 'standard:disconnect' },
     { wallet: 'Phantom EVM', method: 'eth_requestAccounts' }]);
   expect((await walletCalls(page)).some(call => call.wallet === 'MetaMask' && call.method === 'eth_requestAccounts')).toBe(false);

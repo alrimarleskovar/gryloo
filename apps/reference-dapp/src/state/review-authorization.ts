@@ -128,7 +128,10 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
     }
     case 'public': {
       const r = publicSwap.run, q = r?.quote; if (!r || !q) break;
-      attach(q.executionId, null, null, r.reviewedManifestHash === q.manifestHash, publicSwap.review, !publicSwap.busy && !publicSwap.retired && !publicSwap.recoveryOnly && !r.attempts.length, q);
+      // A refreshed quote reuses the durable run after approval. Bind the fresh Review
+      // to that quote, and permit only confirmed approvals before the unattempted swap.
+      attach(`${q.executionId}:${q.manifestHash}`, null, null, r.reviewedManifestHash === q.manifestHash, publicSwap.review,
+        !publicSwap.busy && !publicSwap.retired && !publicSwap.recoveryOnly && r.attempts.every(a => a.step === 'approval' && a.state === 'CONFIRMED'), q);
       authorization.chain = `eip155:${q.chainId}`;
       authorization.limits.push({ label: 'Max spend', value: simulationAmount(q.amountIn, q.inputSymbol === 'USDC' ? 6 : 18, q.inputSymbol)! }, { label: 'Max slippage', value: `${(q.slippageBps / 100).toFixed(2)}%` }, { label: 'Minimum received', value: simulationAmount(q.minimumOut, q.outputSymbol === 'USDC' ? 6 : 18, q.outputSymbol)! });
       break;
@@ -147,8 +150,11 @@ export function useReviewAuthorization(kind: SimulationSource['kind']): { author
   }
   const account = environment.walletKind === 'solana' ? jupiter.session?.account.address ?? null : sharedWallet.account;
   const chain = environment.walletKind === 'solana' ? solanaWalletChainRef(environment.walletChain) : sharedWallet.chainId === '0x7a69' ? 'eip155:31337' : walletChainRef(sharedWallet.chainId);
-  // The signing provider is part of the bound identity: the same address through another wallet still needs a fresh Review.
-  const providerKey = environment.walletKind === 'solana' ? jupiter.session?.wallet?.name ?? null : sharedWallet.provider?.key ?? null;
+  // EVM signing-provider identity is tracked by object in the shared authority epoch.
+  // Discovery can refine the same provider's display key/name without changing authority.
+  const providerKey = environment.walletKind === 'solana' ? jupiter.session?.wallet?.name ?? null : null;
+  // revision is the shared wallet's semantic authority epoch, never a read/event counter.
+  // Keep it in the binding so even a batched identity round trip permanently retires this Review.
   const identity = JSON.stringify([account, chain, environment.walletKind === 'evm' ? sharedWallet.revision : null, restorationEpoch,
     environment.walletKind === 'evm' ? sharedWallet.chainId : environment.walletChain, providerKey]);
   // Keep this guard mounted in the shell. Returning to the old wallet cannot revive the old Review.
