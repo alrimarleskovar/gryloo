@@ -9,12 +9,16 @@
  *   - nothing here decides the execution mode: a caller reaches this only after the owner explicitly chose "Automatic within limits";
  *   - confirm-mode limits are proposal limits, not authority: delegated limits come from `terms` (what the owner reviews and signs);
  *   - a daily watch or a notify-only trigger executes nothing, so there is nothing to delegate (`DELEGATION_NOT_APPLICABLE`);
- *   - a saved-workflow action is refused until it reuses AUTOMATION-001's saved-workflow binding (`DELEGATED_SAVED_WORKFLOW_NOT_IMPLEMENTED`).
+ *   - a saved-workflow action is refused until it reuses AUTOMATION-001's saved-workflow binding (`DELEGATED_SAVED_WORKFLOW_NOT_IMPLEMENTED`);
+ *   - "Automate this workflow" sends the exact Canvas workflow: its steps are re-derived here from the document by exact node reproduction
+ *     (`automations/automation-steps.ts`), never taken from the browser.
  *
  * Pure: no IO, no authority.
  */
 import { validateAutomationInput, type AutomationInput } from '../automations/definition.ts';
-import { isCanonicalDelegatedSource, isDelegatedAutomationInput, type DelegatedAutomationInput, type DelegationTerms } from './definition.ts';
+import { automationSteps } from '../automations/automation-steps.ts';
+import { isCanonicalDelegatedSource, isCanvasDelegatedSource, isDelegatedAutomationInput, type DelegatedAutomationInput, type DelegatedTrigger,
+  type DelegationTerms } from './definition.ts';
 
 type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
 /** The widest per-step slippage a delegated step accepts (the delegated schema's bound). */
@@ -37,8 +41,20 @@ export function delegatedSourceFromAutomation(automation: unknown, terms: Delega
   return isDelegatedAutomationInput(value) ? { ok: true, value } : { ok: false, code: 'DELEGATION_INPUT_INVALID' };
 }
 
-/** Either delegated input form → the one delegated input the service validates and compiles. */
+/** The exact Canvas workflow (+ the owner's name, trigger and terms) → the same delegated input. Any node FloFi cannot reproduce refuses. */
+export function delegatedSourceFromWorkflow(workflow: unknown, name: string, trigger: DelegatedTrigger, terms: DelegationTerms): Result<DelegatedAutomationInput> {
+  const derived = automationSteps(workflow);
+  if (!derived.ok) return { ok: false, code: derived.code };
+  if (derived.steps.some(s => s.route.slippageBps > DELEGATED_MAX_STEP_SLIPPAGE_BPS)) return { ok: false, code: 'DELEGATED_STEP_SLIPPAGE_TOO_HIGH' };
+  const value: DelegatedAutomationInput = { version: 1, name, trigger,
+    steps: derived.steps.map(({ route: { asset, side, network, amount, slippageBps } }) => ({ asset, side, network, amount, slippageBps })) as DelegatedAutomationInput['steps'],
+    limits: terms.limits, expiresAt: terms.expiresAt };
+  return isDelegatedAutomationInput(value) ? { ok: true, value } : { ok: false, code: 'DELEGATION_INPUT_INVALID' };
+}
+
+/** Any delegated input form → the one delegated input the service validates and compiles. */
 export function delegatedInputOf(raw: unknown, now: number): Result<DelegatedAutomationInput> {
   if (isCanonicalDelegatedSource(raw)) return delegatedSourceFromAutomation(raw.automation, raw.terms, now);
+  if (isCanvasDelegatedSource(raw)) return delegatedSourceFromWorkflow(raw.workflow, raw.name, raw.trigger, raw.terms);
   return isDelegatedAutomationInput(raw) ? { ok: true, value: raw } : { ok: false, code: 'DELEGATION_INPUT_INVALID' };
 }

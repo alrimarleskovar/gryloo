@@ -58,6 +58,8 @@ const canonical = (value: unknown): string => JSON.stringify(value, (_key, v: un
 const semantics = (node: Readonly<SemanticWorkflow['nodes'][number]> | Parameters<typeof swapDetails>[0]) => canonical({ actionType: node.actionType, chainId: node.chainId, inputs: node.inputs,
   userConstraints: node.userConstraints, adapterConstraints: node.adapterConstraints, requiredCapabilities: node.requiredCapabilities,
   failurePolicy: node.failurePolicy, requiredAuthorizationClass: node.requiredAuthorizationClass });
+/** BUILD-AUTOMATION-002: the same node comparison, for the exact Canvas workflow (`workflow-steps.ts`). */
+export const nodeSemantics = (node: { readonly [K in keyof SemanticWorkflow['nodes'][number]]: unknown }): string => semantics(node as Readonly<SemanticWorkflow['nodes'][number]>);
 /**
  * The StrategySpec a saved workflow expresses, when it is exactly one EVM swap and FloFi's engine reproduces that node exactly
  * (asset identities, amount, slippage, protocols, failure policy and authorization class), plus the document's own hash.

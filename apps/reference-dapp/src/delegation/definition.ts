@@ -9,6 +9,7 @@
  *                              DELEGATED_WITH_LIMITS; CONFIRM_EACH_TIME keeps its own schema.
  *   CanonicalDelegatedSource   the canonical `AutomationInput` (Automations form, chat draft) + the owner's delegation terms; compiled by
  *                              `automation-source.ts` into the input above, so every surface yields the same rule and workflow hash.
+ *   CanvasDelegatedSource      the exact Canvas workflow + trigger + terms ("Automate this workflow"), compiled the same way.
  *   CredentialInput            one proven wallet's grant on one chain: the token pairs (EVM) or token amounts (Solana) it may serve,
  *                              per-call caps, number of calls, expiry, and the passkey it anchors.
  */
@@ -38,10 +39,11 @@ const AssetLimit = Type.Object({ asset: Type.String({ minLength: 10, maxLength: 
 const Limits = Type.Object({ assets: Type.Array(AssetLimit, { minItems: 0, maxItems: 8 }),
   maxExecutionsPerPeriod: Type.Union([Type.Object({ count: Type.Integer({ minimum: 1, maximum: 1000 }), period: Period }, strict), Type.Null()]),
   cooldownMinutes: Type.Integer({ minimum: 0, maximum: 44_640 }), maxSlippageBps: Type.Integer({ minimum: 0, maximum: 1_000 }) }, strict);
+const Trigger = Type.Union([Type.Object({ kind: Type.Literal('SCHEDULE'), schedule: Schedule }, strict),
+  Type.Object({ kind: Type.Literal('PRICE'), timezone: Type.String({ minLength: 1, maxLength: 64 }), condition: Condition }, strict)]);
 export const DelegatedAutomationInputSchema = Type.Object({
   version: Type.Literal(1), name: Type.String({ minLength: 1, maxLength: 80 }),
-  trigger: Type.Union([Type.Object({ kind: Type.Literal('SCHEDULE'), schedule: Schedule }, strict),
-    Type.Object({ kind: Type.Literal('PRICE'), timezone: Type.String({ minLength: 1, maxLength: 64 }), condition: Condition }, strict)]),
+  trigger: Trigger,
   steps: Type.Array(Step, { minItems: 1, maxItems: 4 }),
   limits: Limits,
   expiresAt: Iso,
@@ -60,6 +62,15 @@ export const CanonicalDelegatedSourceSchema = Type.Object({ version: Type.Litera
   terms: DelegationTermsSchema }, strict);
 export type CanonicalDelegatedSource = Static<typeof CanonicalDelegatedSourceSchema>;
 export const isCanonicalDelegatedSource = compileSchema<CanonicalDelegatedSource>(CanonicalDelegatedSourceSchema).check;
+/**
+ * "Automate this workflow": the exact Semantic Workflow already in the Canvas, the owner's trigger and name, and the owner's terms. The server
+ * re-derives the steps from the document itself (`automations/automation-steps.ts`); nothing the browser computed is trusted.
+ */
+export const CanvasDelegatedSourceSchema = Type.Object({ version: Type.Literal(1), source: Type.Literal('CANVAS_WORKFLOW'), name: Type.String({ minLength: 1, maxLength: 80 }),
+  trigger: Trigger, workflow: Type.Unknown(), terms: DelegationTermsSchema }, strict);
+export type CanvasDelegatedSource = Static<typeof CanvasDelegatedSourceSchema>;
+export const isCanvasDelegatedSource = compileSchema<CanvasDelegatedSource>(CanvasDelegatedSourceSchema).check;
+export type DelegatedTrigger = Static<typeof Trigger>;
 
 export const CredentialInputSchema = Type.Union([
   Type.Object({ mechanism: Type.Literal('EVM_ERC7710_METAMASK_V1_3'), walletAddress: Type.String({ pattern: '^0x[0-9a-f]{40}$' }),

@@ -5,7 +5,7 @@ import { parseCopilotIntentV2 } from './copilot-intent-v2';
 import { validateAutomationInput } from '../automations/definition';
 import { CopilotSession } from './copilot-session.test-harness';
 
-const draft = (patch: Partial<AutomationDraft> = {}): AutomationDraft => ({ kind: 'SCHEDULED_DCA', asset: 'ETH', side: 'BUY', network: 'BASE_SEPOLIA', amount: '10', spendAsset: 'USDC', time: '09:00', condition: null, threshold: null, ...patch });
+const draft = (patch: Partial<AutomationDraft> = {}): AutomationDraft => ({ kind: 'SCHEDULED_DCA', asset: 'ETH', side: 'BUY', network: 'BASE_SEPOLIA', amount: '10', spendAsset: 'USDC', time: '09:00', condition: null, threshold: null, percent: null, ...patch });
 describe('Copilot Automation interpretation and grounding', () => {
   it('accepts only a typed automation interpretation with no authority fields', () => {
     expect(parseCopilotIntentV2({ version: '2', language: 'PT', kind: 'AUTOMATION', draft: draft() })).toMatchObject({ kind: 'AUTOMATION', draft: draft() });
@@ -25,6 +25,32 @@ describe('Copilot Automation interpretation and grounding', () => {
     ['If ETH rises above $5000, prepare a sell of 0.1 ETH on Base Sepolia.', 'PRICE_ABOVE', 'SELL', '0.1', 'ETH', '5000'],
   ] as const)('grounds a crossing: %s', (text, condition, side, amount, spendAsset, threshold) => {
     expect(groundAutomationDraft(draft({ kind: 'PRICE_TRIGGER', condition, side, amount, spendAsset, threshold, time: null }), text, 'UTC')).toMatchObject({ kind: 'PROPOSAL', input: { kind: 'PRICE_TRIGGER', condition: { type: condition, threshold, checkEveryMinutes: 15 }, action: { side, amount } } });
+  });
+  // BUILD-AUTOMATION-002: percentage moves. The percentage and the reference price must both be in the user's words; words such as
+  // "automatically" or a weekly maximum in the text never become a mode or a limit (the draft has no field for either).
+  it.each([
+    ['If ETH drops 5% from $3000, buy 50 USDC of ETH on Base Sepolia automatically, max 200 USDC/week.', 'PERCENT_DROP', '5'],
+    ['Se ETH cair 5% a partir de $3000, compra 50 USDC de ETH na Base Sepolia.', 'PERCENT_DROP', '5'],
+    ['If ETH rises 7.5% from 3000 USD, buy 50 USDC of ETH on Base Sepolia.', 'PERCENT_RISE', '7.5'],
+  ] as const)('grounds a percentage move from a stated reference: %s', (text, condition, percent) => {
+    const result = groundAutomationDraft(draft({ kind: 'PRICE_TRIGGER', condition, threshold: '3000', percent, amount: '50', time: null }), text, 'UTC');
+    expect(result).toMatchObject({ kind: 'PROPOSAL', input: { kind: 'PRICE_TRIGGER', condition: { type: condition, asset: 'ETH', reference: '3000', percent, checkEveryMinutes: 15 },
+      action: { kind: 'ROUTE', network: 'base-sepolia', amount: '50', side: 'BUY' }, limits: { maxAmountPerExecution: '50', maxAmountPerPeriod: null } } });
+    if (result.kind === 'PROPOSAL') { expect(validateAutomationInput(result.input, Date.now()).ok).toBe(true); expect(result.input).not.toHaveProperty('executionMode'); }
+  });
+  it.each([
+    [draft({ kind: 'PRICE_TRIGGER', condition: 'PERCENT_DROP', threshold: '3000', percent: '5', amount: '50', time: null }), 'If ETH drops 5%, buy 50 USDC of ETH on Base Sepolia automatically.', 'From which USD reference price should the percentage be measured?'],
+    [draft({ kind: 'PRICE_TRIGGER', condition: 'PERCENT_DROP', threshold: '3000', percent: '5', amount: '50', time: null }), 'If ETH drops from $3000, buy 50 USDC of ETH on Base Sepolia.', 'By what percentage, and in which direction, should the price move?'],
+    [draft({ kind: 'PRICE_TRIGGER', condition: 'PERCENT_RISE', threshold: '3000', percent: '5', amount: '50', time: null }), 'If ETH drops 5% from $3000, buy 50 USDC of ETH on Base Sepolia.', 'By what percentage, and in which direction, should the price move?'],
+  ] as const)('asks instead of inferring a reference, a percentage or a direction (%#)', (raw, text, message) => {
+    expect(groundAutomationDraft(raw, text, 'UTC')).toEqual({ kind: 'CLARIFICATION', message });
+  });
+  it('parses the percentage strictly', () => {
+    expect(parseAutomationDraft(draft({ kind: 'PRICE_TRIGGER', condition: 'PERCENT_DROP', threshold: '3000', percent: '12.25' })).percent).toBe('12.25');
+    for (const percent of ['5%', '-5', '12.345', '10000']) expect(() => parseAutomationDraft({ ...draft(), percent })).toThrow();
+    const legacy: Record<string, unknown> = { ...draft() };
+    delete legacy.percent;
+    expect(() => parseAutomationDraft(legacy)).toThrow();
   });
   it.each(['Every day at 8:00 check ETH for me.', 'Todos os dias às 8h verifica ETH para mim.'])('grounds read-only daily watch: %s', text => {
     expect(groundAutomationDraft(draft({ kind: 'DAILY_WATCH', side: null, amount: null, spendAsset: null, network: null, time: '08:00' }), text, 'UTC')).toMatchObject({ kind: 'PROPOSAL', input: { kind: 'DAILY_WATCH', watch: { assets: ['ETH'] } } });

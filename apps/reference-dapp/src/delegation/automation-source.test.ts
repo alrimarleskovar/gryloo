@@ -4,7 +4,8 @@ import { routeStrategy } from '../automations/assets.ts';
 import { bindStrategy } from '../automations/binding.ts';
 import type { AutomationInput } from '../automations/definition.ts';
 import { composeWorkflowBound } from '../engine/strategy-engine.ts';
-import { delegatedInputOf, delegatedSourceFromAutomation } from './automation-source.ts';
+import { buildWorkflow } from '../domain/copilot-test-fixtures.ts';
+import { delegatedInputOf, delegatedSourceFromAutomation, delegatedSourceFromWorkflow } from './automation-source.ts';
 import type { DelegatedAutomationInput, DelegationTerms } from './definition.ts';
 import { requirementOf } from './steps.ts';
 
@@ -71,5 +72,27 @@ describe('one authoring model: the canonical AutomationInput compiles to the del
       .toEqual({ ok: false, code: 'DELEGATION_INPUT_INVALID' });
     expect(delegatedInputOf({ version: 1, source: 'AUTOMATION_INPUT', automation: dca, terms: { ...terms, expiresAt: 'never' } }, NOW))
       .toEqual({ ok: false, code: 'DELEGATION_INPUT_INVALID' });
+  });
+});
+
+describe('"Automate this workflow": the exact Canvas workflow compiles to the same delegated input', () => {
+  const schedule = { kind: 'SCHEDULE' as const, schedule: { frequency: 'WEEKLY' as const, weekday: 1, time: '09:00', timezone: 'Europe/Lisbon' } };
+  it('a one-swap Canvas workflow yields exactly the Automations form input (same steps, same compile path, same hash)', () => {
+    const canvas = buildWorkflow(['swap 50 USDC to WETH on Base Sepolia slippage 50 bps']);
+    expect(delegatedSourceFromWorkflow(canvas, 'ETH DCA', schedule, terms)).toEqual({ ok: true, value: workspaceForm });
+    expect(delegatedInputOf({ version: 1, source: 'CANVAS_WORKFLOW', name: 'ETH DCA', trigger: schedule, workflow: canvas, terms }, NOW)).toEqual({ ok: true, value: workspaceForm });
+  });
+  it('keeps a multi-step Canvas workflow in order and refuses what the engine cannot reproduce, before anything is created', () => {
+    const two = delegatedSourceFromWorkflow(buildWorkflow(['swap 50 USDC to WETH on Base Sepolia slippage 50 bps', 'swap 40 USDC to WETH on Base Sepolia slippage 50 bps']), 'Two', schedule, terms);
+    expect(two.ok && two.value.steps.map(s => s.amount)).toEqual(['50', '40']);
+    expect(delegatedSourceFromWorkflow(buildWorkflow(['compose bridge 1 USDC from Base to Arbitrum slippage 50 bps then swap to WETH slippage 50 bps']), 'Bridge', schedule, terms))
+      .toEqual({ ok: false, code: 'AUTOMATION_WORKFLOW_NOT_REPRESENTABLE' });
+    expect(delegatedSourceFromWorkflow(buildWorkflow(['swap 50 USDC to WETH on Base Sepolia slippage 1500 bps']), 'Wide', schedule, terms))
+      .toEqual({ ok: false, code: 'DELEGATED_STEP_SLIPPAGE_TOO_HIGH' });
+  });
+  it('accepts no steps, hash or mode from the browser: the envelope is closed and the document is re-derived', () => {
+    const canvas = buildWorkflow(['swap 50 USDC to WETH on Base Sepolia slippage 50 bps']);
+    for (const extra of [{ steps: workspaceForm.steps }, { workflowHash: '0x' + '0'.repeat(64) }, { executionMode: 'DELEGATED_WITH_LIMITS' }])
+      expect(delegatedInputOf({ version: 1, source: 'CANVAS_WORKFLOW', name: 'X', trigger: schedule, workflow: canvas, terms, ...extra }, NOW)).toEqual({ ok: false, code: 'DELEGATION_INPUT_INVALID' });
   });
 });

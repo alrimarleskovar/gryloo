@@ -7,8 +7,8 @@
  * on occurrences execute with no new owner signature while every limit holds; the owner sees authorization status, budget used / reserved /
  * remaining, executions with the Credential and grant of every step, and a prominent Revoke.
  */
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { authorizationReauthorize, authorizationReview, authorizationRevoke, authorizationSign, delegatedAutomationCreate, delegatedAutomationPreview, delegationOverview,
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { authorizationReauthorize, authorizationReview, authorizationRevoke, authorizationSign, delegatedAutomationCreate, delegatedAutomationPreview, delegationEnabled, delegationOverview,
   executionResume } from '../app/delegation-action';
 import type { AuthorizationView, DelegationOverviewView, ExecutionView, ManifestView, PreviewView, ReviewView } from '../delegation/views';
 import type { WorkflowOwner } from '../domain/saved-workflow';
@@ -46,6 +46,29 @@ const STATE_TEXT: Readonly<Record<string, string>> = { PENDING_SIGNATURE: 'Waiti
 const PERIOD: Readonly<Record<string, string>> = { DAY: 'day', WEEK: 'week', MONTH: 'month' };
 const short = (a: string) => a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 
+/** A one-at-a-time runner with its own status and error lines, for the delegated flow outside the Automations workspace. */
+export function useDelegationRunner(): { busy: boolean; run: Run; messages: ReactNode } {
+  const { t } = useLocale();
+  const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [error, setError] = useState<string | null>(null);
+  const lock = useRef(false);
+  const run: Run = useCallback(async (work, done) => {
+    if (lock.current) return false;
+    lock.current = true; setBusy(true); setNotice(''); setError(null);
+    try { const r = await work(); if (!r.ok) { setError(r.code ?? 'DELEGATION_UNAVAILABLE'); return false; } if (done) setNotice(done); return true; }
+    catch { setError('DELEGATION_UNAVAILABLE'); return false; }
+    finally { lock.current = false; setBusy(false); }
+  }, []);
+  const messages = <>{notice && <p className="workspace-notice" role="status">{t(notice)}</p>}
+    {error && <p className="error-banner" role="alert">{DELEGATION_ERROR_TEXT[error] ? t(DELEGATION_ERROR_TEXT[error]) : t('FloFi could not complete this ({0}).', error)}</p>}</>;
+  return { busy, run, messages };
+}
+/** Whether this deployment serves delegated execution (null while unknown); it names nobody. */
+export function useDelegationEnabled(): boolean | null {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  useEffect(() => { void delegationEnabled().then(r => setEnabled(r.enabled)).catch(() => setEnabled(false)); }, []);
+  return enabled;
+}
+
 export function useDelegation(owner: WorkflowOwner | null, proven: boolean) {
   const [overview, setOverview] = useState<DelegationOverviewView | null>(null);
   const [code, setCode] = useState<string | null>(null);
@@ -73,7 +96,7 @@ function Limits({ m }: { m: ManifestView }) {
 }
 
 /** The human-readable Universal Workflow Authorization Review, then the owner's ONE passkey signature. */
-export function AuthorizationReview({ review, owner, busy, run, onDone }: { review: ReviewView; owner: WorkflowOwner; busy: boolean; run: Run; onDone: () => void }) {
+export function AuthorizationReview({ review, owner, busy, run, onDone }: { review: ReviewView; owner: WorkflowOwner; busy: boolean; run: Run; onDone: (signed: boolean) => void }) {
   const { t } = useLocale(), m = review.manifest;
   // PR #76: this open review belongs to the wallet authority epoch it was opened under; a genuine wallet change retires it for good.
   const wallet = useWalletAuthorityEpoch(), [openedAt] = useState(wallet.epoch), retired = wallet.epoch !== openedAt;
@@ -88,11 +111,11 @@ export function AuthorizationReview({ review, owner, busy, run, onDone }: { revi
       if (wallet.read() !== openedAt) return { ok: false, code: 'WALLET_AUTHORITY_CHANGED' };
       return authorizationSign(owner, review.authorizationId, review.revision, assertion);
     }, 'Authorized. FloFi may now execute this automation within your limits without asking you again.');
-    if (ok) onDone();
+    if (ok) onDone(true);
   }
   if (retired) return <section className="automation-card delegation-review" aria-label={t('Authorization review')}>
     <p role="status">{t('Your wallet changed after this review opened, so it was closed. Nothing was authorized. Open the review again from your automatic workflows.')}</p>
-    <div className="approval-actions"><button type="button" className="workspace-action" onClick={onDone}>{t('Close')}</button></div>
+    <div className="approval-actions"><button type="button" className="workspace-action" onClick={() => onDone(false)}>{t('Close')}</button></div>
   </section>;
   return <section className="automation-card delegation-review" aria-label={t('Authorization review')}>
     <h3>{t('Automatic execution allowed')}</h3>
@@ -115,29 +138,34 @@ const NETWORKS: readonly { asset: 'ETH' | 'SOL'; network: string; label: string 
   { asset: 'ETH', network: 'ethereum-sepolia', label: 'Ethereum Sepolia' }, { asset: 'SOL', network: 'solana-devnet', label: 'Solana Devnet' }];
 const plusMonths = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
 
-export function DelegatedCreate({ owner, busy, run, onReview }: { owner: WorkflowOwner; busy: boolean; run: Run; onReview: (review: ReviewView) => void }) {
+/** The owner's delegation terms in display units, per input asset key (resolved by the authority check). */
+export type DelegationTermsDraft = { readonly limits: { readonly assets: readonly { asset: string; maxPerExecution: string; budgets: { period: 'WEEK'; amount: string }[] }[];
+  readonly maxExecutionsPerPeriod: { count: number; period: 'WEEK' } | null; readonly cooldownMinutes: number; readonly maxSlippageBps: number }; readonly expiresAt: string };
+
+/**
+ * The ONE delegated flow of every surface (Automations form, chat proposal, Canvas "Automate this workflow"): the owner's limits → the authority
+ * check over the COMPLETE workflow (every step's Credential, before anything exists) → an explicit "Create and review authorization" → the
+ * Universal Authorization Review → one passkey signature. `source(terms)` builds the surface's canonical input; the server compiles all of
+ * them through one path. `prefill` derives editable defaults from what the owner authored; a chat draft (AI-interpreted) gets none.
+ */
+export function DelegatedLimitsFlow({ owner, busy, run, source, prefill, slippageBps, onReview, onAuthorized, disabled = false }: {
+  owner: WorkflowOwner; busy: boolean; run: Run; source: (terms: DelegationTermsDraft) => unknown; prefill: boolean; slippageBps: number;
+  onReview?: (review: ReviewView) => void; onAuthorized?: () => void; disabled?: boolean }) {
   const { t } = useLocale();
-  const zone = useMemo(() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } }, []);
-  const [name, setName] = useState(''), [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY'>('WEEKLY'), [weekday, setWeekday] = useState('1'), [time, setTime] = useState('09:00');
-  const [timezone, setTimezone] = useState(zone), [expires, setExpires] = useState(plusMonths(3)), [slippage, setSlippage] = useState('50'), [count, setCount] = useState('4');
-  const [steps, setSteps] = useState<StepDraft[]>([{ asset: 'ETH', side: 'BUY', network: 'base-sepolia', amount: '' }]);
-  const [preview, setPreview] = useState<PreviewView | null>(null);
+  const [expires, setExpires] = useState(prefill ? plusMonths(3) : ''), [slippage, setSlippage] = useState(String(slippageBps)), [count, setCount] = useState(prefill ? '4' : '');
+  const [preview, setPreview] = useState<PreviewView | null>(null), [review, setReview] = useState<ReviewView | null>(null), [authorized, setAuthorized] = useState(false);
   const [limits, setLimits] = useState<Record<string, { max: string; weekly: string }>>({});
-  const input = () => ({ version: 1, name: name.trim() || 'Automatic workflow', trigger: { kind: 'SCHEDULE', schedule: { frequency, weekday: frequency === 'WEEKLY' ? Number(weekday) : null, time, timezone } },
-    steps: steps.map(s => ({ ...s, slippageBps: Number(slippage) })),
-    limits: { assets: Object.entries(limits).map(([asset, l]) => ({ asset, maxPerExecution: l.max, budgets: [{ period: 'WEEK', amount: l.weekly }] })),
-      maxExecutionsPerPeriod: count ? { count: Number(count), period: 'WEEK' } : null, cooldownMinutes: 0, maxSlippageBps: Number(slippage) },
-    expiresAt: `${expires}T23:59:00Z` });
-  async function check(event?: FormEvent) {
-    event?.preventDefault();
+  const terms = (): DelegationTermsDraft => ({ limits: { assets: Object.entries(limits).map(([asset, l]) => ({ asset, maxPerExecution: l.max, budgets: [{ period: 'WEEK', amount: l.weekly }] })),
+    maxExecutionsPerPeriod: count ? { count: Number(count), period: 'WEEK' } : null, cooldownMinutes: 0, maxSlippageBps: Number(slippage) }, expiresAt: `${expires}T23:59:00Z` });
+  async function check() {
     await run(async () => {
-      const result = await delegatedAutomationPreview(owner, input());
+      const result = await delegatedAutomationPreview(owner, source(terms()));
       if (result.ok) {
         setPreview(result.value);
         const next: Record<string, { max: string; weekly: string }> = {};
         for (const s of result.value.steps) for (const i of s.inputs) {
-          const prior = limits[i.asset], sum = String(Number(next[i.asset]?.max ?? 0) + Number(i.amount));
-          next[i.asset] = prior ?? { max: sum, weekly: String(Number(sum) * Math.max(1, Number(count) || 1)) };
+          const sum = String(Number(next[i.asset]?.max ?? 0) + Number(i.amount));
+          next[i.asset] = limits[i.asset] ?? (prefill ? { max: sum, weekly: String(Number(sum) * Math.max(1, Number(count) || 1)) } : { max: '', weekly: '' });
         }
         setLimits(next);
       }
@@ -146,59 +174,88 @@ export function DelegatedCreate({ owner, busy, run, onReview }: { owner: Workflo
   }
   async function create() {
     await run(async () => {
-      const created = await delegatedAutomationCreate(owner, input());
+      const created = await delegatedAutomationCreate(owner, source(terms()));
       if (!created.ok) return created;
-      const review = await authorizationReview(owner, created.value.authorizationId);
-      if (review.ok) onReview(review.value);
-      return review;
+      const r = await authorizationReview(owner, created.value.authorizationId);
+      if (r.ok) { if (onReview) onReview(r.value); else setReview(r.value); }
+      return r;
     }, 'Created. Review the authorization and sign it with your passkey.');
   }
   const assets = preview ? [...new Map(preview.steps.flatMap(s => s.inputs).map(i => [i.asset, i])).values()] : [];
+  const complete = assets.length > 0 && assets.every(a => limits[a.asset]?.max && limits[a.asset]?.weekly);
   const field = (label: string, control: ReactNode) => <label className="automation-field"><span>{t(label)}</span>{control}</label>;
-  return <form className="automation-form delegation-form" aria-label={t('Create an automatic workflow')} onSubmit={event => void check(event)}>
-    <p className="muted">{t('Execution: Automatic within limits — FloFi executes each occurrence without asking you again, inside the limits you sign once.')}</p>
-    {field('Name', <input aria-label={t('Name')} value={name} maxLength={80} onChange={e => setName(e.currentTarget.value)}/>)}
+  if (authorized) return <p className="delegation-promise">{t('Automatic workflow active.')}</p>;
+  if (review) return <AuthorizationReview key={review.challenge} review={review} owner={owner} busy={busy} run={run}
+    onDone={signed => { setReview(null); if (signed) { setAuthorized(true); onAuthorized?.(); } }}/>;
+  return <div className="delegation-flow">
     <div className="automation-pair">
-      {field('Frequency', <select aria-label={t('Frequency')} value={frequency} onChange={e => setFrequency(e.currentTarget.value as 'DAILY' | 'WEEKLY')}>
-        <option value="WEEKLY">{t('Weekly')}</option><option value="DAILY">{t('Daily')}</option></select>)}
-      {frequency === 'WEEKLY' && field('Day', <select aria-label={t('Day')} value={weekday} onChange={e => setWeekday(e.currentTarget.value)}>
-        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => <option key={d} value={String(i + 1)}>{t(d)}</option>)}</select>)}
-      {field('Time', <input type="time" aria-label={t('Time')} value={time} onChange={e => setTime(e.currentTarget.value)} required/>)}
-      {field('Time zone', <input aria-label={t('Time zone')} value={timezone} onChange={e => setTimezone(e.currentTarget.value.trim())} required/>)}
+      {field('Executions per week', <input inputMode="numeric" aria-label={t('Executions per week')} value={count} onChange={e => { setCount(e.currentTarget.value.trim()); setPreview(null); }}/>)}
+      {field('Max slippage (bps)', <input inputMode="numeric" aria-label={t('Max slippage (bps)')} value={slippage} onChange={e => { setSlippage(e.currentTarget.value.trim()); setPreview(null); }} required/>)}
+      {field('Expires on', <input type="date" aria-label={t('Expires on')} value={expires} onChange={e => { setExpires(e.currentTarget.value); setPreview(null); }} required/>)}
     </div>
-    <fieldset className="delegation-steps-editor"><legend>{t('Workflow steps')}</legend>
-      {steps.map((s, i) => <div key={i} className="automation-pair" role="group" aria-label={t('Step {0}', String(i + 1))}>
-        <select aria-label={t('Step {0} network', String(i + 1))} value={`${s.asset}|${s.network}`} onChange={e => {
-          const [asset, network] = e.currentTarget.value.split('|') as ['ETH' | 'SOL', string];
-          setSteps(steps.map((x, j) => j === i ? { ...x, asset, network } : x)); setPreview(null); }}>
-          {NETWORKS.map(n => <option key={n.network} value={`${n.asset}|${n.network}`}>{n.asset} · {t(n.label)}</option>)}</select>
-        <select aria-label={t('Step {0} side', String(i + 1))} value={s.side} onChange={e => { setSteps(steps.map((x, j) => j === i ? { ...x, side: e.currentTarget.value as 'BUY' | 'SELL' } : x)); setPreview(null); }}>
-          <option value="BUY">{t('Buy')}</option><option value="SELL">{t('Sell')}</option></select>
-        <input inputMode="decimal" aria-label={t('Step {0} amount', String(i + 1))} placeholder={t('Amount spent')} value={s.amount}
-          onChange={e => { setSteps(steps.map((x, j) => j === i ? { ...x, amount: e.currentTarget.value.trim() } : x)); setPreview(null); }} required/>
-        {steps.length > 1 && <button type="button" className="workspace-action" onClick={() => { setSteps(steps.filter((_, j) => j !== i)); setPreview(null); }}>{t('Remove')}</button>}
-      </div>)}
-      {steps.length < 4 && <button type="button" className="workspace-action" onClick={() => { setSteps([...steps, { asset: 'SOL', side: 'BUY', network: 'solana-devnet', amount: '' }]); setPreview(null); }}>{t('Add a step')}</button>}
-    </fieldset>
-    <div className="automation-pair">
-      {field('Executions per week', <input inputMode="numeric" aria-label={t('Executions per week')} value={count} onChange={e => setCount(e.currentTarget.value.trim())}/>)}
-      {field('Max slippage (bps)', <input inputMode="numeric" aria-label={t('Max slippage (bps)')} value={slippage} onChange={e => setSlippage(e.currentTarget.value.trim())} required/>)}
-      {field('Expires on', <input type="date" aria-label={t('Expires on')} value={expires} onChange={e => setExpires(e.currentTarget.value)} required/>)}
-    </div>
-    <div className="approval-actions"><button type="submit" className="workspace-action" disabled={busy}>{t('Check credentials and limits')}</button></div>
+    <div className="approval-actions"><button type="button" className="workspace-action" disabled={busy || disabled || !expires} onClick={() => void check()}>{t('Check credentials and limits')}</button></div>
     {preview && <section className="delegation-preview" aria-label={t('Authority check')}>
       <ul className="delegation-steps">{preview.steps.map(s => <li key={s.index} data-ok={s.binding ? 'true' : 'false'}>
         <strong>{s.label}</strong> — {s.binding ? t('covered by your Credential for wallet {0}', short(s.binding.walletAddress))
-          : t('not covered: {0}', t(REASON_TEXT[s.failure ?? ''] ?? s.failure ?? ''))}</li>)}</ul>
+          : t('not covered: {0}', t(REASON_TEXT[s.failure ?? s.capability.code ?? ''] ?? s.failure ?? s.capability.code ?? ''))}</li>)}</ul>
       {preview.requiredEnrollments.length > 0 && <p className="error-banner" role="alert">{t('Enroll the missing Credentials in Credentials, then check again. Nothing was created.')}</p>}
       {assets.length > 0 && <fieldset><legend>{t('Limits per asset')}</legend>{assets.map(a => <div key={a.asset} className="automation-pair">
         {field(t('Max {0} per execution', a.symbol), <input inputMode="decimal" aria-label={t('Max {0} per execution', a.symbol)} value={limits[a.asset]?.max ?? ''}
           onChange={e => setLimits({ ...limits, [a.asset]: { max: e.currentTarget.value.trim(), weekly: limits[a.asset]?.weekly ?? '' } })}/>)}
         {field(t('{0} budget per week', a.symbol), <input inputMode="decimal" aria-label={t('{0} budget per week', a.symbol)} value={limits[a.asset]?.weekly ?? ''}
           onChange={e => setLimits({ ...limits, [a.asset]: { max: limits[a.asset]?.max ?? '', weekly: e.currentTarget.value.trim() } })}/>)}</div>)}</fieldset>}
-      {preview.requiredEnrollments.length === 0 && <div className="approval-actions"><button type="button" className="workspace-action primary-action" disabled={busy} onClick={() => void create()}>{t('Create and review authorization')}</button></div>}
+      {preview.requiredEnrollments.length === 0 && <div className="approval-actions"><button type="button" className="workspace-action primary-action" disabled={busy || disabled || !complete}
+        onClick={() => void create()}>{t('Create and review authorization')}</button></div>}
     </section>}
+  </div>;
+}
+
+/** Automations → "Automatic within limits" with a new workflow: name, schedule and steps, then the shared delegated flow. */
+export function DelegatedCreate({ owner, busy, run, onReview }: { owner: WorkflowOwner; busy: boolean; run: Run; onReview: (review: ReviewView) => void }) {
+  const { t } = useLocale();
+  const zone = useMemo(() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } }, []);
+  const [name, setName] = useState(''), [schedule, setSchedule] = useState<ScheduleDraft>({ frequency: 'WEEKLY', weekday: '1', time: '09:00', timezone: zone });
+  const [steps, setSteps] = useState<StepDraft[]>([{ asset: 'ETH', side: 'BUY', network: 'base-sepolia', amount: '' }]);
+  const source = (terms: DelegationTermsDraft) => ({ version: 1, name: name.trim() || 'Automatic workflow', trigger: scheduleTrigger(schedule),
+    steps: steps.map(s => ({ ...s, slippageBps: terms.limits.maxSlippageBps })), ...terms });
+  const field = (label: string, control: ReactNode) => <label className="automation-field"><span>{t(label)}</span>{control}</label>;
+  return <form className="automation-form delegation-form" aria-label={t('Create an automatic workflow')} onSubmit={event => event.preventDefault()}>
+    <p className="muted">{t('Execution: Automatic within limits — FloFi executes each occurrence without asking you again, inside the limits you sign once.')}</p>
+    {field('Name', <input aria-label={t('Name')} value={name} maxLength={80} onChange={e => setName(e.currentTarget.value)}/>)}
+    <ScheduleFields value={schedule} onChange={setSchedule}/>
+    <fieldset className="delegation-steps-editor"><legend>{t('Workflow steps')}</legend>
+      {steps.map((s, i) => <div key={i} className="automation-pair" role="group" aria-label={t('Step {0}', String(i + 1))}>
+        <select aria-label={t('Step {0} network', String(i + 1))} value={`${s.asset}|${s.network}`} onChange={e => {
+          const [asset, network] = e.currentTarget.value.split('|') as ['ETH' | 'SOL', string];
+          setSteps(steps.map((x, j) => j === i ? { ...x, asset, network } : x)); }}>
+          {NETWORKS.map(n => <option key={n.network} value={`${n.asset}|${n.network}`}>{n.asset} · {t(n.label)}</option>)}</select>
+        <select aria-label={t('Step {0} side', String(i + 1))} value={s.side} onChange={e => setSteps(steps.map((x, j) => j === i ? { ...x, side: e.currentTarget.value as 'BUY' | 'SELL' } : x))}>
+          <option value="BUY">{t('Buy')}</option><option value="SELL">{t('Sell')}</option></select>
+        <input inputMode="decimal" aria-label={t('Step {0} amount', String(i + 1))} placeholder={t('Amount spent')} value={s.amount}
+          onChange={e => setSteps(steps.map((x, j) => j === i ? { ...x, amount: e.currentTarget.value.trim() } : x))} required/>
+        {steps.length > 1 && <button type="button" className="workspace-action" onClick={() => setSteps(steps.filter((_, j) => j !== i))}>{t('Remove')}</button>}
+      </div>)}
+      {steps.length < 4 && <button type="button" className="workspace-action" onClick={() => setSteps([...steps, { asset: 'SOL', side: 'BUY', network: 'solana-devnet', amount: '' }])}>{t('Add a step')}</button>}
+    </fieldset>
+    {/* Remounted whenever the workflow changes, so a check of an older workflow can never be created. */}
+    <DelegatedLimitsFlow key={JSON.stringify(steps)} owner={owner} busy={busy} run={run} source={source} prefill slippageBps={50} onReview={onReview}/>
   </form>;
+}
+
+export type ScheduleDraft = { frequency: 'DAILY' | 'WEEKLY'; weekday: string; time: string; timezone: string };
+export const scheduleTrigger = (s: ScheduleDraft) => ({ kind: 'SCHEDULE' as const, schedule: { frequency: s.frequency, weekday: s.frequency === 'WEEKLY' ? Number(s.weekday) : null, time: s.time, timezone: s.timezone } });
+/** Frequency, day, time and time zone of a scheduled automation (shared by the Automations form and the Canvas entry). */
+export function ScheduleFields({ value, onChange }: { value: ScheduleDraft; onChange: (next: ScheduleDraft) => void }) {
+  const { t } = useLocale();
+  const field = (label: string, control: ReactNode) => <label className="automation-field"><span>{t(label)}</span>{control}</label>;
+  return <div className="automation-pair">
+    {field('Frequency', <select aria-label={t('Frequency')} value={value.frequency} onChange={e => onChange({ ...value, frequency: e.currentTarget.value as 'DAILY' | 'WEEKLY' })}>
+      <option value="WEEKLY">{t('Weekly')}</option><option value="DAILY">{t('Daily')}</option></select>)}
+    {value.frequency === 'WEEKLY' && field('Day', <select aria-label={t('Day')} value={value.weekday} onChange={e => onChange({ ...value, weekday: e.currentTarget.value })}>
+      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d, i) => <option key={d} value={String(i + 1)}>{t(d)}</option>)}</select>)}
+    {field('Time', <input type="time" aria-label={t('Time')} value={value.time} onChange={e => onChange({ ...value, time: e.currentTarget.value })} required/>)}
+    {field('Time zone', <input aria-label={t('Time zone')} value={value.timezone} onChange={e => onChange({ ...value, timezone: e.currentTarget.value.trim() })} required/>)}
+  </div>;
 }
 
 function ExecutionRow({ e, owner, busy, run }: { e: ExecutionView; owner: WorkflowOwner; busy: boolean; run: Run }) {

@@ -16,12 +16,24 @@ import type { LinkCodeView, OccurrenceView, OpenedView, OverviewView, RuleHistor
 import type { Command } from '../domain/commands';
 import type { WorkflowOwner } from '../domain/saved-workflow';
 import { automationAvailability, automationOperation } from '../server/automation-operation';
+import { automationSteps, type AutomationSteps } from '../automations/automation-steps';
+import { currentWalletPrincipals } from '../server/session-principal';
 
 type Result<T> = { ok: true; value: T } | { ok: false; code: string };
 
 /** Whether this deployment runs automations at all (no owner needed: it reveals nothing about anyone). */
 export async function automationsAvailability(): Promise<{ readonly enabled: boolean; readonly code: string | null }> {
   return automationAvailability();
+}
+/**
+ * BUILD-AUTOMATION-002 "Automate this workflow": the exact Canvas workflow → the steps FloFi's engine reproduces node for node (or the precise
+ * refusal). Pure and read-only (no state, no authority); it still requires a wallet this browser proved, so it is not an anonymous endpoint.
+ */
+export async function canvasAutomationSteps(workflow: unknown): Promise<Result<AutomationSteps>> {
+  try {
+    if (!(await currentWalletPrincipals()).length) return { ok: false, code: 'WALLET_SESSION_REQUIRED' };
+    return { ok: true, value: automationSteps(workflow) };
+  } catch { return { ok: false, code: 'AUTOMATION_WORKFLOW_INVALID' }; }
 }
 export async function automationOverview(owner: WorkflowOwner): Promise<Result<OverviewView>> { return automationOperation('overview', [], owner); }
 export async function createAutomation(owner: WorkflowOwner, input: unknown): Promise<Result<RuleView>> { return automationOperation('create', [input], owner); }

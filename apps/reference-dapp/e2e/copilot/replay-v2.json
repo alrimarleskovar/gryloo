@@ -629,7 +629,8 @@
        "spendAsset": "USDC",
        "time": "09:00",
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }
@@ -654,7 +655,8 @@
        "spendAsset": "USDC",
        "time": "09:00",
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }
@@ -679,7 +681,8 @@
        "spendAsset": "USDC",
        "time": null,
        "condition": "PRICE_BELOW",
-       "threshold": "3000"
+       "threshold": "3000",
+       "percent": null
       }
      }
     }
@@ -704,7 +707,8 @@
        "spendAsset": "ETH",
        "time": null,
        "condition": "PRICE_ABOVE",
-       "threshold": "5000"
+       "threshold": "5000",
+       "percent": null
       }
      }
     }
@@ -729,7 +733,8 @@
        "spendAsset": null,
        "time": "08:00",
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }
@@ -754,7 +759,8 @@
        "spendAsset": null,
        "time": null,
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }
@@ -779,7 +785,8 @@
        "spendAsset": "USDC",
        "time": "09:00",
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }
@@ -804,7 +811,8 @@
        "spendAsset": "USDC",
        "time": "09:00",
        "condition": null,
-       "threshold": null
+       "threshold": null,
+       "percent": null
       }
      }
     }

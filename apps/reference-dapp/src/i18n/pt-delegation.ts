@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** BUILD-AUTOMATION-002: delegated execution — "Automatic within limits", Passkeys, execution Credentials and the authorization review. */
 export const portugueseDelegation: Readonly<Record<string, string>> = {
+  // Canvas "Automate this workflow" and chat (BUILD-AUTOMATION-002 × PR #77)
+  'Automate this workflow': 'Automatizar este fluxo', 'From your Canvas: {0}': 'Do seu Canvas: {0}', 'Reading your Canvas workflow…': 'A ler o fluxo do seu Canvas…',
+  'Nothing was created.': 'Nada foi criado.', 'Use a new workflow instead': 'Usar antes um fluxo novo',
+  'Ask every time runs one-step workflows. This workflow has {0} steps, so it can only run automatically within limits.':
+    'Perguntar sempre executa fluxos de um só passo. Este fluxo tem {0} passos, por isso só pode correr automaticamente dentro dos limites.',
+  'Some steps cannot run as an automation yet.': 'Alguns passos ainda não podem correr como automação.', 'Add an action to the Canvas first.': 'Adicione primeiro uma ação ao Canvas.',
+  'An automation can have at most four steps.': 'Uma automação pode ter no máximo quatro passos.',
+  'A step depends on a later step; reorder the Canvas first.': 'Um passo depende de um passo posterior; reordene primeiro o Canvas.',
+  'The Canvas workflow could not be read.': 'Não foi possível ler o fluxo do Canvas.', 'Verify wallet ownership to automate this workflow.': 'Verifique a titularidade da carteira para automatizar este fluxo.',
+  'FloFi cannot reproduce this step exactly': 'o FloFi não consegue reproduzir este passo exatamente',
+  'Price falls {0}% from ${1}': 'O preço desce {0}% a partir de ${1}', 'Price rises {0}% from ${1}': 'O preço sobe {0}% a partir de ${1}',
+  'Set every limit and the expiry yourself: the assistant never chooses them.': 'Defina pessoalmente cada limite e a validade: o assistente nunca os escolhe.',
+  'Automatic workflow active.': 'Fluxo automático ativo.',
+  'By what percentage, and in which direction, should the price move?': 'Em que percentagem, e em que sentido, deve o preço mover-se?',
+  'From which USD reference price should the percentage be measured?': 'A partir de que preço de referência em USD deve a percentagem ser medida?',
   // Execution modes
   'Ask every time': 'Perguntar sempre', 'Automatic within limits': 'Automático dentro dos limites',
   'Multi-step workflow (see Automatic within limits)': 'Fluxo com vários passos (ver Automático dentro dos limites)',

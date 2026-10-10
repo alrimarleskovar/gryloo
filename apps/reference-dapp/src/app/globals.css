@@ -1681,4 +1681,9 @@ button.wallet-option .wallet-option-status{border-color:var(--accent-line);backg
 .delegation-credentials .automation-list{list-style:none;padding:0;margin:0}
 .delegation-grant[data-state=REVOKED],.delegation-grant[data-state=EXPIRED]{opacity:.75}
 :root[data-theme="dark"] :is(.delegation-passkey-list li){background:var(--surface-raised)}
+.canvas-automate-action{position:absolute;z-index:5;left:12px;bottom:24px}
+.canvas-automate-action .workspace-action{min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font-weight:500}
+.canvas-automation{display:grid;gap:10px;margin-bottom:16px;border-color:var(--blue)}
+.delegation-flow{display:grid;gap:12px}
+.copilot-automation-proposal .delegation-flow .automation-pair{grid-template-columns:minmax(0,1fr)}
 @media(max-width:480px){.delegation-budget{font-size:12px}.delegation-budget :is(th,td){padding:5px 4px}.delegation-preview{padding:10px}}

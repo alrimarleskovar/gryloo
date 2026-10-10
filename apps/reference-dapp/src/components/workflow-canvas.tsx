@@ -220,7 +220,9 @@ function ReadonlyWorkflowCanvas({ mode, workflowName, overlay, primaryAction }: 
   </section>;
 }
 
-type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; onSave?: () => void; estimateOwner?: string | undefined; onToolboxModeChange?: (mode: ToolboxMode) => void; primaryAction?: ReactNode };
+type BuildCanvasProps = { environment?: WalletEnvironment; selectedId: string | null; select: (id: string | null) => void; openSettings?: (id: string) => void; workflowName?: string; renameWorkflow?: (name: string) => void; onSave?: () => void; estimateOwner?: string | undefined; onToolboxModeChange?: (mode: ToolboxMode) => void; primaryAction?: ReactNode;
+  /** BUILD-AUTOMATION-002: present only where automations are enabled; opens Automations on this exact Canvas workflow. */
+  onAutomate?: (() => void) | undefined };
 const EMPTY_OVERLAY: ReadonlyMap<string, SimulationOverlay> = new Map();
 export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; workflowName: string; overlay?: ReadonlyMap<string, SimulationOverlay>; primaryAction?: ReactNode } | { mode: 'execute'; workflowName: string }) {
   if ('mode' in props && props.mode === 'simulate') return <SimulateWorkflowCanvas workflowName={props.workflowName} primaryAction={props.primaryAction}/>;
@@ -228,7 +230,7 @@ export function WorkflowCanvas(props: BuildCanvasProps | { mode: 'simulate'; wor
   return <BuildCanvas {...props}/>;
 }
 
-function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, onSave, estimateOwner, onToolboxModeChange, primaryAction }: BuildCanvasProps) {
+function BuildCanvas({ environment, selectedId, select, openSettings, workflowName = 'Your Workflow', renameWorkflow = () => {}, onSave, estimateOwner, onToolboxModeChange, primaryAction, onAutomate }: BuildCanvasProps) {
   const { t: tr } = useLocale();
   const { state, dispatch, context, canvasLayout, canUndo, canRedo, undo, redo, moveCanvasNodes, addCanvasCommand, duplicateCanvasNodes, propose, review,
     actionSetup = null, amountInputs = {}, bridgeNetworkInputs = {}, cryptoSelections = {}, editCryptoSelection, startActionSetup, editCanvasAmount, editSwapSetupDirection, editBridgeNetworks, cancelCanvasAmount, reviewCanvasAmount, removeActionSetup, pending, applyProposal, dismissProposal } = useWorkflow();
@@ -653,6 +655,8 @@ function BuildCanvas({ environment, selectedId, select, openSettings, workflowNa
       {marquee && marquee.width >= 4 && marquee.height >= 4 && <div className="canvas-marquee" aria-hidden="true" style={marquee}/>}
       {toolboxMode === 'floating' && <div className="floating-toolbox">{tr(toolbox)}</div>}
       {primaryAction && <div className="canvas-primary-action">{primaryAction}</div>}
+      {onAutomate && workflow.nodes.some(node => !node.actionType.startsWith('mock-')) && <div className="canvas-automate-action">
+        <button type="button" className="workspace-action" onClick={onAutomate}>{tr('Automate this workflow')}</button></div>}
     </div>
     <div className="canvas-foot"><span>{tr(isLendingComposition(workflow)?'Supply → Borrow → Swap · HF ≥ 2 policy checkpoint':'Step numbers show workflow order. Dragging changes layout only.')}</span><span>{tr(isLendingComposition(workflow)?'Select each step to edit. Approvals appear only in the execution plan.':'Arrows show linked steps. Select a step to edit below.')}</span></div>
   </section>;

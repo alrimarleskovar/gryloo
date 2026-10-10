@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { automationOverview, createAutomation } from '../app/automation-action';
 import type { AutomationInput } from '../automations/definition';
 import type { CapabilityView } from '../automations/views';
 import { automationCapabilityIssue } from '../domain/copilot-automation';
 import type { WorkflowOwner } from '../domain/saved-workflow';
 import { useLocale } from '../i18n/locale';
+import { DelegatedLimitsFlow, useDelegationEnabled, useDelegationRunner } from './delegated-automations';
 import { WalletProof, type useWalletProof } from './wallet-proof';
 
-/** A draft can call only the existing owner-scoped create operation, after an explicit click. */
+/**
+ * A draft can call only the existing owner-scoped create operation, after an explicit click. BUILD-AUTOMATION-002: where this deployment
+ * serves delegated execution, the OWNER may instead choose "Automatic within limits" for a draft that executes something. The draft itself
+ * carries no mode, limit, expiry or Credential: the owner enters the limits, FloFi resolves every step's Credential, and nothing is created
+ * before "Create and review authorization" or activated before the owner's passkey signs the one workflow authorization.
+ */
 export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
   input: AutomationInput; owner: WorkflowOwner | null; proof?: ReturnType<typeof useWalletProof>; dismiss(): void;
 }) {
@@ -17,11 +23,13 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
   const [capabilities, setCapabilities] = useState<CapabilityView | null>(null);
   const [busy, setBusy] = useState(false), [created, setCreated] = useState(false), [error, setError] = useState<string | null>(null);
   const lock = useRef(false), generation = useRef(0);
+  const delegation = useDelegationEnabled(), delegated = useDelegationRunner();
+  const [mode, setMode] = useState<'CONFIRM' | 'DELEGATED'>('CONFIRM'), modeGroup = useId();
   const ownerKey = owner ? `${owner.namespace}:${owner.address}` : null;
   const proven = Boolean(owner && proof?.proven === owner.address);
   useEffect(() => {
     const current = ++generation.current;
-    setCapabilities(null); setCreated(false); setError(null); setBusy(false);
+    setCapabilities(null); setCreated(false); setError(null); setBusy(false); setMode('CONFIRM');
     if (owner && proven) void automationOverview(owner).then(result => {
       if (current !== generation.current) return;
       if (result.ok) setCapabilities(result.value.capabilities); else setError('Automations are unavailable on this deployment right now.');
@@ -43,12 +51,17 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
   const action = 'action' in input ? input.action : null;
   const route = action?.kind === 'ROUTE' ? capabilities?.routes.find(r => r.network === action.network && r.asset === action.asset) : null;
   const kind = input.kind === 'SCHEDULED_DCA' ? 'Scheduled DCA' : input.kind === 'PRICE_TRIGGER' ? 'Price trigger' : 'Daily watch';
+  // Only a draft that executes a route can run automatically; a watch or a notify-only trigger has nothing to delegate.
+  const canDelegate = delegation === true && action?.kind === 'ROUTE';
+  const condition = input.kind === 'PRICE_TRIGGER' ? input.condition : null;
   return <section className="automation-card copilot-automation-proposal" aria-label={t('Automation proposal')}>
     <h3>{t(kind)}</h3>
     <dl className="simulation-summary-values">
       <div><dt>{t('Asset')}</dt><dd>{input.kind === 'DAILY_WATCH' ? input.watch.assets.join(', ') : action?.kind === 'ROUTE' ? action.asset : input.kind === 'PRICE_TRIGGER' ? input.condition.asset : ''}</dd></div>
       {'schedule' in input && <div><dt>{t('Schedule')}</dt><dd>{t('Every day at {0} ({1})', input.schedule.time, input.schedule.timezone)}</dd></div>}
-      {input.kind === 'PRICE_TRIGGER' && <><div><dt>{t('Condition')}</dt><dd>{t(input.condition.type === 'PRICE_BELOW' ? 'Price falls below' : 'Price rises above')} ${'threshold' in input.condition ? input.condition.threshold : ''}</dd></div>
+      {input.kind === 'PRICE_TRIGGER' && <><div><dt>{t('Condition')}</dt><dd>{condition && 'percent' in condition
+        ? t(condition.type === 'PERCENT_DROP' ? 'Price falls {0}% from ${1}' : 'Price rises {0}% from ${1}', condition.percent, condition.reference)
+        : <>{t(input.condition.type === 'PRICE_BELOW' ? 'Price falls below' : 'Price rises above')} ${'threshold' in input.condition ? input.condition.threshold : ''}</>}</dd></div>
         <div><dt>{t('Check every')}</dt><dd>{t('{0} minutes', input.condition.checkEveryMinutes)} · {input.timezone}</dd></div></>}
       {action?.kind === 'ROUTE' && <><div><dt>{t('Action')}</dt><dd>{t(action.side === 'BUY' ? 'Buy' : 'Sell')} · {action.amount} {action.side === 'BUY' ? route?.quote ?? (action.network === 'solana-devnet' ? 'devUSDC' : 'USDC') : action.asset === 'ETH' ? 'WETH' : action.asset}</dd></div>
         <div><dt>{t('Network')}</dt><dd>{t(route?.networkLabel ?? action.network)}</dd></div>
@@ -57,11 +70,22 @@ export function CopilotAutomationProposal({ input, owner, proof, dismiss }: {
     </dl>
     {action?.kind === 'ROUTE' && action.asset === 'ETH' && <p>{t('ETH trades use WETH on this route.')}</p>}
     {route?.fundsClass === 'REAL_FUNDS' && <p role="alert">{t('REAL FUNDS')}</p>}
-    <p>{t('Execution')}: {t('Ask me before every execution')}</p>
-    <p>{t('Creating a rule authorizes no transaction. Each proposal still requires fresh simulation, Manifest Review, explicit approval and your wallet signature.')}</p>
+    {canDelegate && !created && <div className="delegation-mode" role="radiogroup" aria-label={t('Execution')}>
+      <label><input type="radio" name={modeGroup} checked={mode === 'CONFIRM'} disabled={delegated.busy} onChange={() => setMode('CONFIRM')}/> {t('Ask every time')}</label>
+      <label><input type="radio" name={modeGroup} checked={mode === 'DELEGATED'} disabled={delegated.busy} onChange={() => setMode('DELEGATED')}/> {t('Automatic within limits')}</label>
+    </div>}
+    {mode === 'CONFIRM' || !canDelegate ? <>
+      <p>{t('Execution')}: {t('Ask me before every execution')}</p>
+      <p>{t('Creating a rule authorizes no transaction. Each proposal still requires fresh simulation, Manifest Review, explicit approval and your wallet signature.')}</p>
+    </> : <p>{t('Execution: Automatic within limits — FloFi executes each occurrence without asking you again, inside the limits you sign once.')} {t('Set every limit and the expiry yourself: the assistant never chooses them.')}</p>}
     {!owner ? <p>{t('Connect a wallet from the header to use automations.')}</p> : !proven && proof ? <WalletProof namespace={owner.namespace} proof={proof}/> : null}
     {(issue ?? error) && <p role="alert">{t(issue ?? error)}</p>}
-    {created ? <p role="status">{t('Automation created. FloFi will ask you before every execution.')}</p> : <div className="automation-row-actions">
+    {mode === 'DELEGATED' && canDelegate && owner && proven && action?.kind === 'ROUTE' ? <>
+      {delegated.messages}
+      <DelegatedLimitsFlow owner={owner} busy={delegated.busy} run={delegated.run} prefill={false} slippageBps={action.slippageBps} disabled={!capabilities || Boolean(issue)}
+        source={terms => ({ version: 1, source: 'AUTOMATION_INPUT', automation: input, terms })}/>
+      <div className="automation-row-actions"><button type="button" disabled={delegated.busy} onClick={dismiss}>{t('Dismiss proposal')}</button></div>
+    </> : created ? <p role="status">{t('Automation created. FloFi will ask you before every execution.')}</p> : <div className="automation-row-actions">
       <button type="button" className="primary" disabled={busy || !proven || !capabilities || Boolean(issue)} onClick={() => void confirm()}>{t(busy ? 'Creating automation…' : 'Create automation')}</button>
       <button type="button" disabled={busy} onClick={dismiss}>{t('Dismiss proposal')}</button>
     </div>}
