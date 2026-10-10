@@ -46,7 +46,7 @@ type Chain = { readonly requirement: WorkflowRequirement; readonly manifest: Del
   readonly grants: ReadonlyMap<string, GrantRecord> };
 const CODE = /^[A-Z][A-Z0-9_]{2,80}$/;
 const codeOf = (cause: unknown, fallback: string) => cause instanceof Error && CODE.test(cause.message) ? cause.message : fallback;
-const PENDING_RETRY_MS = 15_000, MAX_RECONCILE_ATTEMPTS = 40;
+const PENDING_RETRY_MS = 15_000;
 const bigintJson = (v: unknown) => JSON.parse(JSON.stringify(v, (_k, x: unknown) => typeof x === 'bigint' ? x.toString() : x)) as Record<string, unknown>;
 const planOf = (stored: Readonly<Record<string, unknown>> | null): StepPlan | null => {
   if (!stored?.plan) return null;
@@ -241,11 +241,9 @@ async function run(deps: ExecutorDeps, start: ExecutionRecord, verified: Awaited
         await enterUncertain(true); return outcome(PENDING_RETRY_MS);
       }
       if (r.status === 'PENDING') {
-        // Unknown for now: re-broadcast exactly the persisted bytes (idempotent) and keep the reservation.
-        if (step.state === 'UNCERTAIN') await driver.broadcast(recoveryCtx, step.submission!).catch(() => undefined);
-        if (step.attempts > MAX_RECONCILE_ATTEMPTS && step.state === 'SUBMITTED') {
-          await deps.store.stepTransition(e.executionId, k, ['SUBMITTED'], 'UNCERTAIN', { code: 'RECEIPT_NOT_FOUND' }); await enterUncertain();
-        }
+        // Not final yet (or dropped by a node): re-broadcast exactly the persisted bytes — idempotent, never a new transaction — and keep
+        // the reservation until reconciliation decides.
+        await driver.broadcast(recoveryCtx, step.submission!).catch(() => undefined);
         return outcome(PENDING_RETRY_MS);
       }
       const reconciliation = bigintJson({ status: r.status, spent: r.spent, received: r.received, evidence: r.evidence });

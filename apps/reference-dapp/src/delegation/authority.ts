@@ -32,7 +32,9 @@ export const scopeHash = (scope: GrantScope): string => domainDigest('flofi.cred
 export type StepBinding = { readonly stepIndex: number; readonly credentialId: string; readonly grantId: string; readonly mechanism: Mechanism;
   readonly chain: string; readonly walletAddress: string; readonly grantCommitment: string; readonly need: TemplateNeed };
 export type GraphFailure = { readonly stepIndex: number; readonly code: string };
-export type AuthorityGraph = { readonly ok: true; readonly bindings: readonly StepBinding[] } | { readonly ok: false; readonly failures: readonly GraphFailure[] };
+/** On failure, `bindings` lists the steps that did resolve (for the owner's view only: a partial graph authorizes nothing). */
+export type AuthorityGraph = { readonly ok: true; readonly bindings: readonly StepBinding[] }
+  | { readonly ok: false; readonly failures: readonly GraphFailure[]; readonly bindings: readonly StepBinding[] };
 
 const ms = (iso: string) => Date.parse(iso);
 /** Why `grant` cannot serve `need` now, or null. */
@@ -93,5 +95,5 @@ export function resolveAuthorityGraph(requirement: WorkflowRequirement, grants: 
       : scope.accounts.some(a => mine.reduce((sum, b) => b.need.kind === 'SOLANA_SPL_SPEND' && b.need.mint === a.mint ? sum + b.need.amount : sum, 0n) > BigInt(a.amount));
     if (exceeded) failures.push({ stepIndex: mine.at(-1)!.stepIndex, code: scope.mechanism === 'EVM_ERC7710_METAMASK_V1_3' ? 'CREDENTIAL_CALLS_EXHAUSTED' : 'CREDENTIAL_SCOPE_AMOUNT' });
   }
-  return failures.length ? { ok: false, failures: failures.sort((a, b) => a.stepIndex - b.stepIndex) } : { ok: true, bindings };
+  return failures.length ? { ok: false, failures: failures.sort((a, b) => a.stepIndex - b.stepIndex), bindings } : { ok: true, bindings };
 }

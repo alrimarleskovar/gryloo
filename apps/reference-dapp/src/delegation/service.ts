@@ -181,7 +181,7 @@ export function createDelegationService(deps: DelegationServiceDeps) {
     const grants = (await liveGrants(owner)).filter(g => g.owner.namespace === owner.namespace && g.owner.address === owner.address);
     const graph = resolveAuthorityGraph(v.requirement, grants, config.mode, now.getTime());
     const steps = v.requirement.steps.map(s => {
-      const c = stepCapability(s, config.mode), b = graph.ok ? graph.bindings.find(x => x.stepIndex === s.index) : null;
+      const c = stepCapability(s, config.mode), b = graph.bindings.find(x => x.stepIndex === s.index) ?? null;
       const failure = graph.ok ? null : graph.failures.find(f => f.stepIndex === s.index)?.code ?? null;
       return { index: s.index, network: networkLabel(s.chain), chain: s.chain, label: stepLabel(s.strategy),
         inputs: s.inputs.map(i => ({ asset: assetKey(i), symbol: i.symbol, chain: i.chain, amount: display(i.amount, i.decimals) })),

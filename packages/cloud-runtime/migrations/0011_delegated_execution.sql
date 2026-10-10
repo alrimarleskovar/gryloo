@@ -213,7 +213,8 @@ BEGIN
   END IF;
   IF NEW.state <> OLD.state AND NOT (
        (OLD.state = 'PENDING_SIGNATURE' AND NEW.state IN ('ACTIVE', 'FAILED'))
-    OR (OLD.state = 'ACTIVE' AND NEW.state IN ('REVOCATION_REQUESTED', 'EXPIRED', 'UNCERTAIN'))
+    -- ACTIVE → REVOKED: an on-chain revocation the owner made outside FloFi, observed by read-only verification.
+    OR (OLD.state = 'ACTIVE' AND NEW.state IN ('REVOCATION_REQUESTED', 'REVOKED', 'EXPIRED', 'UNCERTAIN'))
     OR (OLD.state = 'UNCERTAIN' AND NEW.state IN ('ACTIVE', 'REVOCATION_REQUESTED', 'REVOKED'))
     OR (OLD.state = 'EXPIRED' AND NEW.state IN ('REVOCATION_REQUESTED', 'REVOKED'))
     OR (OLD.state = 'REVOCATION_REQUESTED' AND NEW.state IN ('REVOKED', 'UNCERTAIN'))) THEN

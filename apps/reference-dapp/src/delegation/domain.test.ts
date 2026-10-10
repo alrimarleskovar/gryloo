@@ -88,20 +88,20 @@ describe('authority graph: every step resolves to exactly one active grant befor
     ['exhausted calls', [evmGrant({ callsUsed: 39 }), solGrant()], { stepIndex: 0, code: 'CREDENTIAL_CALLS_EXHAUSTED' }],
     ['a too small token delegation', [evmGrant(), solGrant({}, '4999999')], { stepIndex: 1, code: 'CREDENTIAL_SCOPE_AMOUNT' }],
   ] as const)('fails the whole workflow before execution for %s', (_name, grants, failure) => {
-    expect(resolveAuthorityGraph(r, grants as readonly GrantView[], 'MOCKED_HARNESS', NOW)).toEqual({ ok: false, failures: [failure] });
+    expect(resolveAuthorityGraph(r, grants as readonly GrantView[], 'MOCKED_HARNESS', NOW)).toMatchObject({ ok: false, failures: [failure] });
   });
   it('never switches silently away from a pinned grant', () => {
     const other = evmGrant({ grantId: 'grt_evm2' });
     expect(resolveAuthorityGraph(r, [other, solGrant()], 'MOCKED_HARNESS', NOW, [{ stepIndex: 0, grantId: 'grt_evm' }, { stepIndex: 1, grantId: 'grt_sol' }]))
-      .toEqual({ ok: false, failures: [{ stepIndex: 0, code: 'CREDENTIAL_NOT_FOUND' }] });
+      .toMatchObject({ ok: false, failures: [{ stepIndex: 0, code: 'CREDENTIAL_NOT_FOUND' }] });
   });
   it('a grant serving several steps must cover them together', () => {
     const twice = req({ version: 2, steps: [SWAP, SWAP] });
-    expect(resolveAuthorityGraph(twice, [evmGrant({ callsUsed: 37 })], 'MOCKED_HARNESS', NOW)).toEqual({ ok: false, failures: [{ stepIndex: 1, code: 'CREDENTIAL_CALLS_EXHAUSTED' }] });
+    expect(resolveAuthorityGraph(twice, [evmGrant({ callsUsed: 37 })], 'MOCKED_HARNESS', NOW)).toMatchObject({ ok: false, failures: [{ stepIndex: 1, code: 'CREDENTIAL_CALLS_EXHAUSTED' }] });
     expect(resolveAuthorityGraph(twice, [evmGrant({ callsUsed: 36 })], 'MOCKED_HARNESS', NOW).ok).toBe(true);
   });
   it('production mode refuses the Solana step even with an active grant', () => {
-    expect(resolveAuthorityGraph(r, [evmGrant(), solGrant()], 'PRODUCTION', NOW)).toEqual({ ok: false, failures: [{ stepIndex: 1, code: 'SOLANA_DELEGATED_BUILDER_NOT_IMPLEMENTED' }] });
+    expect(resolveAuthorityGraph(r, [evmGrant(), solGrant()], 'PRODUCTION', NOW)).toMatchObject({ ok: false, failures: [{ stepIndex: 1, code: 'SOLANA_DELEGATED_BUILDER_NOT_IMPLEMENTED' }] });
   });
 });
 

@@ -238,7 +238,7 @@ export function createPgDelegationStore(db: Database, tenantId: string) {
     async reverify(grantId: string, outcome: { readonly state: 'ACTIVE' | 'EXPIRED' | 'UNCERTAIN' | 'REVOKED'; readonly verification: Readonly<Record<string, unknown>> }, now: Date) {
       const row = (await db.query(`UPDATE credential_grants SET state = $3, verification = $4::jsonb, verified_at = CASE WHEN $3 = 'ACTIVE' THEN $5 ELSE verified_at END,
           revoked_at = CASE WHEN $3 = 'REVOKED' THEN $5 ELSE revoked_at END, version = version + 1
-        WHERE tenant_id = $1 AND grant_id = $2 AND (state = $3 OR (state = 'ACTIVE' AND $3 IN ('EXPIRED', 'UNCERTAIN'))
+        WHERE tenant_id = $1 AND grant_id = $2 AND (state = $3 OR (state = 'ACTIVE' AND $3 IN ('EXPIRED', 'UNCERTAIN', 'REVOKED'))
           OR (state = 'UNCERTAIN' AND $3 IN ('ACTIVE', 'REVOKED') AND revocation_requested_at IS NULL) OR (state IN ('REVOCATION_REQUESTED', 'EXPIRED') AND $3 = 'REVOKED'))
         RETURNING owner_namespace, owner_account`, [tenantId, grantId, outcome.state, json(outcome.verification), now])).rows[0];
       if (row && outcome.state !== 'ACTIVE') await event(db, { owner: ownerOf(row), kind: `CREDENTIAL_${outcome.state}`, grantId, detail: outcome.verification });
