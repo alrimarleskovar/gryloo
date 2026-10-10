@@ -12,7 +12,8 @@
  * Nothing here holds a key or stores a credential (no localStorage, no cookies written).
  */
 import { chosenEvmProvider, injected, type EvmProvider } from '../wallet/evm-discovery';
-import { connectSolanaWallet, signWithSolanaWallet, solanaWalletChoices, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { connectSolanaWallet, signWithSolanaWallet, type SolanaSession, type SolanaWalletChain } from '../wallet/solana-wallet';
+import { walletPreference } from '../wallet/wallet-registry';
 import type { PasskeyOptionsView, ReviewView } from '../delegation/views';
 
 const b64url = (bytes: ArrayBuffer | Uint8Array) => {
@@ -63,11 +64,15 @@ export async function sendRevocation(payload: { from: string; to: string; data: 
     chainId: '0x' + payload.chainId.toString(16) }] });
   return typeof hash === 'string' ? hash : fail('WALLET_RESPONSE_INVALID');
 }
-/** Solana enrollment / revocation: the owner's Solana wallet signs the prepared transaction (FloFi broadcasts the owner-signed bytes). */
-export async function signSolanaWith(address: string, unsignedTransaction: string, chain: SolanaWalletChain = 'solana:devnet'): Promise<string> {
-  for (const choice of solanaWalletChoices(chain)) {
-    const session = await connectSolanaWallet(choice.key, chain, 'DELEGATION').catch(() => null);
-    if (session?.account.address === address) return signWithSolanaWallet(session, unsignedTransaction, 'DELEGATION');
-  }
-  return fail('SOLANA_WALLET_NOT_FOUND');
+/**
+ * Solana enrollment / revocation: the owner's Solana wallet signs the prepared transaction (FloFi broadcasts the owner-signed bytes). Only
+ * the owner's own choice is used: the shared Wallet Standard session when it is that wallet, else the wallet the owner picked when proving
+ * ownership (`walletPreference().solana`). No other installed wallet is ever connected.
+ */
+export async function signSolanaWith(address: string, unsignedTransaction: string, shared: SolanaSession | null, chain: SolanaWalletChain = 'solana:devnet'): Promise<string> {
+  if (shared?.account.address === address && shared.chain === chain) return signWithSolanaWallet(shared, unsignedTransaction, 'DELEGATION');
+  const chosen = walletPreference().solana;
+  if (!chosen) return fail('SOLANA_WALLET_SESSION_REQUIRED');
+  const session = await connectSolanaWallet(chosen, chain, 'DELEGATION');
+  return session.account.address === address ? signWithSolanaWallet(session, unsignedTransaction, 'DELEGATION') : fail('SOLANA_WALLET_SESSION_REQUIRED');
 }

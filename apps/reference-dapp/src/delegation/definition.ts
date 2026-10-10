@@ -7,6 +7,8 @@
  *                              and Solana mixed), per-asset limits with mandatory cumulative budgets, executions per period, cooldown,
  *                              slippage cap and a mandatory expiry (≤ 366 days). Mode is implied: this input exists only for
  *                              DELEGATED_WITH_LIMITS; CONFIRM_EACH_TIME keeps its own schema.
+ *   CanonicalDelegatedSource   the canonical `AutomationInput` (Automations form, chat draft) + the owner's delegation terms; compiled by
+ *                              `automation-source.ts` into the input above, so every surface yields the same rule and workflow hash.
  *   CredentialInput            one proven wallet's grant on one chain: the token pairs (EVM) or token amounts (Solana) it may serve,
  *                              per-call caps, number of calls, expiry, and the passkey it anchors.
  */
@@ -33,18 +35,31 @@ const Condition = Type.Union([
 ]);
 const AssetLimit = Type.Object({ asset: Type.String({ minLength: 10, maxLength: 140 }), maxPerExecution: Decimal,
   budgets: Type.Array(Type.Object({ period: Period, amount: Decimal }, strict), { minItems: 1, maxItems: 3 }) }, strict);
+const Limits = Type.Object({ assets: Type.Array(AssetLimit, { minItems: 0, maxItems: 8 }),
+  maxExecutionsPerPeriod: Type.Union([Type.Object({ count: Type.Integer({ minimum: 1, maximum: 1000 }), period: Period }, strict), Type.Null()]),
+  cooldownMinutes: Type.Integer({ minimum: 0, maximum: 44_640 }), maxSlippageBps: Type.Integer({ minimum: 0, maximum: 1_000 }) }, strict);
 export const DelegatedAutomationInputSchema = Type.Object({
   version: Type.Literal(1), name: Type.String({ minLength: 1, maxLength: 80 }),
   trigger: Type.Union([Type.Object({ kind: Type.Literal('SCHEDULE'), schedule: Schedule }, strict),
     Type.Object({ kind: Type.Literal('PRICE'), timezone: Type.String({ minLength: 1, maxLength: 64 }), condition: Condition }, strict)]),
   steps: Type.Array(Step, { minItems: 1, maxItems: 4 }),
-  limits: Type.Object({ assets: Type.Array(AssetLimit, { minItems: 0, maxItems: 8 }),
-    maxExecutionsPerPeriod: Type.Union([Type.Object({ count: Type.Integer({ minimum: 1, maximum: 1000 }), period: Period }, strict), Type.Null()]),
-    cooldownMinutes: Type.Integer({ minimum: 0, maximum: 44_640 }), maxSlippageBps: Type.Integer({ minimum: 0, maximum: 1_000 }) }, strict),
+  limits: Limits,
   expiresAt: Iso,
 }, strict);
 export type DelegatedAutomationInput = Static<typeof DelegatedAutomationInputSchema>;
 export const isDelegatedAutomationInput = compileSchema<DelegatedAutomationInput>(DelegatedAutomationInputSchema).check;
+
+/**
+ * The same delegated rule, sourced from the canonical `AutomationInput` (what the Automations form and the chat's grounded draft
+ * produce) plus the delegation terms only the owner enters: limits and a mandatory expiry. `automation` is validated by the canonical
+ * `validateAutomationInput`, never by a second schema.
+ */
+export const DelegationTermsSchema = Type.Object({ limits: Limits, expiresAt: Iso }, strict);
+export type DelegationTerms = Static<typeof DelegationTermsSchema>;
+export const CanonicalDelegatedSourceSchema = Type.Object({ version: Type.Literal(1), source: Type.Literal('AUTOMATION_INPUT'), automation: Type.Unknown(),
+  terms: DelegationTermsSchema }, strict);
+export type CanonicalDelegatedSource = Static<typeof CanonicalDelegatedSourceSchema>;
+export const isCanonicalDelegatedSource = compileSchema<CanonicalDelegatedSource>(CanonicalDelegatedSourceSchema).check;
 
 export const CredentialInputSchema = Type.Union([
   Type.Object({ mechanism: Type.Literal('EVM_ERC7710_METAMASK_V1_3'), walletAddress: Type.String({ pattern: '^0x[0-9a-f]{40}$' }),

@@ -36,7 +36,8 @@ import { digestBytes } from './canonical.ts';
 import type { ChainTransport } from './chains.ts';
 import type { DelegationConfig } from './config.ts';
 import { executionAvailability } from './config.ts';
-import { isCredentialInput, isDelegatedAutomationInput, type CredentialInput, type DelegatedAutomationInput } from './definition.ts';
+import { delegatedInputOf } from './automation-source.ts';
+import { isCredentialInput, type CredentialInput, type DelegatedAutomationInput } from './definition.ts';
 import { authorizationDigest, buildManifest, executionSpend, manifestHash, universalAuthorization, wideningOf, type DelegatedAuthorizationManifest,
   type LimitsInput } from './manifest.ts';
 import type { DelegationStore, ExecutionRecord, GrantRecord, PasskeyRecord } from './pg-store.ts';
@@ -154,9 +155,11 @@ export function createDelegationService(deps: DelegationServiceDeps) {
     });
     return steps.length === 1 ? steps[0]! : { version: 2, steps };
   }
-  function validated(input: unknown): { input: DelegatedAutomationInput; strategy: StrategyInput; requirement: WorkflowRequirement; expiresAt: Date } {
-    if (!isDelegatedAutomationInput(input)) return refuse('DELEGATION_INPUT_INVALID');
-    const now = deps.now().getTime(), expiresAt = Date.parse(input.expiresAt);
+  function validated(raw: unknown): { input: DelegatedAutomationInput; strategy: StrategyInput; requirement: WorkflowRequirement; expiresAt: Date } {
+    // The workspace's steps form, or the canonical AutomationInput (form / chat draft) + the owner's terms: one compiled input.
+    const now = deps.now().getTime(), normalized = delegatedInputOf(raw, now);
+    if (!normalized.ok) return refuse(normalized.code);
+    const input = normalized.value, expiresAt = Date.parse(input.expiresAt);
     if (Number.isNaN(expiresAt) || expiresAt <= now || expiresAt - now > MAX_EXPIRY_MS) refuse('DELEGATION_EXPIRY_INVALID');
     if (input.trigger.kind === 'SCHEDULE') assertSchedule({ ...input.trigger.schedule });
     else { if (!validTimeZone(input.trigger.timezone)) refuse('AUTOMATION_SCHEDULE_INVALID'); conditionThreshold({ ...input.trigger.condition } as PriceCondition); }

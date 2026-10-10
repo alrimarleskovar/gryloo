@@ -78,6 +78,11 @@ export const portugueseDelegation: Readonly<Record<string, string>> = {
   'The signature came from another account.': 'A assinatura veio de outra conta.', 'The wallet signature is invalid.': 'A assinatura da carteira é inválida.',
   'The delegation is not visible on-chain yet. Verify again in a moment.': 'A delegação ainda não está visível on-chain. Verifique de novo dentro de momentos.',
   'Prove ownership of this wallet first.': 'Prove primeiro a titularidade desta carteira.', 'Check the tokens and amounts.': 'Verifique os tokens e os montantes.',
+  'Your wallet changed during this request. Nothing was submitted. Start again.': 'A sua carteira mudou durante este pedido. Nada foi submetido. Comece de novo.',
+  'Your wallet changed after this review opened, so it was closed. Nothing was authorized. Open the review again from your automatic workflows.':
+    'A sua carteira mudou depois de esta revisão abrir, por isso foi fechada. Nada foi autorizado. Abra a revisão de novo a partir dos seus fluxos automáticos.',
+  'Switch your wallet to the account of this Credential, then try again.': 'Mude a sua carteira para a conta desta Credencial e tente de novo.',
+  'Connect the Solana wallet of this Credential (the one you proved), then try again.': 'Ligue a carteira Solana desta Credencial (a que provou) e tente de novo.',
   // Passkeys
   'This device': 'Este dispositivo', 'Passkey': 'Chave de acesso', 'Passkey added.': 'Chave de acesso adicionada.', 'Add a passkey': 'Adicionar uma chave de acesso',
   'Passkey name': 'Nome da chave de acesso', 'Passkey {0}': 'Chave de acesso {0}', 'Passkey revoked.': 'Chave de acesso revogada.', 'Revoke': 'Revogar', 'added {0}': 'adicionada a {0}',

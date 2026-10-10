@@ -14,6 +14,7 @@ import type { AuthorizationView, DelegationOverviewView, ExecutionView, Manifest
 import type { WorkflowOwner } from '../domain/saved-workflow';
 import { useLocale } from '../i18n/locale';
 import { assertPasskey, passkeysSupported } from './delegation-browser';
+import { useWalletAuthorityEpoch } from './wallet-authority-epoch';
 
 type Run = (work: () => Promise<{ ok: boolean; code?: string }>, done?: string) => Promise<boolean>;
 export const DELEGATION_ERROR_TEXT: Readonly<Record<string, string>> = {
@@ -26,7 +27,7 @@ export const DELEGATION_ERROR_TEXT: Readonly<Record<string, string>> = {
   MANIFEST_SLIPPAGE_BELOW_WORKFLOW: 'The slippage cap is below the slippage of a step.', DELEGATION_EXPIRY_INVALID: 'Choose an expiry in the future, at most one year away.',
   DELEGATION_INPUT_INVALID: 'Check the fields and try again.', AUTHORIZATION_SIGNATURE_INVALID: 'The passkey signature could not be verified.',
   AUTHORIZATION_NOT_PENDING: 'This authorization changed. Review it again.', AUTHORIZATION_CHALLENGE_INVALID: 'This review expired. Review it again.',
-  PASSKEY_COUNTER_REPLAY: 'This passkey response was already used.', DELEGATED_AUTHORIZATION_REQUIRED: 'Sign the authorization before this automation can run.',
+  PASSKEY_COUNTER_REPLAY: 'This passkey response was already used.', WALLET_AUTHORITY_CHANGED: 'Your wallet changed during this request. Nothing was submitted. Start again.', DELEGATED_AUTHORIZATION_REQUIRED: 'Sign the authorization before this automation can run.',
   DELEGATED_REAUTHORIZATION_REQUIRED: 'Re-authorize this automation to change its workflow.',
 };
 const REASON_TEXT: Readonly<Record<string, string>> = {
@@ -74,16 +75,25 @@ function Limits({ m }: { m: ManifestView }) {
 /** The human-readable Universal Workflow Authorization Review, then the owner's ONE passkey signature. */
 export function AuthorizationReview({ review, owner, busy, run, onDone }: { review: ReviewView; owner: WorkflowOwner; busy: boolean; run: Run; onDone: () => void }) {
   const { t } = useLocale(), m = review.manifest;
+  // PR #76: this open review belongs to the wallet authority epoch it was opened under; a genuine wallet change retires it for good.
+  const wallet = useWalletAuthorityEpoch(), [openedAt] = useState(wallet.epoch), retired = wallet.epoch !== openedAt;
   const onChain = Object.entries(m.enforcement).filter(([, where]) => where.some(w => w.startsWith('SMART_ACCOUNT'))).map(([rule]) => rule);
   const application = Object.entries(m.enforcement).filter(([, where]) => where.includes('APPLICATION_GATEWAY')).map(([rule]) => rule);
   async function sign() {
     const ok = await run(async () => {
+      if (wallet.read() !== openedAt) return { ok: false, code: 'WALLET_AUTHORITY_CHANGED' };
       let assertion: Awaited<ReturnType<typeof assertPasskey>>;
       try { assertion = await assertPasskey(review); } catch (cause) { return { ok: false, code: cause instanceof Error && /^[A-Z_]+$/.test(cause.message) ? cause.message : 'PASSKEY_CANCELLED' }; }
+      // The wallet changed while the passkey prompt was open: discard the assertion, never submit it.
+      if (wallet.read() !== openedAt) return { ok: false, code: 'WALLET_AUTHORITY_CHANGED' };
       return authorizationSign(owner, review.authorizationId, review.revision, assertion);
     }, 'Authorized. FloFi may now execute this automation within your limits without asking you again.');
     if (ok) onDone();
   }
+  if (retired) return <section className="automation-card delegation-review" aria-label={t('Authorization review')}>
+    <p role="status">{t('Your wallet changed after this review opened, so it was closed. Nothing was authorized. Open the review again from your automatic workflows.')}</p>
+    <div className="approval-actions"><button type="button" className="workspace-action" onClick={onDone}>{t('Close')}</button></div>
+  </section>;
   return <section className="automation-card delegation-review" aria-label={t('Authorization review')}>
     <h3>{t('Automatic execution allowed')}</h3>
     <ul className="delegation-steps">{m.steps.map(s => <li key={s.stepIndex}><strong>{s.label}</strong> · {t('wallet {0}', short(s.walletAddress))}</li>)}</ul>

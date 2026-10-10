@@ -14,13 +14,17 @@ import type { WorkflowOwner } from '../domain/saved-workflow';
 import { useLocale } from '../i18n/locale';
 import { createPasskey, passkeysSupported, sendRevocation, signDelegation, signSolanaWith } from './delegation-browser';
 import { DELEGATION_ERROR_TEXT } from './delegated-automations';
+import { useWalletAuthorityEpoch } from './wallet-authority-epoch';
+import { useBuild009Wallet } from '../state/build009-wallet-store';
+import { useJupiter } from '../state/jupiter-store';
 import { WalletProof, useWalletProof } from './wallet-proof';
 
 export type DelegationAccess = { readonly owner: WorkflowOwner | null; readonly proof: ReturnType<typeof useWalletProof> };
 const ERROR_TEXT: Readonly<Record<string, string>> = { ...DELEGATION_ERROR_TEXT, EVM_ACCOUNT_NOT_UPGRADED: 'This account is not a MetaMask smart account yet. Switch it to a smart account in MetaMask, then verify again.',
   ENROLLMENT_SIGNER_MISMATCH: 'The signature came from another account.', ENROLLMENT_SIGNATURE_INVALID: 'The wallet signature is invalid.',
   SOLANA_DELEGATION_NOT_CONFIRMED: 'The delegation is not visible on-chain yet. Verify again in a moment.', WALLET_SESSION_REQUIRED: 'Prove ownership of this wallet first.',
-  CREDENTIAL_SCOPE_INVALID: 'Check the tokens and amounts.', CREDENTIAL_EXPIRY_INVALID: 'Choose an expiry in the future, at most one year away.' };
+  CREDENTIAL_SCOPE_INVALID: 'Check the tokens and amounts.', WALLET_ACCOUNT_MISMATCH: 'Switch your wallet to the account of this Credential, then try again.',
+  SOLANA_WALLET_SESSION_REQUIRED: 'Connect the Solana wallet of this Credential (the one you proved), then try again.', CREDENTIAL_EXPIRY_INVALID: 'Choose an expiry in the future, at most one year away.' };
 const STATE: Readonly<Record<string, string>> = { PENDING_SIGNATURE: 'Waiting for your wallet', ACTIVE: 'Active', REVOCATION_REQUESTED: 'Revocation requested', REVOKED: 'Revoked',
   EXPIRED: 'Expired', UNCERTAIN: 'Unverified', FAILED: 'Failed' };
 const plusMonths = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
@@ -95,16 +99,19 @@ function PasskeysManager({ access, placeholder }: { access: DelegationAccess; pl
 }
 
 function GrantCard({ g, owner, busy, run }: { g: GrantView; owner: WorkflowOwner; busy: boolean; run: (work: () => Promise<{ ok: boolean; code?: string }>, done?: string) => Promise<boolean> }) {
-  const { t } = useLocale();
+  const { t } = useLocale(), evm = useBuild009Wallet(), solana = useJupiter();
   async function finishRevocation() {
     await run(async () => {
       const payload = g.revocation as Record<string, unknown> | null;
       if (!payload) return { ok: false, code: 'CREDENTIAL_REVOCATION_NOT_REQUESTED' };
       if (g.walletNamespace === 'eip155') {
+        // Only the grant's own wallet can disable its delegation; ask nothing of any other account.
+        if (evm.account !== g.walletAddress) return { ok: false, code: 'WALLET_ACCOUNT_MISMATCH' };
         await sendRevocation({ from: String(payload.from), to: String(payload.to), data: String(payload.data), chainId: Number(payload.chainId) });
+        // Once sent, completion only observes the chain (never a second transaction), whatever the wallet does next.
         return credentialRevocationComplete(owner, g.grantId, {});
       }
-      return credentialRevocationComplete(owner, g.grantId, { signedTransaction: await signSolanaWith(g.walletAddress, String(payload.transaction)) });
+      return credentialRevocationComplete(owner, g.grantId, { signedTransaction: await signSolanaWith(g.walletAddress, String(payload.transaction), solana.session) });
     }, 'Revocation submitted by your wallet and checked on-chain.');
   }
   return <li className="automation-card delegation-grant" aria-label={t('Credential {0} on {1}', short(g.walletAddress), g.network)} data-state={g.state}>
@@ -133,7 +140,11 @@ function ExecutionCredentialsPanel({ access }: { access: DelegationAccess }) {
   const { overview, code, refresh } = useOverview(owner, proven), { busy, run, messages } = useRunner(refresh);
   const solanaProof = useWalletProof(owner ? 'solana' : null);
   const [network, setNetwork] = useState<'base-sepolia' | 'ethereum-sepolia' | 'solana-devnet'>('base-sepolia'), [cap, setCap] = useState('100'), [calls, setCalls] = useState('40');
-  const [amount, setAmount] = useState('20'), [expires, setExpires] = useState(plusMonths(3)), [pending, setPending] = useState<{ grantId: string; signature: string } | null>(null);
+  const [amount, setAmount] = useState('20'), [expires, setExpires] = useState(plusMonths(3));
+  // PR #76: a wallet signature obtained under one wallet authority epoch is submitted only under that same epoch.
+  const epoch = useWalletAuthorityEpoch(), shared = useJupiter().session;
+  const [pending, setPending] = useState<{ grantId: string; signature: string; epoch: string } | null>(null);
+  const pendingValid = pending !== null && pending.epoch === epoch.epoch;
   const enabled = useEnabled();
   if (!enabled || !owner || code === 'DELEGATION_NOT_ENABLED') return null;
   const passkey = overview?.passkeys.find(p => !p.revoked);
@@ -141,20 +152,26 @@ function ExecutionCredentialsPanel({ access }: { access: DelegationAccess }) {
     event.preventDefault();
     if (!passkey) return;
     const solana = network === 'solana-devnet';
-    const wallet = solana ? solanaProof.proven : owner!.namespace === 'eip155' ? owner!.address : null;
+    const walletAddress = solana ? solanaProof.proven : owner!.namespace === 'eip155' ? owner!.address : null;
     await run(async () => {
-      if (!wallet) return { ok: false, code: 'WALLET_SESSION_REQUIRED' };
-      const input = solana ? { mechanism: 'SOLANA_SPL_DELEGATE_V1', walletAddress: wallet, network, tokens: [{ symbol: 'devUSDC', amount }], expiresAt: `${expires}T23:59:00Z`,
+      if (!walletAddress) return { ok: false, code: 'WALLET_SESSION_REQUIRED' };
+      const started = epoch.read();
+      const input = solana ? { mechanism: 'SOLANA_SPL_DELEGATE_V1', walletAddress, network, tokens: [{ symbol: 'devUSDC', amount }], expiresAt: `${expires}T23:59:00Z`,
         passkeyId: passkey.passkeyId, label: 'Solana wallet' }
-        : { mechanism: 'EVM_ERC7710_METAMASK_V1_3', walletAddress: wallet, network, pairs: [{ input: 'USDC', output: 'WETH', perCallCap: cap }], maxCalls: Number(calls),
+        : { mechanism: 'EVM_ERC7710_METAMASK_V1_3', walletAddress, network, pairs: [{ input: 'USDC', output: 'WETH', perCallCap: cap }], maxCalls: Number(calls),
           expiresAt: `${expires}T23:59:00Z`, passkeyId: passkey.passkeyId, label: 'EVM wallet' };
       const prepared = await credentialPrepare(owner!, input);
       if (!prepared.ok) return prepared;
       const enrollment = prepared.value.enrollment as Record<string, unknown>;
-      if (solana) return credentialComplete(owner!, prepared.value.grantId, { signedTransaction: await signSolanaWith(wallet, String(enrollment.transaction)) });
-      const signature = await signDelegation(wallet, enrollment.typedData);
+      if (solana) {
+        const signedTransaction = await signSolanaWith(walletAddress, String(enrollment.transaction), shared);
+        if (epoch.read() !== started) return { ok: false, code: 'WALLET_AUTHORITY_CHANGED' };
+        return credentialComplete(owner!, prepared.value.grantId, { signedTransaction });
+      }
+      const signature = await signDelegation(walletAddress, enrollment.typedData);
+      if (epoch.read() !== started) return { ok: false, code: 'WALLET_AUTHORITY_CHANGED' };
       const done = await credentialComplete(owner!, prepared.value.grantId, { signature });
-      if (!done.ok && done.code === 'EVM_ACCOUNT_NOT_UPGRADED') setPending({ grantId: prepared.value.grantId, signature });
+      if (!done.ok && done.code === 'EVM_ACCOUNT_NOT_UPGRADED') setPending({ grantId: prepared.value.grantId, signature, epoch: started });
       return done;
     }, 'Credential enrolled: this wallet can now serve automatic workflows within its limits.');
   }
@@ -167,7 +184,7 @@ function ExecutionCredentialsPanel({ access }: { access: DelegationAccess }) {
       {overview?.availability.enrollment && <p className="muted">{t(ERROR_TEXT[overview.availability.enrollment] ?? overview.availability.enrollment)}</p>}
       {!passkey && <p className="error-banner" role="note">{t('Register a passkey first (Passkeys). Every Credential is bound to the passkey that will authorize your workflows.')}</p>}
       <ul className="automation-list">{(overview?.credentials ?? []).flatMap(c => c.grants).map(g => <GrantCard key={g.grantId} g={g} owner={owner} busy={busy} run={run}/>)}</ul>
-      {pending && <div className="approval-actions"><button type="button" className="workspace-action" disabled={busy}
+      {pending && pendingValid && <div className="approval-actions"><button type="button" className="workspace-action" disabled={busy}
         onClick={() => void run(async () => { const r = await credentialComplete(owner, pending.grantId, { signature: pending.signature }); if (r.ok) setPending(null); return r; }, 'Credential enrolled.')}>{t('Verify again')}</button></div>}
       <form className="automation-form" aria-label={t('Enroll a wallet for automatic execution')} onSubmit={event => void enroll(event)}>
         <label className="automation-field"><span>{t('Network')}</span><select aria-label={t('Credential network')} value={network} onChange={e => setNetwork(e.currentTarget.value as typeof network)}>

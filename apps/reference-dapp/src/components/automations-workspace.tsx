@@ -435,7 +435,7 @@ export function AutomationsWorkspace({ owner: ownerProp, proof, onPropose }: Par
                 <div className="workspace-section-heading"><div><h2 id="automation-delegated">{t('Automatic within limits')}</h2>
                   <span className="workspace-count">{delegation.overview!.authorizations.length}</span></div>
                   <button type="button" className="workspace-action" disabled={busy} onClick={() => void refreshDelegation()}>{t('Refresh')}</button></div>
-                {review && <AuthorizationReview review={review} owner={owner} busy={busy} run={run} onDone={() => setReview(null)}/>}
+                {review && <AuthorizationReview key={review.challenge} review={review} owner={owner} busy={busy} run={run} onDone={() => setReview(null)}/>}
                 <DelegatedAuthorizations overview={delegation.overview!} owner={owner} busy={busy} run={run} onReview={setReview}/>
               </section>}
               <section className="workspace-section" aria-labelledby="automation-create">
