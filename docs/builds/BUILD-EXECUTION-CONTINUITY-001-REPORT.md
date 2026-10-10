@@ -118,8 +118,8 @@ Toolchain: Node `24.21.0`, pnpm `11.22.0`; dependencies and lockfile unchanged.
 | `pnpm build` | PASS — all 9 tasks |
 | `pnpm schemas:check` | PASS — 11 exports |
 | Chromium execution continuity | PASS — all 3 scenarios, 1.6 min |
-| Existing Review/Execute browser suites | PASS — 40 tests |
-| Wallet environment browser suite | PASS — 4 tests |
+| Existing Review/Execute browser suites | PASS — 39 tests |
+| Wallet environment browser suite | PASS — 5 tests |
 | Wallet selector and passive provider routing | PASS — 10 tests (7 selector, 3 provider routing) |
 | Lending provenance browser gate | PASS — MOCKED cannot grant Review or submit |
 | `pnpm test:postgres` | PASS — 46 files / 302 tests |
