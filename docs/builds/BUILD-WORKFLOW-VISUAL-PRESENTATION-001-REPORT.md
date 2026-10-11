@@ -195,4 +195,20 @@ Gates run on the final tree are listed in §12.
 
 ## 12. Final certification
 
-(Completed at delivery; see the PR description for the commit SHA.)
+Run on the committed implementation tree (`9955e0a`; the delivery commit after it changes only this section), Node 24.21.0,
+pnpm 11.22.0, Anvil 1.8.3, a disposable loopback PostgreSQL 18.6 (CI's pinned image) and the app on loopback port 3131:
+
+| Gate | Result |
+| --- | --- |
+| `pnpm check` (typecheck, lint, build, schema drift, unit tests) | PASS — 313 test files, 3,248 tests; 2 skipped are pre-existing, environment-gated fork fixtures (`it.skipIf`), unchanged here |
+| `pnpm test:postgres` | PASS — 53 files, 337 tests |
+| `python3 scripts/governance_lite.py` + `test_governance_lite.py` | PASS (1,719 text files) + 19 self-tests OK |
+| `node scripts/guarded-release-browser.mjs product` | PASS — 24/24 profiles, 203 tests, none failed or skipped (Canvas, Build, Simulate, Dashboard, execution continuity, automations, delegated execution, Copilot, provenance boundaries) |
+| CI browser step: `mcp-route-presentation` (OAuth off), `developer-journey`, `mcp-in-chat` + `mcp-route-presentation`, `channel-signing`, `whatsapp-approve` + `telegram-approve` | PASS — 11, 1, 21, 6, 2 |
+
+Not run locally: the `composition` browser phase and the pinned fork/SBOM jobs (unaffected areas; CI runs them). Nothing here is live
+provider, vendor-host, public-chain or production evidence.
+
+Confirmations: no production environment variable changed; no transaction of any kind (no fork, testnet or mainnet submission, no
+signature) occurred; no Canvas, Build, Simulate, Dashboard, landing, navigation, branding or global typography change (no file under
+those surfaces changed, and their browser profiles pass); the WhatsApp policy gate and provider clearance are unchanged.
