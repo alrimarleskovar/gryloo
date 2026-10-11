@@ -99,9 +99,21 @@ describe('BUILD-CHANNELS-001 channel boundaries', () => {
       // The owner's decisions on /approve and FloFi's execution: never called by a channel.
       expect(text, file).not.toMatch(/\b(?:claimApproval|applyApproval|shareApproval)\(|runtime\.(?:run|journal)\(|callFlow\(/);
     }
-    // Channel code reaches no execution service: only the copilot boundary, the runtime host and the deployment facts.
+    // Channel code reaches no execution service: only the copilot boundary, the runtime host, the deployment facts and (BUILD-WORKFLOW-
+    // VISUAL-PRESENTATION-001) FloFi's shared workflow renderer.
     const servers = [...channelFiles].flatMap(file => importsOf(join(app, file)).map(([, s]) => s.startsWith('.') ? target(join(app, file), s) : s)).filter(t => t.startsWith('src/server/'));
-    expect([...new Set(servers)].sort()).toEqual(['src/server/copilot-service.ts', 'src/server/deployment.ts', 'src/server/platform-state-host.ts']);
+    expect([...new Set(servers)].sort()).toEqual(['src/server/copilot-service.ts', 'src/server/deployment.ts', 'src/server/platform-state-host.ts',
+      'src/server/workflow-visual-image.ts']);
+    // The renderer draws the presentation model and nothing else: its whole closure signs nothing, reaches no flow, runtime, handoff,
+    // wallet session or network, and holds no secret.
+    const renderer = closure(join(app, 'src/server/workflow-visual-image.ts'));
+    // Packages: the engine's own (and its schema stack), Next's image renderer, and React's element type.
+    expect(renderer.packages.filter(p => !/^(?:node:|@defi-workflow-engine\/|@sinclair\/typebox$|ajv$|next\/og\.js$|react$)/.test(p))).toEqual([]);
+    for (const file of renderer.files.filter(f => /^src\/(?:server|platform)\/workflow-visual/.test(f))) {
+      const text = code(join(app, file));
+      expect(text, file).not.toMatch(/eth_sendTransaction|eth_signTypedData|personal_sign|sendRawTransaction|signTransaction|signMessage|privateKey|createWalletClient/);
+      expect(text, file).not.toMatch(/\bfetch\(|node:https?|undici|process\.env|runtime\.|callFlow\(|handoffs?\.|claimApproval|applyApproval|approvalUrl|secret/i);
+    }
   });
 
   it('keeps the approval-side paths model-free, transitively (contributor, status ping, its server action)', () => {

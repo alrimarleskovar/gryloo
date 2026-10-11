@@ -13,6 +13,8 @@
  * and nothing a channel carries — a message, a choice, an approval link — is financial authority. Provider ids live only in memory or
  * keyed/encrypted at rest; they are never logged.
  */
+import type { WorkflowVisualModel } from '../../platform/workflow-visual.ts';
+import type { VisualLanguage } from '../../platform/workflow-visual-layout.ts';
 
 /** A channel's stable name: `WHATSAPP` today. A pattern, not an enum, so a new channel needs no schema change. */
 export const CHANNEL_ID = /^[A-Z][A-Z0-9_]{1,31}$/;
@@ -49,8 +51,22 @@ export type DeliveryUpdate = { readonly channel: ChannelId; readonly correlation
   readonly status: DeliveryStatus; readonly errorCode: string | null };
 
 export type ReplyChoice = { readonly id: string; readonly label: string };
-/** What Channel Core asks an adapter to send: FloFi-written text, up to a few choices, and at most one link (the approval link). */
-export type ChannelReply = { readonly text: string; readonly choices: readonly ReplyChoice[]; readonly link: { readonly label: string; readonly url: string } | null };
+/**
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a provider-neutral request to show the proposed workflow as a picture next to the text: the
+ * shared presentation model of the canonical workflow, and the reply's language. Presentation only — the text and the approval link
+ * are the message; the picture is never its authority and never the handoff.
+ */
+export type ChannelVisual = { readonly model: WorkflowVisualModel; readonly language: VisualLanguage };
+/**
+ * What Channel Core asks an adapter to send: FloFi-written text, up to a few choices, at most one link (the approval link) and, for a
+ * workflow proposal, an optional visual.
+ */
+export type ChannelReply = { readonly text: string; readonly choices: readonly ReplyChoice[]; readonly link: { readonly label: string; readonly url: string } | null;
+  readonly visual?: ChannelVisual | null };
+/** A reply's visual, rendered once by the shared renderer: PNG bytes (never a URL) and their text alternative. */
+export type ChannelImage = { readonly mimeType: 'image/png'; readonly bytes: Uint8Array; readonly alt: string };
+/** The one shared renderer, injected by the channel wiring: a reply's visual as a PNG, or null when it cannot be drawn (text only then). */
+export type ChannelVisualRenderer = (visual: ChannelVisual) => Promise<ChannelImage | null>;
 /** Why a message is sent: a turn's reply, the approval message carrying the link, or a status notification outside a turn. */
 export type ReplyKind = 'REPLY' | 'APPROVAL' | 'NOTIFICATION';
 
@@ -65,8 +81,12 @@ export type ReplyKind = 'REPLY' | 'APPROVAL' | 'NOTIFICATION';
 export type SendFailure = 'TRANSIENT' | 'RATE_LIMITED' | 'PERMANENT' | 'UNCERTAIN';
 export type SendResult = { readonly ok: true; readonly providerMessageId: string }
   | { readonly ok: false; readonly code: string; readonly failure: SendFailure; readonly retryAfterMs: number | null };
-/** The circumstances of one send: what the message is, and whether the provider's free-form messaging window is open. */
-export type SendContext = { readonly kind: ReplyKind; readonly windowOpen: boolean };
+/**
+ * The circumstances of one send: what the message is, whether the provider's free-form messaging window is open and, when the reply's
+ * visual was rendered, the picture. An adapter that can attach media shows it with the text and the same link; any media problem falls
+ * back to the text message, which alone is always complete.
+ */
+export type SendContext = { readonly kind: ReplyKind; readonly windowOpen: boolean; readonly image?: ChannelImage | null };
 
 /** One provider, as Channel Core uses it for outbound traffic. */
 export interface ChannelAdapter {

@@ -16,7 +16,7 @@ import { claimApproval, PlatformRefusal, viewApproval, type WalletRef } from '..
 import { approvalSurface } from '../../server/approval-surface.ts';
 import { recordingRuntime } from '../core/engine.test-harness.ts';
 import { blockedUpdate, BOT_ID, botApi, botError, callbackUpdate, TELEGRAM_OTHER_USER, TELEGRAM_USER, telegramEnv, telegramRequest, textUpdate,
-  type BotScript } from './fixtures.test-harness.ts';
+  type BotFile, type BotScript } from './fixtures.test-harness.ts';
 import { handleTelegramWebhook } from './handler.ts';
 
 const OWNER = '0x1111111111111111111111111111111111111111', OTHER = '0x2222222222222222222222222222222222222222';
@@ -77,6 +77,9 @@ describe('BUILD-CHANNELS-001 Telegram channel (PostgreSQL, Bot API double, MOCKE
     const url = d.api.lastLink()!;
     expect(url).toMatch(/^http:\/\/127\.0\.0\.1:3100\/approve#flofi_chs_[A-Za-z0-9_-]{43}$/);
     expect(d.api.texts().at(-1)).toMatch(/^Strategy ready:[\s\S]*Nothing is authorized yet/);
+    // BUILD-WORKFLOW-VISUAL-PRESENTATION-001: one photo message — the workflow picture, the whole text as its caption, the same URL button.
+    const proposal = d.api.delivered().find(c => d.api.linkOf(c))!;
+    expect([proposal.method, (proposal.params.photo as BotFile).mimeType, (proposal.params.photo as BotFile).bytes.subarray(1, 4).toString()]).toEqual(['sendPhoto', 'image/png', 'PNG']);
     const handoff = await conversationOfLastHandoff();
     const row = (await t.db.query(`SELECT requester_kind, account_id, grant_id, client_id, client_name FROM mcp_handoffs WHERE handoff_id = $1`, [handoff.handoff_id])).rows[0];
     expect(row).toEqual({ requester_kind: 'CHANNEL_CONVERSATION', account_id: null, grant_id: null, client_id: `telegram:${BOT_ID}`, client_name: 'Telegram' });
@@ -128,11 +131,13 @@ describe('BUILD-CHANNELS-001 Telegram channel (PostgreSQL, Bot API double, MOCKE
     const retry = await withCode('PROVIDER_THROTTLED');
     expect(retry).toMatchObject({ status: 'PENDING', error_code: 'PROVIDER_THROTTLED', attempts: 1 });
     expect(new Date(retry.next_attempt_at as string).getTime() - base).toBeGreaterThanOrEqual(90_000);
-    // Unknown outcome (a timeout after sending): an approval message is tried once, never resent, and its link withdrawn.
-    const lost = deployment(call => call.method === 'sendMessage' && call.params.reply_markup && JSON.stringify(call.params.reply_markup).includes('"url"') ? 'TIMEOUT' : null);
+    // Unknown outcome (a timeout after sending): an approval message is tried once, never resent, and its link withdrawn. It is a photo
+    // message now (BUILD-WORKFLOW-VISUAL-PRESENTATION-001), and an uncertain photo is not resent as text either.
+    const lost = deployment(call => (call.method === 'sendMessage' || call.method === 'sendPhoto') && call.params.reply_markup
+      && JSON.stringify(call.params.reply_markup).includes('"url"') ? 'TIMEOUT' : null);
     await lost.say(SUPPLY('6'));
     const handoff = await conversationOfLastHandoff();
-    expect(lost.api.sent().filter(c => lost.api.linkOf(c))).toHaveLength(1);
+    expect(lost.api.sent().filter(c => lost.api.linkOf(c)).map(c => c.method)).toEqual(['sendPhoto']);
     expect(handoff.status).toBe('REVOKED');
     expect(lost.api.texts().at(-1)).toMatch(/could not be delivered, so it was withdrawn/);
     const approvalRow = (await t.db.query(`SELECT status, error_code FROM channel_outbox WHERE handoff_id = $1 AND kind = 'APPROVAL'`, [handoff.handoff_id])).rows;

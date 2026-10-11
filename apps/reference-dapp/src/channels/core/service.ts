@@ -28,14 +28,16 @@ import { statusReplies } from './status.ts';
 import { RETENTION, type ChannelStore, type ConversationRecord, type NewOutbox, type PendingEvent } from './store.ts';
 import { SUBSCRIBE_LIMIT, type ChannelSubscriptions } from './subscriber.ts';
 import { canonicalStrategy } from './strategy.ts';
-import type { ChannelAdapter, ChannelAddress, ChannelReply, DeliveryUpdate, InboundMessage } from './types.ts';
+import type { ChannelAdapter, ChannelAddress, ChannelReply, ChannelVisualRenderer, DeliveryUpdate, InboundMessage } from './types.ts';
 
 export type ChannelContext = { readonly core: ChannelCoreConfig; readonly store: ChannelStore; readonly platform: ChannelPlatform; readonly adapter: ChannelAdapter;
   readonly interpreter: ChannelInterpreter | null; readonly log: ChannelLogger; readonly now: () => Date; readonly previewTimeoutMs?: number;
   /** Test seams for delivery: the wait between inline approval retries, the jitter source. */
   readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number;
   /** BUILD-AUTOMATION-001: the subscription hook (linking a chat to an owner's automation notifications); none = not offered. */
-  readonly subscriptions?: ChannelSubscriptions | null };
+  readonly subscriptions?: ChannelSubscriptions | null;
+  /** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the shared workflow renderer; none = proposals are sent as text only. */
+  readonly visuals?: ChannelVisualRenderer | null };
 export const LEASE_SECONDS = 300;
 export const LIMITS = Object.freeze({ inbound: [20, 600] as const, model: [30, 3_600] as const, preview: [10, 3_600] as const });
 const MAX_EVENT_ATTEMPTS = 3;
@@ -48,7 +50,7 @@ export function createChannelService(ctx: ChannelContext) {
   const stateContext = (conversationId: string) => sealContext(tenant, 'channel_conversations', conversationId, 'state');
   const payloadContext = (digest: Buffer) => sealContext(tenant, 'channel_events', digest.toString('hex'), 'payload');
   const delivery: DeliveryContext = { tenantId: tenant, origin: core.origin, keys, store, adapter, handoffs: ctx.platform.handoffs, log, now: ctx.now,
-    ...ctx.sleep ? { sleep: ctx.sleep } : {}, ...ctx.random ? { random: ctx.random } : {} };
+    ...ctx.sleep ? { sleep: ctx.sleep } : {}, ...ctx.random ? { random: ctx.random } : {}, ...ctx.visuals ? { visuals: ctx.visuals } : {} };
   const subjectKey = (m: InboundMessage) => `${m.channel}:${m.subject.business}:${m.subject.user}`;
   /** Choices the provider cannot show as buttons are listed as numbers (answerable by number), in the reply's language. */
   const fitted = (reply: ChannelReply, language: ChannelLanguage): ChannelReply => !reply.choices.length || adapter.choicesFit(reply.choices) ? reply
@@ -200,7 +202,8 @@ export function createChannelService(ctx: ChannelContext) {
   }
   /**
    * The pending proposal → canonical strategy → (previous link revoked) → a new approval handoff on the shared platform → optional
-   * read-only preview → the "strategy ready" reply carrying the link in memory.
+   * read-only preview → the "strategy ready" reply carrying the link in memory and the canonical workflow's visual (presentation only:
+   * the visual's workflow hash is the handoff's own).
    */
   async function propose(conversationId: string, state: ChannelState, command: Command, aiInterpreted: boolean, notes: readonly string[], now: Date) {
     const m = channelCopy(state.language), strategy = canonicalStrategy(command);
@@ -215,7 +218,7 @@ export function createChannelService(ctx: ChannelContext) {
     const reply: ChannelReply = { text: readyText(state.language, { lines: strategy.steps.map(s => stepSummary(s, state.language)), networks, fundsClass: strategy.fundsClass,
       notes: [...revoked ? [m.replaced] : [], ...notes.slice(0, 2)], preview, intendedWallet: strategy.intendedWallet ? shorten(strategy.intendedWallet.address) : null,
       aiInterpreted, expiresMinutes: Math.round((approval.expiresAt.getTime() - now.getTime()) / 60_000) }),
-    choices: [], link: { label: m.linkLabel, url: approval.approvalUrl } };
+    choices: [], link: { label: m.linkLabel, url: approval.approvalUrl }, visual: { model: strategy.visual, language: state.language } };
     return { outcome: 'APPROVAL_CREATED', replies: [reply], handoffId: approval.approvalId, approvalReply: { reply, handoffId: approval.approvalId },
       state: { ...state, pending: strategy.command, approvalId: approval.approvalId, lastApprovalId: approval.approvalId } };
   }

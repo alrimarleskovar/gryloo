@@ -10,17 +10,26 @@
  *   TRANSIENT     a 5xx carrying the API's error body (`ok: false`); a connection that never reached Telegram
  *   UNCERTAIN     a timeout or lost connection, a 5xx without the API's body, a success without a message id: Telegram may have
  *                 delivered it and reports nothing to bots, so it is never resent
- * The provider message id is `<chat id>:<message id>` (message ids are only unique within a chat).
+ * The provider message id is `<chat id>:<message id>` (message ids are only unique within a chat). `sendPhoto` (BUILD-WORKFLOW-VISUAL-
+ * PRESENTATION-001) answers and is classified exactly like `sendMessage`.
  */
-import { providerRequest, type ProviderHttpResult } from '../core/provider-http.ts';
+import { multipartBody, providerRequest, type MultipartFile, type ProviderHttpResult } from '../core/provider-http.ts';
 import type { SendResult } from '../core/types.ts';
 
-export type TelegramApi = (method: string, params: Record<string, unknown>, timeoutMs?: number) => Promise<ProviderHttpResult>;
+/** A method's parameters: JSON, or multipart fields with one uploaded file (`sendPhoto`). */
+export type TelegramUpload = { readonly fields: Readonly<Record<string, string>>; readonly file: MultipartFile };
+export type TelegramApi = (method: string, params: Record<string, unknown> | TelegramUpload, timeoutMs?: number) => Promise<ProviderHttpResult>;
+const isUpload = (params: Record<string, unknown> | TelegramUpload): params is TelegramUpload =>
+  typeof (params as TelegramUpload).file === 'object' && (params as TelegramUpload).file !== null && typeof (params as TelegramUpload).fields === 'object';
 export function telegramApi(options: { readonly token: string; readonly apiBase: string }, fetchImpl: typeof fetch = fetch): TelegramApi {
   return (method, params, timeoutMs = 10_000) => {
     if (!/^[A-Za-z]{3,40}$/.test(method)) throw new Error('TELEGRAM_METHOD_INVALID');
-    return providerRequest({ url: `${options.apiBase}/bot${options.token}/${method}`, body: JSON.stringify(params), timeoutMs,
-      headers: { 'content-type': 'application/json' } }, fetchImpl);
+    const url = `${options.apiBase}/bot${options.token}/${method}`;
+    if (isUpload(params)) {
+      const { body, contentType } = multipartBody(params.fields, params.file);
+      return providerRequest({ url, body, timeoutMs, headers: { 'content-type': contentType } }, fetchImpl);
+    }
+    return providerRequest({ url, body: JSON.stringify(params), timeoutMs, headers: { 'content-type': 'application/json' } }, fetchImpl);
   };
 }
 

@@ -12,23 +12,29 @@
  *
  * The recipient is the business-scoped user id when known (`recipient`), otherwise the phone number (`to`). Every request carries the
  * outbox id as `biz_opaque_callback_data`, which Meta echoes in status webhooks, so delivery is correlated even after a crash.
+ *
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: with an uploaded workflow picture (a media id from `/media`, never a URL), the interactive
+ * messages carry it as their image header — the same body text and the same button; a plain reply becomes an image message whose
+ * caption is the whole text (only when it fits; otherwise the text message is sent).
  */
 import type { ChannelAddress, ChannelReply, ReplyChoice } from '../core/types.ts';
 import type { WhatsAppTemplate } from './config.ts';
 
-export const WHATSAPP_LIMITS = Object.freeze({ text: 4_096, interactiveBody: 1_024, buttons: 3, buttonTitle: 20, footer: 60, templateParameter: 900 });
+export const WHATSAPP_LIMITS = Object.freeze({ text: 4_096, interactiveBody: 1_024, buttons: 3, buttonTitle: 20, footer: 60, templateParameter: 900, caption: 1_024 });
 const clip = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 /** Whether choices can be reply buttons; otherwise Channel Core lists them as numbers in the text. */
 export const choicesFitButtons = (choices: readonly ReplyChoice[]) =>
   choices.length > 0 && choices.length <= WHATSAPP_LIMITS.buttons && choices.every(c => c.label.length >= 1 && c.label.length <= WHATSAPP_LIMITS.buttonTitle);
 
-export function renderMessage(to: ChannelAddress, reply: ChannelReply, correlationId: string): Record<string, unknown> {
+export function renderMessage(to: ChannelAddress, reply: ChannelReply, correlationId: string, mediaId: string | null = null): Record<string, unknown> {
   const recipient = to.kind === 'bsuid' ? { recipient: to.value } : { to: to.value };
   const base = { messaging_product: 'whatsapp', recipient_type: 'individual', ...recipient, biz_opaque_callback_data: correlationId };
-  if (reply.link) return { ...base, type: 'interactive', interactive: { type: 'cta_url', body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
+  const header = mediaId ? { header: { type: 'image', image: { id: mediaId } } } : {};
+  if (reply.link) return { ...base, type: 'interactive', interactive: { type: 'cta_url', ...header, body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
     action: { name: 'cta_url', parameters: { display_text: clip(reply.link.label, WHATSAPP_LIMITS.buttonTitle), url: reply.link.url } } } };
-  if (choicesFitButtons(reply.choices)) return { ...base, type: 'interactive', interactive: { type: 'button', body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
+  if (choicesFitButtons(reply.choices)) return { ...base, type: 'interactive', interactive: { type: 'button', ...header, body: { text: clip(reply.text, WHATSAPP_LIMITS.interactiveBody) },
     action: { buttons: reply.choices.map(c => ({ type: 'reply', reply: { id: c.id, title: c.label } })) } } };
+  if (mediaId && reply.text.length <= WHATSAPP_LIMITS.caption) return { ...base, type: 'image', image: { id: mediaId, caption: reply.text } };
   return { ...base, type: 'text', text: { body: clip(reply.text, WHATSAPP_LIMITS.text), preview_url: false } };
 }
 

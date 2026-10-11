@@ -17,7 +17,9 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { createTestWallet } from '../../../packages/reference-reconciler/test/test-wallet.ts';
 import { handleWhatsAppWebhook } from '../src/channels/whatsapp/handler.ts';
-import { fixtureTransport, type FixtureRecord } from '../src/channels/whatsapp/transport.ts';
+import { fixtureTransport, type FixtureRecord, type FixtureUpload } from '../src/channels/whatsapp/transport.ts';
+import type { ChannelVisual } from '../src/channels/core/types.ts';
+import { channelVisualRenderer } from '../src/channels/visuals.ts';
 import { inbound, signed, webhookRequest } from '../src/channels/whatsapp/fixtures.test-harness.ts';
 import { E2E_APP_ORIGIN as APP_ORIGIN } from './app-origin';
 import { CHANNEL_E2E, channelE2eEnv, channelE2eUsers } from './channel-constants';
@@ -67,17 +69,25 @@ test.describe('BUILD-CHANNELS-001 WhatsApp → /approve (fixture provider, MOCKE
     expect(first).toMatchObject({ requester_kind: 'CHANNEL_CONVERSATION', account_id: null, grant_id: null, client_name: 'WhatsApp', status: 'PENDING' });
 
     // 2. LINK: a fresh link replaces the first (now withdrawn), read from the fixture transport the way the user's phone would.
-    const sent: FixtureRecord[] = [];
+    const sent: FixtureRecord[] = [], uploads: FixtureUpload[] = [], pictured: ChannelVisual[] = [];
     const say = async (text: string) => expect((await handleWhatsAppWebhook(webhookRequest(inbound([{ text, bsuid: user }]), env.WHATSAPP_APP_SECRET),
-      { env, transport: fixtureTransport(sent) })).status).toBe(200);
+      { env, transport: fixtureTransport(sent, uploads), visuals: visual => { pictured.push(visual); return channelVisualRenderer(visual); } })).status).toBe(200);
     await say('link');
-    const linkMessage = sent.find(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')!.body as { interactive: { action: { parameters: { url: string } } } };
+    const linkMessage = sent.find(r => (r.body as { interactive?: { type?: string } }).interactive?.type === 'cta_url')!.body as { interactive: {
+      header?: unknown; action: { parameters: { url: string } } } };
     const url = linkMessage.interactive.action.parameters.url;
+    // BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the workflow picture, uploaded as bytes, heads the same message, text and link.
+    expect(linkMessage.interactive.header).toEqual({ type: 'image', image: { id: uploads.at(-1)!.mediaId } });
+    expect([uploads.at(-1)!.mimeType, Buffer.from(uploads.at(-1)!.bytes).subarray(1, 4).toString()]).toEqual(['image/png', 'PNG']);
+    expect(pictured.at(-1)!.model.steps.map(s => s.action)).toEqual(['SUPPLY', 'BORROW', 'SWAP']);
     expect(url).toMatch(new RegExp(`^${APP_ORIGIN.replace(/[.]/g, '\\.')}/approve#flofi_chs_[A-Za-z0-9_-]{43}$`));
     // The link's own handoff: new, in the same conversation as the first, which it withdrew.
     const linked = await handoffOfLink(url);
     expect(linked).toMatchObject({ requester_kind: 'CHANNEL_CONVERSATION', requester_ref: first!.requester_ref, client_name: 'WhatsApp', status: 'PENDING' });
     expect((await newHandoffs('WhatsApp', before)).map(h => [h.handoff_id, h.status])).toEqual([[first!.handoff_id, 'REVOKED'], [linked.handoff_id, 'PENDING']]);
+    // The picture shows exactly the workflow this link hands off (FloFi applies it below only if its hash is this one).
+    expect((await query<{ workflow_hash: string }>('SELECT workflow_hash FROM mcp_handoffs WHERE handoff_id = $1', [linked.handoff_id]))[0]!.workflow_hash)
+      .toBe(pictured.at(-1)!.model.workflowHash);
 
     // 3. /approve: a proven wallet other than the one the strategy names cannot load it.
     const { context, unexpected } = await guardedContext(browser);

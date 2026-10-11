@@ -21,6 +21,11 @@
  * stored. If it cannot be delivered from that turn — the memory is gone, the provider refused it, its outcome is unknown and cannot be
  * confirmed — the approval is withdrawn and the user is told to send LINK for a fresh one. Delivery never touches FloFi execution: a
  * failed send changes no run, no reconciliation and no evidence.
+ *
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a reply's workflow visual (the shared presentation model, sealed with its body) is rendered
+ * once per message, at send time, by the injected shared renderer, and handed to the adapter as PNG bytes. The picture is never needed:
+ * no renderer, a renderer failure, a closed window or a visual the output guard refuses all send the complete text message alone, and
+ * the send's outcome classes, retries, ordering and attempts are those of the message itself.
  */
 import type { HandoffStore } from '../../platform/index.ts';
 import { revokeChannelApproval } from './approval.ts';
@@ -29,10 +34,13 @@ import { channelCopy } from './copy.ts';
 import { channelRowId, keyedDigest, open, seal, sealContext, type ChannelKeys } from './crypto.ts';
 import type { ChannelLogger } from './log.ts';
 import { RETENTION, type ChannelStore, type OutboxKind, type OutboxRecord } from './store.ts';
-import type { ChannelAdapter, ChannelAddress, ChannelReply, SendResult } from './types.ts';
+import { visualModelStrings } from '../../platform/workflow-visual.ts';
+import type { ChannelAdapter, ChannelAddress, ChannelImage, ChannelReply, ChannelVisual, ChannelVisualRenderer, SendResult } from './types.ts';
 
 export type DeliveryContext = { readonly tenantId: string; readonly origin: string; readonly keys: ChannelKeys; readonly store: ChannelStore; readonly adapter: ChannelAdapter;
   readonly handoffs: Pick<HandoffStore, 'revokeForRequester'>; readonly log: ChannelLogger; readonly now: () => Date;
+  /** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the shared workflow renderer; none = replies are sent as text only. */
+  readonly visuals?: ChannelVisualRenderer | null;
   /** Test seams: the wait between inline approval retries, and the jitter source. */
   readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number };
 export type DeliveryOptions = { readonly kinds: readonly OutboxKind[]; readonly links?: ReadonlyMap<string, string>; readonly address?: ChannelAddress | null;
@@ -76,13 +84,19 @@ const confirmBy = (ctx: Pick<DeliveryContext, 'adapter'>, now: Date) => new Date
 const bodyContext = (ctx: Pick<DeliveryContext, 'tenantId'>, outboxId: string) => sealContext(ctx.tenantId, 'channel_outbox', outboxId, 'body');
 export const addressContext = (tenantId: string, conversationId: string) => sealContext(tenantId, 'channel_conversations', conversationId, 'address');
 
+/** A sealed body stays well inside the outbox's 16 KiB ciphertext bound; a visual that would not fit is left out (the text never is). */
+export const MAX_SEALED_BODY_BYTES = 12_288;
 /**
  * A sealed outbound body. A reply is sealed WITHOUT its link (an approval link is attached in memory at send time), unless the link is
- * a FloFi workspace link without any secret (`workspaceLink`), which a subscriber notification may keep (BUILD-AUTOMATION-001).
+ * a FloFi workspace link without any secret (`workspaceLink`), which a subscriber notification may keep (BUILD-AUTOMATION-001). A
+ * workflow visual is sealed with the body when it fits (BUILD-WORKFLOW-VISUAL-PRESENTATION-001).
  */
 export function sealReply(ctx: Pick<DeliveryContext, 'tenantId' | 'keys'>, outboxId: string, reply: ChannelReply, origin: string | null = null): Buffer {
   const keep = origin !== null && reply.link !== null && workspaceLink(reply.link.url, origin);
-  return seal(ctx.keys.seal, JSON.stringify({ ...reply, link: keep ? reply.link : null }), bodyContext(ctx, outboxId));
+  const { visual, ...rest } = reply, body = { ...rest, link: keep ? reply.link : null };
+  const withVisual = visual ? JSON.stringify({ ...body, visual }) : null;
+  const json = withVisual && Buffer.byteLength(withVisual) <= MAX_SEALED_BODY_BYTES ? withVisual : JSON.stringify(body);
+  return seal(ctx.keys.seal, json, bodyContext(ctx, outboxId));
 }
 /** BUILD-AUTOMATION-001: the owner's own FloFi Automations workspace, optionally one occurrence (an opaque id) — never a secret. */
 export function workspaceLink(url: string, origin: string): boolean {
@@ -92,6 +106,20 @@ export function workspaceLink(url: string, origin: string): boolean {
 export const newOutboxId = () => channelRowId('cho');
 
 const UNSAFE = [/0x[0-9a-fA-F]{67,}/, /[A-Za-z0-9+/]{200,}={0,2}/, /flofi_(?:at|rt|code|csrf)_/, /\bBearer\s/i, /flofi_[a-z]{0,6}hs_/];
+/** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: every string a reply's picture would show passes the same guard as its text. */
+export function visualSafe(visual: ChannelVisual): boolean {
+  return visual.model.steps.length > 0 && /^0x[0-9a-f]{64}$/.test(visual.model.workflowHash)
+    && visualModelStrings(visual.model).every(text => !UNSAFE.some(pattern => pattern.test(text)) && !/https?:|flofi_/i.test(text));
+}
+/** The reply's picture, when it has a visual, a renderer is wired, the free-form window is open and the guard passes; otherwise null. */
+async function imageOf(ctx: DeliveryContext, conversationId: string, reply: ChannelReply, windowOpen: boolean): Promise<ChannelImage | null> {
+  if (!reply.visual || !ctx.visuals || !windowOpen) return null;
+  if (!visualSafe(reply.visual)) { ctx.log.warn('channel.outbound.visual', { channel: ctx.adapter.channel, conversation: conversationId, code: 'VISUAL_GUARD' }); return null; }
+  const image = await ctx.visuals(reply.visual).catch(() => null);
+  if (!image) ctx.log.warn('channel.outbound.visual', { channel: ctx.adapter.channel, conversation: conversationId, code: 'VISUAL_UNAVAILABLE' });
+  return image;
+}
+
 /** The last line before the provider: no calldata-sized hex, no serialized blobs, no credentials, no approval secret outside the one link. */
 export function outputSafe(reply: ChannelReply, origin: string): boolean {
   const texts = [reply.text, ...reply.choices.map(c => c.label), reply.link?.label ?? ''];
@@ -147,7 +175,8 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
         reply = { ...reply, link: { label: channelCopy(language).linkLabel, url } };
       }
       if (!outputSafe(reply, ctx.origin)) { await end('FAILED', 'OUTPUT_GUARD'); continue; }
-      const { result, sends } = await send(ctx, address, reply, o, windowOpen), attempts = o.attempts + sends;
+      const image = await imageOf(ctx, conversationId, reply, windowOpen);
+      const { result, sends } = await send(ctx, address, reply, o, windowOpen, image), attempts = o.attempts + sends;
       const transient = !result.ok && (result.failure === 'TRANSIENT' || result.failure === 'RATE_LIMITED');
       const retryAt = transient && o.kind !== 'APPROVAL' ? nextRetryAt(attempts, o.createdAt, now, result.retryAfterMs, ctx.random) : null;
       if (result.ok) {
@@ -175,11 +204,12 @@ export async function deliverConversation(ctx: DeliveryContext, conversationId: 
  * One send, and the provider calls it made. An approval message is retried in place a couple of times (briefly), because its link
  * exists only in this memory; every call counts as an attempt.
  */
-async function send(ctx: DeliveryContext, address: ChannelAddress, reply: ChannelReply, o: OutboxRecord, windowOpen: boolean): Promise<{ result: SendResult; sends: number }> {
+async function send(ctx: DeliveryContext, address: ChannelAddress, reply: ChannelReply, o: OutboxRecord, windowOpen: boolean, image: ChannelImage | null = null):
+  Promise<{ result: SendResult; sends: number }> {
   const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
   for (let attempt = 0; ; attempt++) {
     let result: SendResult;
-    try { result = await ctx.adapter.send(address, reply, o.outboxId, { kind: o.kind, windowOpen }); }
+    try { result = await ctx.adapter.send(address, reply, o.outboxId, { kind: o.kind, windowOpen, ...image ? { image } : {} }); }
     catch { result = { ok: false, code: 'PROVIDER_SEND_FAILED', failure: 'UNCERTAIN', retryAfterMs: null }; }
     const done = { result, sends: attempt + 1 };
     if (result.ok || o.kind !== 'APPROVAL' || attempt >= APPROVAL_INLINE_RETRIES || (result.failure !== 'TRANSIENT' && result.failure !== 'RATE_LIMITED')) return done;

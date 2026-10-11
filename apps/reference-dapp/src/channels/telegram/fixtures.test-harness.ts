@@ -45,15 +45,37 @@ export function telegramRequest(update: unknown, secret: string | null, url = 'h
     body: JSON.stringify(update) });
 }
 
-/** One Bot API call; `ok` once the double answered it successfully (a delivered message, for sendMessage). */
+/** One Bot API call; `ok` once the double answered it successfully (a delivered message, for sendMessage and sendPhoto). */
 export type BotCall = { readonly method: string; readonly params: Record<string, unknown>; readonly url: string; ok: boolean };
 export type BotScript = (call: BotCall) => Response | 'TIMEOUT' | 'REFUSED' | null;
+/** An uploaded file of a multipart call, as the double saw it. */
+export type BotFile = { readonly filename: string; readonly mimeType: string; readonly bytes: Buffer };
+/**
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a `multipart/form-data` call (`sendPhoto`) as plain params: text fields as strings, JSON
+ * fields (`reply_markup`) parsed back, the file as a `BotFile` — so a test reads a photo message like a text message.
+ */
+export function multipartParams(body: Uint8Array, contentType: string): Record<string, unknown> {
+  const boundary = /boundary=([A-Za-z0-9_-]+)/.exec(contentType)?.[1];
+  if (!boundary) throw new Error('MULTIPART_BOUNDARY_MISSING');
+  const params: Record<string, unknown> = {}, raw = Buffer.from(body).toString('latin1');
+  for (const part of raw.split(`--${boundary}`).slice(1, -1)) {
+    const split = part.indexOf('\r\n\r\n'), head = part.slice(2, split), content = part.slice(split + 4, -2);
+    const name = /name="([^"]+)"/.exec(head)?.[1], filename = /filename="([^"]+)"/.exec(head)?.[1], type = /content-type: ([^\r\n]+)/i.exec(head)?.[1];
+    if (!name) throw new Error('MULTIPART_PART_INVALID');
+    const value = Buffer.from(content, 'latin1');
+    params[name] = filename ? { filename, mimeType: type ?? '', bytes: value } satisfies BotFile : name === 'reply_markup' ? JSON.parse(value.toString('utf8')) : value.toString('utf8');
+  }
+  return params;
+}
+const MESSAGE_METHODS = new Set(['sendMessage', 'sendPhoto']);
 /** A Bot API double: records every call; answers `ok` with an increasing message id unless `script` decides otherwise. */
 export function botApi(script: BotScript = () => null) {
   const calls: BotCall[] = [];
   let messageId = 100;
   const fetchImpl = (async (input: string | URL, init?: RequestInit) => {
-    const url = String(input), method = url.split('/').at(-1)!, params = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+    const url = String(input), method = url.split('/').at(-1)!, contentType = String((init?.headers as Record<string, string> | undefined)?.['content-type'] ?? '');
+    const params = contentType.startsWith('multipart/form-data') ? multipartParams(init?.body as Uint8Array, contentType)
+      : JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
     const call: BotCall = { method, params, url, ok: false };
     calls.push(call);
     const scripted = script(call);
@@ -61,14 +83,15 @@ export function botApi(script: BotScript = () => null) {
     if (scripted === 'REFUSED') throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect'), { code: 'ECONNREFUSED' }) });
     if (scripted) return scripted;
     call.ok = true;
-    const result = method === 'sendMessage' ? { message_id: ++messageId, date: Math.floor(Date.now() / 1000), chat: { id: Number(params.chat_id), type: 'private' },
-      text: params.text } : true;
+    const chat = { id: Number(params.chat_id), type: 'private' }, date = Math.floor(Date.now() / 1000);
+    const result = method === 'sendMessage' ? { message_id: ++messageId, date, chat, text: params.text }
+      : method === 'sendPhoto' ? { message_id: ++messageId, date, chat, caption: params.caption, photo: [{ file_id: `photo-${messageId}`, width: 1080, height: 1 }] } : true;
     return Response.json({ ok: true, result });
   }) as unknown as typeof fetch;
-  /** Every sendMessage attempt (delivered or not); `delivered` and `texts`: only the ones the API accepted. */
-  const sent = () => calls.filter(c => c.method === 'sendMessage');
+  /** Every message attempt — sendMessage or sendPhoto, delivered or not; `delivered` and `texts` (a photo's caption): only the accepted ones. */
+  const sent = () => calls.filter(c => MESSAGE_METHODS.has(c.method));
   const delivered = () => sent().filter(c => c.ok);
-  const texts = () => delivered().map(c => String(c.params.text));
+  const texts = () => delivered().map(c => String(c.method === 'sendPhoto' ? c.params.caption : c.params.text));
   const linkOf = (call: BotCall) => ((call.params.reply_markup as { inline_keyboard?: { url?: string }[][] } | undefined)?.inline_keyboard?.[0]?.[0]?.url) ?? null;
   const lastLink = () => [...delivered()].reverse().map(linkOf).find(Boolean) ?? null;
   return { fetch: fetchImpl, calls, sent, delivered, texts, lastLink, linkOf };

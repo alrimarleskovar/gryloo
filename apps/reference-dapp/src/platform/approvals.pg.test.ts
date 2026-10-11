@@ -9,6 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../../../../packages/cloud-runtime/test/pg-harness.ts';
 import type { FlowName } from '../../backend/flows.ts';
 import { composeStrategy } from '../engine/strategy-engine';
+import { composeWorkflowOrRefuse } from './strategy.ts';
+import { workflowVisualModel } from './workflow-visual.ts';
 import { readHandoffPolicy } from '../mcp/execution.ts';
 import { session } from '../mcp/gateway.test-harness.ts';
 import { oauthClient, oauthEnv, ORIGIN, signIn } from '../mcp/oauth/oauth-test-harness.ts';
@@ -72,8 +74,10 @@ describe('BUILD-DEVELOPER-001 platform approval service', () => {
     const calls: string[] = [], a = await account(calls);
     const platform = await requestApproval(a.deps(), a.requester, BRIDGE, hashOf(BRIDGE));
     if (!platform.ok) throw new Error(platform.code);
-    const { message, ...mcp } = a.first;
+    // MCP adds two presentation fields of its own: the message, and (BUILD-WORKFLOW-VISUAL-PRESENTATION-001) the visual of the same workflow.
+    const { message, visual, ...mcp } = a.first;
     expect(typeof message).toBe('string');
+    expect(visual).toEqual(JSON.parse(JSON.stringify(workflowVisualModel(composeWorkflowOrRefuse(BRIDGE, platform.value.workflowHash)))));
     expect(comparable({ ok: true, ...platform.value })).toEqual(comparable(mcp));
     expect(platform.value.approvalUrl).toMatch(new RegExp(`^${ORIGIN}/approve#flofi_hs_[A-Za-z0-9_-]{43}$`));
     const rows = (await t.db.query(`SELECT account_id, grant_id, client_id, client_name, strategy, workflow_hash, engine_version, network_environment, funds_class, plan, status

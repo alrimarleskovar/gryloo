@@ -11,6 +11,13 @@
  * There is no tool that submits, signs, authorizes a Review, begins/hands off/reports an attempt, invalidates, recovers or
  * accepts calldata, contract addresses, keys or seed phrases. Inputs are closed schemas; outputs pass `assertSafeOutput`.
  * A FloFi-owned model is never called: the client's own model interprets language, FloFi only computes.
+ *
+ * BUILD-WORKFLOW-VISUAL-PRESENTATION-001: `compose_strategy` and `request_user_approval` also present the workflow to a person. Their
+ * first content block (the JSON text) and `structuredContent` keep every existing field; `structuredContent.visual` adds the shared
+ * presentation model and a short readable summary follows the JSON. The approval — the one moment the owner is asked to act — also
+ * carries the workflow picture as standard MCP image content (composition, which a model may repeat while iterating, stays text-only
+ * and cheap), and the in-chat panel receives the same layout in `_meta['flofi/visual']` (UI-only). Presentation never changes the
+ * canonical workflow, its hash or any authority, and a picture that cannot be drawn is simply omitted.
  */
 import { Type, type Static, type TSchema } from '@sinclair/typebox';
 import { McpServer, type CallToolResult, type StandardSchemaWithJSON, type ToolAnnotations } from '@modelcontextprotocol/server';
@@ -27,6 +34,9 @@ import type { McpScope, OAuthConfig } from './oauth/config.ts';
 import type { McpState } from './oauth/state.ts';
 import type { McpRuntime } from './runtime.ts';
 import { assertSafeOutput, strategyFlow } from './simulation.ts';
+import { workflowVisualModel, type WorkflowVisualModel } from '../platform/workflow-visual.ts';
+import { workflowVisualLayout, workflowVisualText } from '../platform/workflow-visual-layout.ts';
+import { workflowVisualPngOrNull } from '../server/workflow-visual-image.ts';
 
 /** BUILD-DEVELOPER-001: the deep links moved to the shared approval service; re-exported for existing importers. */
 export { walletDeepLinks } from '../platform/index.ts';
@@ -111,6 +121,28 @@ const mcpCode = (code: string) => Object.hasOwn(MCP_CODES, code) ? MCP_CODES[cod
 const AUTHORITY = 'NONE: this result authorizes nothing. Only the owner, in the FloFi app, can review the Strategy Manifest and sign with their own wallet.';
 
 const DEFAULT_POLICY = readHandoffPolicy({});
+/** The tools whose result presents a workflow to a person (BUILD-WORKFLOW-VISUAL-PRESENTATION-001). */
+const VISUAL_TOOLS: ReadonlySet<ToolName> = new Set(['compose_strategy', 'request_user_approval']);
+const isVisualModel = (value: unknown): value is WorkflowVisualModel => !!value && typeof value === 'object' && (value as WorkflowVisualModel).version === 1
+  && Array.isArray((value as WorkflowVisualModel).steps) && (value as WorkflowVisualModel).steps.length > 0;
+type Content = CallToolResult['content'][number];
+/**
+ * The person-facing presentation of a workflow result: a readable summary (EN) — with the public Open in FloFi link when it is an
+ * approval — and, with `picture`, the PNG as image content (meant for the user; a host may also show it to its model) and the layout
+ * the MCP App panel paints. The JSON text and `structuredContent` stay first and unchanged; nothing here can fail the tool.
+ */
+async function presentation(model: WorkflowVisualModel, visible: Output, picture: boolean): Promise<{ content: Content[]; meta: Record<string, unknown> }> {
+  const text = workflowVisualText(model, 'EN'), link = typeof visible.approvalUrl === 'string' ? visible.approvalUrl : null;
+  const summary = link ? `${text.alt}\nOpen in FloFi: ${link}` : text.alt;
+  if (!picture) return { content: [{ type: 'text', text: summary }], meta: {} };
+  const image = await workflowVisualPngOrNull(model, 'EN');
+  const content: Content[] = [{ type: 'text', text: summary },
+    ...image ? [{ type: 'image', data: Buffer.from(image.bytes).toString('base64'), mimeType: image.mimeType, annotations: { audience: ['user'], priority: 0.8 } } as Content] : []];
+  const layout = workflowVisualLayout(model, 'EN');
+  const meta = { 'flofi/visual': { tree: layout.tree, width: layout.width, height: layout.height, alt: layout.alt, title: layout.title } };
+  assertSafeOutput(meta);
+  return { content, meta };
+}
 /** BUILD-MCP-002: why this principal may read a run: an operator grant (static credential) or a wallet the account linked on FloFi. */
 const accessBasis = (ctx: ToolContext) => ctx.principal.kind === 'mcp-oauth' ? 'ACCOUNT_LINKED_WALLET' : 'OPERATOR_GRANTED_WALLET';
 /** BUILD-MCP-002: an approval handoff needs an OAuth account with the `flofi.approval` scope (a static credential has no account). */
@@ -141,8 +173,11 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
         const visible = privateLinks && typeof approvalUrl === 'string'
           ? { ...publicFields, approvalUrl: `${ctx.oauth!.origin}/approve#${String(output.approvalId)}` }
           : output;
-        result = { content: [{ type: 'text', text: JSON.stringify(visible) }], structuredContent: visible,
-          ...(privateLinks && typeof approvalUrl === 'string' ? { _meta: { 'flofi/approval': { approvalUrl, walletLinks } } } : {}) };
+        const presented = VISUAL_TOOLS.has(name) && isVisualModel(visible.visual)
+          ? await presentation(visible.visual, visible, name === 'request_user_approval').catch(() => null) : null;
+        const meta = { ...privateLinks && typeof approvalUrl === 'string' ? { 'flofi/approval': { approvalUrl, walletLinks } } : {}, ...presented?.meta };
+        result = { content: [{ type: 'text', text: JSON.stringify(visible) }, ...presented?.content ?? []], structuredContent: visible,
+          ...Object.keys(meta).length ? { _meta: meta } : {} };
       } catch (error) {
         outcome = error instanceof Error && CODE.test(error.message) ? mcpCode(error.message) : 'MCP_INTERNAL_ERROR';
         const body = { ok: false, code: outcome, ...error instanceof PlatformRefusal ? error.extra : {} };
@@ -188,19 +223,19 @@ export function createFlofiMcpServer(ctx: ToolContext): McpServer {
     'authoring rules as the FloFi app. Unsupported or ambiguous input is refused with a code, never guessed. Keep `strategy` (normalized) and `workflowHash` for ' +
     'validate/simulate/review. The model must not invent addresses: use only values the user gave. A multi-step workflow is `{version: 2, steps: [...]}` ' +
     '(one step is the same as version 1); each step keeps its own IR and hash.', Schemas.compose, pure, args => {
-    const w = composeWorkflowOrRefuse(args.strategy, undefined);
+    const w = composeWorkflowOrRefuse(args.strategy, undefined), visual = workflowVisualModel(w);
     if (w.steps.length === 1) {
       const c = w.steps[0]!, plan = workflowPlan(w);
       return { ok: true, strategy: c.strategy, workflowHash: c.workflowHash, revision: c.workflow.revision, fundsClass: c.fundsClass, workflow: c.workflow,
         steps: stepViews(c), explanation: c.explanation, summary: c.summary, notes: c.notes, authority: AUTHORITY, stepCount: 1,
-        executionPlan: { kind: plan.kind, reason: plan.reason },
+        executionPlan: { kind: plan.kind, reason: plan.reason }, visual,
         nextSteps: ['validate_strategy or review_strategy with this strategy and workflowHash', 'simulate_strategy for a read-only preview (optional)',
           'request_user_approval to hand it to its owner in FloFi (when available); nothing executes from MCP.'] };
     }
     return { ok: true, strategy: w.strategy, workflowHash: w.workflowHash, fundsClass: w.fundsClass, stepCount: w.steps.length, executionPlan: MULTI_STEP_PLAN,
       workflowSteps: w.steps.map((c, index) => ({ index, action: c.strategy.action, strategy: c.strategy, workflowHash: c.workflowHash, revision: c.workflow.revision,
         fundsClass: c.fundsClass, workflow: c.workflow, steps: stepViews(c), summary: c.summary, explanation: c.explanation })),
-      notes: w.notes, authority: AUTHORITY,
+      notes: w.notes, authority: AUTHORITY, visual,
       nextSteps: ['review_strategy for every step\'s findings', 'simulate_strategy one step at a time (pass that step as a version 1 strategy)',
         'Executing a general sequence is not available yet (MULTI_STEP_SEQUENCE_NOT_IMPLEMENTED).'] };
   });
@@ -294,7 +329,9 @@ function registerApprovalTools(ctx: ToolContext, register: Register) {
   { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async args => {
     const result = await requestApproval(deps(), requester, args.strategy, args.workflowHash);
     if (!result.ok) return failWith(result.code, result.extra ?? {});
-    return { ok: true, ...result.value, message: 'Nothing is authorized yet. Open the FloFi link to prove your wallet, re-simulate, review the Strategy Manifest ' +
+    // The picture of exactly the workflow the handoff holds: the same canonical composition, bound to the same hash.
+    const visual = workflowVisualModel(composeWorkflowOrRefuse(args.strategy, result.value.workflowHash));
+    return { ok: true, ...result.value, visual, message: 'Nothing is authorized yet. Open the FloFi link to prove your wallet, re-simulate, review the Strategy Manifest ' +
       'and sign with your own wallet. The link expires soon and works once.' };
   }, ui ? { ui: { resourceUri: ui.resourceUri }, 'openai/outputTemplate': ui.resourceUri, 'openai/toolInvocation/invoking': 'Preparing approval…',
     'openai/toolInvocation/invoked': 'Approval ready' } : {});

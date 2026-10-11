@@ -73,9 +73,15 @@ async function chatToSigningWindow(context: BrowserContext, strategy: Record<str
   // The text result alone already lets a host without MCP Apps send the user to FloFi (fallback E).
   expect(result.content?.[0]?.text).toContain(`${APP_ORIGIN}/approve#apr_`);
   expect(JSON.stringify(result.structuredContent) + result.content?.[0]?.text).not.toContain('flofi_hs_');
+  // BUILD-WORKFLOW-VISUAL-PRESENTATION-001: a readable summary with Open in FloFi, and the workflow picture as standard image content.
+  expect(result.content?.map(block => block.type)).toEqual(['text', 'text', 'image']);
+  expect(result.content?.[1]?.text).toContain(`Open in FloFi: ${APP_ORIGIN}/approve#apr_`);
+  expect((result.structuredContent?.visual as { workflowHash?: string } | undefined)?.workflowHash).toBe(String(composed.workflowHash));
   const host = await context.newPage();
   const panel = await openHost(host, client, await panelHtmlOf(client, PANEL_URI), args, result);
   await expect(panel.getByText('Nothing is authorized yet.', { exact: false })).toBeVisible();
+  // The proposal as FloFi's workflow visual, labelled with its text alternative; the full workflow hash stays listed.
+  await expect(panel.getByRole('img', { name: /^FloFi workflow: / })).toBeVisible();
   await expect(panel.getByText(String(composed.workflowHash))).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Check this chat environment (diagnostics)' })).toBeVisible();
   await panel.getByRole('button', { name: 'Review with your wallet in FloFi' }).click();

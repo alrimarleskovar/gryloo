@@ -15,15 +15,19 @@ import { dispatchChannels, DISPATCH_LIMITS, type DispatchLimits } from './core/d
 import { channelInterpreter } from './core/interpreter.ts';
 import { channelLogger, type ChannelLogSink } from './core/log.ts';
 import { createChannelService } from './core/service.ts';
+import type { ChannelVisualRenderer } from './core/types.ts';
 import { channelSubscriptions } from './subscriptions.ts';
 import { channelProviders, type ProviderSeams } from './providers.ts';
 import { channelProviderStatus, readChannelDeployment } from './registry.ts';
 import { channelHost, channelRuntime, type ChannelHost } from './runtime.ts';
+import { channelVisualRenderer } from './visuals.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type ChannelOperatorOptions = { readonly env?: Env; readonly logger?: ChannelLogSink | null; readonly host?: ChannelHost; readonly runtime?: EngineRuntime;
   readonly seams?: ProviderSeams; readonly interpreter?: ChannelInterpreter | null; readonly now?: () => Date; readonly limits?: DispatchLimits;
-  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number };
+  readonly sleep?: (ms: number) => Promise<void>; readonly random?: () => number;
+  /** BUILD-WORKFLOW-VISUAL-PRESENTATION-001: the workflow renderer for turns run here (default: FloFi's shared one; null = text only). */
+  readonly visuals?: ChannelVisualRenderer | null };
 const HEADERS = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
 const json = (status: number, body: Record<string, unknown>) => Response.json(body, { status, headers: HEADERS });
 
@@ -49,7 +53,8 @@ export async function handleChannelDispatch(request: Request, options: ChannelOp
   const providers = channelProviders(result.deployment, options.seams);
   const interpreter = options.interpreter !== undefined ? options.interpreter : channelInterpreter(env, { enabled: core.copilot });
   const services = new Map([...providers.adapters.values()].map(adapter => [adapter.channel, createChannelService({ core, store, log, now, platform, adapter, interpreter,
-    previewTimeoutMs: 30_000, subscriptions: channelSubscriptions(env, host), ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} })]));
+    previewTimeoutMs: 30_000, subscriptions: channelSubscriptions(env, host), visuals: options.visuals !== undefined ? options.visuals : channelVisualRenderer,
+    ...options.sleep ? { sleep: options.sleep } : {}, ...options.random ? { random: options.random } : {} })]));
   try {
     const summary = await dispatchChannels({ core, store, platform, log, now, adapters: providers.adapters, services, ...options.sleep ? { sleep: options.sleep } : {},
       ...options.random ? { random: options.random } : {} },
